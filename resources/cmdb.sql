@@ -27,7 +27,8 @@ CREATE TABLE resource_params (
 );
 
 CREATE TABLE edges (
-       source BIGINT REFERENCES resources(id),
-       target BIGINT REFERENCES resources(id),
-       PRIMARY KEY (source, target)
+       host VARCHAR references hosts(name),
+       source VARCHAR NOT NULL,
+       target VARCHAR NOT NULL,
+       PRIMARY KEY (host, source, target)
 );

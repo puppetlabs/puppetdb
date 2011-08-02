@@ -66,20 +66,15 @@ infiinte sequence of catalog objects (json objects) that are similar"
                                   (json/generate-string value)
                                   value)]
                       {:id id :name name :value value}))]
-      ;; ...and insert them
-      (apply sql/insert-records :resource_params records))
 
-    {[type title] id}))
+      ;; ...and insert them
+      (apply sql/insert-records :resource_params records))))
 
 (defn persist-edges!
-  [host catalog resources-to-ids]
+  [host catalog]
   (let [edges (catalog "edges")
-        extract (fn [s] (let [[_ type title] (re-find #"(^.*)\[(.*)\]" s)]
-                          [type title]))
         rows (for [{source "source" target "target"} edges]
-               (let [source-id (resources-to-ids (extract source))
-                     target-id (resources-to-ids (extract target))]
-                     {:source source-id :target target-id}))]
+               {:host host :source source :target target})]
         (apply sql/insert-records :edges rows)))
 
 (defn persist-catalog!
@@ -88,19 +83,14 @@ infiinte sequence of catalog objects (json objects) that are similar"
   (sql/transaction
    ;; I think we can live with a commit delay, for better performance
    (sql/do-commands "SET LOCAL synchronous_commit TO OFF")
+
    (let [catalog (transform-catalog catalog)
-         host (catalog "name")
-         resources (catalog "resources")
-         resources-to-ids (transient {})]
+         {host "name" resources "resources" edges "edges"} catalog]
 
      (persist-hostname! host catalog)
      (persist-classes! host catalog)
-     (doseq [resource resources]
-       (let [resource-id-info (persist-resource! host resource)]
-         (conj! resources-to-ids resource-id-info)))
-
-     (let [resources-to-ids (persistent! resources-to-ids)]
-       (persist-edges! host catalog resources-to-ids)))))
+     (doseq [resource resources] (persist-resource! host resource))
+     (persist-edges! host catalog))))
 
 (defn initialize-store
   "Eventually code that initializes the DB will go here"
