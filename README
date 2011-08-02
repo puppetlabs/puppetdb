@@ -4,7 +4,17 @@ FIXME: write description
 
 ## Usage
 
-FIXME: write
+To (re)initialize the database:
+
+dropdb cmdb && createdb cmdb && psql cmdb < ./resources/cmdb.sql
+
+To get all the requisite dependencies:
+
+lein deps
+
+To execute the code:
+
+lein run
 
 ## License
 
