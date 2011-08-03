@@ -86,39 +86,36 @@
                 {:host host :source source :target target})]
         (apply sql/insert-records :edges rows)))
 
-(defn persist-catalog!*
+(defn persist-catalog!
   "Persist the supplied catalog in the database"
   [catalog]
-  (sql/transaction
-   ;; I think we can live with a commit delay, for better performance
-   (sql/do-commands "SET LOCAL synchronous_commit TO OFF")
+  (let [{host "name" resources "resources" edges "edges"} catalog]
 
-   (let [{host "name" resources "resources" edges "edges"} catalog]
-
-     (persist-hostname! host catalog)
-     (persist-classes! host catalog)
-     (doseq [resource resources] (persist-resource! host resource))
-     (persist-edges! host catalog))))
-
-(defn persist-catalog!
-  "Persist the supplied catalog, returning boolean indicating if
-caller must retry the operation"
-  [catalog]
-  (try
-    (sql/with-connection *db*
-      (persist-catalog!* catalog))
-    ;; Return nil, signalling no need to retry
-    nil
-    ;; TODO Replace broad exception catch with fn that unwinds chain to find root cause
-    (catch Exception e
-      (if (re-find #"PSQLException: .* deadlock detected" (.getMessage e))
-        true
-        (throw e)))))
+    (sql/transaction (persist-hostname! host catalog))
+    (sql/transaction (persist-classes! host catalog))
+    (sql/transaction (persist-edges! host catalog))
+    (doseq [resource resources]
+      (sql/transaction (persist-resource! host resource)))))
 
 (defn initialize-store
   "Eventually code that initializes the DB will go here"
   [])
   
+(defn farm-out
+  "Like map, except f is applied in parallel. Semi-lazy in that the
+  parallel computation stays ahead of the consumption, but doesn't
+  realize the entire result unless required. Only useful for
+  computationally intensive functions where the time of f dominates
+  the coordination overhead."
+  [n f coll]
+  (let [rets (map #(future (f %)) coll)
+        step (fn step [[x & xs :as vs] fs]
+               (lazy-seq
+                (if-let [s (seq fs)]
+                  (cons (deref x) (step xs (rest s)))
+                  (map deref vs))))]
+    (step rets (drop n rets))))
+
 (defn -main
   [& args]
   (sql/with-connection *db*
@@ -126,11 +123,8 @@ caller must retry the operation"
   (log/info "Generating and storing catalogs...")
   (let [catalogs       (catalog-seq "/Users/deepak/Desktop/many_catalogs")
         handle-catalog (fn [catalog]
-                         (loop []
-                           (log/info (catalog "name"))
-                           (when (persist-catalog! catalog)
-                             (log/error (format "Retrying %s" (catalog "name")))
-                             (Thread/sleep 1000)
-                             (recur))))]
+                         (log/info (catalog "name"))
+                         (time (sql/with-connection *db*
+                           (persist-catalog! catalog))))]
     (dorun (pmap handle-catalog catalogs)))
   (log/info "Done persisting catalogs."))
