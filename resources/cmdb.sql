@@ -19,12 +19,20 @@ CREATE TABLE resources (
        PRIMARY KEY (host, type, title)
 );
 
+-- To handle searches on resource type
+CREATE INDEX idx_resources_type ON resources(type);
+
 CREATE TABLE resource_params (
-       id BIGINT REFERENCES resources(id),
+       resource BIGINT REFERENCES resources(id),
        name VARCHAR NOT NULL,
        value VARCHAR NOT NULL,
-       PRIMARY KEY (id, name)
+       PRIMARY KEY (resource, name)
 );
+
+-- To handle joins to the resource table
+CREATE INDEX idx_resource_params_resource ON resource_params(resource);
+-- To handle lookups based on parameter value
+CREATE INDEX idx_resource_params_name_value ON resource_params(name, value);
 
 CREATE TABLE edges (
        host VARCHAR references hosts(name),

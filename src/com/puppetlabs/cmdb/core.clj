@@ -65,7 +65,7 @@ infiinte sequence of catalog objects (json objects) that are similar"
                     (let [value (if (coll? value)
                                   (json/generate-string value)
                                   value)]
-                      {:id id :name name :value value}))]
+                      {:resource id :name name :value value}))]
 
       ;; ...and insert them
       (apply sql/insert-records :resource_params records))))
@@ -101,10 +101,10 @@ infiinte sequence of catalog objects (json objects) that are similar"
   (sql/with-connection *db*
     (initialize-store))
   (println "Generating and storing catalogs...")
-  (let [catalogs (take 1000 (random-catalog-seq "/Users/deepak/Desktop/out.json"))
+  (let [catalogs (take 10000 (random-catalog-seq "/Users/deepak/Desktop/out.json"))
         handle-catalog (fn [catalog]
                          (println (get-in catalog ["data" "name"]))
-                         (sql/with-connection *db*
-                           (persist-catalog! catalog)))]
-    (dorun (map handle-catalog catalogs)))
+                         (time (sql/with-connection *db*
+                           (persist-catalog! catalog))))]
+    (dorun (pmap handle-catalog catalogs)))
   (println "Done persisting catalogs."))
