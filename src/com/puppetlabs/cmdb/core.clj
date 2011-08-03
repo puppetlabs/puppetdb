@@ -2,7 +2,8 @@
   (:gen-class)
   (:require [clojure.contrib.logging :as log]
             [clj-json.core :as json]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [clojure.contrib.duck-streams :as ds])
   (:use [clojure.contrib.command-line :only (with-command-line print-help)]))
 
 ;; TODO: externalize this into a configuration file
@@ -10,26 +11,19 @@
            :subprotocol "postgresql"
            :subname "//localhost:5432/cmdb"})
 
-(defn tweak-catalog
-  "Takes an existing catalog, and returns a copy with a new name and
-some data munged"
-  [catalog]
-  (let [name (get-in catalog ["data" "name"])
-        new-name (inc (Integer/parseInt name))]
-    (assoc-in catalog ["data" "name"] (.toString new-name))))
-  
-(defn random-catalog-seq
-  "Reads in an exmplar catalog in json format, and synthesizes an
-infiinte sequence of catalog objects (json objects) that are similar"
-  [exemplar-catalog]
-  (let [exemplar-json (json/parse-string (slurp exemplar-catalog))
-        initial-catalog (assoc-in exemplar-json ["data" "name"] "0")]
-    (iterate tweak-catalog initial-catalog)))
+(defn parse-catalog
+  [filename]
+  (try
+    (let [catalog (json/parse-string (slurp filename))]
+      (catalog "data"))
+    (catch org.codehaus.jackson.JsonParseException e
+      (log/error (format "Error parsing %s: %s" filename (.getMessage e))))))
 
-(defn transform-catalog
-  "Take a JSON catalog and transform it to persistable form"
-  [catalog]
-  (catalog "data"))
+(defn catalog-seq
+  [dirname]
+  (let [files (.listFiles (ds/file-str dirname))]
+    (log/info (format "%d files total to parse" (count files)))
+    (filter #(not (nil? %)) (pmap parse-catalog files))))
 
 (defn persist-hostname!
   "Given a host and a catalog, persist the hostname"
@@ -84,8 +78,7 @@ infiinte sequence of catalog objects (json objects) that are similar"
    ;; I think we can live with a commit delay, for better performance
    (sql/do-commands "SET LOCAL synchronous_commit TO OFF")
 
-   (let [catalog (transform-catalog catalog)
-         {host "name" resources "resources" edges "edges"} catalog]
+   (let [{host "name" resources "resources" edges "edges"} catalog]
 
      (persist-hostname! host catalog)
      (persist-classes! host catalog)
@@ -100,11 +93,11 @@ infiinte sequence of catalog objects (json objects) that are similar"
   [& args]
   (sql/with-connection *db*
     (initialize-store))
-  (println "Generating and storing catalogs...")
-  (let [catalogs (take 10000 (random-catalog-seq "/Users/deepak/Desktop/out.json"))
+  (log/info "Generating and storing catalogs...")
+  (let [catalogs (catalog-seq "/Users/deepak/Desktop/many_catalogs")
         handle-catalog (fn [catalog]
-                         (println (get-in catalog ["data" "name"]))
-                         (time (sql/with-connection *db*
-                           (persist-catalog! catalog))))]
+                         (log/info (catalog "name"))
+                         (sql/with-connection *db*
+                           (persist-catalog! catalog)))]
     (dorun (pmap handle-catalog catalogs)))
-  (println "Done persisting catalogs."))
+  (log/info "Done persisting catalogs."))
