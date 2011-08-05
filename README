@@ -4,17 +4,23 @@ FIXME: write description
 
 ## Usage
 
+Install leiningen (google it)
+
 To (re)initialize the database:
 
 dropdb cmdb && createdb cmdb && psql cmdb < ./resources/cmdb.sql
 
-To get all the requisite dependencies:
+To get all the requisite dev dependencies:
 
 lein deps
 
 To execute the code:
 
 lein run
+
+If you want to set some JVM options, like max memory:
+
+JVM_OPTS='-Xmx2048m' lein run
 
 ## License
 

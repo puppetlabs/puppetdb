@@ -13,6 +13,10 @@
            :subname "//localhost:5432/cmdb2"})
 
 (defn parse-catalog
+  "Parse a JSON catalog located at 'filename', returning a map
+
+This func will actually only return the 'data' key of the catalog,
+which seems to contain the useful stuff."
   [filename]
   (try
     (let [catalog (json/parse-string (slurp filename))]
@@ -21,6 +25,7 @@
       (log/error (format "Error parsing %s: %s" filename (.getMessage e))))))
 
 (defn catalog-seq
+  "Lazy sequence of parsed catalogs loaded from .json files in 'dirname'"
   [dirname]
   (let [files (.listFiles (ds/file-str dirname))]
     (log/info (format "%d files total to parse" (count files)))
@@ -50,7 +55,10 @@
 (defn persist-resource!
   "Given a host and a single resource, persist that resource and its parameters"
   [host resource]
-  (sql/do-commands "LOCK TABLE resources")
+  ;; Have to do this to avoid deadlock on updating "resources" and
+  ;; "resource_params" tables in the same xaction
+  (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
+
   (let [hash       (digest/sha-1 (json/generate-string resource))
         type       (resource "type")
         title      (resource "title")
@@ -101,21 +109,6 @@
   "Eventually code that initializes the DB will go here"
   [])
   
-(defn farm-out
-  "Like map, except f is applied in parallel. Semi-lazy in that the
-  parallel computation stays ahead of the consumption, but doesn't
-  realize the entire result unless required. Only useful for
-  computationally intensive functions where the time of f dominates
-  the coordination overhead."
-  [n f coll]
-  (let [rets (map #(future (f %)) coll)
-        step (fn step [[x & xs :as vs] fs]
-               (lazy-seq
-                (if-let [s (seq fs)]
-                  (cons (deref x) (step xs (rest s)))
-                  (map deref vs))))]
-    (step rets (drop n rets))))
-
 (defn -main
   [& args]
   (sql/with-connection *db*
@@ -124,7 +117,7 @@
   (let [catalogs       (catalog-seq "/Users/deepak/Desktop/many_catalogs")
         handle-catalog (fn [catalog]
                          (log/info (catalog "name"))
-                         (time (sql/with-connection *db*
-                           (persist-catalog! catalog))))]
+                         (sql/with-connection *db*
+                           (persist-catalog! catalog)))]
     (dorun (pmap handle-catalog catalogs)))
   (log/info "Done persisting catalogs."))
