@@ -1,48 +1,42 @@
 (ns com.puppetlabs.cmdb.core
   (:gen-class)
-  (:require [clojure.contrib.logging :as log]
+  (:require [com.puppetlabs.cmdb.catalog :as cat]
+            [clojure.contrib.logging :as log]
             [clj-json.core :as json]
             [clojure.java.jdbc :as sql]
-            [clojure.contrib.duck-streams :as ds]
-            [digest])
+            [clojure.contrib.duck-streams :as ds])
   (:use [clojure.contrib.command-line :only (with-command-line print-help)]))
 
 ;; TODO: externalize this into a configuration file
 (def *db* {:classname "com.postgresql.Driver"
            :subprotocol "postgresql"
-           :subname "//localhost:5432/cmdb2"})
-
-(defn parse-catalog
-  "Parse a JSON catalog located at 'filename', returning a map
-
-This func will actually only return the 'data' key of the catalog,
-which seems to contain the useful stuff."
-  [filename]
-  (try
-    (let [catalog (json/parse-string (slurp filename))]
-      (catalog "data"))
-    (catch org.codehaus.jackson.JsonParseException e
-      (log/error (format "Error parsing %s: %s" filename (.getMessage e))))))
+           :subname "//localhost:5432/cmdb3"})
 
 (defn catalog-seq
   "Lazy sequence of parsed catalogs loaded from .json files in 'dirname'"
   [dirname]
   (let [files (.listFiles (ds/file-str dirname))]
     (log/info (format "%d files total to parse" (count files)))
-    (filter #(not (nil? %)) (pmap parse-catalog files))))
+    (filter #(not (nil? %)) (pmap cat/parse-from-json files))))
 
 (defn persist-hostname!
-  "Given a host and a catalog, persist the hostname"
-  [host catalog]
+  "Given a hostname, persist it in the db"
+  [host]
   (sql/insert-record :hosts {:name host}))
 
 (defn persist-classes!
-  "Given a host and a catalog, persist the list of classes applicable to the host"
-  [host catalog]
-  (let [classes     (set (catalog "classes"))
-        default-row {:host host}
+  "Given a host and a list of classes, persist them in the db"
+  [host classes]
+  (let [default-row {:host host}
         classes     (map #(assoc default-row :name %) classes)]
     (apply sql/insert-records :classes classes)))
+
+(defn persist-tags!
+  "Given a host and a list of tags, persist them in the db"
+  [host tags]
+  (let [default-row {:host host}
+        tags        (map #(assoc default-row :name %) tags)]
+    (apply sql/insert-records :tags tags)))
 
 (defn resource-already-persisted?
   "Returns a boolean indicating whether or not the given resource exists in the db"
@@ -54,23 +48,19 @@ which seems to contain the useful stuff."
 
 (defn persist-resource!
   "Given a host and a single resource, persist that resource and its parameters"
-  [host resource]
+  [host {:strs [type title hash exported parameters] :as resource}]
   ;; Have to do this to avoid deadlock on updating "resources" and
   ;; "resource_params" tables in the same xaction
   (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
 
-  (let [hash       (digest/sha-1 (json/generate-string resource))
-        type       (resource "type")
-        title      (resource "title")
-        exported   (resource "exported")
-        persisted? (resource-already-persisted? hash)]
+  (let [persisted? (resource-already-persisted? hash)]
 
     (when-not persisted?
       ;; Add to resources table
       (sql/insert-record :resources {:hash hash :type type :title title :exported exported})
 
       ;; Build up a list of records for insertion
-      (let [records (for [[name value] (resource "parameters")]
+      (let [records (for [[name value] parameters]
                       ;; I'm not sure what to do about multi-value columns.
                       ;; I suppose that we could put them in as an array of values,
                       ;; but then I think we'll have to call out directly to the JDBC
@@ -88,22 +78,24 @@ which seems to contain the useful stuff."
     (sql/insert-record :host_resources {:host host :resource hash})))
 
 (defn persist-edges!
-  [host catalog]
-  (let [edges (catalog "edges")
-        rows  (for [{source "source" target "target"} edges]
-                {:host host :source source :target target})]
+  [host edges resources]
+  (let [rows  (for [{:strs [source target]} edges
+                    :let [source-hash (get-in resources [source "hash"])
+                          target-hash (get-in resources [target "hash"])]]
+                {:host host :source source-hash :target target-hash})]
         (apply sql/insert-records :edges rows)))
 
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
   [catalog]
-  (let [{host "name" resources "resources" edges "edges"} catalog]
+  (let [{:strs [host resources classes edges tags]} catalog]
 
-    (sql/transaction (persist-hostname! host catalog))
-    (sql/transaction (persist-classes! host catalog))
-    (sql/transaction (persist-edges! host catalog))
-    (doseq [resource resources]
-      (sql/transaction (persist-resource! host resource)))))
+    (sql/transaction (persist-hostname! host))
+    (sql/transaction (persist-classes! host classes))
+    (sql/transaction (persist-tags! host tags))
+    (doseq [resource (vals resources)]
+      (sql/transaction (persist-resource! host resource)))
+    (sql/transaction (persist-edges! host edges resources))))
 
 (defn initialize-store
   "Eventually code that initializes the DB will go here"

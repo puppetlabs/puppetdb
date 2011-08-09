@@ -2,8 +2,14 @@ CREATE TABLE hosts (
        name VARCHAR PRIMARY KEY
 );
 
+CREATE TABLE tags (
+       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       name VARCHAR NOT NULL,
+       PRIMARY KEY (host, name)
+);
+
 CREATE TABLE classes (
-       host VARCHAR REFERENCES hosts(name),
+       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
        name VARCHAR NOT NULL,
        PRIMARY KEY (host, name)
 );
@@ -21,13 +27,13 @@ CREATE TABLE resources (
 CREATE INDEX idx_resources_type ON resources(type);
 
 CREATE TABLE host_resources (
-       host VARCHAR REFERENCES hosts(name),
-       resource VARCHAR(40) REFERENCES resources(hash),
+       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       resource VARCHAR(40) REFERENCES resources(hash) ON DELETE CASCADE,
        PRIMARY KEY (host, resource)
 );
 
 CREATE TABLE resource_params (
-       resource VARCHAR(40) REFERENCES resources(hash),
+       resource VARCHAR(40) REFERENCES resources(hash) ON DELETE CASCADE,
        name VARCHAR NOT NULL,
        value VARCHAR NOT NULL,
        PRIMARY KEY (resource, name)
@@ -37,8 +43,8 @@ CREATE TABLE resource_params (
 CREATE INDEX idx_resource_params_resource ON resource_params(resource);
 
 CREATE TABLE edges (
-       host VARCHAR references hosts(name),
-       source VARCHAR NOT NULL,
-       target VARCHAR NOT NULL,
+       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       source VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
+       target VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
        PRIMARY KEY (host, source, target)
 );
