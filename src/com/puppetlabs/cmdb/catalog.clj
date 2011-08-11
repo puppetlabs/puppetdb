@@ -18,6 +18,10 @@
     (into #{} (apply concat parsed-edges))))
 
 (defn normalize-edges
+  "Turn vanilla edges in a catalog into properly split type/title resources.
+
+Turns {'source' 'Class[foo]' 'target' 'User[bar]'}
+into {'source' {'type' 'Class' 'title' 'foo'} 'target' {'type' 'User' 'title' 'bar'}}"
   [{:strs [edges] :as catalog}]
   (let [parse-edge   (fn [s]
                        (let [[[_ type title]] (re-seq #"(^.*)\[(.*)\]$" s)]
