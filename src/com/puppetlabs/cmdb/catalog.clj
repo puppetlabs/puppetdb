@@ -2,7 +2,8 @@
   (:require [clojure.contrib.logging :as log]
             [clj-json.core :as json]
             [clojure.contrib.duck-streams :as ds]
-            [digest]))
+            [digest]
+            [com.puppetlabs.utils :as pl-utils]))
 
 (defn resource-names
   "Return a map of type and title for each resource in the catalog"
@@ -35,9 +36,7 @@ into {'source' {'type' 'Class' 'title' 'foo'} 'target' {'type' 'User' 'title' 'b
   "Adds to the supplied catalog skeleton entries for resources
 mentioned in edges, yet not present in the resources list"
   [{:strs [resources edges] :as catalog}]
-  (let [missing-resources (clojure.set/difference
-                           (resource-names catalog)
-                           (edge-names catalog))
+  (let [missing-resources (pl-utils/symmetric-difference (edge-names catalog) (resource-names catalog))
         new-resources     (into resources (for [r missing-resources]
                                             (merge r {"exported" false})))]
     (assoc catalog "resources" new-resources)))
