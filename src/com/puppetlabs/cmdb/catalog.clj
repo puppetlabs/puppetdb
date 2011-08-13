@@ -56,11 +56,26 @@ mentioned in edges, yet not present in the resources list"
     (assoc catalog "resources" new-resources)))
 
 (defn mapify-resources
-  "Turns the list of resources into a mapping of resource [type title] to the resource itself"
+  "Turns the list of resources into a mapping of a resource's {type, title} to the resource itself"
   [{:strs [resources] :as catalog}]
   (let [new-resources (into {} (for [{:strs [type title] :as resource} resources]
                                  [{"type" type "title" title} resource]))]
     (assoc catalog "resources" new-resources)))
+
+(defn mapify-edges
+  "Turns the list of edges into a mapping of source to a set of targets for that host"
+  [{:strs [edges] :as catalog}]
+  (let [merge-fn (fn [m {:strs [source target]}]
+                   ;; I kind of hate this code...it looks up the
+                   ;; current set of targets for a given source, and
+                   ;; defaults it to an empty set. Then we add the
+                   ;; current target to the set. I do this kind of
+                   ;; "update with default" operation often enough I
+                   ;; should really just write a utility fn for it.
+                   (let [targets (get m source #{})]
+                     (assoc m source (conj targets target))))
+        new-edges (reduce merge-fn {} edges)]
+    (assoc catalog "edges" new-edges)))
 
 (defn setify-tags-and-classes
   "Turns the catalog's list of tags and classes into proper sets"
@@ -83,6 +98,7 @@ which seems to contain the useful stuff."
         (add-resources-for-edges)
         (add-resource-hashes)
         (mapify-resources)
+        (mapify-edges)
         (setify-tags-and-classes))
     (catch org.codehaus.jackson.JsonParseException e
       (log/error (format "Error parsing %s: %s" filename (.getMessage e))))))

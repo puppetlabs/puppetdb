@@ -78,12 +78,21 @@
     (sql/insert-record :host_resources {:host host :resource hash})))
 
 (defn persist-edges!
+  "Persist the given edges in the database
+
+Each edge is looked up in the supplied resources map to find a
+resource object that corresponds to the edge. We then use that
+resource's hash for persistence purposes.
+
+For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
+then we'll lookup a resource with that key and use its hash."
   [host edges resources]
-  (let [rows  (for [{:strs [source target]} edges
+  (let [rows  (for [[source targets] edges
+                    target targets
                     :let [source-hash (get-in resources [source "hash"])
                           target-hash (get-in resources [target "hash"])]]
                 {:host host :source source-hash :target target-hash})]
-        (apply sql/insert-records :edges rows)))
+    (apply sql/insert-records :edges rows)))
 
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
