@@ -1,3 +1,89 @@
+;; ## Puppet catalog parsing
+;;
+;; Puppet catalogs aren't really pre-configured for easy persistence
+;; and manipulation; while they contain complete records of all
+;; resources and edges, and most things are properly encoded as lists
+;; or maps, there are still a number of places where structure is
+;; absent or lacking:
+;;
+;; 1. Resource specifiers are represented as opaque strings, like
+;; `Class[Foobar]`, as opposed to something like
+;; `{"type" "Class" "title" "Foobar"}`
+;;
+;; 2. Containment edges may point to resources that don't exist in the
+;; catalog's list of resources
+;;
+;; 3. There is no pre-constructed list of dependency edges
+;;
+;; 4. Tags and classes are represented as lists (and may contain
+;; duplicates) instead of sets
+;;
+;; 5. Resources are represented as a list instead of a map, making
+;; operations that need to correlate against specific resources
+;; unneccesarily difficult
+;;
+;; The functions in this namespace are designed to take a wire-format
+;; catalog and restructure it to fix the above problems and, in
+;; general, make catalogs more easily manipulatable by Clojure code.
+;;
+;; ## Terminology
+;;
+;; * Resource Specifier (`resource-spec`)
+;;
+;;   A map of the form `{:type "Class" :title "Foobar"}`. This is a
+;; unique identifier for a resource within a catalog.
+;;
+;; * Resource
+;;
+;;   A map that represents a single resource in a catalog:
+;;
+;;         {:type       "..."
+;;          :title      "..."
+;;          :hash       "..."
+;;          :...        "..."
+;;          :tags       ["tag1", "tag2", ...]
+;;          :parameters {"name1" "value1"
+;;                       "name2" "value2"
+;;                       ...}}
+;;
+;;   Certain attributes are treated special:
+;;
+;;     * `:type` and `:title` are used to produce a `resource-spec` for
+;;       this resource
+;;     * `:hash` is a unique identifier for this resource within a
+;;       _population_ of catalogs (not just a single catalog)
+;;     * parameters signifying ordering (`subscribe`, `before`, `require`,
+;;       etc) are used to create dependency specifications
+;;
+;; * Dependency Specification
+;;
+;;   A representation of an "edge" in the catalog. All edgese have the
+;; following form:
+;;
+;;         {:source       <resource spec>
+;;          :target       <resource spec>
+;;          :relationship <relationship id>}
+;;
+;;   A relationship identifier can be one of:
+;;  `:contains`, `:required-by`, `:notifies`, `:before`, `:subscription-of`.
+;;
+;; * CMDB catalog
+;;
+;;   A wire-format-neutral representation of a Puppet catalog. It is a
+;;   map with the following structure:
+;;
+;;         {:host        "..."
+;;          :api-version "..."
+;;          :version     "..."
+;;          :classes     #("class1", "class2", ...)
+;;          :tags        #("tag1", "tag2", ...)
+;;          :resources   {<resource-spec> <resource>
+;;                        <resource-spec> <resource>
+;;                        ...}
+;;          :edges       #(<dependency-spec>,
+;;                         <dependency-spec>,
+;;                         ...)}
+;;
 (ns com.puppetlabs.cmdb.catalog
   (:require [clojure.contrib.logging :as log]
             [clj-json.core :as json]
@@ -5,101 +91,221 @@
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
 
+;; ## Utiltity functions
+
+(defn resource-spec-to-map
+  "Convert a textual resource specifier like `\"Class[foo]\"` into a map
+  of the form `{:type \"Class\" :title \"foo\"}`"
+  [str]
+  {:pre [(string? str)]
+   :post [(map? %)]}
+  (let [[[_ type title]] (re-seq #"(^.*)\[(.*)\]$" str)]
+    {:type type :title title}))
+
+(defn keys-to-keywords
+  "Take a map with string keys and return a map with those keys turned
+  into keywords"
+  [m]
+  (into {} (for [[k v] m]
+             [(keyword k) v])))
+
+;; ## Containment edge normalization
+;;
+;; The following functions are used to transform the list of
+;; containment edges included in a catalog into a list of dependency
+;; specifications, adding to the catalog whatever resources are
+;; missing yet still pointed to by an edge.
+
+(defn normalize-containment-edges
+  "Turn containment edges in a catalog into properly split type/title
+  resources with relationship specifications.
+
+  Turns edges that look like:
+
+       {\"source\" \"Class[foo]\" \"target\" \"User[bar]\"}
+
+  into:
+
+       {:source {:type \"Class\" :title \"foo\"}
+        :target {:type \"User\" :title \"bar\"}
+        :relationship :contains}"
+  [{:keys [edges] :as catalog}]
+  {:post [(every? map? (% :edges))]}
+  (let [parsed-edges (for [{:strs [source target]} edges]
+                       {:source (resource-spec-to-map source)
+                        :target (resource-spec-to-map target)
+                        :relationship :contains})]
+    (assoc catalog :edges parsed-edges)))
+
 (defn resource-names
-  "Return a map of type and title for each resource in the catalog"
+  "Return a set of resource-specs for all the resources in the catalog"
   [{:strs [resources]}]
   (into #{} (for [{:strs [type title]} resources]
-              {"type" type "title" title})))
+              {:type type :title title})))
 
 (defn edge-names
-  "Return a mapping of type and title for each edge in the catalog"
+  "Return a set of resource-specs for all the edges in the catalog.
+
+  A single edge is represented as multiple entries in the resulting
+  set, with one entry for the source and one for the target."
   [{:strs [edges]}]
   (let [parsed-edges (for [{:strs [source target]} edges]
                        [source target])]
     (into #{} (apply concat parsed-edges))))
 
-(defn normalize-edges
-  "Turn vanilla edges in a catalog into properly split type/title resources.
-
-Turns {'source' 'Class[foo]' 'target' 'User[bar]'}
-into {'source' {'type' 'Class' 'title' 'foo'} 'target' {'type' 'User' 'title' 'bar'}}"
-  [{:strs [edges] :as catalog}]
-  (let [parse-edge   (fn [s]
-                       (let [[[_ type title]] (re-seq #"(^.*)\[(.*)\]$" s)]
-                         {"type" type "title" title}))
-        parsed-edges (for [{:strs [source target]} edges]
-                       {"source" (parse-edge source)
-                        "target" (parse-edge target)})]
-    (assoc catalog "edges" parsed-edges)))
-
 (defn add-resources-for-edges
   "Adds to the supplied catalog skeleton entries for resources
-mentioned in edges, yet not present in the resources list"
-  [{:strs [resources edges] :as catalog}]
-  (let [missing-resources (pl-utils/symmetric-difference (edge-names catalog) (resource-names catalog))
-        new-resources     (into resources (for [r missing-resources]
-                                            (merge r {"exported" false})))]
-    (assoc catalog "resources" new-resources)))
+  mentioned in edges, yet not present in the resources list.
 
-(defn add-host-attribute
-  "Adds a host attribute to the catalog that contains the catalog's associated hostname"
-  [catalog]
-  (assoc catalog "host" (catalog "name")))
+  Resources added this way are 'bare', in that they have no parameters
+  or other attributes beyond 'exported', which we forcibly set to
+  false."
+  [{:keys [resources edges] :as catalog}]
+  {; Upon return, all pre-existing resources should still be there
+   :post [(let [before   (set resources)
+                after    (set (% :resources))
+                excluded (clojure.set/difference before after)]
+            (zero? (count excluded)))]}
+  (let [missing-resources (pl-utils/symmetric-difference
+                           (edge-names catalog)
+                           (resource-names catalog))
+        new-resources     (into resources
+                                (for [r missing-resources]
+                                  (merge r {:exported false})))]
+    (assoc catalog :resources new-resources)))
+
+;; ## Dependency edge normalization
+;;
+;; The following functions will handle walking the catalog's list of
+;; resources and compiling a set of dependency specifications that
+;; model the relationships between resources.
+;;
+;; All edges are modeled as having a source and a target, so the
+;; question is how do we decide what's the source and what's the
+;; target for a given relationship? For now, we've decided on a
+;; convention: the source should be something that's temporally
+;; ordered before the target, in terms of Puppet evaluation. This
+;; mirrors the `Source -> Target` arrow convention in the Puppet DSL,
+;; as that implies a temporal ordering.
+
+(def relationship-mapping-table
+  ^{:doc "Translates between relationship specifiers in a wire-format
+  catalog to the set of attributes necessary to produce a dependency
+  specification"}
+  {"subscribe" {:direction :reverse :relationship :subscription-of}
+   "notify"    {:direction :forward :relationship :notifies}
+   "before"    {:direction :forward :relationship :before}
+   "require"   {:direction :reverse :relationship :required-by}})
+
+(defn build-dependencies-for-resource
+  "Given a resource, return a list of dependency specifications
+  applicable to that resource.
+
+  This will include relationships extracted from dependency-signifying
+  resource attributes like subscribe, require, et all."
+  [{:keys [type title parameters] :as resource :or {parameters {}}}]
+  {;; type and title cannot be nil
+   :pre [type
+         title]}
+  (let [resource-spec     {:type type :title title}
+        emit-dependency   (fn [child relationship]
+                            (let [direction (get-in relationship-mapping-table [relationship :direction])
+                                  rel       (get-in relationship-mapping-table [relationship :relationship])]
+                              (if (= direction :forward)
+                                {:source resource-spec :target child :relationship rel}
+                                {:source child :target resource-spec :relationship rel})))]
+
+    (flatten
+     ; Examine the resource's value for each order-specifying parameter
+     (for [relationship (keys relationship-mapping-table)
+           :let [param-value (parameters relationship)]
+           :when param-value]
+       (let [children (->> (pl-utils/as-collection param-value)
+                           (map resource-spec-to-map))
+             dependencies (map #(emit-dependency % relationship) children)]
+         dependencies)))))
+
+(defn build-dependency-edges
+  "Using the dependency and containment information from a catalog,
+  build a dependency graph for all the resources."
+  [{:keys [resources edges] :as catalog}]
+  {:pre [(map? resources)
+         (coll? edges)]
+   :post [(>= (count (% :edges)) (count edges))]}
+  (let [new-edges (->> (vals resources)
+                       (mapcat build-dependencies-for-resource)
+                       (concat edges)
+                       (set))]
+    (assoc catalog :edges new-edges)))
+
+;; ## Resource normalization
 
 (defn add-resource-hashes
-  "Adds a hash to each resource that will be used as its unique identifier"
-  [{:strs [resources] :as catalog}]
-  (let [add-hash (fn [resource]
-                   (let [hash (digest/sha-1 (json/generate-string resource))]
-                     (assoc resource "hash" hash)))
-        new-resources (map add-hash resources)]
-    (assoc catalog "resources" new-resources)))
+  "Adds a hash to each resource that will be used as its unique
+  identifier in a population of catalogs."
+  [{:keys [resources] :as catalog}]
+  (let [add-hash      (fn [resource]
+                        (let [hash (digest/sha-1 (json/generate-string resource))]
+                          (assoc resource :hash hash)))
+        new-resources (into {} (for [[k v] resources]
+                                 [k (add-hash v)]))]
+    (assoc catalog :resources new-resources)))
+
+(defn keywordify-resources
+  "Takes all the keys of each resource and convert them to proper
+  clojure keywords."
+  [{:keys [resources] :as catalog}]
+  (let [new-resources (map keys-to-keywords resources)]
+    (assoc catalog :resources new-resources)))
 
 (defn mapify-resources
-  "Turns the list of resources into a mapping of a resource's {type, title} to the resource itself"
-  [{:strs [resources] :as catalog}]
-  (let [new-resources (into {} (for [{:strs [type title] :as resource} resources]
-                                 [{"type" type "title" title} resource]))]
-    (assoc catalog "resources" new-resources)))
+  "Turns the list of resources into a mapping of {resource-spec
+  resource, resource-spec resource, ...}"
+  [{:keys [resources] :as catalog}]
+  (let [new-resources (into {} (for [{:keys [type title] :as resource} resources]
+                                 [{:type type :title title} resource]))]
+    (assoc catalog :resources new-resources)))
 
-(defn mapify-edges
-  "Turns the list of edges into a mapping of source to a set of targets for that host"
-  [{:strs [edges] :as catalog}]
-  (let [merge-fn (fn [m {:strs [source target]}]
-                   ;; I kind of hate this code...it looks up the
-                   ;; current set of targets for a given source, and
-                   ;; defaults it to an empty set. Then we add the
-                   ;; current target to the set. I do this kind of
-                   ;; "update with default" operation often enough I
-                   ;; should really just write a utility fn for it.
-                   (let [targets (get m source #{})]
-                     (assoc m source (conj targets target))))
-        new-edges (reduce merge-fn {} edges)]
-    (assoc catalog "edges" new-edges)))
+;; ## Misc normalization routines
 
 (defn setify-tags-and-classes
   "Turns the catalog's list of tags and classes into proper sets"
   [{:strs [classes tags] :as catalog}]
   (assoc catalog
-    "classes" (set classes)
-    "tags" (set tags)))
+    :classes (set classes)
+    :tags (set tags)))
 
-(defn parse-from-json
-  "Parse a JSON catalog located at 'filename', returning a map
+;; ## High-level parsing routines
 
-This func will actually only return the 'data' key of the catalog,
-which seems to contain the useful stuff."
+(defn restructure-catalog
+  "Given a wire-format catalog, restructure it to conform to cmdb format.
+
+  This primarily consists of hoisting certain catalog attributes from
+  nested structures to instead be 'top-level'."
+  [wire-catalog]
+  (-> (wire-catalog "data")
+      (keys-to-keywords)
+      (dissoc :name)
+      (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
+      (assoc :host (get-in wire-catalog ["data" "name"]))
+      (assoc :version (get-in wire-catalog ["data" "version"]))))
+
+(defn parse-from-json-string
+  "Parse a wire-format JSON catalog contained in `s`, returning a
+  cmdb-suitable representation."
+  [s]
+  (-> (json/parse-string s)
+      (restructure-catalog)
+      (keywordify-resources)
+      (normalize-containment-edges)
+      (add-resources-for-edges)
+      (mapify-resources)
+      (add-resource-hashes)
+      (build-dependency-edges)
+      (setify-tags-and-classes)))
+
+(defn parse-from-json-file
+  "Parse a wire-format JSON catalog located at `filename`, returning a
+  cmdb-suitable representation."
   [filename]
-  (try
-    (-> (json/parse-string (slurp filename))
-        (get "data")
-        (add-host-attribute)
-        (normalize-edges)
-        (add-resources-for-edges)
-        (add-resource-hashes)
-        (mapify-resources)
-        (mapify-edges)
-        (setify-tags-and-classes))
-    (catch org.codehaus.jackson.JsonParseException e
-      (log/error (format "Error parsing %s: %s" filename (.getMessage e))))))
-
+  (parse-from-json-string (slurp filename)))

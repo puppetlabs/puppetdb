@@ -10,6 +10,7 @@
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
                                               com.sun.jmx/jmxri]]]
+  :dev-dependencies [[marginalia "0.3.2"]]
   :aot [com.puppetlabs.cmdb.core]
   :main com.puppetlabs.cmdb.core
 )
