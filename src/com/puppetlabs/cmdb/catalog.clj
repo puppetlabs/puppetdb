@@ -39,7 +39,6 @@
 ;;
 ;;         {:type       "..."
 ;;          :title      "..."
-;;          :hash       "..."
 ;;          :...        "..."
 ;;          :tags       ["tag1", "tag2", ...]
 ;;          :parameters {"name1" "value1"
@@ -50,8 +49,6 @@
 ;;
 ;;     * `:type` and `:title` are used to produce a `resource-spec` for
 ;;       this resource
-;;     * `:hash` is a unique identifier for this resource within a
-;;       _population_ of catalogs (not just a single catalog)
 ;;     * parameters signifying ordering (`subscribe`, `before`, `require`,
 ;;       etc) are used to create dependency specifications
 ;;
@@ -98,14 +95,19 @@
   of the form `{:type \"Class\" :title \"foo\"}`"
   [str]
   {:pre [(string? str)]
-   :post [(map? %)]}
-  (let [[[_ type title]] (re-seq #"(^.*)\[(.*)\]$" str)]
+   :post [(map? %)
+          (:type %)
+          (:title %)]}
+  (let [[[_ type title]] (re-seq #"(^.*?)\[(.*)\]$" str)]
     {:type type :title title}))
 
 (defn keys-to-keywords
   "Take a map with string keys and return a map with those keys turned
   into keywords"
   [m]
+  {:pre  [(map? m)]
+   :post [(map? %)
+          (every? keyword? (keys %))]}
   (into {} (for [[k v] m]
              [(keyword k) v])))
 
@@ -130,17 +132,22 @@
         :target {:type \"User\" :title \"bar\"}
         :relationship :contains}"
   [{:keys [edges] :as catalog}]
-  {:post [(every? map? (% :edges))]}
+  {:pre  [(coll? edges)
+          (every? string? (mapcat keys edges))]
+   :post [(every? map? (% :edges))]}
   (let [parsed-edges (for [{:strs [source target]} edges]
                        {:source (resource-spec-to-map source)
                         :target (resource-spec-to-map target)
                         :relationship :contains})]
-    (assoc catalog :edges parsed-edges)))
+    (assoc catalog :edges (set parsed-edges))))
 
 (defn resource-names
   "Return a set of resource-specs for all the resources in the catalog"
-  [{:strs [resources]}]
-  (into #{} (for [{:strs [type title]} resources]
+  [{:keys [resources]}]
+  {:pre  [resources
+          (not (map? resources))]
+   :post [(= (count resources) (count %))]}
+  (into #{} (for [{:keys [type title]} resources]
               {:type type :title title})))
 
 (defn edge-names
@@ -148,8 +155,9 @@
 
   A single edge is represented as multiple entries in the resulting
   set, with one entry for the source and one for the target."
-  [{:strs [edges]}]
-  (let [parsed-edges (for [{:strs [source target]} edges]
+  [{:keys [edges]}]
+  {:pre  [edges]}
+  (let [parsed-edges (for [{:keys [source target]} edges]
                        [source target])]
     (into #{} (apply concat parsed-edges))))
 
@@ -166,7 +174,7 @@
                 after    (set (% :resources))
                 excluded (clojure.set/difference before after)]
             (zero? (count excluded)))]}
-  (let [missing-resources (pl-utils/symmetric-difference
+  (let [missing-resources (clojure.set/difference
                            (edge-names catalog)
                            (resource-names catalog))
         new-resources     (into resources
@@ -240,28 +248,36 @@
 
 ;; ## Resource normalization
 
-(defn add-resource-hashes
-  "Adds a hash to each resource that will be used as its unique
-  identifier in a population of catalogs."
-  [{:keys [resources] :as catalog}]
-  (let [add-hash      (fn [resource]
-                        (let [hash (digest/sha-1 (json/generate-string resource))]
-                          (assoc resource :hash hash)))
-        new-resources (into {} (for [[k v] resources]
-                                 [k (add-hash v)]))]
-    (assoc catalog :resources new-resources)))
+(defn keywordify-resource
+  "Takes all the keys of each resource and convert them to proper
+  clojure keywords, doing intermediate data transforms in the process.
+
+  transformations we do:
+
+  1. convert each resource's list of tags into a set of tags"
+  [{:strs [tags] :as resource}]
+  (let [new-resource (keys-to-keywords resource)
+        new-tags     (set tags)]
+    (assoc new-resource :tags new-tags)))
 
 (defn keywordify-resources
-  "Takes all the keys of each resource and convert them to proper
-  clojure keywords."
+  "Applies keywordify-resource to each resource in the supplied catalog,
+  returning a new catalog with its list of resources appropriately
+  transformed."
   [{:keys [resources] :as catalog}]
-  (let [new-resources (map keys-to-keywords resources)]
+  {:pre [(coll? resources)
+         (not (map? resources))]}
+  (let [new-resources (map keywordify-resource resources)]
     (assoc catalog :resources new-resources)))
 
 (defn mapify-resources
   "Turns the list of resources into a mapping of {resource-spec
   resource, resource-spec resource, ...}"
   [{:keys [resources] :as catalog}]
+  {:pre  [(coll? resources)
+          (not (map? resources))]
+   :post [(map? (:resources %))
+          (= (count resources) (count (:resources %)))]}
   (let [new-resources (into {} (for [{:keys [type title] :as resource} resources]
                                  [{:type type :title title} resource]))]
     (assoc catalog :resources new-resources)))
@@ -270,7 +286,8 @@
 
 (defn setify-tags-and-classes
   "Turns the catalog's list of tags and classes into proper sets"
-  [{:strs [classes tags] :as catalog}]
+  [{:keys [classes tags] :as catalog}]
+  {:pre [classes tags]}
   (assoc catalog
     :classes (set classes)
     :tags (set tags)))
@@ -283,6 +300,11 @@
   This primarily consists of hoisting certain catalog attributes from
   nested structures to instead be 'top-level'."
   [wire-catalog]
+  {:pre  [(map? wire-catalog)]
+   :post [(map? %)
+          (:host %)
+          (number? (:api-version %))
+          (:version %)]}
   (-> (wire-catalog "data")
       (keys-to-keywords)
       (dissoc :name)
@@ -290,19 +312,25 @@
       (assoc :host (get-in wire-catalog ["data" "name"]))
       (assoc :version (get-in wire-catalog ["data" "version"]))))
 
-(defn parse-from-json-string
-  "Parse a wire-format JSON catalog contained in `s`, returning a
+(defn parse-from-json-obj
+  "Parse a wire-format JSON catalog object contained in `o`, returning a
   cmdb-suitable representation."
-  [s]
-  (-> (json/parse-string s)
+  [o]
+  (-> o
       (restructure-catalog)
       (keywordify-resources)
       (normalize-containment-edges)
       (add-resources-for-edges)
       (mapify-resources)
-      (add-resource-hashes)
       (build-dependency-edges)
       (setify-tags-and-classes)))
+
+(defn parse-from-json-string
+  "Parse a wire-format JSON catalog string contained in `s`, returning a
+  cmdb-suitable representation."
+  [s]
+  (-> (json/parse-string s)
+      (parse-from-json-obj)))
 
 (defn parse-from-json-file
   "Parse a wire-format JSON catalog located at `filename`, returning a
