@@ -46,5 +46,6 @@ CREATE TABLE edges (
        host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
        source VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
        target VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
-       PRIMARY KEY (host, source, target)
+       type VARCHAR NOT NULL,
+       PRIMARY KEY (host, source, target, type)
 );

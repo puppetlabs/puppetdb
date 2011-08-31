@@ -17,7 +17,7 @@
   [dirname]
   (let [files (.listFiles (ds/file-str dirname))]
     (log/info (format "%d files total to parse" (count files)))
-    (filter #(not (nil? %)) (pmap cat/parse-from-json files))))
+    (filter #(not (nil? %)) (pmap cat/parse-from-json-file files))))
 
 (defn persist-hostname!
   "Given a hostname, persist it in the db"
@@ -48,7 +48,7 @@
 
 (defn persist-resource!
   "Given a host and a single resource, persist that resource and its parameters"
-  [host {:strs [type title hash exported parameters] :as resource}]
+  [host {:keys [type title hash exported parameters] :as resource}]
   ;; Have to do this to avoid deadlock on updating "resources" and
   ;; "resource_params" tables in the same xaction
   (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
@@ -87,17 +87,17 @@ resource's hash for persistence purposes.
 For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
 then we'll lookup a resource with that key and use its hash."
   [host edges resources]
-  (let [rows  (for [[source targets] edges
-                    target targets
-                    :let [source-hash (get-in resources [source "hash"])
-                          target-hash (get-in resources [target "hash"])]]
-                {:host host :source source-hash :target target-hash})]
+  (let [rows  (for [{:keys [source target relationship]} edges
+                    :let [source-hash (get-in resources [source :hash])
+                          target-hash (get-in resources [target :hash])
+                          type        (name relationship)]]
+                {:host host :source source-hash :target target-hash :type type})]
     (apply sql/insert-records :edges rows)))
 
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
   [catalog]
-  (let [{:strs [host resources classes edges tags]} catalog]
+  (let [{:keys [host resources classes edges tags]} catalog]
 
     (sql/transaction (persist-hostname! host))
     (sql/transaction (persist-classes! host classes))
@@ -115,7 +115,7 @@ then we'll lookup a resource with that key and use its hash."
   (sql/with-connection *db*
     (initialize-store))
   (log/info "Generating and storing catalogs...")
-  (let [catalogs       (catalog-seq "/Users/deepak/Desktop/many_catalogs")
+  (let [catalogs       (catalog-seq "/Users/deepak/Desktop/temp")
         handle-catalog (fn [catalog]
                          (log/info (catalog "name"))
                          (sql/with-connection *db*
