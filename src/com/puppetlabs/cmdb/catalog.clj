@@ -69,7 +69,7 @@
 ;;   A wire-format-neutral representation of a Puppet catalog. It is a
 ;;   map with the following structure:
 ;;
-;;         {:host        "..."
+;;         {:certname    "..."
 ;;          :api-version "..."
 ;;          :version     "..."
 ;;          :classes     #("class1", "class2", ...)
@@ -307,7 +307,7 @@
   [wire-catalog]
   {:pre  [(map? wire-catalog)]
    :post [(map? %)
-          (:host %)
+          (:certname %)
           (number? (:api-version %))
           (:version %)]}
   (-> (wire-catalog "data")
@@ -315,7 +315,7 @@
       (dissoc :name)
       (assoc :cmdb-version CMDB-VERSION)
       (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
-      (assoc :host (get-in wire-catalog ["data" "name"]))
+      (assoc :certname (get-in wire-catalog ["data" "name"]))
       (assoc :version (get-in wire-catalog ["data" "version"]))))
 
 (defn parse-from-json-obj

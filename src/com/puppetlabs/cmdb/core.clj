@@ -19,22 +19,22 @@
     (log/info (format "%d files total to parse" (count files)))
     (filter #(not (nil? %)) (pmap cat/parse-from-json-file files))))
 
-(defn persist-hostname!
-  "Given a hostname, persist it in the db"
-  [host]
-  (sql/insert-record :hosts {:name host}))
+(defn persist-certname!
+  "Given a certname, persist it in the db"
+  [certname]
+  (sql/insert-record :certnames {:name certname}))
 
 (defn persist-classes!
-  "Given a host and a list of classes, persist them in the db"
-  [host classes]
-  (let [default-row {:host host}
+  "Given a certname and a list of classes, persist them in the db"
+  [certname classes]
+  (let [default-row {:certname certname}
         classes     (map #(assoc default-row :name %) classes)]
     (apply sql/insert-records :classes classes)))
 
 (defn persist-tags!
-  "Given a host and a list of tags, persist them in the db"
-  [host tags]
-  (let [default-row {:host host}
+  "Given a certname and a list of tags, persist them in the db"
+  [certname tags]
+  (let [default-row {:certname certname}
         tags        (map #(assoc default-row :name %) tags)]
     (apply sql/insert-records :tags tags)))
 
@@ -47,10 +47,10 @@
       (row :present))))
 
 (defn persist-resource!
-  "Given a host and a single resource, persist that resource and its parameters"
-  [host {:keys [type title hash exported parameters] :as resource}]
-  ; Have to do this to avoid deadlock on updating "resources" and
-  ; "resource_params" tables in the same xaction
+  "Given a certname and a single resource, persist that resource and its parameters"
+  [certname {:keys [type title hash exported parameters] :as resource}]
+  ;; Have to do this to avoid deadlock on updating "resources" and
+  ;; "resource_params" tables in the same xaction
   (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
 
   (let [persisted? (resource-already-persisted? hash)]
@@ -74,8 +74,8 @@
         ; ...and insert them
         (apply sql/insert-records :resource_params records)))
 
-    ; Insert pointer into host => resource map
-    (sql/insert-record :host_resources {:host host :resource hash})))
+    ;; Insert pointer into certname => resource map
+    (sql/insert-record :certname_resources {:certname certname :resource hash})))
 
 (defn persist-edges!
   "Persist the given edges in the database
@@ -86,30 +86,30 @@ resource's hash for persistence purposes.
 
 For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
 then we'll lookup a resource with that key and use its hash."
-  [host edges resources]
+  [certname edges resources]
   (let [rows  (for [{:keys [source target relationship]} edges
                     :let [source-hash (get-in resources [source :hash])
                           target-hash (get-in resources [target :hash])
                           type        (name relationship)]]
-                {:host host :source source-hash :target target-hash :type type})]
+                {:certname certname :source source-hash :target target-hash :type type})]
     (apply sql/insert-records :edges rows)))
 
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
   [catalog]
-  (let [{:keys [host resources classes edges tags]} catalog]
+  (let [{:keys [certname resources classes edges tags]} catalog]
 
-    (sql/transaction (persist-hostname! host))
-    (sql/transaction (persist-classes! host classes))
-    (sql/transaction (persist-tags! host tags))
+    (sql/transaction (persist-certname! certname))
+    (sql/transaction (persist-classes! certname classes))
+    (sql/transaction (persist-tags! certname tags))
     (doseq [resource (vals resources)]
-      (sql/transaction (persist-resource! host resource)))
-    (sql/transaction (persist-edges! host edges resources))))
+      (sql/transaction (persist-resource! certname resource)))
+    (sql/transaction (persist-edges! certname edges resources))))
 
 (defn initialize-store
   "Eventually code that initializes the DB will go here"
   [])
-  
+
 (defn -main
   [& args]
   (sql/with-connection *db*

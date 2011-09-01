@@ -1,17 +1,17 @@
-CREATE TABLE hosts (
+CREATE TABLE certnames (
        name VARCHAR PRIMARY KEY
 );
 
 CREATE TABLE tags (
-       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       certname VARCHAR REFERENCES certnames(name) ON DELETE CASCADE,
        name VARCHAR NOT NULL,
-       PRIMARY KEY (host, name)
+       PRIMARY KEY (certname, name)
 );
 
 CREATE TABLE classes (
-       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       certname VARCHAR REFERENCES certnames(name) ON DELETE CASCADE,
        name VARCHAR NOT NULL,
-       PRIMARY KEY (host, name)
+       PRIMARY KEY (certname, name)
 );
 
 CREATE TABLE resources (
@@ -26,10 +26,10 @@ CREATE TABLE resources (
 -- To handle searches on resource type
 CREATE INDEX idx_resources_type ON resources(type);
 
-CREATE TABLE host_resources (
-       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+CREATE TABLE certname_resources (
+       certname VARCHAR REFERENCES certnames(name) ON DELETE CASCADE,
        resource VARCHAR(40) REFERENCES resources(hash) ON DELETE CASCADE,
-       PRIMARY KEY (host, resource)
+       PRIMARY KEY (certname, resource)
 );
 
 CREATE TABLE resource_params (
@@ -43,9 +43,9 @@ CREATE TABLE resource_params (
 CREATE INDEX idx_resource_params_resource ON resource_params(resource);
 
 CREATE TABLE edges (
-       host VARCHAR REFERENCES hosts(name) ON DELETE CASCADE,
+       certname VARCHAR REFERENCES certnames(name) ON DELETE CASCADE,
        source VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
        target VARCHAR REFERENCES resources(hash) ON DELETE CASCADE,
        type VARCHAR NOT NULL,
-       PRIMARY KEY (host, source, target, type)
+       PRIMARY KEY (certname, source, target, type)
 );
