@@ -10,7 +10,7 @@
 ;; TODO: externalize this into a configuration file
 (def *db* {:classname "com.postgresql.Driver"
            :subprotocol "postgresql"
-           :subname "//localhost:5432/cmdb3"})
+           :subname "//localhost:5432/cmdb"})
 
 (defn catalog-seq
   "Lazy sequence of parsed catalogs loaded from .json files in 'dirname'"
