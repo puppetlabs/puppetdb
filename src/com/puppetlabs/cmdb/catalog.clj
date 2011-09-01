@@ -40,7 +40,7 @@
 ;;         {:type       "..."
 ;;          :title      "..."
 ;;          :...        "..."
-;;          :tags       ["tag1", "tag2", ...]
+;;          :tags       #{"tag1", "tag2", ...}
 ;;          :parameters {"name1" "value1"
 ;;                       "name2" "value2"
 ;;                       ...}}
