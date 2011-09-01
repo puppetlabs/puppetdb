@@ -88,6 +88,11 @@
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
 
+(def CMDB-VERSION
+  ^{:doc "Constant representing the current version number of the CMDB
+  catalog format"}
+  (Integer. 1))
+
 ;; ## Utiltity functions
 
 (defn resource-spec-to-map
@@ -308,6 +313,7 @@
   (-> (wire-catalog "data")
       (keys-to-keywords)
       (dissoc :name)
+      (assoc :cmdb-version CMDB-VERSION)
       (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
       (assoc :host (get-in wire-catalog ["data" "name"]))
       (assoc :version (get-in wire-catalog ["data" "version"]))))

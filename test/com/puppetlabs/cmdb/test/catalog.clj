@@ -113,7 +113,7 @@
 (facts "Restructuring catalogs"
        (restructure-catalog {"data" {"name" "myhost" "version" "12345" "foo" "bar"}
                              "metadata" {"api_version" 1}})
-       => {:host "myhost" :version "12345" :api-version 1 :foo "bar"}
+       => {:host "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION}
 
        ; Non-numeric api version
        (restructure-catalog {"data" {"name" "myhost" "version" "12345"}
@@ -242,6 +242,7 @@
                                       "user" "root"
                                       "require" "File[/etc/foobar]"}}]}}
  {:host "myhost.mydomain.com"
+  :cmdb-version CMDB-VERSION
   :api-version 1
   :version 123456789
   :tags #{"class" "foobar"}
