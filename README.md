@@ -29,6 +29,12 @@ Then you can run:
 
     lein midje
 
+Documentation can be generated using `marginalia`; `lein deps` will do that.
+Then you can run the following, which spits out docs into the `docs/`
+directory:
+
+    lein marg
+
 If you want to set some JVM options, like max memory:
 
     JVM_OPTS='-Xmx2048m' lein run
