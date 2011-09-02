@@ -49,32 +49,32 @@
 (defn persist-resource!
   "Given a host and a single resource, persist that resource and its parameters"
   [host {:keys [type title hash exported parameters] :as resource}]
-  ;; Have to do this to avoid deadlock on updating "resources" and
-  ;; "resource_params" tables in the same xaction
+  ; Have to do this to avoid deadlock on updating "resources" and
+  ; "resource_params" tables in the same xaction
   (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
 
   (let [persisted? (resource-already-persisted? hash)]
 
     (when-not persisted?
-      ;; Add to resources table
+      ; Add to resources table
       (sql/insert-record :resources {:hash hash :type type :title title :exported exported})
 
-      ;; Build up a list of records for insertion
+      ; Build up a list of records for insertion
       (let [records (for [[name value] parameters]
-                      ;; I'm not sure what to do about multi-value columns.
-                      ;; I suppose that we could put them in as an array of values,
-                      ;; but then I think we'll have to call out directly to the JDBC
-                      ;; driver as most ORM layers don't support arrays (clojure.core/sql
-                      ;; included)
+                      ; I'm not sure what to do about multi-value columns.
+                      ; I suppose that we could put them in as an array of values,
+                      ; but then I think we'll have to call out directly to the JDBC
+                      ; driver as most ORM layers don't support arrays (clojure.core/sql
+                      ; included)
                       (let [value (if (coll? value)
                                     (json/generate-string value)
                                     value)]
                         {:resource hash :name name :value value}))]
 
-        ;; ...and insert them
+        ; ...and insert them
         (apply sql/insert-records :resource_params records)))
 
-    ;; Insert pointer into host => resource map
+    ; Insert pointer into host => resource map
     (sql/insert-record :host_resources {:host host :resource hash})))
 
 (defn persist-edges!
