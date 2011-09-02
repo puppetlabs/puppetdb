@@ -4,7 +4,8 @@
             [clojure.contrib.logging :as log]
             [clj-json.core :as json]
             [clojure.java.jdbc :as sql]
-            [clojure.contrib.duck-streams :as ds])
+            [clojure.contrib.duck-streams :as ds]
+            [digest])
   (:use [clojure.contrib.command-line :only (with-command-line print-help)]))
 
 ;; TODO: externalize this into a configuration file
@@ -46,14 +47,25 @@
     (let [row (first result-set)]
       (row :present))))
 
+(defn compute-hash
+  "Compute a hash for a given resource that will uniquely identify it
+  within a population."
+  [resource]
+  {:pre  [resource]
+   :post [(string? %)]}
+  (-> resource
+      (str)
+      (digest/sha-1)))
+
 (defn persist-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
-  [certname {:keys [type title hash exported parameters] :as resource}]
+  [certname {:keys [type title exported parameters] :as resource}]
   ;; Have to do this to avoid deadlock on updating "resources" and
   ;; "resource_params" tables in the same xaction
   (sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
 
-  (let [persisted? (resource-already-persisted? hash)]
+  (let [hash       (compute-hash resource)
+        persisted? (resource-already-persisted? hash)]
 
     (when-not persisted?
       ; Add to resources table
@@ -88,8 +100,8 @@ For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
 then we'll lookup a resource with that key and use its hash."
   [certname edges resources]
   (let [rows  (for [{:keys [source target relationship]} edges
-                    :let [source-hash (get-in resources [source :hash])
-                          target-hash (get-in resources [target :hash])
+                    :let [source-hash (compute-hash (resources source))
+                          target-hash (compute-hash (resources target))
                           type        (name relationship)]]
                 {:certname certname :source source-hash :target target-hash :type type})]
     (apply sql/insert-records :edges rows)))
