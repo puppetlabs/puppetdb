@@ -40,7 +40,7 @@
 ;;         {:type       "..."
 ;;          :title      "..."
 ;;          :...        "..."
-;;          :tags       ["tag1", "tag2", ...]
+;;          :tags       #{"tag1", "tag2", ...}
 ;;          :parameters {"name1" "value1"
 ;;                       "name2" "value2"
 ;;                       ...}}
@@ -69,7 +69,7 @@
 ;;   A wire-format-neutral representation of a Puppet catalog. It is a
 ;;   map with the following structure:
 ;;
-;;         {:host        "..."
+;;         {:certname    "..."
 ;;          :api-version "..."
 ;;          :version     "..."
 ;;          :classes     #("class1", "class2", ...)
@@ -87,6 +87,11 @@
             [clojure.contrib.duck-streams :as ds]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
+
+(def CMDB-VERSION
+  ^{:doc "Constant representing the current version number of the CMDB
+  catalog format"}
+  (Integer. 1))
 
 ;; ## Utiltity functions
 
@@ -302,14 +307,15 @@
   [wire-catalog]
   {:pre  [(map? wire-catalog)]
    :post [(map? %)
-          (:host %)
+          (:certname %)
           (number? (:api-version %))
           (:version %)]}
   (-> (wire-catalog "data")
       (keys-to-keywords)
       (dissoc :name)
+      (assoc :cmdb-version CMDB-VERSION)
       (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
-      (assoc :host (get-in wire-catalog ["data" "name"]))
+      (assoc :certname (get-in wire-catalog ["data" "name"]))
       (assoc :version (get-in wire-catalog ["data" "version"]))))
 
 (defn parse-from-json-obj

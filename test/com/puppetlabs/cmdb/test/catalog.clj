@@ -48,14 +48,18 @@
   [before after]
   (let [b (parse-from-json-obj before)
         a after]
-    (facts (:host b) => (:host a)
+    ; To make it easier to pinpoint the source of errors, we test
+    ; individual components of the catalog first, then finally test
+    ; equality of the entire catalo0g
+    (facts (:certname b) => (:certname a)
            (:version b) => (:version a)
            (:api-version b) => (:api-version a)
            (:tags b) => (:tags a)
            (:classes b) => (:classes a)
            (:edges b) => (:edges a)
            (:edges b) => (:edges a)
-           (:resources b) => (:resources a))))
+           (:resources b) => (:resources a)
+           b => a)))
 
 ;;
 ;; And now, tests...
@@ -113,7 +117,7 @@
 (facts "Restructuring catalogs"
        (restructure-catalog {"data" {"name" "myhost" "version" "12345" "foo" "bar"}
                              "metadata" {"api_version" 1}})
-       => {:host "myhost" :version "12345" :api-version 1 :foo "bar"}
+       => {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION}
 
        ; Non-numeric api version
        (restructure-catalog {"data" {"name" "myhost" "version" "12345"}
@@ -241,7 +245,8 @@
                                       "group" "root"
                                       "user" "root"
                                       "require" "File[/etc/foobar]"}}]}}
- {:host "myhost.mydomain.com"
+ {:certname "myhost.mydomain.com"
+  :cmdb-version CMDB-VERSION
   :api-version 1
   :version 123456789
   :tags #{"class" "foobar"}
