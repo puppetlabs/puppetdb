@@ -56,6 +56,8 @@ In addition to the custom parameters, resources query is a paged query, so respe
 The `query` parameter is a JSON encoded array representing the structured query, representing the following structure:
 
     query: [ {type} {query}+ ] | [ {match} {field} {value} ]
+    field:  string | [ string+ ]
+    value:  string
     type:   "or" | "and" | "not"
     match:  "="
 
@@ -83,36 +85,6 @@ The match operator behaviours are defined:
 `=`
 : Exact string equality of the field and the value.
 
-#### Examples
+#### Returned Data Format
 
-    GET /resources/exported?query=["=","tag","hello"]
-    
-    {
-      "uri": "/resources/exported?query=[\"=\",%20\"tag\",%20\"hello\"]",
-      // this is the only page of data
-      "pages": {},
-      "total": 2,
-      "offset": 0,
-      "order": "+title",
-      "data": [
-        {
-          "uri": "/resource/banana",
-          "type": "File",
-          "title": "banana",
-          "exported": true,
-          "parameters": {
-            "ensure": "present"
-          }
-        },
-        {
-          "uri": "/resource/herring",
-          "type": "Exec",
-          "title": "herring",
-          "exported": false,
-          "parameters": {
-            "command": ["/usr/bin/herring"],
-            "user":    "fred"
-          }
-        }
-      ]
-    }
+An array of zero or more resource objects.  This is the entire set of objects found matching the query.
