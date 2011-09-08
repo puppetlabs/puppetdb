@@ -1,7 +1,6 @@
 (ns com.puppetlabs.cmdb.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
-            [clojure.contrib.logging :as log]
-            [clj-json.core :as json]
+            [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [digest]))
 
@@ -60,12 +59,10 @@
 (defn persist-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
   [certname {:keys [type title exported parameters tags] :as resource}]
-  ;; Have to do this to avoid deadlock on updating "resources" and
-  ;; "resource_params" tables in the same xaction
-  ;(sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
 
   (let [hash       (compute-hash resource)
-        persisted? (resource-already-persisted? hash)]
+        persisted? (resource-already-persisted? hash)
+        connection (sql/find-connection)]
 
     (when-not persisted?
       ; Add to resources table
@@ -73,15 +70,18 @@
 
       ; Build up a list of records for insertion
       (let [records (for [[name value] parameters]
-                      ; I'm not sure what to do about multi-value columns.
-                      ; I suppose that we could put them in as an array of values,
-                      ; but then I think we'll have to call out directly to the JDBC
-                      ; driver as most ORM layers don't support arrays (clojure.core/sql
-                      ; included)
-                      (let [value (if (coll? value)
-                                    (json/generate-string value)
-                                    value)]
-                        {:resource hash :name name :value value}))]
+                      ; Parameter values are represented as database
+                      ; arrays (even single parameter values). This is
+                      ; done to handle multi-valued parameters. As you
+                      ; can't have a database array that contains
+                      ; multiple types of values, we convert all
+                      ; parameter values to strings.
+                      (let [value-array (->> value
+                                            (utils/as-collection)
+                                            (map str)
+                                            (into-array)
+                                            (.createArrayOf connection "varchar"))]
+                        {:resource hash :name name :value value-array}))]
 
         ; ...and insert them
         (apply sql/insert-records :resource_params records))

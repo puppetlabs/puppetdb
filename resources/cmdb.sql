@@ -37,7 +37,7 @@ CREATE TABLE certname_resources (
 CREATE TABLE resource_params (
        resource VARCHAR(40) REFERENCES resources(hash) ON DELETE CASCADE,
        name VARCHAR NOT NULL,
-       value VARCHAR NOT NULL,
+       value VARCHAR ARRAY NOT NULL,
        PRIMARY KEY (resource, name)
 );
 
