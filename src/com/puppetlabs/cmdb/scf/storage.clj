@@ -7,8 +7,10 @@
 
 (defn persist-certname!
   "Given a certname, persist it in the db"
-  [certname]
-  (sql/insert-record :certnames {:name certname}))
+  [certname api-version catalog-version]
+  (sql/insert-record :certnames {:name certname
+                                 :api_version api-version
+                                 :catalog_version catalog-version}))
 
 (defn persist-classes!
   "Given a certname and a list of classes, persist them in the db"
@@ -57,7 +59,7 @@
 
 (defn persist-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
-  [certname {:keys [type title exported parameters] :as resource}]
+  [certname {:keys [type title exported parameters tags] :as resource}]
   ;; Have to do this to avoid deadlock on updating "resources" and
   ;; "resource_params" tables in the same xaction
   ;(sql/do-commands "LOCK TABLE resources IN EXCLUSIVE MODE")
@@ -107,10 +109,10 @@ then we'll lookup a resource with that key and use its hash."
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
   [catalog]
-  (let [{:keys [certname resources classes edges tags]} catalog]
+  (let [{:keys [certname api-version version resources classes edges tags]} catalog]
 
     (sql/transaction
-     (persist-certname! certname)
+     (persist-certname! certname api-version version)
      (persist-classes! certname classes)
      (persist-tags! certname tags)
      (doseq [resource (vals resources)]

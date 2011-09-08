@@ -1,5 +1,7 @@
 CREATE TABLE certnames (
-       name VARCHAR PRIMARY KEY
+       name VARCHAR PRIMARY KEY,
+       api_version INT NOT NULL,
+       catalog_version VARCHAR NOT NULL
 );
 
 CREATE TABLE tags (
