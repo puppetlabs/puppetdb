@@ -84,7 +84,11 @@
                         {:resource hash :name name :value value}))]
 
         ; ...and insert them
-        (apply sql/insert-records :resource_params records)))
+        (apply sql/insert-records :resource_params records))
+
+      ; Add rows for each of the resource's tags
+      (let [records (for [tag tags] {:resource hash :name tag})]
+        (apply sql/insert-records :resource_tags records)))
 
     ;; Insert pointer into certname => resource map
     (sql/insert-record :certname_resources {:certname certname :resource hash})))

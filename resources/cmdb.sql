@@ -41,6 +41,12 @@ CREATE TABLE resource_params (
        PRIMARY KEY (resource, name)
 );
 
+CREATE TABLE resource_tags (
+       resource VARCHAR(40) REFERENCES resources(hash) ON DELETE CASCADE,
+       name VARCHAR NOT NULL,
+       PRIMARY KEY (resource, name)
+);
+
 -- To handle joins to the resources table
 CREATE INDEX idx_resource_params_resource ON resource_params(resource);
 
