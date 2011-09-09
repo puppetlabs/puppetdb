@@ -7,6 +7,7 @@
 (defn persist-certname!
   "Given a certname, persist it in the db"
   [certname api-version catalog-version]
+  {:pre [certname api-version catalog-version]}
   (sql/insert-record :certnames {:name certname
                                  :api_version api-version
                                  :catalog_version catalog-version}))
@@ -14,6 +15,8 @@
 (defn persist-classes!
   "Given a certname and a list of classes, persist them in the db"
   [certname classes]
+  {:pre [certname
+         (coll? classes)]}
   (let [default-row {:certname certname}
         classes     (map #(assoc default-row :name %) classes)]
     (apply sql/insert-records :classes classes)))
@@ -21,6 +24,8 @@
 (defn persist-tags!
   "Given a certname and a list of tags, persist them in the db"
   [certname tags]
+  {:pre [certname
+         (coll? tags)]}
   (let [default-row {:certname certname}
         tags        (map #(assoc default-row :name %) tags)]
     (apply sql/insert-records :tags tags)))
@@ -28,6 +33,7 @@
 (defn resource-already-persisted?
   "Returns a boolean indicating whether or not the given resource exists in the db"
   [hash]
+  {:pre [hash]}
   (sql/with-query-results result-set
     ["SELECT EXISTS(SELECT 1 FROM resources WHERE hash=?) as present" hash]
     (let [row (first result-set)]
@@ -59,6 +65,7 @@
 (defn persist-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
   [certname {:keys [type title exported parameters tags] :as resource}]
+  {:pre [(every? string? #{type title})]}
 
   (let [hash       (compute-hash resource)
         persisted? (resource-already-persisted? hash)
@@ -103,6 +110,9 @@ resource's hash for persistence purposes.
 For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
 then we'll lookup a resource with that key and use its hash."
   [certname edges resources]
+  {:pre [certname
+         (coll? edges)
+         (map? resources)]}
   (let [rows  (for [{:keys [source target relationship]} edges
                     :let [source-hash (compute-hash (resources source))
                           target-hash (compute-hash (resources target))
@@ -112,13 +122,16 @@ then we'll lookup a resource with that key and use its hash."
 
 (defn persist-catalog!
   "Persist the supplied catalog in the database"
-  [catalog]
-  (let [{:keys [certname api-version version resources classes edges tags]} catalog]
+  [{:keys [certname api-version version resources classes edges tags] :as catalog}]
+  {:pre [(every? string? #{certname})
+         (number? api-version)
+         (every? coll? #{classes tags edges})
+         (map? resources)]}
 
-    (sql/transaction
-     (persist-certname! certname api-version version)
-     (persist-classes! certname classes)
-     (persist-tags! certname tags)
-     (doseq [resource (vals resources)]
-       (persist-resource! certname resource))
-     (persist-edges! certname edges resources))))
+  (sql/transaction
+   (persist-certname! certname api-version version)
+   (persist-classes! certname classes)
+   (persist-tags! certname tags)
+   (doseq [resource (vals resources)]
+     (persist-resource! certname resource))
+   (persist-edges! certname edges resources)))
