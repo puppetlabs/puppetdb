@@ -4,6 +4,96 @@
             [clojure.java.jdbc :as sql]
             [digest]))
 
+(defmulti sql-array-type-string
+  "Returns a string representing the correct way to declare an array
+  of the supplied base database type."
+  ; Dispatch based on type of DB connection at the time of call
+  (fn [_] (class (sql/find-connection))))
+
+(defmulti to-jdbc-varchar-array
+  "Takes the supplied collection and transforms it into a
+  JDBC-appropriate VARCHAR array."
+  ; Dispatch based on type of DB connection at the time of call
+  (fn [_] (class (sql/find-connection))))
+
+(defmethod sql-array-type-string org.postgresql.PGConnection
+  [basetype]
+  (format "%s ARRAY" basetype))
+
+(defmethod to-jdbc-varchar-array org.postgresql.PGConnection
+  [coll]
+  (let [connection (sql/find-connection)]
+    (->> coll
+         (into-array Object)
+         (.createArrayOf connection "varchar"))))
+
+(defmethod sql-array-type-string org.h2.jdbc.JdbcConnection
+  [_]
+  "ARRAY")
+
+(defmethod to-jdbc-varchar-array org.h2.jdbc.JdbcConnection
+  [coll]
+  (let [connection (sql/find-connection)]
+    (->> coll
+         (into-array Object))))
+
+(defn initialize-store
+  "Create initial database state"
+  []
+  (sql/create-table :certnames
+                    ["name" "VARCHAR" "PRIMARY KEY"]
+                    ["api_version" "INT" "NOT NULL"]
+                    ["catalog_version" "VARCHAR" "NOT NULL"])
+
+  (sql/create-table :tags
+                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["name" "VARCHAR" "NOT NULL"]
+                    ["PRIMARY KEY (certname, name)"])
+
+  (sql/create-table :classes
+                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["name" "VARCHAR" "NOT NULL"]
+                    ["PRIMARY KEY (certname, name)"])
+
+  (sql/create-table :resources
+                    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+                    ["type" "VARCHAR" "NOT NULL"]
+                    ["title" "VARCHAR" "NOT NULL"]
+                    ["exported" "BOOLEAN" "NOT NULL"]
+                                        ; file?
+                                        ; line?
+                    )
+
+  (sql/create-table :certname_resources
+                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["PRIMARY KEY (certname, resource)"])
+
+  (sql/create-table :resource_params
+                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["name" "VARCHAR" "NOT NULL"]
+                    ["value" (sql-array-type-string "VARCHAR") "NOT NULL"]
+                    ["PRIMARY KEY (resource, name)"])
+
+  (sql/create-table :resource_tags
+                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["name" "VARCHAR" "NOT NULL"]
+                    ["PRIMARY KEY (resource, name)"])
+
+  (sql/create-table :edges
+                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["source" "VARCHAR" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["target" "VARCHAR" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["type" "VARCHAR" "NOT NULL"]
+                    ["PRIMARY KEY (certname, source, target, type)"])
+
+  (sql/do-commands
+   "CREATE INDEX idx_resources_type ON resources(type)")
+
+  (sql/do-commands
+   "CREATE INDEX idx_resources_params_resource ON resource_params(resource)"))
+
+
 (defn persist-certname!
   "Given a certname, persist it in the db"
   [certname api-version catalog-version]
@@ -51,7 +141,7 @@
   both the resource as a whole as well as any nested collections it
   contains."
   [resource]
-  {:pre  [resource]
+  {:pre  [(map? resource)]
    :post [(string? %)]}
   (-> ; Sort the entire resource map
       (into (sorted-map) resource)
@@ -86,8 +176,7 @@
                       (let [value-array (->> value
                                             (utils/as-collection)
                                             (map str)
-                                            (into-array)
-                                            (.createArrayOf connection "varchar"))]
+                                            (to-jdbc-varchar-array))]
                         {:resource hash :name name :value value-array}))]
 
         ; ...and insert them

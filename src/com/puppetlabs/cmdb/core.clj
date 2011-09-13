@@ -12,6 +12,10 @@
            :subprotocol "postgresql"
            :subname "//localhost:5432/cmdb"})
 
+(def *db* {:classname "org.h2.Driver"
+           :subprotocol "h2"
+           :subname "mem:cmdb;DB_CLOSE_DELAY=-1"})
+
 (defn catalog-seq
   "Lazy sequence of parsed catalogs loaded from .json files in 'dirname'"
   [dirname]
@@ -19,14 +23,11 @@
     (log/info (format "%d files total to parse" (count files)))
     (filter #(not (nil? %)) (pmap cat/parse-from-json-file files))))
 
-(defn initialize-store
-  "Eventually code that initializes the DB will go here"
-  [])
 
 (defn -main
   [& args]
   (sql/with-connection *db*
-    (initialize-store))
+    (scf-store/initialize-store))
   (log/info "Generating and storing catalogs...")
   (let [catalogs       (catalog-seq "/Users/deepak/Desktop/temp")
         handle-catalog (fn [catalog]
