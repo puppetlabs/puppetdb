@@ -211,7 +211,7 @@
    "require"   {:direction :reverse :relationship :required-by}})
 
 (defn build-dependencies-for-resource
-  "Given a resource, return a list of dependency specifications
+  "Given a resource, return a lazy seq of dependency specifications
   applicable to that resource.
 
   This will include relationships extracted from dependency-signifying
