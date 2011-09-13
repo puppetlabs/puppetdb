@@ -1,7 +1,7 @@
 (ns com.puppetlabs.cmdb.test.catalog
-  (:use [com.puppetlabs.cmdb.catalog])
-  (:use [clojure.test]
-        [midje.sweet]))
+  (:use [com.puppetlabs.cmdb.catalog]
+        [clojure.test]
+        [midje.checkers :only [contains]]))
 
 ;;
 ;; Helper functions (TODO: move these into a test utils namespace?)
@@ -51,175 +51,195 @@
     ; To make it easier to pinpoint the source of errors, we test
     ; individual components of the catalog first, then finally test
     ; equality of the entire catalo0g
-    (facts (:certname b) => (:certname a)
-           (:version b) => (:version a)
-           (:api-version b) => (:api-version a)
-           (:tags b) => (:tags a)
-           (:classes b) => (:classes a)
-           (:edges b) => (:edges a)
-           (:edges b) => (:edges a)
-           (:resources b) => (:resources a)
-           b => a)))
+    (is (= (:certname b) (:certname a)))
+    (is (= (:version b) (:version a)))
+    (is (= (:api-version b) (:api-version a)))
+    (is (= (:tags b) (:tags a)))
+    (is (= (:classes b) (:classes a)))
+    (is (= (:edges b) (:edges a)))
+    (is (= (:edges b) (:edges a)))
+    (is (= (:resources b) (:resources a)))
+    (is (= b a))))
 
 ;;
 ;; And now, tests...
 ;;
 
-(facts "Parsing resource strings"
-       (resource-spec-to-map "Class[Foo]") => {:type "Class" :title "Foo"}
-       (resource-spec-to-map "Class[Foo") => (throws AssertionError)
-       (resource-spec-to-map "ClassFoo]") => (throws AssertionError)
-       (resource-spec-to-map "ClassFoo") => (throws AssertionError)
-       (resource-spec-to-map "Class[F[oo]]") => {:type "Class" :title "F[oo]"}
-       (resource-spec-to-map nil) => (throws AssertionError))
+(deftest parsing-resource-string
+  (testing "Resource string parsing"
+    (testing "should error on bad input"
+      (is (thrown? AssertionError (resource-spec-to-map "Class[Foo")))
+      (is (thrown? AssertionError (resource-spec-to-map "ClassFoo]")))
+      (is (thrown? AssertionError (resource-spec-to-map "ClassFoo")))
+      (is (thrown? AssertionError (resource-spec-to-map nil))))
 
-(facts "Changing string-based maps to keyword-based"
-       (keys-to-keywords {"foo" 1 "bar" 2}) => {:foo 1 :bar 2}
-       (keys-to-keywords {"foo" 1 :bar 2}) => {:foo 1 :bar 2}
-       (keys-to-keywords {:foo 1 :bar 2}) => {:foo 1 :bar 2}
-       (keys-to-keywords {}) => {}
-       (keys-to-keywords nil) => (throws AssertionError)
-       (keys-to-keywords []) => (throws AssertionError))
+    (testing "should correctly parse well-formed input"
+      (is (= (resource-spec-to-map "Class[Foo]")
+             {:type "Class" :title "Foo"}))
+      (is (= (resource-spec-to-map "Class[F[oo]]")
+             {:type "Class" :title "F[oo]"})))))
 
-(facts "Containment edge normalization"
-       (normalize-containment-edges {:edges []}) => {:edges #{}}
-       (normalize-containment-edges {:edges []}) => {:edges #{}}
+(deftest keywordification
+  (testing "Changing string-based maps to keyword-based"
+    (testing "should error on bad input"
+      (is (thrown? AssertionError (keys-to-keywords nil)))
+      (is (thrown? AssertionError (keys-to-keywords []))))
 
-       ; Malformed edges
-       (normalize-containment-edges {:edges nil}) => (throws AssertionError)
-       (normalize-containment-edges {:edges [{"source" "foo"}]}) => (throws AssertionError)
-       (normalize-containment-edges {:edges [{"source" "foo" "target" "bar"}]}) => (throws AssertionError)
-       (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "bar"}]}) => (throws AssertionError)
-       (normalize-containment-edges {:edges [{"source" nil "target" "bar"}]}) => (throws AssertionError)
-       (normalize-containment-edges {:edges [{"source" "Class[foo]" "meh" "Class[bar]"}]}) => (throws AssertionError)
+    (testing "should work for the base case"
+      (is (= (keys-to-keywords {}) {})))
 
-       ; Well-formed edges
-       (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}]})
-       => {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}}
+    (testing "should work for a variety of maps"
+      (is (= (keys-to-keywords {"foo" 1 "bar" 2})
+             {:foo 1 :bar 2}))
+      (is (= (keys-to-keywords {"foo" 1 :bar 2})
+             {:foo 1 :bar 2}))
+      (is (= (keys-to-keywords {:foo 1 :bar 2})
+             {:foo 1 :bar 2}))
+      (is (= (keys-to-keywords {})
+             {})))))
 
-       ; Multiple edges should work
-       (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
-                                             {"source" "Class[baz]" "target" "Class[goo]"}]})
-       => {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}
-                    {:source {:type "Class" :title "baz"} :target {:type "Class" :title "goo"} :relationship :contains}}}
+(deftest edge-normalization
+  (testing "Containment edge normalization"
+    (testing "should work for the base case"
+      (is (= (normalize-containment-edges {:edges []}) {:edges #{}})))
 
-       ; Squash duplicates
-       (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
-                                             {"source" "Class[foo]" "target" "Class[bar]"}]})
-       => {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}}
+    (testing "should error on bad input"
+      (is (thrown? AssertionError (normalize-containment-edges {:edges nil})))
+      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "foo"}]})))
+      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "foo" "target" "bar"}]})))
+      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "bar"}]})))
+      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" nil "target" "bar"}]})))
+      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "Class[foo]" "meh" "Class[bar]"}]}))))
 
-       ; Resources get created for things that have edges, but aren't listed in the :resources list
-       (:resources
-        (add-resources-for-edges {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}
-                                  :resources []}))
-       => (contains [{:type "Class" :title "foo" :exported false} {:type "Class" :title "bar" :exported false}] :in-any-order))
+    (testing "should work for well-formed edges"
+      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}]})
+             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
 
-(facts "Restructuring catalogs"
-       (restructure-catalog {"data" {"name" "myhost" "version" "12345" "foo" "bar"}
-                             "metadata" {"api_version" 1}})
-       => {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION}
+    (testing "should work for multiple edges"
+      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
+                                                   {"source" "Class[baz]" "target" "Class[goo]"}]})
+             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}
+                       {:source {:type "Class" :title "baz"} :target {:type "Class" :title "goo"} :relationship :contains}}})))
 
-       ; Non-numeric api version
-       (restructure-catalog {"data" {"name" "myhost" "version" "12345"}
-                             "metadata" {"api_version" "123"}})
-       => (throws AssertionError)
+    (testing "should squash duplicates"
+      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
+                                                   {"source" "Class[foo]" "target" "Class[bar]"}]})
+             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
 
-       ; Missing "data" key
-       (restructure-catalog {"name" "myhost" "version" "12345"
-                             "metadata" {"api_version" "123"}})
-       => (throws AssertionError)
 
-       (restructure-catalog {}) => (throws AssertionError)
-       (restructure-catalog nil) => (throws AssertionError)
-       (restructure-catalog []) => (throws AssertionError))
+    (testing "should create resources for things that have edges, but aren't listed in the :resources list"
+      (is (contains (:resources
+                     (add-resources-for-edges {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}
+                                               :resources []}))
+                    [{:type "Class" :title "foo" :exported false} {:type "Class" :title "bar" :exported false}] :in-any-order)))))
 
-(facts "Dependency normalization for a resource"
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" "Class[Bar]"}}))
-       => (just [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}])
+(deftest catalog-restructuring
+  (testing "Restructuring catalogs"
+    (testing "should work on well-formed input"
+      (is (= (restructure-catalog {"data" {"name" "myhost" "version" "12345" "foo" "bar"}
+                                   "metadata" {"api_version" 1}})
+             {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION})))
 
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"require" "Class[Bar]"}}))
-       => (just [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :required-by}])
+    (testing "should error on malformed input"
+      (is (thrown? AssertionError (restructure-catalog {})))
+      (is (thrown? AssertionError (restructure-catalog nil)))
+      (is (thrown? AssertionError (restructure-catalog [])))
 
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"subscribe" "Class[Bar]"}}))
-       => (just [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :subscription-of}])
+      (testing "like non-numeric api versions"
+        (is (thrown? AssertionError (restructure-catalog {"data" {"name" "myhost" "version" "12345"}
+                                                          "metadata" {"api_version" "123"}}))))
 
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "Class[Bar]"}}))
-       => (just [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :notifies}])
+      (testing "like a missing 'data' key"
+        (is (thrown? AssertionError (restructure-catalog {"name" "myhost" "version" "12345"
+                                                          "metadata" {"api_version" "123"}})))))))
 
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo"))
-       => []
 
-       ; Handle multi-valued attributes
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" ["Class[Bar]", "Class[Goo]"]}}))
-       => (just [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}
-                 {:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Goo"} :relationship :before}])
+(deftest dependency-normalization
+  (testing "Dependency normalization for a resource"
+    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" "Class[Bar]"}}))
+           [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}]))
 
-       ; Malformed parameters
-       (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "meh"}}))
-       => (throws AssertionError))
+    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"require" "Class[Bar]"}}))
+           [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :required-by}]))
 
-(let [; Synthesize some fake resources
-      catalog {:resources [{"type"       "File"
-                            "title"      "/etc/foobar"
-                            "exported"   false
-                            "line"       1234
-                            "file"       "/tmp/foobar.pp"
-                            "tags"       ["class" "foobar"]
-                            "parameters" {"ensure" "present"
-                                          "user"   "root"
-                                          "group"  "root"
-                                          "source" "puppet:///foobar/foo/bar"}}]}]
+    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"subscribe" "Class[Bar]"}}))
+           [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :subscription-of}]))
 
-  (facts "Resource keywords"
-         (keywordify-resources catalog)
-         =>
-         {:resources [{:type       "File"
-                       :title      "/etc/foobar"
-                       :exported   false
-                       :line       1234
-                       :file       "/tmp/foobar.pp"
-                       :tags       #{"class" "foobar"}
-                       :parameters {"ensure" "present"
-                                    "user"   "root"
-                                    "group"  "root"
-                                    "source" "puppet:///foobar/foo/bar"}}]})
+    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "Class[Bar]"}}))
+           [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :notifies}]))
 
-  (facts "Resource key extraction"
-         (-> catalog
-             (keywordify-resources)
-             (mapify-resources))
-         =>
-         {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
-                                                           :title      "/etc/foobar"
-                                                           :exported   false
-                                                           :line       1234
-                                                           :file       "/tmp/foobar.pp"
-                                                           :tags       #{"class" "foobar"}
-                                                           :parameters {"ensure" "present"
-                                                                        "user"   "root"
-                                                                        "group"  "root"
-                                                                        "source" "puppet:///foobar/foo/bar"}}}})
+    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo"))
+           []))
+
+    (testing "should handle multi-valued attributes"
+      (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" ["Class[Bar]", "Class[Goo]"]}}))
+             [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}
+              {:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Goo"} :relationship :before}])))
+
+    (testing "should error on bad input"
+      ; Must force eval using "vec", as we otherwise get back a lazy seq
+      (is (thrown? AssertionError (vec (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "meh"}}))))))))
+
+(deftest catalog-normalization
+  (let [; Synthesize some fake resources
+        catalog {:resources [{"type"       "File"
+                              "title"      "/etc/foobar"
+                              "exported"   false
+                              "line"       1234
+                              "file"       "/tmp/foobar.pp"
+                              "tags"       ["class" "foobar"]
+                              "parameters" {"ensure" "present"
+                                            "user"   "root"
+                                            "group"  "root"
+                                            "source" "puppet:///foobar/foo/bar"}}]}]
+
+    (testing "Resource keywords"
+      (is (= (keywordify-resources catalog)
+             {:resources [{:type       "File"
+                           :title      "/etc/foobar"
+                           :exported   false
+                           :line       1234
+                           :file       "/tmp/foobar.pp"
+                           :tags       #{"class" "foobar"}
+                           :parameters {"ensure" "present"
+                                        "user"   "root"
+                                        "group"  "root"
+                                        "source" "puppet:///foobar/foo/bar"}}]})))
+
+    (testing "Resource key extraction"
+         (is (= (-> catalog
+                    (keywordify-resources)
+                    (mapify-resources))
+                {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
+                                                                  :title      "/etc/foobar"
+                                                                  :exported   false
+                                                                  :line       1234
+                                                                  :file       "/tmp/foobar.pp"
+                                                                  :tags       #{"class" "foobar"}
+                                                                  :parameters {"ensure" "present"
+                                                                               "user"   "root"
+                                                                               "group"  "root"
+                                                                               "source" "puppet:///foobar/foo/bar"}}}})))
 
   (let [resources (:resources catalog)
         new-resources (conj resources (first resources))
         catalog (assoc catalog :resources new-resources)]
-    (facts "Duplicate resources should throw error"
-           (-> catalog
-               (keywordify-resources)
-               (mapify-resources))
-           =>
-           (throws AssertionError)))
+    (testing "Duplicate resources should throw error"
+      (is (thrown? AssertionError
+                   (-> catalog
+                       (keywordify-resources)
+                       (mapify-resources))))))
 
   (let [normalize #(-> %
                        (keywordify-resources)
                        (mapify-resources))]
-    (facts "Resource normalization edge case handling"
-           ; nil resources aren't allowed
-           (normalize {:resources nil}) => (throws AssertionError)
-           ; missing resources aren't allowed
-           (normalize {}) => (throws AssertionError)
-           ; pre-created resource maps aren't allow
-           (normalize {:resources {}}) => (throws AssertionError))))
+    (testing "Resource normalization edge case handling"
+      ; nil resources aren't allowed
+      (is (thrown? AssertionError (normalize {:resources nil})))
+      ; missing resources aren't allowed
+      (is (thrown? AssertionError (normalize {})))
+      ; pre-created resource maps aren't allow
+      (is (thrown? AssertionError (normalize {:resources {}})))))))
 
 
 (catalog-before-and-after
