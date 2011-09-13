@@ -16,3 +16,14 @@ as the second arg."
      (if (coll? item)
        item
        (constructor item))))
+
+(defn mapvals
+  "Return map `m`, with each value transformed by function `f`"
+  [f m]
+  (into {} (concat (for [[k v] m]
+                     [k (f v)]))))
+
+(defn array?
+  "Returns true if `x` is an array"
+  [x]
+  (.isArray (class x)))

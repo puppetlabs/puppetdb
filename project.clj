@@ -4,8 +4,9 @@
                  [org.clojure/clojure-contrib "1.2.0"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  [org.clojure/java.jdbc "0.0.6"]
-                 [clj-json "0.3.2"]
+                 [clj-json "0.4.0"]
                  [digest "1.2.1"]
+                 [com.h2database/h2 "1.3.159"]
                  [log4j "1.2.16" :exclusions [javax.mail/mail
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
