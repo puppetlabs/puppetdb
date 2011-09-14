@@ -3,6 +3,7 @@
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojure/data.json "0.1.1"]
+                 [org.clojure/core.incubator "0.1.0"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  [org.clojure/java.jdbc "0.0.6"]
                  [digest "1.2.1"]

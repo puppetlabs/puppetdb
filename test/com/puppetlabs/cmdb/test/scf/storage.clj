@@ -74,6 +74,8 @@
                                {:type "File" :title "/etc/foobar"} {:type       "File"
                                                                     :title      "/etc/foobar"
                                                                     :exported   false
+                                                                    :file       "/tmp/foo"
+                                                                    :line       10
                                                                     :tags       #{"file" "class" "foobar"}
                                                                     :parameters {"ensure" "directory"
                                                                                  "group"  "root"
@@ -81,6 +83,8 @@
                                {:type "File" :title "/etc/foobar/baz"} {:type       "File"
                                                                         :title      "/etc/foobar/baz"
                                                                         :exported   false
+                                                                        :file       "/tmp/bar"
+                                                                        :line       20
                                                                         :tags       #{"file" "class" "foobar"}
                                                                         :parameters {"ensure"  "directory"
                                                                                      "group"   "root"
@@ -113,10 +117,10 @@
                   {:stype "File" :stitle "/etc/foobar" :ttype "File" :ttitle "/etc/foobar/baz" :etype "required-by"}])))
 
         (testing "should contain a complete resources list"
-          (is (= (query-to-vec ["SELECT type, title, exported FROM resources ORDER BY type, title"])
-                 [{:type "Class" :title "foobar" :exported false}
-                  {:type "File" :title "/etc/foobar" :exported false}
-                  {:type "File" :title "/etc/foobar/baz" :exported false}]))
+          (is (= (query-to-vec ["SELECT type, title, exported, sourcefile, sourceline FROM resources ORDER BY type, title"])
+                 [{:type "Class" :title "foobar" :exported false :sourcefile nil :sourceline nil}
+                  {:type "File" :title "/etc/foobar" :exported false :sourcefile "/tmp/foo" :sourceline 10}
+                  {:type "File" :title "/etc/foobar/baz" :exported false :sourcefile "/tmp/bar" :sourceline 20}]))
 
           (testing "properly associated with the host"
             (is (= (query-to-vec ["SELECT cr.certname, r.type, r.title, r.exported FROM resources r, certname_resources cr WHERE cr.resource=r.hash ORDER BY r.type, r.title"])
