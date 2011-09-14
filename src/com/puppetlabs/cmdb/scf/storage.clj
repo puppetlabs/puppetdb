@@ -60,9 +60,8 @@
                     ["type" "VARCHAR" "NOT NULL"]
                     ["title" "VARCHAR" "NOT NULL"]
                     ["exported" "BOOLEAN" "NOT NULL"]
-                                        ; file?
-                                        ; line?
-                    )
+                    ["sourcefile" "VARCHAR"]
+                    ["sourceline" "INT"])
 
   (sql/create-table :certname_resources
                     ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
@@ -154,7 +153,7 @@
 
 (defn persist-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
-  [certname {:keys [type title exported parameters tags] :as resource}]
+  [certname {:keys [type title exported parameters tags file line] :as resource}]
   {:pre [(every? string? #{type title})]}
 
   (let [hash       (compute-hash resource)
@@ -163,7 +162,7 @@
 
     (when-not persisted?
       ; Add to resources table
-      (sql/insert-record :resources {:hash hash :type type :title title :exported exported})
+      (sql/insert-record :resources {:hash hash :type type :title title :exported exported :sourcefile file :sourceline line})
 
       ; Build up a list of records for insertion
       (let [records (for [[name value] parameters]
