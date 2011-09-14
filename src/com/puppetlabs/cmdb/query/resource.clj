@@ -3,7 +3,8 @@
             [clj-json.core :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
-  (:use [clothesline.protocol.test-helpers :only [annotated-return]]
+  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
+        [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
 
 (def
@@ -46,12 +47,57 @@ input queries can make it through to the rest of the system."
       true)                             ; unable to parse => invalid
     false))                             ; no query => valid
 
+(defn query->sql-where
+  "Compile the vector-structured query into a seq containing the SQL \"WHERE\"
+clause and all the parameters it will consume, in order."
+  ([query]
+     (query->sql-where query []))
+  ([query params]
+     {:pre  [(sequential? query) (sequential? params)]}
+     (condp get (string/lower-case (first query))
+       ;; joining stuff together
+       #{"and" "or"}
+       (let [terms (rest query)]
+         (if (= 1 (count terms))
+           ;; a single term degenerates to just the term.
+           (query->sql-where (first terms))
+           (let [terms-  (map query->sql-where (rest query))
+                 sql-    (map first terms-)
+                 op      (str " " (string/upper-case (first query)) " ")
+                 sql     (string/join op sql-)
+                 params  (reduce concat (map rest terms-))]
+             (apply (partial vector sql) params))))
+       ;; negation - *none* of the terms match.
+       #{"not"}
+       (let [terms      (rest query)
+             n          (count terms)
+             [sql & p]  (query->sql-where (concat ["or"] terms))
+             sql        (if (= 1 n) sql (str "(" sql ")"))]
+         (apply (partial vector (str "NOT " sql)) p))
+       ;; comparison expressions, all having the same format.
+       #{"="}
+       (let [[op path value] query
+             sql (str "(" (if (sequential? path) (string/join "." path) path) " = ?)")]
+         [sql value]))))
+
+(defn query->sql
+  "Compile a vector-structured query into an SQL expression.
+An empty query gathers all resources."
+  [query]
+  (if (nil? query)
+    "SELECT * FROM resources"
+    (let [[where & params] (query->sql-where query [])
+          query (str "SELECT * FROM resources WHERE " where " ORDER BY type, title")]
+      (apply (partial vector query) params))))
 
 (defn resource-list-as-json
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  "REVISIT: Not implemented")
+  (json/generate-string
+   (query-to-vec
+    (query->sql (:query graphdata)))))
+
 
 (defhandler resource-list-handler
   :allowed-methods        (constantly #{:get})
