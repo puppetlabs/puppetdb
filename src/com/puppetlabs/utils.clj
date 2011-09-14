@@ -1,4 +1,5 @@
-(ns com.puppetlabs.utils)
+(ns com.puppetlabs.utils
+  (:use [clojure.core.incubator :as incubator]))
 
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
@@ -26,4 +27,6 @@ as the second arg."
 (defn array?
   "Returns true if `x` is an array"
   [x]
-  (.isArray (class x)))
+  (incubator/-?> x
+                 (class)
+                 (.isArray)))
