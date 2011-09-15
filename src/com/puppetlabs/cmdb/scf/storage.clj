@@ -1,8 +1,9 @@
 (ns com.puppetlabs.cmdb.scf.storage
-  (:import (com.jolbox.bonecp BoneCP BoneCPConfig))
+  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig))
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
+            [clojure.contrib.logging :as log]
             [digest]))
 
 ;;;; REVISIT: This needs to source the configuration data from somewhere more
@@ -17,35 +18,45 @@
 
 
 
-;;;; SQL Storage abstraction and management.
+;;;; SQL Storage abstraction and management.  These methods allow us to
+;;;; abstract behaviour over multiple connection types.
+(defn sql-current-connection-database-name
+  "Return the database product name currently in use."
+  []
+  (.. (sql/find-connection)
+      (getMetaData)
+      (getDatabaseProductName)))
+
 (defmulti sql-array-type-string
   "Returns a string representing the correct way to declare an array
   of the supplied base database type."
-  ; Dispatch based on type of DB connection at the time of call
-  (fn [_] (class (sql/find-connection))))
+  ;; Dispatch based on databsae from the metadata of DB connection at the time
+  ;; of call; this copes gracefully with multiple connection types.
+  (fn [_] (sql-current-connection-database-name)))
 
 (defmulti to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
   ; Dispatch based on type of DB connection at the time of call
-  (fn [_] (class (sql/find-connection))))
+  (fn [_] (sql-current-connection-database-name)))
 
-(defmethod sql-array-type-string org.postgresql.PGConnection
+
+(defmethod sql-array-type-string "PostgreSQL"
   [basetype]
   (format "%s ARRAY" basetype))
 
-(defmethod to-jdbc-varchar-array org.postgresql.PGConnection
+(defmethod to-jdbc-varchar-array "PostgreSQL"
   [coll]
   (let [connection (sql/find-connection)]
     (->> coll
          (into-array Object)
          (.createArrayOf connection "varchar"))))
 
-(defmethod sql-array-type-string org.h2.jdbc.JdbcConnection
+(defmethod sql-array-type-string "H2"
   [_]
   "ARRAY")
 
-(defmethod to-jdbc-varchar-array org.h2.jdbc.JdbcConnection
+(defmethod to-jdbc-varchar-array "H2"
   [coll]
   (let [connection (sql/find-connection)]
     (->> coll
@@ -256,8 +267,10 @@ then we'll lookup a resource with that key and use its hash."
 BoneCP is internally thread-safe, so no internal locking is required.
 
 The global is initialized during servlet setup, and will be torn down
-again during servlet destruction."}
-  *bonecp*)
+again during servlet destruction."
+       :dynamic true
+       :tag BoneCPDataSource}
+  *bonecp* nil)
 
 (defn- new-connection-pool-instance
   "Create a new connection pool for the SCF database, configured appropriately,
@@ -278,26 +291,27 @@ and return it."
     (when username (.setUsername config username))
     (when password (.setPassword config password))
     ;; ...aaand, create the pool.
-    (BoneCP. config)))
+    (BoneCPDataSource. config)))
 
 (defn- replace-bonecp
   "Replace the current BoneCP var root instance, shutting down the
 previous instance, if any.  For use with `alter-var-root'."
-  [new old]
-  (when old (.shutdown old))
-  new)
+  [new]
+  (log/debug (format "Replacing %s with %s" *bonecp* new))
+  (alter-var-root (var *bonecp*) (fn [old]
+                                   (when old (.close old))
+                                   new)))
 
 (defn initialize-connection-pool
   "Initialize the connection pool with a new object.  This will shut down
 any existing connection pool."
   []
-  (alter-var-root (var *bonecp*)
-                  (partial replace-bonecp (new-connection-pool-instance *db*))))
+  (replace-bonecp (new-connection-pool-instance *db*)))
 
 (defn shutdown-connection-pool
   "Shut down the current connection pool entirely."
   []
-  (alter-var-root (var *bonecp*) (partial replace-bonecp nil)))
+  (replace-bonecp nil))
 
 (defmacro with-scf-connection
   "Run enclosed forms with an SQL connection established to the SCF
@@ -307,5 +321,5 @@ retry and life-cycle for the connection.
 The database handle is only valid for the dynamic scope of the call,
 so nothing should be returned that is bound to database results."
   [& forms]
-  `(sql/with-connection (.getConnection *bonecp*)
+  `(sql/with-connection {:datasource *bonecp*}
      ~@forms))
