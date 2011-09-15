@@ -1,5 +1,6 @@
 (ns com.puppetlabs.cmdb.query
   (:require [clojure.contrib.logging :as log]
+            [clojure.data.json :as json]
             clothesline.core
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             com.puppetlabs.cmdb.query.resource))

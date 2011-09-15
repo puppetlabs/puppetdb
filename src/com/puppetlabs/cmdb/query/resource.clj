@@ -1,6 +1,6 @@
 (ns com.puppetlabs.cmdb.query.resource
   (:require [clojure.contrib.logging :as log]
-            [clj-json.core :as json]
+            [clojure.data.json :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -43,7 +43,7 @@ graphdata with the compiled data structure.  This ensures that only valid
 input queries can make it through to the rest of the system."
   [_ {:keys [params] :as request} _]
   (if-let [raw-query (get params "query")]
-    (if-let [query (json/parse-string raw-query)]
+    (if-let [query (json/read-json raw-query)]
       (annotated-return (not (valid-query? query)) {:annotate {:query query}})
       true)                             ; unable to parse => invalid
     false))                             ; no query => valid
@@ -95,10 +95,10 @@ An empty query gathers all resources."
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  (json/generate-string
-   (with-scf-connection
-     (query-to-vec
-      (query->sql (:query graphdata))))))
+  (let [query (query->sql (:query graphdata))] ; keep connection hold times low.
+    (json/json-str
+     (with-scf-connection
+       (query-to-vec query)))))
 
 
 (defhandler resource-list-handler

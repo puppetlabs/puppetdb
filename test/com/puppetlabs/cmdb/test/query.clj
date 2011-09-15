@@ -1,6 +1,6 @@
 (ns com.puppetlabs.cmdb.test.query
   (:require [com.puppetlabs.cmdb.query :as query]
-            [clj-json.core :as json]
+            [clojure.data.json :as json]
             ring.mock.request)
   (:use [clojure.test]))
 
