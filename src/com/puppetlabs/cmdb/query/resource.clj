@@ -4,6 +4,7 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection]]
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
 
@@ -95,8 +96,9 @@ An empty query gathers all resources."
 JSON array, and returning them as the body of the request."
   [request graphdata]
   (json/generate-string
-   (query-to-vec
-    (query->sql (:query graphdata)))))
+   (with-scf-connection
+     (query-to-vec
+      (query->sql (:query graphdata))))))
 
 
 (defhandler resource-list-handler

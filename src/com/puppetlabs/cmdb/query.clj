@@ -4,6 +4,8 @@
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             com.puppetlabs.cmdb.query.resource))
 
+;;;; Database connection pool and configuration.
+
 ;;;; Ring Handler and servlet lifecycle.
 ;;;;
 ;;;; The `ring-init` and `ring-destroy` hooks handle the initialization and
@@ -16,12 +18,16 @@
   "One-time initialization when the CMDB Query servlet is loaded into
 the container."
   []
-  (log/info "Initializing CMDB Query servlet"))
+  (log/info "Initializing CMDB Query servlet")
+  (scf-storage/initialize-connection-pool)
+  (scf-storage/with-scf-connection
+    (scf-storage/initialize-store)))
 
 (defn ring-destroy
   "One-time cleanup when the CMDB Query servlet is stopped by the container."
   []
-  (log/info "Destroying CMDB Query servlet"))
+  (log/info "Destroying CMDB Query servlet")
+  (scf-storage/shutdown-connection-pool))
 
 (def
   ^{:doc "CMDB Query Ring handler entry-point.  This maps the top level namespace from

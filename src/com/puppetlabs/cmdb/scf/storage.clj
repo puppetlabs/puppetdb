@@ -1,9 +1,23 @@
 (ns com.puppetlabs.cmdb.scf.storage
+  (:import (com.jolbox.bonecp BoneCP BoneCPConfig))
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [digest]))
 
+;;;; REVISIT: This needs to source the configuration data from somewhere more
+;;;; useful than hard-coded content inline to the code.  Especially stolen
+;;;; configuration from the core.clj, duplicated again. --daniel 2011-09-14
+(def ^{:doc "The query database configuration details for SCF database."
+       :private true
+       :dynamic true}
+  *db* {:classname "org.h2.Driver"
+        :subprotocol "h2"
+        :subname "mem:cmdb;DB_CLOSE_DELAY=-1"})
+
+
+
+;;;; SQL Storage abstraction and management.
 (defmulti sql-array-type-string
   "Returns a string representing the correct way to declare an array
   of the supplied base database type."
@@ -37,6 +51,12 @@
     (->> coll
          (into-array Object))))
 
+
+;;; Wrap up the functionality of populating the initial database state.
+;;;
+;;; In the longer term this should be replaced with some sort of migration-
+;;; style database management library, or some other model that supports
+;;; upgrades in the field nicely, but this will do for now.
 (defn initialize-store
   "Create initial database state"
   []
@@ -223,3 +243,69 @@ then we'll lookup a resource with that key and use its hash."
    (doseq [resource (vals resources)]
      (persist-resource! certname resource))
    (persist-edges! certname edges resources)))
+
+
+
+;;;; Database connection-pool management and connectivity.
+;;;;
+;;;; BoneCP is used to provide a pool of connections shared between threads.
+;;;; In addition to basic connection access, it provides tracks statements
+;;;; issued during a transaction and will automatically reconnect, and replay
+;;;; the statements, if the connection is dropped during activity.
+(def ^{:doc "The query database connection pool singleton object.
+BoneCP is internally thread-safe, so no internal locking is required.
+
+The global is initialized during servlet setup, and will be torn down
+again during servlet destruction."}
+  *bonecp*)
+
+(defn- new-connection-pool-instance
+  "Create a new connection pool for the SCF database, configured appropriately,
+and return it."
+  [{:keys [subprotocol subname username password] :as db}]
+  (let [config (doto (new BoneCPConfig)
+                 ;; constants
+                 (.setDefaultAutoCommit false)
+                 (.setLazyInit true)
+                 ;; configurable with default
+                 (.setStatisticsEnabled (get db :stats true))
+                 (.setMinConnectionsPerPartition (get db :partition-conn-min 1))
+                 (.setMaxConnectionsPerPartition (get db :partition-conn-max 10))
+                 (.setPartitionCount (get db :partition-count 5))
+                 ;; paste the URL back together from parts.
+                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
+    ;; configurable without default
+    (when username (.setUsername config username))
+    (when password (.setPassword config password))
+    ;; ...aaand, create the pool.
+    (BoneCP. config)))
+
+(defn- replace-bonecp
+  "Replace the current BoneCP var root instance, shutting down the
+previous instance, if any.  For use with `alter-var-root'."
+  [new old]
+  (when old (.shutdown old))
+  new)
+
+(defn initialize-connection-pool
+  "Initialize the connection pool with a new object.  This will shut down
+any existing connection pool."
+  []
+  (alter-var-root (var *bonecp*)
+                  (partial replace-bonecp (new-connection-pool-instance *db*))))
+
+(defn shutdown-connection-pool
+  "Shut down the current connection pool entirely."
+  []
+  (alter-var-root (var *bonecp*) (partial replace-bonecp nil)))
+
+(defmacro with-scf-connection
+  "Run enclosed forms with an SQL connection established to the SCF
+storage database.  This will transparently manage connection failure
+retry and life-cycle for the connection.
+
+The database handle is only valid for the dynamic scope of the call,
+so nothing should be returned that is bound to database results."
+  [& forms]
+  `(sql/with-connection (.getConnection *bonecp*)
+     ~@forms))
