@@ -1,23 +1,15 @@
 (ns com.puppetlabs.cmdb.test.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.utils :as utils]
             [com.puppetlabs.cmdb.test.catalog :as testcat]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.cmdb.scf.storage]
-        [clojure.test]))
+        [clojure.test]
+        [com.puppetlabs.jdbc :only [query-to-vec]]))
 
 (def *db* {:classname "org.h2.Driver"
            :subprotocol "h2"
            :subname "mem:cmdb-storagetest"})
 
-(defn query-to-vec
-  [sql-query-and-params]
-  (sql/with-query-results result-set
-    sql-query-and-params
-    (let [arrays-to-vecs #(if (utils/array? %) (vec %) %)]
-      (->> result-set
-           (map #(utils/mapvals arrays-to-vecs %))
-           (vec)))))
 
 (deftest hash-computation
   (testing "Hashes for resources"
