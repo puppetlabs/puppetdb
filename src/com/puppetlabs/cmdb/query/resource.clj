@@ -5,6 +5,7 @@
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection]]
+        [clojure.core.match.core :only [match]]
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
 
@@ -48,57 +49,32 @@ input queries can make it through to the rest of the system."
       true)                             ; unable to parse => invalid
     false))                             ; no query => valid
 
-(defn query->sql-where
-  "Compile the vector-structured query into a seq containing the SQL \"WHERE\"
-clause and all the parameters it will consume, in order."
-  ([query]
-     (query->sql-where query []))
-  ([query params]
-     {:pre  [(sequential? query) (sequential? params)]}
-     (condp get (string/lower-case (first query))
-       ;; joining stuff together
-       #{"and" "or"}
-       (let [terms (rest query)]
-         (if (= 1 (count terms))
-           ;; a single term degenerates to just the term.
-           (query->sql-where (first terms))
-           (let [terms-  (map query->sql-where (rest query))
-                 sql-    (map first terms-)
-                 op      (str " " (string/upper-case (first query)) " ")
-                 sql     (string/join op sql-)
-                 params  (reduce concat (map rest terms-))]
-             (apply (partial vector sql) params))))
-       ;; negation - *none* of the terms match.
-       #{"not"}
-       (let [terms      (rest query)
-             n          (count terms)
-             [sql & p]  (query->sql-where (concat ["or"] terms))
-             sql        (if (= 1 n) sql (str "(" sql ")"))]
-         (apply (partial vector (str "NOT " sql)) p))
-       ;; comparison expressions, all having the same format.
-       #{"="}
-       (let [[op path value] query
-             sql (str "(" (if (sequential? path) (string/join "." path) path) " = ?)")]
-         [sql value]))))
+
+(defmulti compile-query->sql
+  "Recursively compile a query into a collection of SQL operations"
+  #(string/lower-case (first %)))
 
 (defn query->sql
   "Compile a vector-structured query into an SQL expression.
 An empty query gathers all resources."
   [query]
   (if (nil? query)
-    "SELECT * FROM resources"
-    (let [[where & params] (query->sql-where query [])
-          query (str "SELECT * FROM resources WHERE " where " ORDER BY type, title")]
-      (apply (partial vector query) params))))
+    "SELECT hash FROM resources ORDER BY type, title"
+    (compile-query->sql query)))
+
 
 (defn resource-list-as-json
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  (let [query (query->sql (:query graphdata))] ; keep connection hold times low.
+  (let [resources (map #(:hash %) (with-scf-connection
+                                    (query-to-vec
+                                     (query->sql (:query graphdata)))))]
     (json/json-str
-     (with-scf-connection
-       (query-to-vec query)))))
+     (vec
+      (pmap #(with-scf-connection
+               (first (query-to-vec "SELECT * FROM resources WHERE hash = ?" %)))
+            resources)))))
 
 
 (defhandler resource-list-handler
@@ -106,3 +82,59 @@ JSON array, and returning them as the body of the request."
   :malformed-request?     malformed-request?
   :resource-exists?       (constantly true)
   :content-types-provided (constantly {resource-list-c-t resource-list-as-json}))
+
+
+
+
+
+
+
+;;;; The SQL query compiler implementation.
+(defmethod compile-query->sql "="
+  [[op path value]]
+  (let [sql (match [path]
+                   ;; tag join.
+                   ["tag"]
+                   [(str "JOIN resource_tags ON resources.hash = resource_tags.resource "
+                         "WHERE resource_tags.name = ?")
+                    value]
+                   ;; node join.
+                   [["node" (field :when string?)]]
+                   [(str "JOIN certname_resources "
+                         "ON certname_resources.resource = resources.hash "
+                         "WHERE certname_resources.certname = ?")
+                    value]
+                   ;; param joins.
+                   [["parameter" (name :when string?)]]
+                   [(str "JOIN resource_params "
+                         "ON resource_params.resource = resources.hash "
+                         "WHERE "
+                         "resource_params.name = ? AND "
+                         "resource_params.value = ?")
+                    name value]
+                   ;; simple string match.
+                   [(name :when string?)]
+                   [(str "WHERE " name " = ?") value])]
+    (assoc sql 0 (str "(SELECT DISTINCT hash FROM resources " (first sql) ")"))))
+
+(defn- handle-join-terms
+  "Join a set of queries together with some operation; the individual
+queries (of which there must be at least one) are joined safely."
+  [op terms]
+  (when (not (pos? (count terms)))
+    (throw (IllegalArgumentException. "REVISIT: boom!")))
+  (let [terms  (map compile-query->sql terms)
+        sql    (str "(" (string/join (str " " op " ") (map first terms)) ")")
+        params (reduce concat (map rest terms))]
+    (apply (partial vector sql) params)))
+
+(defmethod compile-query->sql "and"
+  [[op & terms]] (handle-join-terms "INTERSECT" terms))
+(defmethod compile-query->sql "or"
+  [[op & terms]] (handle-join-terms "UNION" terms))
+
+(defmethod compile-query->sql "not"
+  [[op & terms]]
+  (let [terms (query->sql (apply (partial vector "or") terms))]
+    (assoc terms 0
+           (str "(SELECT DISTINCT hash FROM resources EXCEPT " (first terms) ")"))))
