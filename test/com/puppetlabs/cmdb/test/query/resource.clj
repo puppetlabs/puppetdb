@@ -1,10 +1,14 @@
 (ns com.puppetlabs.cmdb.test.query.resource
   (:require [com.puppetlabs.cmdb.query.resource :as s]
+            [com.puppetlabs.cmdb.query :as query]
             [clojure.data.json :as json]
+            [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             ring.middleware.params)
   (:use clojure.test
-        ring.mock.request))
+        ring.mock.request
+        [clojure.contrib.duck-streams :only (read-lines)]
+        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection]]))
 
 ;;;; Test the resource listing handlers.
 (def *handler* s/resource-list-handler)
@@ -189,3 +193,97 @@
                       ")"
                       ")")))
       (is (= params ["example.local" true "ensure" "yellow"])))))
+
+
+;; now, for some end-to-end testing with a database...
+(deftest query-resources
+  (query/ring-init)                     ; connect to the database
+  (with-scf-connection
+    (sql/insert-records
+     :resources
+     {:hash "1" :type "File"   :title "/etc/passwd"   :exported true}
+     {:hash "2" :type "Notify" :title "hello"         :exported true}
+     {:hash "3" :type "Notify" :title "no-params"     :exported true}
+     {:hash "4" :type "File"   :title "/etc/Makefile" :exported false}
+     {:hash "5" :type "Notify" :title "booyah"        :exported false}
+     {:hash "6" :type "Mval"   :title "multivalue"    :exported false})
+    (sql/insert-records
+     :resource_params
+     {:resource "1" :name "ensure"  :value "file"}
+     {:resource "1" :name "owner"   :value "root"}
+     {:resource "1" :name "group"   :value "root"}
+     {:resource "2" :name "random"  :value "true"}
+     ;; resource 3 deliberately left blank
+     {:resource "4" :name "ensure"  :value "present"}
+     {:resource "4" :name "content" :value "#!/usr/bin/make\nall:\n\techo done\n"}
+     {:resource "5" :name "random"  :value "false"}
+     {:resource "6" :name "multi"   :value ["one" "two" "three"]})
+    (sql/insert-records
+     :certnames
+     {:name "example.local" :api_version 1 :catalog_version "12"}
+     {:name "subset.local"  :api_version 1 :catalog_version "14"})
+    (doseq [n (range 1 7)]
+      (sql/insert-record :certname_resources
+                         {:certname "example.local" :resource (str n)}))
+    (doseq [n [1 3 5]]
+      (sql/insert-record :certname_resources
+                         {:certname "subset.local" :resource (str n)}))
+    ;; structure the results, eh.
+    (let [result1 {:hash      "1"
+                   :type       "File"
+                   :title      "/etc/passwd"
+                   :exported   true
+                   :sourcefile nil
+                   :sourceline nil
+                   :parameters {"ensure" ["file"]
+                                "owner"  ["root"]
+                                "group"  ["root"]}}
+          result2 {:hash       "2"
+                   :type       "Notify"
+                   :title      "hello"
+                   :exported   true
+                   :sourcefile nil
+                   :sourceline nil
+                   :parameters {"random" ["true"]}}
+          result3 {:hash       "3"
+                   :type       "Notify"
+                   :title      "no-params"
+                   :exported   true
+                   :sourcefile nil
+                   :sourceline nil}
+          result4 {:hash       "4"
+                   :type       "File"
+                   :title      "/etc/Makefile"
+                   :exported   false
+                   :sourcefile nil
+                   :sourceline nil
+                   :parameters {"ensure"  ["present"]
+                                "content" ["#!/usr/bin/make\nall:\n\techo done\n"]}}
+          result5 {:hash       "5"
+                   :type       "Notify"
+                   :title      "booyah"
+                   :exported   false
+                   :sourcefile nil
+                   :sourceline nil
+                   :parameters {"random" "false"}}
+          result6 {:hash       "6"
+                   :type       "Mval"
+                   :title      "multivalue"
+                   :exported   false
+                   :sourcefile nil
+                   :sourceline nil
+                   :parameters {"multi" ["one" "two" "three"]}}]
+      ;; ...and, finally, ready for testing.
+      (testing "trivial queries"
+        ;; no match
+        (is (= (s/query-resources ["=" "type" "Banana"]) []))
+        (is (= (s/query-resources ["=" "tag"  "exotic"]) []))
+        (is (= (s/query-resources ["=" ["parameter" "foo"] "bar"]) []))
+        (is (= (s/query-resources ["=" ["node" "certname"] "bar"]) []))
+        ;; ...and with an actual match.
+        (is (= (s/query-resources ["=" "type" "File"]) [result1 result4]))
+        (is (= (s/query-resources ["=" "exported" true]) [result1 result2 result3]))
+        (is (= (s/query-resources ["=" ["parameter" "ensure"] "file"]) [result1]))
+        ;; multi-value parameter matching!
+        (is (= (s/query-resources ["=" ["parameter" "multi"] "two"]) [result6])))
+      )))

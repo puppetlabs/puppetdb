@@ -1,5 +1,6 @@
 (ns com.puppetlabs.cmdb.query.resource
-  (:require [clojure.contrib.logging :as log]
+  (:require [com.puppetlabs.utils :as utils]
+            [clojure.contrib.logging :as log]
             [clojure.data.json :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
@@ -62,19 +63,43 @@ An empty query gathers all resources."
     "SELECT hash FROM resources ORDER BY type, title"
     (compile-query->sql query)))
 
+(defn query-resources
+  "Take a vector-structured query, and return a vector of resources
+and their parameters which match."
+  [query]
+  ;; REVISIT: ARGH!  So, Java *HATES* the 'IN' operation, and can't do
+  ;; anything useful to fill in more than one value in it.  Options are to
+  ;; use a subselect, or to manually generate the template with enough
+  ;; substitution points to fill out each entry in `hashes`.
+  ;;
+  ;; This *bites*.  How about a wrapper, eh?  Let us try subselect for now,
+  ;; and move to ClojureQL if that turns out to be hard. --daniel 2011-09-19
+  (let [[sql & args] (query->sql query)
+        resources (future
+                    (let [select (partial query-to-vec
+                                          (str "SELECT * FROM resources "
+                                               "WHERE hash IN (" sql ")"))]
+                      (with-scf-connection
+                        (apply select args))))
+        params (future
+                 (let [select (partial query-to-vec
+                                       (str "SELECT * FROM resource_params "
+                                            "WHERE resource IN (" sql ")"))]
+                   (with-scf-connection
+                     (utils/mapvals
+                      (partial reduce #(assoc %1 (:name %2) (:value %2)) {})
+                      (group-by :resource (apply select args))))))]
+    (vec (map #(if-let [params (get @params (:hash %1))]
+                 (assoc %1 :parameters params)
+                 %1)
+              @resources))))
+
 
 (defn resource-list-as-json
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  (let [resources (map #(:hash %) (with-scf-connection
-                                    (query-to-vec
-                                     (query->sql (:query graphdata)))))]
-    (json/json-str
-     (vec
-      (pmap #(with-scf-connection
-               (first (query-to-vec "SELECT * FROM resources WHERE hash = ?" %)))
-            resources)))))
+  (json/json-str (vec (query-resources (:query graphdata)))))
 
 
 (defhandler resource-list-handler
