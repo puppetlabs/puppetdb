@@ -1,5 +1,6 @@
 (ns com.puppetlabs.cmdb.scf.storage
-  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig))
+  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
+           (java.util.concurrent TimeUnit))
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
@@ -14,7 +15,8 @@
        :dynamic true}
   *db* {:classname "org.h2.Driver"
         :subprotocol "h2"
-        :subname "mem:cmdb;DB_CLOSE_DELAY=-1"})
+        :subname "mem:cmdb;DB_CLOSE_DELAY=-1"
+        :log-statements true})
 
 
 
@@ -275,21 +277,29 @@ again during servlet destruction."
 (defn- new-connection-pool-instance
   "Create a new connection pool for the SCF database, configured appropriately,
 and return it."
-  [{:keys [subprotocol subname username password] :as db}]
+  [{:keys [subprotocol subname username password
+           partition-conn-min partition-conn-max partition-count
+           stats log-statements log-slow-statements]
+    :or {partition-conn-min 1
+         partition-conn-max 10
+         partition-count    5
+         stats              true}
+    :as db}]
   (let [config (doto (new BoneCPConfig)
-                 ;; constants
                  (.setDefaultAutoCommit false)
                  (.setLazyInit true)
-                 ;; configurable with default
-                 (.setStatisticsEnabled (get db :stats true))
-                 (.setMinConnectionsPerPartition (get db :partition-conn-min 1))
-                 (.setMaxConnectionsPerPartition (get db :partition-conn-max 10))
-                 (.setPartitionCount (get db :partition-count 5))
+                 (.setMinConnectionsPerPartition partition-conn-min)
+                 (.setMaxConnectionsPerPartition partition-conn-max)
+                 (.setPartitionCount partition-count)
+                 (.setStatisticsEnabled stats)
                  ;; paste the URL back together from parts.
                  (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))
+    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (when log-slow-statements
+      (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
     ;; ...aaand, create the pool.
     (BoneCPDataSource. config)))
 
