@@ -8,7 +8,9 @@
   (:use clojure.test
         ring.mock.request
         [clojure.contrib.duck-streams :only (read-lines)]
-        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection]]))
+        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection
+                                                to-jdbc-varchar-array
+                                                sql-array-query-string]]))
 
 ;;;; Test the resource listing handlers.
 (def *handler* s/resource-list-handler)
@@ -109,90 +111,92 @@
 )
 
 (deftest query->sql
-  (testing "comparisons"
-    ;; simple, local attributes
-    (is (= (s/query->sql ["=" "title" "whatever"])
-           ["(SELECT DISTINCT hash FROM resources WHERE title = ?)" "whatever"]))
-    ;; with a path to the field
-    (let [[sql & params] (s/query->sql ["=" ["node" "certname"] "example"])]
-      (is (= params ["example"]))
-      (is (re-find #"JOIN certname_resources" sql))
-      (is (re-find #"WHERE certname_resources.certname = \?" sql)))
-    (let [[sql & params] (s/query->sql ["=" "tag" "foo"])]
-      (is (re-find #"SELECT DISTINCT hash FROM resources" sql))
-      (is (re-find #"JOIN resource_tags" sql))
-      (is (= params ["foo"]))))
-  (testing "order of params in grouping"
-    (let [[sql & params] (s/query->sql ["and"
-                                        ["=" "type" "foo"]
-                                        ["=" "type" "bar"]
-                                        ["=" "type" "baz"]])]
-      (is (= params ["foo" "bar" "baz"]))))
-  (let [terms [["=" "title" "one"]
-               ["=" "type" "two"]
-               ["=" "tag" "three"]
-               ["=" ["node" "certname"] "four"]
-               ["=" ["parameter" "ensure"] "five"]
-               ["=" ["parameter" "banana"] "yumm"]]]
-    (testing "simple {and, or} grouping"
-      (doall
-       (for [[op join] {"and" "INTERSECT" "or" "UNION"}
-             one terms two terms]
-         (let [[sql1 & param1] (s/query->sql one)
-               [sql2 & param2] (s/query->sql two)
-               [sql & params] (s/query->sql [op one two])]
-           (is (= sql (str "(" sql1 " " join " " sql2 ")")))
-           (is (= params (concat param1 param2)))))))
-    (testing "simple {and, or} grouping with many terms"
-      (doall
-       (for [[op join] {"and" " INTERSECT " "or" " UNION "}]
-         (let [terms-  (map s/query->sql terms)
-               sql-    (str "(" (string/join join (map first terms-)) ")")
-               params- (reduce concat (map rest terms-))
-               [sql & params] (s/query->sql (apply (partial vector op) terms))]
-           (is (= sql sql-))
-           (is (= params params-)))))))
-  (testing "negation"
-    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]])]
-      (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
-                      "((SELECT DISTINCT hash FROM resources WHERE type = ?)))")))
-      (is (= params ["foo"])))
-    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]
-                                              ["=" "title" "bar"]])]
-      (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
-                      "("
-                      "(SELECT DISTINCT hash FROM resources WHERE type = ?)"
-                      " UNION "
-                      "(SELECT DISTINCT hash FROM resources WHERE title = ?)"
-                      ")"
-                      ")")))
-      (is (= params ["foo" "bar"]))))
-  (testing "real world query"
-    (let [[sql & params]
-          (s/query->sql ["and"
-                         ["not" ["=" ["node" "certname"] "example.local"]]
-                         ["=" "exported" true]
-                         ["=" ["parameter" "ensure"] "yellow"]])]
-      (is (= sql (str "("
-                      ;; top level and not certname
-                      "(SELECT DISTINCT hash FROM resources EXCEPT ("
-                      "(SELECT DISTINCT hash FROM resources JOIN certname_resources "
-                      "ON certname_resources.resource = resources.hash "
-                      "WHERE certname_resources.certname = ?)"
-                      "))"
-                      ;; exported
-                      " INTERSECT "
-                      "(SELECT DISTINCT hash FROM resources "
-                      "WHERE exported = ?)"
-                      ;; parameter match
-                      " INTERSECT "
-                      "(SELECT DISTINCT hash FROM resources JOIN resource_params "
-                      "ON resource_params.resource = resources.hash "
-                      "WHERE resource_params.name = ? AND "
-                      "resource_params.value = ?"
-                      ")"
-                      ")")))
-      (is (= params ["example.local" true "ensure" "yellow"])))))
+  (query/ring-init)                     ; connect to the database
+  (with-scf-connection
+    (testing "comparisons"
+      ;; simple, local attributes
+      (is (= (s/query->sql ["=" "title" "whatever"])
+             ["(SELECT DISTINCT hash FROM resources WHERE title = ?)" "whatever"]))
+      ;; with a path to the field
+      (let [[sql & params] (s/query->sql ["=" ["node" "certname"] "example"])]
+        (is (= params ["example"]))
+        (is (re-find #"JOIN certname_resources" sql))
+        (is (re-find #"WHERE certname_resources.certname = \?" sql)))
+      (let [[sql & params] (s/query->sql ["=" "tag" "foo"])]
+        (is (re-find #"SELECT DISTINCT hash FROM resources" sql))
+        (is (re-find #"JOIN resource_tags" sql))
+        (is (= params ["foo"]))))
+    (testing "order of params in grouping"
+      (let [[sql & params] (s/query->sql ["and"
+                                          ["=" "type" "foo"]
+                                          ["=" "type" "bar"]
+                                          ["=" "type" "baz"]])]
+        (is (= params ["foo" "bar" "baz"]))))
+    (let [terms [["=" "title" "one"]
+                 ["=" "type" "two"]
+                 ["=" "tag" "three"]
+                 ["=" ["node" "certname"] "four"]
+                 ["=" ["parameter" "ensure"] "five"]
+                 ["=" ["parameter" "banana"] "yumm"]]]
+      (testing "simple {and, or} grouping"
+        (doall
+         (for [[op join] {"and" "INTERSECT" "or" "UNION"}
+               one terms two terms]
+           (let [[sql1 & param1] (s/query->sql one)
+                 [sql2 & param2] (s/query->sql two)
+                 [sql & params] (s/query->sql [op one two])]
+             (is (= sql (str "(" sql1 " " join " " sql2 ")")))
+             (is (= params (concat param1 param2)))))))
+      (testing "simple {and, or} grouping with many terms"
+        (doall
+         (for [[op join] {"and" " INTERSECT " "or" " UNION "}]
+           (let [terms-  (map s/query->sql terms)
+                 sql-    (str "(" (string/join join (map first terms-)) ")")
+                 params- (reduce concat (map rest terms-))
+                 [sql & params] (s/query->sql (apply (partial vector op) terms))]
+             (is (= sql sql-))
+             (is (= params params-)))))))
+    (testing "negation"
+      (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]])]
+        (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
+                        "((SELECT DISTINCT hash FROM resources WHERE type = ?)))")))
+        (is (= params ["foo"])))
+      (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]
+                                          ["=" "title" "bar"]])]
+        (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
+                        "("
+                        "(SELECT DISTINCT hash FROM resources WHERE type = ?)"
+                        " UNION "
+                        "(SELECT DISTINCT hash FROM resources WHERE title = ?)"
+                        ")"
+                        ")")))
+        (is (= params ["foo" "bar"]))))
+    (testing "real world query"
+      (let [[sql & params]
+            (s/query->sql ["and"
+                           ["not" ["=" ["node" "certname"] "example.local"]]
+                           ["=" "exported" true]
+                           ["=" ["parameter" "ensure"] "yellow"]])]
+        (is (= sql (str "("
+                        ;; top level and not certname
+                        "(SELECT DISTINCT hash FROM resources EXCEPT ("
+                        "(SELECT DISTINCT hash FROM resources JOIN certname_resources "
+                        "ON certname_resources.resource = resources.hash "
+                        "WHERE certname_resources.certname = ?)"
+                        "))"
+                        ;; exported
+                        " INTERSECT "
+                        "(SELECT DISTINCT hash FROM resources "
+                        "WHERE exported = ?)"
+                        ;; parameter match
+                        " INTERSECT "
+                        "(SELECT DISTINCT hash FROM resources JOIN resource_params "
+                        "ON resource_params.resource = resources.hash "
+                        "WHERE ? = resource_params.name AND "
+                        (sql-array-query-string "resource_params.value")
+                        ")"
+                        ")")))
+        (is (= params ["example.local" true "ensure" "yellow"]))))))
 
 
 ;; now, for some end-to-end testing with a database...
@@ -209,15 +213,15 @@
      {:hash "6" :type "Mval"   :title "multivalue"    :exported false})
     (sql/insert-records
      :resource_params
-     {:resource "1" :name "ensure"  :value "file"}
-     {:resource "1" :name "owner"   :value "root"}
-     {:resource "1" :name "group"   :value "root"}
-     {:resource "2" :name "random"  :value "true"}
+     {:resource "1" :name "ensure"  :value (to-jdbc-varchar-array ["file"])}
+     {:resource "1" :name "owner"   :value (to-jdbc-varchar-array ["root"])}
+     {:resource "1" :name "group"   :value (to-jdbc-varchar-array ["root"])}
+     {:resource "2" :name "random"  :value (to-jdbc-varchar-array ["true"])}
      ;; resource 3 deliberately left blank
-     {:resource "4" :name "ensure"  :value "present"}
-     {:resource "4" :name "content" :value "#!/usr/bin/make\nall:\n\techo done\n"}
-     {:resource "5" :name "random"  :value "false"}
-     {:resource "6" :name "multi"   :value ["one" "two" "three"]})
+     {:resource "4" :name "ensure"  :value (to-jdbc-varchar-array ["present"])}
+     {:resource "4" :name "content" :value (to-jdbc-varchar-array ["#!/usr/bin/make\nall:\n\techo done\n"])}
+     {:resource "5" :name "random"  :value (to-jdbc-varchar-array ["false"])}
+     {:resource "6" :name "multi"   :value (to-jdbc-varchar-array ["one" "two" "three"])})
     (sql/insert-records
      :certnames
      {:name "example.local" :api_version 1 :catalog_version "12"}

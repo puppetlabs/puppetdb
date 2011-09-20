@@ -18,7 +18,7 @@
                  [com.jolbox/bonecp "0.7.1.RELEASE"]
                  [org.slf4j/slf4j-log4j12 "1.5.6"]
                  [org.clojure/java.jdbc "0.0.6"]
-                 [com.h2database/h2 "1.3.159"]
+                 [org.hsqldb/hsqldb "2.2.4"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  ;; MQ connectivity
                  [clamq "0.3"]

@@ -5,7 +5,8 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection]]
+        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection
+                                                sql-array-query-string]]
         [clojure.core.match.core :only [match]]
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
@@ -84,10 +85,11 @@ and their parameters which match."
         params (future
                  (let [select (partial query-to-vec
                                        (str "SELECT * FROM resource_params "
-                                            "WHERE resource IN (" sql ")"))]
+                                            "WHERE resource IN (" sql ")"))
+                       to-vec (fn [^java.sql.Array x] (vec (.getArray x)))]
                    (with-scf-connection
                      (utils/mapvals
-                      (partial reduce #(assoc %1 (:name %2) (:value %2)) {})
+                      (partial reduce #(assoc %1 (:name %2) (to-vec (:value %2))) {})
                       (group-by :resource (apply select args))))))]
     (vec (map #(if-let [params (get @params (:hash %1))]
                  (assoc %1 :parameters params)
@@ -134,8 +136,8 @@ JSON array, and returning them as the body of the request."
                    [(str "JOIN resource_params "
                          "ON resource_params.resource = resources.hash "
                          "WHERE "
-                         "resource_params.name = ? AND "
-                         "resource_params.value = ?")
+                         "? = resource_params.name AND "
+                         (sql-array-query-string "resource_params.value"))
                     name value]
                    ;; simple string match.
                    [(name :when string?)]
