@@ -5,9 +5,11 @@
         [com.puppetlabs.cmdb.scf.storage :only [sql-array-type-string
                                                 to-jdbc-varchar-array]]))
 
-(def *db* {:classname   "org.h2.Driver"
-           :subprotocol "h2"
-           :subname     "mem:com-puppetlabs-test-jdbc"})
+(def *db* {:classname "org.hsqldb.jdbcDriver"
+           :subprotocol "hsqldb"
+           :subname     (str "mem:"
+                             (java.util.UUID/randomUUID)
+                             ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 (def test-data {"absence"    "presence"
                 "abundant"   "scarce"
@@ -35,12 +37,12 @@
   [function]
   (sql/with-connection *db*
     (sql/create-table :test
-                      [:key   "VARCHAR" "PRIMARY KEY"]
-                      [:value "VARCHAR" "NOT NULL"])
+                      [:key   "VARCHAR(256)" "PRIMARY KEY"]
+                      [:value "VARCHAR(256)" "NOT NULL"])
     (apply (partial sql/insert-values :test [:key :value]) (map identity test-data))
     (sql/create-table :arraytest
-                      [:key   "VARCHAR" "PRIMARY KEY"]
-                      [:value (sql-array-type-string "VARCHAR") "NOT NULL"])
+                      [:key   "VARCHAR(256)" "PRIMARY KEY"]
+                      [:value (sql-array-type-string "VARCHAR(256)") "NOT NULL"])
     (apply (partial sql/insert-values :arraytest [:key :value])
            (map #(vector (first %1) (to-jdbc-varchar-array (second %1))) array-test-data))
     (function)))
