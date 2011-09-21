@@ -278,22 +278,24 @@
                    :sourceline nil
                    :parameters {"multi" ["one" "two" "three"]}}]
       ;; ...and, finally, ready for testing.
-      (testing "trivial queries"
-        ;; no match
-        (is (= (s/query-resources ["=" "type" "Banana"]) []))
-        (is (= (s/query-resources ["=" "tag"  "exotic"]) []))
-        (is (= (s/query-resources ["=" ["parameter" "foo"] "bar"]) []))
-        (is (= (s/query-resources ["=" ["node" "certname"] "bar"]) []))
-        ;; ...and with an actual match.
-        (is (= (s/query-resources ["=" "type" "File"]) [result1 result4]))
-        (is (= (s/query-resources ["=" "exported" true]) [result1 result2 result3]))
-        (is (= (s/query-resources ["=" ["parameter" "ensure"] "file"]) [result1]))
-        ;; multi-value parameter matching!
-        (is (= (s/query-resources ["=" ["parameter" "multi"] "two"]) [result6]))
-        ;; and that they don't match *everything*
-        (is (= (s/query-resources ["=" ["parameter" "multi"] "five"]) []))
-        ;; testing not operations
-        (is (= (s/query-resources ["not" ["=" "type" "File"]])
-               [result2 result3 result5 result6]))
-        (is (= (s/query-resources ["not" ["=" "type" "File"] ["=" "type" "Notify"]])
-               [result6]))))))
+      (testing "queries against SQL data"
+        (doseq [[input expect]
+                {;; no match
+                 ["=" "type" "Banana"]            []
+                 ["=" "tag"  "exotic"]            []
+                 ["=" ["parameter" "foo"] "bar"]  []
+                 ["=" ["node" "certname"] "bar"]  []
+                 ;; ...and with an actual match.
+                 ["=" "type" "File"]              [result1 result4]
+                 ["=" "exported" true]            [result1 result2 result3]
+                 ["=" ["parameter" "ensure"] "file"] [result1]
+                 ;; multi-value parameter matching!
+                 ["=" ["parameter" "multi"] "two"] [result6]
+                 ;; and that they don't match *everything*
+                 ["=" ["parameter" "multi"] "five"] []
+                 ;; testing not operations
+                 ["not" ["=" "type" "File"]] [result2 result3 result5 result6]
+                 ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6]
+                 }]
+          (is (= (s/query-resources input) expect)
+              (str "  " input " =>\n  " expect)))))))
