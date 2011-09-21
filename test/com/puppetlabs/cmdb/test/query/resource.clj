@@ -269,7 +269,7 @@
                    :exported   false
                    :sourcefile nil
                    :sourceline nil
-                   :parameters {"random" "false"}}
+                   :parameters {"random" ["false"]}}
           result6 {:hash       "6"
                    :type       "Mval"
                    :title      "multivalue"
@@ -289,5 +289,11 @@
         (is (= (s/query-resources ["=" "exported" true]) [result1 result2 result3]))
         (is (= (s/query-resources ["=" ["parameter" "ensure"] "file"]) [result1]))
         ;; multi-value parameter matching!
-        (is (= (s/query-resources ["=" ["parameter" "multi"] "two"]) [result6])))
-      )))
+        (is (= (s/query-resources ["=" ["parameter" "multi"] "two"]) [result6]))
+        ;; and that they don't match *everything*
+        (is (= (s/query-resources ["=" ["parameter" "multi"] "five"]) []))
+        ;; testing not operations
+        (is (= (s/query-resources ["not" ["=" "type" "File"]])
+               [result2 result3 result5 result6]))
+        (is (= (s/query-resources ["not" ["=" "type" "File"] ["=" "type" "Notify"]])
+               [result6]))))))
