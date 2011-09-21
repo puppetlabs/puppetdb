@@ -85,11 +85,10 @@ and their parameters which match."
         params (future
                  (let [select (partial query-to-vec
                                        (str "SELECT * FROM resource_params "
-                                            "WHERE resource IN (" sql ")"))
-                       to-vec (fn [^java.sql.Array x] (vec (.getArray x)))]
+                                            "WHERE resource IN (" sql ")"))]
                    (with-scf-connection
                      (utils/mapvals
-                      (partial reduce #(assoc %1 (:name %2) (to-vec (:value %2))) {})
+                      (partial reduce #(assoc %1 (:name %2) (:value %2)) {})
                       (group-by :resource (apply select args))))))]
     (vec (map #(if-let [params (get @params (:hash %1))]
                  (assoc %1 :parameters params)
