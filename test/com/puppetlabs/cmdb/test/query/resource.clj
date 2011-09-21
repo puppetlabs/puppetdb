@@ -232,6 +232,9 @@
     (doseq [n [1 3 5]]
       (sql/insert-record :certname_resources
                          {:certname "subset.local" :resource (str n)}))
+    (sql/insert-records
+     :resource_tags
+     {:resource "4" :name "vivid"})
     ;; structure the results, eh.
     (let [result1 {:hash      "1"
                    :type       "File"
@@ -280,22 +283,45 @@
       ;; ...and, finally, ready for testing.
       (testing "queries against SQL data"
         (doseq [[input expect]
-                {;; no match
-                 ["=" "type" "Banana"]            []
-                 ["=" "tag"  "exotic"]            []
-                 ["=" ["parameter" "foo"] "bar"]  []
-                 ["=" ["node" "certname"] "bar"]  []
-                 ;; ...and with an actual match.
-                 ["=" "type" "File"]              [result1 result4]
-                 ["=" "exported" true]            [result1 result2 result3]
-                 ["=" ["parameter" "ensure"] "file"] [result1]
-                 ;; multi-value parameter matching!
-                 ["=" ["parameter" "multi"] "two"] [result6]
-                 ;; and that they don't match *everything*
-                 ["=" ["parameter" "multi"] "five"] []
-                 ;; testing not operations
-                 ["not" ["=" "type" "File"]] [result2 result3 result5 result6]
-                 ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6]
-                 }]
+                (partition
+                 2 [ ;; no match
+                    ["=" "type" "Banana"]            []
+                    ["=" "tag"  "exotic"]            []
+                    ["=" ["parameter" "foo"] "bar"]  []
+                    ["=" ["node" "certname"] "bar"]  []
+                    ;; ...and with an actual match.
+                    ["=" "type" "File"]              [result1 result4]
+                    ["=" "exported" true]            [result1 result2 result3]
+                    ["=" ["parameter" "ensure"] "file"] [result1]
+                    ["=" ["node" "certname"] "subset.local"] [result1 result3 result5]
+                    ["=" "tag" "vivid"] [result4]
+                    ;; multi-value parameter matching!
+                    ["=" ["parameter" "multi"] "two"] [result6]
+                    ;; and that they don't match *everything*
+                    ["=" ["parameter" "multi"] "five"] []
+                    ;; testing not operations
+                    ["not" ["=" "type" "File"]] [result2 result3 result5 result6]
+                    ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6]
+                    ;; and, or
+                    ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [result1]
+                    ["and" ["=" "type" "File"] ["=" "type" "Notify"]] []
+                    ["or" ["=" "type" "File"] ["=" "title" "/etc/passwd"]]
+                    [result1 result4]
+                    ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
+                    [result1 result2 result3 result4 result5]
+                    ;; nesting queries
+                    ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
+                     ["=" ["node" "certname"] "subset.local"]
+                     ["and" ["=" "exported" true]]]
+                    [result1 result3]
+                    ;; real world query (approximately; real world exported is
+                    ;; true, but for convenience around other tests we use
+                    ;; false here. :)
+                    ["and" ["=" "exported" false]
+                     ["not" ["=" ["node" "certname"] "subset.local"]]
+                     ["=" "type" "File"]
+                     ["=" "tag" "vivid"]]
+                    [result4]
+                    ])]
           (is (= (s/query-resources input) expect)
               (str "  " input " =>\n  " expect)))))))
