@@ -56,60 +56,6 @@
                          ["not" ["=" "tag" "fitzroy"]]]))))
 
 
-(comment
-(deftest query->sql-where
-  (testing "comparisons"
-    (doseq [[input expect] {;; without a path
-                            ["=" "title" "whatever"]
-                            ["(title = ?)" "whatever"]
-                            ;; with a path to the field
-                            ["=" ["node" "certname"] "example"]
-                            ["(node_certname = ?)" "example"]
-                            }]
-      (is (= (s/query->sql-where input) expect))))
-  (testing "degenerate grouping"
-    (is (= (s/query->sql-where ["and" ["=" "tag" "one"]]) ["(tag = ?)" "one"]))
-    (is (= (s/query->sql-where ["or"  ["=" "tag" "one"]]) ["(tag = ?)" "one"])))
-  (testing "grouping"
-    (doseq [[input expect] {;; simple and, or
-                            ["and" ["=" "title" "one"] ["=" "title" "two"]]
-                            ["(title = ?) AND (title = ?)" "one" "two"]
-                            ["or" ["=" "title" "one"] ["=" "title" "two"]]
-                            ["(title = ?) OR (title = ?)" "one" "two"]
-                            ;; more terms...
-                            ["and" ["=" "title" "one"]
-                                   ["=" "title" "two"]
-                                   ["=" "title" "three"]
-                                   ["=" "title" "two"]
-                                   ["=" "title" "one"]]
-                            [(str "(title = ?) AND (title = ?) AND (title = ?)"
-                                  " AND (title = ?) AND (title = ?)")
-                             "one" "two" "three" "two" "one"]
-                            }]
-      (is (= (s/query->sql-where input) expect) (str input))))
-  (testing "negation"
-    (doseq [[input expect] {;; negate one item
-                            ["not" ["=" "title" "whatever"]]
-                            ["NOT (title = ?)" "whatever"]
-                            ;; multiple items
-                            ["not" ["=" "title" "whatever"] ["=" "title" "banana"]]
-                            ["NOT ((title = ?) OR (title = ?))" "whatever" "banana"]
-                            }]
-      (is (= (s/query->sql-where input) expect) (str input))))
-  (testing "real world query"
-    (is (= (s/query->sql-where ["and"
-                                ["not" ["=" ["node" "certname"] "example.local"]]
-                                ["=" "exported" true]
-                                ["=" "tag" "yellow"]])
-           ["NOT (node_certname = ?) AND (exported = ?) AND (tag = ?)"
-            "example.local" true "yellow"])))
-  (testing "composite field formatting"
-    (is (= (s/query->sql-where ["=" ["node" "certname"] "example.local"])
-           ["(node_certname = ?)" "example.local"]))
-    (is (= (s/query->sql-where ["=" ["parameter" "ensure"] "running"])
-           ["(parameter_name = ? AND parameter_value = ?)" "ensure" "running"]))))
-)
-
 (deftest query->sql
   (query/ring-init)                     ; connect to the database
   (with-scf-connection
