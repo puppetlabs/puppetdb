@@ -19,39 +19,6 @@
 
 
 
-(deftest valid-query?
-  (testing "invalid input"
-    (doseq [input [nil "" 12 #{1 2} [nil]]]
-      (is (not (s/valid-query? input)) (str input))))
-  (testing "almost valid input"
-    (doseq [input [["="
-                    ["=" "whatever"]
-                    ["=" "a" "b" "c"]
-                    ["=" "certname" ["a" "b"]]]]]
-      (is (not (s/valid-query? input)) (str input))))
-  (testing "simple comparison"
-    (doseq [input [ ["=" "certname" "foo"]
-                    ["=" "title" "foo"]
-                    ["=" ["parameter" "ensure"] "foo"] ]]
-      (is (s/valid-query? input) (str input))))
-  (testing "combining terms"
-    (doseq [op ["and" "or" "AND" "OR"]]
-      (let [pattern [op ["=" "certname" "foo"] ["=" "certname" "bar"]]]
-        (is (s/valid-query? pattern) (str pattern)))))
-  (testing "negating terms"
-    (doseq [input [ ["=" "certname" "foo"]
-                    ["=" "title" "foo"]
-                    ["=" ["parameter" "ensure"] "foo"] ]]
-      (is (s/valid-query? ["not" input]) (str ["not" input]))))
-  (testing "real world examples"
-    (is (s/valid-query? ["and" ["not" ["=" "certname" "example.local"]]
-                         ["=" "type" "File"]
-                         ["=" "title" "/etc/passwd"]]))
-    (is (s/valid-query? ["and" ["not" ["=" "certname" "example.local"]]
-                         ["=" "type" "File"]
-                         ["not" ["=" "tag" "fitzroy"]]]))))
-
-
 (deftest query->sql
   (testing "comparisons"
     ;; simple, local attributes
@@ -261,8 +228,35 @@
                    ["=" "tag" "vivid"]]
                   [result4]
                   ])]
-        (is (= (s/query-resources input) expect)
+        (is (= (s/query-resources (s/query->sql input)) expect)
             (str "  " input " =>\n  " expect))))))
+
+
+(deftest query-resources-with-extra-FAIL
+  (testing "combine terms without arguments"
+    (doseq [op ["and" "AND" "or" "OR" "AnD" "Or" "not" "NOT" "NoT"]]
+      (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
+            (s/query-resources (s/query->sql [op]))))
+      (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
+            (s/query-resources (s/query->sql [op]))))))
+  (testing "bad query operators"
+    (doseq [in [["if"] ["-"] [{}] [["="]]]]
+      (is (thrown-with-msg? IllegalArgumentException #"No method in multimethod"
+            (s/query-resources (s/query->sql in))))))
+  (testing "wrong number of arguments to ="
+    (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
+      (is (thrown-with-msg? IllegalArgumentException
+            (re-pattern (str "operators take two arguments, but we found "
+                             (dec (count in))))
+            (s/query-resources (s/query->sql in))))))
+  (testing "bad types in input"
+    (doseq [path (list [] {} [{}] 12 true false 0.12)]
+      (doseq [input (list ["=" path "foo"]
+                          ["=" [path] "foo"]
+                          ["=" ["bar" path] "foo"])]
+        (is (thrown-with-msg? IllegalArgumentException
+              #"is not a valid query term"
+              (s/query-resources (s/query->sql input))))))))
 
 
 
@@ -290,7 +284,9 @@ to the result of the form supplied to this method."
   `(let [response# ~response]
      (is (= 200   (:status response#)))
      (is (= *c-t* (get-in response# [:headers "Content-Type"])))
-     (is (= ~body (json/read-json (:body response#)))) (str response#)))
+     (is (= ~body (if (:body response#)
+                    (json/read-json (:body response#))
+                    nil)) (str response#))))
 
 
 (deftest resource-list-handler
@@ -319,6 +315,24 @@ to the result of the form supplied to this method."
    {:resource "1" :name "one"}
    {:resource "1" :name "two"})
   (testing "query without filter"
+    (is-response-equal (get-response)
+                       [{:hash       "1"
+                         :type       "File"
+                         :title      "/etc/passwd"
+                         :exported   true
+                         :sourcefile nil
+                         :sourceline nil
+                         :parameters {:ensure ["file"]
+                                      :owner  ["root"]
+                                      :group  ["root"]
+                                      :acl    ["john:rwx" "fred:rwx"]}}
+                        {:hash       "2"
+                         :type       "Notify"
+                         :title      "hello"
+                         :exported   true
+                         :sourcefile nil
+                         :sourceline nil}]))
+  (testing "query with filter"
     (doseq [query [["=" "type" "File"]
                    ["=" "tag" "one"]
                    ["=" "tag" "two"]
@@ -336,4 +350,9 @@ to the result of the form supplied to this method."
                            :parameters {:ensure ["file"]
                                         :owner  ["root"]
                                         :group  ["root"]
-                                        :acl    ["john:rwx" "fred:rwx"]}}]))))
+                                        :acl    ["john:rwx" "fred:rwx"]}}])))
+  (testing "error handling"
+    (let [response (get-response ["="])
+          body     (json/read-json (get response :body "null"))]
+      (is (= (:status response) 400))
+      (is (re-find #"operators take two arguments" (:error body))))))

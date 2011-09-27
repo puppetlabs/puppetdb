@@ -20,38 +20,6 @@
   resource-list-c-t "application/vnd.com.puppetlabs.cmdb.resource-list+json")
 
 
-(defn valid-query?
-  "Determine if the query structure is valid or invalid."
-  [query]
-  (when (and (vector? query) (string? (first query)))
-    (condp get (string/lower-case (first query))
-      ;; negation, conjuctions, disjunctions, and related combination operations.
-      #{"not" "and" "or"}
-      (let [terms (rest query)]
-        (and (pos? (count terms)) (every? valid-query? terms)))
-      ;; comparison expressions, all having the same format.
-      #{"="}
-      (when (= 3 (count query))
-        (let [[op path value] query]
-          ;; REVISIT: This should validate the path contains valid fields, not
-          ;; just that we have strings were they should be.
-          (and (if (sequential? path) (every? string? path) (string? path))
-               (string? value))))
-      ;; ...else, fail.
-      nil)))
-
-(defn malformed-request?
-  "Validate the JSON-encoded query for this resource, and annotate the
-graphdata with the compiled data structure.  This ensures that only valid
-input queries can make it through to the rest of the system."
-  [_ {:keys [params] :as request} _]
-  (if-let [raw-query (get params "query")]
-    (if-let [query (json/read-json raw-query)]
-      (annotated-return (not (valid-query? query)) {:annotate {:query query}})
-      true)                             ; unable to parse => invalid
-    false))                             ; no query => valid
-
-
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations"
   #(string/lower-case (first %)))
@@ -60,9 +28,26 @@ input queries can make it through to the rest of the system."
   "Compile a vector-structured query into an SQL expression.
 An empty query gathers all resources."
   [query]
+  {:pre  [(or (nil? query) (vector? query))]
+   :post [(vector? %) (string? (first %))]}
   (if (nil? query)
-    "SELECT hash FROM resources ORDER BY type, title"
+    ["SELECT hash FROM resources"]
     (compile-query->sql query)))
+
+(defn malformed-request?
+  "Validate the JSON-encoded query for this resource, and annotate the
+graphdata with the compiled data structure.  This ensures that only valid
+input queries can make it through to the rest of the system."
+  [_ {:keys [params] :as request} _]
+  (try
+    (let [sql (query->sql (json/read-json (get params "query" "null")))]
+      (annotated-return false {:annotate {:query sql}}))
+    (catch Exception e
+      (annotated-return
+       true
+       {:headers  {"Content-Type" "application/json"}
+        :annotate {:body (json/json-str {:error (.getMessage e)})}}))))
+
 
 (defn query-resources
   "Take a vector-structured query, and return a vector of resources
@@ -75,7 +60,7 @@ and their parameters which match."
   ;;
   ;; This *bites*.  How about a wrapper, eh?  Let us try subselect for now,
   ;; and move to ClojureQL if that turns out to be hard. --daniel 2011-09-19
-  (let [[sql & args] (query->sql query)
+  (let [[sql & args] query
         resources (future
                     (let [select (partial query-to-vec
                                           (str "SELECT * FROM resources "
@@ -100,7 +85,7 @@ and their parameters which match."
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  (json/json-str (vec (query-resources (:query graphdata)))))
+  (json/json-str (or (vec (query-resources (:query graphdata))) [])))
 
 
 (defhandler resource-list-handler
@@ -117,7 +102,11 @@ JSON array, and returning them as the body of the request."
 
 ;;;; The SQL query compiler implementation.
 (defmethod compile-query->sql "="
-  [[op path value]]
+  [[op path value :as term]]
+  (let [count (count term)]
+    (if (not (= 3 count))
+      (throw (IllegalArgumentException.
+              (format "operators take two arguments, but we found %d" (dec count))))))
   (let [sql (match [path]
                    ;; tag join.
                    ["tag"]
@@ -140,27 +129,32 @@ JSON array, and returning them as the body of the request."
                     name value]
                    ;; simple string match.
                    [(name :when string?)]
-                   [(str "WHERE " name " = ?") value])]
+                   [(str "WHERE " name " = ?") value]
+                   ;; ...else, failure
+                   :else (throw (IllegalArgumentException.
+                                 (str term " is not a valid query term"))))]
     (assoc sql 0 (str "(SELECT DISTINCT hash FROM resources " (first sql) ")"))))
 
 (defn- handle-join-terms
   "Join a set of queries together with some operation; the individual
 queries (of which there must be at least one) are joined safely."
-  [op terms]
+  [input op terms]
   (when (not (pos? (count terms)))
-    (throw (IllegalArgumentException. "REVISIT: boom!")))
+    (throw (IllegalArgumentException. (str input " requires at least one term"))))
   (let [terms  (map compile-query->sql terms)
         sql    (str "(" (string/join (str " " op " ") (map first terms)) ")")
         params (reduce concat (map rest terms))]
     (apply (partial vector sql) params)))
 
 (defmethod compile-query->sql "and"
-  [[op & terms]] (handle-join-terms "INTERSECT" terms))
+  [[op & terms]] (handle-join-terms op "INTERSECT" terms))
 (defmethod compile-query->sql "or"
-  [[op & terms]] (handle-join-terms "UNION" terms))
+  [[op & terms]] (handle-join-terms op "UNION" terms))
 
 (defmethod compile-query->sql "not"
   [[op & terms]]
-  (let [terms (query->sql (apply (partial vector "or") terms))]
-    (assoc terms 0
-           (str "(SELECT DISTINCT hash FROM resources EXCEPT " (first terms) ")"))))
+  (if (pos? (count terms))
+    (let [terms (query->sql (apply (partial vector "or") terms))]
+      (assoc terms 0
+             (str "(SELECT DISTINCT hash FROM resources EXCEPT " (first terms) ")")))
+    (throw (IllegalArgumentException. (str op " requires at least one term")))))
