@@ -2,14 +2,19 @@
 ;;;;
 ;;;; Commands are the mechanism by which changes are made to the
 ;;;; CMDB's model of a population. Commands are represented by
-;;;; `command objects`, which have the following JSON format:
+;;;; `command objects`, which have the following JSON wire format:
 ;;;;
-;;;;       {:command "..."
-;;;;        :version 123
-;;;;        :payload "..."}
+;;;;       {"command" "..."
+;;;;        "version" 123
+;;;;        "payload" <json object>}
 ;;;;
-;;;; `payload` is a string "blob", as in, it's entirely up to an
-;;;; individual handler function how to interpret that data.
+;;;; `payload` must be a valid JSON object of any sort. It's up to an
+;;;; individual handler function how to interpret that object.
+;;;;
+;;;; The command object may also contain an optional "retries"
+;;;; attribute that contains an integer number of times this message
+;;;; has been re-enqueued for processing. The CMDB may discard
+;;;; messages with retry counts that exceed its configured thresholds.
 ;;;;
 ;;;; We currently support the following wire formats for commands:
 ;;;;
@@ -71,7 +76,7 @@
   (let [catalog (try+
                  (-> cmd
                      :payload
-                     (cat/parse-from-json-string))
+                     (cat/parse-from-json-obj))
                  (catch Throwable e
                    (throw+ (command-fatal-exception. e))))]
     (sql/with-connection (:db options)
@@ -90,16 +95,18 @@
   If `f` throws an `command-fatal-exception` object, then the supplied
   `on-fatal` function is called with the message and the exception as
   arguments. After the callback has finished executing, the message is
-  acknowledged and permanently removed from the queue.
+  acknowledged.
 
   If `f` throws any other type of exception, the supplied `on-retry`
   function is called with the message and the exception as
-  arguments. The original message is then acknowledged, leaving only
-  the resubmitted copy. There is a race condition here wherein a crash
-  in-between the time `on-retry` has completed and before the original
-  message is acknowledged may result in both messages existing in the
-  queue simultaneously. This is a conscious trade-off versus losing
-  the message altogether.
+  arguments. The original message is then acknowledged, so `on-retry`
+  should completely handle the retry scenario prior to returning
+  control to the caller. There is a race condition here wherein a
+  crash in-between the time `on-retry` has completed and before the
+  original message is acknowledged may incur the side-effects from
+  `on-retry`, yet the original message still exists at the head of the
+  queue. This is a conscious trade-off versus losing the message
+  altogether.
 
   Any exceptions thrown during invokation of a callback function will
   cause the entire function to terminate without acknowledging the
@@ -119,9 +126,8 @@
        (on-retry msg exception)
        (ack-msg msg)))))
 
-
 (defn make-msg-handler
-  "Returns a handler function (for use with queue-map!) that attempts
+  "Returns a handler function (for use with command-map!) that attempts
   to parse and process a command.
 
   Parsing errors trigger a fatal exception, as if we can't even parse
