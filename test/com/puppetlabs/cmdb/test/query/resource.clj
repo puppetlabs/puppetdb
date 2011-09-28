@@ -14,8 +14,9 @@
 
 (use-fixtures :each (fn [f]
                       (query/ring-init)
-                      (with-scf-connection (f))
-                      (query/ring-destroy)))
+                      (try
+                        (with-scf-connection (f))
+                        (finally (query/ring-destroy)))))
 
 
 
