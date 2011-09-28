@@ -1,5 +1,7 @@
 (ns com.puppetlabs.utils
-  (:use [clojure.core.incubator :as incubator]))
+  (:require [clojure.test])
+  (:use [clojure.core.incubator :as incubator]
+        [slingshot.core :only [try+ throw+]]))
 
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
@@ -23,6 +25,12 @@ as the second arg."
   [f m]
   (into {} (concat (for [[k v] m]
                      [k (f v)]))))
+
+(defn mapkeys
+  "Return map `m`, with each key transformed by function `f`"
+  [f m]
+  (into {} (concat (for [[k v] m]
+                     [(f k) v]))))
 
 (defn array?
   "Returns true if `x` is an array"
@@ -67,3 +75,38 @@ as the second arg."
   `(with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
                             (take-nth 2 (next bindings)))
                     (fn [] ~@body)))
+
+;;;; Exception handling helpers
+
+(defn keep-going*
+  "Executes the supplied fn repeatedly"
+  [f on-error]
+  (try
+   (f)
+   (catch Throwable e
+     (on-error e)))
+  (recur f on-error))
+
+(defmacro keep-going
+  "Executes body, repeating the execution of body even if an exception
+  is thrown"
+  [on-error & body]
+  `(keep-going* (fn [] ~@body) ~on-error))
+
+;;;; Test helpers
+
+;;; This is an implementation of assert-expr that works with
+;;; slingshot-based exceptions, so you can do:
+;;;
+;;; (is (thrown+? <some exception> (...)))
+(defmethod clojure.test/assert-expr 'thrown+? [msg form]
+  (let [klass (second form)
+        body (nthnext form 2)]
+    `(try+ ~@body
+           (clojure.test/do-report {:type :fail, :message ~msg,
+                                    :expected '~form, :actual nil})
+           (catch ~klass e#
+             (clojure.test/do-report {:type :pass, :message ~msg,
+                                      :expected '~form, :actual e#})
+             e#))))
+
