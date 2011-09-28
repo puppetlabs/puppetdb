@@ -4,6 +4,7 @@
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojure/data.json "0.1.1"]
                  [org.clojure/core.incubator "0.1.0"]
+                 [slingshot "0.2.1"]
                  [digest "1.2.1"]
                  [log4j "1.2.16" :exclusions [javax.mail/mail
                                               javax.jms/jms
@@ -15,6 +16,9 @@
                  [org.clojure/java.jdbc "0.0.6"]
                  [com.h2database/h2 "1.3.159"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
+                 ;; MQ connectivity
+                 [clamq "0.3"]
+                 [org.apache.activemq/activemq-core "5.5.0"]
                  ;; WebAPI support libraries.
                  [ring/ring-core            "0.3.11"]
                  [ring/ring-servlet         "0.3.11"]
