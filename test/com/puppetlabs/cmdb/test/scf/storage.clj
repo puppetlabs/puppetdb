@@ -6,9 +6,11 @@
         [clojure.test]
         [com.puppetlabs.jdbc :only [query-to-vec]]))
 
-(def *db* {:classname "org.h2.Driver"
-           :subprotocol "h2"
-           :subname "mem:cmdb-storagetest"})
+(def *db* {:classname "org.hsqldb.jdbcDriver"
+           :subprotocol "hsqldb"
+           :subname     (str "mem:"
+                             (java.util.UUID/randomUUID)
+                             ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 
 (deftest hash-computation
@@ -121,7 +123,7 @@
                     {:certname "myhost.mydomain.com" :type "File" :title "/etc/foobar/baz" :exported false}])))
 
           (testing "with all parameters"
-            (is (= (query-to-vec ["SELECT r.type, r.title, rp.name, rp.value FROM resources r, resource_params rp WHERE rp.resource=r.hash ORDER BY r.type, r.title, rp.name, rp.value"])
+            (is (= (query-to-vec ["SELECT r.type, r.title, rp.name, rp.value FROM resources r, resource_params rp WHERE rp.resource=r.hash ORDER BY r.type, r.title, rp.name"])
                    [{:type "File" :title "/etc/foobar" :name "ensure" :value ["directory"]}
                     {:type "File" :title "/etc/foobar" :name "group" :value ["root"]}
                     {:type "File" :title "/etc/foobar" :name "user" :value ["root"]}
@@ -147,8 +149,8 @@
           (is (thrown? AssertionError (persist-catalog! {})))
 
           ; Nothing should have been persisted for this catalog
-          (is (= (query-to-vec ["SELECT count(*) as count from certnames"])
-                 [{:count 0}]))))
+          (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
+                 [{:nrows 0}]))))
 
       (testing "on input that violates referential integrity"
         ; This catalog has an edge that points to a non-existant resource
@@ -174,5 +176,5 @@
             (is (thrown? AssertionError (persist-catalog! {})))
 
             ; Nothing should have been persisted for this catalog
-            (is (= (query-to-vec ["SELECT count(*) as count from certnames"])
-                   [{:count 0}]))))))))
+            (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
+                   [{:nrows 0}]))))))))

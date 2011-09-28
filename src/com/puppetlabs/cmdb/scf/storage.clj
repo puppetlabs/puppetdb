@@ -1,5 +1,6 @@
 (ns com.puppetlabs.cmdb.scf.storage
-  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig))
+  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
+           (java.util.concurrent TimeUnit))
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
@@ -12,9 +13,19 @@
 (def ^{:doc "The query database configuration details for SCF database."
        :private true
        :dynamic true}
-  *db* {:classname "org.h2.Driver"
-        :subprotocol "h2"
-        :subname "mem:cmdb;DB_CLOSE_DELAY=-1"})
+  *db* {:classname "org.hsqldb.jdbcDriver"
+        :subprotocol "hsqldb"
+        ;; use MVCC and PostgreSQL compatible syntax; see
+        ;; http://hsqldb.org/doc/2.0/guide/deployment-chapt.html#N1427E for
+        ;; details of what that implies.
+        ;;
+        ;; shutdown=true means that when the last connection is dropped, so is
+        ;; the database.  That means *nothing* lasts beyond your outermost
+        ;; `with-scf-connection` invocation, which is awesome for testing.
+        ;;
+        ;; For production this will be, y'know, externally configured.
+        :subname     "mem:cmdb;shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true"
+        :log-statements false})
 
 
 
@@ -34,10 +45,19 @@
   ;; of call; this copes gracefully with multiple connection types.
   (fn [_] (sql-current-connection-database-name)))
 
+(defmulti sql-array-query-string
+  "Returns an SQL fragment representing a query for a single value being
+found in an array column in the database.
+
+  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
+
+The returned SQL fragment will contain *one* parameter placeholder, which
+must be supplied as the value to be matched."
+  (fn [column] (sql-current-connection-database-name)))
+
 (defmulti to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
-  ; Dispatch based on type of DB connection at the time of call
   (fn [_] (sql-current-connection-database-name)))
 
 
@@ -45,7 +65,26 @@
   [basetype]
   (format "%s ARRAY" basetype))
 
+(defmethod sql-array-query-string "PostgreSQL"
+  [column]
+  (format "? = ANY(%s)" column))
+
 (defmethod to-jdbc-varchar-array "PostgreSQL"
+  [coll]
+  (let [connection (sql/find-connection)]
+    (->> coll
+         (into-array Object)
+         (.createArrayOf connection "varchar"))))
+
+(defmethod sql-array-type-string "HSQL Database Engine"
+  [basetype]
+  (format "%s ARRAY[%d]" basetype 65535))
+
+(defmethod sql-array-query-string "HSQL Database Engine"
+  [column]
+  (format "? IN (UNNEST(%s))" column))
+
+(defmethod to-jdbc-varchar-array "HSQL Database Engine"
   [coll]
   (let [connection (sql/find-connection)]
     (->> coll
@@ -55,6 +94,8 @@
 (defmethod sql-array-type-string "H2"
   [_]
   "ARRAY")
+
+;; H2 has no support for query inside an array column.
 
 (defmethod to-jdbc-varchar-array "H2"
   [coll]
@@ -72,49 +113,49 @@
   "Create initial database state"
   []
   (sql/create-table :certnames
-                    ["name" "VARCHAR" "PRIMARY KEY"]
+                    ["name" "TEXT" "PRIMARY KEY"]
                     ["api_version" "INT" "NOT NULL"]
-                    ["catalog_version" "VARCHAR" "NOT NULL"])
+                    ["catalog_version" "TEXT" "NOT NULL"])
 
   (sql/create-table :tags
-                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-                    ["name" "VARCHAR" "NOT NULL"]
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["name" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (certname, name)"])
 
   (sql/create-table :classes
-                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-                    ["name" "VARCHAR" "NOT NULL"]
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["name" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (certname, name)"])
 
   (sql/create-table :resources
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
-                    ["type" "VARCHAR" "NOT NULL"]
-                    ["title" "VARCHAR" "NOT NULL"]
+                    ["type" "TEXT" "NOT NULL"]
+                    ["title" "TEXT" "NOT NULL"]
                     ["exported" "BOOLEAN" "NOT NULL"]
-                    ["sourcefile" "VARCHAR"]
+                    ["sourcefile" "TEXT"]
                     ["sourceline" "INT"])
 
   (sql/create-table :certname_resources
-                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
                     ["PRIMARY KEY (certname, resource)"])
 
   (sql/create-table :resource_params
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["name" "VARCHAR" "NOT NULL"]
-                    ["value" (sql-array-type-string "VARCHAR") "NOT NULL"]
+                    ["name" "TEXT" "NOT NULL"]
+                    ["value" (sql-array-type-string "TEXT") "NOT NULL"]
                     ["PRIMARY KEY (resource, name)"])
 
   (sql/create-table :resource_tags
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["name" "VARCHAR" "NOT NULL"]
+                    ["name" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (resource, name)"])
 
   (sql/create-table :edges
-                    ["certname" "VARCHAR" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-                    ["source" "VARCHAR" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["target" "VARCHAR" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["type" "VARCHAR" "NOT NULL"]
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["source" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["target" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["type" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (certname, source, target, type)"])
 
   (sql/do-commands
@@ -275,21 +316,29 @@ again during servlet destruction."
 (defn- new-connection-pool-instance
   "Create a new connection pool for the SCF database, configured appropriately,
 and return it."
-  [{:keys [subprotocol subname username password] :as db}]
+  [{:keys [subprotocol subname username password
+           partition-conn-min partition-conn-max partition-count
+           stats log-statements log-slow-statements]
+    :or {partition-conn-min 1
+         partition-conn-max 10
+         partition-count    5
+         stats              true}
+    :as db}]
   (let [config (doto (new BoneCPConfig)
-                 ;; constants
                  (.setDefaultAutoCommit false)
                  (.setLazyInit true)
-                 ;; configurable with default
-                 (.setStatisticsEnabled (get db :stats true))
-                 (.setMinConnectionsPerPartition (get db :partition-conn-min 1))
-                 (.setMaxConnectionsPerPartition (get db :partition-conn-max 10))
-                 (.setPartitionCount (get db :partition-count 5))
+                 (.setMinConnectionsPerPartition partition-conn-min)
+                 (.setMaxConnectionsPerPartition partition-conn-max)
+                 (.setPartitionCount partition-count)
+                 (.setStatisticsEnabled stats)
                  ;; paste the URL back together from parts.
                  (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))
+    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (when log-slow-statements
+      (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
     ;; ...aaand, create the pool.
     (BoneCPDataSource. config)))
 
@@ -297,7 +346,6 @@ and return it."
   "Replace the current BoneCP var root instance, shutting down the
 previous instance, if any.  For use with `alter-var-root'."
   [new]
-  (log/debug (format "Replacing %s with %s" *bonecp* new))
   (alter-var-root (var *bonecp*) (fn [old]
                                    (when old (.close old))
                                    new)))

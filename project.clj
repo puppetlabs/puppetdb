@@ -5,6 +5,10 @@
                  [org.clojure/data.json "0.1.1"]
                  [org.clojure/core.incubator "0.1.0"]
                  [slingshot "0.2.1"]
+                 ;; This makes for much nicer code, but we can hand-code the
+                 ;; decision tree later if they don't get to release in a
+                 ;; timely fashion. --daniel 2011-09-19
+                 [match "0.2.0-SNAPSHOT"]
                  [digest "1.2.1"]
                  [log4j "1.2.16" :exclusions [javax.mail/mail
                                               javax.jms/jms
@@ -14,7 +18,7 @@
                  [com.jolbox/bonecp "0.7.1.RELEASE"]
                  [org.slf4j/slf4j-log4j12 "1.5.6"]
                  [org.clojure/java.jdbc "0.0.6"]
-                 [com.h2database/h2 "1.3.159"]
+                 [org.hsqldb/hsqldb "2.2.4"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  ;; MQ connectivity
                  [clamq "0.3"]
