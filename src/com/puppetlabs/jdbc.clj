@@ -19,7 +19,10 @@ multiple parameters inline.
   ([sql-query-and-params]
      (sql/with-query-results result-set
        (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
-       (let [arrays-to-vecs #(if (utils/array? %) (vec %) %)]
+       (let [arrays-to-vecs #(cond
+                              (utils/array? %) (vec %)
+                              (isa? (class %) java.sql.Array) (vec (.getArray %))
+                              :else %)]
          (->> result-set
               (map #(utils/mapvals arrays-to-vecs %))
               (vec))))))
