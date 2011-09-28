@@ -41,7 +41,7 @@
   (with-open [conn (activemq/activemq-connection *mq*)]
     (let [producer (mq-conn/producer conn)]
       (doseq [file (.listFiles (ds/file-str dirname))]
-        (let [content (slurp file)
+        (let [content (json/read-json (slurp file))
               msg {:command "replace catalog" :version 1 :payload content}
               msg (json/json-str msg)]
           (mq-producer/publish producer *mq-endpoint* msg)
