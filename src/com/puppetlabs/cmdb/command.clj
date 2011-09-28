@@ -80,8 +80,8 @@
                  (catch Throwable e
                    (throw+ (command-fatal-exception. e))))]
     (sql/with-connection (:db options)
-      (scf-storage/persist-catalog! catalog))
-    (log/info (format "Persisted %s" (:certname catalog)))))
+      (scf-storage/replace-catalog! catalog))
+    (log/info (format "[replace catalog] %s" (:certname catalog)))))
 
 ;;; Message queue I/O and utilities
 
