@@ -2,9 +2,15 @@
   (:gen-class)
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.scf.storage :as scf-store]
+            [com.puppetlabs.cmdb.command :as command]
+            [com.puppetlabs.utils :as pl-utils]
             [clojure.contrib.logging :as log]
             [clojure.java.jdbc :as sql]
-            [clojure.contrib.duck-streams :as ds])
+            [clojure.data.json :as json]
+            [clojure.contrib.duck-streams :as ds]
+            [clamq.activemq :as activemq]
+            [clamq.protocol.producer :as mq-producer]
+            [clamq.protocol.connection :as mq-conn])
   (:use [clojure.contrib.command-line :only (with-command-line print-help)]))
 
 ;; TODO: externalize this into a configuration file
@@ -16,23 +22,34 @@
            :subprotocol "h2"
            :subname "mem:cmdb;DB_CLOSE_DELAY=-1"})
 
-(defn catalog-seq
-  "Lazy sequence of parsed catalogs loaded from .json files in 'dirname'"
-  [dirname]
-  (let [files (.listFiles (ds/file-str dirname))]
-    (log/info (format "%d files total to parse" (count files)))
-    (filter #(not (nil? %)) (pmap cat/parse-from-json-file files))))
+(def *mq* "tcp://localhost:61616")
 
+(def *mq-endpoint* "com.puppetlabs.cmdb.commands")
+
+(defn load-from-mq
+  []
+  (pl-utils/keep-going
+   (fn [exception]
+     (log/error "Error during command processing; reestablishing connection after 10s" exception)
+     (Thread/sleep 10000))
+
+   (with-open [conn (activemq/activemq-connection *mq*)]
+     (command/process-commands! conn *mq-endpoint* {:db *db*}))))
+
+(defn populate-mq
+  [dirname]
+  (with-open [conn (activemq/activemq-connection *mq*)]
+    (let [producer (mq-conn/producer conn)]
+      (doseq [file (.listFiles (ds/file-str dirname))]
+        (let [content (slurp file)
+              msg {:command "replace catalog" :version 1 :payload content}
+              msg (json/json-str msg)]
+          (mq-producer/publish producer *mq-endpoint* msg)
+          (log/info (format "Published %s" file)))))))
 
 (defn -main
-  [& args]
+  [dirname & args]
   (sql/with-connection *db*
     (scf-store/initialize-store))
-  (log/info "Generating and storing catalogs...")
-  (let [catalogs       (catalog-seq "/Users/deepak/Desktop/temp")
-        handle-catalog (fn [catalog]
-                         (log/info (catalog :certname))
-                         (sql/with-connection *db*
-                           (scf-store/persist-catalog! catalog)))]
-    (dorun (map handle-catalog catalogs)))
-  (log/info "Done persisting catalogs."))
+  (future (populate-mq dirname))
+  (load-from-mq))
