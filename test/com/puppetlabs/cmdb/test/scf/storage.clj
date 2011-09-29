@@ -139,7 +139,28 @@
                     {:type "File" :title "/etc/foobar" :name "foobar"}
                     {:type "File" :title "/etc/foobar/baz" :name "class"}
                     {:type "File" :title "/etc/foobar/baz" :name "file"}
-                    {:type "File" :title "/etc/foobar/baz" :name "foobar"}]))))))
+                    {:type "File" :title "/etc/foobar/baz" :name "foobar"}])))))
+
+      (sql/with-connection *db*
+        (initialize-store)
+        (persist-catalog! catalog)
+        (delete-catalog! "myhost.mydomain.com")
+
+        (testing "should be removed when deleted"
+          (is (= (query-to-vec ["SELECT * FROM certnames"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM tags WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM classes WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM certname_resources WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
+                 [])))))
 
     (testing "should noop"
 

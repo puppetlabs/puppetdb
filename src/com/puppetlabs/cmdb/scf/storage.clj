@@ -296,7 +296,20 @@ then we'll lookup a resource with that key and use its hash."
      (persist-resource! certname resource))
    (persist-edges! certname edges resources)))
 
+(defn delete-catalog!
+  "Delete the catalog for the supplied certname"
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/transaction
+   (sql/delete-rows :certnames ["name=?" certname])))
 
+(defn replace-catalog!
+  "Given a catalog, replace the current catalog, if any, for its
+  associated host with the supplied one."
+  [catalog]
+  (sql/transaction
+   (delete-catalog! (:certname catalog))
+   (persist-catalog! catalog)))
 
 ;;;; Database connection-pool management and connectivity.
 ;;;;
