@@ -301,7 +301,9 @@ then we'll lookup a resource with that key and use its hash."
   [certname]
   {:pre [(string? certname)]}
   (sql/transaction
-   (sql/delete-rows :certnames ["name=?" certname])))
+   ;; Should cascade through everything
+   (sql/delete-rows :certnames ["name=?" certname])
+   (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM certname_resources WHERE certname=?)" certname])))
 
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its

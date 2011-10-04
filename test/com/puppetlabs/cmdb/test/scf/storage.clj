@@ -12,7 +12,6 @@
                              (java.util.UUID/randomUUID)
                              ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-
 (deftest hash-computation
   (testing "Hashes for resources"
 
@@ -141,12 +140,31 @@
                     {:type "File" :title "/etc/foobar/baz" :name "file"}
                     {:type "File" :title "/etc/foobar/baz" :name "foobar"}])))))
 
-      (sql/with-connection *db*
-        (initialize-store)
-        (persist-catalog! catalog)
-        (delete-catalog! "myhost.mydomain.com")
+      (testing "should noop if replaced by themselves"
+        (sql/with-connection *db*
+          (initialize-store)
+          (persist-catalog! catalog)
+          (replace-catalog! catalog)
 
-        (testing "should be removed when deleted"
+          (is (= (query-to-vec ["SELECT name FROM certnames"])
+                 [{:name "myhost.mydomain.com"}]))))
+
+      (testing "should noop if replaced by themselves after using manual deletion"
+        (sql/with-connection *db*
+          (initialize-store)
+          (persist-catalog! catalog)
+          (delete-catalog! "myhost.mydomain.com")
+          (persist-catalog! catalog)
+
+          (is (= (query-to-vec ["SELECT name FROM certnames"])
+                 [{:name "myhost.mydomain.com"}]))))
+
+      (testing "should be removed when deleted"
+        (sql/with-connection *db*
+          (initialize-store)
+          (persist-catalog! catalog)
+          (delete-catalog! "myhost.mydomain.com")
+
           (is (= (query-to-vec ["SELECT * FROM certnames"])
                  []))
 
@@ -157,6 +175,9 @@
                  []))
 
           (is (= (query-to-vec ["SELECT * FROM certname_resources WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM resources"])
                  []))
 
           (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
