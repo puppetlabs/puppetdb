@@ -1,5 +1,8 @@
 (ns com.puppetlabs.utils
-  (:require [clojure.test])
+  (:import (org.ini4j Ini))
+  (:require [clojure.test]
+            [clojure.string]
+            [clojure.contrib.duck-streams :as ds])
   (:use [clojure.core.incubator :as incubator]
         [slingshot.core :only [try+ throw+]]))
 
@@ -110,3 +113,23 @@ as the second arg."
                                       :expected '~form, :actual e#})
              e#))))
 
+;; Configuration file handling
+
+(defn ini-to-map
+  "Takes a .ini filename and returns a nested map of
+  fully-interpolated values. Strings that look like integers are
+  returned as integers, and all section names and keys are returned as
+  symbols."
+  [filename]
+  (let [ini        (Ini. (ds/reader filename))
+        m          (atom {})
+        keywordize #(keyword (clojure.string/lower-case %))]
+
+    (doseq [[name section] ini
+            [key _] section
+            :let [val (.fetch section key)
+                  val (try
+                        (Integer/parseInt val)
+                        (catch NumberFormatException e val))]]
+      (swap! m assoc-in [(keywordize name) (keywordize key)] val))
+    @m))
