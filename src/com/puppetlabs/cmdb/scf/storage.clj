@@ -196,9 +196,8 @@ must be supplied as the value to be matched."
   [hash]
   {:pre [hash]}
   (sql/with-query-results result-set
-    ["SELECT EXISTS(SELECT 1 FROM resources WHERE hash=?) as present" hash]
-    (let [row (first result-set)]
-      (row :present))))
+    ["SELECT 1 FROM resources WHERE hash=? LIMIT 1" hash]
+    (pos? (count result-set))))
 
 (defn compute-hash
   "Compute a hash for a given resource that will uniquely identify it
@@ -303,7 +302,7 @@ then we'll lookup a resource with that key and use its hash."
   (sql/transaction
    ;; Should cascade through everything
    (sql/delete-rows :certnames ["name=?" certname])
-   (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM certname_resources WHERE certname=?)" certname])))
+   (sql/delete-rows :resources ["hash NOT IN (SELECT DISTINCT resource FROM certname_resources)"])))
 
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its

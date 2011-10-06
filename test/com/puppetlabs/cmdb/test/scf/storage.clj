@@ -181,6 +181,34 @@
                  []))
 
           (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
+                 []))))
+
+      (testing "when deleted, should leave other hosts' resources alone"
+        (sql/with-connection *db*
+          (initialize-store)
+          (persist-catalog! catalog)
+          ;; Store the same catalog for a different host
+          (persist-catalog! (assoc catalog :certname "myhost2.mydomain.com"))
+          (delete-catalog! "myhost.mydomain.com")
+
+          ;; The second catalog should still be there
+          (is (= (query-to-vec ["SELECT name FROM certnames"])
+                 [{:name "myhost2.mydomain.com"}]))
+
+          (is (= (query-to-vec ["SELECT * FROM tags WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM classes WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM certname_resources WHERE certname=?" "myhost.mydomain.com"])
+                 []))
+
+          ;; All the resources should still be there
+          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resources"])
+                 [{:c 3}]))
+
+          (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
                  [])))))
 
     (testing "should noop"
