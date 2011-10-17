@@ -2,7 +2,7 @@
   :description "FIXME: write description"
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/clojure-contrib "1.2.0"]
-                 [org.clojure/data.json "0.1.1"]
+                 [org.clojure/data.json "0.1.2"]
                  [org.clojure/core.incubator "0.1.0"]
                  [slingshot "0.2.1"]
                  ;; This makes for much nicer code, but we can hand-code the
