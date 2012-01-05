@@ -1,6 +1,4 @@
 (ns com.puppetlabs.cmdb.scf.storage
-  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
-           (java.util.concurrent TimeUnit))
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
@@ -311,77 +309,3 @@ then we'll lookup a resource with that key and use its hash."
   (sql/transaction
    (delete-catalog! (:certname catalog))
    (persist-catalog! catalog)))
-
-;;;; Database connection-pool management and connectivity.
-;;;;
-;;;; BoneCP is used to provide a pool of connections shared between threads.
-;;;; In addition to basic connection access, it provides tracks statements
-;;;; issued during a transaction and will automatically reconnect, and replay
-;;;; the statements, if the connection is dropped during activity.
-(def ^{:doc "The query database connection pool singleton object.
-BoneCP is internally thread-safe, so no internal locking is required.
-
-The global is initialized during servlet setup, and will be torn down
-again during servlet destruction."
-       :dynamic true
-       :tag BoneCPDataSource}
-  *bonecp* nil)
-
-(defn- new-connection-pool-instance
-  "Create a new connection pool for the SCF database, configured appropriately,
-and return it."
-  [{:keys [subprotocol subname username password
-           partition-conn-min partition-conn-max partition-count
-           stats log-statements log-slow-statements]
-    :or {partition-conn-min 1
-         partition-conn-max 10
-         partition-count    5
-         stats              true}
-    :as db}]
-  (let [config (doto (new BoneCPConfig)
-                 (.setDefaultAutoCommit false)
-                 (.setLazyInit true)
-                 (.setMinConnectionsPerPartition partition-conn-min)
-                 (.setMaxConnectionsPerPartition partition-conn-max)
-                 (.setPartitionCount partition-count)
-                 (.setStatisticsEnabled stats)
-                 ;; paste the URL back together from parts.
-                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
-    ;; configurable without default
-    (when username (.setUsername config username))
-    (when password (.setPassword config password))
-    (when log-statements (.setLogStatementsEnabled config log-statements))
-    (when log-slow-statements
-      (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
-    ;; ...aaand, create the pool.
-    (BoneCPDataSource. config)))
-
-(defn- replace-bonecp
-  "Replace the current BoneCP var root instance, shutting down the
-previous instance, if any.  For use with `alter-var-root'."
-  [new]
-  (alter-var-root (var *bonecp*) (fn [old]
-                                   (when old (.close old))
-                                   new)))
-
-(defn initialize-connection-pool
-  "Initialize the connection pool with a new object.  This will shut down
-any existing connection pool."
-  []
-  (replace-bonecp (new-connection-pool-instance *db*)))
-
-(defn shutdown-connection-pool
-  "Shut down the current connection pool entirely."
-  []
-  (replace-bonecp nil))
-
-(defmacro with-scf-connection
-  "Run enclosed forms with an SQL connection established to the SCF
-storage database.  This will transparently manage connection failure
-retry and life-cycle for the connection.
-
-The database handle is only valid for the dynamic scope of the call,
-so nothing should be returned that is bound to database results."
-  [& forms]
-  `(sql/with-connection {:datasource *bonecp*}
-     ~@forms))

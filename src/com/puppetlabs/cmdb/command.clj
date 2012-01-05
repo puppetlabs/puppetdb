@@ -59,7 +59,19 @@
 
 ;;;; Command processing exception classes
 
-(defrecord command-fatal-exception [exception])
+(defn fatality!
+  "Create an object representing a fatal command-processing exception
+
+  cause - object representing the cause of the failure
+  "
+  [cause]
+  {:fatal true :cause cause})
+
+(defn fatal?
+  "Tests if the supplied exception is a fatal command-processing
+  exception or not."
+  [exception]
+  (:fatal exception))
 
 ;;;; Command processors
 
@@ -78,7 +90,7 @@
                      :payload
                      (cat/parse-from-json-obj))
                  (catch Throwable e
-                   (throw+ (command-fatal-exception. e))))]
+                   (throw+ (fatality! e))))]
     (sql/with-connection (:db options)
       (scf-storage/replace-catalog! catalog))
     (log/info (format "[replace catalog] %s" (:certname catalog)))))
@@ -92,10 +104,10 @@
   called whenever the message is _acknowledged_, meaning that we're
   done processing the message.
 
-  If `f` throws an `command-fatal-exception` object, then the supplied
-  `on-fatal` function is called with the message and the exception as
-  arguments. After the callback has finished executing, the message is
-  acknowledged.
+  If `f` throws an `fatality!` object (testable using the `fatal?`
+  function), then the supplied `on-fatal` function is called with the
+  message and the exception as arguments. After the callback has
+  finished executing, the message is acknowledged.
 
   If `f` throws any other type of exception, the supplied `on-retry`
   function is called with the message and the exception as
@@ -118,8 +130,8 @@
      (f msg)
      (ack-msg msg)
 
-     (catch command-fatal-exception {:keys [exception]}
-       (on-fatal msg exception)
+     (catch fatal? {:keys [cause]}
+       (on-fatal msg cause)
        (ack-msg msg))
 
      (catch Throwable exception
@@ -139,7 +151,7 @@
     (let [parsed-msg (try+
                       (parse-command msg)
                       (catch Throwable e
-                        (throw+ (command-fatal-exception. e))))
+                        (throw+ (fatality! e))))
           retry-count (get parsed-msg :retries 0)]
       (when (< retry-count max-retries)
         (process-command! parsed-msg options-map)))))

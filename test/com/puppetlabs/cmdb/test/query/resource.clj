@@ -8,17 +8,21 @@
   (:use clojure.test
         ring.mock.request
         [clojure.contrib.duck-streams :only (read-lines)]
-        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection
-                                                to-jdbc-varchar-array
+        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.scf.storage :only [to-jdbc-varchar-array
+                                                initialize-store
                                                 sql-array-query-string]]))
 
+(def *db* nil)
+(def *app* nil)
+
 (use-fixtures :each (fn [f]
-                      (query/ring-init)
-                      (try
-                        (with-scf-connection (f))
-                        (finally (query/ring-destroy)))))
-
-
+                      (let [db (test-db)]
+                        (binding [*db* db
+                                  *app* (query/build-app db)]
+                          (sql/with-connection db
+                            (initialize-store)
+                            (f))))))
 
 (deftest query->sql
   (testing "comparisons"
@@ -229,7 +233,7 @@
                    ["=" "tag" "vivid"]]
                   [result4]
                   ])]
-        (is (= (s/query-resources (s/query->sql input)) expect)
+        (is (= (s/query-resources *db* (s/query->sql input)) expect)
             (str "  " input " =>\n  " expect))))))
 
 
@@ -237,19 +241,19 @@
   (testing "combine terms without arguments"
     (doseq [op ["and" "AND" "or" "OR" "AnD" "Or" "not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (s/query-resources (s/query->sql [op]))))
+            (s/query-resources *db* (s/query->sql [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-            (s/query-resources (s/query->sql [op]))))))
+            (s/query-resources *db* (s/query->sql [op]))))))
   (testing "bad query operators"
     (doseq [in [["if"] ["-"] [{}] [["="]]]]
       (is (thrown-with-msg? IllegalArgumentException #"No method in multimethod"
-            (s/query-resources (s/query->sql in))))))
+            (s/query-resources *db* (s/query->sql in))))))
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
             (re-pattern (str "operators take two arguments, but we found "
                              (dec (count in))))
-            (s/query-resources (s/query->sql in))))))
+            (s/query-resources *db* (s/query->sql in))))))
   (testing "bad types in input"
     (doseq [path (list [] {} [{}] 12 true false 0.12)]
       (doseq [input (list ["=" path "foo"]
@@ -257,7 +261,7 @@
                           ["=" ["bar" path] "foo"])]
         (is (thrown-with-msg? IllegalArgumentException
               #"is not a valid query term"
-              (s/query-resources (s/query->sql input))))))))
+              (s/query-resources *db* (s/query->sql input))))))))
 
 
 
@@ -276,7 +280,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (query/ring-handler (get-request "/resources" query))))
+  ([query] (*app* (get-request "/resources" query))))
 
 (defmacro is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -315,6 +319,7 @@ to the result of the form supplied to this method."
    :resource_tags
    {:resource "1" :name "one"}
    {:resource "1" :name "two"})
+
   (testing "query without filter"
     (is-response-equal (get-response)
                        [{:hash       "1"
