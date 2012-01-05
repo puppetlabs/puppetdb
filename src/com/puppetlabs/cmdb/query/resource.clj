@@ -5,8 +5,7 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.scf.storage :only [with-scf-connection
-                                                sql-array-query-string]]
+        [com.puppetlabs.cmdb.scf.storage :only [sql-array-query-string]]
         [clojure.core.match.core :only [match]]
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
@@ -52,7 +51,8 @@ input queries can make it through to the rest of the system."
 (defn query-resources
   "Take a vector-structured query, and return a vector of resources
 and their parameters which match."
-  [query]
+  [db query]
+  {:pre [(map? db)]}
   ;; REVISIT: ARGH!  So, Java *HATES* the 'IN' operation, and can't do
   ;; anything useful to fill in more than one value in it.  Options are to
   ;; use a subselect, or to manually generate the template with enough
@@ -65,13 +65,13 @@ and their parameters which match."
                     (let [select (partial query-to-vec
                                           (str "SELECT * FROM resources "
                                                "WHERE hash IN (" sql ")"))]
-                      (with-scf-connection
+                      (sql/with-connection db
                         (apply select args))))
         params (future
                  (let [select (partial query-to-vec
                                        (str "SELECT * FROM resource_params "
                                             "WHERE resource IN (" sql ")"))]
-                   (with-scf-connection
+                   (sql/with-connection db
                      (utils/mapvals
                       (partial reduce #(assoc %1 (:name %2) (:value %2)) {})
                       (group-by :resource (apply select args))))))]
@@ -85,7 +85,9 @@ and their parameters which match."
   "Fetch a list of resources from the database, formatting them as a
 JSON array, and returning them as the body of the request."
   [request graphdata]
-  (json/json-str (or (vec (query-resources (:query graphdata))) [])))
+  (let [db (get-in request [:globals :scf-db])]
+    (json/json-str (or (vec (query-resources db (:query graphdata)))
+                       []))))
 
 
 (defhandler resource-list-handler

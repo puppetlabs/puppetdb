@@ -1,4 +1,6 @@
 (ns com.puppetlabs.jdbc
+  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
+           (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.utils :as utils]))
 
@@ -26,3 +28,39 @@ multiple parameters inline.
          (->> result-set
               (map #(utils/mapvals arrays-to-vecs %))
               (vec))))))
+
+(defn make-connection-pool
+  "Create a new connection pool for the SCF database, configured appropriately,
+and return it."
+  [{:keys [subprotocol subname username password
+           partition-conn-min partition-conn-max partition-count
+           stats log-statements log-slow-statements]
+    :or {partition-conn-min 1
+         partition-conn-max 10
+         partition-count    5
+         stats              true}
+    :as db}]
+  (let [config (doto (new BoneCPConfig)
+                 (.setDefaultAutoCommit false)
+                 (.setLazyInit true)
+                 (.setMinConnectionsPerPartition partition-conn-min)
+                 (.setMaxConnectionsPerPartition partition-conn-max)
+                 (.setPartitionCount partition-count)
+                 (.setStatisticsEnabled stats)
+                 ;; paste the URL back together from parts.
+                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
+    ;; configurable without default
+    (when username (.setUsername config username))
+    (when password (.setPassword config password))
+    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (when log-slow-statements
+      (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
+    ;; ...aaand, create the pool.
+    (BoneCPDataSource. config)))
+
+(defn pooled-datasource
+  "Given a database connection attribute map, return a JDBC datasource
+compatible with clojure.java.jdbc that is backed by a connection
+pool."
+  [options]
+  {:datasource (make-connection-pool options)})

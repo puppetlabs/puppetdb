@@ -1,5 +1,4 @@
 (ns com.puppetlabs.cmdb.test.command
-  (:import (com.puppetlabs.cmdb.command command-fatal-exception))
   (:use [com.puppetlabs.cmdb.command]
         [com.puppetlabs.utils]
         [clojure.test]
@@ -82,7 +81,7 @@
       (let [msg-seq [1 2 3]
             on-msg (fn [msg]
                      (when (even? msg)
-                       (throw+ (command-fatal-exception. (RuntimeException. "even number")))))
+                       (throw+ (fatality! (RuntimeException. "even number")))))
             [acked retried failed] (run-through-command-map msg-seq on-msg)]
         ;; Despite the error thrown on '2', that message should still be acked
         (is (= acked [1 2 3]))
@@ -96,7 +95,7 @@
     (testing "should throw fatal exceptions if a command can't be parsed"
       (with-redefs [parse-command (fn [msg] (throw (RuntimeException. "parse error")))]
         (let [f (make-msg-handler 0 nil)]
-          (is (thrown+? command-fatal-exception (f "{}"))))))
+          (is (thrown+? fatal? (f "{}"))))))
 
     (testing "should work normally if a message has not yet exceeded the max allowable retries"
       (with-redefs [parse-command (fn [msg] {})

@@ -36,14 +36,19 @@ To get all the requisite dev dependencies:
 
     lein deps
 
-To execute the code:
+To execute the command processor:
 
-    lein run
+    lein run commandproc -h
 
-Testing requires that you install the `midje` code; `lein deps` will do that.
-Then you can run:
+To execute the webapp:
 
-    lein midje
+    lein run queryserver -h
+
+Look at resources/config.ini for an example configuration file.
+
+To execute the test suite:
+
+    lein test
 
 Documentation can be generated using `marginalia`; `lein deps` will do that.
 Then you can run the following, which spits out docs into the `docs/`

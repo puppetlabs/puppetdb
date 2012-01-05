@@ -4,13 +4,10 @@
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.cmdb.scf.storage]
         [clojure.test]
-        [com.puppetlabs.jdbc :only [query-to-vec]]))
+        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
-(def *db* {:classname "org.hsqldb.jdbcDriver"
-           :subprotocol "hsqldb"
-           :subname     (str "mem:"
-                             (java.util.UUID/randomUUID)
-                             ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+(def *db* (test-db))
 
 (deftest hash-computation
   (testing "Hashes for resources"
