@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
             [clojure.contrib.logging :as log]
             [clojure.java.jdbc :as sql]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.contrib.duck-streams :as ds]
             [clamq.activemq :as activemq]
             [clamq.protocol.producer :as mq-producer]
@@ -15,7 +15,7 @@
   (with-open [conn (activemq/activemq-connection mq)]
     (let [producer (mq-conn/producer conn)]
       (doseq [file (.listFiles (ds/file-str dirname))]
-        (let [content (json/read-json (slurp file))
+        (let [content (json/parse-string (slurp file) true)
               msg {:command "replace catalog" :version 1 :payload content}
               msg (json/json-str msg)]
           (mq-producer/publish producer mq-endpoint msg)

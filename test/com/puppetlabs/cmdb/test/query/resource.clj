@@ -1,7 +1,7 @@
 (ns com.puppetlabs.cmdb.test.query.resource
   (:require [com.puppetlabs.cmdb.query.resource :as s]
             [com.puppetlabs.cmdb.query :as query]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             ring.middleware.params)
@@ -273,7 +273,7 @@
   ([path query]
      (let [request (if query
                      (request :get path
-                              {"query" (if (string? query) query (json/json-str query))})
+                              {"query" (if (string? query) query (json/generate-string query))})
                      (request :get path))
            headers (:headers request)]
        (assoc request :headers (assoc headers "Accept" *c-t*)))))
@@ -290,7 +290,7 @@ to the result of the form supplied to this method."
      (is (= 200   (:status response#)))
      (is (= *c-t* (get-in response# [:headers "Content-Type"])))
      (is (= ~body (if (:body response#)
-                    (json/read-json (:body response#))
+                    (json/parse-string (:body response#) true)
                     nil)) (str response#))))
 
 
@@ -359,6 +359,6 @@ to the result of the form supplied to this method."
                                         :acl    ["john:rwx" "fred:rwx"]}}])))
   (testing "error handling"
     (let [response (get-response ["="])
-          body     (json/read-json (get response :body "null"))]
+          body     (json/parse-string (get response :body "null") true)]
       (is (= (:status response) 400))
       (is (re-find #"operators take two arguments" (:error body))))))
