@@ -2,7 +2,8 @@
   (:import (org.ini4j Ini))
   (:require [clojure.test]
             [clojure.string]
-            [clojure.contrib.duck-streams :as ds])
+            [clojure.contrib.duck-streams :as ds]
+            [clojure.tools.cli :as cli])
   (:use [clojure.core.incubator :as incubator]
         [slingshot.core :only [try+ throw+]]))
 
@@ -133,3 +134,20 @@ as the second arg."
                         (catch NumberFormatException e val))]]
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
+
+;; Command-line parsing
+
+(defn cli!
+  "Wraps `tools.cli/cli`, automatically adding in a set of options for
+  displaying help.
+
+  If the user asks for help, we display the help banner text and the
+  process will immediately exit."
+  [args & specs]
+  (let [specs                    (conj specs
+                                       ["-h" "--help" "Show help" :default false :flag true])
+        [options posargs banner] (apply cli/cli args specs)]
+    (when (:help options)
+      (println banner)
+      (System/exit 0))
+    [options posargs]))

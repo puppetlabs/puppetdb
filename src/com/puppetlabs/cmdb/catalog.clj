@@ -83,7 +83,7 @@
 ;;
 (ns com.puppetlabs.cmdb.catalog
   (:require [clojure.contrib.logging :as log]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.contrib.duck-streams :as ds]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
@@ -335,7 +335,7 @@
   "Parse a wire-format JSON catalog string contained in `s`, returning a
   cmdb-suitable representation."
   [s]
-  (-> (json/read-json s false)
+  (-> (json/parse-string s)
       (parse-from-json-obj)))
 
 (defn parse-from-json-file

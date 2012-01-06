@@ -5,7 +5,7 @@
             [clojure.contrib.logging :as log]
             [clojure.java.jdbc :as sql]
             [clamq.activemq :as activemq])
-  (:use [clojure.tools.cli :only (cli optional required group)]))
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
 (defn load-from-mq
   [mq mq-endpoint db]
@@ -19,9 +19,9 @@
 
 (defn -main
   [& args]
-  (let [options     (cli args
-                         (required ["-c" "--config" "Path to config.ini"]))
-        config      (pl-utils/ini-to-map (:config options))
+  (let [[options _] (cli! args
+                          ["-c" "--config" "Path to config.ini"])
+        config      (ini-to-map (:config options))
 
         db          (:database config)
 

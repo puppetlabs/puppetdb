@@ -1,7 +1,7 @@
 (ns com.puppetlabs.cmdb.query.resource
   (:require [com.puppetlabs.utils :as utils]
             [clojure.contrib.logging :as log]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -39,13 +39,13 @@ graphdata with the compiled data structure.  This ensures that only valid
 input queries can make it through to the rest of the system."
   [_ {:keys [params] :as request} _]
   (try
-    (let [sql (query->sql (json/read-json (get params "query" "null")))]
+    (let [sql (query->sql (json/parse-string (get params "query" "null") true))]
       (annotated-return false {:annotate {:query sql}}))
     (catch Exception e
       (annotated-return
        true
        {:headers  {"Content-Type" "application/json"}
-        :annotate {:body (json/json-str {:error (.getMessage e)})}}))))
+        :annotate {:body (json/generate-string {:error (.getMessage e)})}}))))
 
 
 (defn query-resources
@@ -86,8 +86,8 @@ and their parameters which match."
 JSON array, and returning them as the body of the request."
   [request graphdata]
   (let [db (get-in request [:globals :scf-db])]
-    (json/json-str (or (vec (query-resources db (:query graphdata)))
-                       []))))
+    (json/generate-string (or (vec (query-resources db (:query graphdata)))
+                              []))))
 
 
 (defhandler resource-list-handler
