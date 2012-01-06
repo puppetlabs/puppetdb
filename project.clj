@@ -2,9 +2,9 @@
   :description "FIXME: write description"
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/clojure-contrib "1.2.0"]
-                 [org.clojure/data.json "0.1.2"]
+                 [cheshire "2.0.4"]
                  [org.clojure/core.incubator "0.1.0"]
-                 [org.clojure/tools.cli "0.1.0"]
+                 [org.clojure/tools.cli "0.2.1"]
                  ;; Configuration file parsing
                  [org.ini4j/ini4j "0.5.2"]
                  ;; Nicer exception handling with try+/throw+
@@ -33,9 +33,8 @@
                  [org.mortbay.jetty/jetty   "6.1.26"]
                  [org.clojars.daniel-pittman/clothesline "0.2.2-SNAPSHOT"]]
 
-  :dev-dependencies [[marginalia "0.3.2"]
+  :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
                      [midje "1.2.0"]
-                     [lein-midje "1.0.3"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 

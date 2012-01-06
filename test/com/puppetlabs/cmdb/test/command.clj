@@ -16,7 +16,7 @@
              {:command "foo" :version 2 :payload "meh"})))
 
     (testing "should reject invalid input"
-      (is (thrown? java.io.EOFException (parse-command "")))
+      (is (thrown? AssertionError (parse-command "")))
       (is (thrown? AssertionError (parse-command "{}")))
 
       ;; Missing required attributes

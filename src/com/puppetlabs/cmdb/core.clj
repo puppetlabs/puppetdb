@@ -1,6 +1,5 @@
 (ns com.puppetlabs.cmdb.core
-  (:gen-class)
-  (:use [clojure.tools.cli :only (cli optional required group)]))
+  (:gen-class))
 
 (defn -main
   [& args]

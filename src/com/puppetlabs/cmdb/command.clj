@@ -30,7 +30,7 @@
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as pl-utils]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
@@ -50,11 +50,11 @@
 (defmethod parse-command String
   [command-string]
   {:pre  [(string? command-string)]
-   :post [map?
-          :payload
+   :post [(map? %)
+          (:payload %)
           (string? (:command %))
           (number? (:version %))]}
-  (->> (json/read-json command-string false)
+  (->> (json/parse-string command-string)
        (pl-utils/mapkeys keyword)))
 
 ;;;; Command processing exception classes
@@ -166,10 +166,10 @@
   [msg]
   {:post [string?]}
   (let [{:keys [command version payload retries] :or {retries 0}} (parse-command msg)]
-    (json/json-str {"command" command
-                    "version" version
-                    "payload" payload
-                    "retries" (inc retries)})))
+    (json/generate-string {"command" command
+                           "version" version
+                           "payload" payload
+                           "retries" (inc retries)})))
 
 (defn process-commands!
   "Connect to an MQ an continually, sequentially process commands.
