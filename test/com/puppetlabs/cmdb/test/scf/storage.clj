@@ -180,6 +180,43 @@
         (is (= hash tweaked-hash)
             (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
+(deftest fact-persistence
+  (testing "Persisted facts"
+    (let [certname "some_certname"
+          facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"}]
+      (sql/with-connection *db*
+        (initialize-store)
+        (add-certname! certname)
+        (add-facts! certname facts)
+        (testing "should have entries for each fact"
+          (is (= (query-to-vec "SELECT certname, fact, value FROM certname_facts ORDER BY fact")
+                 [{:certname certname :fact "domain" :value "mydomain.com"}
+                  {:certname certname :fact "fqdn" :value "myhost.mydomain.com"}
+                  {:certname certname :fact "hostname" :value "myhost"}
+                  {:certname certname :fact "kernel" :value "Linux"}
+                  {:certname certname :fact "operatingsystem" :value "Debian"}])))
+        (testing "should add the certname if necessary"
+          (is (= (query-to-vec "SELECT name FROM certnames"))
+                 [{:name certname}]))
+        (testing "replacing facts"
+          (let [new-facts {"domain" "mynewdomain.com"
+                           "fqdn" "myhost.mynewdomain.com"
+                           "hostname" "myhost"
+                           "kernel" "Linux"
+                           "uptime_seconds" "3600"}]
+            (replace-facts! certname new-facts)
+            (testing "should have only the new facts"
+              (is (= (query-to-vec "SELECT fact, value FROM certname_facts ORDER BY fact")
+                     [{:fact "domain" :value "mynewdomain.com"}
+                      {:fact "fqdn" :value "myhost.mynewdomain.com"}
+                      {:fact "hostname" :value "myhost"}
+                      {:fact "kernel" :value "Linux"}
+                      {:fact "uptime_seconds" :value "3600"}])))))))))
+
 (deftest catalog-persistence
   (testing "Persisted catalogs"
     (let [catalog *basic-catalog*]

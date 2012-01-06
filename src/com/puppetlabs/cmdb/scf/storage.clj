@@ -104,6 +104,12 @@
   (sql/do-commands
    "CREATE INDEX idx_certname_catalogs_certname ON certname_catalogs(certname)")
 
+  (sql/create-table :certname_facts
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["fact" "TEXT" "NOT NULL"]
+                    ["value" "TEXT" "NOT NULL"]
+                    ["PRIMARY KEY (certname, fact, value)"])
+
   (sql/do-commands
    "CREATE INDEX idx_resources_type ON resources(type)")
 
@@ -379,3 +385,21 @@
    (let [catalog-hash (add-catalog! catalog)]
      (dissociate-all-catalogs-for-certname! certname)
      (associate-catalog-with-certname! catalog-hash certname))))
+
+(defn add-facts!
+  [certname facts]
+  (let [default-row {:certname certname}
+        rows (for [[fact value] facts]
+               (assoc default-row :fact fact :value value))]
+    (apply sql/insert-records :certname_facts rows)))
+
+(defn delete-facts!
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/delete-rows :certname_facts ["certname=?" certname]))
+
+(defn replace-facts!
+  [certname facts]
+  (sql/transaction
+    (delete-facts! certname)
+    (add-facts! certname facts)))
