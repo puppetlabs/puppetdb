@@ -33,7 +33,7 @@
                  [org.mortbay.jetty/jetty   "6.1.26"]
                  [org.clojars.daniel-pittman/clothesline "0.2.2-SNAPSHOT"]]
 
-  :dev-dependencies [[marginalia "0.3.2"]
+  :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
                      [midje "1.2.0"]
                      [lein-midje "1.0.3"]
                      ;; WebAPI support libraries.
