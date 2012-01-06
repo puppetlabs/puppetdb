@@ -35,7 +35,6 @@
 
   :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
                      [midje "1.2.0"]
-                     [lein-midje "1.0.3"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 
