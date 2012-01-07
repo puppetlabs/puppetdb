@@ -164,7 +164,7 @@
 (defn format-for-retry
   "Return a version of the supplied command message with its retry count incremented."
   [msg]
-  {:post [string?]}
+  {:post [(string? %)]}
   (let [{:keys [command version payload retries] :or {retries 0}} (parse-command msg)]
     (json/generate-string {"command" command
                            "version" version
