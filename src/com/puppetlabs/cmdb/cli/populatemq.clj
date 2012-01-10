@@ -17,7 +17,7 @@
       (doseq [file (.listFiles (ds/file-str dirname))]
         (let [content (json/parse-string (slurp file) true)
               msg {:command "replace catalog" :version 1 :payload content}
-              msg (json/json-str msg)]
+              msg (json/generate-string msg)]
           (mq-producer/publish producer mq-endpoint msg)
           (log/info (format "Published %s" file)))))))
 
