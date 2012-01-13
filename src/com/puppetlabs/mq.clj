@@ -19,8 +19,13 @@
   `dir` - What directory in which to store the broker's data files. It
   will be created if it doesn't exist."
   ([dir]
+     {:pre  [(string? dir)]
+      :post [(instance? BrokerService %)]}
      (build-embedded-broker "localhost" dir))
   ([name dir]
+     {:pre  [(string? name)
+             (string? dir)]
+      :post [(instance? BrokerService %)]}
      (doto (BrokerService.)
        (.setBrokerName name)
        (.setDataDirectory dir)
@@ -42,6 +47,7 @@
 (defn connect!
   "Connect to the specified broker URI."
   [uri]
+  {:pre [(string? uri)]}
   (activemq/activemq-connection uri))
 
 (defn connect-and-publish!
@@ -64,6 +70,9 @@
   `timeout` - how many millis to wait for an incoming message before
   we consider the endpoint drained."
   [connection endpoint timeout]
+  {:pre  [(string? endpoint)
+          (integer? timeout)]
+   :post [(vector? %)]}
   (with-open [consumer (mq-conn/seqable connection {:endpoint endpoint :timeout timeout})]
     (reduce into []
             (map #(do (mq-seq/ack consumer) [%1])
