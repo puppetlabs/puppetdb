@@ -71,7 +71,8 @@
   we consider the endpoint drained."
   [connection endpoint timeout]
   {:pre  [(string? endpoint)
-          (integer? timeout)]
+          (integer? timeout)
+          (pos? timeout)]
    :post [(vector? %)]}
   (with-open [consumer (mq-conn/seqable connection {:endpoint endpoint :timeout timeout})]
     (reduce into []
