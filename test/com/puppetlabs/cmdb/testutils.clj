@@ -1,4 +1,5 @@
 (ns com.puppetlabs.cmdb.testutils
+  (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
             [fs.core :as fs]))
 
@@ -28,10 +29,10 @@
         (prn the-connection))
   "
   [name conn-var & body]
-  `(let [dir#         (fs/absolute-path (fs/temp-dir))
-         broker-name# ~name
-         conn-str#    (str "vm://" ~name)
-         broker#      (mq/build-embedded-broker broker-name# dir#)]
+  `(let [dir#                   (fs/absolute-path (fs/temp-dir))
+         broker-name#           ~name
+         conn-str#              (str "vm://" ~name)
+         ^BrokerService broker# (mq/build-embedded-broker broker-name# dir#)]
 
      (.setUseJmx broker# false)
      (mq/start-broker! broker#)
