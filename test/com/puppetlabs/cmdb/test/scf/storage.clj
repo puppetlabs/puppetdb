@@ -1,7 +1,8 @@
 (ns com.puppetlabs.cmdb.test.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.test.catalog :as testcat]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [cheshire.core :as json])
   (:use [com.puppetlabs.cmdb.scf.storage]
         [clojure.test]
         [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -45,6 +46,23 @@
                                                                      "group"   "root"
                                                                      "user"    "root"
                                                                      "require" "File[/etc/foobar]"}}}})
+
+(deftest serialization
+  (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
+    (testing "serialized values should deserialize to the initial value"
+      (doseq [value values]
+        (is (= (json/parse-string (db-serialize value)) value))))
+    (testing "serialized values should be unique"
+      (doseq [value1 values
+              value2 values]
+        (let [str1 (db-serialize value1)
+              str2 (db-serialize value2)]
+          (when (= value1 value2)
+            (is (= str1 str2)))
+          (when-not (= value1 value2)
+            (is (not= str1 str2)
+              (str value1 " should not serialize the same as " value2))))))))
+
 (deftest hash-computation
   (testing "Hashes for resources"
 
@@ -207,13 +225,13 @@
 
           (testing "with all parameters"
             (is (= (query-to-vec ["SELECT r.type, r.title, rp.name, rp.value FROM resources r, resource_params rp WHERE rp.resource=r.hash ORDER BY r.type, r.title, rp.name"])
-                   [{:type "File" :title "/etc/foobar" :name "ensure" :value ["directory"]}
-                    {:type "File" :title "/etc/foobar" :name "group" :value ["root"]}
-                    {:type "File" :title "/etc/foobar" :name "user" :value ["root"]}
-                    {:type "File" :title "/etc/foobar/baz" :name "ensure" :value ["directory"]}
-                    {:type "File" :title "/etc/foobar/baz" :name "group" :value ["root"]}
-                    {:type "File" :title "/etc/foobar/baz" :name "require" :value ["File[/etc/foobar]"]}
-                    {:type "File" :title "/etc/foobar/baz" :name "user" :value ["root"]}])))
+                   [{:type "File" :title "/etc/foobar" :name "ensure" :value (db-serialize "directory")}
+                    {:type "File" :title "/etc/foobar" :name "group" :value (db-serialize "root")}
+                    {:type "File" :title "/etc/foobar" :name "user" :value (db-serialize "root")}
+                    {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (db-serialize "directory")}
+                    {:type "File" :title "/etc/foobar/baz" :name "group" :value (db-serialize "root")}
+                    {:type "File" :title "/etc/foobar/baz" :name "require" :value (db-serialize "File[/etc/foobar]")}
+                    {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
 
           (testing "with all tags"
             (is (= (query-to-vec ["SELECT r.type, r.title, t.name FROM resources r, resource_tags t WHERE t.resource=r.hash ORDER BY r.type, r.title, t.name"])

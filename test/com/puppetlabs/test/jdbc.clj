@@ -1,9 +1,7 @@
 (ns com.puppetlabs.test.jdbc
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql])
-  (:use [clojure.test]
-        [com.puppetlabs.cmdb.scf.storage :only [sql-array-type-string
-                                                to-jdbc-varchar-array]]))
+  (:use [clojure.test]))
 
 (def *db* {:classname "org.hsqldb.jdbcDriver"
            :subprotocol "hsqldb"
@@ -27,11 +25,6 @@
                 "artificial" "natural"
                 "ascend"     "descend"})
 
-(def array-test-data {"answer"     ["question" "query"]
-                      "approached" ["receded" "departed"]
-                      "advance"    ["retreat" "retire"]})
-
-
 
 (defn with-test-database
   [function]
@@ -40,11 +33,6 @@
                       [:key   "VARCHAR(256)" "PRIMARY KEY"]
                       [:value "VARCHAR(256)" "NOT NULL"])
     (apply (partial sql/insert-values :test [:key :value]) (map identity test-data))
-    (sql/create-table :arraytest
-                      [:key   "VARCHAR(256)" "PRIMARY KEY"]
-                      [:value (sql-array-type-string "VARCHAR(256)") "NOT NULL"])
-    (apply (partial sql/insert-values :arraytest [:key :value])
-           (map #(vector (first %1) (to-jdbc-varchar-array (second %1))) array-test-data))
     (function)))
 
 (use-fixtures :each with-test-database)
@@ -58,14 +46,6 @@
     (doseq [[key value] test-data]
       (let [query  ["SELECT key, value FROM test WHERE key = ?" key]
             result [{:key key :value value}]]
-        (is (= (subject/query-to-vec query) result)
-            (str query " => " result " with vector"))
-        (is (= (apply subject/query-to-vec query) result)
-            (str query " => " result " with multiple params")))))
-  (testing "array columns"
-    (doseq [[key value] array-test-data]
-      (let [query  ["SELECT key, value FROM arraytest WHERE key = ?" key]
-            result [{:key key :value (vec value)}]]
         (is (= (subject/query-to-vec query) result)
             (str query " => " result " with vector"))
         (is (= (apply subject/query-to-vec query) result)

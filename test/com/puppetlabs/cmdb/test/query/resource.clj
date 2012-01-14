@@ -9,9 +9,8 @@
         ring.mock.request
         [clojure.contrib.duck-streams :only (read-lines)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [to-jdbc-varchar-array
-                                                initialize-store
-                                                sql-array-query-string]]))
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize
+                                                initialize-store]]))
 
 (def *db* nil)
 (def *app* nil)
@@ -105,10 +104,10 @@
                       "(SELECT DISTINCT hash FROM resources JOIN resource_params "
                       "ON resource_params.resource = resources.hash "
                       "WHERE ? = resource_params.name AND "
-                      (sql-array-query-string "resource_params.value")
+                      "? = resource_params.value"
                       ")"
                       ")")))
-      (is (= params ["example.local" true "ensure" "yellow"])))))
+      (is (= params ["example.local" true "ensure" (db-serialize "yellow")])))))
 
 
 ;; now, for some end-to-end testing with a database...
@@ -120,28 +119,30 @@
    {:hash "3" :type "Notify" :title "no-params"     :exported true}
    {:hash "4" :type "File"   :title "/etc/Makefile" :exported false}
    {:hash "5" :type "Notify" :title "booyah"        :exported false}
-   {:hash "6" :type "Mval"   :title "multivalue"    :exported false})
+   {:hash "6" :type "Mval"   :title "multivalue"    :exported false}
+   {:hash "7" :type "Hval"   :title "hashvalue"     :exported false})
   (sql/insert-records
    :resource_params
-   {:resource "1" :name "ensure"  :value (to-jdbc-varchar-array ["file"])}
-   {:resource "1" :name "owner"   :value (to-jdbc-varchar-array ["root"])}
-   {:resource "1" :name "group"   :value (to-jdbc-varchar-array ["root"])}
-   {:resource "2" :name "random"  :value (to-jdbc-varchar-array ["true"])}
+   {:resource "1" :name "ensure"  :value (db-serialize "file")}
+   {:resource "1" :name "owner"   :value (db-serialize "root")}
+   {:resource "1" :name "group"   :value (db-serialize "root")}
+   {:resource "2" :name "random"  :value (db-serialize "true")}
    ;; resource 3 deliberately left blank
-   {:resource "4" :name "ensure"  :value (to-jdbc-varchar-array ["present"])}
-   {:resource "4" :name "content" :value (to-jdbc-varchar-array ["#!/usr/bin/make\nall:\n\techo done\n"])}
-   {:resource "5" :name "random"  :value (to-jdbc-varchar-array ["false"])}
-   {:resource "6" :name "multi"   :value (to-jdbc-varchar-array ["one" "two" "three"])})
+   {:resource "4" :name "ensure"  :value (db-serialize "present")}
+   {:resource "4" :name "content" :value (db-serialize "#!/usr/bin/make\nall:\n\techo done\n")}
+   {:resource "5" :name "random"  :value (db-serialize "false")}
+   {:resource "6" :name "multi"   :value (db-serialize ["one" "two" "three"])}
+   {:resource "7" :name "hash"    :value (db-serialize {"foo" 5 "bar" 10})})
   (sql/insert-records
    :certnames
    {:name "example.local" :api_version 1 :catalog_version "12"}
    {:name "subset.local"  :api_version 1 :catalog_version "14"})
-  (doseq [n (range 1 7)]
-    (sql/insert-record :certname_resources
-                       {:certname "example.local" :resource (str n)}))
-  (doseq [n [1 3 5]]
-    (sql/insert-record :certname_resources
-                       {:certname "subset.local" :resource (str n)}))
+  (apply sql/insert-records :certname_resources
+         (for [n (range 1 8)]
+           {:certname "example.local" :resource (str n)}))
+  (apply sql/insert-records :certname_resources
+         (for [n [1 3 5]]
+           {:certname "subset.local" :resource (str n)}))
   (sql/insert-records
    :resource_tags
    {:resource "4" :name "vivid"})
@@ -152,16 +153,16 @@
                  :exported   true
                  :sourcefile nil
                  :sourceline nil
-                 :parameters {"ensure" ["file"]
-                              "owner"  ["root"]
-                              "group"  ["root"]}}
+                 :parameters {"ensure" "file"
+                              "owner"  "root"
+                              "group"  "root"}}
         result2 {:hash       "2"
                  :type       "Notify"
                  :title      "hello"
                  :exported   true
                  :sourcefile nil
                  :sourceline nil
-                 :parameters {"random" ["true"]}}
+                 :parameters {"random" "true"}}
         result3 {:hash       "3"
                  :type       "Notify"
                  :title      "no-params"
@@ -174,22 +175,29 @@
                  :exported   false
                  :sourcefile nil
                  :sourceline nil
-                 :parameters {"ensure"  ["present"]
-                              "content" ["#!/usr/bin/make\nall:\n\techo done\n"]}}
+                 :parameters {"ensure"  "present"
+                              "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
         result5 {:hash       "5"
                  :type       "Notify"
                  :title      "booyah"
                  :exported   false
                  :sourcefile nil
                  :sourceline nil
-                 :parameters {"random" ["false"]}}
+                 :parameters {"random" "false"}}
         result6 {:hash       "6"
                  :type       "Mval"
                  :title      "multivalue"
                  :exported   false
                  :sourcefile nil
                  :sourceline nil
-                 :parameters {"multi" ["one" "two" "three"]}}]
+                 :parameters {"multi" ["one" "two" "three"]}}
+        result7 {:hash       "7"
+                 :type       "Hval"
+                 :title      "hashvalue"
+                 :exported   false
+                 :sourcefile nil
+                 :sourceline nil
+                 :parameters {"hash" {"foo" 5 "bar" 10}}}]
     ;; ...and, finally, ready for testing.
     (testing "queries against SQL data"
       (doseq [[input expect]
@@ -205,13 +213,17 @@
                   ["=" ["parameter" "ensure"] "file"] [result1]
                   ["=" ["node" "certname"] "subset.local"] [result1 result3 result5]
                   ["=" "tag" "vivid"] [result4]
-                  ;; multi-value parameter matching!
-                  ["=" ["parameter" "multi"] "two"] [result6]
-                  ;; and that they don't match *everything*
-                  ["=" ["parameter" "multi"] "five"] []
+                  ;; array parameter matching
+                  ["=" ["parameter" "multi"] ["one" "two" "three"]] [result6]
+                  ["=" ["parameter" "multi"] ["one" "three" "two"]] []
+                  ["=" ["parameter" "multi"] "three"] []
+                  ;; hash parameter matching
+                  ["=" ["parameter" "hash"] {"foo" 5 "bar" 10}] [result7]
+                  ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [result7]
+                  ["=" ["parameter" "hash"] {"bar" 10}] []
                   ;; testing not operations
-                  ["not" ["=" "type" "File"]] [result2 result3 result5 result6]
-                  ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6]
+                  ["not" ["=" "type" "File"]] [result2 result3 result5 result6 result7]
+                  ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6 result7]
                   ;; and, or
                   ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [result1]
                   ["and" ["=" "type" "File"] ["=" "type" "Notify"]] []
@@ -301,10 +313,10 @@ to the result of the form supplied to this method."
    {:hash "2" :type "Notify" :title "hello"         :exported true})
   (sql/insert-records
    :resource_params
-   {:resource "1" :name "ensure" :value (to-jdbc-varchar-array ["file"])}
-   {:resource "1" :name "owner"  :value (to-jdbc-varchar-array ["root"])}
-   {:resource "1" :name "group"  :value (to-jdbc-varchar-array ["root"])}
-   {:resource "1" :name "acl"    :value (to-jdbc-varchar-array ["john:rwx" "fred:rwx"])})
+   {:resource "1" :name "ensure" :value (db-serialize "file")}
+   {:resource "1" :name "owner"  :value (db-serialize "root")}
+   {:resource "1" :name "group"  :value (db-serialize "root")}
+   {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
   (sql/insert-records
    :certnames
    {:name "one.local" :api_version 1 :catalog_version "12"}
@@ -328,9 +340,9 @@ to the result of the form supplied to this method."
                          :exported   true
                          :sourcefile nil
                          :sourceline nil
-                         :parameters {:ensure ["file"]
-                                      :owner  ["root"]
-                                      :group  ["root"]
+                         :parameters {:ensure "file"
+                                      :owner  "root"
+                                      :group  "root"
                                       :acl    ["john:rwx" "fred:rwx"]}}
                         {:hash       "2"
                          :type       "Notify"
@@ -345,7 +357,7 @@ to the result of the form supplied to this method."
                    ["and" ["=" ["node" "certname"] "one.local"] ["=" "type" "File"]]
                    ["=" ["parameter" "ensure"] "file"]
                    ["=" ["parameter" "owner"]  "root"]
-                   ["=" ["parameter" "acl"]    "fred:rwx"]]]
+                   ["=" ["parameter" "acl"]    ["john:rwx" "fred:rwx"]]]]
       (is-response-equal (get-response query)
                          [{:hash       "1"
                            :type       "File"
@@ -353,9 +365,9 @@ to the result of the form supplied to this method."
                            :exported   true
                            :sourcefile nil
                            :sourceline nil
-                           :parameters {:ensure ["file"]
-                                        :owner  ["root"]
-                                        :group  ["root"]
+                           :parameters {:ensure "file"
+                                        :owner  "root"
+                                        :group  "root"
                                         :acl    ["john:rwx" "fred:rwx"]}}])))
   (testing "error handling"
     (let [response (get-response ["="])

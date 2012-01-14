@@ -25,84 +25,16 @@
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [clojure.contrib.logging :as log]
-            [digest]))
+            [digest]
+            [cheshire.core :as json]))
 
-;; ## Database neutrality
-;;
-;; These methods allow us to abstract behaviour over multiple
-;; database types.
-
-(defn sql-current-connection-database-name
-  "Return the database product name currently in use."
-  []
-  (.. (sql/find-connection)
-      (getMetaData)
-      (getDatabaseProductName)))
-
-(defmulti sql-array-type-string
-  "Returns a string representing the correct way to declare an array
-  of the supplied base database type."
-  ;; Dispatch based on databsae from the metadata of DB connection at the time
-  ;; of call; this copes gracefully with multiple connection types.
-  (fn [_] (sql-current-connection-database-name)))
-
-(defmulti sql-array-query-string
-  "Returns an SQL fragment representing a query for a single value being
-found in an array column in the database.
-
-  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
-
-The returned SQL fragment will contain *one* parameter placeholder, which
-must be supplied as the value to be matched."
-  (fn [column] (sql-current-connection-database-name)))
-
-(defmulti to-jdbc-varchar-array
-  "Takes the supplied collection and transforms it into a
-  JDBC-appropriate VARCHAR array."
-  (fn [_] (sql-current-connection-database-name)))
-
-
-(defmethod sql-array-type-string "PostgreSQL"
-  [basetype]
-  (format "%s ARRAY" basetype))
-
-(defmethod sql-array-query-string "PostgreSQL"
-  [column]
-  (format "? = ANY(%s)" column))
-
-(defmethod to-jdbc-varchar-array "PostgreSQL"
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
-
-(defmethod sql-array-type-string "HSQL Database Engine"
-  [basetype]
-  (format "%s ARRAY[%d]" basetype 65535))
-
-(defmethod sql-array-query-string "HSQL Database Engine"
-  [column]
-  (format "? IN (UNNEST(%s))" column))
-
-(defmethod to-jdbc-varchar-array "HSQL Database Engine"
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
-
-(defmethod sql-array-type-string "H2"
-  [_]
-  "ARRAY")
-
-(defmethod to-jdbc-varchar-array "H2"
-  [coll]
-  ;; H2 has no support for query inside an array column.
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object))))
-
+(defn db-serialize
+  "Serialize `value` into a form appropriate for querying
+against a serialized database column."
+  [value]
+  (json/generate-string (if (map? value)
+                      (into (sorted-map) value)
+                      value)))
 
 ;; ## Database schema
 ;;
@@ -153,7 +85,7 @@ must be supplied as the value to be matched."
   (sql/create-table :resource_params
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
                     ["name" "TEXT" "NOT NULL"]
-                    ["value" (sql-array-type-string "TEXT") "NOT NULL"]
+                    ["value" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (resource, name)"])
 
   (sql/create-table :resource_tags
@@ -292,17 +224,10 @@ must be supplied as the value to be matched."
 
       ; Build up a list of records for insertion
       (let [records (for [[name value] parameters]
-                      ; Parameter values are represented as database
-                      ; arrays (even single parameter values). This is
-                      ; done to handle multi-valued parameters. As you
-                      ; can't have a database array that contains
-                      ; multiple types of values, we convert all
-                      ; parameter values to strings.
-                      (let [value-array (->> value
-                                            (utils/as-collection)
-                                            (map str)
-                                            (to-jdbc-varchar-array))]
-                        {:resource resource-hash :name name :value value-array}))]
+                      ; Parameter values are represented as serialized strings,
+                      ; for ease of comparison.
+                      (let [value (db-serialize value)]
+                        {:resource resource-hash :name name :value value}))]
 
         ; ...and insert them
         (apply sql/insert-records :resource_params records))
