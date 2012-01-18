@@ -4,6 +4,7 @@
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
+            [clojureql.core :as clojureql]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
@@ -26,19 +27,21 @@
 (deftest query->sql
   (testing "comparisons"
     ;; simple, local attributes
-    (is (= (s/query->sql ["=" "title" "whatever"])
-           ["(SELECT DISTINCT hash FROM resources WHERE title = ?)" "whatever"]))
+    (let [query ["=" "title" "whatever"]
+          result ["(SELECT DISTINCT resources.hash FROM resources WHERE (resources.title = ?))" "whatever"]]
+      (is (= (s/query->sql *db* query) result)
+          (str query "=>" result)))
     ;; with a path to the field
-    (let [[sql & params] (s/query->sql ["=" ["node" "certname"] "example"])]
+    (let [[sql & params] (s/query->sql *db* ["=" ["node" "certname"] "example"])]
       (is (= params ["example"]))
       (is (re-find #"JOIN certname_resources" sql))
-      (is (re-find #"WHERE certname_resources.certname = \?" sql)))
-    (let [[sql & params] (s/query->sql ["=" "tag" "foo"])]
-      (is (re-find #"SELECT DISTINCT hash FROM resources" sql))
+      (is (re-find #"WHERE \(certname_resources.certname = \?\)" sql)))
+    (let [[sql & params] (s/query->sql *db* ["=" "tag" "foo"])]
+      (is (re-find #"SELECT DISTINCT resources.hash FROM resources" sql))
       (is (re-find #"JOIN resource_tags" sql))
       (is (= params ["foo"]))))
   (testing "order of params in grouping"
-    (let [[sql & params] (s/query->sql ["and"
+    (let [[sql & params] (s/query->sql *db* ["and"
                                         ["=" "type" "foo"]
                                         ["=" "type" "bar"]
                                         ["=" "type" "baz"]])]
@@ -53,48 +56,51 @@
       (doall
        (for [one terms
              two terms]
-         (let [[sql1 & param1] (s/query->sql one)
-               [sql2 & param2] (s/query->sql two)
-               [and-sql & and-params] (s/query->sql ["and" one two])
-               [or-sql & or-params] (s/query->sql ["or" one two])]
+         (let [[sql1 & param1] (s/query->sql *db* one)
+               [sql2 & param2] (s/query->sql *db* two)
+               [and-sql & and-params] (s/query->sql *db* ["and" one two])
+               [or-sql & or-params] (s/query->sql *db* ["or" one two])]
            (is (= and-sql (format "(SELECT DISTINCT hash FROM %s resources_0 NATURAL JOIN %s resources_1)"
                                   sql1 sql2)))
            (is (= or-sql (format "(%s UNION %s)" sql1 sql2)))
            (is (= and-params (concat param1 param2)))
            (is (= or-params (concat param1 param2)))))))
     (testing "simple {and, or} grouping with many terms"
-      (let [terms-  (map s/query->sql terms)
+      (let [terms-  (map (partial s/query->sql *db*) terms)
                queries (map first terms-)
                joins (->> (map #(format "%s resources_%d" %1 %2) queries (range (count queries)))
                           (string/join " NATURAL JOIN "))
                and- (format "(SELECT DISTINCT hash FROM %s)" joins)
                or- (format "(%s)" (string/join " UNION " queries))
                params- (mapcat rest terms-)
-               [and-sql & and-params] (s/query->sql (apply vector "and" terms))
-               [or-sql & or-params] (s/query->sql (apply vector "or" terms))]
+               [and-sql & and-params] (s/query->sql *db* (apply vector "and" terms))
+               [or-sql & or-params] (s/query->sql *db* (apply vector "or" terms))]
            (is (= and-sql and-))
            (is (= or-sql or-))
            (is (= and-params params-))
            (is (= or-params params-)))))
+
   (testing "negation"
-    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]])]
+    (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]])]
       (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
-                      "((SELECT DISTINCT hash FROM resources WHERE type = ?)) rhs "
-                      "ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL)")))
+                      "((SELECT DISTINCT resources.hash FROM resources WHERE (resources.type = ?))) rhs "
+                      "ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL))")))
       (is (= params ["foo"])))
-    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]
+    (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]
                                         ["=" "title" "bar"]])]
       (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
+
                       "("
-                      "(SELECT DISTINCT hash FROM resources WHERE type = ?)"
+                      "(SELECT DISTINCT resources.hash FROM resources WHERE (resources.type = ?))"
                       " UNION "
-                      "(SELECT DISTINCT hash FROM resources WHERE title = ?)"
-                      ") rhs ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL"
+                      "(SELECT DISTINCT resources.hash FROM resources WHERE (resources.title = ?))"
+                      ") rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)"
                       ")")))
       (is (= params ["foo" "bar"]))))
+
   (testing "real world query"
     (let [[sql & params]
-          (s/query->sql ["and"
+          (s/query->sql *db* ["and"
                          ["not" ["=" ["node" "certname"] "example.local"]]
                          ["=" "exported" true]
                          ["=" ["parameter" "ensure"] "yellow"]])]
@@ -102,20 +108,20 @@
                       ;; top level and not certname
                       "SELECT DISTINCT hash FROM "
                       "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN ("
-                      "(SELECT DISTINCT hash FROM resources JOIN certname_resources "
-                      "ON certname_resources.resource = resources.hash "
-                      "WHERE certname_resources.certname = ?)"
-                      ") rhs ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL) resources_0"
+                      "(SELECT DISTINCT resources.hash FROM resources JOIN certname_resources "
+                      "ON (certname_resources.resource = resources.hash) "
+                      "WHERE (certname_resources.certname = ?))"
+                      ") rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)) resources_0"
                       ;; exported
                       " NATURAL JOIN "
-                      "(SELECT DISTINCT hash FROM resources "
-                      "WHERE exported = ?) resources_1"
+                      "(SELECT DISTINCT resources.hash FROM resources "
+                      "WHERE (resources.exported = ?)) resources_1"
                       ;; parameter match
                       " NATURAL JOIN "
-                      "(SELECT DISTINCT hash FROM resources JOIN resource_params "
-                      "ON resource_params.resource = resources.hash "
-                      "WHERE ? = resource_params.name AND "
-                      "? = resource_params.value"
+                      "(SELECT DISTINCT resources.hash FROM resources JOIN resource_params "
+                      "ON (resource_params.resource = resources.hash) "
+                      "WHERE ((resource_params.name = ?) AND "
+                      "(resource_params.value = ?))"
                       ") resources_2"
                       ")")))
       (is (= params ["example.local" true "ensure" (db-serialize "yellow")])))))
@@ -256,7 +262,7 @@
                    ["=" "tag" "vivid"]]
                   [result4]
                   ])]
-        (is (= (s/query-resources *db* (s/query->sql input)) expect)
+        (is (= (s/query-resources *db* (s/query->sql *db* input)) expect)
             (str "  " input " =>\n  " expect))))))
 
 
@@ -264,19 +270,19 @@
   (testing "combine terms without arguments"
     (doseq [op ["and" "AND" "or" "OR" "AnD" "Or" "not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (s/query-resources *db* (s/query->sql [op]))))
+            (s/query-resources *db* (s/query->sql *db* [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-            (s/query-resources *db* (s/query->sql [op]))))))
+            (s/query-resources *db* (s/query->sql *db* [op]))))))
   (testing "bad query operators"
     (doseq [in [["if"] ["-"] [{}] [["="]]]]
       (is (thrown-with-msg? IllegalArgumentException #"No method in multimethod"
-            (s/query-resources *db* (s/query->sql in))))))
+            (s/query-resources *db* (s/query->sql *db* in))))))
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
             (re-pattern (str "operators take two arguments, but we found "
                              (dec (count in))))
-            (s/query-resources *db* (s/query->sql in))))))
+            (s/query-resources *db* (s/query->sql *db* in))))))
   (testing "bad types in input"
     (doseq [path (list [] {} [{}] 12 true false 0.12)]
       (doseq [input (list ["=" path "foo"]
@@ -284,7 +290,7 @@
                           ["=" ["bar" path] "foo"])]
         (is (thrown-with-msg? IllegalArgumentException
               #"is not a valid query term"
-              (s/query-resources *db* (s/query->sql input))))))))
+              (s/query-resources *db* (s/query->sql *db* input))))))))
 
 
 
