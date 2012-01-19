@@ -137,26 +137,50 @@ JSON array, and returning them as the body of the request."
                                  (str term " is not a valid query term"))))]
     (assoc sql 0 (str "(SELECT DISTINCT hash FROM resources " (first sql) ")"))))
 
-(defn- handle-join-terms
-  "Join a set of queries together with some operation; the individual
-queries (of which there must be at least one) are joined safely."
-  [input op terms]
-  (when (not (pos? (count terms)))
-    (throw (IllegalArgumentException. (str input " requires at least one term"))))
-  (let [terms  (map compile-query->sql terms)
-        sql    (str "(" (string/join (str " " op " ") (map first terms)) ")")
-        params (reduce concat (map rest terms))]
-    (apply (partial vector sql) params)))
+(defn- alias-subqueries
+  [queries]
+  (let [ids (range (count queries))]
+    (map #(format "%s resources_%d" %1 %2) queries ids)))
 
 (defmethod compile-query->sql "and"
-  [[op & terms]] (handle-join-terms op "INTERSECT" terms))
+  [[op & terms]]
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [terms (map compile-query->sql terms)
+        params (mapcat rest terms)
+        query (->> (map first terms)
+                   (alias-subqueries)
+                   (string/join " NATURAL JOIN ")
+                   (str "SELECT DISTINCT hash FROM ")
+                   (format "(%s)"))]
+    (apply vector query params)))
+
 (defmethod compile-query->sql "or"
-  [[op & terms]] (handle-join-terms op "UNION" terms))
+  [[op & terms]]
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [terms (map compile-query->sql terms)
+        params (mapcat rest terms)
+        query (->> (map first terms)
+                   (string/join " UNION ")
+                   (format "(%s)"))]
+    (apply vector query params)))
 
 (defmethod compile-query->sql "not"
   [[op & terms]]
-  (if (pos? (count terms))
-    (let [terms (query->sql (apply (partial vector "or") terms))]
-      (assoc terms 0
-             (str "(SELECT DISTINCT hash FROM resources EXCEPT " (first terms) ")")))
-    (throw (IllegalArgumentException. (str op " requires at least one term")))))
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [[subquery & params] (compile-query->sql (cons "or" terms))
+         query (->> subquery
+                    (format "SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN %s rhs ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL")
+                    (format "(%s)"))]
+    (apply vector query params)))

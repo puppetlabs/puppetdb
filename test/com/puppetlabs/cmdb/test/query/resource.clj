@@ -51,35 +51,45 @@
                ["=" ["parameter" "banana"] "yumm"]]]
     (testing "simple {and, or} grouping"
       (doall
-       (for [[op join] {"and" "INTERSECT" "or" "UNION"}
-             one terms two terms]
+       (for [one terms
+             two terms]
          (let [[sql1 & param1] (s/query->sql one)
                [sql2 & param2] (s/query->sql two)
-               [sql & params] (s/query->sql [op one two])]
-           (is (= sql (str "(" sql1 " " join " " sql2 ")")))
-           (is (= params (concat param1 param2)))))))
+               [and-sql & and-params] (s/query->sql ["and" one two])
+               [or-sql & or-params] (s/query->sql ["or" one two])]
+           (is (= and-sql (format "(SELECT DISTINCT hash FROM %s resources_0 NATURAL JOIN %s resources_1)"
+                                  sql1 sql2)))
+           (is (= or-sql (format "(%s UNION %s)" sql1 sql2)))
+           (is (= and-params (concat param1 param2)))
+           (is (= or-params (concat param1 param2)))))))
     (testing "simple {and, or} grouping with many terms"
-      (doall
-       (for [[op join] {"and" " INTERSECT " "or" " UNION "}]
-         (let [terms-  (map s/query->sql terms)
-               sql-    (str "(" (string/join join (map first terms-)) ")")
-               params- (reduce concat (map rest terms-))
-               [sql & params] (s/query->sql (apply (partial vector op) terms))]
-           (is (= sql sql-))
-           (is (= params params-)))))))
+      (let [terms-  (map s/query->sql terms)
+               queries (map first terms-)
+               joins (->> (map #(format "%s resources_%d" %1 %2) queries (range (count queries)))
+                          (string/join " NATURAL JOIN "))
+               and- (format "(SELECT DISTINCT hash FROM %s)" joins)
+               or- (format "(%s)" (string/join " UNION " queries))
+               params- (mapcat rest terms-)
+               [and-sql & and-params] (s/query->sql (apply vector "and" terms))
+               [or-sql & or-params] (s/query->sql (apply vector "or" terms))]
+           (is (= and-sql and-))
+           (is (= or-sql or-))
+           (is (= and-params params-))
+           (is (= or-params params-)))))
   (testing "negation"
     (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]])]
-      (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
-                      "((SELECT DISTINCT hash FROM resources WHERE type = ?)))")))
+      (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
+                      "((SELECT DISTINCT hash FROM resources WHERE type = ?)) rhs "
+                      "ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL)")))
       (is (= params ["foo"])))
     (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]
                                         ["=" "title" "bar"]])]
-      (is (= sql (str "(SELECT DISTINCT hash FROM resources EXCEPT "
+      (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
                       "("
                       "(SELECT DISTINCT hash FROM resources WHERE type = ?)"
                       " UNION "
                       "(SELECT DISTINCT hash FROM resources WHERE title = ?)"
-                      ")"
+                      ") rhs ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL"
                       ")")))
       (is (= params ["foo" "bar"]))))
   (testing "real world query"
@@ -90,22 +100,23 @@
                          ["=" ["parameter" "ensure"] "yellow"]])]
       (is (= sql (str "("
                       ;; top level and not certname
-                      "(SELECT DISTINCT hash FROM resources EXCEPT ("
+                      "SELECT DISTINCT hash FROM "
+                      "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN ("
                       "(SELECT DISTINCT hash FROM resources JOIN certname_resources "
                       "ON certname_resources.resource = resources.hash "
                       "WHERE certname_resources.certname = ?)"
-                      "))"
+                      ") rhs ON lhs.hash = rhs.hash WHERE rhs.hash IS NULL) resources_0"
                       ;; exported
-                      " INTERSECT "
+                      " NATURAL JOIN "
                       "(SELECT DISTINCT hash FROM resources "
-                      "WHERE exported = ?)"
+                      "WHERE exported = ?) resources_1"
                       ;; parameter match
-                      " INTERSECT "
+                      " NATURAL JOIN "
                       "(SELECT DISTINCT hash FROM resources JOIN resource_params "
                       "ON resource_params.resource = resources.hash "
                       "WHERE ? = resource_params.name AND "
                       "? = resource_params.value"
-                      ")"
+                      ") resources_2"
                       ")")))
       (is (= params ["example.local" true "ensure" (db-serialize "yellow")])))))
 
