@@ -85,15 +85,18 @@
 
 (defmethod process-command! ["replace catalog" 1] [cmd options]
   ;; Parsing a catalog either works, or it generates a fatal exception
-  (let [catalog (try+
-                 (-> cmd
-                     :payload
-                     (cat/parse-from-json-obj))
-                 (catch Throwable e
-                   (throw+ (fatality! e))))]
+  (let [catalog  (try+
+                  (-> cmd
+                      :payload
+                      (cat/parse-from-json-obj))
+                  (catch Throwable e
+                    (throw+ (fatality! e))))
+        certname (:certname catalog)]
     (sql/with-connection (:db options)
+      (when-not (scf-storage/certname-exists? certname)
+        (scf-storage/add-certname! certname))
       (scf-storage/replace-catalog! catalog))
-    (log/info (format "[replace catalog] %s" (:certname catalog)))))
+    (log/info (format "[replace catalog] %s" certname))))
 
 ;;; Message queue I/O and utilities
 
