@@ -96,7 +96,7 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/replace-catalog! catalog))
-    (log/info (format "[replace catalog] %s" (:certname catalog)))))
+    (log/info (format "[replace catalog] %s" certname))))
 
 ;;; Message queue I/O and utilities
 
