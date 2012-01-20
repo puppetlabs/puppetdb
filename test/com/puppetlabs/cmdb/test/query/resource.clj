@@ -34,8 +34,9 @@
     ;; with a path to the field
     (let [[sql & params] (s/query->sql *db* ["=" ["node" "certname"] "example"])]
       (is (= params ["example"]))
-      (is (re-find #"JOIN certname_resources" sql))
-      (is (re-find #"WHERE \(certname_resources.certname = \?\)" sql)))
+      (is (re-find #"JOIN catalog_resources" sql))
+      (is (re-find #"JOIN certname_catalogs" sql))
+      (is (re-find #"WHERE \(certname_catalogs.certname = \?\)" sql)))
     (let [[sql & params] (s/query->sql *db* ["=" "tag" "foo"])]
       (is (re-find #"SELECT DISTINCT resources.hash FROM resources" sql))
       (is (re-find #"JOIN resource_tags" sql))
@@ -108,9 +109,10 @@
                       ;; top level and not certname
                       "SELECT DISTINCT hash FROM "
                       "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN ("
-                      "(SELECT DISTINCT resources.hash FROM resources JOIN certname_resources "
-                      "ON (certname_resources.resource = resources.hash) "
-                      "WHERE (certname_resources.certname = ?))"
+                      "(SELECT DISTINCT resources.hash FROM resources "
+                      "JOIN catalog_resources ON (resources.hash = catalog_resources.resource) "
+                      "JOIN certname_catalogs ON (catalog_resources.catalog = certname_catalogs.catalog) "
+                      "WHERE (certname_catalogs.certname = ?))"
                       ") rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)) resources_0"
                       ;; exported
                       " NATURAL JOIN "
@@ -152,14 +154,22 @@
    {:resource "7" :name "hash"    :value (db-serialize {"foo" 5 "bar" 10})})
   (sql/insert-records
    :certnames
-   {:name "example.local" :api_version 1 :catalog_version "12"}
-   {:name "subset.local"  :api_version 1 :catalog_version "14"})
-  (apply sql/insert-records :certname_resources
+   {:name "example.local"}
+   {:name "subset.local"})
+  (sql/insert-records
+    :catalogs
+    {:hash "foo" :api_version 1 :catalog_version "12"}
+    {:hash "bar" :api_version 1 :catalog_version "14"})
+  (sql/insert-records
+    :certname_catalogs
+    {:certname "example.local" :catalog "foo"}
+    {:certname "subset.local" :catalog "bar"})
+  (apply sql/insert-records :catalog_resources
          (for [n (range 1 8)]
-           {:certname "example.local" :resource (str n)}))
-  (apply sql/insert-records :certname_resources
+           {:catalog "foo" :resource (str n)}))
+  (apply sql/insert-records :catalog_resources
          (for [n [1 3 5]]
-           {:certname "subset.local" :resource (str n)}))
+           {:catalog "bar" :resource (str n)}))
   (sql/insert-records
    :resource_tags
    {:resource "4" :name "vivid"})
@@ -336,14 +346,22 @@ to the result of the form supplied to this method."
    {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
   (sql/insert-records
    :certnames
-   {:name "one.local" :api_version 1 :catalog_version "12"}
-   {:name "two.local" :api_version 1 :catalog_version "14"})
+   {:name "one.local"}
+   {:name "two.local"})
+  (sql/insert-records
+    :catalogs
+    {:hash "foo" :api_version 1 :catalog_version "12"}
+    {:hash "bar" :api_version 1 :catalog_version "14"})
+  (sql/insert-records
+    :certname_catalogs
+    {:certname "one.local" :catalog "foo"}
+    {:certname "two.local" :catalog "bar"})
   (doseq [n (range 1 3)]
-    (sql/insert-record :certname_resources
-                       {:certname "one.local" :resource (str n)}))
+    (sql/insert-record :catalog_resources
+                       {:catalog "foo" :resource (str n)}))
   (doseq [n [2]]
-    (sql/insert-record :certname_resources
-                       {:certname "two.local" :resource (str n)}))
+    (sql/insert-record :catalog_resources
+                       {:catalog "bar" :resource (str n)}))
   (sql/insert-records
    :resource_tags
    {:resource "1" :name "one"}

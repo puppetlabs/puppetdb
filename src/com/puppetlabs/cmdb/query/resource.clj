@@ -132,12 +132,15 @@ JSON array, and returning them as the body of the request."
               ;; node join.
               [["node" (field :when string?)]]
                    (-> tbl
-                     (join (table :certname_resources)
+                     (join (table :catalog_resources)
                            (where
-                             (= :certname_resources.resource :resources.hash)))
+                             (= :resources.hash :catalog_resources.resource)))
+                     (join (table :certname_catalogs)
+                           (where
+                             (= :catalog_resources.catalog :certname_catalogs.catalog)))
                      (select
                        (where
-                         (= :certname_resources.certname value)))
+                         (= :certname_catalogs.certname value)))
                      (project [:resources.hash]))
               ;; param joins.
               [["parameter" (name :when string?)]]
