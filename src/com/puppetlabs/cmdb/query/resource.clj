@@ -4,8 +4,9 @@
             [cheshire.core :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.scf.storage :only [sql-array-query-string]]
+  (:use clojureql.core
+        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
         [clojure.core.match.core :only [match]]
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [clothesline.service.helpers :only [defhandler]]))
@@ -21,17 +22,23 @@
 
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations"
-  #(string/lower-case (first %)))
+  (fn [db query]
+    (string/lower-case (first query))))
 
 (defn query->sql
   "Compile a vector-structured query into an SQL expression.
 An empty query gathers all resources."
-  [query]
+  [db query]
   {:pre  [(or (nil? query) (vector? query))]
-   :post [(vector? %) (string? (first %))]}
+   :post [(vector? %)
+          (string? (first %))
+          (every? (complement coll?) (rest %))]}
   (if (nil? query)
-    ["SELECT hash FROM resources"]
-    (compile-query->sql query)))
+    (-> (table :resources)
+        (project [:hash])
+        (distinct)
+        (clojureql.core/compile db))
+    (compile-query->sql db query)))
 
 (defn malformed-request?
   "Validate the JSON-encoded query for this resource, and annotate the
@@ -39,7 +46,8 @@ graphdata with the compiled data structure.  This ensures that only valid
 input queries can make it through to the rest of the system."
   [_ {:keys [params] :as request} _]
   (try
-    (let [sql (query->sql (json/parse-string (get params "query" "null") true))]
+    (let [db (get-in request [:globals :scf-db])
+          sql (query->sql db (json/parse-string (get params "query" "null") true))]
       (annotated-return false {:annotate {:query sql}}))
     (catch Exception e
       (annotated-return
@@ -53,33 +61,32 @@ input queries can make it through to the rest of the system."
 and their parameters which match."
   [db query]
   {:pre [(map? db)]}
-  ;; REVISIT: ARGH!  So, Java *HATES* the 'IN' operation, and can't do
-  ;; anything useful to fill in more than one value in it.  Options are to
-  ;; use a subselect, or to manually generate the template with enough
-  ;; substitution points to fill out each entry in `hashes`.
-  ;;
-  ;; This *bites*.  How about a wrapper, eh?  Let us try subselect for now,
-  ;; and move to ClojureQL if that turns out to be hard. --daniel 2011-09-19
-  (let [[sql & args] query
-        resources (future
-                    (let [select (partial query-to-vec
-                                          (str "SELECT * FROM resources "
-                                               "WHERE hash IN (" sql ")"))]
-                      (sql/with-connection db
-                        (apply select args))))
-        params (future
-                 (let [select (partial query-to-vec
-                                       (str "SELECT * FROM resource_params "
-                                            "WHERE resource IN (" sql ")"))]
-                   (sql/with-connection db
+  (let [hashes (sql/with-connection db
+                   (->> (query-to-vec query)
+                        (map :hash)))]
+    ; We have to special-case this or we get invalid queries generated later :(
+    (if (empty? hashes)
+      []
+      (let [resources (future
+                        (-> (table db :resources)
+                            (select (where
+                                      (in :hash hashes)))
+                            (deref)))
+            params (future
+                     (-> (table db :resource_params)
+                         (select (where
+                                 (in :resource hashes)))
+                         (deref)))
+            params (->> @params
+                     (group-by :resource)
                      (utils/mapvals
-                      (partial reduce #(assoc %1 (:name %2) (:value %2)) {})
-                      (group-by :resource (apply select args))))))]
-    (vec (map #(if-let [params (get @params (:hash %1))]
+                       (partial reduce
+                                #(assoc %1 (:name %2) (json/parse-string (:value %2))) {})))]
+
+    (vec (map #(if-let [params (get params (:hash %1))]
                  (assoc %1 :parameters params)
                  %1)
-              @resources))))
-
+              @resources))))))
 
 (defn resource-list-as-json
   "Fetch a list of resources from the database, formatting them as a
@@ -104,59 +111,104 @@ JSON array, and returning them as the body of the request."
 
 ;;;; The SQL query compiler implementation.
 (defmethod compile-query->sql "="
-  [[op path value :as term]]
+  [db [op path value :as term]]
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
               (format "operators take two arguments, but we found %d" (dec count))))))
-  (let [sql (match [path]
-                   ;; tag join.
-                   ["tag"]
-                   [(str "JOIN resource_tags ON resources.hash = resource_tags.resource "
-                         "WHERE resource_tags.name = ?")
-                    value]
-                   ;; node join.
-                   [["node" (field :when string?)]]
-                   [(str "JOIN certname_resources "
-                         "ON certname_resources.resource = resources.hash "
-                         "WHERE certname_resources.certname = ?")
-                    value]
-                   ;; param joins.
-                   [["parameter" (name :when string?)]]
-                   [(str "JOIN resource_params "
-                         "ON resource_params.resource = resources.hash "
-                         "WHERE "
-                         "? = resource_params.name AND "
-                         (sql-array-query-string "resource_params.value"))
-                    name value]
-                   ;; simple string match.
-                   [(name :when string?)]
-                   [(str "WHERE " name " = ?") value]
-                   ;; ...else, failure
-                   :else (throw (IllegalArgumentException.
-                                 (str term " is not a valid query term"))))]
-    (assoc sql 0 (str "(SELECT DISTINCT hash FROM resources " (first sql) ")"))))
+  (let [tbl (-> (table :resources)
+                (distinct))
+        tbl (match [path]
+              ;; tag join.
+              ["tag"]
+                   (-> tbl
+                     (join (table :resource_tags)
+                           (where
+                             (= :resources.hash :resource_tags.resource)))
+                     (select
+                       (where
+                         (= :resource_tags.name value)))
+                     (project [:resources.hash]))
+              ;; node join.
+              [["node" (field :when string?)]]
+                   (-> tbl
+                     (join (table :catalog_resources)
+                           (where
+                             (= :resources.hash :catalog_resources.resource)))
+                     (join (table :certname_catalogs)
+                           (where
+                             (= :catalog_resources.catalog :certname_catalogs.catalog)))
+                     (select
+                       (where
+                         (= :certname_catalogs.certname value)))
+                     (project [:resources.hash]))
+              ;; param joins.
+              [["parameter" (name :when string?)]]
+                   (-> tbl
+                     (join (table :resource_params)
+                           (where
+                             (= :resource_params.resource :resources.hash)))
+                     (select
+                       (where (and
+                                (= :resource_params.name name)
+                                (= :resource_params.value (db-serialize value)))))
+                     (project [:resources.hash]))
+              ;; simple string match.
+              [(column :when string?)]
+                   (-> tbl
+                     (select (where
+                               (= (keyword column) value)))
+                     (project [:resources.hash]))
+              ;; ...else, failure
+              :else (throw (IllegalArgumentException.
+                           (str term " is not a valid query term"))))
+        [sql & params] (clojureql.core/compile tbl db)]
+      (apply vector (format "(%s)" sql) params)))
 
-(defn- handle-join-terms
-  "Join a set of queries together with some operation; the individual
-queries (of which there must be at least one) are joined safely."
-  [input op terms]
-  (when (not (pos? (count terms)))
-    (throw (IllegalArgumentException. (str input " requires at least one term"))))
-  (let [terms  (map compile-query->sql terms)
-        sql    (str "(" (string/join (str " " op " ") (map first terms)) ")")
-        params (reduce concat (map rest terms))]
-    (apply (partial vector sql) params)))
+(defn- alias-subqueries
+  [queries]
+  (let [ids (range (count queries))]
+    (map #(format "%s resources_%d" %1 %2) queries ids)))
 
 (defmethod compile-query->sql "and"
-  [[op & terms]] (handle-join-terms op "INTERSECT" terms))
+  [db [op & terms]]
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [terms (map (partial compile-query->sql db) terms)
+        params (mapcat rest terms)
+        query (->> (map first terms)
+                   (alias-subqueries)
+                   (string/join " NATURAL JOIN ")
+                   (str "SELECT DISTINCT hash FROM ")
+                   (format "(%s)"))]
+    (apply vector query params)))
+
 (defmethod compile-query->sql "or"
-  [[op & terms]] (handle-join-terms op "UNION" terms))
+  [db [op & terms]]
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [terms (map (partial compile-query->sql db) terms)
+        params (mapcat rest terms)
+        query (->> (map first terms)
+                   (string/join " UNION ")
+                   (format "(%s)"))]
+    (apply vector query params)))
 
 (defmethod compile-query->sql "not"
-  [[op & terms]]
-  (if (pos? (count terms))
-    (let [terms (query->sql (apply (partial vector "or") terms))]
-      (assoc terms 0
-             (str "(SELECT DISTINCT hash FROM resources EXCEPT " (first terms) ")")))
-    (throw (IllegalArgumentException. (str op " requires at least one term")))))
+  [db [op & terms]]
+  {:pre [(every? vector? terms)]
+   :post [(string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (when (empty? terms)
+    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+  (let [[subquery & params] (compile-query->sql db (cons "or" terms))
+         query (->> subquery
+                    (format "SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN %s rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)")
+                    (format "(%s)"))]
+    (apply vector query params)))

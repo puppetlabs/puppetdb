@@ -26,6 +26,7 @@
                  [org.clojure/java.jdbc "0.0.6"]
                  [org.hsqldb/hsqldb "2.2.4"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
+                 [clojureql "1.0.3"]
                  ;; MQ connectivity
                  [clamq "0.3"]
                  [org.apache.activemq/activemq-core "5.5.0"]
