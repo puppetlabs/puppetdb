@@ -9,6 +9,42 @@
 
 (def *db* (test-db))
 
+(def *basic-catalog*
+  {:certname "myhost.mydomain.com"
+   :cmdb-version cat/CMDB-VERSION
+   :api-version 1
+   :version "123456789"
+   :tags #{"class" "foobar"}
+   :classes #{"foobar" "baz"}
+   :edges #{{:source {:type "Class" :title "foobar"}
+             :target {:type "File" :title "/etc/foobar"}
+             :relationship :contains}
+            {:source {:type "Class" :title "foobar"}
+             :target {:type "File" :title "/etc/foobar/baz"}
+             :relationship :contains}
+            {:source {:type "File" :title "/etc/foobar"}
+             :target {:type "File" :title "/etc/foobar/baz"}
+             :relationship :required-by}}
+   :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
+               {:type "File" :title "/etc/foobar"} {:type       "File"
+                                                    :title      "/etc/foobar"
+                                                    :exported   false
+                                                    :file       "/tmp/foo"
+                                                    :line       10
+                                                    :tags       #{"file" "class" "foobar"}
+                                                    :parameters {"ensure" "directory"
+                                                                 "group"  "root"
+                                                                 "user"   "root"}}
+               {:type "File" :title "/etc/foobar/baz"} {:type       "File"
+                                                        :title      "/etc/foobar/baz"
+                                                        :exported   false
+                                                        :file       "/tmp/bar"
+                                                        :line       20
+                                                        :tags       #{"file" "class" "foobar"}
+                                                        :parameters {"ensure"  "directory"
+                                                                     "group"   "root"
+                                                                     "user"    "root"
+                                                                     "require" "File[/etc/foobar]"}}}})
 (deftest hash-computation
   (testing "Hashes for resources"
 
@@ -43,43 +79,90 @@
           (is (not= (resource-identity-hash r1)
                     (resource-identity-hash r2))))))))
 
+(deftest catalog-dedupe
+  (testing "Catalogs with different metadata but the same content should hash to the same thing"
+    (let [catalog            *basic-catalog*
+          hash               (catalog-similarity-hash catalog)
+          ;; Functions that tweak various attributes of a catalog
+          add-resource       (fn [{:keys [resources] :as c}]
+                               (let [new-resource (testcat/random-kw-resource)
+                                     key {:type (:type new-resource) :title (:title new-resource)}]
+                                 (assoc c :resources (assoc resources key (testcat/random-kw-resource)))))
+
+          mod-resource       (fn [{:keys [resources] :as c}]
+                               (let [k (rand-nth (keys resources))
+                                     r (resources k)
+                                     rand-resource (testcat/random-kw-resource)
+                                     new-resource (assoc rand-resource :type (:type r) :title (:title r))]
+                                 (assoc c :resources (assoc resources k new-resource))))
+
+          add-edge           (fn [{:keys [edges resources] :as c}]
+                               (let [make-edge (fn []
+                                                 (let [source (rand-nth (vals resources))
+                                                       target (rand-nth (vals resources))]
+                                                       {:source {:type (:type source) :title (:title source)}
+                                                        :target {:type (:type target) :title (:title target)}}))
+                                     ;; Generate at most 100 edges
+                                     new-edge  (first (remove edges (take 100 (repeatedly make-edge))))]
+                                 (assoc c :edges (conj edges new-edge))))
+
+          swap-edge-targets  (fn [{:keys [edges] :as c}]
+                               (let [edge1     (rand-nth (seq edges))
+                                     edge2     (rand-nth (seq edges))
+                                     new-edges (-> edges
+                                                   (disj edge1)
+                                                   (disj edge2)
+                                                   (conj (assoc edge1 :target (:target edge2)))
+                                                   (conj (assoc edge2 :target (:target edge1))))]
+                                 (assoc c :edges new-edges)))
+
+          ;; List of all the tweaking functions
+          chaos-monkeys      [add-resource add-edge mod-resource swap-edge-targets]
+          ;; Function that will apply a random tweak function
+          apply-monkey       #((rand-nth chaos-monkeys) %)]
+
+      (is (not= hash (catalog-similarity-hash (add-resource catalog))))
+      (is (not= hash (catalog-similarity-hash (mod-resource catalog))))
+      (is (not= hash (catalog-similarity-hash (add-edge catalog))))
+
+      ;; Do the following 100 times: pick up to 10 tweaking functions,
+      ;; successively apply them all to the original catalog, and
+      ;; verify that the hash of the resulting catalog is the same as
+      ;; the hash of the original catalog
+      (doseq [nmonkeys (repeatedly 100 #(inc (rand-int 10)))
+              :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
+                    tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
+        (if (= catalog tweaked-catalog)
+          (is (= hash tweaked-hash)
+              (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))
+          (is (not= hash tweaked-hash)
+              (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
+
+  (testing "Catalogs with the same metadata but the different content should have different hashes"
+    (let [catalog            *basic-catalog*
+          hash               (catalog-similarity-hash catalog)
+          ;; Functions that tweak various attributes of a catalog
+          tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
+          tweak-version      #(assoc % :version (str (:version %) "?"))
+          tweak-cmdb-version #(assoc % :cmdb-version (inc (:cmdb-version %)))
+          ;; List of all the tweaking functions
+          chaos-monkeys      [tweak-api-version tweak-version tweak-cmdb-version]
+          ;; Function that will apply a random tweak function
+          apply-monkey       #((rand-nth chaos-monkeys) %)]
+
+      ;; Do the following 100 times: pick up to 10 tweaking functions,
+      ;; successively apply them all to the original catalog, and
+      ;; verify that the hash of the resulting catalog is the same as
+      ;; the hash of the original catalog
+      (doseq [nmonkeys (repeatedly 100 #(inc (rand-int 10)))
+              :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
+                    tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
+        (is (= hash tweaked-hash)
+            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
+
 (deftest catalog-persistence
   (testing "Persisted catalogs"
-    (let [catalog {:certname "myhost.mydomain.com"
-                   :cmdb-version cat/CMDB-VERSION
-                   :api-version 1
-                   :version "123456789"
-                   :tags #{"class" "foobar"}
-                   :classes #{"foobar"}
-                   :edges #{{:source {:type "Class" :title "foobar"}
-                             :target {:type "File" :title "/etc/foobar"}
-                             :relationship :contains}
-                            {:source {:type "Class" :title "foobar"}
-                             :target {:type "File" :title "/etc/foobar/baz"}
-                             :relationship :contains}
-                            {:source {:type "File" :title "/etc/foobar"}
-                             :target {:type "File" :title "/etc/foobar/baz"}
-                             :relationship :required-by}}
-                   :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
-                               {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                                    :title      "/etc/foobar"
-                                                                    :exported   false
-                                                                    :file       "/tmp/foo"
-                                                                    :line       10
-                                                                    :tags       #{"file" "class" "foobar"}
-                                                                    :parameters {"ensure" "directory"
-                                                                                 "group"  "root"
-                                                                                 "user"   "root"}}
-                               {:type "File" :title "/etc/foobar/baz"} {:type       "File"
-                                                                        :title      "/etc/foobar/baz"
-                                                                        :exported   false
-                                                                        :file       "/tmp/bar"
-                                                                        :line       20
-                                                                        :tags       #{"file" "class" "foobar"}
-                                                                        :parameters {"ensure"  "directory"
-                                                                                     "group"   "root"
-                                                                                     "user"    "root"
-                                                                                     "require" "File[/etc/foobar]"}}}}]
+    (let [catalog *basic-catalog*]
 
       (sql/with-connection *db*
         (initialize-store)
@@ -97,7 +180,7 @@
 
         (testing "should contain a complete classes list"
           (is (= (query-to-vec ["SELECT name FROM classes ORDER BY name"])
-                 [{:name "foobar"}])))
+                 [{:name "baz"} {:name "foobar"}])))
 
         (testing "should contain a complete edges list"
           (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
@@ -169,25 +252,6 @@
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
-
-      (testing "should not share structure when storing catalogs with swapped edge targets"
-        (sql/with-connection *db*
-          (initialize-store)
-          (add-certname! "myhost.mydomain.com")
-          (add-catalog! catalog)
-          ;; Store a second catalog, with different edges (swap 2 targets)
-          (add-catalog! (assoc catalog :edges #{{:source {:type "Class" :title "foobar"}
-                                                 :target {:type "File" :title "/etc/foobar"}
-                                                 :relationship :contains}
-                                                {:source {:type "Class" :title "foobar"}
-                                                 :target {:type "File" :title "/etc/foobar/baz"}
-                                                 :relationship :contains}
-                                                {:source {:type "File" :title "/etc/foobar"}
-                                                 :target {:type "Class" :title "foobar"}
-                                                 :relationship :required-by}}))
-
-            (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalogs"])
-                   [{:c 2}]))))
 
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection *db*

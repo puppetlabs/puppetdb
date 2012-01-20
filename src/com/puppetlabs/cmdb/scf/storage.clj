@@ -358,7 +358,7 @@ must be supplied as the value to be matched."
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname api-version classes tags resources edges] :as catalog}]
+  [{:keys [certname classes tags resources edges] :as catalog}]
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
   ;; but I figure that for safety's sake, it's better to be very
@@ -366,7 +366,6 @@ must be supplied as the value to be matched."
   ;; about when we think about "uniqueness".
   (-> (sorted-map)
       (assoc :certname certname)
-      (assoc :api-version api-version)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
       (assoc :resources (sort (map resource-identity-hash (vals resources))))
