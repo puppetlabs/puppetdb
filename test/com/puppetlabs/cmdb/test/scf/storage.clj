@@ -170,6 +170,25 @@
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
 
+      (testing "should not share structure when storing catalogs with swapped edge targets"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (add-catalog! catalog)
+          ;; Store a second catalog, with different edges (swap 2 targets)
+          (add-catalog! (assoc catalog :edges #{{:source {:type "Class" :title "foobar"}
+                                                 :target {:type "File" :title "/etc/foobar"}
+                                                 :relationship :contains}
+                                                {:source {:type "Class" :title "foobar"}
+                                                 :target {:type "File" :title "/etc/foobar/baz"}
+                                                 :relationship :contains}
+                                                {:source {:type "File" :title "/etc/foobar"}
+                                                 :target {:type "Class" :title "foobar"}
+                                                 :relationship :required-by}}))
+
+            (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalogs"])
+                   [{:c 2}]))))
+
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection *db*
           (initialize-store)

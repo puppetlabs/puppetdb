@@ -322,7 +322,7 @@ must be supplied as the value to be matched."
    :post [(string? %)]}
   (-> (into (sorted-map) edge)
       (assoc :source (into (sorted-map) (:source edge)))
-      (assoc :target (into (sorted-map) (:source edge)))
+      (assoc :target (into (sorted-map) (:target edge)))
       (pr-str)
       (digest/sha-1)))
 
