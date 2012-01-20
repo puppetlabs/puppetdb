@@ -104,7 +104,9 @@
                                                         :target {:type (:type target) :title (:title target)}}))
                                      ;; Generate at most 100 edges
                                      new-edge  (first (remove edges (take 100 (repeatedly make-edge))))]
-                                 (assoc c :edges (conj edges new-edge))))
+                                 (if new-edge
+                                   (assoc c :edges (conj edges new-edge))
+                                   c)))
 
           swap-edge-targets  (fn [{:keys [edges] :as c}]
                                (let [edge1     (rand-nth (seq edges))
