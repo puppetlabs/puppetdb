@@ -1,129 +1,73 @@
+;; # Catalog persistence
+;;
+;; Catalogs are persisted in a relational database. Roughly speaking,
+;; the schema looks like this:
+;;
+;; * resource parameters are associated with a single resource
+;;
+;; * resources are associated 0 to N catalogs (they are deduped across
+;;   catalogs). It's possible for a resource to exist in the database,
+;;   yet not be associated with a catalog. This is done as a
+;;   performance optimization.
+;;
+;; * edges, tags, and classes are associated with a single catalog
+;;
+;; * catalogs are associated with a single certname
+;;
+;; The standard set of operations on information in the database will
+;; likely result in dangling resources and catalogs; to clean these
+;; up, it's important to run `garbage-collect!`.
+;;
+;; * * * * *
+
 (ns com.puppetlabs.cmdb.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [clojure.contrib.logging :as log]
-            [digest]))
+            [digest]
+            [cheshire.core :as json]))
 
-;;;; REVISIT: This needs to source the configuration data from somewhere more
-;;;; useful than hard-coded content inline to the code.  Especially stolen
-;;;; configuration from the core.clj, duplicated again. --daniel 2011-09-14
-(def ^{:doc "The query database configuration details for SCF database."
-       :private true
-       :dynamic true}
-  *db* {:classname "org.hsqldb.jdbcDriver"
-        :subprotocol "hsqldb"
-        ;; use MVCC and PostgreSQL compatible syntax; see
-        ;; http://hsqldb.org/doc/2.0/guide/deployment-chapt.html#N1427E for
-        ;; details of what that implies.
-        ;;
-        ;; shutdown=true means that when the last connection is dropped, so is
-        ;; the database.  That means *nothing* lasts beyond your outermost
-        ;; `with-scf-connection` invocation, which is awesome for testing.
-        ;;
-        ;; For production this will be, y'know, externally configured.
-        :subname     "mem:cmdb;shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true"
-        :log-statements false})
+(defn db-serialize
+  "Serialize `value` into a form appropriate for querying
+against a serialized database column."
+  [value]
+  (json/generate-string (if (map? value)
+                      (into (sorted-map) value)
+                      value)))
 
+;; ## Database schema
+;;
+;; _Note_: In the longer term this should be replaced with some sort
+;; of migration- style database management library, or some other
+;; model that supports upgrades in the field nicely, but this will do
+;; for now.
 
-
-;;;; SQL Storage abstraction and management.  These methods allow us to
-;;;; abstract behaviour over multiple connection types.
-(defn sql-current-connection-database-name
-  "Return the database product name currently in use."
-  []
-  (.. (sql/find-connection)
-      (getMetaData)
-      (getDatabaseProductName)))
-
-(defmulti sql-array-type-string
-  "Returns a string representing the correct way to declare an array
-  of the supplied base database type."
-  ;; Dispatch based on databsae from the metadata of DB connection at the time
-  ;; of call; this copes gracefully with multiple connection types.
-  (fn [_] (sql-current-connection-database-name)))
-
-(defmulti sql-array-query-string
-  "Returns an SQL fragment representing a query for a single value being
-found in an array column in the database.
-
-  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
-
-The returned SQL fragment will contain *one* parameter placeholder, which
-must be supplied as the value to be matched."
-  (fn [column] (sql-current-connection-database-name)))
-
-(defmulti to-jdbc-varchar-array
-  "Takes the supplied collection and transforms it into a
-  JDBC-appropriate VARCHAR array."
-  (fn [_] (sql-current-connection-database-name)))
-
-
-(defmethod sql-array-type-string "PostgreSQL"
-  [basetype]
-  (format "%s ARRAY" basetype))
-
-(defmethod sql-array-query-string "PostgreSQL"
-  [column]
-  (format "? = ANY(%s)" column))
-
-(defmethod to-jdbc-varchar-array "PostgreSQL"
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
-
-(defmethod sql-array-type-string "HSQL Database Engine"
-  [basetype]
-  (format "%s ARRAY[%d]" basetype 65535))
-
-(defmethod sql-array-query-string "HSQL Database Engine"
-  [column]
-  (format "? IN (UNNEST(%s))" column))
-
-(defmethod to-jdbc-varchar-array "HSQL Database Engine"
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
-
-(defmethod sql-array-type-string "H2"
-  [_]
-  "ARRAY")
-
-;; H2 has no support for query inside an array column.
-
-(defmethod to-jdbc-varchar-array "H2"
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object))))
-
-
-;;; Wrap up the functionality of populating the initial database state.
-;;;
-;;; In the longer term this should be replaced with some sort of migration-
-;;; style database management library, or some other model that supports
-;;; upgrades in the field nicely, but this will do for now.
 (defn initialize-store
   "Create initial database state"
   []
   (sql/create-table :certnames
-                    ["name" "TEXT" "PRIMARY KEY"]
+                    ["name" "TEXT" "PRIMARY KEY"])
+
+  (sql/create-table :catalogs
+                    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
                     ["api_version" "INT" "NOT NULL"]
                     ["catalog_version" "TEXT" "NOT NULL"])
 
+  (sql/create-table :certname_catalogs
+                    ["certname" "TEXT" "UNIQUE" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["catalog" "VARCHAR(40)" "UNIQUE" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
+                    ["PRIMARY KEY (certname, catalog)"])
+
   (sql/create-table :tags
-                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
                     ["name" "TEXT" "NOT NULL"]
-                    ["PRIMARY KEY (certname, name)"])
+                    ["PRIMARY KEY (catalog, name)"])
 
   (sql/create-table :classes
-                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
                     ["name" "TEXT" "NOT NULL"]
-                    ["PRIMARY KEY (certname, name)"])
+                    ["PRIMARY KEY (catalog, name)"])
 
   (sql/create-table :resources
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
@@ -133,15 +77,15 @@ must be supplied as the value to be matched."
                     ["sourcefile" "TEXT"]
                     ["sourceline" "INT"])
 
-  (sql/create-table :certname_resources
-                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+  (sql/create-table :catalog_resources
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["PRIMARY KEY (certname, resource)"])
+                    ["PRIMARY KEY (catalog, resource)"])
 
   (sql/create-table :resource_params
                     ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
                     ["name" "TEXT" "NOT NULL"]
-                    ["value" (sql-array-type-string "TEXT") "NOT NULL"]
+                    ["value" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (resource, name)"])
 
   (sql/create-table :resource_tags
@@ -150,54 +94,99 @@ must be supplied as the value to be matched."
                     ["PRIMARY KEY (resource, name)"])
 
   (sql/create-table :edges
-                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
                     ["source" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
                     ["target" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
                     ["type" "TEXT" "NOT NULL"]
-                    ["PRIMARY KEY (certname, source, target, type)"])
+                    ["PRIMARY KEY (catalog, source, target, type)"])
+
+  (sql/do-commands
+   "CREATE INDEX idx_catalogs_hash ON catalogs(hash)")
+
+  (sql/do-commands
+   "CREATE INDEX idx_certname_catalogs_certname ON certname_catalogs(certname)")
 
   (sql/do-commands
    "CREATE INDEX idx_resources_type ON resources(type)")
 
   (sql/do-commands
-   "CREATE INDEX idx_resources_params_resource ON resource_params(resource)"))
+   "CREATE INDEX idx_resources_params_resource ON resource_params(resource)")
 
+  (sql/do-commands
+   "CREATE INDEX idx_resources_params_name ON resource_params(name)"))
 
-(defn persist-certname!
-  "Given a certname, persist it in the db"
-  [certname api-version catalog-version]
-  {:pre [certname api-version catalog-version]}
-  (sql/insert-record :certnames {:name certname
-                                 :api_version api-version
-                                 :catalog_version catalog-version}))
+;; # Entity manipulation
 
-(defn persist-classes!
-  "Given a certname and a list of classes, persist them in the db"
-  [certname classes]
-  {:pre [certname
-         (coll? classes)]}
-  (let [default-row {:certname certname}
-        classes     (map #(assoc default-row :name %) classes)]
-    (apply sql/insert-records :classes classes)))
+(defn certname-exists?
+  "Returns a boolean indicating whether or not the given certname exists in the db"
+  [certname]
+  {:pre [certname]}
+  (sql/with-query-results result-set
+    ["SELECT 1 FROM certnames WHERE name=? LIMIT 1" certname]
+    (pos? (count result-set))))
 
-(defn persist-tags!
-  "Given a certname and a list of tags, persist them in the db"
-  [certname tags]
-  {:pre [certname
-         (coll? tags)]}
-  (let [default-row {:certname certname}
-        tags        (map #(assoc default-row :name %) tags)]
-    (apply sql/insert-records :tags tags)))
+(defn add-certname!
+  "Add the given host to the db"
+  [certname]
+  {:pre [certname]}
+  (sql/insert-record :certnames {:name certname}))
 
-(defn resource-already-persisted?
-  "Returns a boolean indicating whether or not the given resource exists in the db"
+(defn add-catalog-metadata!
+  "Given some catalog metadata, persist it in the db"
+  [hash api-version catalog-version]
+  {:pre [(string? hash)
+         (number? api-version)
+         (string? catalog-version)]}
+  (sql/insert-record :catalogs {:hash hash
+                                :api_version api-version
+                                :catalog_version catalog-version}))
+
+(defn update-catalog-metadata!
+  "Given some catalog metadata, update the db"
+  [hash api-version catalog-version]
+  {:pre [(string? hash)
+         (number? api-version)
+         (string? catalog-version)]}
+  (sql/update-values :catalogs
+                     ["hash=?" hash]
+                     {:api_version api-version
+                      :catalog_version catalog-version}))
+
+(defn catalog-exists?
+  "Returns a boolean indicating whether or not the given catalog exists in the db"
   [hash]
   {:pre [hash]}
   (sql/with-query-results result-set
-    ["SELECT 1 FROM resources WHERE hash=? LIMIT 1" hash]
+    ["SELECT 1 FROM catalogs WHERE hash=? LIMIT 1" hash]
     (pos? (count result-set))))
 
-(defn compute-hash
+(defn add-classes!
+  "Given a catalog-hash and a list of classes, persist them in the db"
+  [catalog-hash classes]
+  {:pre [(string? catalog-hash)
+         (coll? classes)]}
+  (let [default-row {:catalog catalog-hash}
+        classes     (map #(assoc default-row :name %) classes)]
+    (apply sql/insert-records :classes classes)))
+
+(defn add-tags!
+  "Given a catalog-hash and a list of tags, persist them in the db"
+  [catalog-hash tags]
+  {:pre [(string? catalog-hash)
+         (coll? tags)]}
+  (let [default-row {:catalog catalog-hash}
+        tags        (map #(assoc default-row :name %) tags)]
+    (apply sql/insert-records :tags tags)))
+
+(defn resource-exists?
+  "Returns a boolean indicating whether or not the given resource exists in the db"
+  [resource-hash]
+  {:pre [(string? resource-hash)]}
+  (sql/with-query-results result-set
+    ["SELECT 1 FROM resources WHERE hash=? LIMIT 1" resource-hash]
+    (pos? (count result-set))))
+
+(defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
   within a population.
 
@@ -217,95 +206,174 @@ must be supplied as the value to be matched."
       (assoc :parameters (into (sorted-map) (:parameters resource)))
       ; Sort the set of tags
       (assoc :tags (into (sorted-set) (:tags resource)))
-      (str)
+      (pr-str)
       (digest/sha-1)))
 
-(defn persist-resource!
+(defn add-resource!
   "Given a certname and a single resource, persist that resource and its parameters"
-  [certname {:keys [type title exported parameters tags file line] :as resource}]
+  [catalog-hash {:keys [type title exported parameters tags file line] :as resource}]
   {:pre [(every? string? #{type title})]}
 
-  (let [hash       (compute-hash resource)
-        persisted? (resource-already-persisted? hash)
-        connection (sql/find-connection)]
+  (let [resource-hash (resource-identity-hash resource)
+        persisted?    (resource-exists? resource-hash)
+        connection    (sql/find-connection)]
 
     (when-not persisted?
       ; Add to resources table
-      (sql/insert-record :resources {:hash hash :type type :title title :exported exported :sourcefile file :sourceline line})
+      (sql/insert-record :resources {:hash resource-hash :type type :title title :exported exported :sourcefile file :sourceline line})
 
       ; Build up a list of records for insertion
       (let [records (for [[name value] parameters]
-                      ; Parameter values are represented as database
-                      ; arrays (even single parameter values). This is
-                      ; done to handle multi-valued parameters. As you
-                      ; can't have a database array that contains
-                      ; multiple types of values, we convert all
-                      ; parameter values to strings.
-                      (let [value-array (->> value
-                                            (utils/as-collection)
-                                            (map str)
-                                            (to-jdbc-varchar-array))]
-                        {:resource hash :name name :value value-array}))]
+                      ; Parameter values are represented as serialized strings,
+                      ; for ease of comparison.
+                      (let [value (db-serialize value)]
+                        {:resource resource-hash :name name :value value}))]
 
         ; ...and insert them
         (apply sql/insert-records :resource_params records))
 
       ; Add rows for each of the resource's tags
-      (let [records (for [tag tags] {:resource hash :name tag})]
+      (let [records (for [tag tags] {:resource resource-hash :name tag})]
         (apply sql/insert-records :resource_tags records)))
 
     ;; Insert pointer into certname => resource map
-    (sql/insert-record :certname_resources {:certname certname :resource hash})))
+    (sql/insert-record :catalog_resources {:catalog catalog-hash :resource resource-hash})))
 
-(defn persist-edges!
+(defn edge-identity-hash
+  "Compute a hash for a given edge that will uniquely identify it
+  within a population."
+  [edge]
+  {:pre  [(map? edge)]
+   :post [(string? %)]}
+  (-> (into (sorted-map) edge)
+      (assoc :source (into (sorted-map) (:source edge)))
+      (assoc :target (into (sorted-map) (:target edge)))
+      (pr-str)
+      (digest/sha-1)))
+
+(defn add-edges!
   "Persist the given edges in the database
 
-Each edge is looked up in the supplied resources map to find a
-resource object that corresponds to the edge. We then use that
-resource's hash for persistence purposes.
+  Each edge is looked up in the supplied resources map to find a
+  resource object that corresponds to the edge. We then use that
+  resource's hash for persistence purposes.
 
-For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
-then we'll lookup a resource with that key and use its hash."
-  [certname edges resources]
-  {:pre [certname
+  For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
+  then we'll lookup a resource with that key and use its hash."
+  [catalog-hash edges resources]
+  {:pre [(string? catalog-hash)
          (coll? edges)
          (map? resources)]}
   (let [rows  (for [{:keys [source target relationship]} edges
-                    :let [source-hash (compute-hash (resources source))
-                          target-hash (compute-hash (resources target))
+                    :let [source-hash (resource-identity-hash (resources source))
+                          target-hash (resource-identity-hash (resources target))
                           type        (name relationship)]]
-                {:certname certname :source source-hash :target target-hash :type type})]
+                {:catalog catalog-hash :source source-hash :target target-hash :type type})]
     (apply sql/insert-records :edges rows)))
 
-(defn persist-catalog!
-  "Persist the supplied catalog in the database"
-  [{:keys [certname api-version version resources classes edges tags] :as catalog}]
-  {:pre [(every? string? #{certname})
-         (number? api-version)
+(defn catalog-similarity-hash
+  "Compute a hash for the given catalog's content
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two catalogs contain the same things (edges,
+  resources, tags, classes, etc).
+
+  Note that this hash *cannot* be used to uniquely identify a catalog
+  within a population! This is because we're only examing a subset of
+  a catalog's attributes. For example, two otherwise identical
+  catalogs with different :version's would have the same similarity
+  hash, but don't represent the same catalog across time."
+  [{:keys [certname classes tags resources edges] :as catalog}]
+  ;; deepak: This could probably be coded more compactly by just
+  ;; dissociating the keys we don't want involved in the computation,
+  ;; but I figure that for safety's sake, it's better to be very
+  ;; explicit about the exact attributes of a catalog that we care
+  ;; about when we think about "uniqueness".
+  (-> (sorted-map)
+      (assoc :certname certname)
+      (assoc :classes (sort classes))
+      (assoc :tags (sort tags))
+      (assoc :resources (sort (map resource-identity-hash (vals resources))))
+      (assoc :edges (sort (map edge-identity-hash edges)))
+      (pr-str)
+      (digest/sha-1)))
+
+(defn add-catalog!
+  "Persist the supplied catalog in the database, returning its
+  similarity hash"
+  [{:keys [api-version version resources classes edges tags] :as catalog}]
+  {:pre [(number? api-version)
          (every? coll? #{classes tags edges})
          (map? resources)]}
 
-  (sql/transaction
-   (persist-certname! certname api-version version)
-   (persist-classes! certname classes)
-   (persist-tags! certname tags)
-   (doseq [resource (vals resources)]
-     (persist-resource! certname resource))
-   (persist-edges! certname edges resources)))
+  (let [hash (catalog-similarity-hash catalog)]
+
+    (sql/transaction
+     (let [exists? (catalog-exists? hash)]
+
+       (when exists?
+         (update-catalog-metadata! hash api-version version))
+
+       (when-not exists?
+         (add-catalog-metadata! hash api-version version)
+         (add-classes! hash classes)
+         (add-tags! hash tags)
+         (doseq [resource (vals resources)]
+           (add-resource! hash resource))
+         (add-edges! hash edges resources))))
+
+    hash))
 
 (defn delete-catalog!
-  "Delete the catalog for the supplied certname"
+  "Remove the catalog identified by the following hash"
+  [catalog-hash]
+  (sql/delete-rows :catalogs ["hash=?" catalog-hash]))
+
+(defn associate-catalog-with-certname!
+  "Creates a relationship between the given certname and catalog"
+  [catalog-hash certname]
+  (sql/insert-record :certname_catalogs {:certname certname :catalog catalog-hash}))
+
+(defn dissociate-catalog-with-certname!
+  "Breaks the relationship between the given certname and catalog"
+  [catalog-hash certname]
+  (sql/delete-rows :certname_catalogs ["certname=? AND catalog=?" certname catalog-hash]))
+
+(defn dissociate-all-catalogs-for-certname!
+  "Breaks all relationships between `certname` and any catalogs"
   [certname]
-  {:pre [(string? certname)]}
+  (sql/delete-rows :certname_catalogs ["certname=?" certname]))
+
+(defn delete-unassociated-catalogs!
+  "Remove any catalogs that aren't associated with a certname"
+  []
+  (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"]))
+
+(defn delete-unassociated-resources!
+  "Remove any resources that aren't associated with a catalog"
+  []
+  (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM catalog_resources)"]))
+
+(defn catalogs-for-certname
+  "Returns a collection of catalog-hashes associated with the given
+  certname"
+  [certname]
+  (sql/with-query-results result-set
+    ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
+    (into [] (map :catalog result-set))))
+
+(defn garbage-collect!
+  "Delete any lingering, unassociated data in the database"
+  []
   (sql/transaction
-   ;; Should cascade through everything
-   (sql/delete-rows :certnames ["name=?" certname])
-   (sql/delete-rows :resources ["hash NOT IN (SELECT DISTINCT resource FROM certname_resources)"])))
+   (delete-unassociated-catalogs!)
+   (delete-unassociated-resources!)))
 
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
-  [catalog]
+  [{:keys [certname] :as catalog}]
   (sql/transaction
-   (delete-catalog! (:certname catalog))
-   (persist-catalog! catalog)))
+   (let [catalog-hash (add-catalog! catalog)]
+     (dissociate-all-catalogs-for-certname! certname)
+     (associate-catalog-with-certname! catalog-hash certname))))
