@@ -13,24 +13,24 @@
   (testing "Hashes for resources"
 
     (testing "should error on bad input"
-      (is (thrown? AssertionError (compute-hash nil)))
-      (is (thrown? AssertionError (compute-hash []))))
+      (is (thrown? AssertionError (resource-identity-hash nil)))
+      (is (thrown? AssertionError (resource-identity-hash []))))
 
     (testing "should be equal for the base case"
-      (is (= (compute-hash {})
-             (compute-hash {}))))
+      (is (= (resource-identity-hash {})
+             (resource-identity-hash {}))))
 
     (testing "shouldn't change for identical input"
       (doseq [i (range 10)
               :let [r (testcat/random-kw-resource)]]
-        (is (= (compute-hash r)
-               (compute-hash r)))))
+        (is (= (resource-identity-hash r)
+               (resource-identity-hash r)))))
 
     (testing "shouldn't change for equivalent input"
-      (is (= (compute-hash {:foo 1 :bar 2})
-             (compute-hash {:bar 2 :foo 1})))
-      (is (= (compute-hash {:tags #{1 2 3}})
-             (compute-hash {:tags #{3 2 1}}))))
+      (is (= (resource-identity-hash {:foo 1 :bar 2})
+             (resource-identity-hash {:bar 2 :foo 1})))
+      (is (= (resource-identity-hash {:tags #{1 2 3}})
+             (resource-identity-hash {:tags #{3 2 1}}))))
 
     (testing "should be different for non-equivalent resources"
       ; Take a population of 5 resource, put them into a set to make
@@ -40,15 +40,15 @@
       (let [candidates (into #{} (repeatedly 5 testcat/random-kw-resource))
             pairs      (clojure.contrib.combinatorics/combinations candidates 2)]
         (doseq [[r1 r2] pairs]
-          (is (not= (compute-hash r1)
-                    (compute-hash r2))))))))
+          (is (not= (resource-identity-hash r1)
+                    (resource-identity-hash r2))))))))
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
     (let [catalog {:certname "myhost.mydomain.com"
                    :cmdb-version cat/CMDB-VERSION
                    :api-version 1
-                   :version 123456789
+                   :version "123456789"
                    :tags #{"class" "foobar"}
                    :classes #{"foobar"}
                    :edges #{{:source {:type "Class" :title "foobar"}
@@ -83,11 +83,13 @@
 
       (sql/with-connection *db*
         (initialize-store)
-        (persist-catalog! catalog)
+        (add-certname! "myhost.mydomain.com")
+        (let [hash (add-catalog! catalog)]
+          (associate-catalog-with-certname! hash "myhost.mydomain.com"))
 
         (testing "should contain proper catalog metadata"
-          (is (= (query-to-vec ["SELECT * FROM certnames"])
-                 [{:name "myhost.mydomain.com" :api_version 1 :catalog_version "123456789"}])))
+          (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
+                 [{:certname "myhost.mydomain.com" :api_version 1 :catalog_version "123456789"}])))
 
         (testing "should contain a complete tags list"
           (is (= (query-to-vec ["SELECT name FROM tags ORDER BY name"])
@@ -113,7 +115,7 @@
                   {:type "File" :title "/etc/foobar/baz" :exported false :sourcefile "/tmp/bar" :sourceline 20}]))
 
           (testing "properly associated with the host"
-            (is (= (query-to-vec ["SELECT cr.certname, r.type, r.title, r.exported FROM resources r, certname_resources cr WHERE cr.resource=r.hash ORDER BY r.type, r.title"])
+            (is (= (query-to-vec ["SELECT cc.certname, r.type, r.title, r.exported FROM resources r, catalog_resources cr, certname_catalogs cc WHERE cr.resource=r.hash AND cc.catalog=cr.catalog ORDER BY r.type, r.title"])
                    [{:certname "myhost.mydomain.com" :type "Class" :title "foobar" :exported false}
                     {:certname "myhost.mydomain.com" :type "File" :title "/etc/foobar" :exported false}
                     {:certname "myhost.mydomain.com" :type "File" :title "/etc/foobar/baz" :exported false}])))
@@ -140,18 +142,41 @@
       (testing "should noop if replaced by themselves"
         (sql/with-connection *db*
           (initialize-store)
-          (persist-catalog! catalog)
-          (replace-catalog! catalog)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash (add-catalog! catalog)]
+            (replace-catalog! catalog)
 
-          (is (= (query-to-vec ["SELECT name FROM certnames"])
-                 [{:name "myhost.mydomain.com"}]))))
+            (is (= (query-to-vec ["SELECT name FROM certnames"])
+                   [{:name "myhost.mydomain.com"}]))
+
+            (is (= (query-to-vec ["SELECT hash FROM catalogs"])
+                   [{:hash hash}])))))
+
+      (testing "should share structure when duplicate catalogs are detected for the same host"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash (add-catalog! catalog)]
+            (replace-catalog! catalog)
+            ;; Store a second catalog, with the same content save the version
+            (replace-catalog! (assoc catalog :version "abc123"))
+
+            (is (= (query-to-vec ["SELECT name FROM certnames"])
+                   [{:name "myhost.mydomain.com"}]))
+
+            (is (= (query-to-vec ["SELECT certname FROM certname_catalogs"])
+                   [{:certname "myhost.mydomain.com"}]))
+
+            (is (= (query-to-vec ["SELECT hash FROM catalogs"])
+                   [{:hash hash}])))))
 
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection *db*
           (initialize-store)
-          (persist-catalog! catalog)
+          (add-certname! "myhost.mydomain.com")
+          (add-catalog! catalog)
           (delete-catalog! "myhost.mydomain.com")
-          (persist-catalog! catalog)
+          (add-catalog! catalog)
 
           (is (= (query-to-vec ["SELECT name FROM certnames"])
                  [{:name "myhost.mydomain.com"}]))))
@@ -159,53 +184,136 @@
       (testing "should be removed when deleted"
         (sql/with-connection *db*
           (initialize-store)
-          (persist-catalog! catalog)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash (add-catalog! catalog)]
+            (delete-catalog! hash))
+
+          (is (= (query-to-vec ["SELECT * FROM tags"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM classes"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM edges"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
+                 []))))
+
+      (testing "when deleted, should leave resources alone"
+        (sql/with-connection *db*
+          (initialize-store)
+          (let [hash (add-catalog! catalog)]
+            (delete-catalog! hash))
+
+          (is (= (query-to-vec ["SELECT * FROM resources r, catalog_resources cr WHERE r.hash=cr.resource"])
+                 []))))
+
+      (testing "when deleted, should leave certnames alone"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (add-catalog! catalog)
           (delete-catalog! "myhost.mydomain.com")
 
           (is (= (query-to-vec ["SELECT * FROM certnames"])
-                 []))
-
-          (is (= (query-to-vec ["SELECT * FROM tags WHERE certname=?" "myhost.mydomain.com"])
-                 []))
-
-          (is (= (query-to-vec ["SELECT * FROM classes WHERE certname=?" "myhost.mydomain.com"])
-                 []))
-
-          (is (= (query-to-vec ["SELECT * FROM certname_resources WHERE certname=?" "myhost.mydomain.com"])
-                 []))
-
-          (is (= (query-to-vec ["SELECT * FROM resources"])
-                 []))
-
-          (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
-                 []))))
+                 [{:name "myhost.mydomain.com"}]))))
 
       (testing "when deleted, should leave other hosts' resources alone"
         (sql/with-connection *db*
           (initialize-store)
-          (persist-catalog! catalog)
-          ;; Store the same catalog for a different host
-          (persist-catalog! (assoc catalog :certname "myhost2.mydomain.com"))
-          (delete-catalog! "myhost.mydomain.com")
+          (add-certname! "myhost.mydomain.com")
+          (add-certname! "myhost2.mydomain.com")
+          (let [hash1 (add-catalog! catalog)
+                ;; Store the same catalog for a different host
+                hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
+            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com")
+            (delete-catalog! hash1))
 
-          ;; The second catalog should still be there
-          (is (= (query-to-vec ["SELECT name FROM certnames"])
-                 [{:name "myhost2.mydomain.com"}]))
+          ;; myhost should still be present in the database
+          (is (= (query-to-vec ["SELECT name FROM certnames ORDER BY name"])
+                 [{:name "myhost.mydomain.com"} {:name "myhost2.mydomain.com"}]))
 
-          (is (= (query-to-vec ["SELECT * FROM tags WHERE certname=?" "myhost.mydomain.com"])
+          ;; myhost1 should not have any catalogs associated with it
+          ;; anymore
+          (is (= (query-to-vec ["SELECT certname FROM certname_catalogs ORDER BY certname"])
+                 [{:certname "myhost2.mydomain.com"}]))
+
+          ;; no tags for myhost
+          (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
+                                     "WHERE t.catalog=cc.catalog AND cc.certname=?")
+                                     "myhost.mydomain.com"])
                  []))
 
-          (is (= (query-to-vec ["SELECT * FROM classes WHERE certname=?" "myhost.mydomain.com"])
+          ;; no classes for myhost
+          (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
+                                     "WHERE c.catalog=cc.catalog AND cc.certname=?")
+                                     "myhost.mydomain.com"])
                  []))
 
-          (is (= (query-to-vec ["SELECT * FROM certname_resources WHERE certname=?" "myhost.mydomain.com"])
-                 []))
+          ;; no edges for myhost
+          (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
+                                     "WHERE e.catalog=cc.catalog AND cc.certname=?")
+                                     "myhost.mydomain.com"])
+                 [{:c 0}]))
 
           ;; All the resources should still be there
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resources"])
-                 [{:c 3}]))
+                 [{:c 3}]))))
 
-          (is (= (query-to-vec ["SELECT * FROM edges WHERE certname=?" "myhost.mydomain.com"])
+      (testing "when deleted without GC, should leave resources behind"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash1 (add-catalog! catalog)]
+            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (delete-catalog! hash1))
+
+          ;; All the resources are still present, despite not being
+          ;; associated with a catalog
+          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resources"])
+                 [{:c 3}]))))
+
+      (testing "when deleted and GC'ed, should leave no dangling resources"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash1 (add-catalog! catalog)]
+            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (delete-catalog! hash1))
+          (garbage-collect!)
+
+          (is (= (query-to-vec ["SELECT * FROM resources"])
+                 []))))
+
+      (testing "when dissociated and not GC'ed, should still exist"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash1 (add-catalog! catalog)]
+            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (dissociate-catalog-with-certname! hash1 "myhost.mydomain.com"))
+
+          (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalogs"])
+                 [{:c 1}]))))
+
+      (testing "when dissociated and GC'ed, should no longer exist"
+        (sql/with-connection *db*
+          (initialize-store)
+          (add-certname! "myhost.mydomain.com")
+          (let [hash1 (add-catalog! catalog)]
+            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (dissociate-catalog-with-certname! hash1 "myhost.mydomain.com"))
+          (garbage-collect!)
+
+          (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
+                 []))
+
+          (is (= (query-to-vec ["SELECT * FROM catalogs"])
                  [])))))
 
     (testing "should noop"
@@ -213,7 +321,7 @@
       (testing "on bad input"
         (sql/with-connection *db*
           (initialize-store)
-          (is (thrown? AssertionError (persist-catalog! {})))
+          (is (thrown? AssertionError (add-catalog! {})))
 
           ; Nothing should have been persisted for this catalog
           (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
@@ -240,7 +348,7 @@
                                                                                      "user"   "root"}}}}]
           (sql/with-connection *db*
             (initialize-store)
-            (is (thrown? AssertionError (persist-catalog! {})))
+            (is (thrown? AssertionError (add-catalog! {})))
 
             ; Nothing should have been persisted for this catalog
             (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
