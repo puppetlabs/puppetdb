@@ -7,20 +7,20 @@
 ;; absent or lacking:
 ;;
 ;; 1. Resource specifiers are represented as opaque strings, like
-;; `Class[Foobar]`, as opposed to something like
-;; `{"type" "Class" "title" "Foobar"}`
+;;    `Class[Foobar]`, as opposed to something like
+;;    `{"type" "Class" "title" "Foobar"}`
 ;;
 ;; 2. Containment edges may point to resources that don't exist in the
-;; catalog's list of resources
+;;    catalog's list of resources
 ;;
 ;; 3. There is no pre-constructed list of dependency edges
 ;;
 ;; 4. Tags and classes are represented as lists (and may contain
-;; duplicates) instead of sets
+;;    duplicates) instead of sets
 ;;
 ;; 5. Resources are represented as a list instead of a map, making
-;; operations that need to correlate against specific resources
-;; unneccesarily difficult
+;;    operations that need to correlate against specific resources
+;;    unneccesarily difficult
 ;;
 ;; The functions in this namespace are designed to take a wire-format
 ;; catalog and restructure it to fix the above problems and, in
@@ -28,58 +28,67 @@
 ;;
 ;; ## Terminology
 ;;
-;; * Resource Specifier (`resource-spec`)
+;; There are a few catalog-specific terms that we use throughout the
+;; codebase:
 ;;
-;;   A map of the form `{:type "Class" :title "Foobar"}`. This is a
+;; ### Resource Specifier (resource-spec)
+;;
+;; A map of the form `{:type "Class" :title "Foobar"}`. This is a
 ;; unique identifier for a resource within a catalog.
 ;;
-;; * Resource
+;; ### Resource
 ;;
-;;   A map that represents a single resource in a catalog:
+;; A map that represents a single resource in a catalog:
 ;;
-;;         {:type       "..."
-;;          :title      "..."
-;;          :...        "..."
-;;          :tags       #{"tag1", "tag2", ...}
-;;          :parameters {"name1" "value1"
-;;                       "name2" "value2"
-;;                       ...}}
+;;     {:type       "..."
+;;      :title      "..."
+;;      :...        "..."
+;;      :tags       #{"tag1", "tag2", ...}
+;;      :parameters {"name1" "value1"
+;;                   "name2" "value2"
+;;                   ...}}
 ;;
-;;   Certain attributes are treated special:
+;; Certain attributes are treated special:
 ;;
-;;     * `:type` and `:title` are used to produce a `resource-spec` for
-;;       this resource
-;;     * parameters signifying ordering (`subscribe`, `before`, `require`,
-;;       etc) are used to create dependency specifications
+;; * `:type` and `:title` are used to produce a `resource-spec` for
+;;   this resource
 ;;
-;; * Dependency Specification
+;; * parameters signifying ordering (`subscribe`, `before`, `require`,
+;;   etc) are used to create dependency specifications
 ;;
-;;   A representation of an "edge" in the catalog. All edgese have the
+;; ### Dependency Specification
+;;
+;; A representation of an "edge" in the catalog. All edges have the
 ;; following form:
 ;;
-;;         {:source       <resource spec>
-;;          :target       <resource spec>
-;;          :relationship <relationship id>}
+;;     {:source       <resource spec>
+;;      :target       <resource spec>
+;;      :relationship <relationship id>}
 ;;
-;;   A relationship identifier can be one of:
-;;  `:contains`, `:required-by`, `:notifies`, `:before`, `:subscription-of`.
+;; A relationship identifier can be one of:
 ;;
-;; * CMDB catalog
+;; * `:contains`
+;; * `:required-by`
+;; * `:notifies`
+;; * `:before`
+;; * `:subscription-of`
 ;;
-;;   A wire-format-neutral representation of a Puppet catalog. It is a
-;;   map with the following structure:
+;; ### CMDB catalog
 ;;
-;;         {:certname    "..."
-;;          :api-version "..."
-;;          :version     "..."
-;;          :classes     #("class1", "class2", ...)
-;;          :tags        #("tag1", "tag2", ...)
-;;          :resources   {<resource-spec> <resource>
-;;                        <resource-spec> <resource>
-;;                        ...}
-;;          :edges       #(<dependency-spec>,
-;;                         <dependency-spec>,
-;;                         ...)}
+;; A wire-format-neutral representation of a Puppet catalog. It is a
+;; map with the following structure:
+;;
+;;     {:certname    "..."
+;;      :api-version "..."
+;;      :version     "..."
+;;      :classes     #("class1", "class2", ...)
+;;      :tags        #("tag1", "tag2", ...)
+;;      :resources   {<resource-spec> <resource>
+;;                    <resource-spec> <resource>
+;;                    ...}
+;;      :edges       #(<dependency-spec>,
+;;                     <dependency-spec>,
+;;                     ...)}
 ;;
 (ns com.puppetlabs.cmdb.catalog
   (:require [clojure.contrib.logging :as log]
@@ -129,13 +138,13 @@
 
   Turns edges that look like:
 
-       {\"source\" \"Class[foo]\" \"target\" \"User[bar]\"}
+    {\"source\" \"Class[foo]\" \"target\" \"User[bar]\"}
 
   into:
 
-       {:source {:type \"Class\" :title \"foo\"}
-        :target {:type \"User\" :title \"bar\"}
-        :relationship :contains}"
+    {:source {:type \"Class\" :title \"foo\"}
+     :target {:type \"User\" :title \"bar\"}
+     :relationship :contains}"
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)
           (every? string? (mapcat keys edges))]
@@ -276,8 +285,8 @@
     (assoc catalog :resources new-resources)))
 
 (defn mapify-resources
-  "Turns the list of resources into a mapping of {resource-spec
-  resource, resource-spec resource, ...}"
+  "Turns the list of resources into a mapping of `{resource-spec
+  resource, resource-spec resource, ...}`"
   [{:keys [resources] :as catalog}]
   {:pre  [(coll? resources)
           (not (map? resources))]
@@ -317,6 +326,10 @@
       (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
       (assoc :certname (get-in wire-catalog ["data" "name"]))
       (assoc :version (get-in wire-catalog ["data" "version"]))))
+
+;; ## Deserialization
+;;
+;; _TODO: we should change these to multimethods_
 
 (defn parse-from-json-obj
   "Parse a wire-format JSON catalog object contained in `o`, returning a
