@@ -1,3 +1,5 @@
+;; ## Database utilities
+
 (ns com.puppetlabs.jdbc
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
@@ -6,16 +8,16 @@
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
-query as a vector.  These results, unlike a normal query result, are
-not tied to the database connection and can be safely returned.
+  query as a vector.  These results, unlike a normal query result, are
+  not tied to the database connection and can be safely returned.
 
-Can be invoked in three ways: either passing the SQL query string,
-or a vector of the query string and substitutions, or you can pass
-multiple parameters inline.
+  Can be invoked in three ways: either passing the SQL query string,
+  or a vector of the query string and substitutions, or you can pass
+  multiple parameters inline.
 
-  (query-to-vec \"select * from table\")
-  (query-to-vec [\"select * from table where column = ?\" 12])
-  (query-to-vec \"select * from table where column = ?\" 12)"
+    (query-to-vec \"select * from table\")
+    (query-to-vec [\"select * from table where column = ?\" 12])
+    (query-to-vec \"select * from table where column = ?\" 12)"
   ([sql-query & params]
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
@@ -24,8 +26,7 @@ multiple parameters inline.
        (vec result-set))))
 
 (defn make-connection-pool
-  "Create a new connection pool for the SCF database, configured appropriately,
-and return it."
+  "Create a new database connection pool"
   [{:keys [subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements]
@@ -54,7 +55,7 @@ and return it."
 
 (defn pooled-datasource
   "Given a database connection attribute map, return a JDBC datasource
-compatible with clojure.java.jdbc that is backed by a connection
-pool."
+  compatible with clojure.java.jdbc that is backed by a connection
+  pool."
   [options]
   {:datasource (make-connection-pool options)})

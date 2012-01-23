@@ -1,4 +1,4 @@
-;; # Catalog persistence
+;; ## Catalog persistence
 ;;
 ;; Catalogs are persisted in a relational database. Roughly speaking,
 ;; the schema looks like this:
@@ -17,8 +17,6 @@
 ;; The standard set of operations on information in the database will
 ;; likely result in dangling resources and catalogs; to clean these
 ;; up, it's important to run `garbage-collect!`.
-;;
-;; * * * * *
 
 (ns com.puppetlabs.cmdb.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
@@ -29,8 +27,8 @@
             [cheshire.core :as json]))
 
 (defn db-serialize
-  "Serialize `value` into a form appropriate for querying
-against a serialized database column."
+  "Serialize `value` into a form appropriate for querying against a
+  serialized database column."
   [value]
   (json/generate-string (if (map? value)
                       (into (sorted-map) value)
@@ -38,7 +36,7 @@ against a serialized database column."
 
 ;; ## Database schema
 ;;
-;; _Note_: In the longer term this should be replaced with some sort
+;; _TODO_: In the longer term this should be replaced with some sort
 ;; of migration- style database management library, or some other
 ;; model that supports upgrades in the field nicely, but this will do
 ;; for now.
@@ -115,7 +113,7 @@ against a serialized database column."
   (sql/do-commands
    "CREATE INDEX idx_resources_params_name ON resource_params(name)"))
 
-;; # Entity manipulation
+;; ## Entity manipulation
 
 (defn certname-exists?
   "Returns a boolean indicating whether or not the given certname exists in the db"
@@ -344,6 +342,16 @@ against a serialized database column."
   [certname]
   (sql/delete-rows :certname_catalogs ["certname=?" certname]))
 
+(defn catalogs-for-certname
+  "Returns a collection of catalog-hashes associated with the given
+  certname"
+  [certname]
+  (sql/with-query-results result-set
+    ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
+    (into [] (map :catalog result-set))))
+
+;; ## Database compaction
+
 (defn delete-unassociated-catalogs!
   "Remove any catalogs that aren't associated with a certname"
   []
@@ -354,20 +362,14 @@ against a serialized database column."
   []
   (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM catalog_resources)"]))
 
-(defn catalogs-for-certname
-  "Returns a collection of catalog-hashes associated with the given
-  certname"
-  [certname]
-  (sql/with-query-results result-set
-    ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
-    (into [] (map :catalog result-set))))
-
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
   (sql/transaction
    (delete-unassociated-catalogs!)
    (delete-unassociated-resources!)))
+
+;; ## High-level entity manipulation
 
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
