@@ -1,3 +1,9 @@
+;; ## "The Kitchen Sink"
+;;
+;; Pretty much everything in here should _probably_ be organized into
+;; proper namespaces, or perhaps even separate libraries
+;; altogether. But who has time for that?
+
 (ns com.puppetlabs.utils
   (:import (org.ini4j Ini))
   (:require [clojure.test]
@@ -7,6 +13,8 @@
   (:use [clojure.core.incubator :as incubator]
         [slingshot.core :only [try+ throw+]]))
 
+;; ## Collection operations
+
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
   [s1 s2]
@@ -14,8 +22,8 @@
 
 (defn as-collection
   "Returns the item wrapped in a collection, if it's not one
-already. Returns a list by default, or you can use a constructor func
-as the second arg."
+  already. Returns a list by default, or you can use a constructor func
+  as the second arg."
   ([item]
      (as-collection item list))
   ([item constructor]
@@ -43,7 +51,9 @@ as the second arg."
                  (class)
                  (.isArray)))
 
-;;;; These redef functions are backported from Clojure 1.3 core
+;; ## Stubbing
+;;
+;; These redef functions are backported from Clojure 1.3 core
 
 (defn with-redefs-fn
   "Temporarily redefines Vars during a call to func.  Each val of
@@ -80,7 +90,7 @@ as the second arg."
                             (take-nth 2 (next bindings)))
                     (fn [] ~@body)))
 
-;;;; Exception handling helpers
+;; ## Exception handling
 
 (defn keep-going*
   "Executes the supplied fn repeatedly"
@@ -97,12 +107,12 @@ as the second arg."
   [on-error & body]
   `(keep-going* (fn [] ~@body) ~on-error))
 
-;;;; Test helpers
+;; ## Unit testing
 
-;;; This is an implementation of assert-expr that works with
-;;; slingshot-based exceptions, so you can do:
-;;;
-;;; (is (thrown+? <some exception> (...)))
+;; This is an implementation of assert-expr that works with
+;; slingshot-based exceptions, so you can do:
+;;
+;;     (is (thrown+? <some exception> (...)))
 (defmethod clojure.test/assert-expr 'thrown+? [msg form]
   (let [klass (second form)
         body (nthnext form 2)]
@@ -114,7 +124,7 @@ as the second arg."
                                       :expected '~form, :actual e#})
              e#))))
 
-;; Configuration file handling
+;; ## Configuration files
 
 (defn ini-to-map
   "Takes a .ini filename and returns a nested map of
@@ -135,7 +145,7 @@ as the second arg."
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
 
-;; Command-line parsing
+;; ## Command-line parsing
 
 (defn cli!
   "Wraps `tools.cli/cli`, automatically adding in a set of options for
