@@ -108,7 +108,7 @@
                     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["fact" "TEXT" "NOT NULL"]
                     ["value" "TEXT" "NOT NULL"]
-                    ["PRIMARY KEY (certname, fact, value)"])
+                    ["PRIMARY KEY (certname, fact)"])
 
   (sql/do-commands
    "CREATE INDEX idx_resources_type ON resources(type)")
@@ -117,7 +117,13 @@
    "CREATE INDEX idx_resources_params_resource ON resource_params(resource)")
 
   (sql/do-commands
-   "CREATE INDEX idx_resources_params_name ON resource_params(name)"))
+   "CREATE INDEX idx_resources_params_name ON resource_params(name)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_certname_facts_certname ON certname_facts(certname)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_certname_facts_fact ON certname_facts(fact)"))
 
 ;; ## Entity manipulation
 
