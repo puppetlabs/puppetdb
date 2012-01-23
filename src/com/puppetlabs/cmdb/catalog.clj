@@ -285,8 +285,8 @@
     (assoc catalog :resources new-resources)))
 
 (defn mapify-resources
-  "Turns the list of resources into a mapping of `{resource-spec
-  resource, resource-spec resource, ...}`"
+  "Turns the list of resources into a mapping of
+  `{resource-spec resource, resource-spec resource, ...}`"
   [{:keys [resources] :as catalog}]
   {:pre  [(coll? resources)
           (not (map? resources))]
