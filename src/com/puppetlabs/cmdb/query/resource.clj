@@ -1,3 +1,64 @@
+;; ## Request Format
+;;
+;; The single available route is `/resources?query=<query>`. The `query`
+;; parameter is a JSON array of query predicates in prefix form.
+;;
+;; ### Predicates
+;;
+;; #### =
+;;
+;; Resources tagged with "foo" (irrespective of other tags):
+;;
+;;     ["=" "tag" "foo"]
+;;
+;; Resources for the node "foo.example.com":
+;;
+;;     ["=" ["node" "<this value is ignored>"] "foo.example.com"]
+;;
+;; Resources whose owner parameter is "joe":
+;;
+;;     ["=" ["parameter" "owner"] "joe"]
+;;
+;; Resources whose title is "/etc/hosts"; "title" may be replaced with any legal column of the `resources` table, to query against that column:
+;;
+;;     ["=" "title" "/etc/hosts"]
+;;
+;; #### and
+;;
+;; Resources whose owner is "joe" and group is "people":
+;;
+;;     ["and" ["=" ["parameter" "owner"] "joe"]
+;;            ["=" ["parameter" "group"] "people"]]
+;;
+;; #### or
+;;
+;; Resources whose owner is "joe" or "jim":
+;;
+;;     ["or" ["=" ["parameter" "owner"] "joe"]
+;;           ["=" ["parameter" "owner"] "jim"]]
+;;
+;; #### not
+;;
+;; Resources whose owner is not "joe" AND is not "jim":
+;;
+;;     ["not" ["=" ["parameter" "owner"] "joe"]
+;;            ["=" ["parameter" "owner"] "jim"]]
+;;
+;; ## Response Format
+;;
+;; The response is a list of resource objects, returned in JSON form. Each
+;; resource object is a map of the following form:
+;;
+;;     {:hash       "the resource's unique hash"
+;;      :type       "File"
+;;      :title      "/etc/hosts"
+;;      :exported   "true"
+;;      :sourcefile "/etc/puppet/manifests/site.pp"
+;;      :sourceline "1"
+;;      :parameters {<parameter> <value>
+;;                   <parameter> <value>
+;;                   ...}}
+
 (ns com.puppetlabs.cmdb.query.resource
   (:require [com.puppetlabs.utils :as utils]
             [clojure.contrib.logging :as log]
@@ -21,7 +82,7 @@
 
 
 (defmulti compile-query->sql
-  "Recursively compile a query into a collection of SQL operations"
+  "Recursively compile a query into a collection of SQL operations."
   (fn [db query]
     (string/lower-case (first query))))
 
@@ -64,7 +125,7 @@ and their parameters which match."
   (let [hashes (sql/with-connection db
                    (->> (query-to-vec query)
                         (map :hash)))]
-    ; We have to special-case this or we get invalid queries generated later :(
+    ;; We have to special-case this or we get invalid queries generated later
     (if (empty? hashes)
       []
       (let [resources (future
@@ -90,12 +151,11 @@ and their parameters which match."
 
 (defn resource-list-as-json
   "Fetch a list of resources from the database, formatting them as a
-JSON array, and returning them as the body of the request."
+JSON array, and returning them as the body of the response."
   [request graphdata]
   (let [db (get-in request [:globals :scf-db])]
     (json/generate-string (or (vec (query-resources db (:query graphdata)))
                               []))))
-
 
 (defhandler resource-list-handler
   :allowed-methods        (constantly #{:get})
@@ -103,14 +163,11 @@ JSON array, and returning them as the body of the request."
   :resource-exists?       (constantly true)
   :content-types-provided (constantly {resource-list-c-t resource-list-as-json}))
 
-
-
-
-
-
-
-;;;; The SQL query compiler implementation.
+;; ## SQL query compiler
 (defmethod compile-query->sql "="
+  "Compile an '=' predicate, the basic atom of a resource query. This will
+produce a query that selects a set of hashes matching the predicate, which
+can then be combined with connectives to build complex queries."
   [db [op path value :as term]]
   (let [count (count term)]
     (if (not (= 3 count))
@@ -166,11 +223,15 @@ JSON array, and returning them as the body of the request."
       (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
+  "Produce distinct aliases for a list of queries, suitable for a join
+operation."
   [queries]
   (let [ids (range (count queries))]
     (map #(format "%s resources_%d" %1 %2) queries ids)))
 
 (defmethod compile-query->sql "and"
+  "Join a set of predicates together with an 'and' relationship, performing an
+intersection (via natural join)."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
@@ -187,6 +248,8 @@ JSON array, and returning them as the body of the request."
     (apply vector query params)))
 
 (defmethod compile-query->sql "or"
+  "Join a set of predicates together with an 'or' relationship, performing a
+union operation."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
@@ -201,6 +264,8 @@ JSON array, and returning them as the body of the request."
     (apply vector query params)))
 
 (defmethod compile-query->sql "not"
+  "Join a set of predicates together with a 'not' relationship, performing a
+set difference. This will reject resources matching _any_ child predicate."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
