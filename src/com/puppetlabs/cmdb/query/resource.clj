@@ -38,7 +38,7 @@ An empty query gathers all resources."
     (-> (table :resources)
         (project [:hash])
         (distinct)
-        (clojureql.core/compile db))
+        (compile db))
     (compile-query->sql db query)))
 
 (defn malformed-request?
@@ -163,7 +163,7 @@ JSON array, and returning them as the body of the request."
               ;; ...else, failure
               :else (throw (IllegalArgumentException.
                            (str term " is not a valid query term"))))
-        [sql & params] (clojureql.core/compile tbl db)]
+        [sql & params] (compile tbl db)]
       (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
