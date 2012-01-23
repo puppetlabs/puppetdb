@@ -14,6 +14,8 @@
 ;;
 ;; * catalogs are associated with a single certname
 ;;
+;; * facts are associated with a single certname
+;;
 ;; The standard set of operations on information in the database will
 ;; likely result in dangling resources and catalogs; to clean these
 ;; up, it's important to run `garbage-collect!`.
@@ -104,6 +106,12 @@
   (sql/do-commands
    "CREATE INDEX idx_certname_catalogs_certname ON certname_catalogs(certname)")
 
+  (sql/create-table :certname_facts
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["fact" "TEXT" "NOT NULL"]
+                    ["value" "TEXT" "NOT NULL"]
+                    ["PRIMARY KEY (certname, fact)"])
+
   (sql/do-commands
    "CREATE INDEX idx_resources_type ON resources(type)")
 
@@ -111,7 +119,13 @@
    "CREATE INDEX idx_resources_params_resource ON resource_params(resource)")
 
   (sql/do-commands
-   "CREATE INDEX idx_resources_params_name ON resource_params(name)"))
+   "CREATE INDEX idx_resources_params_name ON resource_params(name)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_certname_facts_certname ON certname_facts(certname)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_certname_facts_fact ON certname_facts(fact)"))
 
 ;; ## Entity manipulation
 
@@ -379,3 +393,24 @@
    (let [catalog-hash (add-catalog! catalog)]
      (dissociate-all-catalogs-for-certname! certname)
      (associate-catalog-with-certname! catalog-hash certname))))
+
+(defn add-facts!
+  "Given a certname and a map of fact names to values, store records for those
+facts associated with the certname."
+  [certname facts]
+  (let [default-row {:certname certname}
+        rows (for [[fact value] facts]
+               (assoc default-row :fact fact :value value))]
+    (apply sql/insert-records :certname_facts rows)))
+
+(defn delete-facts!
+  "Delete all the facts for the given certname."
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/delete-rows :certname_facts ["certname=?" certname]))
+
+(defn replace-facts!
+  [certname facts]
+  (sql/transaction
+    (delete-facts! certname)
+    (add-facts! certname facts)))

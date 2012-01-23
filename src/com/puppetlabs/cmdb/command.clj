@@ -98,6 +98,15 @@
       (scf-storage/replace-catalog! catalog))
     (log/info (format "[replace catalog] %s" certname))))
 
+(defmethod process-command! ["replace facts" 1]
+  [{:keys [payload]} {:keys [db]}]
+  (let [{:strs [name values]} payload]
+    (sql/with-connection db
+      (when-not (scf-storage/certname-exists? name)
+        (scf-storage/add-certname! name))
+      (scf-storage/replace-facts! name values))
+    (log/info (format "[replace facts] %s" name))))
+
 ;; ## Message queue I/O and utilities
 
 (defn command-map!
