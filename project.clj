@@ -5,6 +5,7 @@
                  [cheshire "2.0.4"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/tools.cli "0.2.1"]
+                 [clj-stacktrace "0.2.4"]
                  ;; Filesystem utilities
                  [fs "1.0.0"]
                  ;; Configuration file parsing
