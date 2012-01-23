@@ -165,10 +165,12 @@ JSON array, and returning them as the body of the response."
   :content-types-provided (constantly {resource-list-c-t resource-list-as-json}))
 
 ;; ## SQL query compiler
+;;
+;; Compile an '=' predicate, the basic atom of a resource query. This
+;; will produce a query that selects a set of hashes matching the
+;; predicate, which can then be combined with connectives to build
+;; complex queries.
 (defmethod compile-query->sql "="
-  "Compile an '=' predicate, the basic atom of a resource query. This will
-produce a query that selects a set of hashes matching the predicate, which
-can then be combined with connectives to build complex queries."
   [db [op path value :as term]]
   (let [count (count term)]
     (if (not (= 3 count))
@@ -230,9 +232,9 @@ operation."
   (let [ids (range (count queries))]
     (map #(format "%s resources_%d" %1 %2) queries ids)))
 
+;; Join a set of predicates together with an 'and' relationship,
+;; performing an intersection (via natural join).
 (defmethod compile-query->sql "and"
-  "Join a set of predicates together with an 'and' relationship, performing an
-intersection (via natural join)."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
@@ -248,9 +250,9 @@ intersection (via natural join)."
                    (format "(%s)"))]
     (apply vector query params)))
 
+;; Join a set of predicates together with an 'or' relationship,
+;; performing a union operation.
 (defmethod compile-query->sql "or"
-  "Join a set of predicates together with an 'or' relationship, performing a
-union operation."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
@@ -264,9 +266,10 @@ union operation."
                    (format "(%s)"))]
     (apply vector query params)))
 
+;; Join a set of predicates together with a 'not' relationship,
+;; performing a set difference. This will reject resources matching
+;; _any_ child predicate.
 (defmethod compile-query->sql "not"
-  "Join a set of predicates together with a 'not' relationship, performing a
-set difference. This will reject resources matching _any_ child predicate."
   [db [op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
