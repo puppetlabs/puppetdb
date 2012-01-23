@@ -1,4 +1,4 @@
-;; # Database utilities
+;; ## Database utilities
 
 (ns com.puppetlabs.jdbc
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)

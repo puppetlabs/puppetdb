@@ -49,7 +49,7 @@
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
-;; ### Wiring
+;; ## Wiring
 ;;
 ;; The following functions setup interaction between the main
 ;; Grayskull components.

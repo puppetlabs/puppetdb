@@ -1,4 +1,4 @@
-;; # "The Kitchen Sink"
+;; ## "The Kitchen Sink"
 ;;
 ;; Pretty much everything in here should _probably_ be organized into
 ;; proper namespaces, or perhaps even separate libraries
@@ -13,7 +13,7 @@
   (:use [clojure.core.incubator :as incubator]
         [slingshot.core :only [try+ throw+]]))
 
-;; ### Collection operations
+;; ## Collection operations
 
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
@@ -51,7 +51,7 @@
                  (class)
                  (.isArray)))
 
-;; ### Stubbing
+;; ## Stubbing
 ;;
 ;; These redef functions are backported from Clojure 1.3 core
 
@@ -90,7 +90,7 @@
                             (take-nth 2 (next bindings)))
                     (fn [] ~@body)))
 
-;; ### Exception handling
+;; ## Exception handling
 
 (defn keep-going*
   "Executes the supplied fn repeatedly"
@@ -107,7 +107,7 @@
   [on-error & body]
   `(keep-going* (fn [] ~@body) ~on-error))
 
-;; ### Unit testing
+;; ## Unit testing
 
 ;; This is an implementation of assert-expr that works with
 ;; slingshot-based exceptions, so you can do:
@@ -124,7 +124,7 @@
                                       :expected '~form, :actual e#})
              e#))))
 
-;; ### Configuration files
+;; ## Configuration files
 
 (defn ini-to-map
   "Takes a .ini filename and returns a nested map of
@@ -145,7 +145,7 @@
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
 
-;; ### Command-line parsing
+;; ## Command-line parsing
 
 (defn cli!
   "Wraps `tools.cli/cli`, automatically adding in a set of options for

@@ -26,7 +26,7 @@
 ;; catalog and restructure it to fix the above problems and, in
 ;; general, make catalogs more easily manipulatable by Clojure code.
 ;;
-;; ## Terminology
+;; ### Terminology
 ;;
 ;; There are a few catalog-specific terms that we use throughout the
 ;; codebase:

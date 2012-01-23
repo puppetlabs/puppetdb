@@ -1,4 +1,4 @@
-;; # Catalog persistence
+;; ## Catalog persistence
 ;;
 ;; Catalogs are persisted in a relational database. Roughly speaking,
 ;; the schema looks like this:

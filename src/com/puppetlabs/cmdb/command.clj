@@ -37,7 +37,7 @@
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.core :only [try+ throw+]]))
 
-;; ### Command parsing
+;; ## Command parsing
 
 (defmulti parse-command
   "Take a wire-format command and parse it into a command object."
@@ -57,7 +57,7 @@
   (->> (json/parse-string command-string)
        (pl-utils/mapkeys keyword)))
 
-;; ### Command processing exception classes
+;; ## Command processing exception classes
 
 (defn fatality!
   "Create an object representing a fatal command-processing exception
@@ -73,7 +73,7 @@
   [exception]
   (:fatal exception))
 
-;; ### Command processors
+;; ## Command processors
 
 (defmulti process-command!
   "Takes a command object and processes it to completion. Dispatch is
@@ -81,7 +81,7 @@
   (fn [{:keys [command version] :or {version 1}} _]
     [command version]))
 
-;; ### Catalog replacement
+;; ## Catalog replacement
 
 (defmethod process-command! ["replace catalog" 1] [cmd options]
   ;; Parsing a catalog either works, or it generates a fatal exception
@@ -98,7 +98,7 @@
       (scf-storage/replace-catalog! catalog))
     (log/info (format "[replace catalog] %s" certname))))
 
-;; ### Message queue I/O and utilities
+;; ## Message queue I/O and utilities
 
 (defn command-map!
   "Event loop that maps `f` over the messages in `msg-seq`.
