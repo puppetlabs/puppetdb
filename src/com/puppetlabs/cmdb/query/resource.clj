@@ -1,4 +1,5 @@
 (ns com.puppetlabs.cmdb.query.resource
+  (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
             [clojure.contrib.logging :as log]
             [cheshire.core :as json]
@@ -37,7 +38,7 @@ An empty query gathers all resources."
     (-> (table :resources)
         (project [:hash])
         (distinct)
-        (clojureql.core/compile db))
+        (compile db))
     (compile-query->sql db query)))
 
 (defn malformed-request?
@@ -64,7 +65,7 @@ and their parameters which match."
   (let [hashes (sql/with-connection db
                    (->> (query-to-vec query)
                         (map :hash)))]
-    ; We have to special-case this or we get invalid queries generated later :(
+    ;; We have to special-case this or we get invalid queries generated later
     (if (empty? hashes)
       []
       (let [resources (future
@@ -162,7 +163,7 @@ JSON array, and returning them as the body of the request."
               ;; ...else, failure
               :else (throw (IllegalArgumentException.
                            (str term " is not a valid query term"))))
-        [sql & params] (clojureql.core/compile tbl db)]
+        [sql & params] (compile tbl db)]
       (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
