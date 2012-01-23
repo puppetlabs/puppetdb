@@ -1,4 +1,5 @@
 (ns com.puppetlabs.cmdb.query.resource
+  (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
             [clojure.contrib.logging :as log]
             [cheshire.core :as json]
@@ -64,7 +65,7 @@ and their parameters which match."
   (let [hashes (sql/with-connection db
                    (->> (query-to-vec query)
                         (map :hash)))]
-    ; We have to special-case this or we get invalid queries generated later :(
+    ;; We have to special-case this or we get invalid queries generated later
     (if (empty? hashes)
       []
       (let [resources (future
