@@ -14,6 +14,8 @@
 ;;
 ;; * catalogs are associated with a single certname
 ;;
+;; * facts are associated with a single certname
+;;
 ;; The standard set of operations on information in the database will
 ;; likely result in dangling resources and catalogs; to clean these
 ;; up, it's important to run `garbage-collect!`.
@@ -393,6 +395,8 @@
      (associate-catalog-with-certname! catalog-hash certname))))
 
 (defn add-facts!
+  "Given a certname and a map of fact names to values, store records for those
+facts associated with the certname."
   [certname facts]
   (let [default-row {:certname certname}
         rows (for [[fact value] facts]
@@ -400,6 +404,7 @@
     (apply sql/insert-records :certname_facts rows)))
 
 (defn delete-facts!
+  "Delete all the facts for the given certname."
   [certname]
   {:pre [(string? certname)]}
   (sql/delete-rows :certname_facts ["certname=?" certname]))
