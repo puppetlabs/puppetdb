@@ -1,11 +1,13 @@
 (ns com.puppetlabs.cmdb.query
   (:require [clothesline.core :as cl]
+            [com.puppetlabs.cmdb.command :as command]
             [com.puppetlabs.cmdb.query.facts :as facts]
             [com.puppetlabs.cmdb.query.resource :as resource]))
 
 (def routes
   {"/resources"   resource/resource-list-handler
-   "/facts/:node" facts/fact-set-handler})
+   "/facts/:node" facts/fact-set-handler
+   "/commands"    command/http->mq-handler})
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
