@@ -1,8 +1,6 @@
 ;; ## Main entrypoint
 ;;
-;; Grayskull consists of several, cooperating components: a message
-;; queue, a command processing subsystem, and a REST interface for use
-;; by the outside world.
+;; Grayskull consists of several, cooperating components:
 ;;
 ;; * Command processing
 ;;
@@ -36,6 +34,12 @@
 ;;   embed an instance of Jetty to handle web server duties. Commands
 ;;   that come in via REST are relayed to the message queue. Read-only
 ;;   requests are serviced synchronously.
+;;
+;; * Database garbage collector
+;;
+;;   As catalogs are modified, unused records may accumulate in the
+;;   database. We periodically compact the database to maintain
+;;   acceptable performance.
 ;;
 (ns com.puppetlabs.cmdb.cli.services
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
@@ -72,16 +76,33 @@
    (with-open [conn (mq/connect! mq)]
      (command/process-commands! conn mq-endpoint {:db db}))))
 
+(defn db-garbage-collector
+  "Compact the indicated database every `interval` millis.
+
+  This function doesn't terminate. If we encounter an exception during
+  compaction, the operation will be retried after `interval` millis."
+  [db interval]
+  (pl-utils/keep-going
+   (fn [exception]
+     (log/error "Error during DB compaction" exception))
+
+   (Thread/sleep interval)
+   (log/info "Beginning database compaction")
+   (sql/with-connection db
+     (scf-store/garbage-collect!)
+     (log/info "Finished database compaction"))))
+
 (defn -main
   [& args]
-  (let [[options _] (cli! args
-                          ["-c" "--config" "Path to config.ini"])
-        config      (ini-to-map (:config options))
+  (let [[options _]    (cli! args
+                             ["-c" "--config" "Path to config.ini"])
+        config         (ini-to-map (:config options))
 
-        db          (pl-jdbc/pooled-datasource (:database config))
-        web-opts    (get config :jetty {})
-        ring-app    (query/build-app db)
-        mq-dir      (get-in config [:mq :dir])]
+        db             (pl-jdbc/pooled-datasource (:database config))
+        db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
+        web-opts       (get config :jetty {})
+        ring-app       (query/build-app db)
+        mq-dir         (get-in config [:mq :dir])]
 
     ;; Initialize database schema
     ;;
@@ -99,11 +120,15 @@
           web-app           (do
                               (log/info "Starting query server")
                               (future
-                                (jetty/run-jetty ring-app web-opts)))]
+                                (jetty/run-jetty ring-app web-opts)))
+          db-gc             (do
+                              (log/info "Starting database compactor")
+                              (future
+                                (db-garbage-collector db db-gc-interval)))]
 
-      ;; Stop the command-processor and web-app by blocking on
-      ;; completion of their futures
+      ;; Stop services by blocking on the completion of their futures
       (deref command-processor)
       (deref web-app)
+      (deref db-gc)
       ;; Stop the mq the old-fashioned way
       (mq/stop-broker! broker))))
