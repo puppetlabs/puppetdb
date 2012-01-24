@@ -18,6 +18,6 @@
 (defn build-app
   "Given an attribute map representing connectivity to the SCF
   database, generate a Ring application that handles queries"
-  [scf-db]
+  [globals]
   (-> (cl/produce-handler routes)
-      (wrap-with-globals {:scf-db scf-db})))
+      (wrap-with-globals globals)))

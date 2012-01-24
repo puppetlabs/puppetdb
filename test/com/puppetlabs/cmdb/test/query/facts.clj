@@ -16,7 +16,7 @@
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
                         (binding [*db* db
-                                  *app* (query/build-app db)]
+                                  *app* (query/build-app {:scf-db db})]
                           (sql/with-connection db
                             (migrate!)
                             (f))))))

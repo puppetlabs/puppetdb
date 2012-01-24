@@ -103,8 +103,12 @@
         db             (pl-jdbc/pooled-datasource (:database config))
         db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
         web-opts       (get config :jetty {})
-        ring-app       (query/build-app db)
-        mq-dir         (get-in config [:mq :dir])]
+        mq-dir         (get-in config [:mq :dir])
+
+        globals        {:scf-db db
+                        :command-mq {:connection-string *mq-addr*
+                                     :endpoint *mq-endpoint*}}
+        ring-app       (query/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
