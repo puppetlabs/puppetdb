@@ -39,6 +39,7 @@
 ;;
 (ns com.puppetlabs.cmdb.cli.services
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
+            [com.puppetlabs.cmdb.scf.migrate :as migrations]
             [com.puppetlabs.cmdb.command :as command]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.mq :as mq]
@@ -47,7 +48,8 @@
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.query :as query]
             [clojure.java.jdbc :as sql])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 ;; ## Wiring
 ;;
@@ -83,11 +85,9 @@
         ring-app    (query/build-app db)
         mq-dir      (get-in config [:mq :dir])]
 
-    ;; Initialize database schema
-    ;;
-    ;; TODO - Need to make this idempotent!
+    ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
-      (scf-store/initialize-store))
+      (migrate!))
 
     (let [broker            (do
                               (log/info "Starting broker")

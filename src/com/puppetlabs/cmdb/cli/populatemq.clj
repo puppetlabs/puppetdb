@@ -1,5 +1,5 @@
 (ns com.puppetlabs.cmdb.cli.populatemq
-  (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
+  (:require
             [clojure.contrib.logging :as log]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
@@ -7,7 +7,8 @@
             [clamq.activemq :as activemq]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 
 (defn populate-mq
@@ -35,5 +36,5 @@
         mq-endpoint (get-in config [:mq :endpoint])]
 
     (sql/with-connection db
-      (scf-store/initialize-store))
+      (migrate!))
     (populate-mq mq mq-endpoint dir)))
