@@ -12,6 +12,7 @@
 (ns com.puppetlabs.cmdb.query.facts
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [cheshire.core :as json]
+            [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql])
   (:use clojureql.core
         [clothesline.protocol.test-helpers :only [annotated-return]]
@@ -42,9 +43,7 @@ with the facts if found. Otherwise, respond with an appropriate error message."
         facts (facts-for-node db node)]
     (if (seq facts)
       (annotated-return true {:annotate {:facts facts}})
-      (annotated-return false {:headers {"Content-Type" "application/json"}
-                               :annotate {:body (json/generate-string
-                                                  {:error (str "Could not find facts for " node)})}}))))
+      (utils/return-json-error false (str "Could not find facts for " node)))))
 
 (defn fact-set-to-json
   "Respond with the facts for the requested node (supplied in the graphdata),

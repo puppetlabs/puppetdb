@@ -9,8 +9,10 @@
   (:require [clojure.test]
             [clojure.string]
             [clojure.contrib.duck-streams :as ds]
-            [clojure.tools.cli :as cli])
+            [clojure.tools.cli :as cli]
+            [cheshire.core :as json])
   (:use [clojure.core.incubator :as incubator]
+        [clothesline.protocol.test-helpers :only [annotated-return]]
         [slingshot.core :only [try+ throw+]]))
 
 ;; ## Collection operations
@@ -161,3 +163,14 @@
       (println banner)
       (System/exit 0))
     [options posargs]))
+
+;; ## Clothesline helpers
+
+(defn return-json-error
+  "Returns a Clothesline body payload containing `msg` and encoded as
+  JSON."
+  [returnval msg]
+  (annotated-return
+   returnval
+   {:headers  {"Content-Type" "application/json"}
+    :annotate {:body (json/generate-string {:error msg})}}))

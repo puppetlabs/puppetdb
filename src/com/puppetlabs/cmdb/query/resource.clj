@@ -112,10 +112,7 @@ input queries can make it through to the rest of the system."
           sql (query->sql db (json/parse-string (get params "query" "null") true))]
       (annotated-return false {:annotate {:query sql}}))
     (catch Exception e
-      (annotated-return
-       true
-       {:headers  {"Content-Type" "application/json"}
-        :annotate {:body (json/generate-string {:error (.getMessage e)})}}))))
+      (utils/return-json-error true (.getMessage e)))))
 
 
 (defn query-resources
