@@ -4,8 +4,8 @@
             [com.puppetlabs.cmdb.query.resource :as resource]))
 
 (def routes
-  {"/resources"   com.puppetlabs.cmdb.query.resource/resource-list-handler
-   "/facts/:node" com.puppetlabs.cmdb.query.facts/fact-set-handler})
+  {"/resources"   resource/resource-list-handler
+   "/facts/:node" facts/fact-set-handler})
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
