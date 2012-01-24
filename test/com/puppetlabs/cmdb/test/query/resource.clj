@@ -10,8 +10,8 @@
         ring.mock.request
         [clojure.contrib.duck-streams :only (read-lines)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize
-                                                initialize-store]]))
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def *db* nil)
 (def *app* nil)
@@ -21,7 +21,7 @@
                         (binding [*db* db
                                   *app* (query/build-app db)]
                           (sql/with-connection db
-                            (initialize-store)
+                            (migrate!)
                             (f))))))
 
 (deftest query->sql
