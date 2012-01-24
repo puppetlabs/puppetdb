@@ -4,6 +4,7 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
   (:use [com.puppetlabs.cmdb.scf.storage]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
@@ -189,7 +190,7 @@
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
       (sql/with-connection *db*
-        (initialize-store)
+        (migrate!)
         (add-certname! certname)
         (add-facts! certname facts)
         (testing "should have entries for each fact"
@@ -222,7 +223,7 @@
     (let [catalog *basic-catalog*]
 
       (sql/with-connection *db*
-        (initialize-store)
+        (migrate!)
         (add-certname! "myhost.mydomain.com")
         (let [hash (add-catalog! catalog)]
           (associate-catalog-with-certname! hash "myhost.mydomain.com"))
@@ -281,7 +282,7 @@
 
       (testing "should noop if replaced by themselves"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)]
             (replace-catalog! catalog)
@@ -294,7 +295,7 @@
 
       (testing "should share structure when duplicate catalogs are detected for the same host"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)]
             (replace-catalog! catalog)
@@ -312,7 +313,7 @@
 
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-catalog! catalog)
           (delete-catalog! "myhost.mydomain.com")
@@ -323,7 +324,7 @@
 
       (testing "should be removed when deleted"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)]
             (delete-catalog! hash))
@@ -342,7 +343,7 @@
 
       (testing "when deleted, should leave resources alone"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (let [hash (add-catalog! catalog)]
             (delete-catalog! hash))
 
@@ -351,7 +352,7 @@
 
       (testing "when deleted, should leave certnames alone"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-catalog! catalog)
           (delete-catalog! "myhost.mydomain.com")
@@ -361,7 +362,7 @@
 
       (testing "when deleted, should leave other hosts' resources alone"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-certname! "myhost2.mydomain.com")
           (let [hash1 (add-catalog! catalog)
@@ -404,7 +405,7 @@
 
       (testing "when deleted without GC, should leave resources behind"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
@@ -417,7 +418,7 @@
 
       (testing "when deleted and GC'ed, should leave no dangling resources"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
@@ -429,7 +430,7 @@
 
       (testing "when dissociated and not GC'ed, should still exist"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
@@ -443,7 +444,7 @@
 
       (testing "when dissociated and GC'ed, should no longer exist"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
@@ -460,7 +461,7 @@
 
       (testing "on bad input"
         (sql/with-connection *db*
-          (initialize-store)
+          (migrate!)
           (is (thrown? AssertionError (add-catalog! {})))
 
           ; Nothing should have been persisted for this catalog
@@ -487,7 +488,7 @@
                                                                                      "group"  "root"
                                                                                      "user"   "root"}}}}]
           (sql/with-connection *db*
-            (initialize-store)
+            (migrate!)
             (is (thrown? AssertionError (add-catalog! {})))
 
             ; Nothing should have been persisted for this catalog
