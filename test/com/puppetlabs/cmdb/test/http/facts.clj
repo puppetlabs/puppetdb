@@ -7,7 +7,7 @@
   (:use clojure.test
          ring.mock.request
          [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.storage :only [initialize-store]]))
+         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def *app* nil)
 
@@ -15,7 +15,7 @@
                       (let [db (test-db)]
                         (binding [*app* (server/build-app {:scf-db db})]
                           (sql/with-connection db
-                            (initialize-store)
+                            (migrate!)
                             (f))))))
 
 (def *content-type* facts/fact-set-c-t)
