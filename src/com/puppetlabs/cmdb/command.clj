@@ -24,11 +24,13 @@
 ;;
 ;; In either case, the command itself, once string-ified, must be a
 ;; JSON-formatted string with the aforementioned structure.
+;;
 
 (ns com.puppetlabs.cmdb.command
   (:require [clojure.contrib.logging :as log]
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             [com.puppetlabs.cmdb.catalog :as cat]
+            [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]

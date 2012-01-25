@@ -1,86 +1,15 @@
-;; ## Request Format
-;;
-;; The single available route is `/resources?query=<query>`. The `query`
-;; parameter is a JSON array of query predicates in prefix form.
-;;
-;; ### Predicates
-;;
-;; #### =
-;;
-;; Resources tagged with "foo" (irrespective of other tags):
-;;
-;;     ["=" "tag" "foo"]
-;;
-;; Resources for the node "foo.example.com":
-;;
-;;     ["=" ["node" "<this value is ignored>"] "foo.example.com"]
-;;
-;; Resources whose owner parameter is "joe":
-;;
-;;     ["=" ["parameter" "owner"] "joe"]
-;;
-;; Resources whose title is "/etc/hosts"; "title" may be replaced with any legal column of the `resources` table, to query against that column:
-;;
-;;     ["=" "title" "/etc/hosts"]
-;;
-;; #### and
-;;
-;; Resources whose owner is "joe" and group is "people":
-;;
-;;     ["and" ["=" ["parameter" "owner"] "joe"]
-;;            ["=" ["parameter" "group"] "people"]]
-;;
-;; #### or
-;;
-;; Resources whose owner is "joe" or "jim":
-;;
-;;     ["or" ["=" ["parameter" "owner"] "joe"]
-;;           ["=" ["parameter" "owner"] "jim"]]
-;;
-;; #### not
-;;
-;; Resources whose owner is not "joe" AND is not "jim":
-;;
-;;     ["not" ["=" ["parameter" "owner"] "joe"]
-;;            ["=" ["parameter" "owner"] "jim"]]
-;;
-;; ## Response Format
-;;
-;; The response is a list of resource objects, returned in JSON form. Each
-;; resource object is a map of the following form:
-;;
-;;     {:hash       "the resource's unique hash"
-;;      :type       "File"
-;;      :title      "/etc/hosts"
-;;      :exported   "true"
-;;      :sourcefile "/etc/puppet/manifests/site.pp"
-;;      :sourceline "1"
-;;      :parameters {<parameter> <value>
-;;                   <parameter> <value>
-;;                   ...}}
+;; ## SQL query compiler
 
 (ns com.puppetlabs.cmdb.query.resource
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
-            [clojure.contrib.logging :as log]
             [cheshire.core :as json]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use clojureql.core
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
-        [clojure.core.match.core :only [match]]
-        [clothesline.protocol.test-helpers :only [annotated-return]]
-        [clothesline.service.helpers :only [defhandler]]))
-
-(def
-  ^{:doc "Content type for an individual resource"}
-  resource-c-t "application/vnd.com.puppetlabs.cmdb.resource+json")
-
-(def
-  ^{:doc "Content type for a list of resources"}
-  resource-list-c-t "application/vnd.com.puppetlabs.cmdb.resource-list+json")
-
+        [clojure.core.match.core :only [match]]))
 
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations."
@@ -101,22 +30,6 @@ An empty query gathers all resources."
         (distinct)
         (compile db))
     (compile-query->sql db query)))
-
-(defn malformed-request?
-  "Validate the JSON-encoded query for this resource, and annotate the
-graphdata with the compiled data structure.  This ensures that only valid
-input queries can make it through to the rest of the system."
-  [_ {:keys [params] :as request} _]
-  (try
-    (let [db (get-in request [:globals :scf-db])
-          sql (query->sql db (json/parse-string (get params "query" "null") true))]
-      (annotated-return false {:annotate {:query sql}}))
-    (catch Exception e
-      (annotated-return
-       true
-       {:headers  {"Content-Type" "application/json"}
-        :annotate {:body (json/generate-string {:error (.getMessage e)})}}))))
-
 
 (defn query-resources
   "Take a vector-structured query, and return a vector of resources
@@ -150,22 +63,6 @@ and their parameters which match."
                  %1)
               @resources))))))
 
-(defn resource-list-as-json
-  "Fetch a list of resources from the database, formatting them as a
-JSON array, and returning them as the body of the response."
-  [request graphdata]
-  (let [db (get-in request [:globals :scf-db])]
-    (json/generate-string (or (vec (query-resources db (:query graphdata)))
-                              []))))
-
-(defhandler resource-list-handler
-  :allowed-methods        (constantly #{:get})
-  :malformed-request?     malformed-request?
-  :resource-exists?       (constantly true)
-  :content-types-provided (constantly {resource-list-c-t resource-list-as-json}))
-
-;; ## SQL query compiler
-;;
 ;; Compile an '=' predicate, the basic atom of a resource query. This
 ;; will produce a query that selects a set of hashes matching the
 ;; predicate, which can then be combined with connectives to build
