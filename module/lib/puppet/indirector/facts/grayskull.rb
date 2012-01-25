@@ -6,11 +6,11 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
   #use_server_setting :grayskull_server
   #use_port_setting :grayskull_port
 
-  def server
+  def self.server
     "grayskull"
   end
 
-  def port
+  def self.port
     8080
   end
 

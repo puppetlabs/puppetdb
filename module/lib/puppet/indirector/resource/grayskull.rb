@@ -1,8 +1,16 @@
 require 'puppet/indirector/rest'
 
 class Puppet::Resource::Grayskull < Puppet::Indirector::REST
-  use_server_setting :grayskull_server
-  use_port_setting :grayskull_port
+  #use_server_setting :grayskull_server
+  #use_port_setting :grayskull_port
+
+  def self.server
+    "grayskull"
+  end
+
+  def self.port
+    8080
+  end
 
   def search(request)
     type   = canonicalize_type(request.key)
