@@ -76,7 +76,7 @@
 
   (sql/create-table :schema_migrations
                     ["version" "INT" "NOT NULL" "PRIMARY KEY"]
-                    ["time" "DATETIME" "NOT NULL"])
+                    ["time" "TIMESTAMP" "NOT NULL"])
 
   (sql/do-commands
    "CREATE INDEX idx_catalogs_hash ON catalogs(hash)")
@@ -116,7 +116,8 @@ version can't be determined."
   []
   (try
     (let [query "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1"
-          results (query-to-vec query)]
+          results (sql/transaction
+                    (query-to-vec query))]
       (:version (first results)))
     (catch java.sql.SQLException e
       0)))
@@ -126,7 +127,8 @@ version can't be determined."
 along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
-  (sql/insert-record :schema_migrations {:version version :time (Date.)}))
+  (let [timestamp (java.sql.Timestamp. (.getTime (java.util.Date.)))]
+    (sql/insert-record :schema_migrations {:version version :time timestamp})))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
@@ -143,10 +145,10 @@ along with the time at which the migration was performed."
   "Migrates database to the latest schema version. Does nothing if database is
 already at the latest schema version."
   []
-  (sql/transaction
-    (if-let [pending (seq (pending-migrations))]
+  (if-let [pending (seq (pending-migrations))]
+    (sql/transaction
       (doseq [[version migration] pending]
-        (log/info (format "Migrating to version %d" version))
-        (migration)
-        (record-migration! version))
-      (log/info "There are no pending migrations"))) )
+      (log/info (format "Migrating to version %d" version))
+      (migration)
+      (record-migration! version)))
+    (log/info "There are no pending migrations")))
