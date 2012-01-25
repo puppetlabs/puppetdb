@@ -24,6 +24,7 @@
 ;;
 ;; In either case, the command itself, once string-ified, must be a
 ;; JSON-formatted string with the aforementioned structure.
+;;
 
 (ns com.puppetlabs.cmdb.command
   (:require [clojure.contrib.logging :as log]
@@ -36,9 +37,7 @@
             [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
-  (:use [slingshot.core :only [try+ throw+]]
-        [clothesline.protocol.test-helpers :only [annotated-return]]
-        [clothesline.service.helpers :only [defhandler]]))
+  (:use [slingshot.core :only [try+ throw+]]))
 
 ;; ## Command parsing
 
@@ -202,29 +201,3 @@
       (let [ack-msg (fn [msg] (mq-seq/ack consumer))
             msg-seq (mq-seq/mseq consumer)]
         (command-map! msg-seq ack-msg on-message on-retry on-fatal)))))
-
-;; ## REST adapters
-
-(defn malformed-request?
-  [_ {:keys [params] :as request} _]
-  (try
-    (if-let [payload (get params "payload")]
-      (annotated-return false {:annotate {:payload payload}})
-      (pl-utils/return-json-error true "Missing payload"))
-    (catch Exception e
-      (pl-utils/return-json-error true (.getMessage e)))))
-
-(defn http->mq
-  [request graphdata]
-  (let [mq-spec     (get-in request [:globals :command-mq :connection-string])
-        mq-endpoint (get-in request [:globals :command-mq :endpoint])]
-    (with-open [conn (mq/connect! mq-spec)]
-      (let [producer (mq-conn/producer conn)]
-        (mq-producer/publish producer mq-endpoint (:payload graphdata))))
-    (json/generate-string true)))
-
-(defhandler http->mq-handler
-  :allowed-methods (constantly #{:post})
-  :malformed-request? malformed-request?
-  :content-types-provided (constantly {"application/json" http->mq})
-  :content-types-accepted (constantly {"application/x-www-form-urlencoded" nil}))

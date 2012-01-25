@@ -1,11 +1,11 @@
-(ns com.puppetlabs.cmdb.query
+(ns com.puppetlabs.cmdb.http.server
   (:require [clothesline.core :as cl]
-            [com.puppetlabs.cmdb.command :as command]
-            [com.puppetlabs.cmdb.query.facts :as facts]
-            [com.puppetlabs.cmdb.query.resource :as resource]))
+            [com.puppetlabs.cmdb.http.command :as command]
+            [com.puppetlabs.cmdb.http.facts :as facts]
+            [com.puppetlabs.cmdb.http.resources :as resources]))
 
 (def routes
-  {"/resources"   resource/resource-list-handler
+  {"/resources"   resources/resource-list-handler
    "/facts/:node" facts/fact-set-handler
    "/commands"    command/http->mq-handler})
 

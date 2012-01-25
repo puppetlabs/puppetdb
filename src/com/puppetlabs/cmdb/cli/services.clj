@@ -50,7 +50,7 @@
             [com.puppetlabs.utils :as pl-utils]
             [clojure.contrib.logging :as log]
             [ring.adapter.jetty :as jetty]
-            [com.puppetlabs.cmdb.query :as query]
+            [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
@@ -108,7 +108,7 @@
         globals        {:scf-db db
                         :command-mq {:connection-string *mq-addr*
                                      :endpoint *mq-endpoint*}}
-        ring-app       (query/build-app globals)]
+        ring-app       (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
