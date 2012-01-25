@@ -1,4 +1,28 @@
 ;; ## REST Command endpoints
+;;
+;; Commands can be submitted via HTTP, provided the following criteria
+;; are met:
+;;
+;; * A `POST` is used
+;;
+;; * The `POST` contains a single parameter, `payload`
+;;
+;; * The `POST` is sent using a content type of
+;;   `application/x-www-form-urlencoded`
+;;
+;; * The `payload` paramater contains a string conforming to the
+;;   structure of a command as outlined in
+;;   `com.puppetlabs.cmdb.command`
+;;
+;; The response:
+;;
+;; * Has a content type of `application/json`
+;;
+;; * Contains a JSON object of `true` if the command was successfully
+;;   submitted to the MQ
+;;
+;; * Contains a JSON object of `{:error "error message"}` if an error
+;;   occurred.
 
 (ns com.puppetlabs.cmdb.http.command
   (:require [clojure.contrib.logging :as log]
@@ -11,6 +35,8 @@
         [clothesline.service.helpers :only [defhandler]]))
 
 (defn malformed-request?
+  "A command submission is malformed if it lacks a `payload`
+  attribute"
   [_ {:keys [params] :as request} _]
   (try
     (if-let [payload (get params "payload")]
@@ -20,7 +46,13 @@
       (pl-utils/return-json-error true (.getMessage e)))))
 
 (defn http->mq
+  "Takes a command object out of `graphdata`, and submits it to an MQ.
+
+  If successful, this function returns a JSON `true`. Otherwise, an
+  exception is thrown."
   [request graphdata]
+  {:pre  [(:payload graphdata)]
+   :post [(string? %)]}
   (let [mq-spec     (get-in request [:globals :command-mq :connection-string])
         mq-endpoint (get-in request [:globals :command-mq :endpoint])]
     (with-open [conn (mq/connect! mq-spec)]

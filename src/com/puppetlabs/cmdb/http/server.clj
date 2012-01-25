@@ -1,3 +1,8 @@
+;; REST server
+;;
+;; Consolidates our disparate REST endpoints into a single Ring
+;; application.
+
 (ns com.puppetlabs.cmdb.http.server
   (:require [clothesline.core :as cl]
             [com.puppetlabs.cmdb.http.command :as command]

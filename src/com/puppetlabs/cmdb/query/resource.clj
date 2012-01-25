@@ -1,3 +1,5 @@
+;; ## SQL query compiler
+
 (ns com.puppetlabs.cmdb.query.resource
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
@@ -8,9 +10,6 @@
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
         [clojure.core.match.core :only [match]]))
-
-
-;; ## SQL query compiler
 
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations."
