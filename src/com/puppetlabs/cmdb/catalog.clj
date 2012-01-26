@@ -325,7 +325,7 @@
       (assoc :cmdb-version CMDB-VERSION)
       (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
       (assoc :certname (get-in wire-catalog ["data" "name"]))
-      (assoc :version (get-in wire-catalog ["data" "version"]))))
+      (assoc :version (str (get-in wire-catalog ["data" "version"])))))
 
 ;; ## Deserialization
 ;;
