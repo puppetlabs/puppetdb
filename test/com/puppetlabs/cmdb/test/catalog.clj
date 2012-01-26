@@ -268,7 +268,7 @@
  {:certname "myhost.mydomain.com"
   :cmdb-version CMDB-VERSION
   :api-version 1
-  :version 123456789
+  :version "123456789"
   :tags #{"class" "foobar"}
   :classes #{"foobar"}
   :edges #{{:source {:type "Class" :title "foobar"}
