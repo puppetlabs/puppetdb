@@ -107,6 +107,20 @@
     ["SELECT 1 FROM resources WHERE hash=? LIMIT 1" resource-hash]
     (pos? (count result-set))))
 
+(defn resource-identity-string
+  "Compute a stably-sorted, string representation of the given
+  resource that will uniquely identify it within a population."
+  [resource]
+  {:pre  [(map? resource)]
+   :post [(string? %)]}
+  (-> ; Sort the entire resource map
+      (into (sorted-map) resource)
+      ; Sort the parameter map
+      (assoc :parameters (into (sorted-map) (:parameters resource)))
+      ; Sort the set of tags
+      (assoc :tags (into (sorted-set) (:tags resource)))
+      (pr-str)))
+
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
   within a population.
@@ -121,13 +135,7 @@
   [resource]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (-> ; Sort the entire resource map
-      (into (sorted-map) resource)
-      ; Sort the parameter map
-      (assoc :parameters (into (sorted-map) (:parameters resource)))
-      ; Sort the set of tags
-      (assoc :tags (into (sorted-set) (:tags resource)))
-      (pr-str)
+  (-> (resource-identity-string resource)
       (digest/sha-1)))
 
 (defn add-resource!
@@ -160,16 +168,24 @@
     ;; Insert pointer into certname => resource map
     (sql/insert-record :catalog_resources {:catalog catalog-hash :resource resource-hash})))
 
-(defn edge-identity-hash
-  "Compute a hash for a given edge that will uniquely identify it
-  within a population."
+(defn edge-identity-string
+  "Compute a stably-sorted string for the given edge that will
+  uniquely identify it within a population."
   [edge]
   {:pre  [(map? edge)]
    :post [(string? %)]}
   (-> (into (sorted-map) edge)
       (assoc :source (into (sorted-map) (:source edge)))
       (assoc :target (into (sorted-map) (:target edge)))
-      (pr-str)
+      (pr-str)))
+
+(defn edge-identity-hash
+  "Compute a hash for a given edge that will uniquely identify it
+  within a population."
+  [edge]
+  {:pre  [(map? edge)]
+   :post [(string? %)]}
+  (-> (edge-identity-string edge)
       (digest/sha-1)))
 
 (defn add-edges!
@@ -214,8 +230,8 @@
       (assoc :certname certname)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
-      (assoc :resources (sort (map resource-identity-hash (vals resources))))
-      (assoc :edges (sort (map edge-identity-hash edges)))
+      (assoc :resources (sort (map resource-identity-string (vals resources))))
+      (assoc :edges (sort (map edge-identity-string edges)))
       (pr-str)
       (digest/sha-1)))
 
