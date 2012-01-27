@@ -32,6 +32,7 @@
                  [clamq "0.3"]
                  [org.apache.activemq/activemq-core "5.5.0"]
                  ;; WebAPI support libraries.
+                 [clj-http "0.1.3"]
                  [ring/ring-core            "0.3.11"]
                  [ring/ring-servlet         "0.3.11"]
                  [org.mortbay.jetty/jetty   "6.1.26"]

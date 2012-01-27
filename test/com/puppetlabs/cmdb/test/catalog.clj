@@ -42,6 +42,13 @@
 ;; keys instead of strings
 (def random-kw-resource (comp keys-to-keywords random-resource))
 
+(defn add-random-resource-to-wire-catalog
+  "Adds a random resource to the given wire-format catalog"
+  [catalog]
+  (let [resources (get-in catalog ["data" "resources"])
+        new-rsrc  (random-resource)]
+    (assoc-in catalog ["data" "resources"] (conj resources new-rsrc))))
+
 (defn add-random-resource-to-catalog
   "Adds a random resource to the given catalog"
   [{:keys [resources] :as c}]
