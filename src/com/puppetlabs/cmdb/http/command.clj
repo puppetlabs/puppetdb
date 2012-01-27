@@ -60,8 +60,21 @@
         (mq-producer/publish producer mq-endpoint (:payload graphdata))))
     (json/generate-string true)))
 
+(defn content-types-accepted
+  "Clothesline is stupid and demands that the list of acceptable
+  content types be returned in a map. It's dumb, because it just takes
+  the keys from the map and throws the rest away...so why ask for a
+  map at all? In fact, why not just ask for a simple function to be
+  implemented that inspects the request's content type and returns a
+  boolean? I have no idea."
+  [_ request _]
+  (let [c-t (get-in request [:headers "content-type"] "")]
+    (if (.startsWith c-t "application/x-www-form-urlencoded")
+      {c-t nil}
+      {})))
+
 (defhandler http->mq-handler
   :allowed-methods (constantly #{:post})
   :malformed-request? malformed-request?
   :content-types-provided (constantly {"application/json" http->mq})
-  :content-types-accepted (constantly {"application/x-www-form-urlencoded" nil}))
+  :content-types-accepted content-types-accepted)
