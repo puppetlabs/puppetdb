@@ -100,51 +100,19 @@
 
 (deftest catalog-dedupe
   (testing "Catalogs with different metadata but the same content should hash to the same thing"
-    (let [catalog            *basic-catalog*
-          hash               (catalog-similarity-hash catalog)
-          ;; Functions that tweak various attributes of a catalog
-          add-resource       (fn [{:keys [resources] :as c}]
-                               (let [new-resource (testcat/random-kw-resource)
-                                     key {:type (:type new-resource) :title (:title new-resource)}]
-                                 (assoc c :resources (assoc resources key (testcat/random-kw-resource)))))
-
-          mod-resource       (fn [{:keys [resources] :as c}]
-                               (let [k (rand-nth (keys resources))
-                                     r (resources k)
-                                     rand-resource (testcat/random-kw-resource)
-                                     new-resource (assoc rand-resource :type (:type r) :title (:title r))]
-                                 (assoc c :resources (assoc resources k new-resource))))
-
-          add-edge           (fn [{:keys [edges resources] :as c}]
-                               (let [make-edge (fn []
-                                                 (let [source (rand-nth (vals resources))
-                                                       target (rand-nth (vals resources))]
-                                                       {:source {:type (:type source) :title (:title source)}
-                                                        :target {:type (:type target) :title (:title target)}}))
-                                     ;; Generate at most 100 edges
-                                     new-edge  (first (remove edges (take 100 (repeatedly make-edge))))]
-                                 (if new-edge
-                                   (assoc c :edges (conj edges new-edge))
-                                   c)))
-
-          swap-edge-targets  (fn [{:keys [edges] :as c}]
-                               (let [edge1     (rand-nth (seq edges))
-                                     edge2     (rand-nth (seq edges))
-                                     new-edges (-> edges
-                                                   (disj edge1)
-                                                   (disj edge2)
-                                                   (conj (assoc edge1 :target (:target edge2)))
-                                                   (conj (assoc edge2 :target (:target edge1))))]
-                                 (assoc c :edges new-edges)))
-
+    (let [catalog       *basic-catalog*
+          hash          (catalog-similarity-hash catalog)
           ;; List of all the tweaking functions
-          chaos-monkeys      [add-resource add-edge mod-resource swap-edge-targets]
+          chaos-monkeys [testcat/add-random-resource-to-catalog
+                         testcat/mod-resource-in-catalog
+                         testcat/add-random-edge-to-catalog
+                         testcat/swap-edge-targets-in-catalog]
           ;; Function that will apply a random tweak function
-          apply-monkey       #((rand-nth chaos-monkeys) %)]
+          apply-monkey  #((rand-nth chaos-monkeys) %)]
 
-      (is (not= hash (catalog-similarity-hash (add-resource catalog))))
-      (is (not= hash (catalog-similarity-hash (mod-resource catalog))))
-      (is (not= hash (catalog-similarity-hash (add-edge catalog))))
+      (is (not= hash (catalog-similarity-hash (testcat/add-random-resource-to-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (testcat/mod-resource-in-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (testcat/add-random-edge-to-catalog catalog))))
 
       ;; Do the following 100 times: pick up to 10 tweaking functions,
       ;; successively apply them all to the original catalog, and
