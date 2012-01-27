@@ -108,8 +108,7 @@
   The time resolution of this loop is 10ms."
   []
   (loop [last-time (System/currentTimeMillis)]
-    (let [curr-time (System/currentTimeMillis)
-          delta (- curr-time last-time)]
+    (let [curr-time (System/currentTimeMillis)]
 
       ;; Send out updated ticks to each agent
       (doseq [host *hosts*]
