@@ -45,6 +45,7 @@
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
             [com.puppetlabs.cmdb.scf.migrate :as migrations]
             [com.puppetlabs.cmdb.command :as command]
+            [com.puppetlabs.cmdb.metrics :as metrics]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
@@ -129,6 +130,10 @@
                               (log/info "Starting database compactor")
                               (future
                                 (db-garbage-collector db db-gc-interval)))]
+
+      ;; Publish performance data via JMX
+      (log/info "Starting JMX metrics publisher")
+      (metrics/report-to-jmx)
 
       ;; Stop services by blocking on the completion of their futures
       (deref command-processor)
