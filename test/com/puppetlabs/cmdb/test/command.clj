@@ -98,13 +98,13 @@
           (is (thrown+? fatal? (f "{}"))))))
 
     (testing "should work normally if a message has not yet exceeded the max allowable retries"
-      (with-redefs [parse-command (fn [msg] {})
+      (with-redefs [parse-command (fn [msg] {:command "foobar" :version 1})
                     process-command! (fn [msg opts] :sentinel)]
         (let [f (make-msg-handler 1 nil)]
           (is (= :sentinel (f :unused))))))
 
     (testing "should do nothing if a message has exceeded the max allowable retries"
-      (with-redefs [parse-command (fn [msg] {:retries 100})
+      (with-redefs [parse-command (fn [msg] {:command "foobar" :version 1 :retries 100})
                     process-command! (fn [msg opts]
                                        (throw (RuntimeException.)))]
         (let [f (make-msg-handler 1 nil)]
