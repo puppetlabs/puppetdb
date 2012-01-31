@@ -26,7 +26,86 @@
             [clojure.java.jdbc :as sql]
             [clojure.contrib.logging :as log]
             [digest]
-            [cheshire.core :as json]))
+            [cheshire.core :as json])
+  (:use [metrics.meters :only (meter mark!)]
+        [metrics.counters :only (counter inc! value)]
+        [metrics.gauges :only (gauge)]
+        [metrics.histograms :only (histogram update!)]
+        [metrics.timers :only (timer time!)]))
+
+(def ns-str (str *ns*))
+
+;; ## Performance metrics
+;;
+;; ### Timers for catalog storage
+;;
+;; * `:replace-catalog`: the time it takes to replace the catalog for
+;;   a host
+;;
+;; * `:add-catalog`: the time it takes to persist a catalog
+;;
+;; * `:add-classes`: the time it takes to persist just a catalog's
+;;   classes
+;;
+;; * `:add-tags`: the time it takes to persist just a catalog's tags
+;;
+;; * `:add-resources`: the time it takes to persist just a catalog's
+;;   resources
+;;
+;; * `:add-edges`: the time it takes to persist just a catalog's edges
+;;
+;; * `:catalog-hash`: the time it takes to compute a catalog's
+;;   similary hash
+;;
+;; ### Counters for catalog storage
+;;
+;; * `:new-catalog`: how many brand new (non-duplicate) catalogs we've
+;;   received
+;;
+;; * `:duplicate-catalog`: how many duplicate catalogs we've received
+;;
+;; ### Gauges for catalog storage
+;;
+;; * `:duplicate-pct`: percentage of incoming catalogs determined to
+;;   be duplicates
+;;
+;; ### Timers for garbage collection
+;;
+;; * `:gc`: the time it takes to collect all database garbage
+;;
+;; * `:gc-catalogs`: the time it takes to remove all unused catalogs
+;;
+;; * `:gc-resources`: the time it takes to remove all unused resources
+;;
+;; ### Timers for fact storage
+;;
+;; * `:replace-facts`: the time it takes to replace the facts for a
+;;   host
+;;
+(def *metrics*
+  {
+   :add-classes       (timer [ns-str "default" "add-classes"])
+   :add-tags          (timer [ns-str "default" "add-tags"])
+   :add-resources     (timer [ns-str "default" "add-resources"])
+   :add-edges         (timer [ns-str "default" "add-edges"])
+
+   :catalog-hash      (timer [ns-str "default" "catalog-hash"])
+   :add-catalog       (timer [ns-str "default" "add-catalog-time"])
+   :replace-catalog   (timer [ns-str "default" "replace-catalog-time"])
+
+   :gc                (timer [ns-str "default" "gc-time"])
+   :gc-catalogs       (timer [ns-str "default" "gc-catalogs-time"])
+   :gc-resources      (timer [ns-str "default" "gc-resources-time"])
+
+   :new-catalog       (counter [ns-str "default" "new-catalogs"])
+   :duplicate-catalog (counter [ns-str "default" "duplicate-catalogs"])
+   :duplicate-pct     (gauge [ns-str "default" "duplicate-pct"]
+                             (let [dupes (value (:duplicate-catalog *metrics*))
+                                   new   (value (:new-catalog *metrics*))]
+                               (float (utils/quotient dupes (+ dupes new)))))
+
+   :replace-facts     (timer [ns-str "default" "replace-facts-time"])
+   })
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
@@ -243,23 +322,31 @@
          (every? coll? #{classes tags edges})
          (map? resources)]}
 
-  (let [hash (catalog-similarity-hash catalog)]
+  (time! (:add-catalog *metrics*)
+   (let [hash (time! (:catalog-hash *metrics*)
+               (catalog-similarity-hash catalog))]
 
-    (sql/transaction
-     (let [exists? (catalog-exists? hash)]
+     (sql/transaction
+      (let [exists? (catalog-exists? hash)]
 
-       (when exists?
-         (update-catalog-metadata! hash api-version version))
+        (when exists?
+          (inc! (:duplicate-catalog *metrics*))
+          (update-catalog-metadata! hash api-version version))
 
-       (when-not exists?
-         (add-catalog-metadata! hash api-version version)
-         (add-classes! hash classes)
-         (add-tags! hash tags)
-         (doseq [resource (vals resources)]
-           (add-resource! hash resource))
-         (add-edges! hash edges resources))))
+        (when-not exists?
+          (inc! (:new-catalog *metrics*))
+          (add-catalog-metadata! hash api-version version)
+          (time! (:add-classes *metrics*)
+           (add-classes! hash classes))
+          (time! (:add-tags *metrics*)
+           (add-tags! hash tags))
+          (time! (:add-resources *metrics*)
+           (doseq [resource (vals resources)]
+             (add-resource! hash resource)))
+          (time! (:add-edges *metrics*)
+           (add-edges! hash edges resources)))))
 
-    hash))
+     hash)))
 
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
@@ -294,19 +381,22 @@
 (defn delete-unassociated-catalogs!
   "Remove any catalogs that aren't associated with a certname"
   []
-  (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"]))
+  (time! (:gc-catalogs *metrics*)
+   (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"])))
 
 (defn delete-unassociated-resources!
   "Remove any resources that aren't associated with a catalog"
   []
-  (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM catalog_resources)"]))
+  (time! (:gc-resources *metrics*)
+   (sql/delete-rows :resources ["hash NOT IN (SELECT resource FROM catalog_resources)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
-  (sql/transaction
-   (delete-unassociated-catalogs!)
-   (delete-unassociated-resources!)))
+  (time! (:gc *metrics*)
+   (sql/transaction
+    (delete-unassociated-catalogs!)
+    (delete-unassociated-resources!))))
 
 ;; ## High-level entity manipulation
 
@@ -314,10 +404,11 @@
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
   [{:keys [certname] :as catalog}]
-  (sql/transaction
-   (let [catalog-hash (add-catalog! catalog)]
-     (dissociate-all-catalogs-for-certname! certname)
-     (associate-catalog-with-certname! catalog-hash certname))))
+  (time! (:replace-catalog *metrics*)
+   (sql/transaction
+    (let [catalog-hash (add-catalog! catalog)]
+      (dissociate-all-catalogs-for-certname! certname)
+      (associate-catalog-with-certname! catalog-hash certname)))))
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
@@ -336,6 +427,7 @@ facts associated with the certname."
 
 (defn replace-facts!
   [certname facts]
-  (sql/transaction
+  (time! (:replace-facts *metrics*)
+   (sql/transaction
     (delete-facts! certname)
-    (add-facts! certname facts)))
+    (add-facts! certname facts))))
