@@ -15,3 +15,13 @@
     (testing "should return nil for non-array objects"
       (doseq [x ['() [] {} "foo" 123 456.789 1/3]]
         (is (false? (array? x)))))))
+
+(deftest quotient-test
+  (testing "quotient"
+
+    (testing "should behave like '/' when divisor is non-zero"
+      (is (= 22/7 (quotient 22 7))))
+
+    (testing "should return default when divisor is zero"
+      (is (= 0 (quotient 1 0)))
+      (is (= 10 (quotient 1 0 10))))))
