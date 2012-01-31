@@ -140,7 +140,11 @@
     (def *hosts*
       (into [] (map #(agent {:host %,
                              :lastrun (- (System/currentTimeMillis) (rand-int *runinterval*)),
-                             :catalog (assoc-in catalog ["data" "name"] %)})
+                             :catalog (-> catalog
+                                        (assoc-in ["data" "name"] %)
+                                        (assoc-in ["data" "resources"]
+                                                  (for [resource (get-in catalog ["data" "resources"])]
+                                                    (assoc resource "tags" (conj (resource "tags") %)))))})
                     hostnames)))
 
     ;; Loop forever
