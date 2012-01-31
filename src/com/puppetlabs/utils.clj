@@ -15,6 +15,18 @@
         [clothesline.protocol.test-helpers :only [annotated-return]]
         [slingshot.core :only [try+ throw+]]))
 
+;; ## Math
+
+(defn quotient
+  "Performs division on the supplied arguments, substituting `default`
+  when the divisor is 0"
+  ([dividend divisor]
+     (quotient dividend divisor 0))
+  ([dividend divisor default]
+     (if (zero? divisor)
+       default
+       (/ dividend divisor))))
+
 ;; ## Collection operations
 
 (defn symmetric-difference
