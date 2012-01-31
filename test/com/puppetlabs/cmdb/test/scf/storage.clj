@@ -265,10 +265,19 @@
         (sql/with-connection *db*
           (migrate!)
           (add-certname! "myhost.mydomain.com")
-          (let [hash (add-catalog! catalog)]
+          (let [hash (add-catalog! catalog)
+                prev-dupe-num (.count (:duplicate-catalog *metrics*))
+                prev-new-num  (.count (:new-catalog *metrics*))]
+
+            ;; Do an initial replacement with the same catalog
             (replace-catalog! catalog)
+            (is (= 1 (- (.count (:duplicate-catalog *metrics*)) prev-dupe-num)))
+            (is (= 0 (- (.count (:new-catalog *metrics*)) prev-new-num)))
+
             ;; Store a second catalog, with the same content save the version
             (replace-catalog! (assoc catalog :version "abc123"))
+            (is (= 2 (- (.count (:duplicate-catalog *metrics*)) prev-dupe-num)))
+            (is (= 0 (- (.count (:new-catalog *metrics*)) prev-new-num)))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
                    [{:name "myhost.mydomain.com"}]))
