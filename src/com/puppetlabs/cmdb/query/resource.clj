@@ -9,7 +9,7 @@
   (:use clojureql.core
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
-        [clojure.core.match.core :only [match]]))
+        [clojure.core.match :only [match]]))
 
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations."
