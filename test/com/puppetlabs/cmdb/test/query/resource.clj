@@ -6,7 +6,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def *db* nil)
@@ -22,18 +22,18 @@
   (testing "comparisons"
     ;; simple, local attributes
     (let [query ["=" "title" "whatever"]
-          result ["(SELECT DISTINCT resources.hash FROM resources WHERE (resources.title = ?))" "whatever"]]
+          result [(str "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources "
+                       "WHERE (catalog_resources.title = ?))")
+                  "whatever"]]
       (is (= (s/query->sql *db* query) result)
           (str query "=>" result)))
     ;; with a path to the field
     (let [[sql & params] (s/query->sql *db* ["=" ["node" "certname"] "example"])]
       (is (= params ["example"]))
-      (is (re-find #"JOIN catalog_resources" sql))
-      (is (re-find #"JOIN certname_catalogs" sql))
-      (is (re-find #"WHERE \(certname_catalogs.certname = \?\)" sql)))
+      (is (re-find #"SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM certname_catalogs JOIN catalog_resources" sql))
+      (is (re-find #"\(certname_catalogs.certname = \?\)" sql)))
     (let [[sql & params] (s/query->sql *db* ["=" "tag" "foo"])]
-      (is (re-find #"SELECT DISTINCT resources.hash FROM resources" sql))
-      (is (re-find #"JOIN resource_tags" sql))
+      (is (re-find #"SELECT DISTINCT catalog,resource FROM catalog_resources" sql))
       (is (= params ["foo"]))))
   (testing "order of params in grouping"
     (let [[sql & params] (s/query->sql *db* ["and"
@@ -55,7 +55,7 @@
                [sql2 & param2] (s/query->sql *db* two)
                [and-sql & and-params] (s/query->sql *db* ["and" one two])
                [or-sql & or-params] (s/query->sql *db* ["or" one two])]
-           (is (= and-sql (format "(SELECT DISTINCT hash FROM %s resources_0 NATURAL JOIN %s resources_1)"
+           (is (= and-sql (format "(SELECT DISTINCT catalog,resource FROM %s resources_0 NATURAL JOIN %s resources_1)"
                                   sql1 sql2)))
            (is (= or-sql (format "(%s UNION %s)" sql1 sql2)))
            (is (= and-params (concat param1 param2)))
@@ -65,7 +65,7 @@
                queries (map first terms-)
                joins (->> (map #(format "%s resources_%d" %1 %2) queries (range (count queries)))
                           (string/join " NATURAL JOIN "))
-               and- (format "(SELECT DISTINCT hash FROM %s)" joins)
+               and- (format "(SELECT DISTINCT catalog,resource FROM %s)" joins)
                or- (format "(%s)" (string/join " UNION " queries))
                params- (mapcat rest terms-)
                [and-sql & and-params] (s/query->sql *db* (apply vector "and" terms))
@@ -77,19 +77,19 @@
 
   (testing "negation"
     (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]])]
-      (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
-                      "((SELECT DISTINCT resources.hash FROM resources WHERE (resources.type = ?))) rhs "
-                      "ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL))")))
+      (is (= sql (str "(SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs LEFT OUTER JOIN "
+                      "((SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources "
+                      "WHERE (catalog_resources.type = ?))) rhs "
+                      "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource WHERE (rhs.resource IS NULL))")))
       (is (= params ["foo"])))
     (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]
                                         ["=" "title" "bar"]])]
-      (is (= sql (str "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN "
-
+      (is (= sql (str "(SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs LEFT OUTER JOIN "
                       "("
-                      "(SELECT DISTINCT resources.hash FROM resources WHERE (resources.type = ?))"
+                      "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources WHERE (catalog_resources.type = ?))"
                       " UNION "
-                      "(SELECT DISTINCT resources.hash FROM resources WHERE (resources.title = ?))"
-                      ") rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)"
+                      "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources WHERE (catalog_resources.title = ?))"
+                      ") rhs ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource WHERE (rhs.resource IS NULL)"
                       ")")))
       (is (= params ["foo" "bar"]))))
 
@@ -101,39 +101,27 @@
                          ["=" ["parameter" "ensure"] "yellow"]])]
       (is (= sql (str "("
                       ;; top level and not certname
-                      "SELECT DISTINCT hash FROM "
-                      "(SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN ("
-                      "(SELECT DISTINCT resources.hash FROM resources "
-                      "JOIN catalog_resources ON (resources.hash = catalog_resources.resource) "
-                      "JOIN certname_catalogs ON (catalog_resources.catalog = certname_catalogs.catalog) "
-                      "WHERE (certname_catalogs.certname = ?))"
-                      ") rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)) resources_0"
+                      "SELECT DISTINCT catalog,resource FROM "
+                      "(SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs LEFT OUTER JOIN ("
+                      "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM certname_catalogs "
+                      "JOIN catalog_resources USING(catalog) "
+                      "WHERE (certname_catalogs.certname = ?))) "
+                      "rhs ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource WHERE (rhs.resource IS NULL)) resources_0"
                       ;; exported
                       " NATURAL JOIN "
-                      "(SELECT DISTINCT resources.hash FROM resources "
-                      "WHERE (resources.exported = ?)) resources_1"
+                      "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources "
+                      "WHERE (catalog_resources.exported = ?)) resources_1"
                       ;; parameter match
                       " NATURAL JOIN "
-                      "(SELECT DISTINCT resources.hash FROM resources JOIN resource_params "
-                      "ON (resource_params.resource = resources.hash) "
-                      "WHERE ((resource_params.name = ?) AND "
-                      "(resource_params.value = ?))"
-                      ") resources_2"
+                      "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM resource_params "
+                      "JOIN catalog_resources USING(resource) "
+                      "WHERE ((resource_params.name = ?) AND (resource_params.value = ?))) resources_2"
                       ")")))
       (is (= params ["example.local" true "ensure" (db-serialize "yellow")])))))
 
 
 ;; now, for some end-to-end testing with a database...
 (deftest query-resources
-  (sql/insert-records
-   :resources
-   {:hash "1" :type "File"   :title "/etc/passwd"   :exported true}
-   {:hash "2" :type "Notify" :title "hello"         :exported true}
-   {:hash "3" :type "Notify" :title "no-params"     :exported true}
-   {:hash "4" :type "File"   :title "/etc/Makefile" :exported false}
-   {:hash "5" :type "Notify" :title "booyah"        :exported false}
-   {:hash "6" :type "Mval"   :title "multivalue"    :exported false}
-   {:hash "7" :type "Hval"   :title "hashvalue"     :exported false})
   (sql/insert-records
    :resource_params
    {:resource "1" :name "ensure"  :value (db-serialize "file")}
@@ -158,67 +146,113 @@
     :certname_catalogs
     {:certname "example.local" :catalog "foo"}
     {:certname "subset.local" :catalog "bar"})
-  (apply sql/insert-records :catalog_resources
-         (for [n (range 1 8)]
-           {:catalog "foo" :resource (str n)}))
-  (apply sql/insert-records :catalog_resources
-         (for [n [1 3 5]]
-           {:catalog "bar" :resource (str n)}))
-  (sql/insert-records
-   :resource_tags
-   {:resource "4" :name "vivid"})
+  (sql/insert-records :catalog_resources
+    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
+    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}
+    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array [])}
+    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"])}
+    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])}
+    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array [])}
+    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array [])}
+    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
+    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array [])}
+    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])})
   ;; structure the results, eh.
-  (let [result1 {:hash      "1"
-                 :type       "File"
-                 :title      "/etc/passwd"
-                 :exported   true
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"ensure" "file"
-                              "owner"  "root"
-                              "group"  "root"}}
-        result2 {:hash       "2"
-                 :type       "Notify"
-                 :title      "hello"
-                 :exported   true
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"random" "true"}}
-        result3 {:hash       "3"
-                 :type       "Notify"
-                 :title      "no-params"
-                 :exported   true
-                 :sourcefile nil
-                 :sourceline nil}
-        result4 {:hash       "4"
-                 :type       "File"
-                 :title      "/etc/Makefile"
-                 :exported   false
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"ensure"  "present"
-                              "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
-        result5 {:hash       "5"
-                 :type       "Notify"
-                 :title      "booyah"
-                 :exported   false
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"random" "false"}}
-        result6 {:hash       "6"
-                 :type       "Mval"
-                 :title      "multivalue"
-                 :exported   false
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"multi" ["one" "two" "three"]}}
-        result7 {:hash       "7"
-                 :type       "Hval"
-                 :title      "hashvalue"
-                 :exported   false
-                 :sourcefile nil
-                 :sourceline nil
-                 :parameters {"hash" {"foo" 5 "bar" 10}}}]
+  (let [foo1 {:certname   "example.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"ensure" "file"
+                           "owner"  "root"
+                           "group"  "root"}}
+        bar1 {:certname   "subset.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"ensure" "file"
+                           "owner"  "root"
+                           "group"  "root"}}
+        foo2 {:certname   "example.local"
+              :resource   "2"
+              :type       "Notify"
+              :title      "hello"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"random" "true"}}
+        foo3 {:certname   "example.local"
+              :resource   "3"
+              :type       "Notify"
+              :title      "no-params"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {}}
+        bar3 {:certname   "subset.local"
+              :resource   "3"
+              :type       "Notify"
+              :title      "no-params"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {}}
+        foo4 {:certname   "example.local"
+              :resource   "4"
+              :type       "File"
+              :title      "/etc/Makefile"
+              :tags       ["vivid"]
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"ensure"  "present"
+                           "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
+        foo5 {:certname   "example.local"
+              :resource   "5"
+              :type       "Notify"
+              :title      "booyah"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"random" "false"}}
+        bar5 {:certname   "subset.local"
+              :resource   "5"
+              :type       "Notify"
+              :title      "booyah"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"random" "false"}}
+        foo6 {:certname   "example.local"
+              :resource   "6"
+              :type       "Mval"
+              :title      "multivalue"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"multi" ["one" "two" "three"]}}
+        foo7 {:certname   "example.local"
+              :resource   "7"
+              :type       "Hval"
+              :title      "hashvalue"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {"hash" {"foo" 5 "bar" 10}}}]
     ;; ...and, finally, ready for testing.
     (testing "queries against SQL data"
       (doseq [[input expect]
@@ -229,34 +263,34 @@
                   ["=" ["parameter" "foo"] "bar"]  []
                   ["=" ["node" "certname"] "bar"]  []
                   ;; ...and with an actual match.
-                  ["=" "type" "File"]              [result1 result4]
-                  ["=" "exported" true]            [result1 result2 result3]
-                  ["=" ["parameter" "ensure"] "file"] [result1]
-                  ["=" ["node" "certname"] "subset.local"] [result1 result3 result5]
-                  ["=" "tag" "vivid"] [result4]
+                  ["=" "type" "File"]              [foo1 bar1 foo4]
+                  ["=" "exported" true]            [foo1 bar1 foo2 foo3]
+                  ["=" ["parameter" "ensure"] "file"] [foo1 bar1]
+                  ["=" ["node" "certname"] "subset.local"] [bar1 bar3 bar5]
+                  ["=" "tag" "vivid"] [foo4]
                   ;; array parameter matching
-                  ["=" ["parameter" "multi"] ["one" "two" "three"]] [result6]
+                  ["=" ["parameter" "multi"] ["one" "two" "three"]] [foo6]
                   ["=" ["parameter" "multi"] ["one" "three" "two"]] []
                   ["=" ["parameter" "multi"] "three"] []
                   ;; hash parameter matching
-                  ["=" ["parameter" "hash"] {"foo" 5 "bar" 10}] [result7]
-                  ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [result7]
+                  ["=" ["parameter" "hash"] {"foo" 5 "bar" 10}] [foo7]
+                  ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [foo7]
                   ["=" ["parameter" "hash"] {"bar" 10}] []
                   ;; testing not operations
-                  ["not" ["=" "type" "File"]] [result2 result3 result5 result6 result7]
-                  ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [result6 result7]
+                  ["not" ["=" "type" "File"]] [foo2 foo3 bar3 foo5 bar5 foo6 foo7]
+                  ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [foo6 foo7]
                   ;; and, or
-                  ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [result1]
+                  ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [foo1 bar1]
                   ["and" ["=" "type" "File"] ["=" "type" "Notify"]] []
                   ["or" ["=" "type" "File"] ["=" "title" "/etc/passwd"]]
-                  [result1 result4]
+                  [foo1 bar1 foo4]
                   ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
-                  [result1 result2 result3 result4 result5]
+                  [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5]
                   ;; nesting queries
                   ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
                    ["=" ["node" "certname"] "subset.local"]
                    ["and" ["=" "exported" true]]]
-                  [result1 result3]
+                  [bar1]
                   ;; real world query (approximately; real world exported is
                   ;; true, but for convenience around other tests we use
                   ;; false here. :)
@@ -264,9 +298,9 @@
                    ["not" ["=" ["node" "certname"] "subset.local"]]
                    ["=" "type" "File"]
                    ["=" "tag" "vivid"]]
-                  [result4]
+                  [foo4]
                   ])]
-        (is (= (s/query-resources *db* (s/query->sql *db* input)) expect)
+        (is (= (set (s/query-resources *db* (s/query->sql *db* input))) (set expect))
             (str "  " input " =>\n  " expect))))))
 
 

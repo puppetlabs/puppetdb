@@ -7,8 +7,8 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql])
   (:use clojureql.core
-        [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
+        [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays]]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
 (defmulti compile-query->sql
@@ -25,43 +25,30 @@ An empty query gathers all resources."
           (string? (first %))
           (every? (complement coll?) (rest %))]}
   (if (nil? query)
-    (-> (table :resources)
-        (project [:hash])
-        (distinct)
-        (compile db))
+    ["(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources)"]
     (compile-query->sql db query)))
 
 (defn query-resources
   "Take a vector-structured query, and return a vector of resources
 and their parameters which match."
-  [db query]
-  {:pre [(map? db)]}
-  (let [hashes (sql/with-connection db
-                   (->> (query-to-vec query)
-                        (map :hash)))]
-    ;; We have to special-case this or we get invalid queries generated later
-    (if (empty? hashes)
-      []
-      (let [resources (future
-                        (-> (table db :resources)
-                            (select (where
-                                      (in :hash hashes)))
-                            (deref)))
-            params (future
-                     (-> (table db :resource_params)
-                         (select (where
-                                 (in :resource hashes)))
-                         (deref)))
-            params (->> @params
-                     (group-by :resource)
-                     (utils/mapvals
-                       (partial reduce
-                                #(assoc %1 (:name %2) (json/parse-string (:value %2))) {})))]
-
-    (vec (map #(if-let [params (get params (:hash %1))]
-                 (assoc %1 :parameters params)
-                 %1)
-              @resources))))))
+  [db [sql & params]]
+  {:pre [(string? sql)
+         (map? db)]}
+  (let [query (str "SELECT certname_catalogs.certname,catalog_resources.*,resource_params.* "
+                   "FROM catalog_resources "
+                   "JOIN certname_catalogs USING(catalog) "
+                   "LEFT OUTER JOIN resource_params "
+                   "ON catalog_resources.resource = resource_params.resource "
+                   "WHERE (catalog,resource) IN "
+                   sql)
+        results (sql/with-connection db
+                   (apply query-to-vec query params))
+        metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
+        metadata (apply juxt metadata_cols)]
+    (vec (for [[resource params] (group-by metadata results)]
+           (assoc (zipmap metadata_cols resource) :parameters
+                  (into {} (for [param params :when (:name param)]
+                             [(:name param) (json/parse-string (:value param))])))))))
 
 ;; Compile an '=' predicate, the basic atom of a resource query. This
 ;; will produce a query that selects a set of hashes matching the
@@ -73,54 +60,42 @@ and their parameters which match."
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
               (format "operators take two arguments, but we found %d" (dec count))))))
-  (let [tbl (-> (table :resources)
-                (distinct))
+  (let [catalog_resources (-> (table :catalog_resources)
+                            (project [:catalog_resources.catalog :catalog_resources.resource])
+                            (distinct))
         tbl (match [path]
               ;; tag join.
               ["tag"]
-                   (-> tbl
-                     (join (table :resource_tags)
-                           (where
-                             (= :resources.hash :resource_tags.resource)))
-                     (select
-                       (where
-                         (= :resource_tags.name value)))
-                     (project [:resources.hash]))
+                   [(format "SELECT DISTINCT catalog,resource FROM catalog_resources WHERE %s"
+                            (sql-array-query-string "tags"))
+                    value]
               ;; node join.
               [["node" (field :when string?)]]
-                   (-> tbl
-                     (join (table :catalog_resources)
-                           (where
-                             (= :resources.hash :catalog_resources.resource)))
-                     (join (table :certname_catalogs)
-                           (where
-                             (= :catalog_resources.catalog :certname_catalogs.catalog)))
-                     (select
-                       (where
-                         (= :certname_catalogs.certname value)))
-                     (project [:resources.hash]))
+                   (let [certname_catalogs (-> (table :certname_catalogs)
+                                             (select (where
+                                                       (= :certname_catalogs.certname value)))
+                                             (project [])
+                                             ;; ClojureQL loses the DISTINCT when we join unless it's on the left side as well
+                                             (distinct))]
+                     (join certname_catalogs catalog_resources :catalog))
               ;; param joins.
               [["parameter" (name :when string?)]]
-                   (-> tbl
-                     (join (table :resource_params)
-                           (where
-                             (= :resource_params.resource :resources.hash)))
-                     (select
-                       (where (and
-                                (= :resource_params.name name)
-                                (= :resource_params.value (db-serialize value)))))
-                     (project [:resources.hash]))
-              ;; simple string match.
-              [(column :when string?)]
-                   (-> tbl
-                     (select (where
-                               (= (keyword column) value)))
-                     (project [:resources.hash]))
+                   (let [resource_params (-> (table :resource_params)
+                                           (select (where
+                                                     (and (= :resource_params.name name)
+                                                          (= :resource_params.value (db-serialize value)))))
+                                           (project [])
+                                           (distinct))]
+                     (join resource_params catalog_resources :resource))
+              ;; metadata match.
+              [(metadata :when string?)]
+                   (select catalog_resources
+                     (where (= (keyword metadata) value)))
               ;; ...else, failure
               :else (throw (IllegalArgumentException.
                            (str term " is not a valid query term"))))
-        [sql & params] (compile tbl db)]
-      (apply vector (format "(%s)" sql) params)))
+        [sql & params] (if (table? tbl) (compile tbl db) tbl)]
+    (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
   "Produce distinct aliases for a list of queries, suitable for a join
@@ -143,7 +118,7 @@ operation."
         query (->> (map first terms)
                    (alias-subqueries)
                    (string/join " NATURAL JOIN ")
-                   (str "SELECT DISTINCT hash FROM ")
+                   (str "SELECT DISTINCT catalog,resource FROM ")
                    (format "(%s)"))]
     (apply vector query params)))
 
@@ -175,6 +150,9 @@ operation."
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [[subquery & params] (compile-query->sql db (cons "or" terms))
          query (->> subquery
-                    (format "SELECT DISTINCT lhs.hash FROM resources lhs LEFT OUTER JOIN %s rhs ON (lhs.hash = rhs.hash) WHERE (rhs.hash IS NULL)")
+                    (format (str "SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs "
+                            "LEFT OUTER JOIN %s rhs "
+                            "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource "
+                            "WHERE (rhs.resource IS NULL)"))
                     (format "(%s)"))]
     (apply vector query params)))

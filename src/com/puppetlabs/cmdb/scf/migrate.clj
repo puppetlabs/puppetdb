@@ -15,7 +15,8 @@
   (:import java.util.Date)
   (:require [clojure.java.jdbc :as sql]
             [clojure.contrib.logging :as log])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.cmdb.scf.storage :only [sql-array-type-string]]))
 
 (defn initialize-store
   "Create the initial database schema."
@@ -43,34 +44,27 @@
                     ["name" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (catalog, name)"])
 
-  (sql/create-table :resources
-                    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
-                    ["type" "TEXT" "NOT NULL"]
-                    ["title" "TEXT" "NOT NULL"]
-                    ["exported" "BOOLEAN" "NOT NULL"]
-                    ["sourcefile" "TEXT"]
-                    ["sourceline" "INT"])
-
   (sql/create-table :catalog_resources
                     ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
-                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["resource" "VARCHAR(40)"]
+                    ["type" "TEXT" "NOT NULL"]
+                    ["title" "TEXT" "NOT NULL"]
+                    ["tags" (sql-array-type-string "TEXT") "NOT NULL"]
+                    ["exported" "BOOLEAN" "NOT NULL"]
+                    ["sourcefile" "TEXT"]
+                    ["sourceline" "INT"]
                     ["PRIMARY KEY (catalog, resource)"])
 
   (sql/create-table :resource_params
-                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["resource" "VARCHAR(40)"]
                     ["name" "TEXT" "NOT NULL"]
                     ["value" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (resource, name)"])
 
-  (sql/create-table :resource_tags
-                    ["resource" "VARCHAR(40)" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["name" "TEXT" "NOT NULL"]
-                    ["PRIMARY KEY (resource, name)"])
-
   (sql/create-table :edges
                     ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
-                    ["source" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
-                    ["target" "TEXT" "REFERENCES resources(hash)" "ON DELETE CASCADE"]
+                    ["source" "VARCHAR(40)"]
+                    ["target" "VARCHAR(40)"]
                     ["type" "TEXT" "NOT NULL"]
                     ["PRIMARY KEY (catalog, source, target, type)"])
 
@@ -91,9 +85,6 @@
                     ["PRIMARY KEY (certname, fact)"])
 
   (sql/do-commands
-   "CREATE INDEX idx_resources_type ON resources(type)")
-
-  (sql/do-commands
    "CREATE INDEX idx_resources_params_resource ON resource_params(resource)")
 
   (sql/do-commands
@@ -103,7 +94,16 @@
     "CREATE INDEX idx_certname_facts_certname ON certname_facts(certname)")
 
   (sql/do-commands
-    "CREATE INDEX idx_certname_facts_fact ON certname_facts(fact)"))
+   "CREATE INDEX idx_certname_facts_fact ON certname_facts(fact)")
+
+  (sql/do-commands
+   "CREATE INDEX idx_catalog_resources_type ON catalog_resources(type)")
+
+  (sql/do-commands
+   "CREATE INDEX idx_catalog_resources_resource ON catalog_resources(resource)")
+
+  (sql/do-commands
+   "CREATE INDEX idx_catalog_resources_tags ON catalog_resources(tags)"))
 
 ;; The available migrations, as a map from migration version to migration
 ;; function.

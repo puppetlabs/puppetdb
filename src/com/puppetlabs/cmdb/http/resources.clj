@@ -49,10 +49,12 @@
 ;; The response is a list of resource objects, returned in JSON form. Each
 ;; resource object is a map of the following form:
 ;;
-;;     {:hash       "the resource's unique hash"
+;;     {:certname   "the certname of the associated host"
+;;      :resource   "the resource's unique hash"
 ;;      :type       "File"
 ;;      :title      "/etc/hosts"
 ;;      :exported   "true"
+;;      :tags       ["foo" "bar"]
 ;;      :sourcefile "/etc/puppet/manifests/site.pp"
 ;;      :sourceline "1"
 ;;      :parameters {<parameter> <value>
@@ -75,7 +77,6 @@
   (try
     (let [q (r/query->sql db (json/parse-string query true))]
       (-> (r/query-resources db q)
-          (vec)
           (utils/json-response)
           (rr/status 200)))
     (catch org.codehaus.jackson.JsonParseException e
@@ -96,6 +97,5 @@
          (headers "accept")))
    (-> (rr/response "must accept application/json")
        (rr/status 406))
-
    :else
    (produce-body (params "query" "null") (:scf-db globals))))
