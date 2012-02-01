@@ -217,35 +217,54 @@
   (-> (resource-identity-string resource)
       (digest/sha-1)))
 
-(defn add-resource!
-  "Given a certname and a single resource, persist that resource and its parameters"
+(defn- resource->values
+  "Given a catalog-hash and a resource, return a map representing the
+  set of database rows pending insertion.
+
+  The result map has the following format:
+
+    {:hashes [[<catalog hash> <resource hash>] ...]
+     :metadata [[<resouce hash> <type> <title> <exported?> <sourcefile> <sourceline>] ...]
+     :parameters [[<resource hash> <name> <value>] ...]
+     :tags [[<resource hash> <tag>] ...]}
+
+  The result map format may seem arbitrary and confusing, but its best
+  to think about it in 2 ways:
+
+  1. Each key corresponds to a table, and each value is a list of rows
+  2. The mapping of keys and values to table names and columns is done
+     by `add-resources!`"
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource}]
-  {:pre [(every? string? #{type title})]}
+  {:pre  [(every? string? #{catalog-hash type title})]
+   :post [(= (set (keys %)) #{:hashes :metadata :parameters :tags})]}
 
   (let [resource-hash (resource-identity-hash resource)
-        persisted?    (resource-exists? resource-hash)
-        connection    (sql/find-connection)]
+        persisted?    (resource-exists? resource-hash)]
 
-    (when-not persisted?
-      ; Add to resources table
-      (sql/insert-record :resources {:hash resource-hash :type type :title title :exported exported :sourcefile file :sourceline line})
+    (if persisted?
+      {:hashes [[catalog-hash resource-hash]]
+       :metadata []
+       :parameters []
+       :tags []}
+      {:hashes [[catalog-hash resource-hash]]
+       :metadata [[resource-hash type title exported file line]]
+       :parameters (for [[name value] parameters] [resource-hash name (db-serialize value)])
+       :tags (for [tag tags] [resource-hash tag])})))
 
-      ; Build up a list of records for insertion
-      (let [records (for [[name value] parameters]
-                      ; Parameter values are represented as serialized strings,
-                      ; for ease of comparison.
-                      (let [value (db-serialize value)]
-                        {:resource resource-hash :name name :value value}))]
-
-        ; ...and insert them
-        (apply sql/insert-records :resource_params records))
-
-      ; Add rows for each of the resource's tags
-      (let [records (for [tag tags] {:resource resource-hash :name tag})]
-        (apply sql/insert-records :resource_tags records)))
-
-    ;; Insert pointer into certname => resource map
-    (sql/insert-record :catalog_resources {:catalog catalog-hash :resource resource-hash})))
+(defn add-resources!
+  "Persist the given resource and associate it with the given catalog."
+  [catalog-hash resources]
+  (let [resource-values   (map #(resource->values catalog-hash %) resources)
+        lookup-table      [[:metadata "INSERT INTO resources (hash,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?)"]
+                           [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]
+                           [:tags "INSERT INTO resource_tags (resource,name) VALUES (?,?)"]
+                           [:hashes "INSERT INTO catalog_resources (catalog,resource) VALUES (?,?)"]]]
+    (sql/transaction
+     (doseq [[lookup the-sql] lookup-table
+             :let [param-sets (remove empty? (mapcat lookup resource-values))]
+             :when (not (empty? param-sets))]
+       (apply sql/do-prepared the-sql param-sets)))
+))
 
 (defn edge-identity-string
   "Compute a stably-sorted string for the given edge that will
@@ -280,12 +299,13 @@
   {:pre [(string? catalog-hash)
          (coll? edges)
          (map? resources)]}
-  (let [rows  (for [{:keys [source target relationship]} edges
-                    :let [source-hash (resource-identity-hash (resources source))
-                          target-hash (resource-identity-hash (resources target))
-                          type        (name relationship)]]
-                {:catalog catalog-hash :source source-hash :target target-hash :type type})]
-    (apply sql/insert-records :edges rows)))
+  (let [the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
+        rows    (for [{:keys [source target relationship]} edges
+                      :let [source-hash (resource-identity-hash (resources source))
+                            target-hash (resource-identity-hash (resources target))
+                            type        (name relationship)]]
+                  [catalog-hash source-hash target-hash type])]
+    (apply sql/do-prepared the-sql rows)))
 
 (defn catalog-similarity-hash
   "Compute a hash for the given catalog's content
@@ -341,8 +361,7 @@
           (time! (:add-tags *metrics*)
            (add-tags! hash tags))
           (time! (:add-resources *metrics*)
-           (doseq [resource (vals resources)]
-             (add-resource! hash resource)))
+           (add-resources! hash (vals resources)))
           (time! (:add-edges *metrics*)
            (add-edges! hash edges resources)))))
 
