@@ -280,12 +280,13 @@
   {:pre [(string? catalog-hash)
          (coll? edges)
          (map? resources)]}
-  (let [rows  (for [{:keys [source target relationship]} edges
-                    :let [source-hash (resource-identity-hash (resources source))
-                          target-hash (resource-identity-hash (resources target))
-                          type        (name relationship)]]
-                {:catalog catalog-hash :source source-hash :target target-hash :type type})]
-    (apply sql/insert-records :edges rows)))
+  (let [the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
+        rows    (for [{:keys [source target relationship]} edges
+                      :let [source-hash (resource-identity-hash (resources source))
+                            target-hash (resource-identity-hash (resources target))
+                            type        (name relationship)]]
+                  [catalog-hash source-hash target-hash type])]
+    (apply sql/do-prepared the-sql rows)))
 
 (defn catalog-similarity-hash
   "Compute a hash for the given catalog's content
