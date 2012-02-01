@@ -1,5 +1,5 @@
-(defproject cmdb "1.0.0-SNAPSHOT"
-  :description "FIXME: write description"
+(defproject grayskull "1.0.0-SNAPSHOT"
+  :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [cheshire "2.0.4"]
