@@ -27,7 +27,7 @@
 
 (defn make-connection-pool
   "Create a new database connection pool"
-  [{:keys [subprotocol subname username password
+  [{:keys [classname subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements]
     :or {partition-conn-min 1
@@ -35,6 +35,8 @@
          partition-count    5
          stats              true}
     :as db}]
+  ;; Load the database driver class
+  (Class/forName classname)
   (let [config (doto (new BoneCPConfig)
                  (.setDefaultAutoCommit false)
                  (.setLazyInit true)

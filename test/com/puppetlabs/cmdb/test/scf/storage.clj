@@ -1,11 +1,12 @@
 (ns com.puppetlabs.cmdb.test.scf.storage
   (:require [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.cmdb.test.catalog :as testcat]
+            [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
   (:use [com.puppetlabs.cmdb.scf.storage]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
+        [clojure.contrib.combinatorics :only (combinations)]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
@@ -77,7 +78,7 @@
 
     (testing "shouldn't change for identical input"
       (doseq [i (range 10)
-              :let [r (testcat/random-kw-resource)]]
+              :let [r (catutils/random-kw-resource)]]
         (is (= (resource-identity-hash r)
                (resource-identity-hash r)))))
 
@@ -92,8 +93,8 @@
       ; sure we only care about a population of unique resources, take
       ; any 2 elements from that set, and those 2 resources should
       ; have different hashes.
-      (let [candidates (into #{} (repeatedly 5 testcat/random-kw-resource))
-            pairs      (clojure.contrib.combinatorics/combinations candidates 2)]
+      (let [candidates (into #{} (repeatedly 5 catutils/random-kw-resource))
+            pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)
                     (resource-identity-hash r2))))))))
@@ -103,16 +104,16 @@
     (let [catalog       *basic-catalog*
           hash          (catalog-similarity-hash catalog)
           ;; List of all the tweaking functions
-          chaos-monkeys [testcat/add-random-resource-to-catalog
-                         testcat/mod-resource-in-catalog
-                         testcat/add-random-edge-to-catalog
-                         testcat/swap-edge-targets-in-catalog]
+          chaos-monkeys [catutils/add-random-resource-to-catalog
+                         catutils/mod-resource-in-catalog
+                         catutils/add-random-edge-to-catalog
+                         catutils/swap-edge-targets-in-catalog]
           ;; Function that will apply a random tweak function
           apply-monkey  #((rand-nth chaos-monkeys) %)]
 
-      (is (not= hash (catalog-similarity-hash (testcat/add-random-resource-to-catalog catalog))))
-      (is (not= hash (catalog-similarity-hash (testcat/mod-resource-in-catalog catalog))))
-      (is (not= hash (catalog-similarity-hash (testcat/add-random-edge-to-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (catutils/add-random-resource-to-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (catutils/mod-resource-in-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (catutils/add-random-edge-to-catalog catalog))))
 
       ;; Do the following 100 times: pick up to 10 tweaking functions,
       ;; successively apply them all to the original catalog, and
