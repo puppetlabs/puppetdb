@@ -6,6 +6,7 @@
   (:use [com.puppetlabs.cmdb.scf.storage]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
+        [clojure.contrib.combinatorics :only (combinations)]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
@@ -93,7 +94,7 @@
       ; any 2 elements from that set, and those 2 resources should
       ; have different hashes.
       (let [candidates (into #{} (repeatedly 5 testcat/random-kw-resource))
-            pairs      (clojure.contrib.combinatorics/combinations candidates 2)]
+            pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)
                     (resource-identity-hash r2))))))))

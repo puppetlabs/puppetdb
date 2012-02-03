@@ -1,7 +1,6 @@
 (ns com.puppetlabs.cmdb.test.catalog
   (:use [com.puppetlabs.cmdb.catalog]
-        [clojure.test]
-        [midje.checkers :only [contains]]))
+        [clojure.test]))
 
 ;;
 ;; Helper functions (TODO: move these into a test utils namespace?)
@@ -180,12 +179,12 @@
                                                    {"source" "Class[foo]" "target" "Class[bar]"}]})
              {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
 
-
     (testing "should create resources for things that have edges, but aren't listed in the :resources list"
-      (is (contains (:resources
-                     (add-resources-for-edges {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}
-                                               :resources []}))
-                    [{:type "Class" :title "foo" :exported false} {:type "Class" :title "bar" :exported false}] :in-any-order)))))
+      (is (= (-> {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}} :resources []}
+                 (add-resources-for-edges)
+                 (:resources)
+                 (set))
+             #{{:type "Class" :title "foo" :exported false} {:type "Class" :title "bar" :exported false}})))))
 
 (deftest catalog-restructuring
   (testing "Restructuring catalogs"

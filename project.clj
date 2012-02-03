@@ -37,7 +37,6 @@
                  [org.clojars.daniel-pittman/clothesline "0.2.2-SNAPSHOT"]]
 
   :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
-                     [midje "1.2.0"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 
