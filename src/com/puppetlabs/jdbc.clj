@@ -6,6 +6,18 @@
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.utils :as utils]))
 
+(defn convert-result-arrays
+  "Converts Java and JDBC arrays in a result set using the provided function
+  (eg. vec, set). Values which aren't arrays are unchanged."
+  ([result-set]
+   (convert-result-arrays vec result-set))
+  ([f result-set]
+   (let [convert #(cond
+                    (utils/array? %) (f %)
+                    (isa? (class %) java.sql.Array) (f (.getArray %))
+                    :else %)]
+     (map #(utils/mapvals convert %) result-set))))
+
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
   query as a vector.  These results, unlike a normal query result, are
@@ -21,9 +33,11 @@
   ([sql-query & params]
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
-     (sql/with-query-results result-set
-       (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
-       (vec result-set))))
+   (sql/with-query-results result-set
+     (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
+     (-> result-set
+         (convert-result-arrays)
+         (vec)))))
 
 (defn make-connection-pool
   "Create a new database connection pool"

@@ -33,6 +33,56 @@
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))
 
+(defn sql-current-connection-database-name
+  "Return the database product name currently in use."
+  []
+  (.. (sql/find-connection)
+      (getMetaData)
+      (getDatabaseProductName)))
+
+(defn to-jdbc-varchar-array
+  "Takes the supplied collection and transforms it into a
+  JDBC-appropriate VARCHAR array."
+  [coll]
+  (let [connection (sql/find-connection)]
+    (->> coll
+         (into-array Object)
+         (.createArrayOf connection "varchar"))))
+
+(defmulti sql-array-type-string
+  "Returns a string representing the correct way to declare an array
+  of the supplied base database type."
+  ;; Dispatch based on databsae from the metadata of DB connection at the time
+  ;; of call; this copes gracefully with multiple connection types.
+  (fn [_] (sql-current-connection-database-name)))
+
+(defmulti sql-array-query-string
+  "Returns an SQL fragment representing a query for a single value being
+found in an array column in the database.
+
+  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
+
+The returned SQL fragment will contain *one* parameter placeholder, which
+must be supplied as the value to be matched."
+  (fn [column] (sql-current-connection-database-name)))
+
+
+(defmethod sql-array-type-string "PostgreSQL"
+  [basetype]
+  (format "%s ARRAY" basetype))
+
+(defmethod sql-array-query-string "PostgreSQL"
+  [column]
+  (format "? = ANY(%s)" column))
+
+(defmethod sql-array-type-string "HSQL Database Engine"
+  [basetype]
+  (format "%s ARRAY[%d]" basetype 65535))
+
+(defmethod sql-array-query-string "HSQL Database Engine"
+  [column]
+  (format "? IN (UNNEST(%s))" column))
+
 (def ns-str (str *ns*))
 
 ;; ## Performance metrics
