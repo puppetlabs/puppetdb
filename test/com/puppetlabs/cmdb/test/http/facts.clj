@@ -18,7 +18,7 @@
                             (migrate!)
                             (f))))))
 
-(def *content-type* facts/fact-set-c-t)
+(def *content-type* "application/json")
 
 (defn make-request
   "Return a GET request against path, suitable as an argument to a Clothesline
@@ -47,20 +47,20 @@
             response (*app* request)]
         (is (= (:status response) 404))
         (is (= (get-in response [:headers "Content-Type"]) content-type))
-        (is (= (json/parse-string (:body request)
-               {:error "Could not find facts for imaginary_node"})))))
+        (is (= (json/parse-string (:body response) true)
+               {:error "Could not find facts for imaginary_node"}))))
     (testing "for a present node without facts"
       (let [content-type "application/json"
             request (make-request (format "/facts/%s" certname_without_facts))
             response (*app* request)]
         (is (= (:status response) 404))
         (is (= (get-in response [:headers "Content-Type"]) content-type))
-        (is (= (json/parse-string (:body request)
-               {:name certname_without_facts :facts {}})))))
+        (is (= (json/parse-string (:body response) true)
+               {:error (str "Could not find facts for " certname_without_facts)}))))
     (testing "for a present node with facts"
       (let [request (make-request (format "/facts/%s" certname_with_facts))
             response (*app* request)]
         (is (= (:status response) 200))
         (is (= (get-in response [:headers "Content-Type"]) *content-type*))
-        (is (= (json/parse-string (:body request)
-               {:name certname_with_facts :facts facts})))))))
+        (is (= (json/parse-string (:body response))
+               {"name" certname_with_facts "facts" facts}))))))

@@ -21,7 +21,7 @@
                             (f))))))
 
 ;;;; Test the resource listing handlers.
-(def *c-t*   r/resource-list-c-t)
+(def *c-t* "application/json")
 
 (defn get-request
   ([path] (get-request path nil))
@@ -37,16 +37,15 @@
   ([]      (get-response nil))
   ([query] (*app* (get-request "/resources" query))))
 
-(defmacro is-response-equal
+(defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  `(let [response# ~response]
-     (is (= 200   (:status response#)))
-     (is (= *c-t* (get-in response# [:headers "Content-Type"])))
-     (is (= ~body (if (:body response#)
-                    (json/parse-string (:body response#) true)
-                    nil)) (str response#))))
+  (is (= 200   (:status response)))
+  (is (= *c-t* (get-in response [:headers "Content-Type"])))
+  (is (= body (if (:body response)
+                 (json/parse-string (:body response) true)
+                 nil)) (str response)))
 
 
 (deftest resource-list-handler
@@ -122,6 +121,6 @@ to the result of the form supplied to this method."
                                         :acl    ["john:rwx" "fred:rwx"]}}])))
   (testing "error handling"
     (let [response (get-response ["="])
-          body     (json/parse-string (get response :body "null") true)]
+          body     (get response :body "null")]
       (is (= (:status response) 400))
-      (is (re-find #"operators take two arguments" (:error body))))))
+      (is (re-find #"operators take two arguments" body)))))

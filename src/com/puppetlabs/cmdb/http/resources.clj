@@ -62,40 +62,40 @@
 (ns com.puppetlabs.cmdb.http.resources
   (:require [com.puppetlabs.utils :as utils]
             [com.puppetlabs.cmdb.query.resource :as r]
-            [cheshire.core :as json])
-  (:use [clothesline.protocol.test-helpers :only [annotated-return]]
-        [clothesline.service.helpers :only [defhandler]]))
+            [cheshire.core :as json]
+            [ring.util.response :as rr]))
 
-(def
-  ^{:doc "Content type for an individual resource"}
-  resource-c-t "application/vnd.com.puppetlabs.cmdb.resource+json")
+(defn produce-body
+  "Given a query and database connection, return a Ring response with
+  the query results. The result format conforms to that documented
+  above.
 
-(def
-  ^{:doc "Content type for a list of resources"}
-  resource-list-c-t "application/vnd.com.puppetlabs.cmdb.resource-list+json")
-
-(defn malformed-request?
-  "Validate the JSON-encoded query for this resource, and annotate the
-graphdata with the compiled data structure.  This ensures that only valid
-input queries can make it through to the rest of the system."
-  [_ {:keys [params] :as request} _]
+  If the query can't be parsed, a 400 is returned."
+  [query db]
   (try
-    (let [db (get-in request [:globals :scf-db])
-          sql (r/query->sql db (json/parse-string (get params "query" "null") true))]
-      (annotated-return false {:annotate {:query sql}}))
-    (catch Exception e
-      (utils/return-json-error true (.getMessage e)))))
+    (let [q (r/query->sql db (json/parse-string query true))]
+      (-> (r/query-resources db q)
+          (vec)
+          (utils/json-response)
+          (rr/status 200)))
+    (catch org.codehaus.jackson.JsonParseException e
+      (-> (.getMessage e)
+          (rr/response)
+          (rr/status 400)))
+    (catch IllegalArgumentException e
+      (-> (.getMessage e)
+          (rr/response)
+          (rr/status 400)))))
 
-(defn resource-list-as-json
-  "Fetch a list of resources from the database, formatting them as a
-JSON array, and returning them as the body of the response."
-  [request graphdata]
-  (let [db (get-in request [:globals :scf-db])]
-    (json/generate-string (or (vec (r/query-resources db (:query graphdata)))
-                              []))))
+(defn resources-app
+  "Ring app for querying resources"
+  [{:keys [params headers globals] :as request}]
+  (cond
+   (not (utils/acceptable-content-type
+         "application/json"
+         (headers "accept")))
+   (-> (rr/response "must accept application/json")
+       (rr/status 406))
 
-(defhandler resource-list-handler
-  :allowed-methods        (constantly #{:get})
-  :malformed-request?     malformed-request?
-  :resource-exists?       (constantly true)
-  :content-types-provided (constantly {resource-list-c-t resource-list-as-json}))
+   :else
+   (produce-body (params "query" "null") (:scf-db globals))))

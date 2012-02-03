@@ -14,35 +14,35 @@
 (ns com.puppetlabs.cmdb.http.facts
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.cmdb.query.facts :as f])
-  (:use [clothesline.protocol.test-helpers :only [annotated-return]]
-        [clothesline.service.helpers :only [defhandler]]))
+            [com.puppetlabs.cmdb.query.facts :as f]
+            [ring.util.response :as rr]))
 
-(def
-  ^{:doc "Content type for the set of facts for an individual node"}
-  fact-set-c-t "application/vnd.com.puppetlabs.cmdb.fact-set+json")
+(defn produce-body
+  "Produce a response body for a request to lookup facts for `node`."
+  [node db]
+  (let [facts (f/facts-for-node db node)]
+    (if-not (seq facts)
+      (-> {:error (str "Could not find facts for " node)}
+          (utils/json-response)
+          (rr/status 404))
+      (-> (json/generate-string {:name node :facts facts})
+          (rr/response)
+          (rr/header "Content-Type" "application/json")
+          (rr/status 200)))))
 
-(defn have-facts-for-node?
-  "Attempt to fetch the facts for the given node and annotate the graphdata
-with the facts if found. Otherwise, respond with an appropriate error message."
-  [handler {:keys [params] :as request} graphdata]
-  (let [node (params "node")
-        db (get-in request [:globals :scf-db])
-        facts (f/facts-for-node db node)]
-    (if (seq facts)
-      (annotated-return true {:annotate {:facts facts}})
-      (utils/return-json-error false (str "Could not find facts for " node)))))
+(defn facts-app
+  "Ring app for querying facts"
+  [{:keys [params headers globals] :as request}]
+  (cond
+   (not (params "node"))
+   (-> (rr/response "missing node")
+       (rr/status 400))
 
-(defn fact-set-to-json
-  "Respond with the facts for the requested node (supplied in the graphdata),
-formatted as a JSON hash."
-  [{:keys [params] :as request} {:keys [facts] :as graphdata}]
-  {:pre [(seq facts)
-         (params "node")]}
-  (let [node (params "node")]
-    (json/generate-string {:name node :facts facts})))
+   (not (utils/acceptable-content-type
+         "application/json"
+         (headers "accept")))
+   (-> (rr/response "must accept application/json")
+       (rr/status 406))
 
-(defhandler fact-set-handler
-            :allowed-methods        (constantly #{:get})
-            :resource-exists?       have-facts-for-node?
-            :content-types-provided (constantly {fact-set-c-t fact-set-to-json}))
+   :else
+   (produce-body (params "node") (:scf-db globals))))
