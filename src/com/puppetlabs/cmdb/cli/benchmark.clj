@@ -39,7 +39,7 @@
 (ns com.puppetlabs.cmdb.cli.benchmark
   (:require [clojure.contrib.logging :as log]
             [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.cmdb.test.catalog :as testcat]
+            [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
@@ -71,7 +71,7 @@
 (defn tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog"
   [catalog]
-  (testcat/add-random-resource-to-wire-catalog catalog))
+  (catutils/add-random-resource-to-wire-catalog catalog))
 
 (defn update-host
   "Send a new _clock tick_ to a host
