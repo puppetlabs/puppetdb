@@ -65,6 +65,13 @@
                  (class)
                  (.isArray)))
 
+(defn keyset
+  "Retuns a set of keys from the supplied map"
+  [m]
+  {:pre  [(map? m)]
+   :post [(set? %)]}
+  (set (keys m)))
+
 ;; ## Stubbing
 ;;
 ;; These redef functions are backported from Clojure 1.3 core
@@ -201,3 +208,10 @@
       (json/generate-string)
       (rr/response)
       (rr/header "Content-Type" "application/json")))
+
+(defn uri-segments
+  "Converts the given URI into a seq of path segments. Empty segments
+  (from a `//`, for example) are elided from the result"
+  [uri]
+  (remove #{""} (.split uri "/")))
+
