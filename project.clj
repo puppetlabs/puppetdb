@@ -32,7 +32,7 @@
                  [org.apache.activemq/activemq-core "5.5.1"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0"]
-                 [clj-http "0.1.3"]
+                 [clj-http "0.3.1"]
                  [ring/ring-core "0.3.11"]
                  [ring/ring-jetty-adapter "0.3.11"]]
 
