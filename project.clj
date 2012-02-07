@@ -1,7 +1,6 @@
 (defproject grayskull "1.0.0-SNAPSHOT"
   :description "Puppet-integrated catalog and fact storage"
-  :dependencies [[org.clojure/clojure "1.2.1"]
-                 [org.clojure/clojure-contrib "1.2.0"]
+  :dependencies [[org.clojure/clojure "1.3.0"]
                  [cheshire "2.0.4"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
