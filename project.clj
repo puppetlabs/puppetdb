@@ -24,7 +24,7 @@
                  [com.jolbox/bonecp "0.7.1.RELEASE"]
                  [org.slf4j/slf4j-log4j12 "1.5.6"]
                  [org.clojure/java.jdbc "0.1.1"]
-                 [org.hsqldb/hsqldb "2.2.4"]
+                 [org.hsqldb/hsqldb "2.2.8"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
