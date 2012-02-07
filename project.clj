@@ -4,6 +4,7 @@
                  [cheshire "2.0.4"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
+                 [org.clojure/math.combinatorics "0.0.2"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
                  [clj-stacktrace "0.2.4"]

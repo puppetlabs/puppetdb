@@ -6,7 +6,7 @@
   (:use [com.puppetlabs.cmdb.scf.storage]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
-        [clojure.contrib.combinatorics :only (combinations)]
+        [clojure.math.combinatorics :only (combinations)]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
