@@ -29,7 +29,7 @@
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
                  [clamq "0.3"]
-                 [org.apache.activemq/activemq-core "5.5.0"]
+                 [org.apache.activemq/activemq-core "5.5.1"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0"]
                  [clj-http "0.1.3"]
