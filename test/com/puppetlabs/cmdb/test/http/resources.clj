@@ -6,7 +6,6 @@
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
-        [clojure.contrib.duck-streams :only (read-lines)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))

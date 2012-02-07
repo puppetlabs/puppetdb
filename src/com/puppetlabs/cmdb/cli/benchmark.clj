@@ -42,8 +42,7 @@
             [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [cheshire.core :as json]
             [clj-http.client :as client]
-            [clj-http.util :as util]
-            [clojure.contrib.duck-streams :as ds])
+            [clj-http.util :as util])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 

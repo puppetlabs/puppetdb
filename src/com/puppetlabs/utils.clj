@@ -7,13 +7,14 @@
 (ns com.puppetlabs.utils
   (:import (org.ini4j Ini))
   (:require [clojure.test]
-            [clojure.string]
-            [clojure.contrib.duck-streams :as ds]
+            [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
             [ring.util.response :as rr])
-  (:use [clojure.core.incubator :as incubator]
-        [slingshot.core :only [try+ throw+]]))
+  (:use [clojure.core.incubator :only (-?>)]
+        [clojure.java.io :only (reader)]
+        [clojure.set :only (difference union)]
+        [slingshot.core :only (try+ throw+)]))
 
 ;; ## Math
 
@@ -32,7 +33,7 @@
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
   [s1 s2]
-  (clojure.set/union (clojure.set/difference s1 s2) (clojure.set/difference s2 s1)))
+  (union (difference s1 s2) (difference s2 s1)))
 
 (defn as-collection
   "Returns the item wrapped in a collection, if it's not one
@@ -61,9 +62,9 @@
 (defn array?
   "Returns true if `x` is an array"
   [x]
-  (incubator/-?> x
-                 (class)
-                 (.isArray)))
+  (-?> x
+       (class)
+       (.isArray)))
 
 (defn keyset
   "Retuns a set of keys from the supplied map"
@@ -153,9 +154,9 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
-  (let [ini        (Ini. (ds/reader filename))
+  (let [ini        (Ini. (reader filename))
         m          (atom {})
-        keywordize #(keyword (clojure.string/lower-case %))]
+        keywordize #(keyword (string/lower-case %))]
 
     (doseq [[name section] ini
             [key _] section
