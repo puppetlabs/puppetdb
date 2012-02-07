@@ -10,7 +10,7 @@
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.5.0"]
                  ;; Filesystem utilities
-                 [fs "1.0.0"]
+                 [fs "1.1.2"]
                  ;; Configuration file parsing
                  [org.ini4j/ini4j "0.5.2"]
                  ;; Nicer exception handling with try+/throw+
