@@ -15,7 +15,7 @@
                  [org.ini4j/ini4j "0.5.2"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.1"]
-                 [digest "1.2.1"]
+                 [digest "1.3.0"]
                  [log4j "1.2.16" :exclusions [javax.mail/mail
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
