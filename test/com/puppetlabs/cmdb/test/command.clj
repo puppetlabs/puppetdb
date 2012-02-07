@@ -2,7 +2,7 @@
   (:use [com.puppetlabs.cmdb.command]
         [com.puppetlabs.utils]
         [clojure.test]
-        [slingshot.core :only [try+ throw+]]))
+        [slingshot.slingshot :only [try+ throw+]]))
 
 (deftest command-parsing
   (testing "Command parsing"

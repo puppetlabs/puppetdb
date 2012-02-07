@@ -37,7 +37,7 @@
             [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
-  (:use [slingshot.core :only [try+ throw+]]
+  (:use [slingshot.slingshot :only [try+ throw+]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))

@@ -14,7 +14,7 @@
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
-        [slingshot.core :only (try+ throw+)]))
+        [slingshot.slingshot :only (try+ throw+)]))
 
 ;; ## Math
 
