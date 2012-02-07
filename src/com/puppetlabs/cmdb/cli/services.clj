@@ -49,7 +49,7 @@
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
-            [clojure.contrib.logging :as log]
+            [clojure.tools.logging :as log]
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])

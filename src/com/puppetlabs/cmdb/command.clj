@@ -27,7 +27,7 @@
 ;;
 
 (ns com.puppetlabs.cmdb.command
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.mq :as mq]

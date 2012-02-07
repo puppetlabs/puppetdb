@@ -37,7 +37,7 @@
 ;; tick.
 ;;
 (ns com.puppetlabs.cmdb.cli.benchmark
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [cheshire.core :as json]

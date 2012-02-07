@@ -22,7 +22,7 @@
   (:require [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
-            [clojure.contrib.logging :as log]
+            [clojure.tools.logging :as log]
             [digest]
             [cheshire.core :as json])
   (:use [metrics.meters :only (meter mark!)]
