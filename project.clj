@@ -33,8 +33,8 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0"]
                  [clj-http "0.3.1"]
-                 [ring/ring-core "0.3.11"]
-                 [ring/ring-jetty-adapter "0.3.11"]]
+                 [ring/ring-core "1.0.2"]
+                 [ring/ring-jetty-adapter "1.0.2"]]
 
   :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
                      ;; WebAPI support libraries.
