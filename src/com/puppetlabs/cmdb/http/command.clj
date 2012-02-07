@@ -7,9 +7,6 @@
 ;;
 ;; * The `POST` contains a single parameter, `payload`
 ;;
-;; * The `POST` is sent using a content type of
-;;   `application/x-www-form-urlencoded`
-;;
 ;; * The `payload` paramater contains a string conforming to the
 ;;   structure of a command as outlined in
 ;;   `com.puppetlabs.cmdb.command`
@@ -21,60 +18,48 @@
 ;; * Contains a JSON object of `true` if the command was successfully
 ;;   submitted to the MQ
 ;;
-;; * Contains a JSON object of `{:error "error message"}` if an error
-;;   occurred.
-
 (ns com.puppetlabs.cmdb.http.command
   (:require [clojure.contrib.logging :as log]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clamq.protocol.producer :as mq-producer]
-            [clamq.protocol.connection :as mq-conn])
-  (:use [clothesline.protocol.test-helpers :only [annotated-return]]
-        [clothesline.service.helpers :only [defhandler]]))
-
-(defn malformed-request?
-  "A command submission is malformed if it lacks a `payload`
-  attribute"
-  [_ {:keys [params] :as request} _]
-  (try
-    (if-let [payload (get params "payload")]
-      (annotated-return false {:annotate {:payload payload}})
-      (pl-utils/return-json-error true "Missing payload"))
-    (catch Exception e
-      (pl-utils/return-json-error true (.getMessage e)))))
+            [clamq.protocol.connection :as mq-conn]
+            [ring.util.response :as rr]))
 
 (defn http->mq
-  "Takes a command object out of `graphdata`, and submits it to an MQ.
+  "Takes the given command and submits it to the specified endpoint on
+  the indicated MQ.
 
-  If successful, this function returns a JSON `true`. Otherwise, an
-  exception is thrown."
-  [request graphdata]
-  {:pre  [(:payload graphdata)]
+  If successful, this function returns a JSON `true`."
+  [payload mq-spec mq-endpoint]
+  {:pre  [(string? payload)
+          (string? mq-spec)
+          (string? mq-endpoint)]
    :post [(string? %)]}
-  (let [mq-spec     (get-in request [:globals :command-mq :connection-string])
-        mq-endpoint (get-in request [:globals :command-mq :endpoint])]
-    (with-open [conn (mq/connect! mq-spec)]
-      (let [producer (mq-conn/producer conn)]
-        (mq-producer/publish producer mq-endpoint (:payload graphdata))))
-    (json/generate-string true)))
+  (with-open [conn (mq/connect! mq-spec)]
+    (let [producer (mq-conn/producer conn)]
+      (mq-producer/publish producer mq-endpoint payload)))
+  (json/generate-string true))
 
-(defn content-types-accepted
-  "Clothesline is stupid and demands that the list of acceptable
-  content types be returned in a map. It's dumb, because it just takes
-  the keys from the map and throws the rest away...so why ask for a
-  map at all? In fact, why not just ask for a simple function to be
-  implemented that inspects the request's content type and returns a
-  boolean? I have no idea."
-  [_ request _]
-  (let [c-t (get-in request [:headers "content-type"] "")]
-    (if (.startsWith c-t "application/x-www-form-urlencoded")
-      {c-t nil}
-      {})))
+(defn command-app
+  "Ring app for processing commands"
+  [{:keys [params headers globals] :as request}]
+  (cond
+   (not (params "payload"))
+   (-> (rr/response "missing payload")
+       (rr/status 400))
 
-(defhandler http->mq-handler
-  :allowed-methods (constantly #{:post})
-  :malformed-request? malformed-request?
-  :content-types-provided (constantly {"application/json" http->mq})
-  :content-types-accepted content-types-accepted)
+   (not (pl-utils/acceptable-content-type
+         "application/json"
+         (headers "accept")))
+   (-> (rr/response "must accept application/json")
+       (rr/status 406))
+
+   :else
+   (-> (http->mq (params "payload")
+                 (get-in globals [:command-mq :connection-string])
+                 (get-in globals [:command-mq :endpoint]))
+       (rr/response)
+       (rr/header "Content-Type" "application/json")
+       (rr/status 200))))

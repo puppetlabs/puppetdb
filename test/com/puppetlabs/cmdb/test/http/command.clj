@@ -44,5 +44,4 @@
     (testing "should return 400 when malformed"
       (let [req  (make-request {})
             resp (*app* req)]
-        (is (= (:status resp) 400))
-        (is (= (get-in resp [:headers "Content-Type"]) "application/json"))))))
+        (is (= (:status resp) 400))))))

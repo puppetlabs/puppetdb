@@ -30,11 +30,10 @@
                  [clamq "0.3"]
                  [org.apache.activemq/activemq-core "5.5.0"]
                  ;; WebAPI support libraries.
+                 [net.cgrand/moustache "1.1.0"]
                  [clj-http "0.1.3"]
-                 [ring/ring-core            "0.3.11"]
-                 [ring/ring-servlet         "0.3.11"]
-                 [org.mortbay.jetty/jetty   "6.1.26"]
-                 [org.clojars.daniel-pittman/clothesline "0.2.2-SNAPSHOT"]]
+                 [ring/ring-core "0.3.11"]
+                 [ring/ring-jetty-adapter "0.3.11"]]
 
   :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
                      ;; WebAPI support libraries.
