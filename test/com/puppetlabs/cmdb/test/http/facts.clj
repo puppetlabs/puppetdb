@@ -42,19 +42,17 @@
     (scf-store/add-certname! certname_with_facts)
     (scf-store/add-facts! certname_with_facts facts)
     (testing "for an absent node"
-      (let [content-type "application/json"
-            request (make-request "/facts/imaginary_node")
+      (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]
         (is (= (:status response) 404))
-        (is (= (get-in response [:headers "Content-Type"]) content-type))
+        (is (= (get-in response [:headers "Content-Type"]) *content-type*))
         (is (= (json/parse-string (:body response) true)
                {:error "Could not find facts for imaginary_node"}))))
     (testing "for a present node without facts"
-      (let [content-type "application/json"
-            request (make-request (format "/facts/%s" certname_without_facts))
+      (let [request (make-request (format "/facts/%s" certname_without_facts))
             response (*app* request)]
         (is (= (:status response) 404))
-        (is (= (get-in response [:headers "Content-Type"]) content-type))
+        (is (= (get-in response [:headers "Content-Type"]) *content-type*))
         (is (= (json/parse-string (:body response) true)
                {:error (str "Could not find facts for " certname_without_facts)}))))
     (testing "for a present node with facts"
