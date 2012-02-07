@@ -9,7 +9,7 @@
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *db* nil)
+(def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]

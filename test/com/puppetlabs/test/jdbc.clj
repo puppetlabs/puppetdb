@@ -3,11 +3,11 @@
             [clojure.java.jdbc :as sql])
   (:use [clojure.test]))
 
-(def *db* {:classname "org.hsqldb.jdbcDriver"
-           :subprotocol "hsqldb"
-           :subname     (str "mem:"
-                             (java.util.UUID/randomUUID)
-                             ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+(def db {:classname "org.hsqldb.jdbcDriver"
+         :subprotocol "hsqldb"
+         :subname     (str "mem:"
+                           (java.util.UUID/randomUUID)
+                           ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 (def test-data {"absence"    "presence"
                 "abundant"   "scarce"
@@ -28,7 +28,7 @@
 
 (defn with-test-database
   [function]
-  (sql/with-connection *db*
+  (sql/with-connection db
     (sql/create-table :test
                       [:key   "VARCHAR(256)" "PRIMARY KEY"]
                       [:value "VARCHAR(256)" "NOT NULL"])

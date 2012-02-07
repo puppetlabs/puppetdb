@@ -10,7 +10,7 @@
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *app* nil)
+(def ^:dynamic *app* nil)
 
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
@@ -20,7 +20,7 @@
                             (f))))))
 
 ;;;; Test the resource listing handlers.
-(def *c-t* "application/json")
+(def c-t "application/json")
 
 (defn get-request
   ([path] (get-request path nil))
@@ -30,7 +30,7 @@
                               {"query" (if (string? query) query (json/generate-string query))})
                      (request :get path))
            headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" *c-t*)))))
+       (assoc request :headers (assoc headers "Accept" c-t)))))
 
 (defn get-response
   ([]      (get-response nil))
@@ -41,7 +41,7 @@
 to the result of the form supplied to this method."
   [response body]
   (is (= 200   (:status response)))
-  (is (= *c-t* (get-in response [:headers "Content-Type"])))
+  (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
                 nil)) (str response)))

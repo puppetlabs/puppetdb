@@ -130,7 +130,7 @@ must be supplied as the value to be matched."
 ;; * `:replace-facts`: the time it takes to replace the facts for a
 ;;   host
 ;;
-(def *metrics*
+(def metrics
   {
    :add-classes       (timer [ns-str "default" "add-classes"])
    :add-tags          (timer [ns-str "default" "add-tags"])
@@ -149,8 +149,8 @@ must be supplied as the value to be matched."
    :new-catalog       (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog (counter [ns-str "default" "duplicate-catalogs"])
    :duplicate-pct     (gauge [ns-str "default" "duplicate-pct"]
-                             (let [dupes (value (:duplicate-catalog *metrics*))
-                                   new   (value (:new-catalog *metrics*))]
+                             (let [dupes (value (:duplicate-catalog metrics))
+                                   new   (value (:new-catalog metrics))]
                                (float (utils/quotient dupes (+ dupes new)))))
 
    :replace-facts     (timer [ns-str "default" "replace-facts-time"])
@@ -379,31 +379,31 @@ must be supplied as the value to be matched."
          (every? coll? #{classes tags edges})
          (map? resources)]}
 
-  (time! (:add-catalog *metrics*)
-    (let [resource-hashes (time! (:resource-hashes *metrics*)
+  (time! (:add-catalog metrics)
+    (let [resource-hashes (time! (:resource-hashes metrics)
                             (doall
                               (map resource-identity-hash (vals resources))))
-          hash (time! (:catalog-hash *metrics*)
+          hash (time! (:catalog-hash metrics)
                  (catalog-similarity-hash catalog))]
 
      (sql/transaction
       (let [exists? (catalog-exists? hash)]
 
         (when exists?
-          (inc! (:duplicate-catalog *metrics*))
+          (inc! (:duplicate-catalog metrics))
           (update-catalog-metadata! hash api-version version))
 
         (when-not exists?
-          (inc! (:new-catalog *metrics*))
+          (inc! (:new-catalog metrics))
           (add-catalog-metadata! hash api-version version)
-          (time! (:add-classes *metrics*)
+          (time! (:add-classes metrics)
             (add-classes! hash classes))
-          (time! (:add-tags *metrics*)
+          (time! (:add-tags metrics)
             (add-tags! hash tags))
           (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
-            (time! (:add-resources *metrics*)
+            (time! (:add-resources metrics)
               (add-resources! hash resources refs-to-hashes))
-            (time! (:add-edges *metrics*)
+            (time! (:add-edges metrics)
               (add-edges! hash edges refs-to-hashes))))))
 
      hash)))
@@ -441,19 +441,19 @@ must be supplied as the value to be matched."
 (defn delete-unassociated-catalogs!
   "Remove any catalogs that aren't associated with a certname"
   []
-  (time! (:gc-catalogs *metrics*)
+  (time! (:gc-catalogs metrics)
    (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
-  (time! (:gc-params *metrics*)
+  (time! (:gc-params metrics)
    (sql/delete-rows :resource_params ["resource NOT IN (SELECT resource FROM catalog_resources)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
-  (time! (:gc *metrics*)
+  (time! (:gc metrics)
    (sql/transaction
     (delete-unassociated-catalogs!)
     (delete-unassociated-params!))))
@@ -464,7 +464,7 @@ must be supplied as the value to be matched."
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
   [{:keys [certname] :as catalog}]
-  (time! (:replace-catalog *metrics*)
+  (time! (:replace-catalog metrics)
    (sql/transaction
     (let [catalog-hash (add-catalog! catalog)]
       (dissociate-all-catalogs-for-certname! certname)
@@ -487,7 +487,7 @@ facts associated with the certname."
 
 (defn replace-facts!
   [certname facts]
-  (time! (:replace-facts *metrics*)
+  (time! (:replace-facts metrics)
    (sql/transaction
     (delete-facts! certname)
     (add-facts! certname facts))))

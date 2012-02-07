@@ -9,8 +9,8 @@
          [com.puppetlabs.cmdb.testutils :only [test-db]]
          [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *app* nil)
-(def *conn* nil)
+(def ^:dynamic *app* nil)
+(def ^:dynamic *conn* nil)
 
 (use-fixtures :each (fn [f]
                       (with-test-broker "test" conn

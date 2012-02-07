@@ -90,7 +90,7 @@
 ;;   messages have been retried prior to suceeding
 ;;
 
-(def *metrics* (atom {}))
+(def metrics (atom {}))
 (def ns-str (str *ns*))
 
 (defn create-metrics-for-command!
@@ -102,12 +102,12 @@
   ([command version]
      (let [prefix     (if (nil? version) [command] [command version])
            prefix-str (clojure.string/join "." prefix)]
-       (when-not (get-in @*metrics* prefix)
-         (swap! *metrics* assoc-in (conj prefix :processing-time) (timer [ns-str prefix-str "processing-time"]))
-         (swap! *metrics* assoc-in (conj prefix :retry-counts) (histogram [ns-str prefix-str "retry-counts"]))
+       (when-not (get-in @metrics prefix)
+         (swap! metrics assoc-in (conj prefix :processing-time) (timer [ns-str prefix-str "processing-time"]))
+         (swap! metrics assoc-in (conj prefix :retry-counts) (histogram [ns-str prefix-str "retry-counts"]))
          (doseq [metric [:seen :processed :fatal :retried :discarded]
                  :let [metric-str (name metric)]]
-           (swap! *metrics* assoc-in (conj prefix metric) (meter [ns-str prefix-str metric-str] "msgs/s")))))))
+           (swap! metrics assoc-in (conj prefix metric) (meter [ns-str prefix-str metric-str] "msgs/s")))))))
 
 ;; Create metrics for aggregate operations
 (create-metrics-for-command! "global")
@@ -117,7 +117,7 @@
   hierarchy"
   [name]
   {:pre [(keyword? name)]}
-  (get-in @*metrics* ["global" name]))
+  (get-in @metrics ["global" name]))
 
 ;; ## Command parsing
 
@@ -253,7 +253,7 @@
                                        (throw+ (fatality! e))))
           {:keys [command version]} parsed-msg
           retries                   (get parsed-msg :retries 0)
-          cmd-metric                #(get-in @*metrics* [command version %])]
+          cmd-metric                #(get-in @metrics [command version %])]
 
       (create-metrics-for-command! command version)
       (mark! (cmd-metric :seen))
@@ -290,7 +290,7 @@
   with an incremented retry counter"
   [msg e publish-fn]
   (let [{:keys [command version]} (parse-command msg)]
-    (mark! (get-in @*metrics* [command version :retried])))
+    (mark! (get-in @metrics [command version :retried])))
   (log/error "Retrying message due to:" e)
   (publish-fn (format-for-retry msg)))
 
