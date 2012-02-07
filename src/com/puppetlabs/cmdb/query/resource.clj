@@ -34,11 +34,12 @@ and their parameters which match."
   [db [sql & params]]
   {:pre [(string? sql)
          (map? db)]}
-  (let [query (str "SELECT certname_catalogs.certname,catalog_resources.*,resource_params.* "
-                   "FROM catalog_resources "
+  (let [query (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
+                   "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
+                   "FROM catalog_resources cr "
                    "JOIN certname_catalogs USING(catalog) "
-                   "LEFT OUTER JOIN resource_params "
-                   "ON catalog_resources.resource = resource_params.resource "
+                   "LEFT OUTER JOIN resource_params rp "
+                   "ON cr.resource = rp.resource "
                    "WHERE (catalog,resource) IN "
                    sql)
         results (sql/with-connection db
