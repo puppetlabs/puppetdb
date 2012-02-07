@@ -10,9 +10,9 @@
             [clojure.string]
             [clojure.contrib.duck-streams :as ds]
             [clojure.tools.cli :as cli]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [ring.util.response :as rr])
   (:use [clojure.core.incubator :as incubator]
-        [clothesline.protocol.test-helpers :only [annotated-return]]
         [slingshot.core :only [try+ throw+]]))
 
 ;; ## Math
@@ -176,13 +176,28 @@
       (System/exit 0))
     [options posargs]))
 
-;; ## Clothesline helpers
+;; ## Ring helpers
 
-(defn return-json-error
-  "Returns a Clothesline body payload containing `msg` and encoded as
-  JSON."
-  [returnval msg]
-  (annotated-return
-   returnval
-   {:headers  {"Content-Type" "application/json"}
-    :annotate {:body (json/generate-string {:error msg})}}))
+(defn acceptable-content-type
+  "Returns a boolean indicating whether the `candidate` mime type
+  matches any of those listed in `header`, an Accept header."
+  [candidate header]
+  {:pre [(string? candidate)]}
+  (if-not (string? header)
+    true
+    (let [[prefix suffix] (.split candidate "/")
+          wildcard        (str prefix "/*")
+          types           (->> (clojure.string/split header #",")
+                              (map #(.trim %))
+                              (set))]
+      (or (types wildcard)
+          (types candidate)))))
+
+(defn json-response
+  "Returns a Ring response object with the supplied body and a JSON
+  content type"
+  [body]
+  (-> body
+      (json/generate-string)
+      (rr/response)
+      (rr/header "Content-Type" "application/json")))

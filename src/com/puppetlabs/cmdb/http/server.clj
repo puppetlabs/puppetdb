@@ -4,15 +4,23 @@
 ;; application.
 
 (ns com.puppetlabs.cmdb.http.server
-  (:require [clothesline.core :as cl]
-            [com.puppetlabs.cmdb.http.command :as command]
-            [com.puppetlabs.cmdb.http.facts :as facts]
-            [com.puppetlabs.cmdb.http.resources :as resources]))
+  (:use [com.puppetlabs.cmdb.http.command :only (command-app)]
+        [com.puppetlabs.cmdb.http.facts :only (facts-app)]
+        [com.puppetlabs.cmdb.http.resources :only (resources-app)]
+        [net.cgrand.moustache :only (app)]
+        [ring.middleware.params :only (wrap-params)]))
 
 (def routes
-  {"/resources"   resources/resource-list-handler
-   "/facts/:node" facts/fact-set-handler
-   "/commands"    command/http->mq-handler})
+  (app
+   ["facts" node]
+   {:get (fn [req]
+           (facts-app (assoc-in req [:params "node"] node)))}
+
+   ["resources"]
+   {:get resources-app}
+
+   ["commands"]
+   {:post command-app}))
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
@@ -26,5 +34,6 @@
   "Given an attribute map representing connectivity to the SCF
   database, generate a Ring application that handles queries"
   [globals]
-  (-> (cl/produce-handler routes)
+  (-> routes
+      (wrap-params)
       (wrap-with-globals globals)))
