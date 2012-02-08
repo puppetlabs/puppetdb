@@ -288,8 +288,9 @@
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message
   with an incremented retry counter"
-  [{:keys [command version retries] :or {retries 0} :as msg} e publish-fn]
-  (mark! (get-in @*metrics* [command version :retried]))
+  [msg e publish-fn]
+  (let [{:keys [command version]} (parse-command msg)]
+    (mark! (get-in @*metrics* [command version :retried])))
   (log/error "Retrying message due to:" e)
   (publish-fn (format-for-retry msg)))
 
