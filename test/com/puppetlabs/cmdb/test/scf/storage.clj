@@ -211,27 +211,27 @@
 
         (testing "should contain a complete edges list"
           (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
-                                     "FROM edges e, resources r1, resources r2 "
-                                     "WHERE e.source=r1.hash AND e.target=r2.hash "
+                                     "FROM edges e, catalog_resources r1, catalog_resources r2 "
+                                     "WHERE e.source=r1.resource AND e.target=r2.resource "
                                      "ORDER BY r1.type, r1.title, r2.type, r2.title, e.type")])
                  [{:stype "Class" :stitle "foobar" :ttype "File" :ttitle "/etc/foobar" :etype "contains"}
                   {:stype "Class" :stitle "foobar" :ttype "File" :ttitle "/etc/foobar/baz" :etype "contains"}
                   {:stype "File" :stitle "/etc/foobar" :ttype "File" :ttitle "/etc/foobar/baz" :etype "required-by"}])))
 
         (testing "should contain a complete resources list"
-          (is (= (query-to-vec ["SELECT type, title, exported, sourcefile, sourceline FROM resources ORDER BY type, title"])
-                 [{:type "Class" :title "foobar" :exported false :sourcefile nil :sourceline nil}
-                  {:type "File" :title "/etc/foobar" :exported false :sourcefile "/tmp/foo" :sourceline 10}
-                  {:type "File" :title "/etc/foobar/baz" :exported false :sourcefile "/tmp/bar" :sourceline 20}]))
+          (is (= (query-to-vec ["SELECT type, title FROM catalog_resources ORDER BY type, title"])
+                 [{:type "Class" :title "foobar"}
+                  {:type "File" :title "/etc/foobar"}
+                  {:type "File" :title "/etc/foobar/baz"}]))
 
           (testing "properly associated with the host"
-            (is (= (query-to-vec ["SELECT cc.certname, r.type, r.title, r.exported FROM resources r, catalog_resources cr, certname_catalogs cc WHERE cr.resource=r.hash AND cc.catalog=cr.catalog ORDER BY r.type, r.title"])
-                   [{:certname "myhost.mydomain.com" :type "Class" :title "foobar" :exported false}
-                    {:certname "myhost.mydomain.com" :type "File" :title "/etc/foobar" :exported false}
-                    {:certname "myhost.mydomain.com" :type "File" :title "/etc/foobar/baz" :exported false}])))
+            (is (= (query-to-vec ["SELECT cc.certname, cr.type, cr.title FROM catalog_resources cr, certname_catalogs cc WHERE cc.catalog=cr.catalog ORDER BY cr.type, cr.title"])
+                   [{:certname "myhost.mydomain.com" :type "Class" :title "foobar"}
+                    {:certname "myhost.mydomain.com" :type "File"  :title "/etc/foobar"}
+                    {:certname "myhost.mydomain.com" :type "File"  :title "/etc/foobar/baz"}])))
 
           (testing "with all parameters"
-            (is (= (query-to-vec ["SELECT r.type, r.title, rp.name, rp.value FROM resources r, resource_params rp WHERE rp.resource=r.hash ORDER BY r.type, r.title, rp.name"])
+            (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
                    [{:type "File" :title "/etc/foobar" :name "ensure" :value (db-serialize "directory")}
                     {:type "File" :title "/etc/foobar" :name "group" :value (db-serialize "root")}
                     {:type "File" :title "/etc/foobar" :name "user" :value (db-serialize "root")}
@@ -240,14 +240,12 @@
                     {:type "File" :title "/etc/foobar/baz" :name "require" :value (db-serialize "File[/etc/foobar]")}
                     {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
 
-          (testing "with all tags"
-            (is (= (query-to-vec ["SELECT r.type, r.title, t.name FROM resources r, resource_tags t WHERE t.resource=r.hash ORDER BY r.type, r.title, t.name"])
-                   [{:type "File" :title "/etc/foobar" :name "class"}
-                    {:type "File" :title "/etc/foobar" :name "file"}
-                    {:type "File" :title "/etc/foobar" :name "foobar"}
-                    {:type "File" :title "/etc/foobar/baz" :name "class"}
-                    {:type "File" :title "/etc/foobar/baz" :name "file"}
-                    {:type "File" :title "/etc/foobar/baz" :name "foobar"}])))))
+          (testing "with all metadata"
+            (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.sourcefile, cr.sourceline FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
+              (is (= (map #(assoc % :tags (sort (:tags %))) result)
+                     [{:type "Class" :title "foobar" :tags [] :exported false :sourcefile nil :sourceline nil}
+                      {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/foo" :sourceline 10}
+                      {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}]))))))
 
       (testing "should noop if replaced by themselves"
         (sql/with-connection *db*
@@ -319,15 +317,6 @@
           (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
                  []))))
 
-      (testing "when deleted, should leave resources alone"
-        (sql/with-connection *db*
-          (migrate!)
-          (let [hash (add-catalog! catalog)]
-            (delete-catalog! hash))
-
-          (is (= (query-to-vec ["SELECT * FROM resources r, catalog_resources cr WHERE r.hash=cr.resource"])
-                 []))))
-
       (testing "when deleted, should leave certnames alone"
         (sql/with-connection *db*
           (migrate!)
@@ -377,11 +366,11 @@
                                      "myhost.mydomain.com"])
                  [{:c 0}]))
 
-          ;; All the resources should still be there
-          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resources"])
+          ;; All the other resources should still be there
+          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
                  [{:c 3}]))))
 
-      (testing "when deleted without GC, should leave resources behind"
+      (testing "when deleted without GC, should leave params"
         (sql/with-connection *db*
           (migrate!)
           (add-certname! "myhost.mydomain.com")
@@ -389,12 +378,11 @@
             (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
             (delete-catalog! hash1))
 
-          ;; All the resources are still present, despite not being
-          ;; associated with a catalog
-          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resources"])
-                 [{:c 3}]))))
+          ;; All the params should still be there
+          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
+                 [{:c 7}]))))
 
-      (testing "when deleted and GC'ed, should leave no dangling resources"
+      (testing "when deleted and GC'ed, should leave no dangling params or edges"
         (sql/with-connection *db*
           (migrate!)
           (add-certname! "myhost.mydomain.com")
@@ -403,7 +391,9 @@
             (delete-catalog! hash1))
           (garbage-collect!)
 
-          (is (= (query-to-vec ["SELECT * FROM resources"])
+          (is (= (query-to-vec ["SELECT * FROM resource_params"])
+                 []))
+          (is (= (query-to-vec ["SELECT * FROM edges"])
                  []))))
 
       (testing "when dissociated and not GC'ed, should still exist"

@@ -8,7 +8,7 @@
         ring.mock.request
         [clojure.contrib.duck-streams :only (read-lines)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize]]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def *app* nil)
@@ -44,15 +44,11 @@ to the result of the form supplied to this method."
   (is (= 200   (:status response)))
   (is (= *c-t* (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
-                 (json/parse-string (:body response) true)
-                 nil)) (str response)))
+                (set (json/parse-string (:body response) true))
+                nil)) (str response)))
 
 
 (deftest resource-list-handler
-  (sql/insert-records
-   :resources
-   {:hash "1" :type "File"   :title "/etc/passwd"   :exported true}
-   {:hash "2" :type "Notify" :title "hello"         :exported true})
   (sql/insert-records
    :resource_params
    {:resource "1" :name "ensure" :value (db-serialize "file")}
@@ -71,54 +67,59 @@ to the result of the form supplied to this method."
     :certname_catalogs
     {:certname "one.local" :catalog "foo"}
     {:certname "two.local" :catalog "bar"})
-  (doseq [n (range 1 3)]
-    (sql/insert-record :catalog_resources
-                       {:catalog "foo" :resource (str n)}))
-  (doseq [n [2]]
-    (sql/insert-record :catalog_resources
-                       {:catalog "bar" :resource (str n)}))
-  (sql/insert-records
-   :resource_tags
-   {:resource "1" :name "one"}
-   {:resource "1" :name "two"})
+  (sql/insert-records :catalog_resources
+    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
+    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
+    {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])})
+  (let [foo1 {:certname   "one.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       ["one" "two"]
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {:ensure "file"
+                           :owner  "root"
+                           :group  "root"
+                           :acl    ["john:rwx" "fred:rwx"]}}
+        bar1 {:certname   "two.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       ["one" "two"]
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {:ensure "file"
+                           :owner  "root"
+                           :group  "root"
+                           :acl    ["john:rwx" "fred:rwx"]}}
+        bar2 {:certname   "two.local"
+              :resource   "2"
+              :type       "Notify"
+              :title      "hello"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {}}]
+    (testing "query without filter"
+      (is-response-equal (get-response) #{foo1 bar1 bar2}))
 
-  (testing "query without filter"
-    (is-response-equal (get-response)
-                       [{:hash       "1"
-                         :type       "File"
-                         :title      "/etc/passwd"
-                         :exported   true
-                         :sourcefile nil
-                         :sourceline nil
-                         :parameters {:ensure "file"
-                                      :owner  "root"
-                                      :group  "root"
-                                      :acl    ["john:rwx" "fred:rwx"]}}
-                        {:hash       "2"
-                         :type       "Notify"
-                         :title      "hello"
-                         :exported   true
-                         :sourcefile nil
-                         :sourceline nil}]))
-  (testing "query with filter"
-    (doseq [query [["=" "type" "File"]
-                   ["=" "tag" "one"]
-                   ["=" "tag" "two"]
-                   ["and" ["=" ["node" "certname"] "one.local"] ["=" "type" "File"]]
-                   ["=" ["parameter" "ensure"] "file"]
-                   ["=" ["parameter" "owner"]  "root"]
-                   ["=" ["parameter" "acl"]    ["john:rwx" "fred:rwx"]]]]
-      (is-response-equal (get-response query)
-                         [{:hash       "1"
-                           :type       "File"
-                           :title      "/etc/passwd"
-                           :exported   true
-                           :sourcefile nil
-                           :sourceline nil
-                           :parameters {:ensure "file"
-                                        :owner  "root"
-                                        :group  "root"
-                                        :acl    ["john:rwx" "fred:rwx"]}}])))
+    (testing "query with filter"
+      (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
+                              [["=" "tag" "one"] #{foo1 bar1}]
+                              [["=" "tag" "two"] #{foo1 bar1}]
+                              [["and"
+                                ["=" ["node" "certname"] "one.local"]
+                                ["=" "type" "File"]]
+                               #{foo1}]
+                              [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
+                              [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
+                              [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+        (is-response-equal (get-response query) result))))
+
   (testing "error handling"
     (let [response (get-response ["="])
           body     (get response :body "null")]
