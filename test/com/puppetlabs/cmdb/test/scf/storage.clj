@@ -370,7 +370,7 @@
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
                  [{:c 3}]))))
 
-      (testing "when deleted without GC, should leave params and edges behind"
+      (testing "when deleted without GC, should leave params"
         (sql/with-connection *db*
           (migrate!)
           (add-certname! "myhost.mydomain.com")
@@ -382,7 +382,7 @@
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
                  [{:c 7}]))))
 
-      (testing "when deleted and GC'ed, should leave no dangling resources"
+      (testing "when deleted and GC'ed, should leave no dangling params"
         (sql/with-connection *db*
           (migrate!)
           (add-certname! "myhost.mydomain.com")
@@ -392,8 +392,6 @@
           (garbage-collect!)
 
           (is (= (query-to-vec ["SELECT * FROM resource_params"])
-                 []))
-          (is (= (query-to-vec ["SELECT * FROM edges"])
                  []))))
 
       (testing "when dissociated and not GC'ed, should still exist"

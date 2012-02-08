@@ -123,7 +123,7 @@ must be supplied as the value to be matched."
 ;;
 ;; * `:gc-catalogs`: the time it takes to remove all unused catalogs
 ;;
-;; * `:gc-resources`: the time it takes to remove all unused resources
+;; * `:gc-params`: the time it takes to remove all unused resource params
 ;;
 ;; ### Timers for fact storage
 ;;
@@ -144,7 +144,7 @@ must be supplied as the value to be matched."
 
    :gc                (timer [ns-str "default" "gc-time"])
    :gc-catalogs       (timer [ns-str "default" "gc-catalogs-time"])
-   :gc-resources      (timer [ns-str "default" "gc-resources-time"])
+   :gc-params         (timer [ns-str "default" "gc-params-time"])
 
    :new-catalog       (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog (counter [ns-str "default" "duplicate-catalogs"])
@@ -444,13 +444,11 @@ must be supplied as the value to be matched."
   (time! (:gc-catalogs *metrics*)
    (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"])))
 
-(defn delete-unassociated-resources!
+(defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
-  (time! (:gc-resources *metrics*)
-   (sql/delete-rows :resource_params ["resource NOT IN (SELECT resource FROM catalog_resources)"])
-   (sql/delete-rows :edges [(str "source NOT IN (SELECT resource FROM catalog_resources) OR "
-                                 "target NOT IN (SELECT resource FROM catalog_resources)")])))
+  (time! (:gc-params *metrics*)
+   (sql/delete-rows :resource_params ["resource NOT IN (SELECT resource FROM catalog_resources)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
@@ -458,7 +456,7 @@ must be supplied as the value to be matched."
   (time! (:gc *metrics*)
    (sql/transaction
     (delete-unassociated-catalogs!)
-    (delete-unassociated-resources!))))
+    (delete-unassociated-params!))))
 
 ;; ## High-level entity manipulation
 
