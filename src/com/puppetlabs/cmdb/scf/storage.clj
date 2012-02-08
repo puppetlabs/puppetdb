@@ -365,8 +365,8 @@ must be supplied as the value to be matched."
       (assoc :certname certname)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
-      (assoc :resources (for [[ref {:keys [type title tags exported file line]}] (sort-by #((juxt :type :title) (key %)) resources)]
-                              [type title (sort tags) exported file line]))
+      (assoc :resources (sort (for [[ref {:keys [type title tags exported file line]}] resources]
+                              [type title (sort tags) exported file line])))
       (assoc :edges (sort (map edge-identity-string edges)))
       (pr-str)
       (digest/sha-1)))
