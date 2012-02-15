@@ -9,7 +9,7 @@
          [com.puppetlabs.cmdb.testutils :only [test-db]]
          [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *app* nil)
+(def ^:dynamic *app* nil)
 
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
@@ -18,14 +18,14 @@
                             (migrate!)
                             (f))))))
 
-(def *content-type* "application/json")
+(def c-t "application/json")
 
 (defn make-request
   "Return a GET request against path, suitable as an argument to a Clothesline
   app. Params supported are content-type and query-string."
   ([path] (make-request path {}))
   ([path {keys [:query-string :content-type]
-          :or {:query-string "" :content-type *content-type*} :as params}]
+          :or {:query-string "" :content-type c-t} :as params}]
      (let [request (request :get path (:query-string params))
            headers (:headers request)]
        (assoc request :headers (assoc headers "Accept" (:content-type params))))))
@@ -45,20 +45,20 @@
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]
         (is (= (:status response) 404))
-        (is (= (get-in response [:headers "Content-Type"]) *content-type*))
+        (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response) true)
                {:error "Could not find facts for imaginary_node"}))))
     (testing "for a present node without facts"
       (let [request (make-request (format "/facts/%s" certname_without_facts))
             response (*app* request)]
         (is (= (:status response) 404))
-        (is (= (get-in response [:headers "Content-Type"]) *content-type*))
+        (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response) true)
                {:error (str "Could not find facts for " certname_without_facts)}))))
     (testing "for a present node with facts"
       (let [request (make-request (format "/facts/%s" certname_with_facts))
             response (*app* request)]
         (is (= (:status response) 200))
-        (is (= (get-in response [:headers "Content-Type"]) *content-type*))
+        (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response))
                {"name" certname_with_facts "facts" facts}))))))

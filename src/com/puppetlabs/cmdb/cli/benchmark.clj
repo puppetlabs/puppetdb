@@ -37,20 +37,19 @@
 ;; tick.
 ;;
 (ns com.puppetlabs.cmdb.cli.benchmark
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [cheshire.core :as json]
             [clj-http.client :as client]
-            [clj-http.util :as util]
-            [clojure.contrib.duck-streams :as ds])
+            [clj-http.util :as util])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *hosts* nil)
-(def *url* nil)
-(def *runinterval* nil)
-(def *rand-percentage* 0)
+(def hosts nil)
+(def rest-url nil)
+(def runinterval nil)
+(def rand-percentage 0)
 
 (defn submit-catalog
   "Send the given wire-format catalog (associated with `host`) to a
@@ -61,10 +60,10 @@
                     :payload catalog}
                    (json/generate-string))
         body   (format "payload=%s" (util/url-encode msg))
-        result (client/post *url* {:body body
-                                   :throw-exceptions false
-                                   :content-type :x-www-form-urlencoded
-                                   :accept :json})]
+        result (client/post rest-url {:body             body
+                                      :throw-exceptions false
+                                      :content-type     :x-www-form-urlencoded
+                                      :accept           :json})]
     (if (not= 200 (:status result))
       (log/error result))))
 
@@ -87,8 +86,8 @@
 
   * Submit the resulting catalog"
   [{:keys [host lastrun catalog] :as state} clock]
-  (if (> (- clock lastrun) *runinterval*)
-    (let [catalog (if (< (rand 100) *rand-percentage*)
+  (if (> (- clock lastrun) runinterval)
+    (let [catalog (if (< (rand 100) rand-percentage)
                     (tweak-catalog catalog)
                     catalog)]
       ;; Submit the catalog in a separate thread, so as to not disturb
@@ -111,7 +110,7 @@
     (let [curr-time (System/currentTimeMillis)]
 
       ;; Send out updated ticks to each agent
-      (doseq [host *hosts*]
+      (doseq [host hosts]
         (send host update-host curr-time))
 
       (Thread/sleep 10)
@@ -132,14 +131,14 @@
         nhosts      (:numhosts options)
         hostnames   (into #{} (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
 
-    (def *url* (:url options))
-    (def *rand-percentage* (Integer/parseInt (:rand-perc options)))
-    (def *runinterval* (* 60 1000 (Integer/parseInt (:runinterval options))))
+    (def rest-url (:url options))
+    (def rand-percentage (Integer/parseInt (:rand-perc options)))
+    (def runinterval (* 60 1000 (Integer/parseInt (:runinterval options))))
 
     ;; Create an agent for each host
-    (def *hosts*
+    (def hosts
       (into [] (map #(agent {:host %,
-                             :lastrun (- (System/currentTimeMillis) (rand-int *runinterval*)),
+                             :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
                              :catalog (-> catalog
                                         (assoc-in ["data" "name"] %)
                                         (assoc-in ["data" "resources"]

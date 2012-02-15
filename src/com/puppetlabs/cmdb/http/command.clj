@@ -19,7 +19,7 @@
 ;;   submitted to the MQ
 ;;
 (ns com.puppetlabs.cmdb.http.command
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]

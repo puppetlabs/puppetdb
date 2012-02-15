@@ -14,7 +14,7 @@
 (ns com.puppetlabs.cmdb.scf.migrate
   (:import java.util.Date)
   (:require [clojure.java.jdbc :as sql]
-            [clojure.contrib.logging :as log])
+            [clojure.tools.logging :as log])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.scf.storage :only [sql-array-type-string]]))
 

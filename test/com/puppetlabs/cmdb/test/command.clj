@@ -2,7 +2,7 @@
   (:use [com.puppetlabs.cmdb.command]
         [com.puppetlabs.utils]
         [clojure.test]
-        [slingshot.core :only [try+ throw+]]))
+        [slingshot.slingshot :only [try+ throw+]]))
 
 (deftest command-parsing
   (testing "Command parsing"
@@ -66,7 +66,7 @@
             on-msg (fn [msg])
             [acked retried failed] (run-through-command-map msg-seq on-msg)]
         ;; Verify that all the global metrics are present
-        (is (= (into #{} (keys (@*metrics* "global")))
+        (is (= (into #{} (keys (@metrics "global")))
                #{:seen :processed :fatal :retried :discarded :processing-time :retry-counts}))))
 
     (testing "should ack messages without errors"
@@ -141,7 +141,7 @@
         (let [f (make-msg-handler 1 nil)]
           (is (= :sentinel (f :unused))))
         ;; Verify that all the command-specific metrics are present
-        (is (= (into #{} (keys (get-in @*metrics* ["foobar" 1])))
+        (is (= (into #{} (keys (get-in @metrics ["foobar" 1])))
                #{:seen :processed :fatal :retried :discarded :processing-time :retry-counts}))))
 
     (testing "should do nothing if a message has exceeded the max allowable retries"

@@ -1,6 +1,6 @@
 (ns com.puppetlabs.cmdb.cli.populatemq
   (:require
-            [clojure.contrib.logging :as log]
+            [clojure.tools.logging :as log]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [clojure.contrib.duck-streams :as ds]
