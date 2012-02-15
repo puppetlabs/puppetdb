@@ -91,9 +91,8 @@
 ;;                     ...)}
 ;;
 (ns com.puppetlabs.cmdb.catalog
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [clojure.contrib.duck-streams :as ds]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
 

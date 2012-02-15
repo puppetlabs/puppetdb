@@ -7,13 +7,14 @@
 (ns com.puppetlabs.utils
   (:import (org.ini4j Ini))
   (:require [clojure.test]
-            [clojure.string]
-            [clojure.contrib.duck-streams :as ds]
+            [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
             [ring.util.response :as rr])
-  (:use [clojure.core.incubator :as incubator]
-        [slingshot.core :only [try+ throw+]]))
+  (:use [clojure.core.incubator :only (-?>)]
+        [clojure.java.io :only (reader)]
+        [clojure.set :only (difference union)]
+        [slingshot.slingshot :only (try+ throw+)]))
 
 ;; ## Math
 
@@ -32,7 +33,7 @@
 (defn symmetric-difference
   "Computes the symmetric difference between 2 sets"
   [s1 s2]
-  (clojure.set/union (clojure.set/difference s1 s2) (clojure.set/difference s2 s1)))
+  (union (difference s1 s2) (difference s2 s1)))
 
 (defn as-collection
   "Returns the item wrapped in a collection, if it's not one
@@ -61,9 +62,9 @@
 (defn array?
   "Returns true if `x` is an array"
   [x]
-  (incubator/-?> x
-                 (class)
-                 (.isArray)))
+  (-?> x
+       (class)
+       (.isArray)))
 
 (defn keyset
   "Retuns a set of keys from the supplied map"
@@ -71,45 +72,6 @@
   {:pre  [(map? m)]
    :post [(set? %)]}
   (set (keys m)))
-
-;; ## Stubbing
-;;
-;; These redef functions are backported from Clojure 1.3 core
-
-(defn with-redefs-fn
-  "Temporarily redefines Vars during a call to func.  Each val of
-  binding-map will replace the root value of its key which must be
-  a Var.  After func is called with no args, the root values of all
-  the Vars will be set back to their old values.  These temporary
-  changes will be visible in all threads.  Useful for mocking out
-  functions during testing."
-  {:added "1.3"}
-  [binding-map func]
-  (let [root-bind (fn [m]
-                    (doseq [[a-var a-val] m]
-                      (.bindRoot ^clojure.lang.Var a-var a-val)))
-        old-vals (zipmap (keys binding-map)
-                         (map deref (keys binding-map)))]
-    (try
-      (root-bind binding-map)
-      (func)
-      (finally
-        (root-bind old-vals)))))
-
-(defmacro with-redefs
-  "binding => var-symbol temp-value-expr
-
-  Temporarily redefines Vars while executing the body.  The
-  temp-value-exprs will be evaluated and each resulting value will
-  replace in parallel the root value of its Var.  After the body is
-  executed, the root values of all the Vars will be set back to their
-  old values.  These temporary changes will be visible in all threads.
-  Useful for mocking out functions during testing."
-  {:added "1.3"}
-  [bindings & body]
-  `(with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                            (take-nth 2 (next bindings)))
-                    (fn [] ~@body)))
 
 ;; ## Exception handling
 
@@ -153,9 +115,9 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
-  (let [ini        (Ini. (ds/reader filename))
+  (let [ini        (Ini. (reader filename))
         m          (atom {})
-        keywordize #(keyword (clojure.string/lower-case %))]
+        keywordize #(keyword (string/lower-case %))]
 
     (doseq [[name section] ini
             [key _] section

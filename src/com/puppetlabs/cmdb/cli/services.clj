@@ -49,7 +49,7 @@
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
-            [clojure.contrib.logging :as log]
+            [clojure.tools.logging :as log]
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])
@@ -61,8 +61,8 @@
 ;; The following functions setup interaction between the main
 ;; Grayskull components.
 
-(def *mq-addr* "vm://localhost")
-(def *mq-endpoint* "com.puppetlabs.cmdb.commands")
+(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
+(def mq-endpoint "com.puppetlabs.cmdb.commands")
 
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.
@@ -107,8 +107,8 @@
         mq-dir         (get-in config [:mq :dir])
 
         globals        {:scf-db db
-                        :command-mq {:connection-string *mq-addr*
-                                     :endpoint *mq-endpoint*}}
+                        :command-mq {:connection-string mq-addr
+                                     :endpoint mq-endpoint}}
         ring-app       (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
@@ -121,7 +121,7 @@
           command-processor (do
                               (log/info "Starting command processor")
                               (future
-                                (load-from-mq *mq-addr* *mq-endpoint* db)))
+                                (load-from-mq mq-addr mq-endpoint db)))
           web-app           (do
                               (log/info "Starting query server")
                               (future

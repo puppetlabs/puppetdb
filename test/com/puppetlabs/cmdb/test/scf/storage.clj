@@ -6,13 +6,13 @@
   (:use [com.puppetlabs.cmdb.scf.storage]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
-        [clojure.contrib.combinatorics :only (combinations)]
+        [clojure.math.combinatorics :only (combinations)]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
-(def *db* (test-db))
+(def db (test-db))
 
-(def *basic-catalog*
+(def basic-catalog
   {:certname "myhost.mydomain.com"
    :cmdb-version cat/CMDB-VERSION
    :api-version 1
@@ -101,7 +101,7 @@
 
 (deftest catalog-dedupe
   (testing "Catalogs with different metadata but the same content should hash to the same thing"
-    (let [catalog       *basic-catalog*
+    (let [catalog       basic-catalog
           hash          (catalog-similarity-hash catalog)
           ;; List of all the tweaking functions
           chaos-monkeys [catutils/add-random-resource-to-catalog
@@ -129,7 +129,7 @@
               (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
   (testing "Catalogs with the same metadata but the different content should have different hashes"
-    (let [catalog            *basic-catalog*
+    (let [catalog            basic-catalog
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
           tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
@@ -158,7 +158,7 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (sql/with-connection *db*
+      (sql/with-connection db
         (migrate!)
         (add-certname! certname)
         (add-facts! certname facts)
@@ -189,9 +189,9 @@
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
-    (let [catalog *basic-catalog*]
+    (let [catalog basic-catalog]
 
-      (sql/with-connection *db*
+      (sql/with-connection db
         (migrate!)
         (add-certname! "myhost.mydomain.com")
         (let [hash (add-catalog! catalog)]
@@ -248,7 +248,7 @@
                       {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}]))))))
 
       (testing "should noop if replaced by themselves"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)]
@@ -261,22 +261,22 @@
                    [{:hash hash}])))))
 
       (testing "should share structure when duplicate catalogs are detected for the same host"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)
-                prev-dupe-num (.count (:duplicate-catalog *metrics*))
-                prev-new-num  (.count (:new-catalog *metrics*))]
+                prev-dupe-num (.count (:duplicate-catalog metrics))
+                prev-new-num  (.count (:new-catalog metrics))]
 
             ;; Do an initial replacement with the same catalog
             (replace-catalog! catalog)
-            (is (= 1 (- (.count (:duplicate-catalog *metrics*)) prev-dupe-num)))
-            (is (= 0 (- (.count (:new-catalog *metrics*)) prev-new-num)))
+            (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
+            (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             ;; Store a second catalog, with the same content save the version
             (replace-catalog! (assoc catalog :version "abc123"))
-            (is (= 2 (- (.count (:duplicate-catalog *metrics*)) prev-dupe-num)))
-            (is (= 0 (- (.count (:new-catalog *metrics*)) prev-new-num)))
+            (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
+            (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
                    [{:name "myhost.mydomain.com"}]))
@@ -288,7 +288,7 @@
                    [{:hash hash}])))))
 
       (testing "should noop if replaced by themselves after using manual deletion"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-catalog! catalog)
@@ -299,7 +299,7 @@
                  [{:name "myhost.mydomain.com"}]))))
 
       (testing "should be removed when deleted"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash (add-catalog! catalog)]
@@ -318,7 +318,7 @@
                  []))))
 
       (testing "when deleted, should leave certnames alone"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-catalog! catalog)
@@ -328,7 +328,7 @@
                  [{:name "myhost.mydomain.com"}]))))
 
       (testing "when deleted, should leave other hosts' resources alone"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (add-certname! "myhost2.mydomain.com")
@@ -371,7 +371,7 @@
                  [{:c 3}]))))
 
       (testing "when deleted without GC, should leave params"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
@@ -383,7 +383,7 @@
                  [{:c 7}]))))
 
       (testing "when deleted and GC'ed, should leave no dangling params or edges"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
@@ -397,7 +397,7 @@
                  []))))
 
       (testing "when dissociated and not GC'ed, should still exist"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
@@ -411,7 +411,7 @@
                  [{:c 1}]))))
 
       (testing "when dissociated and GC'ed, should no longer exist"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (add-certname! "myhost.mydomain.com")
           (let [hash1 (add-catalog! catalog)]
@@ -428,7 +428,7 @@
     (testing "should noop"
 
       (testing "on bad input"
-        (sql/with-connection *db*
+        (sql/with-connection db
           (migrate!)
           (is (thrown? AssertionError (add-catalog! {})))
 
@@ -455,7 +455,7 @@
                                                                         :parameters {"ensure" "directory"
                                                                                      "group"  "root"
                                                                                      "user"   "root"}}}}]
-          (sql/with-connection *db*
+          (sql/with-connection db
             (migrate!)
             (is (thrown? AssertionError (add-catalog! {})))
 

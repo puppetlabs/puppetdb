@@ -7,7 +7,7 @@
          [com.puppetlabs.cmdb.testutils :only [test-db]]
          [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
-(def *db* nil)
+(def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
