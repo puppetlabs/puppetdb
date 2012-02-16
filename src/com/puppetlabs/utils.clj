@@ -10,6 +10,7 @@
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
+            [digest]
             [ring.util.response :as rr])
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
@@ -177,3 +178,14 @@
   [uri]
   (remove #{""} (.split uri "/")))
 
+;; ## Hashing
+
+(defn utf8-string->sha1
+  "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
+  string"
+  [s]
+  {:pre  [(string? s)]
+   :post [(string? %)]}
+  (-> s
+      (.getBytes "UTF-8")
+      (digest/sha-1)))
