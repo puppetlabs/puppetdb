@@ -34,7 +34,7 @@
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
-            [clamq.protocol.seqable :as mq-seq]
+            [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.slingshot :only [try+ throw+]]
@@ -163,7 +163,7 @@
   (fn [{:keys [command version] :or {version 1}} _]
     [command version]))
 
-;; ## Catalog replacement
+;; Catalog replacement
 
 (defmethod process-command! ["replace catalog" 1] [cmd options]
   ;; Parsing a catalog either works, or it generates a fatal exception
@@ -180,6 +180,8 @@
       (scf-storage/replace-catalog! catalog))
     (log/info (format "[replace catalog] %s" certname))))
 
+;; Fact replacement
+
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload]} {:keys [db]}]
   (let [{:strs [name values]} payload]
@@ -189,91 +191,111 @@
       (scf-storage/replace-facts! name values))
     (log/info (format "[replace facts] %s" name))))
 
-;; ## Message queue I/O and utilities
+;; ## MQ I/O
+;;
+;; The data flow through the code is as follows:
+;;
+;; * A message is read off of an MQ endpoint
+;;
+;; * The message is fed through a _message processor_: a function that
+;;   takes a message as the only argument
+;;
+;; * Repeat ad-infinitum
+;;
 
-(defn command-map!
-  "Event loop that maps `f` over the messages in `msg-seq`.
+;; ## MQ processing middleware
+;;
+;; The parsing and processing of incoming commands is architected as a
+;; set of _middleware_ functions. That is, higher-order functions that
+;; add capabilities to an existing message-handling
+;; function. Middleware can be stacked, creating sophisticated
+;; hierarchies of functionality. And because each middleware function
+;; is isolated in terms of capability, testability is much simpler.
+;;
+;; It's not an original idea; it was stolen from _Ring's_ middleware
+;; architecture.
+;;
 
-  `ack-msg` is a function that takes a message as an argument, and is
-  called whenever the message is _acknowledged_, meaning that we're
-  done processing the message.
+(defn wrap-with-exception-handling
+  "Wrap a message processor `f` such that all Throwable or `fatal?`
+  exceptions are caught.
 
-  If `f` throws an `fatality!` object (testable using the `fatal?`
-  function), then the supplied `on-fatal` function is called with the
-  message and the exception as arguments. After the callback has
-  finished executing, the message is acknowledged.
+  If a `fatal?` exception is thrown, the supplied `on-fatal` function
+  is invoked with the message and the exception as arguments.
 
-  If `f` throws any other type of exception, the supplied `on-retry`
-  function is called with the message and the exception as
-  arguments. The original message is then acknowledged, so `on-retry`
-  should completely handle the retry scenario prior to returning
-  control to the caller. There is a race condition here wherein a
-  crash in-between the time `on-retry` has completed and before the
-  original message is acknowledged may incur the side-effects from
-  `on-retry`, yet the original message still exists at the head of the
-  queue. This is a conscious trade-off versus losing the message
-  altogether.
-
-  Any exceptions thrown during invokation of a callback function will
-  cause the entire function to terminate without acknowledging the
-  currently-operated-on message."
-  [msg-seq ack-msg f on-retry on-fatal]
-  (doseq [msg msg-seq]
+  If any other Throwable exception is caught, the supplied `on-retry`
+  function is invoked with the message and the exception as
+  arguments."
+  [f on-retry on-fatal]
+  (fn [msg]
     (try+
 
      (mark! (global-metric :seen))
      (time! (global-metric :processing-time)
             (f msg))
      (mark! (global-metric :processed))
-     (ack-msg msg)
 
      (catch fatal? {:keys [cause]}
        (on-fatal msg cause)
-       (mark! (global-metric :fatal))
-       (ack-msg msg))
+       (mark! (global-metric :fatal)))
 
      (catch Throwable exception
        (on-retry msg exception)
-       (mark! (global-metric :retried))
-       (ack-msg msg)))))
+       (mark! (global-metric :retried))))))
 
-(defn make-msg-handler
-  "Returns a handler function (for use with command-map!) that attempts
-  to parse and process a command.
-
-  Parsing errors trigger a fatal exception, as if we can't even parse
-  the command there's really no point in retrying the processing. If
-  we encounter a message that's been retried more than `max-retries`
-  times, we don't bother processing it."
-  [max-retries options-map]
+(defn wrap-with-command-parser
+  "Wrap a message processor `f` such that all messages passed to `f`
+  are well-formed commands. If a message cannot be parsed, a `fatal?`
+  exception is thrown, circumventing invokation of `f`."
+  [f]
   (fn [msg]
-    (let [parsed-msg                (try+
-                                     (parse-command msg)
-                                     (catch Throwable e
-                                       (throw+ (fatality! e))))
-          {:keys [command version]} parsed-msg
-          retries                   (get parsed-msg :retries 0)
-          cmd-metric                #(get-in @metrics [command version %])]
+    (let [parsed-msg (try+
+                      (parse-command msg)
+                      (catch Throwable e
+                        (throw+ (fatality! e))))]
+      (f parsed-msg))))
 
+(defn wrap-with-command-processor
+  "Wrap a message processor `f` such that incoming commands get
+  dispatched to the appropriate command-handler. If a message has a
+  retry count exceeding `max-retries`, that message is discarded and
+  _does not_ get dispatched to a handler.
+
+  This assumes that all incoming messages are well-formed command
+  objects, such as those produced by the `wrap-with-command-parser`
+  middleware."
+  [f max-retries]
+  (fn [{:keys [command version retries] :or {retries 0} :as msg}]
+    (let [cmd-metric #(get-in @metrics [command version %])]
       (create-metrics-for-command! command version)
       (mark! (cmd-metric :seen))
       (update! (global-metric :retry-counts) retries)
       (update! (cmd-metric :retry-counts) retries)
 
-      (when-not (< retries max-retries)
+      (when (> retries max-retries)
         (mark! (global-metric :discarded))
         (mark! (cmd-metric :discarded)))
 
-      (when (< retries max-retries)
+      (when (<= retries max-retries)
         (let [result (time! (cmd-metric :processing-time)
-                            (process-command! parsed-msg options-map))]
+                            (f msg))]
           (mark! (cmd-metric :processed))
           result)))))
+
+;; ## High-level functions
+;;
+;; The following functions represent the principal logic for
+;; command-processing.
+;;
+
+;; ### Fatal error callback
 
 (defn handle-command-failure
   "Dump the error encountered during command-handling to the log"
   [msg e]
   (log/error "Fatal error processing msg" e))
+
+;; ### Retry callback
 
 (defn format-for-retry
   "Return a version of the supplied command message with its retry count incremented."
@@ -294,19 +316,32 @@
   (log/error "Retrying message due to:" e)
   (publish-fn (format-for-retry msg)))
 
+;; ### Principal function
+
 (defn process-commands!
   "Connect to an MQ an continually, sequentially process commands.
 
   If the MQ consumption timeout is reached without any new data, the
   function will terminate."
   [connection endpoint options-map]
-  (let [on-message (make-msg-handler 5 options-map)
-        on-fatal   handle-command-failure
+  (let [on-fatal   handle-command-failure
         producer   (mq-conn/producer connection)
         publish    #(mq-producer/publish producer endpoint %)
-        on-retry   (fn [msg e] (handle-command-retry msg e publish))]
+        on-retry   (fn [msg e] (handle-command-retry msg e publish))
+        on-message (-> #(process-command! % options-map)
+                       (wrap-with-command-processor 5)
+                       (wrap-with-command-parser)
+                       (wrap-with-exception-handling on-retry on-fatal))]
 
-    (with-open [consumer (mq-conn/seqable connection {:endpoint endpoint :timeout 300000})]
-      (let [ack-msg (fn [msg] (mq-seq/ack consumer))
-            msg-seq (mq-seq/mseq consumer)]
-        (command-map! msg-seq ack-msg on-message on-retry on-fatal)))))
+    (let [mq-error (promise)
+          consumer (mq-conn/consumer connection
+                                     {:endpoint   endpoint
+                                      :on-message on-message
+                                      :transacted true
+                                      :on-failure #(deliver mq-error (:exception %))})]
+      (mq-cons/start consumer)
+
+      ;; Block until an exception is thrown by the consumer thread
+      (deref mq-error)
+      (mq-cons/close consumer)
+      (throw @mq-error))))
