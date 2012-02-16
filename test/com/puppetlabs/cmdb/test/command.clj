@@ -119,7 +119,7 @@
     (testing "should work normally if a message has not yet exceeded the max allowable retries"
       (let [called         (call-counter)
             prev-discarded (global-count :discarded)
-            processor      (wrap-with-command-processor called 5)]
+            processor      (wrap-with-discard called 5)]
         (processor {:command "foobar" :version 1 :retries 5})
         (is (= 1 (times-called called)))
         (is (= 0 (- (global-count :discarded) prev-discarded)))
@@ -130,7 +130,7 @@
     (testing "should discard messages that exceed the max allowable retries"
       (let [called    (call-counter)
             prev-discarded (global-count :discarded)
-            processor (wrap-with-command-processor called 5)]
+            processor (wrap-with-discard called 5)]
         (processor {:command "foobar" :version 1 :retries 1000})
         (is (= 0 (times-called called)))
         (is (= 1 (- (global-count :discarded) prev-discarded)))))))

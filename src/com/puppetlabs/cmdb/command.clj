@@ -255,11 +255,9 @@
                         (throw+ (fatality! e))))]
       (f parsed-msg))))
 
-(defn wrap-with-command-processor
-  "Wrap a message processor `f` such that incoming commands get
-  dispatched to the appropriate command-handler. If a message has a
-  retry count exceeding `max-retries`, that message is discarded and
-  _does not_ get dispatched to a handler.
+(defn wrap-with-discard
+  "Wrap a message processor `f` such that incoming commands with a
+  retry count exceeding `max-retries` are discarded.
 
   This assumes that all incoming messages are well-formed command
   objects, such as those produced by the `wrap-with-command-parser`
@@ -329,7 +327,7 @@
         publish    #(mq-producer/publish producer endpoint %)
         on-retry   (fn [msg e] (handle-command-retry msg e publish))
         on-message (-> #(process-command! % options-map)
-                       (wrap-with-command-processor 5)
+                       (wrap-with-discard 5)
                        (wrap-with-command-parser)
                        (wrap-with-exception-handling on-retry on-fatal))]
 
