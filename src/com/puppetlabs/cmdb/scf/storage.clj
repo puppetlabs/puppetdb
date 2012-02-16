@@ -23,7 +23,6 @@
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [digest]
             [cheshire.core :as json])
   (:use [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
@@ -258,7 +257,7 @@ must be supplied as the value to be matched."
   {:pre  [(map? resource)]
    :post [(string? %)]}
   (-> (resource-identity-string resource)
-      (digest/sha-1)))
+      (utils/utf8-string->sha1)))
 
 (defn- resource->values
   "Given a catalog-hash and a resource, return a map representing the
@@ -320,7 +319,7 @@ must be supplied as the value to be matched."
   {:pre  [(map? edge)]
    :post [(string? %)]}
   (-> (edge-identity-string edge)
-      (digest/sha-1)))
+      (utils/utf8-string->sha1)))
 
 (defn add-edges!
   "Persist the given edges in the database
@@ -369,7 +368,7 @@ must be supplied as the value to be matched."
                               [type title (sort tags) exported file line])))
       (assoc :edges (sort (map edge-identity-string edges)))
       (pr-str)
-      (digest/sha-1)))
+      (utils/utf8-string->sha1)))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
