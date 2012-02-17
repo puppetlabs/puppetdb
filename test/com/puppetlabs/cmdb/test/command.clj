@@ -134,3 +134,28 @@
         (processor {:command "foobar" :version 1 :retries 1000})
         (is (= 0 (times-called called)))
         (is (= 1 (- (global-count :discarded) prev-discarded)))))))
+
+(deftest thread-name-middleware
+  (testing "Thread naming middleware"
+
+    (testing "should use the supplied prefix"
+      (let [f (fn [_] (-> (Thread/currentThread)
+                          (.getName)
+                          (.startsWith "foobar")))
+            p (wrap-with-thread-name f "foobar")]
+        (is (= true (p :unused)))))
+
+    (testing "should use different names for different threads"
+      ;; Create 2 threads, each of which places their thread's name
+      ;; into an atom. When the threads complete, the atom should
+      ;; contain 2 distinct names.
+      (let [names (atom #{})
+            f     (fn [_] (swap! names conj (.getName (Thread/currentThread))))
+            p     (wrap-with-thread-name f "foobar")
+            t1    (Thread. #(p :unused))
+            t2    (Thread. #(p :unused))]
+        (.start t1)
+        (.start t2)
+        (.join t1)
+        (.join t2)
+        (is (= (count @names) 2))))))
