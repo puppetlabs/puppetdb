@@ -60,3 +60,16 @@
 
     (testing "should remove empty segments"
       (is (= ["foo" "bar"] (uri-segments "/foo//bar"))))))
+
+(deftest string-hashing
+  (testing "Computing a SHA-1 for a UTF-8 string"
+    (testing "should fail if not passed a string"
+      (is (thrown? AssertionError (utf8-string->sha1 1234))))
+
+    (testing "should produce a stable hash"
+      (is (= (utf8-string->sha1 "foobar")
+             (utf8-string->sha1 "foobar"))))
+
+    (testing "should produce the correct hash"
+      (is (= "8843d7f92416211de9ebb963ff4ce28125932878"
+             (utf8-string->sha1 "foobar"))))))
