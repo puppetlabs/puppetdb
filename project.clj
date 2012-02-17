@@ -28,7 +28,7 @@
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
-                 [clamq "0.3"]
+                 [clamq/clamq-activemq "0.4"]
                  [org.apache.activemq/activemq-core "5.5.1"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0"]
