@@ -148,7 +148,7 @@
     (testing "should use different names for different threads"
       ;; Create 2 threads, each of which places their thread's name
       ;; into an atom. When the threads complete, the atom should
-      ;; contain 2 distinct names.
+      ;; contain 2 distinct names, each with the correct prefix.
       (let [names (atom #{})
             f     (fn [_] (swap! names conj (.getName (Thread/currentThread))))
             p     (wrap-with-thread-name f "foobar")
@@ -158,4 +158,5 @@
         (.start t2)
         (.join t1)
         (.join t2)
-        (is (= (count @names) 2))))))
+        (is (= (count @names) 2))
+        (is (= true (every? #(.startsWith % "foobar") @names)))))))
