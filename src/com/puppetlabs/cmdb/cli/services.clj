@@ -61,6 +61,7 @@
 ;; The following functions setup interaction between the main
 ;; Grayskull components.
 
+(def nthreads (+ 2 (.availableProcessors (Runtime/getRuntime))))
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
 (def mq-endpoint "com.puppetlabs.cmdb.commands")
 
@@ -115,28 +116,30 @@
     (sql/with-connection db
       (migrate!))
 
-    (let [broker            (do
-                              (log/info "Starting broker")
-                              (mq/start-broker! (mq/build-embedded-broker mq-dir)))
-          command-processor (do
-                              (log/info "Starting command processor")
-                              (future
-                                (load-from-mq mq-addr mq-endpoint db)))
-          web-app           (do
-                              (log/info "Starting query server")
-                              (future
-                                (jetty/run-jetty ring-app web-opts)))
-          db-gc             (do
-                              (log/info "Starting database compactor")
-                              (future
-                                (db-garbage-collector db db-gc-interval)))]
+    (let [broker        (do
+                          (log/info "Starting broker")
+                          (mq/start-broker! (mq/build-embedded-broker mq-dir)))
+          command-procs (do
+                          (log/info (format "Starting %d command processor threads" nthreads))
+                          (into [] (for [n (range nthreads)]
+                                     (future
+                                       (load-from-mq mq-addr mq-endpoint db)))))
+          web-app       (do
+                          (log/info "Starting query server")
+                          (future
+                            (jetty/run-jetty ring-app web-opts)))
+          db-gc         (do
+                          (log/info "Starting database compactor")
+                          (future
+                            (db-garbage-collector db db-gc-interval)))]
 
       ;; Publish performance data via JMX
       (log/info "Starting JMX metrics publisher")
       (metrics/report-to-jmx)
 
       ;; Stop services by blocking on the completion of their futures
-      (deref command-processor)
+      (doseq [cp command-procs]
+        (deref cp))
       (deref web-app)
       (deref db-gc)
       ;; Stop the mq the old-fashioned way
