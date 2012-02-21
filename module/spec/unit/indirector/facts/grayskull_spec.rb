@@ -17,7 +17,7 @@ describe Puppet::Node::Facts::Grayskull do
       payload = {
         :command => "replace facts",
         :version => 1,
-        :payload => facts,
+        :payload => facts.to_pson,
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|

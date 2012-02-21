@@ -35,7 +35,7 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
     {
       :command => "replace facts",
       :version => 1,
-      :payload => instance,
+      :payload => instance.to_pson,
     }
   end
 end

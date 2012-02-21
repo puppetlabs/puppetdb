@@ -19,7 +19,7 @@ describe Puppet::Resource::Catalog::Grayskull do
       payload = {
         :command => "replace catalog",
         :version => 1,
-        :payload => catalog,
+        :payload => catalog.to_pson,
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|

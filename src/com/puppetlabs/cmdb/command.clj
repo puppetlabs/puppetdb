@@ -8,8 +8,8 @@
 ;;      "version" 123
 ;;      "payload" <json object>}
 ;;
-;; `payload` must be a valid JSON object of any sort. It's up to an
-;; individual handler function how to interpret that object.
+;; `payload` must be a valid JSON string of any sort. It's up to an individual
+;; handler function how to interpret that object.
 ;;
 ;; The command object may also contain an optional "retries"
 ;; attribute that contains an integer number of times this message
@@ -165,12 +165,11 @@
 
 ;; Catalog replacement
 
-(defmethod process-command! ["replace catalog" 1] [cmd options]
+(defmethod process-command! ["replace catalog" 1]
+  [{:keys [payload]} options]
   ;; Parsing a catalog either works, or it generates a fatal exception
   (let [catalog  (try+
-                  (-> cmd
-                      :payload
-                      (cat/parse-from-json-obj))
+                  (cat/parse-from-json-string payload)
                   (catch Throwable e
                     (throw+ (fatality! e))))
         certname (:certname catalog)]
@@ -184,7 +183,7 @@
 
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload]} {:keys [db]}]
-  (let [{:strs [name values]} payload]
+  (let [{:strs [name values]} (json/parse-string payload)]
     (sql/with-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
@@ -216,6 +215,23 @@
 ;; architecture.
 ;;
 
+(defn wrap-with-counter
+  "Wraps a message processor `f` and counts all messages seen, before invoking
+  `f` on `msg`."
+  [f]
+  (fn [msg]
+    (mark! (global-metric :seen))
+    (f msg)))
+
+(defn try-parse-command
+  "Tries to parse `msg`, returning the parsed message if the parse is
+  successful or a Throwable object if one is thrown."
+  [msg]
+  (try+
+    (parse-command msg)
+    (catch Throwable e
+      e)))
+
 (defn wrap-with-exception-handling
   "Wrap a message processor `f` such that all Throwable or `fatal?`
   exceptions are caught.
@@ -244,16 +260,17 @@
        (mark! (global-metric :retried))))))
 
 (defn wrap-with-command-parser
-  "Wrap a message processor `f` such that all messages passed to `f`
-  are well-formed commands. If a message cannot be parsed, a `fatal?`
-  exception is thrown, circumventing invokation of `f`."
-  [f]
+  "Wrap a message processor `f` such that all messages passed to `f` are
+  well-formed commands. If a message cannot be parsed, the `on-fatal` hook is
+  invoked, and `f` is ignored."
+  [f on-failure]
   (fn [msg]
-    (let [parsed-msg (try+
-                      (parse-command msg)
-                      (catch Throwable e
-                        (throw+ (fatality! e))))]
-      (f parsed-msg))))
+    (let [parse-result (try-parse-command msg)]
+      (if (instance? Throwable parse-result)
+        (do
+          (mark! (global-metric :fatal))
+          (on-failure parse-result))
+        (f parse-result)))))
 
 (defn wrap-with-discard
   "Wrap a message processor `f` such that incoming commands with a
@@ -312,18 +329,14 @@
   "Return a version of the supplied command message with its retry count incremented."
   [msg]
   {:post [(string? %)]}
-  (let [{:keys [command version payload retries] :or {retries 0}} (parse-command msg)]
-    (json/generate-string {"command" command
-                           "version" version
-                           "payload" payload
-                           "retries" (inc retries)})))
+  (let [retries (or (:retries msg) 0)]
+    (json/generate-string (assoc msg :retries (inc retries)))))
 
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message
   with an incremented retry counter"
-  [msg e publish-fn]
-  (let [{:keys [command version]} (parse-command msg)]
-    (mark! (get-in @metrics [command version :retried])))
+  [{:keys [command version] :as msg} e publish-fn]
+  (mark! (get-in @metrics [command version :retried]))
   (log/error "Retrying message due to:" e)
   (publish-fn (format-for-retry msg)))
 
@@ -341,8 +354,9 @@
         on-retry   (fn [msg e] (handle-command-retry msg e publish))
         on-message (-> #(process-command! % options-map)
                        (wrap-with-discard 5)
-                       (wrap-with-command-parser)
                        (wrap-with-exception-handling on-retry on-fatal)
+                       (wrap-with-command-parser on-fatal)
+                       (wrap-with-counter)
                        (wrap-with-thread-name "command-proc"))]
 
     (let [mq-error (promise)
