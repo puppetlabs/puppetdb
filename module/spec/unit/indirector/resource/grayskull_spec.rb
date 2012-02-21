@@ -7,12 +7,14 @@ describe Puppet::Resource::Grayskull do
 
   describe "when creating the terminus" do
     it "should use the grayskull_server setting for its server" do
+      pending "We can't set arbitrary settings"
       Puppet[:server] = 'the_wrong_thing'
       Puppet[:grayskull_server] = 'the_right_thing'
       described_class.server.should == 'the_right_thing'
     end
 
     it "should use the grayskull_port setting for its server" do
+      pending "We can't set arbitrary settings"
       Puppet[:masterport] = 8140
       Puppet[:grayskull_port] = 3000
       described_class.port.should == 3000
@@ -54,9 +56,6 @@ describe Puppet::Resource::Grayskull do
           res_hash = metadata.merge(:type => res.type, :title => res.title)
           res_hash.merge(:parameters => params)
         end
-
-        Puppet[:grayskull_server] = 'localhost'
-        Puppet[:grayskull_port] = 3000
 
         body = [make_resource_hash('foo'), make_resource_hash('bar')].to_pson
         query = ['and', ['=', 'type', 'File'], ['=', 'exported', true]]
