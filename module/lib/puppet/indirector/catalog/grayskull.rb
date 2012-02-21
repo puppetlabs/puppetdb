@@ -35,7 +35,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     {
       :command => "replace catalog",
       :version => 1,
-      :payload => instance,
+      :payload => instance.to_pson,
     }
   end
 end

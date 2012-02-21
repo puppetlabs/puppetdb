@@ -100,18 +100,35 @@
         (is (= 3 (times-called on-retry)))
         (is (= 3 (- (global-count :retried) prev-retried)))))))
 
+(deftest command-counting-middleware
+  (testing "Command counting middleware"
+    (testing "should mark the supplied meter and invoke the wrapped function"
+      (let [meter (global-metric :seen)
+            prev-seen (.count meter)
+            called (call-counter)
+            counter (wrap-with-meter called meter)]
+        (counter "{}")
+        (is (= 1 (- (.count meter) prev-seen)))
+        (is (= 1 (times-called called)))))))
+
 (deftest command-parsing-middleware
   (testing "Command parsing middleware"
 
-    (testing "should throw fatal exceptions if a command can't be parsed"
-      (let [processor (wrap-with-command-parser identity)]
-        (is (thrown+? fatal? (processor "{}")))))
+    (testing "should invoke its on-failure handler if a command can't be parsed"
+      (let [called (call-counter)
+            failed (call-counter)
+            parser (wrap-with-command-parser called failed)]
+        (parser "/s++-")
+        (is (= 0 (times-called called)))
+        (is (= 1 (times-called failed)))))
 
     (testing "should normally pass through a parsed message"
-      (let [called    (call-counter)
-            processor (wrap-with-command-parser called)]
-        (processor "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}")
-        (is (= 1 (times-called called)))))))
+      (let [called (call-counter)
+            failed (call-counter)
+            parser (wrap-with-command-parser called failed)]
+        (parser "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}")
+        (is (= 1 (times-called called)))
+        (is (= 0 (times-called failed)))))))
 
 (deftest command-processing-middleware
   (testing "Command processing middleware"
