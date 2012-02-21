@@ -102,12 +102,13 @@
 
 (deftest command-counting-middleware
   (testing "Command counting middleware"
-    (testing "should increment the number of messages seen"
-      (let [prev-seen (global-count :seen)
+    (testing "should mark the supplied meter and invoke the wrapped function"
+      (let [meter (global-metric :seen)
+            prev-seen (.count meter)
             called (call-counter)
-            counter (wrap-with-counter called)]
+            counter (wrap-with-meter called meter)]
         (counter "{}")
-        (is (= 1 (- (global-count :seen) prev-seen)))
+        (is (= 1 (- (.count meter) prev-seen)))
         (is (= 1 (times-called called)))))))
 
 (deftest command-parsing-middleware

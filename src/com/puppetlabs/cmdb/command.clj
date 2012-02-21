@@ -215,12 +215,12 @@
 ;; architecture.
 ;;
 
-(defn wrap-with-counter
-  "Wraps a message processor `f` and counts all messages seen, before invoking
-  `f` on `msg`."
-  [f]
+(defn wrap-with-meter
+  "Wraps a message processor `f` and a `meter` such that `meter` will be marked
+  for each invocation of `f`."
+  [f meter]
   (fn [msg]
-    (mark! (global-metric :seen))
+    (mark! meter)
     (f msg)))
 
 (defn try-parse-command
@@ -356,7 +356,7 @@
                        (wrap-with-discard 5)
                        (wrap-with-exception-handling on-retry on-fatal)
                        (wrap-with-command-parser on-fatal)
-                       (wrap-with-counter)
+                       (wrap-with-meter (global-metric :seen))
                        (wrap-with-thread-name "command-proc"))]
 
     (let [mq-error (promise)
