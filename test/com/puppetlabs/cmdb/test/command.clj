@@ -3,18 +3,34 @@
         [com.puppetlabs.utils]
         [com.puppetlabs.cmdb.testutils]
         [clojure.test]
+        [cheshire.core :as json]
         [slingshot.slingshot :only [try+ throw+]]))
 
 (deftest command-parsing
   (testing "Command parsing"
 
-    (testing "should work for strings"
-      (is (= (parse-command "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}")
-             {:command "foo" :version 2 :payload "meh"})))
+    (let [command "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"]
+      (testing "should work for strings"
+        (let [parsed (parse-command command)]
+          ;; :annotations will have a :retries element with a time, which
+          ;; is hard to test, so disregard that
+          (is (= (dissoc parsed :annotations)
+                 {:command "foo" :version 2 :payload "meh"}))
+          (is (map? (:annotations parsed)))))
 
-    (testing "should work for byte arrays"
-      (is (= (parse-command (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-8"))
-             {:command "foo" :version 2 :payload "meh"})))
+      (testing "should work for byte arrays"
+        (let [parsed (parse-command (.getBytes command "UTF-8"))]
+          (is (= (dissoc parsed :annotations)
+                 {:command "foo" :version 2 :payload "meh"}))
+          (is (map? (:annotations parsed)))))
+
+      (testing "should add to the :retries annotation each parse time it's parsed"
+        (let [first-parse (parse-command command)
+              first-retries (get-in first-parse [:annotations :retries])
+              second-parse (parse-command (json/generate-string first-parse))
+              second-retries (get-in second-parse [:annotations :retries])]
+          (is (= 1 (count first-retries)))
+          (is (= 2 (count second-retries))))))
 
     (testing "should reject invalid input"
       (is (thrown? AssertionError (parse-command "")))
@@ -147,8 +163,9 @@
     (testing "should discard messages that exceed the max allowable retries"
       (let [called    (call-counter)
             prev-discarded (global-count :discarded)
-            processor (wrap-with-discard called 5)]
-        (processor {:command "foobar" :version 1 :retries 1000})
+            processor (wrap-with-discard called 5)
+            retries (repeatedly 1000 (constantly nil))]
+        (processor {:command "foobar" :version 1 :annotations {:retries retries}})
         (is (= 0 (times-called called)))
         (is (= 1 (- (global-count :discarded) prev-discarded)))))))
 
