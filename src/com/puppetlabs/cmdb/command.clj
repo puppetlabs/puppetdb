@@ -135,9 +135,14 @@
    :post [(map? %)
           (:payload %)
           (string? (:command %))
-          (number? (:version %))]}
-  (->> (json/parse-string command-string)
-       (pl-utils/mapkeys keyword)))
+          (number? (:version %))
+          (map? (:annotations %))]}
+  (let [parsed (->> (json/parse-string command-string)
+                 (pl-utils/mapkeys keyword))
+        parsed (assoc parsed :annotations (pl-utils/mapkeys keyword (:annotations parsed)))
+        retries (get-in parsed [:annotations :retries] [])]
+    (assoc-in parsed [:annotations :retries]
+              (conj retries (timestamp)))))
 
 ;; ## Command processing exception classes
 
@@ -280,18 +285,19 @@
   objects, such as those produced by the `wrap-with-command-parser`
   middleware."
   [f max-retries]
-  (fn [{:keys [command version retries] :or {retries 0} :as msg}]
-    (let [cmd-metric #(get-in @metrics [command version %])]
+  (fn [{:keys [command version annotations] :as msg}]
+    (let [retries (count (:retries annotations))
+          cmd-metric #(get-in @metrics [command version %])]
       (create-metrics-for-command! command version)
       (mark! (cmd-metric :seen))
       (update! (global-metric :retry-counts) retries)
       (update! (cmd-metric :retry-counts) retries)
 
-      (when (> retries max-retries)
+      (when (>= retries max-retries)
         (mark! (global-metric :discarded))
         (mark! (cmd-metric :discarded)))
 
-      (when (<= retries max-retries)
+      (when (< retries max-retries)
         (let [result (time! (cmd-metric :processing-time)
                             (f msg))]
           (mark! (cmd-metric :processed))
@@ -325,20 +331,13 @@
 
 ;; ### Retry callback
 
-(defn format-for-retry
-  "Return a version of the supplied command message with its retry count incremented."
-  [msg]
-  {:post [(string? %)]}
-  (let [retries (or (:retries msg) 0)]
-    (json/generate-string (assoc msg :retries (inc retries)))))
-
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message
   with an incremented retry counter"
   [{:keys [command version] :as msg} e publish-fn]
   (mark! (get-in @metrics [command version :retried]))
   (log/error "Retrying message due to:" e)
-  (publish-fn (format-for-retry msg)))
+  (publish-fn (json/generate-string msg)))
 
 ;; ### Principal function
 

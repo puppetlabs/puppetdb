@@ -9,6 +9,7 @@
                  [org.clojure/tools.cli "0.2.1"]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.5.0"]
+                 [clj-time "0.3.7"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Configuration file parsing
