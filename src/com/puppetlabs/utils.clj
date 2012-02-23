@@ -15,6 +15,8 @@
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
+        [clj-time.core :only [now]]
+        [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
 
 ;; ## Math
@@ -73,6 +75,16 @@
   {:pre  [(map? m)]
    :post [(set? %)]}
   (set (keys m)))
+
+;; ## Timestamping
+
+(defn timestamp
+  "Returns a timestamp string for the given `time`, or the current time if none
+  is provided. The format of the timestamp is eg. 2012-02-23T22:01:39.539Z."
+  ([]
+   (timestamp (now)))
+  ([time]
+   (unparse (formatters :date-time) time)))
 
 ;; ## Exception handling
 

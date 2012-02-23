@@ -40,9 +40,7 @@
   (:use [slingshot.slingshot :only [try+ throw+]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]
-        [clj-time.core :only [now]]
-        [clj-time.format :only [formatters unparse]]))
+        [metrics.timers :only (timer time!)]))
 
 ;; ## Performance counters
 
@@ -144,7 +142,7 @@
         parsed (assoc parsed :annotations (pl-utils/mapkeys keyword (:annotations parsed)))
         retries (get-in parsed [:annotations :retries] [])]
     (assoc-in parsed [:annotations :retries]
-              (conj retries (unparse (formatters :date-time) (now))))))
+              (conj retries (timestamp)))))
 
 ;; ## Command processing exception classes
 
