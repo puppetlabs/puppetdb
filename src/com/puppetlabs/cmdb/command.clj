@@ -142,7 +142,7 @@
         parsed (assoc parsed :annotations (pl-utils/mapkeys keyword (:annotations parsed)))
         retries (get-in parsed [:annotations :retries] [])]
     (assoc-in parsed [:annotations :retries]
-              (conj retries (timestamp)))))
+              (conj retries (pl-utils/timestamp)))))
 
 ;; ## Command processing exception classes
 
