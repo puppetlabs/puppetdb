@@ -274,7 +274,7 @@
       (if (instance? Throwable parse-result)
         (do
           (mark! (global-metric :fatal))
-          (on-failure parse-result))
+          (on-failure msg parse-result))
         (f parse-result)))))
 
 (defn wrap-with-discard
