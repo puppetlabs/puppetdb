@@ -334,6 +334,7 @@
   "Parse a wire-format JSON catalog object contained in `o`, returning a
   cmdb-suitable representation."
   [o]
+  {:post [(map? %)]}
   (-> o
       (restructure-catalog)
       (keywordify-resources)
@@ -347,6 +348,8 @@
   "Parse a wire-format JSON catalog string contained in `s`, returning a
   cmdb-suitable representation."
   [s]
+  {:pre  [(string? s)]
+   :post [(map? %)]}
   (-> (json/parse-string s)
       (parse-from-json-obj)))
 
