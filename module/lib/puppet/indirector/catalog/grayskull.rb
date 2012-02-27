@@ -1,5 +1,6 @@
 require 'puppet/resource/catalog'
 require 'puppet/indirector/rest'
+require 'digest'
 
 class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   # These settings don't exist in Puppet yet, so we have to hard-code them for now.
@@ -15,9 +16,11 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   end
 
   def save(request)
-    payload = URI.encode(message(request.instance).to_pson)
+    msg = message(request.instance).to_pson
+    checksum = Digest::SHA1.hexdigest(msg)
+    payload = CGI.escape(msg)
 
-    http_post(request, "/commands", "payload=#{payload}", headers)
+    http_post(request, "/commands", "checksum=#{checksum}&payload=#{payload}", headers)
   end
 
   def find(request)
