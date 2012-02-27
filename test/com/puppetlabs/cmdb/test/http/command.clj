@@ -1,6 +1,7 @@
 (ns com.puppetlabs.cmdb.test.http.command
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
             [com.puppetlabs.cmdb.http.server :as server]
+            [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
@@ -35,13 +36,20 @@
   (testing "Commands submitted via REST"
 
     (testing "should work when well-formed"
-      (let [req  (make-request {:payload "This is a test"})
-            resp (*app* req)]
+      (let [payload  "This is a test"
+            checksum (pl-utils/utf8-string->sha1 payload)
+            req      (make-request {:payload "This is a test" :checksum checksum})
+            resp     (*app* req)]
         (is (= (:status resp) 200))
         (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
         (is (= (json/parse-string (:body resp)) true))))
 
-    (testing "should return 400 when malformed"
+    (testing "should return 400 when missing params"
       (let [req  (make-request {})
+            resp (*app* req)]
+        (is (= (:status resp) 400))))
+
+    (testing "should return 400 when checksums don't match"
+      (let [req  (make-request {:payload "Testing" :checksum "something bad"})
             resp (*app* req)]
         (is (= (:status resp) 400))))))
