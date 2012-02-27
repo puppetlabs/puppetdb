@@ -50,6 +50,14 @@
    (-> (rr/response "missing payload")
        (rr/status 400))
 
+   (not (params "checksum"))
+   (-> (rr/response "missing checksum")
+       (rr/status 400))
+
+   (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload")))
+   (-> (rr/response "checksums don't match")
+       (rr/status 400))
+
    (not (pl-utils/acceptable-content-type
          "application/json"
          (headers "accept")))

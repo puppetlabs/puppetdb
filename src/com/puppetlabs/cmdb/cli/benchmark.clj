@@ -43,7 +43,7 @@
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map utf8-string->sha1)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def hosts nil)
@@ -59,7 +59,9 @@
                     :version 1
                     :payload (json/generate-string catalog)}
                    (json/generate-string))
-        body   (format "payload=%s" (util/url-encode msg))
+        body   (format "checksum=%s&payload=%s"
+                       (utf8-string->sha1 msg)
+                       (util/url-encode msg))
         result (client/post rest-url {:body             body
                                       :throw-exceptions false
                                       :content-type     :x-www-form-urlencoded
