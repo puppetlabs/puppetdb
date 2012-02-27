@@ -274,7 +274,7 @@
       (if (instance? Throwable parse-result)
         (do
           (mark! (global-metric :fatal))
-          (on-failure parse-result))
+          (on-failure msg parse-result))
         (f parse-result)))))
 
 (defn wrap-with-discard
@@ -327,7 +327,7 @@
 (defn handle-command-failure
   "Dump the error encountered during command-handling to the log"
   [msg e]
-  (log/error "Fatal error processing msg" e))
+  (log/error e "Fatal error processing msg"))
 
 ;; ### Retry callback
 
@@ -336,7 +336,7 @@
   with an incremented retry counter"
   [{:keys [command version] :as msg} e publish-fn]
   (mark! (get-in @metrics [command version :retried]))
-  (log/error "Retrying message due to:" e)
+  (log/error e "Retrying message due to:")
   (publish-fn (json/generate-string msg)))
 
 ;; ### Principal function

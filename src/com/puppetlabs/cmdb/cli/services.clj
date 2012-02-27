@@ -74,7 +74,7 @@
   [mq mq-endpoint db]
   (pl-utils/keep-going
    (fn [exception]
-     (log/error "Error during command processing; reestablishing connection after 10s" exception)
+     (log/error exception "Error during command processing; reestablishing connection after 10s")
      (Thread/sleep 10000))
 
    (with-open [conn (mq/connect! mq)]
@@ -88,7 +88,7 @@
   [db interval]
   (pl-utils/keep-going
    (fn [exception]
-     (log/error "Error during DB compaction" exception))
+     (log/error exception "Error during DB compaction"))
 
    (Thread/sleep interval)
    (log/info "Beginning database compaction")
