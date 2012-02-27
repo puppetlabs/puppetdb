@@ -57,7 +57,7 @@
   [host catalog]
   (let [msg    (-> {:command "replace catalog"
                     :version 1
-                    :payload catalog}
+                    :payload (json/generate-string catalog)}
                    (json/generate-string))
         body   (format "payload=%s" (util/url-encode msg))
         result (client/post rest-url {:body             body
