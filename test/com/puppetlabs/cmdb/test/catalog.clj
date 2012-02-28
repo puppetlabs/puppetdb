@@ -20,6 +20,7 @@
     (is (= (:edges b) (:edges a)))
     (is (= (:edges b) (:edges a)))
     (is (= (:resources b) (:resources a)))
+    (is (= (:aliases b) (:aliases a)))
     (is (= b a))))
 
 (deftest parsing-resource-string
@@ -54,6 +55,36 @@
              {:foo 1 :bar 2}))
       (is (= (keys-to-keywords {})
              {})))))
+
+(deftest aliases-building
+  (testing "Building the aliases map"
+    (testing "should work for the base case"
+      (is (= (build-alias-map {:resources {}})
+             {:resources {} :aliases {}})))
+
+    (testing "should work for resources with no aliases"
+      (is (= (:aliases
+              (build-alias-map {:resources {{:type "Foo" :title "bar"} (random-kw-resource "Foo" "bar")}}))
+             {})))
+
+    (testing "should work for resources with aliases"
+      (is (= (:aliases
+              (build-alias-map
+               {:resources
+                {{:type "Foo" :title "bar"}
+                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" "baz"}})}}))
+             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))
+
+    (testing "should work for multiple resources"
+      (is (= (:aliases
+              (build-alias-map
+               {:resources
+                {{:type "Foo" :title "bar"}
+                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" "baz"}})
+                 {:type "Goo" :title "gar"}
+                 (random-kw-resource "Goo" "gar")}
+                }))
+             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))))
 
 (deftest edge-normalization
   (testing "Containment edge normalization"
@@ -212,6 +243,7 @@
                         "exported"   false
                         "tags"       ["file" "class" "foobar"]
                         "parameters" {"ensure" "directory"
+                                      "alias" "foobar"
                                       "group" "root"
                                       "user" "root"}}
                        {"type"       "File"
@@ -228,6 +260,7 @@
   :version "123456789"
   :tags #{"class" "foobar"}
   :classes #{"foobar"}
+  :aliases {{:type "File" :title "foobar"} {:type "File" :title "/etc/foobar"}}
   :edges #{{:source {:type "Class" :title "foobar"}
             :target {:type "File" :title "/etc/foobar"}
             :relationship :contains}
@@ -243,6 +276,7 @@
                                                    :exported   false
                                                    :tags       #{"file" "class" "foobar"}
                                                    :parameters {"ensure" "directory"
+                                                                "alias"  "foobar"
                                                                 "group"  "root"
                                                                 "user"   "root"}}
               {:type "File" :title "/etc/foobar/baz"} {:type       "File"
