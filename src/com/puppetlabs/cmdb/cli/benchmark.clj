@@ -37,12 +37,14 @@
 ;; tick.
 ;;
 (ns com.puppetlabs.cmdb.cli.benchmark
+  (:import (java.io File))
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [cheshire.core :as json]
             [clj-http.client :as client]
-            [clj-http.util :as util])
+            [clj-http.util :as util]
+            [fs.core :as fs])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map utf8-string->sha1)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -118,17 +120,32 @@
       (Thread/sleep 10)
       (recur curr-time))))
 
+(defn associate-catalog-with-host
+  "Takes the given catalog and transforms it to appear related to
+  `hostname`"
+  [hostname catalog]
+  (-> catalog
+      (assoc-in ["data" "name"] hostname)
+      (assoc-in ["data" "resources"] (for [resource (get-in catalog ["data" "resources"])]
+                                       (assoc resource "tags" (conj (resource "tags") hostname))))))
 (defn -main
   [& args]
   (let [[options _] (cli! args
-                          ["-f" "--file" "Path to a sample JSON catalog"]
+                          ["-d" "--dir" "Path to a directory containing sample JSON catalogs"]
                           ["-u" "--url" "URL to REST endpoint for commands"]
                           ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
                           ["-n" "--numhosts" "How many hosts to use during simulation"]
                           ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
-        file        (:file options)
-        catalog     (json/parse-string (slurp file))
+        dir         (:dir options)
+        catalogs    (->> (for [file (fs/list-dir dir)
+                               :let [fname (str dir File/separator file)]]
+                           (try
+                             (json/parse-string (slurp fname))
+                             (catch Exception e
+                               (log/error (format "Error parsing %s; skipping" file)))))
+                         (remove nil?)
+                         (into []))
 
         nhosts      (:numhosts options)
         hostnames   (into #{} (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
@@ -141,11 +158,7 @@
     (def hosts
       (into [] (map #(agent {:host %,
                              :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
-                             :catalog (-> catalog
-                                        (assoc-in ["data" "name"] %)
-                                        (assoc-in ["data" "resources"]
-                                                  (for [resource (get-in catalog ["data" "resources"])]
-                                                    (assoc resource "tags" (conj (resource "tags") %)))))})
+                             :catalog (associate-catalog-with-host % (rand-nth catalogs))})
                     hostnames)))
 
     ;; Loop forever
