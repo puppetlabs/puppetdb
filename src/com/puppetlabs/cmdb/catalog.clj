@@ -234,6 +234,27 @@
                      (into {}))]
     (assoc catalog :aliases aliases)))
 
+(defn resolve-aliases-in-edges
+  "Return a copy of the supplied list of edges, where each source and
+  target in each edge goes through alias resolution. If the edge doesn't
+  refer to any aliases, it is returned unchanged."
+  [edges aliases]
+  {:pre  [(coll? edges)
+          (map? aliases)]
+   :post [(= (count edges) (count %))]}
+  (let [resolve (fn [r] (get aliases r r))]
+    (for [{:keys [source target relationship]} edges]
+      {:source (resolve source)
+       :target (resolve target)
+       :relationship relationship})))
+
+(defn normalize-aliases
+  "Using the alias-map and edges from a catalog, replace any
+  references to aliases in any edges with the resources they point
+  to."
+  [{:keys [aliases edges] :as catalog}]
+  (assoc catalog :edges (into #{} (resolve-aliases-in-edges edges aliases))))
+
 ;; ## Dependency edge normalization
 ;;
 ;; The following functions will handle walking the catalog's list of
@@ -382,6 +403,7 @@
       (mapify-resources)
       (build-alias-map)
       (build-dependency-edges)
+      (normalize-aliases)
       (setify-tags-and-classes)))
 
 (defn parse-from-json-string

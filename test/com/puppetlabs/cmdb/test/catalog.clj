@@ -86,6 +86,20 @@
                 }))
              {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))))
 
+(deftest alias-normalization
+  (testing "Alias metaparameter normalization"
+    (testing "should work for no aliases"
+      (is (= (normalize-aliases {:aliases {} :edges #{}})
+             {:aliases {} :edges #{}})))
+
+    (testing "should resolve aliases in sources and targets"
+      (is (= (:edges (normalize-aliases {:aliases {"a" "real-a"
+                                                   "c" "real-c"}
+                                         :edges #{{:source "a" :target "b" :relationship :before}
+                                                  {:source "b" :target "c" :relationship :before}}}))
+             #{{:source "real-a" :target "b" :relationship :before}
+               {:source "b" :target "real-c" :relationship :before}})))))
+
 (deftest edge-normalization
   (testing "Containment edge normalization"
     (testing "should work for the base case"
@@ -253,7 +267,7 @@
                         "parameters" {"ensure" "directory"
                                       "group" "root"
                                       "user" "root"
-                                      "require" "File[/etc/foobar]"}}]}}
+                                      "require" "File[foobar]"}}]}}
  {:certname "myhost.mydomain.com"
   :cmdb-version CMDB-VERSION
   :api-version 1
@@ -286,4 +300,4 @@
                                                        :parameters {"ensure"  "directory"
                                                                     "group"   "root"
                                                                     "user"    "root"
-                                                                    "require" "File[/etc/foobar]"}}}})
+                                                                    "require" "File[foobar]"}}}})
