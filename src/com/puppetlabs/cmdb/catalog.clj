@@ -365,6 +365,22 @@
     :classes (set classes)
     :tags (set tags)))
 
+;; ## Integrity checking
+;;
+;; Functions to ensure that the catalog structure is coherent.
+
+(defn check-edge-integrity
+  "Ensure that all edges have valid sources and targets"
+  [{:keys [edges resources] :as catalog}]
+  {:pre [(set? edges)
+         (map? resources)]}
+  (doseq [{:keys [source target] :as edge} edges
+          resource [source target]]
+    (when-not (resources resource)
+      (throw (IllegalArgumentException.
+              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource)))))
+  catalog)
+
 ;; ## High-level parsing routines
 
 (defn restructure-catalog
@@ -404,7 +420,8 @@
       (build-alias-map)
       (build-dependency-edges)
       (normalize-aliases)
-      (setify-tags-and-classes)))
+      (setify-tags-and-classes)
+      (check-edge-integrity)))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a

@@ -182,6 +182,13 @@
       ; Must force eval using "vec", as we otherwise get back a lazy seq
       (is (thrown? AssertionError (vec (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "meh"}}))))))))
 
+(deftest integrity-checking
+  (testing "Catalog integrity checking"
+    (testing "should fail when edges mention missing resources"
+      (is (thrown? IllegalArgumentException
+                   (check-edge-integrity {:edges #{{:source "a" :target "b" :relationship :before}}
+                                          :resources {}}))))))
+
 (deftest catalog-normalization
   (let [; Synthesize some fake resources
         catalog {:resources [{"type"       "File"
