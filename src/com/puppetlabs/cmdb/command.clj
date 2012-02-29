@@ -45,9 +45,9 @@
 
 (ns com.puppetlabs.cmdb.command
   (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [com.puppetlabs.cmdb.scf.storage :as scf-storage]
             [com.puppetlabs.cmdb.catalog :as cat]
+            [com.puppetlabs.cmdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
@@ -58,10 +58,7 @@
   (:use [slingshot.slingshot :only [try+ throw+]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]
-        [clj-time.core :only [now]]
-        [clj-time.format :only [formatters unparse]]
-        [clojure.java.io :only [file make-parents]]))
+        [metrics.timers :only (timer time!)]))
 
 ;; ## Performance counters
 
@@ -269,48 +266,6 @@
                  :trace (map str (.getStackTrace e))}]
     (update-in msg [:annotations :attempts] conj attempt)))
 
-(defn summarize-attempt
-  "Convert an 'attempt' annotation for a message into a string summary,
-  including timestamp, error information, and stacktrace."
-  [index {:keys [timestamp error trace] :as attempt}]
-  (let [trace-str (string/join "\n" trace)
-        index (if (nil? index) index (inc index))]
-    (format "Attempt %d @ %s\n\n%s\n%s\n" index timestamp error trace-str)))
-
-(defn summarize-exception
-  "Convert a Throwable into a string summary similar to the output of
-  summarize-attempt."
-  [e]
-  (let [attempt {:timestamp (pl-utils/timestamp)
-                 :error     (str e)
-                 :trace     (.getStackTrace e)}]
-    (summarize-attempt nil attempt)))
-
-(defn produce-failure-metadata
-  "Given a (possibly empty) sequence of message attempts and an exception,
-  return a header string of the errors."
-  [attempts exception]
-  (let [attempt-summaries (map-indexed summarize-attempt attempts)
-        exception-summary (if exception (summarize-exception exception))]
-    (string/join "\n" (concat attempt-summaries [exception-summary]))))
-
-(defn store-failed-message
-  "Stores a failed message for later inspection. This will be stored under
-  `dir`, in a path shaped like `dir`/<command>/<timestamp>-<checksum>. If the
-  message was not parseable, `command` will be parse-error."
-  [msg e dir]
-  (let [command  (get msg :command "parse-error")
-        attempts (get-in msg [:annotations :attempts])
-        metadata (produce-failure-metadata attempts e)
-        msg      (if (string? msg) msg (json/generate-string msg))
-        contents (string/join "\n\n" [msg metadata])
-        checksum (pl-utils/utf8-string->sha1 contents)
-        subdir   (string/replace command " " "-")
-        basename (format "%s-%s" (pl-utils/timestamp) checksum)
-        filename (file dir subdir basename)]
-    (make-parents filename)
-    (spit filename contents)))
-
 (defn wrap-with-exception-handling
   "Wrap a message processor `f` such that all Throwable or `fatal?`
   exceptions are caught.
@@ -436,7 +391,7 @@
 (defn produce-message-handler
   "Produce a message handler suitable for use by `process-commands!`. "
   [publish discarded-dir options-map]
-  (let [discard        #(store-failed-message %1 %2 discarded-dir)
+  (let [discard        #(dlo/store-failed-message %1 %2 discarded-dir)
         on-discard     #(handle-command-discard % discard)
         on-parse-error #(handle-parse-error %1 %2 discard)
         on-fatal       #(handle-command-failure %1 %2 discard)
