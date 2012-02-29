@@ -73,6 +73,14 @@
 ;; * `:before`
 ;; * `:subscription-of`
 ;;
+;; ### Aliases
+;;
+;; In a wire format catalog, edges can refer to resources either by
+;; their type and either their title, or an alias (specified on the
+;; resource using the _alias_ metaparameter). Internally, a CMDB
+;; catalog normalizes all edges so that they use only _true_ (not
+;; aliased) resources.
+;;
 ;; ### CMDB catalog
 ;;
 ;; A wire-format-neutral representation of a Puppet catalog. It is a
@@ -88,7 +96,8 @@
 ;;                    ...}
 ;;      :edges       #(<dependency-spec>,
 ;;                     <dependency-spec>,
-;;                     ...)}
+;;                     ...)
+;;      :aliases     {<resource-spec> <resource-spec>}}
 ;;
 (ns com.puppetlabs.cmdb.catalog
   (:require [clojure.tools.logging :as log]
@@ -194,6 +203,59 @@
                                 (for [r missing-resources]
                                   (merge r {:exported false})))]
     (assoc catalog :resources new-resources)))
+
+;; ## Alias normalization
+;;
+;; Aliases are represented as a map of resource-specs to
+;; resource-specs. The key is the alias, and the value is what the
+;; alias points to in the catalog.
+
+(defn alias-for-resource
+  "Given a resource, return a map of its resource-spec to the
+  resource-spec of its alias. If no alias parameter is present, `nil`
+  is returned."
+  [{:keys [type title] :as resource}]
+  {:pre [(string? type)
+         (string? title)]}
+  (if-let [aliases (get-in resource [:parameters "alias"])]
+    (let [aliases (if (coll? aliases) aliases [aliases])]
+      (for [alias aliases]
+        [{:type type :title alias} {:type type :title title}]))))
+
+(defn build-alias-map
+  "Returns a version of the supplied catalog augmented with an
+  `:aliases` attribute that contains a map from an alias (represented
+  as a resource-spec) to the alias' target (also represented as a
+  resource-spec)."
+  [{:keys [resources] :as catalog}]
+  {:pre [(map? resources)]}
+  (let [aliases (->> resources
+                     (vals)
+                     (mapcat alias-for-resource)
+                     (remove nil?)
+                     (into {}))]
+    (assoc catalog :aliases aliases)))
+
+(defn resolve-aliases-in-edges
+  "Return a copy of the supplied list of edges, where each source and
+  target in each edge goes through alias resolution. If the edge doesn't
+  refer to any aliases, it is returned unchanged."
+  [edges aliases]
+  {:pre  [(coll? edges)
+          (map? aliases)]
+   :post [(= (count edges) (count %))]}
+  (let [resolve (fn [r] (get aliases r r))]
+    (for [{:keys [source target relationship]} edges]
+      {:source (resolve source)
+       :target (resolve target)
+       :relationship relationship})))
+
+(defn normalize-aliases
+  "Using the alias-map and edges from a catalog, replace any
+  references to aliases in any edges with the resources they point
+  to."
+  [{:keys [aliases edges] :as catalog}]
+  (assoc catalog :edges (into #{} (resolve-aliases-in-edges edges aliases))))
 
 ;; ## Dependency edge normalization
 ;;
@@ -305,6 +367,22 @@
     :classes (set classes)
     :tags (set tags)))
 
+;; ## Integrity checking
+;;
+;; Functions to ensure that the catalog structure is coherent.
+
+(defn check-edge-integrity
+  "Ensure that all edges have valid sources and targets"
+  [{:keys [edges resources] :as catalog}]
+  {:pre [(set? edges)
+         (map? resources)]}
+  (doseq [{:keys [source target] :as edge} edges
+          resource [source target]]
+    (when-not (resources resource)
+      (throw (IllegalArgumentException.
+              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource)))))
+  catalog)
+
 ;; ## High-level parsing routines
 
 (defn restructure-catalog
@@ -341,8 +419,11 @@
       (normalize-containment-edges)
       (add-resources-for-edges)
       (mapify-resources)
+      (build-alias-map)
       (build-dependency-edges)
-      (setify-tags-and-classes)))
+      (normalize-aliases)
+      (setify-tags-and-classes)
+      (check-edge-integrity)))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
