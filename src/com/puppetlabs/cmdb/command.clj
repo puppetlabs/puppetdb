@@ -306,9 +306,7 @@
         contents (string/join "\n\n" [msg metadata])
         checksum (pl-utils/utf8-string->sha1 contents)
         subdir   (string/replace command " " "-")
-        basename (format "%s-%s"
-                         (unparse (formatters :basic-date-time) (now))
-                         checksum)
+        basename (format "%s-%s" (pl-utils/timestamp) checksum)
         filename (file dir subdir basename)]
     (make-parents filename)
     (spit filename contents)))
