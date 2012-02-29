@@ -131,17 +131,16 @@
 (defn -main
   [& args]
   (let [[options _] (cli! args
-                          ["-d" "--dir" "Path to a directory containing sample JSON catalogs"]
+                          ["-d" "--dir" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                           ["-u" "--url" "URL to REST endpoint for commands"]
                           ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
                           ["-n" "--numhosts" "How many hosts to use during simulation"]
                           ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
         dir         (:dir options)
-        catalogs    (->> (for [file (fs/list-dir dir)
-                               :let [fname (str dir File/separator file)]]
+        catalogs    (->> (for [file (fs/glob (fs/file dir "*.json"))]
                            (try
-                             (json/parse-string (slurp fname))
+                             (json/parse-string (slurp file))
                              (catch Exception e
                                (log/error (format "Error parsing %s; skipping" file)))))
                          (remove nil?)
