@@ -217,8 +217,10 @@
   [{:keys [type title] :as resource}]
   {:pre [(string? type)
          (string? title)]}
-  (if-let [alias (get-in resource [:parameters "alias"])]
-    {{:type type :title alias} {:type type :title title}}))
+  (if-let [aliases (get-in resource [:parameters "alias"])]
+    (let [aliases (if (coll? aliases) aliases [aliases])]
+      (for [alias aliases]
+        [{:type type :title alias} {:type type :title title}]))))
 
 (defn build-alias-map
   "Returns a version of the supplied catalog augmented with an
@@ -229,7 +231,7 @@
   {:pre [(map? resources)]}
   (let [aliases (->> resources
                      (vals)
-                     (map alias-for-resource)
+                     (mapcat alias-for-resource)
                      (remove nil?)
                      (into {}))]
     (assoc catalog :aliases aliases)))

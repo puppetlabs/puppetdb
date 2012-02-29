@@ -75,6 +75,15 @@
                  (random-kw-resource "Foo" "bar" {"parameters" {"alias" "baz"}})}}))
              {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))
 
+    (testing "should work for resources with multiple aliases"
+      (is (= (:aliases
+              (build-alias-map
+               {:resources
+                {{:type "Foo" :title "bar"}
+                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" ["baz" "boo"]}})}}))
+             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}
+              {:type "Foo" :title "boo"} {:type "Foo" :title "bar"}})))
+
     (testing "should work for multiple resources"
       (is (= (:aliases
               (build-alias-map
