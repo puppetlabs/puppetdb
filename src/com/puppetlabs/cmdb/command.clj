@@ -260,6 +260,9 @@
   "Adds an `attempt` annotation to `msg` indicating there was a failed attempt
   at handling the message, including the error and trace from `e`."
   [{:keys [annotations] :as msg} e]
+  {:pre [(map? annotations)]
+   :post [(= (count (get-in % [:annotations :attempts]))
+             (inc (count (:attempts annotations))))]}
   (let [attempts (get annotations :attempts [])
         attempt {:timestamp (pl-utils/timestamp)
                  :error (str e)
