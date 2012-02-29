@@ -53,7 +53,8 @@
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]
+  (:use [clojure.java.io :only [file]]
+        [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 ;; ## Wiring
@@ -71,14 +72,14 @@
   This function doesn't terminate. If we encounter an exception when
   processing commands from the message queue, we retry the operation
   after reopening a fresh connection with the MQ."
-  [mq mq-endpoint db]
+  [mq mq-endpoint discard-dir db]
   (pl-utils/keep-going
    (fn [exception]
      (log/error exception "Error during command processing; reestablishing connection after 10s")
      (Thread/sleep 10000))
 
    (with-open [conn (mq/connect! mq)]
-     (command/process-commands! conn mq-endpoint {:db db}))))
+     (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
 (defn db-garbage-collector
   "Compact the indicated database every `interval` millis.
@@ -106,6 +107,7 @@
         db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
         web-opts       (get config :jetty {})
         mq-dir         (get-in config [:mq :dir])
+        discard-dir    (file mq-dir "discarded")
 
         globals        {:scf-db db
                         :command-mq {:connection-string mq-addr
@@ -123,7 +125,7 @@
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (into [] (for [n (range nthreads)]
                                      (future
-                                       (load-from-mq mq-addr mq-endpoint db)))))
+                                       (load-from-mq mq-addr mq-endpoint discard-dir db)))))
           web-app       (do
                           (log/info "Starting query server")
                           (future
