@@ -30,7 +30,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   def headers
     {
       "Accept" => "application/json",
-      "Content-Type" => "application/x-www-form-urlencoded",
+      "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
     }
   end
 
