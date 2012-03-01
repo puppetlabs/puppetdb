@@ -12,6 +12,34 @@
 
 (def db (test-db))
 
+(def empty-catalog
+  {:certname "simple.mydomain.com"
+   :cmdb-version cat/CMDB-VERSION
+   :api-version 1
+   :version "1330463884"
+   :tags #{"settings"}
+   :classes #{"settings"}
+   :edges #{{:source {:type "Stage" :title "main"}
+             :target {:type "Class" :title "Settings"}
+             :relationship :contains}
+            {:source {:type "Stage" :title "main"}
+             :target {:type "Class" :title "Main"}
+             :relationship :contains}}
+   :resources {{:type "Class" :title "Main"} {:exported false
+                                              :title      "Main"
+                                              :tags       #{"class" "main"}
+                                              :type       "Class"
+                                              :parameters {"name" "main"}}
+               {:type "Class" :title "Settings"} {:exported false
+                                                  :title    "Settings"
+                                                  :tags     #{"settings" "class"}
+                                                  :type     "Class"}
+               {:type "Stage" :title "main"} {:exported false
+                                              :title    "main"
+                                              :tags     #{"main" "stage"}
+                                              :type     "Stage"}}
+   :aliases {}})
+
 (def basic-catalog
   {:certname "myhost.mydomain.com"
    :cmdb-version cat/CMDB-VERSION
@@ -286,6 +314,11 @@
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
+
+      (testing "should not fail when inserting an 'empty' catalog"
+        (sql/with-connection db
+          (migrate!)
+          (add-catalog! empty-catalog)))
 
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection db
