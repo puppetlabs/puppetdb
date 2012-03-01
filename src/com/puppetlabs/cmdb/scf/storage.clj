@@ -375,7 +375,7 @@ must be supplied as the value to be matched."
   similarity hash"
   [{:keys [api-version version resources classes edges tags] :as catalog}]
   {:pre [(number? api-version)
-         (every? coll? #{classes tags edges})
+         (every? coll? [classes tags edges])
          (map? resources)]}
 
   (time! (:add-catalog metrics)
