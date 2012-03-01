@@ -64,10 +64,11 @@
         body   (format "checksum=%s&payload=%s"
                        (utf8-string->sha1 msg)
                        (util/url-encode msg))
-        result (client/post rest-url {:body             body
-                                      :throw-exceptions false
-                                      :content-type     :x-www-form-urlencoded
-                                      :accept           :json})]
+        result (client/post rest-url {:body               body
+                                      :throw-exceptions   false
+                                      :content-type       :x-www-form-urlencoded
+                                      :character-encoding "UTF-8"
+                                      :accept             :json})]
     (if (not= 200 (:status result))
       (log/error result))))
 
