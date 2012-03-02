@@ -23,13 +23,13 @@ describe Puppet::Resource::Catalog::Grayskull do
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|
-        body =~ /^payload=(.+)/
+        body =~ /payload=(.+)/
         @sent_payload = $1
       end
 
       save
 
-      URI.decode(@sent_payload).should == payload
+      CGI.unescape(@sent_payload).should == payload
     end
   end
 end
