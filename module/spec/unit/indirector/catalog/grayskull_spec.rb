@@ -23,13 +23,31 @@ describe Puppet::Resource::Catalog::Grayskull do
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|
-        body =~ /^payload=(.+)/
+        body =~ /payload=(.+)/
         @sent_payload = $1
       end
 
       save
 
-      URI.decode(@sent_payload).should == payload
+      CGI.unescape(@sent_payload).should == payload
+    end
+
+    describe "#munge_catalog" do
+      it "should add namevar to aliases if it's not already present" do
+        name = 'with a different name'
+        notify = Puppet::Resource.new(:notify, 'notify_me', :parameters => {:name => name})
+
+        catalog.add_resource(notify)
+
+        hash = subject.munge_catalog(catalog)
+
+        resource = hash['data']['resources'].find do |res|
+          res['type'] == 'Notify' and res['title'] == 'notify_me'
+        end
+
+        resource.should_not be_nil
+        resource['parameters']['alias'].should include(name)
+      end
     end
   end
 end

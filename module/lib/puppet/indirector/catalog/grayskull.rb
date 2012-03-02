@@ -16,7 +16,8 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   end
 
   def save(request)
-    msg = message(request.instance).to_pson
+    catalog = munge_catalog(request.instance)
+    msg = message(catalog).to_pson
     checksum = Digest::SHA1.hexdigest(msg)
     payload = CGI.escape(msg)
 
@@ -27,6 +28,34 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     nil
   end
 
+  def munge_catalog(catalog)
+    hash = catalog.to_pson_data_hash
+
+    hash['data']['resources'].each do |resource|
+      next unless resource['parameters']
+
+      real_resource = catalog.resource(resource['type'], resource['title'])
+
+      aliases = real_resource[:alias]
+
+      case aliases
+      when String
+        aliases = [aliases]
+      when nil
+        aliases = []
+      end
+
+      name = real_resource[real_resource.send(:namevar)]
+      unless name.nil? or real_resource.title == name or aliases.include?(name)
+        aliases << name
+      end
+
+      resource['parameters']['alias'] = aliases
+    end
+
+    hash
+  end
+
   def headers
     {
       "Accept" => "application/json",
@@ -34,11 +63,11 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     }
   end
 
-  def message(instance)
+  def message(catalog)
     {
       :command => "replace catalog",
       :version => 1,
-      :payload => instance.to_pson,
+      :payload => catalog.to_pson,
     }
   end
 end
