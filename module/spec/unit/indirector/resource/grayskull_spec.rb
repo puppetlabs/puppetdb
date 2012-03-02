@@ -22,6 +22,10 @@ describe Puppet::Resource::Grayskull do
   end
 
   describe "#search" do
+    before :each do
+      described_class.stubs(:port).returns 0
+    end
+
     def search(type, host = 'default.local', filter = nil)
       scope = Puppet::Parser::Scope.new
       args = { :host => host, :filter => filter, :scope => scope }
