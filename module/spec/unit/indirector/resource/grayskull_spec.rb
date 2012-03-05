@@ -32,10 +32,6 @@ describe Puppet::Resource::Grayskull do
       subject.search(Puppet::Resource.indirection.request(:search, type, args))
     end
 
-    it "should fail if the type is not known to Puppet" do
-      expect { search("banana") }.to raise_error Puppet::Error, /Could not find type/
-    end
-
     it "should return an empty array if no resources match" do
       subject.stubs(:http_get).returns(stub('response', :body => '[]'))
       search("exec").should == []
@@ -91,18 +87,6 @@ describe Puppet::Resource::Grayskull do
   describe "#filter" do
   end
 
-  describe "#canonicalize_type" do
-    it "should return the canonical type name" do
-      subject.canonicalize_type('file').should == 'File'
-    end
-
-    it "should raise an error if it doesn't recognize the type" do
-      expect do
-        subject.canonicalize_type("types_you_haven't_heard_of")
-      end.to raise_error(Puppet::Error, /Could not find type/)
-    end
-  end
-
   describe "#validate_filter" do
     it "should be valid if there is no filter" do
       subject.validate_filter(nil).should == true
@@ -140,7 +124,7 @@ describe Puppet::Resource::Grayskull do
 
   describe "#headers" do
     it "should accept the correct mime type" do
-      subject.headers['Accept'].should == 'application/vnd.com.puppetlabs.cmdb.resource-list+json'
+      subject.headers['Accept'].should == 'application/json'
     end
   end
 end
