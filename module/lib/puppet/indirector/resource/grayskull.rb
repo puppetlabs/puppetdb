@@ -13,7 +13,7 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
   end
 
   def search(request)
-    type   = canonicalize_type(request.key)
+    type   = request.key
     host   = request.options[:host]
     filter = request.options[:filter]
     scope  = request.options[:scope]
@@ -47,12 +47,6 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
     end
   end
 
-  def canonicalize_type(typename)
-    type = Puppet::Type.type(typename)
-    raise Puppet::Error, "Could not find type #{typename}" unless type
-    type.name.to_s.capitalize
-  end
-
   def validate_filter(filter)
     return true unless filter
 
@@ -74,6 +68,6 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
   end
 
   def headers
-    {'Accept' => 'application/vnd.com.puppetlabs.cmdb.resource-list+json'}
+    {'Accept' => 'application/json'}
   end
 end
