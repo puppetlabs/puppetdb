@@ -110,32 +110,40 @@
                {:source "b" :target "real-c" :relationship :before}})))))
 
 (deftest edge-normalization
-  (testing "Containment edge normalization"
+  (testing "Edge normalization"
     (testing "should work for the base case"
-      (is (= (normalize-containment-edges {:edges []}) {:edges #{}})))
+      (is (= (normalize-edges {:edges []}) {:edges #{}})))
 
     (testing "should error on bad input"
-      (is (thrown? AssertionError (normalize-containment-edges {:edges nil})))
-      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "foo"}]})))
-      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "foo" "target" "bar"}]})))
-      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "bar"}]})))
-      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" nil "target" "bar"}]})))
-      (is (thrown? AssertionError (normalize-containment-edges {:edges [{"source" "Class[foo]" "meh" "Class[bar]"}]}))))
+      ;; No edges
+      (is (thrown? AssertionError (normalize-edges {:edges nil})))
+      ;; No target
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "foo"}]})))
+      ;; Malformed source and target
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "foo" "target" "bar"}]})))
+      ;; Malformed target
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "target" "bar"}]})))
+      ;; Null source
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" nil "target" "bar"}]})))
+      ;; Missing target and relationship
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "meh" "Class[bar]"}]})))
+      ;; Bad relationship (we've all been there, buddy)
+      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "bad"}]}))))
 
     (testing "should work for well-formed edges"
-      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}]})
+      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "contains"}]})
              {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
 
     (testing "should work for multiple edges"
-      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
-                                                   {"source" "Class[baz]" "target" "Class[goo]"}]})
+      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "contains"}
+                                       {"source" "Class[baz]" "target" "Class[goo]" "relationship" "before"}]})
              {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}
-                       {:source {:type "Class" :title "baz"} :target {:type "Class" :title "goo"} :relationship :contains}}})))
+                       {:source {:type "Class" :title "baz"} :target {:type "Class" :title "goo"} :relationship :before}}})))
 
     (testing "should squash duplicates"
-      (is (= (normalize-containment-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]"}
-                                                   {"source" "Class[foo]" "target" "Class[bar]"}]})
-             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
+      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}
+                                       {"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}]})
+             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :subscription-of}}})))
 
     (testing "should create resources for things that have edges, but aren't listed in the :resources list"
       (is (= (-> {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}} :resources []}
@@ -164,32 +172,6 @@
         (is (thrown? AssertionError (restructure-catalog {"name" "myhost" "version" "12345"
                                                           "metadata" {"api_version" "123"}})))))))
 
-
-(deftest dependency-normalization
-  (testing "Dependency normalization for a resource"
-    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" "Class[Bar]"}}))
-           [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}]))
-
-    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"require" "Class[Bar]"}}))
-           [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :required-by}]))
-
-    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"subscribe" "Class[Bar]"}}))
-           [{:source {:type "Class" :title "Bar"} :target {:type "Class" :title "Foo"} :relationship :subscription-of}]))
-
-    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "Class[Bar]"}}))
-           [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :notifies}]))
-
-    (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo"))
-           []))
-
-    (testing "should handle multi-valued attributes"
-      (is (= (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"before" ["Class[Bar]", "Class[Goo]"]}}))
-             [{:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Bar"} :relationship :before}
-              {:source {:type "Class" :title "Foo"} :target {:type "Class" :title "Goo"} :relationship :before}])))
-
-    (testing "should error on bad input"
-      ; Must force eval using "vec", as we otherwise get back a lazy seq
-      (is (thrown? AssertionError (vec (build-dependencies-for-resource (random-kw-resource "Class" "Foo" {"parameters" {"notify" "meh"}}))))))))
 
 (deftest integrity-checking
   (testing "Catalog integrity checking"
@@ -266,8 +248,9 @@
           "version"   123456789
           "tags"      ["class" "foobar"]
           "classes"   ["foobar"]
-          "edges"     [{"source" "Class[foobar]" "target" "File[/etc/foobar]"}
-                       {"source" "Class[foobar]" "target" "File[/etc/foobar/baz]"}]
+          "edges"     [{"source" "Class[foobar]" "target" "File[/etc/foobar]" "relationship" "contains"}
+                       {"source" "Class[foobar]" "target" "File[/etc/foobar/baz]" "relationship" "contains"}
+                       {"source" "File[/etc/foobar]" "target" "File[/etc/foobar/baz]" "relationship" "required-by"}]
           "resources" [{"type"       "File"
                         "title"      "/etc/foobar"
                         "exported"   false

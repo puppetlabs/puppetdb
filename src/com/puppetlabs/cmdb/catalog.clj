@@ -13,12 +13,10 @@
 ;; 2. Containment edges may point to resources that don't exist in the
 ;;    catalog's list of resources
 ;;
-;; 3. There is no pre-constructed list of dependency edges
-;;
-;; 4. Tags and classes are represented as lists (and may contain
+;; 3. Tags and classes are represented as lists (and may contain
 ;;    duplicates) instead of sets
 ;;
-;; 5. Resources are represented as a list instead of a map, making
+;; 4. Resources are represented as a list instead of a map, making
 ;;    operations that need to correlate against specific resources
 ;;    unneccesarily difficult
 ;;
@@ -133,20 +131,33 @@
   (into {} (for [[k v] m]
              [(keyword k) v])))
 
-;; ## Containment edge normalization
+;; ## Edge normalization
 ;;
-;; The following functions are used to transform the list of
-;; containment edges included in a catalog into a list of dependency
-;; specifications, adding to the catalog whatever resources are
-;; missing yet still pointed to by an edge.
+;; The following functions are used to transform the list of edges
+;; included in a catalog into a list of dependency specifications,
+;; adding to the catalog whatever resources are missing yet still
+;; pointed to by an edge.
 
-(defn normalize-containment-edges
+(def valid-relationship?
+  #{:contains :required-by :notifies :before :subscription-of})
+
+(defn normalize-relationship
+  "Turns a string version of a relationship into a keyword"
+  [relationship]
+  {:pre  [(string? relationship)]
+   :post [(keyword? %)
+          (valid-relationship? %)]}
+  (keyword relationship))
+
+(defn normalize-edges
   "Turn containment edges in a catalog into properly split type/title
   resources with relationship specifications.
 
   Turns edges that look like:
 
-    {\"source\" \"Class[foo]\" \"target\" \"User[bar]\"}
+    {\"source\" \"Class[foo]\"
+     \"target\" \"User[bar]\"
+     \"relationship\" \"contains\"}
 
   into:
 
@@ -155,12 +166,13 @@
      :relationship :contains}"
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)
-          (every? string? (mapcat keys edges))]
+          (every? string? (mapcat keys edges))
+          (every? string? (mapcat vals edges))]
    :post [(every? map? (% :edges))]}
-  (let [parsed-edges (for [{:strs [source target]} edges]
+  (let [parsed-edges (for [{:strs [source target relationship]} edges]
                        {:source (resource-spec-to-map source)
                         :target (resource-spec-to-map target)
-                        :relationship :contains})]
+                        :relationship (normalize-relationship relationship)})]
     (assoc catalog :edges (set parsed-edges))))
 
 (defn resource-names
@@ -257,70 +269,6 @@
   [{:keys [aliases edges] :as catalog}]
   (assoc catalog :edges (into #{} (resolve-aliases-in-edges edges aliases))))
 
-;; ## Dependency edge normalization
-;;
-;; The following functions will handle walking the catalog's list of
-;; resources and compiling a set of dependency specifications that
-;; model the relationships between resources.
-;;
-;; All edges are modeled as having a source and a target, so the
-;; question is how do we decide what's the source and what's the
-;; target for a given relationship? For now, we've decided on a
-;; convention: the source should be something that's temporally
-;; ordered before the target, in terms of Puppet evaluation. This
-;; mirrors the `Source -> Target` arrow convention in the Puppet DSL,
-;; as that implies a temporal ordering.
-
-(def relationship-mapping-table
-  ^{:doc "Translates between relationship specifiers in a wire-format
-  catalog to the set of attributes necessary to produce a dependency
-  specification"}
-  {"subscribe" {:direction :reverse :relationship :subscription-of}
-   "notify"    {:direction :forward :relationship :notifies}
-   "before"    {:direction :forward :relationship :before}
-   "require"   {:direction :reverse :relationship :required-by}})
-
-(defn build-dependencies-for-resource
-  "Given a resource, return a lazy seq of dependency specifications
-  applicable to that resource.
-
-  This will include relationships extracted from dependency-signifying
-  resource attributes like subscribe, require, et all."
-  [{:keys [type title parameters] :as resource :or {parameters {}}}]
-  {;; type and title cannot be nil
-   :pre [type
-         title]}
-  (let [resource-spec     {:type type :title title}
-        emit-dependency   (fn [child relationship]
-                            (let [direction (get-in relationship-mapping-table [relationship :direction])
-                                  rel       (get-in relationship-mapping-table [relationship :relationship])]
-                              (if (= direction :forward)
-                                {:source resource-spec :target child :relationship rel}
-                                {:source child :target resource-spec :relationship rel})))]
-
-    (flatten
-     ; Examine the resource's value for each order-specifying parameter
-     (for [relationship (keys relationship-mapping-table)
-           :let [param-value (parameters relationship)]
-           :when param-value]
-       (let [children (->> (pl-utils/as-collection param-value)
-                           (map resource-spec-to-map))
-             dependencies (map #(emit-dependency % relationship) children)]
-         dependencies)))))
-
-(defn build-dependency-edges
-  "Using the dependency and containment information from a catalog,
-  build a dependency graph for all the resources."
-  [{:keys [resources edges] :as catalog}]
-  {:pre [(map? resources)
-         (coll? edges)]
-   :post [(>= (count (% :edges)) (count edges))]}
-  (let [new-edges (->> (vals resources)
-                       (mapcat build-dependencies-for-resource)
-                       (concat edges)
-                       (set))]
-    (assoc catalog :edges new-edges)))
-
 ;; ## Resource normalization
 
 (defn keywordify-resource
@@ -372,11 +320,12 @@
 ;; Functions to ensure that the catalog structure is coherent.
 
 (defn check-edge-integrity
-  "Ensure that all edges have valid sources and targets"
+  "Ensure that all edges have valid sources and targets, and that the
+  relationship types are acceptable."
   [{:keys [edges resources] :as catalog}]
   {:pre [(set? edges)
          (map? resources)]}
-  (doseq [{:keys [source target] :as edge} edges
+  (doseq [{:keys [source target relationship] :as edge} edges
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
@@ -416,11 +365,10 @@
   (-> o
       (restructure-catalog)
       (keywordify-resources)
-      (normalize-containment-edges)
+      (normalize-edges)
       (add-resources-for-edges)
       (mapify-resources)
       (build-alias-map)
-      (build-dependency-edges)
       (normalize-aliases)
       (setify-tags-and-classes)
       (check-edge-integrity)))
