@@ -20,7 +20,6 @@
     (is (= (:edges b) (:edges a)))
     (is (= (:edges b) (:edges a)))
     (is (= (:resources b) (:resources a)))
-    (is (= (:aliases b) (:aliases a)))
     (is (= b a))))
 
 (deftest parsing-resource-string
@@ -55,59 +54,6 @@
              {:foo 1 :bar 2}))
       (is (= (keys-to-keywords {})
              {})))))
-
-(deftest aliases-building
-  (testing "Building the aliases map"
-    (testing "should work for the base case"
-      (is (= (build-alias-map {:resources {}})
-             {:resources {} :aliases {}})))
-
-    (testing "should work for resources with no aliases"
-      (is (= (:aliases
-              (build-alias-map {:resources {{:type "Foo" :title "bar"} (random-kw-resource "Foo" "bar")}}))
-             {})))
-
-    (testing "should work for resources with aliases"
-      (is (= (:aliases
-              (build-alias-map
-               {:resources
-                {{:type "Foo" :title "bar"}
-                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" "baz"}})}}))
-             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))
-
-    (testing "should work for resources with multiple aliases"
-      (is (= (:aliases
-              (build-alias-map
-               {:resources
-                {{:type "Foo" :title "bar"}
-                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" ["baz" "boo"]}})}}))
-             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}
-              {:type "Foo" :title "boo"} {:type "Foo" :title "bar"}})))
-
-    (testing "should work for multiple resources"
-      (is (= (:aliases
-              (build-alias-map
-               {:resources
-                {{:type "Foo" :title "bar"}
-                 (random-kw-resource "Foo" "bar" {"parameters" {"alias" "baz"}})
-                 {:type "Goo" :title "gar"}
-                 (random-kw-resource "Goo" "gar")}
-                }))
-             {{:type "Foo" :title "baz"} {:type "Foo" :title "bar"}})))))
-
-(deftest alias-normalization
-  (testing "Alias metaparameter normalization"
-    (testing "should work for no aliases"
-      (is (= (normalize-aliases {:aliases {} :edges #{}})
-             {:aliases {} :edges #{}})))
-
-    (testing "should resolve aliases in sources and targets"
-      (is (= (:edges (normalize-aliases {:aliases {"a" "real-a"
-                                                   "c" "real-c"}
-                                         :edges #{{:source "a" :target "b" :relationship :before}
-                                                  {:source "b" :target "c" :relationship :before}}}))
-             #{{:source "real-a" :target "b" :relationship :before}
-               {:source "b" :target "real-c" :relationship :before}})))))
 
 (deftest catalog-restructuring
   (testing "Restructuring catalogs"
@@ -286,8 +232,7 @@
   "document_type" "Catalog",
   "metadata" {"api_version" 1}}
 
- {:aliases {},
-  :certname "nick-lewis.puppetlabs.lan",
+ {:certname "nick-lewis.puppetlabs.lan",
   :api-version 1,
   :cmdb-version 1,
   :classes #{"settings"},
