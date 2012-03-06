@@ -4,7 +4,8 @@
 ;; randomly modifying an existing catalog (wire format or parsed).
 
 (ns com.puppetlabs.cmdb.catalog.utils
-  (:require [com.puppetlabs.cmdb.catalog :as cat]))
+  (:require [com.puppetlabs.cmdb.catalog :as cat])
+  (:use [clojure.walk :only [keywordize-keys]]))
 
 (defn random-string
   "Generate a random string of optional length"
@@ -39,7 +40,7 @@
 
 ;; A version of random-resource that returns resources with keyword
 ;; keys instead of strings
-(def random-kw-resource (comp cat/keys-to-keywords random-resource))
+(def random-kw-resource (comp keywordize-keys random-resource))
 
 (defn add-random-resource-to-wire-catalog
   "Adds a random resource to the given wire-format catalog"
