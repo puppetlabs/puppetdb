@@ -129,48 +129,19 @@
              [(keyword k) v])))
 
 ;; ## Edge normalization
-;;
-;; The following functions are used to transform the list of edges
-;; included in a catalog into a list of dependency specifications,
-;; adding to the catalog whatever resources are missing yet still
-;; pointed to by an edge.
 
-(def valid-relationship?
-  #{:contains :required-by :notifies :before :subscription-of})
-
-(defn normalize-relationship
-  "Turns a string version of a relationship into a keyword"
-  [relationship]
-  {:pre  [(string? relationship)]
-   :post [(keyword? %)
-          (valid-relationship? %)]}
-  (keyword relationship))
-
-(defn normalize-edges
-  "Turn containment edges in a catalog into properly split type/title
-  resources with relationship specifications.
-
-  Turns edges that look like:
-
-    {\"source\" \"Class[foo]\"
-     \"target\" \"User[bar]\"
-     \"relationship\" \"contains\"}
-
-  into:
-
-    {:source {:type \"Class\" :title \"foo\"}
-     :target {:type \"User\" :title \"bar\"}
-     :relationship :contains}"
+(defn keywordify-edges
+  "Take each edge in the the supplied catalog, and make all of their
+  keys proper keywords"
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)
-          (every? string? (mapcat keys edges))
-          (every? string? (mapcat vals edges))]
-   :post [(every? map? (% :edges))]}
-  (let [parsed-edges (for [{:strs [source target relationship]} edges]
-                       {:source (resource-spec-to-map source)
-                        :target (resource-spec-to-map target)
-                        :relationship (normalize-relationship relationship)})]
-    (assoc catalog :edges (set parsed-edges))))
+          (every? string? (mapcat keys edges))]
+   :post [(every? keyword? (mapcat keys (% :edges)))]}
+  (let [new-edges (for [{:strs [source target relationship]} edges]
+                    {:source (keys-to-keywords source)
+                     :target (keys-to-keywords target)
+                     :relationship (keyword relationship)})]
+    (assoc catalog :edges (set new-edges))))
 
 ;; ## Alias normalization
 ;;
@@ -321,7 +292,7 @@
   (-> o
       (restructure-catalog)
       (keywordify-resources)
-      (normalize-edges)
+      (keywordify-edges)
       (mapify-resources)
       (build-alias-map)
       (normalize-aliases)

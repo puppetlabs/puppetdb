@@ -109,42 +109,6 @@
              #{{:source "real-a" :target "b" :relationship :before}
                {:source "b" :target "real-c" :relationship :before}})))))
 
-(deftest edge-normalization
-  (testing "Edge normalization"
-    (testing "should work for the base case"
-      (is (= (normalize-edges {:edges []}) {:edges #{}})))
-
-    (testing "should error on bad input"
-      ;; No edges
-      (is (thrown? AssertionError (normalize-edges {:edges nil})))
-      ;; No target
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "foo"}]})))
-      ;; Malformed source and target
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "foo" "target" "bar"}]})))
-      ;; Malformed target
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "target" "bar"}]})))
-      ;; Null source
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" nil "target" "bar"}]})))
-      ;; Missing target and relationship
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "meh" "Class[bar]"}]})))
-      ;; Bad relationship (we've all been there, buddy)
-      (is (thrown? AssertionError (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "bad"}]}))))
-
-    (testing "should work for well-formed edges"
-      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "contains"}]})
-             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}}})))
-
-    (testing "should work for multiple edges"
-      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "contains"}
-                                       {"source" "Class[baz]" "target" "Class[goo]" "relationship" "before"}]})
-             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}
-                       {:source {:type "Class" :title "baz"} :target {:type "Class" :title "goo"} :relationship :before}}})))
-
-    (testing "should squash duplicates"
-      (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}
-                                       {"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}]})
-             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :subscription-of}}})))))
-
 (deftest catalog-restructuring
   (testing "Restructuring catalogs"
     (testing "should work on well-formed input"
@@ -236,67 +200,179 @@
 
 
 (catalog-before-and-after
- {"metadata" {"api_version" 1}
-  "data" {"name"      "myhost.mydomain.com"
-          "version"   123456789
-          "tags"      ["class" "foobar"]
-          "classes"   ["foobar"]
-          "edges"     [{"source" "Class[foobar]" "target" "File[/etc/foobar]" "relationship" "contains"}
-                       {"source" "Class[foobar]" "target" "File[/etc/foobar/baz]" "relationship" "contains"}
-                       {"source" "File[/etc/foobar]" "target" "File[/etc/foobar/baz]" "relationship" "required-by"}]
-          "resources" [{"type"     "Class"
-                        "title"    "foobar"
-                        "exported" false
-                        "tags"     ["class" "foobar"]}
-                       {"type"       "File"
-                        "title"      "/etc/foobar"
-                        "exported"   false
-                        "tags"       ["file" "class" "foobar"]
-                        "parameters" {"ensure" "directory"
-                                      "alias" "foobar"
-                                      "group" "root"
-                                      "user" "root"}}
-                       {"type"       "File"
-                        "title"      "/etc/foobar/baz"
-                        "exported"   false
-                        "tags"       ["file" "class" "foobar"]
-                        "parameters" {"ensure" "directory"
-                                      "group" "root"
-                                      "user" "root"
-                                      "require" "File[foobar]"}}]}}
- {:certname "myhost.mydomain.com"
-  :cmdb-version CMDB-VERSION
-  :api-version 1
-  :version "123456789"
-  :tags #{"class" "foobar"}
-  :classes #{"foobar"}
-  :aliases {{:type "File" :title "foobar"} {:type "File" :title "/etc/foobar"}}
-  :edges #{{:source {:type "Class" :title "foobar"}
-            :target {:type "File" :title "/etc/foobar"}
+ {"data"
+  {"classes" ["settings"],
+   "edges"
+   [{"relationship" "contains",
+     "source" {"title" "main", "type" "Class"},
+     "target" {"title" "/tmp/foo", "type" "File"}}
+    {"relationship" "contains",
+     "source" {"title" "main", "type" "Stage"},
+     "target" {"title" "Settings", "type" "Class"}}
+    {"relationship" "contains",
+     "source" {"title" "main", "type" "Class"},
+     "target" {"title" "/tmp/baz", "type" "File"}}
+    {"relationship" "contains",
+     "source" {"title" "main", "type" "Class"},
+     "target" {"title" "/tmp/bar", "type" "File"}}
+    {"relationship" "contains",
+     "source" {"title" "main", "type" "Stage"},
+     "target" {"title" "main", "type" "Class"}}
+    {"relationship" "contains",
+     "source" {"title" "main", "type" "Class"},
+     "target" {"title" "/tmp/quux", "type" "File"}}
+    {"relationship" "required-by",
+     "source" {"title" "/tmp/bar", "type" "File"},
+     "target" {"title" "/tmp/foo", "type" "File"}}
+    {"relationship" "required-by",
+     "source" {"title" "/tmp/baz", "type" "File"},
+     "target" {"title" "/tmp/foo", "type" "File"}}
+    {"relationship" "required-by",
+     "source" {"title" "/tmp/quux", "type" "File"},
+     "target" {"title" "/tmp/baz", "type" "File"}}
+    {"relationship" "required-by",
+     "source" {"title" "/tmp/baz", "type" "File"},
+     "target" {"title" "/tmp/bar", "type" "File"}}
+    {"relationship" "required-by",
+     "source" {"title" "/tmp/quux", "type" "File"},
+     "target" {"title" "/tmp/bar", "type" "File"}}],
+   "name" "nick-lewis.puppetlabs.lan",
+   "resources"
+   [{"exported" false,
+     "file" "/Users/nicklewis/projects/grayskull/test.pp",
+     "line" 3,
+     "parameters" {"require" ["File[/tmp/bar]" "File[/tmp/baz]"]},
+     "tags" ["file" "class"],
+     "title" "/tmp/foo",
+     "type" "File"}
+    {"exported" false,
+     "parameters" {},
+     "tags" ["class" "settings"],
+     "title" "Settings",
+     "type" "Class"}
+    {"exported" false,
+     "file" "/Users/nicklewis/projects/grayskull/test.pp",
+     "line" 11,
+     "parameters" {"require" "File[/tmp/quux]"},
+     "tags" ["file" "class"],
+     "title" "/tmp/baz",
+     "type" "File"}
+    {"exported" false,
+     "parameters" {"name" "main"},
+     "tags" ["stage"],
+     "title" "main",
+     "type" "Stage"}
+    {"exported" false,
+     "file" "/Users/nicklewis/projects/grayskull/test.pp",
+     "line" 7,
+     "parameters" {"require" ["File[/tmp/baz]" "File[/tmp/quux]"]},
+     "tags" ["file" "class"],
+     "title" "/tmp/bar",
+     "type" "File"}
+    {"exported" false,
+     "parameters" {"name" "main"},
+     "tags" ["class"],
+     "title" "main",
+     "type" "Class"}
+    {"exported" false,
+     "file" "/Users/nicklewis/projects/grayskull/test.pp",
+     "line" 12,
+     "parameters" {},
+     "tags" ["file" "class"],
+     "title" "/tmp/quux",
+     "type" "File"}],
+   "tags" ["settings"],
+   "version" 1330995750},
+  "document_type" "Catalog",
+  "metadata" {"api_version" 1}}
+
+ {:aliases {},
+  :certname "nick-lewis.puppetlabs.lan",
+  :api-version 1,
+  :cmdb-version 1,
+  :classes #{"settings"},
+  :edges #{{:source {:title "/tmp/baz", :type "File"},
+            :target {:title "/tmp/bar", :type "File"},
+            :relationship :required-by}
+           {:source {:title "main", :type "Class"},
+            :target {:title "/tmp/foo", :type "File"},
             :relationship :contains}
-           {:source {:type "Class" :title "foobar"}
-            :target {:type "File" :title "/etc/foobar/baz"}
+           {:source {:title "/tmp/bar", :type "File"},
+            :target {:title "/tmp/foo", :type "File"},
+            :relationship :required-by}
+           {:source {:title "/tmp/quux", :type "File"},
+            :target {:title "/tmp/bar", :type "File"},
+            :relationship :required-by}
+           {:source {:title "main", :type "Class"},
+            :target {:title "/tmp/bar", :type "File"},
             :relationship :contains}
-           {:source {:type "File" :title "/etc/foobar"}
-            :target {:type "File" :title "/etc/foobar/baz"}
-            :relationship :required-by}}
-  :resources {{:type "Class" :title "foobar"} {:type "Class"
-                                               :title "foobar"
-                                               :exported false
-                                               :tags #{"class" "foobar"}}
-              {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                   :title      "/etc/foobar"
-                                                   :exported   false
-                                                   :tags       #{"file" "class" "foobar"}
-                                                   :parameters {"ensure" "directory"
-                                                                "alias"  "foobar"
-                                                                "group"  "root"
-                                                                "user"   "root"}}
-              {:type "File" :title "/etc/foobar/baz"} {:type       "File"
-                                                       :title      "/etc/foobar/baz"
-                                                       :exported   false
-                                                       :tags       #{"file" "class" "foobar"}
-                                                       :parameters {"ensure"  "directory"
-                                                                    "group"   "root"
-                                                                    "user"    "root"
-                                                                    "require" "File[foobar]"}}}})
+           {:source {:title "main", :type "Stage"},
+            :target {:title "Settings", :type "Class"},
+            :relationship :contains}
+           {:source {:title "/tmp/quux", :type "File"},
+            :target {:title "/tmp/baz", :type "File"},
+            :relationship :required-by}
+           {:source {:title "main", :type "Class"},
+            :target {:title "/tmp/baz", :type "File"},
+            :relationship :contains}
+           {:source {:title "main", :type "Class"},
+            :target {:title "/tmp/quux", :type "File"},
+            :relationship :contains}
+           {:source {:title "main", :type "Stage"},
+            :target {:title "main", :type "Class"},
+            :relationship :contains}
+           {:source {:title "/tmp/baz", :type "File"},
+            :target {:title "/tmp/foo", :type "File"},
+            :relationship :required-by}},
+  :resources {{:type "File", :title "/tmp/foo"}
+              {:exported false,
+               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :line 3,
+               :parameters {"require" ["File[/tmp/bar]" "File[/tmp/baz]"]},
+               :tags #{"class" "file"},
+               :title "/tmp/foo",
+               :type "File"},
+              {:type "Class", :title "Settings"}
+              {:exported false,
+               :parameters {},
+               :tags #{"settings" "class"},
+               :title "Settings",
+               :type "Class"},
+              {:type "File", :title "/tmp/baz"}
+              {:exported false,
+               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :line 11,
+               :parameters {"require" "File[/tmp/quux]"},
+               :tags #{"class" "file"},
+               :title "/tmp/baz",
+               :type "File"},
+              {:type "Stage", :title "main"}
+              {:exported false,
+               :parameters {"name" "main"},
+               :tags #{"stage"},
+               :title "main",
+               :type "Stage"},
+              {:type "File", :title "/tmp/bar"}
+              {:exported false,
+               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :line 7,
+               :parameters {"require" ["File[/tmp/baz]" "File[/tmp/quux]"]},
+               :tags #{"class" "file"},
+               :title "/tmp/bar",
+               :type "File"},
+              {:type "Class", :title "main"}
+              {:exported false,
+               :parameters {"name" "main"},
+               :tags #{"class"},
+               :title "main",
+               :type "Class"},
+              {:type "File", :title "/tmp/quux"}
+              {:exported false,
+               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :line 12,
+               :parameters {},
+               :tags #{"class" "file"},
+               :title "/tmp/quux",
+               :type "File"}},
+  :tags #{"settings"},
+  :version "1330995750"})
