@@ -111,6 +111,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
       %w[source target].each do |vertex|
         edge[vertex] = resource_ref_to_hash(edge[vertex]) if edge[vertex].is_a?(String)
       end
+      edge['relationship'] ||= 'contains'
     end
 
     hash

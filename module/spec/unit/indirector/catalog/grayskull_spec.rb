@@ -125,6 +125,13 @@ describe Puppet::Resource::Catalog::Grayskull do
         result = subject.munge_edges(hash)
         result['edges'].should include(edge)
       end
+
+      it "should set the edge relationship to contains if it doesn't have one" do
+        result = subject.munge_edges(catalog_data_hash)
+        result['edges'].each do |edge|
+          edge['relationship'].should == 'contains'
+        end
+      end
     end
 
     describe "#synthesize_edges" do
