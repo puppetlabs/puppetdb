@@ -35,7 +35,9 @@
       (is (= (resource-spec-to-map "Class[Foo]")
              {:type "Class" :title "Foo"}))
       (is (= (resource-spec-to-map "Class[F[oo]]")
-             {:type "Class" :title "F[oo]"})))))
+             {:type "Class" :title "F[oo]"}))
+      (is (= (resource-spec-to-map "Notify[Foo\nbar]")
+             {:type "Notify" :title "Foo\nbar"})))))
 
 (deftest keywordification
   (testing "Changing string-based maps to keyword-based"
