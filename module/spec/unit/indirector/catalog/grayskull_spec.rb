@@ -172,6 +172,22 @@ foo::bar { bar: }
         result['edges'].should include(edge)
       end
 
+      it "should add edges even if the other end is an alias" do
+        other_resource = Puppet::Resource.new(:notify, 'noone', :parameters => {:alias => 'another_thing'})
+        resource[:require] = 'Notify[another_thing]'
+        Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+
+        hash = catalog.to_pson_data_hash['data']
+        subject.add_parameters_if_missing(hash)
+        result = subject.synthesize_edges(hash)
+
+        edge = {'source' => {:type => 'Notify', :title => 'noone'},
+                'target' => {:type => 'Notify', :title => 'anyone'},
+                'relationship' => 'required-by'}
+
+        result['edges'].should include(edge)
+      end
+
       it "should not add edges from exported resources" do
         other_resource = Puppet::Resource.new(:notify, 'noone')
         resource[:require] = 'Notify[noone]'

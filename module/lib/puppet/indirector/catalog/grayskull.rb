@@ -117,7 +117,27 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     hash
   end
 
+  def map_aliases_to_title(hash)
+    aliases = {}
+    hash['resources'].each do |resource|
+      names = resource['parameters'][:alias] || []
+      resource_hash = {:type => resource['type'], :title => resource['title']}
+      names.each do |name|
+        alias_hash = {:type => resource['type'], :title => name}
+        aliases[alias_hash] = resource_hash
+      end
+    end
+    aliases
+  end
+
+  def find_resource(resources, resource_hash)
+    return unless resource_hash
+    resources.find {|res| res['type'] == resource_hash[:type] and res['title'] == resource_hash[:title]}
+  end
+
   def synthesize_edges(hash)
+    aliases = map_aliases_to_title(hash)
+
     hash['resources'].each do |resource|
       next if resource['exported']
 
@@ -129,13 +149,19 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
             resource_hash = {:type => resource['type'], :title => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
 
-            other_resource = hash['resources'].find {|res| res['type'] == other_hash[:type] and res['title'] == other_hash[:title]}
+            # Try to find the resource by type/title or look it up as an alias
+            # and try that
+            other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_hash])
 
             raise "Can't find resource #{other_ref} for relationship" unless other_resource
 
             if other_resource['exported']
               raise "Can't create an edge between #{resource_hash_to_ref(resource_hash)} and exported resource #{other_ref}"
             end
+
+            # If the ref was an alias, it will have a different title, so use
+            # that
+            other_hash[:title] = other_resource['title']
 
             if relation[:direction] == :forward
               edge.merge!('source' => resource_hash, 'target' => other_hash)
