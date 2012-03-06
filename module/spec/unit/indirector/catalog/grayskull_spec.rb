@@ -107,17 +107,17 @@ describe Puppet::Resource::Catalog::Grayskull do
 
         result['edges'].each do |edge|
           edge['source'].should be_a(Hash)
-          edge['source'].keys.should =~ [:type, :title]
+          edge['source'].keys.should =~ ['type', 'title']
           edge['target'].should be_a(Hash)
-          edge['target'].keys.should =~ [:type, :title]
+          edge['target'].keys.should =~ ['type', 'title']
         end
       end
 
       it "should leave type/title hashes alone" do
         hash = catalog_data_hash
 
-        edge = {'source' => {:type => 'Notify', :title => 'bar'},
-                'target' => {:type => 'Notify', :title => 'baz'},
+        edge = {'source' => {'type' => 'Notify', 'title' => 'bar'},
+                'target' => {'type' => 'Notify', 'title' => 'baz'},
                 'relationship' => 'notifies'}
 
         hash['edges'] << edge.dup
@@ -143,8 +143,8 @@ describe Puppet::Resource::Catalog::Grayskull do
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash)
 
-        edge = {'source' => {:type => 'Notify', :title => 'anyone'},
-                'target' => {:type => 'Notify', :title => 'noone'},
+        edge = {'source' => {'type' => 'Notify', 'title' => 'anyone'},
+                'target' => {'type' => 'Notify', 'title' => 'noone'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)
@@ -165,8 +165,8 @@ foo::bar { bar: }
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash)
 
-        edge = {'source' => {:type => 'Foo::Bar', :title => 'bar'},
-                'target' => {:type => 'Foo::Bar', :title => 'foo'},
+        edge = {'source' => {'type' => 'Foo::Bar', 'title' => 'bar'},
+                'target' => {'type' => 'Foo::Bar', 'title' => 'foo'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)
@@ -181,8 +181,8 @@ foo::bar { bar: }
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash)
 
-        edge = {'source' => {:type => 'Notify', :title => 'noone'},
-                'target' => {:type => 'Notify', :title => 'anyone'},
+        edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
+                'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)
@@ -197,8 +197,8 @@ foo::bar { bar: }
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash)
 
-        edge = {'source' => {:type => 'Notify', :title => 'noone'},
-                'target' => {:type => 'Notify', :title => 'anyone'},
+        edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
+                'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
         result['edges'].should_not include(edge)

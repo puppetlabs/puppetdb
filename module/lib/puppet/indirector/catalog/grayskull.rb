@@ -121,9 +121,9 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     aliases = {}
     hash['resources'].each do |resource|
       names = resource['parameters'][:alias] || []
-      resource_hash = {:type => resource['type'], :title => resource['title']}
+      resource_hash = {'type' => resource['type'], 'title' => resource['title']}
       names.each do |name|
-        alias_hash = {:type => resource['type'], :title => name}
+        alias_hash = {'type' => resource['type'], 'title' => name}
         aliases[alias_hash] = resource_hash
       end
     end
@@ -132,7 +132,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
 
   def find_resource(resources, resource_hash)
     return unless resource_hash
-    resources.find {|res| res['type'] == resource_hash[:type] and res['title'] == resource_hash[:title]}
+    resources.find {|res| res['type'] == resource_hash['type'] and res['title'] == resource_hash['title']}
   end
 
   def synthesize_edges(hash)
@@ -146,7 +146,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
           [value].flatten.each do |other_ref|
             edge = {'relationship' => relation[:relationship]}
 
-            resource_hash = {:type => resource['type'], :title => resource['title']}
+            resource_hash = {'type' => resource['type'], 'title' => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
 
             # Try to find the resource by type/title or look it up as an alias
@@ -161,7 +161,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
 
             # If the ref was an alias, it will have a different title, so use
             # that
-            other_hash[:title] = other_resource['title']
+            other_hash['title'] = other_resource['title']
 
             if relation[:direction] == :forward
               edge.merge!('source' => resource_hash, 'target' => other_hash)
@@ -181,11 +181,11 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
 
   def resource_ref_to_hash(ref)
     ref =~ /^([^\[\]]+)\[(.+)\]$/m
-    {:type => $1, :title => $2}
+    {'type' => $1, 'title' => $2}
   end
 
   def resource_hash_to_ref(hash)
-    "#{hash[:type]}[#{hash[:title]}]"
+    "#{hash['type']}[#{hash['title']}]"
   end
 
   def headers
