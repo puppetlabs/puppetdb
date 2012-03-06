@@ -106,7 +106,7 @@
    :post [(map? %)
           (:type %)
           (:title %)]}
-  (let [[[_ type title]] (re-seq #"(^.*?)\[(.*)\]$" str)]
+  (let [[[_ type title]] (re-seq #"(?s)(^.*?)\[(.*)\]$" str)]
     {:type type :title title}))
 
 (defn keys-to-keywords
