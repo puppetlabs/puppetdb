@@ -64,29 +64,101 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   def munge_catalog(catalog)
     hash = catalog.to_pson_data_hash
 
-    hash['data']['resources'].each do |resource|
-      next unless resource['parameters']
+    data = hash['data']
 
+    add_parameters_if_missing(data)
+    add_namevar_aliases(data, catalog)
+    munge_edges(data)
+    synthesize_edges(data)
+
+    hash
+  end
+
+  Relationships = {
+    :before    => {:direction => :forward, :relationship => 'before'},
+    :require   => {:direction => :reverse, :relationship => 'required-by'},
+    :notify    => {:direction => :forward, :relationship => 'notifies'},
+    :subscribe => {:direction => :reverse, :relationship => 'subscription-of'},
+  }
+
+  def add_parameters_if_missing(hash)
+    hash['resources'].each do |resource|
+      resource['parameters'] ||= {}
+    end
+
+    hash
+  end
+
+  def add_namevar_aliases(hash, catalog)
+    hash['resources'].each do |resource|
       real_resource = catalog.resource(resource['type'], resource['title'])
 
-      aliases = real_resource[:alias]
-
-      case aliases
-      when String
-        aliases = [aliases]
-      when nil
-        aliases = []
-      end
+      aliases = [real_resource[:alias]].flatten.compact
 
       name = real_resource[real_resource.send(:namevar)]
       unless name.nil? or real_resource.title == name or aliases.include?(name)
         aliases << name
       end
 
-      resource['parameters']['alias'] = aliases
+      resource['parameters']['alias'] = aliases unless aliases.empty?
     end
 
     hash
+  end
+
+  def munge_edges(hash)
+    hash['edges'].each do |edge|
+      %w[source target].each do |vertex|
+        edge[vertex] = resource_ref_to_hash(edge[vertex]) if edge[vertex].is_a?(String)
+      end
+    end
+
+    hash
+  end
+
+  def synthesize_edges(hash)
+    hash['resources'].each do |resource|
+      next if resource['exported']
+
+      Relationships.each do |param,relation|
+        if value = resource['parameters'][param]
+          [value].flatten.each do |other_ref|
+            edge = {'relationship' => relation[:relationship]}
+
+            resource_hash = {:type => resource['type'], :title => resource['title']}
+            other_hash = resource_ref_to_hash(other_ref)
+
+            other_resource = hash['resources'].find {|res| res['type'] == other_hash[:type] and res['title'] == other_hash[:title]}
+
+            raise "Can't find resource #{other_ref} for relationship" unless other_resource
+
+            if other_resource['exported']
+              raise "Can't create an edge between #{resource_hash_to_ref(resource_hash)} and exported resource #{other_ref}"
+            end
+
+            if relation[:direction] == :forward
+              edge.merge!('source' => resource_hash, 'target' => other_hash)
+            else
+              edge.merge!('source' => other_hash, 'target' => resource_hash)
+            end
+            hash['edges'] << edge
+          end
+        end
+      end
+    end
+
+    hash['edges'].uniq!
+
+    hash
+  end
+
+  def resource_ref_to_hash(ref)
+    ref =~ /^([^\[\]]+)\[(.+)\]$/m
+    {:type => $1, :title => $2}
+  end
+
+  def resource_hash_to_ref(hash)
+    "#{hash[:type]}[#{hash[:title]}]"
   end
 
   def headers
