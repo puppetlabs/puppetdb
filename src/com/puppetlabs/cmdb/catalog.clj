@@ -10,13 +10,10 @@
 ;;    `Class[Foobar]`, as opposed to something like
 ;;    `{"type" "Class" "title" "Foobar"}`
 ;;
-;; 2. Containment edges may point to resources that don't exist in the
-;;    catalog's list of resources
-;;
-;; 3. Tags and classes are represented as lists (and may contain
+;; 2. Tags and classes are represented as lists (and may contain
 ;;    duplicates) instead of sets
 ;;
-;; 4. Resources are represented as a list instead of a map, making
+;; 3. Resources are represented as a list instead of a map, making
 ;;    operations that need to correlate against specific resources
 ;;    unneccesarily difficult
 ;;
@@ -175,47 +172,6 @@
                         :relationship (normalize-relationship relationship)})]
     (assoc catalog :edges (set parsed-edges))))
 
-(defn resource-names
-  "Return a set of resource-specs for all the resources in the catalog"
-  [{:keys [resources]}]
-  {:pre  [resources
-          (not (map? resources))]
-   :post [(= (count resources) (count %))]}
-  (into #{} (for [{:keys [type title]} resources]
-              {:type type :title title})))
-
-(defn edge-names
-  "Return a set of resource-specs for all the edges in the catalog.
-
-  A single edge is represented as multiple entries in the resulting
-  set, with one entry for the source and one for the target."
-  [{:keys [edges]}]
-  {:pre  [edges]}
-  (let [parsed-edges (for [{:keys [source target]} edges]
-                       [source target])]
-    (into #{} (apply concat parsed-edges))))
-
-(defn add-resources-for-edges
-  "Adds to the supplied catalog skeleton entries for resources
-  mentioned in edges, yet not present in the resources list.
-
-  Resources added this way are 'bare', in that they have no parameters
-  or other attributes beyond 'exported', which we forcibly set to
-  false."
-  [{:keys [resources edges] :as catalog}]
-  {; Upon return, all pre-existing resources should still be there
-   :post [(let [before   (set resources)
-                after    (set (% :resources))
-                excluded (clojure.set/difference before after)]
-            (zero? (count excluded)))]}
-  (let [missing-resources (clojure.set/difference
-                           (edge-names catalog)
-                           (resource-names catalog))
-        new-resources     (into resources
-                                (for [r missing-resources]
-                                  (merge r {:exported false})))]
-    (assoc catalog :resources new-resources)))
-
 ;; ## Alias normalization
 ;;
 ;; Aliases are represented as a map of resource-specs to
@@ -366,7 +322,6 @@
       (restructure-catalog)
       (keywordify-resources)
       (normalize-edges)
-      (add-resources-for-edges)
       (mapify-resources)
       (build-alias-map)
       (normalize-aliases)

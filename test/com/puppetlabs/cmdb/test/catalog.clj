@@ -143,14 +143,7 @@
     (testing "should squash duplicates"
       (is (= (normalize-edges {:edges [{"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}
                                        {"source" "Class[foo]" "target" "Class[bar]" "relationship" "subscription-of"}]})
-             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :subscription-of}}})))
-
-    (testing "should create resources for things that have edges, but aren't listed in the :resources list"
-      (is (= (-> {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :contains}} :resources []}
-                 (add-resources-for-edges)
-                 (:resources)
-                 (set))
-             #{{:type "Class" :title "foo" :exported false} {:type "Class" :title "bar" :exported false}})))))
+             {:edges #{{:source {:type "Class" :title "foo"} :target {:type "Class" :title "bar"} :relationship :subscription-of}}})))))
 
 (deftest catalog-restructuring
   (testing "Restructuring catalogs"
@@ -251,7 +244,11 @@
           "edges"     [{"source" "Class[foobar]" "target" "File[/etc/foobar]" "relationship" "contains"}
                        {"source" "Class[foobar]" "target" "File[/etc/foobar/baz]" "relationship" "contains"}
                        {"source" "File[/etc/foobar]" "target" "File[/etc/foobar/baz]" "relationship" "required-by"}]
-          "resources" [{"type"       "File"
+          "resources" [{"type"     "Class"
+                        "title"    "foobar"
+                        "exported" false
+                        "tags"     ["class" "foobar"]}
+                       {"type"       "File"
                         "title"      "/etc/foobar"
                         "exported"   false
                         "tags"       ["file" "class" "foobar"]
@@ -283,7 +280,10 @@
            {:source {:type "File" :title "/etc/foobar"}
             :target {:type "File" :title "/etc/foobar/baz"}
             :relationship :required-by}}
-  :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
+  :resources {{:type "Class" :title "foobar"} {:type "Class"
+                                               :title "foobar"
+                                               :exported false
+                                               :tags #{"class" "foobar"}}
               {:type "File" :title "/etc/foobar"} {:type       "File"
                                                    :title      "/etc/foobar"
                                                    :exported   false
