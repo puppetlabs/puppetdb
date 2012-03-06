@@ -285,8 +285,8 @@ must be supplied as the value to be matched."
 
     (if persisted?
       values
-      (assoc values :parameters (for [[name value] parameters]
-                                  [resource-hash name (db-serialize value)])))))
+      (assoc values :parameters (for [[key value] parameters]
+                                  [resource-hash (name key) (db-serialize value)])))))
 
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."

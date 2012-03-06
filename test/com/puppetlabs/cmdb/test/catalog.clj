@@ -38,30 +38,11 @@
       (is (= (resource-spec-to-map "Notify[Foo\nbar]")
              {:type "Notify" :title "Foo\nbar"})))))
 
-(deftest keywordification
-  (testing "Changing string-based maps to keyword-based"
-    (testing "should error on bad input"
-      (is (thrown? AssertionError (keys-to-keywords nil)))
-      (is (thrown? AssertionError (keys-to-keywords []))))
-
-    (testing "should work for the base case"
-      (is (= (keys-to-keywords {}) {})))
-
-    (testing "should work for a variety of maps"
-      (is (= (keys-to-keywords {"foo" 1 "bar" 2})
-             {:foo 1 :bar 2}))
-      (is (= (keys-to-keywords {"foo" 1 :bar 2})
-             {:foo 1 :bar 2}))
-      (is (= (keys-to-keywords {:foo 1 :bar 2})
-             {:foo 1 :bar 2}))
-      (is (= (keys-to-keywords {})
-             {})))))
-
 (deftest catalog-restructuring
   (testing "Restructuring catalogs"
     (testing "should work on well-formed input"
-      (is (= (restructure-catalog {"data" {"name" "myhost" "version" "12345" "foo" "bar"}
-                                   "metadata" {"api_version" 1}})
+      (is (= (restructure-catalog {:data {:name "myhost" :version "12345" :foo "bar"}
+                                   :metadata {:api_version 1}})
              {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION})))
 
     (testing "should error on malformed input"
@@ -70,12 +51,12 @@
       (is (thrown? AssertionError (restructure-catalog [])))
 
       (testing "like non-numeric api versions"
-        (is (thrown? AssertionError (restructure-catalog {"data" {"name" "myhost" "version" "12345"}
-                                                          "metadata" {"api_version" "123"}}))))
+        (is (thrown? AssertionError (restructure-catalog {:data {:name "myhost" :version "12345"}
+                                                          :metadata {:api_version "123"}}))))
 
       (testing "like a missing 'data' key"
-        (is (thrown? AssertionError (restructure-catalog {"name" "myhost" "version" "12345"
-                                                          "metadata" {"api_version" "123"}})))))))
+        (is (thrown? AssertionError (restructure-catalog {:name "myhost" :version "12345"
+                                                          :metadata {:api_version 123}})))))))
 
 
 (deftest integrity-checking
@@ -85,46 +66,46 @@
                    (check-edge-integrity {:edges #{{:source "a" :target "b" :relationship :before}}
                                           :resources {}}))))))
 
-(deftest catalog-normalization
+(deftest resource-normalization
   (let [; Synthesize some fake resources
-        catalog {:resources [{"type"       "File"
-                              "title"      "/etc/foobar"
-                              "exported"   false
-                              "line"       1234
-                              "file"       "/tmp/foobar.pp"
-                              "tags"       ["class" "foobar"]
-                              "parameters" {"ensure" "present"
-                                            "user"   "root"
-                                            "group"  "root"
-                                            "source" "puppet:///foobar/foo/bar"}}]}]
+        catalog {:resources [{:type       "File"
+                              :title      "/etc/foobar"
+                              :exported   false
+                              :line       1234
+                              :file       "/tmp/foobar.pp"
+                              :tags       ["class" "foobar"]
+                              :parameters {:ensure "present"
+                                           :user   "root"
+                                           :group  "root"
+                                           :source "puppet:///foobar/foo/bar"}}]}]
 
-    (testing "Resource keywords"
-      (is (= (keywordify-resources catalog)
-             {:resources [{:type       "File"
-                           :title      "/etc/foobar"
-                           :exported   false
-                           :line       1234
-                           :file       "/tmp/foobar.pp"
-                           :tags       #{"class" "foobar"}
-                           :parameters {"ensure" "present"
-                                        "user"   "root"
-                                        "group"  "root"
-                                        "source" "puppet:///foobar/foo/bar"}}]})))
+    (testing "Resource tags to sets"
+         (is (= (-> catalog
+                    (setify-resource-tags))
+                {:resources [{:type       "File"
+                              :title      "/etc/foobar"
+                              :exported   false
+                              :line       1234
+                              :file       "/tmp/foobar.pp"
+                              :tags       #{"class" "foobar"}
+                              :parameters {:ensure "present"
+                                           :user   "root"
+                                           :group  "root"
+                                           :source "puppet:///foobar/foo/bar"}}]})))
 
     (testing "Resource key extraction"
          (is (= (-> catalog
-                    (keywordify-resources)
                     (mapify-resources))
                 {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
                                                                   :title      "/etc/foobar"
                                                                   :exported   false
                                                                   :line       1234
                                                                   :file       "/tmp/foobar.pp"
-                                                                  :tags       #{"class" "foobar"}
-                                                                  :parameters {"ensure" "present"
-                                                                               "user"   "root"
-                                                                               "group"  "root"
-                                                                               "source" "puppet:///foobar/foo/bar"}}}})))
+                                                                  :tags       ["class" "foobar"]
+                                                                  :parameters {:ensure "present"
+                                                                               :user   "root"
+                                                                               :group  "root"
+                                                                               :source "puppet:///foobar/foo/bar"}}}})))
 
   (let [resources (:resources catalog)
         new-resources (conj resources (first resources))
@@ -132,11 +113,9 @@
     (testing "Duplicate resources should throw error"
       (is (thrown? AssertionError
                    (-> catalog
-                       (keywordify-resources)
                        (mapify-resources))))))
 
   (let [normalize #(-> %
-                       (keywordify-resources)
                        (mapify-resources))]
     (testing "Resource normalization edge case handling"
       ; nil resources aren't allowed
@@ -148,91 +127,89 @@
 
 
 (catalog-before-and-after
- {"data"
-  {"classes" ["settings"],
-   "edges"
-   [{"relationship" "contains",
-     "source" {"title" "main", "type" "Class"},
-     "target" {"title" "/tmp/foo", "type" "File"}}
-    {"relationship" "contains",
-     "source" {"title" "main", "type" "Stage"},
-     "target" {"title" "Settings", "type" "Class"}}
-    {"relationship" "contains",
-     "source" {"title" "main", "type" "Class"},
-     "target" {"title" "/tmp/baz", "type" "File"}}
-    {"relationship" "contains",
-     "source" {"title" "main", "type" "Class"},
-     "target" {"title" "/tmp/bar", "type" "File"}}
-    {"relationship" "contains",
-     "source" {"title" "main", "type" "Stage"},
-     "target" {"title" "main", "type" "Class"}}
-    {"relationship" "contains",
-     "source" {"title" "main", "type" "Class"},
-     "target" {"title" "/tmp/quux", "type" "File"}}
-    {"relationship" "required-by",
-     "source" {"title" "/tmp/bar", "type" "File"},
-     "target" {"title" "/tmp/foo", "type" "File"}}
-    {"relationship" "required-by",
-     "source" {"title" "/tmp/baz", "type" "File"},
-     "target" {"title" "/tmp/foo", "type" "File"}}
-    {"relationship" "required-by",
-     "source" {"title" "/tmp/quux", "type" "File"},
-     "target" {"title" "/tmp/baz", "type" "File"}}
-    {"relationship" "required-by",
-     "source" {"title" "/tmp/baz", "type" "File"},
-     "target" {"title" "/tmp/bar", "type" "File"}}
-    {"relationship" "required-by",
-     "source" {"title" "/tmp/quux", "type" "File"},
-     "target" {"title" "/tmp/bar", "type" "File"}}],
-   "name" "nick-lewis.puppetlabs.lan",
-   "resources"
-   [{"exported" false,
-     "file" "/Users/nicklewis/projects/grayskull/test.pp",
-     "line" 3,
-     "parameters" {"require" ["File[/tmp/bar]" "File[/tmp/baz]"]},
-     "tags" ["file" "class"],
-     "title" "/tmp/foo",
-     "type" "File"}
-    {"exported" false,
-     "parameters" {},
-     "tags" ["class" "settings"],
-     "title" "Settings",
-     "type" "Class"}
-    {"exported" false,
-     "file" "/Users/nicklewis/projects/grayskull/test.pp",
-     "line" 11,
-     "parameters" {"require" "File[/tmp/quux]"},
-     "tags" ["file" "class"],
-     "title" "/tmp/baz",
-     "type" "File"}
-    {"exported" false,
-     "parameters" {"name" "main"},
-     "tags" ["stage"],
-     "title" "main",
-     "type" "Stage"}
-    {"exported" false,
-     "file" "/Users/nicklewis/projects/grayskull/test.pp",
-     "line" 7,
-     "parameters" {"require" ["File[/tmp/baz]" "File[/tmp/quux]"]},
-     "tags" ["file" "class"],
-     "title" "/tmp/bar",
-     "type" "File"}
-    {"exported" false,
-     "parameters" {"name" "main"},
-     "tags" ["class"],
-     "title" "main",
-     "type" "Class"}
-    {"exported" false,
-     "file" "/Users/nicklewis/projects/grayskull/test.pp",
-     "line" 12,
-     "parameters" {},
-     "tags" ["file" "class"],
-     "title" "/tmp/quux",
-     "type" "File"}],
-   "tags" ["settings"],
-   "version" 1330995750},
-  "document_type" "Catalog",
-  "metadata" {"api_version" 1}}
+ {:data
+  {:classes ["settings"],
+   :edges [{:relationship "contains",
+            :source {:title "main", :type "Class"},
+            :target {:title "/tmp/foo", :type "File"}}
+           {:relationship "contains",
+            :source {:title "main", :type "Stage"},
+            :target {:title "Settings", :type "Class"}}
+           {:relationship "contains",
+            :source {:title "main", :type "Class"},
+            :target {:title "/tmp/baz", :type "File"}}
+           {:relationship "contains",
+            :source {:title "main", :type "Class"},
+            :target {:title "/tmp/bar", :type "File"}}
+           {:relationship "contains",
+            :source {:title "main", :type "Stage"},
+            :target {:title "main", :type "Class"}}
+           {:relationship "contains",
+            :source {:title "main", :type "Class"},
+            :target {:title "/tmp/quux", :type "File"}}
+           {:relationship "required-by",
+            :source {:title "/tmp/bar", :type "File"},
+            :target {:title "/tmp/foo", :type "File"}}
+           {:relationship "required-by",
+            :source {:title "/tmp/baz", :type "File"},
+            :target {:title "/tmp/foo", :type "File"}}
+           {:relationship "required-by",
+            :source {:title "/tmp/quux", :type "File"},
+            :target {:title "/tmp/baz", :type "File"}}
+           {:relationship "required-by",
+            :source {:title "/tmp/baz", :type "File"},
+            :target {:title "/tmp/bar", :type "File"}}
+           {:relationship "required-by",
+            :source {:title "/tmp/quux", :type "File"},
+            :target {:title "/tmp/bar", :type "File"}}],
+   :name "nick-lewis.puppetlabs.lan",
+   :resources [{:exported false,
+                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :line 3,
+                :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                :tags ["file" "class"],
+                :title "/tmp/foo",
+                :type "File"}
+               {:exported false,
+                :parameters {},
+                :tags ["class" "settings"],
+                :title "Settings",
+                :type "Class"}
+               {:exported false,
+                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :line 11,
+                :parameters {:require "File[/tmp/quux]"},
+                :tags ["file" "class"],
+                :title "/tmp/baz",
+                :type "File"}
+               {:exported false,
+                :parameters {:name "main"},
+                :tags ["stage"],
+                :title "main",
+                :type "Stage"}
+               {:exported false,
+                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :line 7,
+                :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                :tags ["file" "class"],
+                :title "/tmp/bar",
+                :type "File"}
+               {:exported false,
+                :parameters {:name "main"},
+                :tags ["class"],
+                :title "main",
+                :type "Class"}
+               {:exported false,
+                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :line 12,
+                :parameters {},
+                :tags ["file" "class"],
+                :title "/tmp/quux",
+                :type "File"}],
+   :tags ["settings"],
+   :version 1330995750},
+  :document_type "Catalog",
+  :metadata {:api_version 1}}
 
  {:certname "nick-lewis.puppetlabs.lan",
   :api-version 1,
@@ -275,7 +252,7 @@
               {:exported false,
                :file "/Users/nicklewis/projects/grayskull/test.pp",
                :line 3,
-               :parameters {"require" ["File[/tmp/bar]" "File[/tmp/baz]"]},
+               :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
                :tags #{"class" "file"},
                :title "/tmp/foo",
                :type "File"},
@@ -289,13 +266,13 @@
               {:exported false,
                :file "/Users/nicklewis/projects/grayskull/test.pp",
                :line 11,
-               :parameters {"require" "File[/tmp/quux]"},
+               :parameters {:require "File[/tmp/quux]"},
                :tags #{"class" "file"},
                :title "/tmp/baz",
                :type "File"},
               {:type "Stage", :title "main"}
               {:exported false,
-               :parameters {"name" "main"},
+               :parameters {:name "main"},
                :tags #{"stage"},
                :title "main",
                :type "Stage"},
@@ -303,13 +280,13 @@
               {:exported false,
                :file "/Users/nicklewis/projects/grayskull/test.pp",
                :line 7,
-               :parameters {"require" ["File[/tmp/baz]" "File[/tmp/quux]"]},
+               :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
                :tags #{"class" "file"},
                :title "/tmp/bar",
                :type "File"},
               {:type "Class", :title "main"}
               {:exported false,
-               :parameters {"name" "main"},
+               :parameters {:name "main"},
                :tags #{"class"},
                :title "main",
                :type "Class"},
