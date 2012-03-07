@@ -22,13 +22,14 @@ describe Puppet::Resource::Grayskull do
   end
 
   describe "#search" do
+    let(:host) { 'default.local' }
     before :each do
       described_class.stubs(:port).returns 0
     end
 
-    def search(type, host = 'default.local', filter = nil)
+    def search(type)
       scope = Puppet::Parser::Scope.new
-      args = { :host => host, :filter => filter, :scope => scope }
+      args = { :host => host, :filter => nil, :scope => scope }
       subject.search(Puppet::Resource.indirection.request(:search, type, args))
     end
 
@@ -41,24 +42,25 @@ describe Puppet::Resource::Grayskull do
       expect { search("user") }.to raise_error(Puppet::Error, /Could not retrieve resources/)
     end
 
-    context "with a matching resource" do
-      before :each do
-        def make_resource_hash(name, exported=true)
-          metadata = { :sourcefile => '/etc/puppet/manifests/site.pp',
-                       :sourceline => 10,
-                       :exported   => exported,
-                       :hash       => 'foobarbaz', }
+    describe "with a matching resource" do
+      def make_resource_hash(name, exported=true)
+        metadata = { :sourcefile => '/etc/puppet/manifests/site.pp',
+                     :sourceline => 10,
+                     :exported   => exported,
+                     :hash       => 'foobarbaz', }
 
-          res = Puppet::Type.type(:file).new(:title => File.expand_path(name),
-                                             :ensure => :present,
-                                             :mode => 0777)
-          params = res.to_hash
-          res_hash = metadata.merge(:type => res.type, :title => res.title)
-          res_hash.merge(:parameters => params)
-        end
+        res = Puppet::Type.type(:file).new(:title => File.expand_path(name),
+                                           :ensure => :present,
+                                           :mode => 0777)
+        params = res.to_hash
+        res_hash = metadata.merge(:type => res.type, :title => res.title)
+        res_hash.merge(:parameters => params)
+      end
+
+      before :each do
 
         body = [make_resource_hash('foo'), make_resource_hash('bar')].to_pson
-        query = ['and', ['=', 'type', 'File'], ['=', 'exported', true]]
+        query = ['and', ['=', 'type', 'File'], ['=', 'exported', true], ['not', ['=', 'node', host]]]
 
         result = stub('result', :body => body)
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
