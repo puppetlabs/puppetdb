@@ -23,9 +23,9 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
     # At minimum, we want to filter to the right type of exported resources.
     expr = ['and',
              ['=', 'type', type],
-             ['=', 'exported', true]
-             ['not'
-               ['=', ['node', 'name'], host]]]
+             ['=', 'exported', true],
+             ['not',
+               ['=', 'node', host]]]
 
     filter_expr = build_filter_expression(filter)
     expr << filter_expr if filter_expr
