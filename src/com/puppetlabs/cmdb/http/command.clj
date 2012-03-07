@@ -5,11 +5,10 @@
 ;;
 ;; * A `POST` is used
 ;;
-;; * The `POST` contains a single parameter, `payload`
+;; * The `POST` contains a parameter, `payload`
 ;;
-;; * The `payload` paramater contains a string conforming to the
-;;   structure of a command as outlined in
-;;   `com.puppetlabs.cmdb.command`
+;; * The `POST` contains a parameter, `checksum`, that is a SHA-1
+;;   hash of the payload
 ;;
 ;; The response:
 ;;
