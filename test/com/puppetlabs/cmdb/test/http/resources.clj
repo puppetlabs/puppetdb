@@ -111,7 +111,7 @@ to the result of the form supplied to this method."
                               [["=" "tag" "one"] #{foo1 bar1}]
                               [["=" "tag" "two"] #{foo1 bar1}]
                               [["and"
-                                ["=" ["node" "certname"] "one.local"]
+                                ["=" "node" "one.local"]
                                 ["=" "type" "File"]]
                                #{foo1}]
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]

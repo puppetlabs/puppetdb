@@ -28,7 +28,7 @@
       (is (= (s/query->sql *db* query) result)
           (str query "=>" result)))
     ;; with a path to the field
-    (let [[sql & params] (s/query->sql *db* ["=" ["node" "certname"] "example"])]
+    (let [[sql & params] (s/query->sql *db* ["=" "node" "example"])]
       (is (= params ["example"]))
       (is (re-find #"SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM certname_catalogs JOIN catalog_resources" sql))
       (is (re-find #"\(certname_catalogs.certname = \?\)" sql)))
@@ -44,7 +44,7 @@
   (let [terms [["=" "title" "one"]
                ["=" "type" "two"]
                ["=" "tag" "three"]
-               ["=" ["node" "certname"] "four"]
+               ["=" "node" "four"]
                ["=" ["parameter" "ensure"] "five"]
                ["=" ["parameter" "banana"] "yumm"]]]
     (testing "simple {and, or} grouping"
@@ -96,7 +96,7 @@
   (testing "real world query"
     (let [[sql & params]
           (s/query->sql *db* ["and"
-                         ["not" ["=" ["node" "certname"] "example.local"]]
+                         ["not" ["=" "node" "example.local"]]
                          ["=" "exported" true]
                          ["=" ["parameter" "ensure"] "yellow"]])]
       (is (= sql (str "("
@@ -261,12 +261,12 @@
                   ["=" "type" "Banana"]            []
                   ["=" "tag"  "exotic"]            []
                   ["=" ["parameter" "foo"] "bar"]  []
-                  ["=" ["node" "certname"] "bar"]  []
+                  ["=" "node" "bar"]  []
                   ;; ...and with an actual match.
                   ["=" "type" "File"]              [foo1 bar1 foo4]
                   ["=" "exported" true]            [foo1 bar1 foo2 foo3]
                   ["=" ["parameter" "ensure"] "file"] [foo1 bar1]
-                  ["=" ["node" "certname"] "subset.local"] [bar1 bar3 bar5]
+                  ["=" "node" "subset.local"] [bar1 bar3 bar5]
                   ["=" "tag" "vivid"] [foo4]
                   ;; array parameter matching
                   ["=" ["parameter" "multi"] ["one" "two" "three"]] [foo6]
@@ -288,14 +288,14 @@
                   [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5]
                   ;; nesting queries
                   ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
-                   ["=" ["node" "certname"] "subset.local"]
+                   ["=" "node" "subset.local"]
                    ["and" ["=" "exported" true]]]
                   [bar1]
                   ;; real world query (approximately; real world exported is
                   ;; true, but for convenience around other tests we use
                   ;; false here. :)
                   ["and" ["=" "exported" false]
-                   ["not" ["=" ["node" "certname"] "subset.local"]]
+                   ["not" ["=" "node" "subset.local"]]
                    ["=" "type" "File"]
                    ["=" "tag" "vivid"]]
                   [foo4]
