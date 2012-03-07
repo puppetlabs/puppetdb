@@ -29,7 +29,7 @@
                                               :title      "Main"
                                               :tags       #{"class" "main"}
                                               :type       "Class"
-                                              :parameters {"name" "main"}}
+                                              :parameters {:name "main"}}
                {:type "Class" :title "Settings"} {:exported false
                                                   :title    "Settings"
                                                   :tags     #{"settings" "class"}
@@ -63,19 +63,19 @@
                                                     :file       "/tmp/foo"
                                                     :line       10
                                                     :tags       #{"file" "class" "foobar"}
-                                                    :parameters {"ensure" "directory"
-                                                                 "group"  "root"
-                                                                 "user"   "root"}}
+                                                    :parameters {:ensure "directory"
+                                                                 :group  "root"
+                                                                 :user   "root"}}
                {:type "File" :title "/etc/foobar/baz"} {:type       "File"
                                                         :title      "/etc/foobar/baz"
                                                         :exported   false
                                                         :file       "/tmp/bar"
                                                         :line       20
                                                         :tags       #{"file" "class" "foobar"}
-                                                        :parameters {"ensure"  "directory"
-                                                                     "group"   "root"
-                                                                     "user"    "root"
-                                                                     "require" "File[/etc/foobar]"}}}})
+                                                        :parameters {:ensure  "directory"
+                                                                     :group   "root"
+                                                                     :user    "root"
+                                                                     :require "File[/etc/foobar]"}}}})
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]

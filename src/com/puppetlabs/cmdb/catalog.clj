@@ -39,17 +39,14 @@
 ;;      :title      "..."
 ;;      :...        "..."
 ;;      :tags       #{"tag1", "tag2", ...}
-;;      :parameters {"name1" "value1"
-;;                   "name2" "value2"
+;;      :parameters {:name1 "value1"
+;;                   :name2 "value2"
 ;;                   ...}}
 ;;
 ;; Certain attributes are treated special:
 ;;
 ;; * `:type` and `:title` are used to produce a `resource-spec` for
 ;;   this resource
-;;
-;; * parameters signifying ordering (`subscribe`, `before`, `require`,
-;;   etc) are used to create dependency specifications
 ;;
 ;; ### Dependency Specification
 ;;
@@ -109,53 +106,28 @@
   (let [[[_ type title]] (re-seq #"(?s)(^.*?)\[(.*)\]$" str)]
     {:type type :title title}))
 
-(defn keys-to-keywords
-  "Take a map with string keys and return a map with those keys turned
-  into keywords"
-  [m]
-  {:pre  [(map? m)]
-   :post [(map? %)
-          (every? keyword? (keys %))]}
-  (into {} (for [[k v] m]
-             [(keyword k) v])))
-
 ;; ## Edge normalization
 
-(defn keywordify-edges
-  "Take each edge in the the supplied catalog, and make all of their
-  keys proper keywords"
+(defn keywordify-relationships
+  "Take each edge in the the supplied catalog, and make their :relationship
+  value a proper keyword"
   [{:keys [edges] :as catalog}]
-  {:pre  [(coll? edges)
-          (every? string? (mapcat keys edges))]
-   :post [(every? keyword? (mapcat keys (% :edges)))]}
-  (let [new-edges (for [{:strs [source target relationship]} edges]
-                    {:source (keys-to-keywords source)
-                     :target (keys-to-keywords target)
-                     :relationship (keyword relationship)})]
+  {:pre  [(coll? edges)]
+   :post [(every? keyword? (map :relationship (% :edges)))]}
+  (let [new-edges (for [{:keys [relationship] :as edge} edges]
+                    (merge edge {:relationship (keyword relationship)}))]
     (assoc catalog :edges (set new-edges))))
 
 ;; ## Resource normalization
 
-(defn keywordify-resource
-  "Takes all the keys of each resource and convert them to proper
-  clojure keywords, doing intermediate data transforms in the process.
-
-  transformations we do:
-
-  1. convert each resource's list of tags into a set of tags"
-  [{:strs [tags] :as resource}]
-  (let [new-resource (keys-to-keywords resource)
-        new-tags     (set tags)]
-    (assoc new-resource :tags new-tags)))
-
-(defn keywordify-resources
-  "Applies keywordify-resource to each resource in the supplied catalog,
-  returning a new catalog with its list of resources appropriately
-  transformed."
+(defn setify-resource-tags
+  "Returns a catalog whose resources' lists of tags have been turned
+  into sets."
   [{:keys [resources] :as catalog}]
   {:pre [(coll? resources)
          (not (map? resources))]}
-  (let [new-resources (map keywordify-resource resources)]
+  (let [new-resources (for [resource resources]
+                        (assoc resource :tags (set (:tags resource))))]
     (assoc catalog :resources new-resources)))
 
 (defn mapify-resources
@@ -166,7 +138,7 @@
           (not (map? resources))]
    :post [(map? (:resources %))
           (= (count resources) (count (:resources %)))]}
-  (let [new-resources (into {} (for [{:keys [type title] :as resource} resources]
+  (let [new-resources (into {} (for [{:keys [type title tags] :as resource} resources]
                                  [{:type type :title title} resource]))]
     (assoc catalog :resources new-resources)))
 
@@ -210,13 +182,12 @@
           (:certname %)
           (number? (:api-version %))
           (:version %)]}
-  (-> (wire-catalog "data")
-      (keys-to-keywords)
+  (-> (wire-catalog :data)
       (dissoc :name)
       (assoc :cmdb-version CMDB-VERSION)
-      (assoc :api-version (get-in wire-catalog ["metadata" "api_version"]))
-      (assoc :certname (get-in wire-catalog ["data" "name"]))
-      (assoc :version (str (get-in wire-catalog ["data" "version"])))))
+      (assoc :api-version (get-in wire-catalog [:metadata :api_version]))
+      (assoc :certname (get-in wire-catalog [:data :name]))
+      (assoc :version (str (get-in wire-catalog [:data :version])))))
 
 ;; ## Deserialization
 ;;
@@ -229,8 +200,8 @@
   {:post [(map? %)]}
   (-> o
       (restructure-catalog)
-      (keywordify-resources)
-      (keywordify-edges)
+      (keywordify-relationships)
+      (setify-resource-tags)
       (mapify-resources)
       (setify-tags-and-classes)
       (check-edge-integrity)))
@@ -241,7 +212,7 @@
   [s]
   {:pre  [(string? s)]
    :post [(map? %)]}
-  (-> (json/parse-string s)
+  (-> (json/parse-string s true)
       (parse-from-json-obj)))
 
 (defn parse-from-json-file
