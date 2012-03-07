@@ -40,7 +40,7 @@ and their parameters which match."
                    "JOIN certname_catalogs USING(catalog) "
                    "LEFT OUTER JOIN resource_params rp "
                    "ON cr.resource = rp.resource "
-                   "WHERE (catalog,resource) IN "
+                   "WHERE (cr.catalog,cr.resource) IN "
                    sql)
         results (sql/with-connection db
                    (apply query-to-vec query params))
