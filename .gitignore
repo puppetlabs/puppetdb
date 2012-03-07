@@ -5,4 +5,4 @@ pom.xml
 /docs/
 .lein-failures
 .lein-deps-sum
-
+*#
