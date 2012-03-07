@@ -1,7 +1,8 @@
 ;; ## Request Format
 ;;
-;; The single available route is `/resources?query=<query>`. The `query`
-;; parameter is a JSON array of query predicates in prefix form.
+;; The single available route is `/resources?query=<query>`. The
+;; `query` parameter is a JSON array of query predicates in prefix
+;; form.
 ;;
 ;; ### Predicates
 ;;
@@ -19,7 +20,9 @@
 ;;
 ;;     ["=" ["parameter" "owner"] "joe"]
 ;;
-;; Resources whose title is "/etc/hosts"; "title" may be replaced with any legal column of the `resources` table, to query against that column:
+;; Resources whose title is "/etc/hosts"; "title" may be replaced with
+;; any legal column of the `resources` table, to query against that
+;; column:
 ;;
 ;;     ["=" "title" "/etc/hosts"]
 ;;
@@ -46,8 +49,8 @@
 ;;
 ;; ## Response Format
 ;;
-;; The response is a list of resource objects, returned in JSON form. Each
-;; resource object is a map of the following form:
+;; The response is a list of resource objects, returned in JSON
+;; form. Each resource object is a map of the following form:
 ;;
 ;;     {:certname   "the certname of the associated host"
 ;;      :resource   "the resource's unique hash"
