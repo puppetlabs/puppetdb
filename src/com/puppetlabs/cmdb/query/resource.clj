@@ -71,7 +71,7 @@ and their parameters which match."
                             (sql-array-query-string "tags"))
                     value]
               ;; node join.
-              [["node" (field :when string?)]]
+              ["node"]
                    (let [certname_catalogs (-> (table :certname_catalogs)
                                              (select (where
                                                        (= :certname_catalogs.certname value)))
