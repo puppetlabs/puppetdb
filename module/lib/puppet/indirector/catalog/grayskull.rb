@@ -120,11 +120,11 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   def map_aliases_to_title(hash)
     aliases = {}
     hash['resources'].each do |resource|
-      names = resource['parameters'][:alias] || []
+      names = resource['parameters']['alias'] || []
       resource_hash = {'type' => resource['type'], 'title' => resource['title']}
       names.each do |name|
-        alias_hash = {'type' => resource['type'], 'title' => name}
-        aliases[alias_hash] = resource_hash
+        alias_array = [resource['type'], name]
+        aliases[alias_array] = resource_hash
       end
     end
     aliases
@@ -148,10 +148,11 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
 
             resource_hash = {'type' => resource['type'], 'title' => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
+            other_array = [other_hash['type'], other_hash['title']]
 
             # Try to find the resource by type/title or look it up as an alias
             # and try that
-            other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_hash])
+            other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
 
             raise "Can't find resource #{other_ref} for relationship" unless other_resource
 

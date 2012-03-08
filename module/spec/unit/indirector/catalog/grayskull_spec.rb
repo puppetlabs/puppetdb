@@ -75,7 +75,8 @@ describe Puppet::Resource::Catalog::Grayskull do
         name = 'with a different name'
         resource[:name] = name
 
-        result = subject.add_namevar_aliases(catalog_data_hash, catalog)
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        result = subject.add_namevar_aliases(hash, catalog)
 
         resource = result['resources'].find do |res|
           res['type'] == 'Notify' and res['title'] == 'anyone'
@@ -179,6 +180,7 @@ foo::bar { bar: }
 
         hash = catalog.to_pson_data_hash['data']
         subject.add_parameters_if_missing(hash)
+        subject.add_namevar_aliases(hash, catalog)
         result = subject.synthesize_edges(hash)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
@@ -222,6 +224,22 @@ foo::bar { bar: }
         expect {
           subject.synthesize_edges(hash)
         }.to raise_error(/Can't find resource Notify\[non-existent\] for relationship/)
+      end
+    end
+
+    describe "#munge_catalog" do
+      it "should make an edge if the other end is referred to by its namevar" do
+        other_resource = Puppet::Resource.new(:notify, 'noone', :parameters => {:name => 'completely_different'})
+        resource[:require] = 'Notify[completely_different]'
+        Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+
+        result = subject.munge_catalog(catalog)
+
+        edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
+                'target' => {'type' => 'Notify', 'title' => 'anyone'},
+                'relationship' => 'required-by'}
+
+        result['data']['edges'].should include(edge)
       end
     end
   end
