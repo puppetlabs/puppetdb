@@ -1,6 +1,7 @@
 (ns com.puppetlabs.cmdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
+            [clojure.tools.logging.impl :as impl]
             [fs.core :as fs]))
 
 (defn test-db
@@ -70,3 +71,13 @@
   has been invoked."
   [f]
   (deref (:args (meta f))))
+
+(defn atom-logger [output-atom]
+  "A logger factory that logs output to the supplied atom"
+  (reify impl/LoggerFactory
+    (name [_] "test factory")
+    (get-logger [_ log-ns]
+      (reify impl/Logger
+        (enabled? [_ level] true)
+        (write! [_ lvl ex msg]
+          (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
