@@ -69,4 +69,5 @@ The payload is expected to be a Puppet catalog conforming to the
 
 ## "replace facts", version 1
 
-TODO: describe facts payload.
+The payload is expected to be a Puppet catalog conforming to the
+[fact wire format](fact-wire-format.md).
