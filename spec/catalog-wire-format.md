@@ -43,7 +43,7 @@ otherwise noted, null is not allowed anywhere in the catalog.
         "version": 1
         }
      "data": {
-        "certname": <string>,
+        "name": <string>,
         "version": <string>,
         "classes":
             [<string>, <string>, ...],
@@ -58,6 +58,11 @@ otherwise noted, null is not allowed anywhere in the catalog.
 
 All keys are mandatory, though values that are lists may be empty
 lists.
+
+`"name"` is the certname the catalog is associated with.
+
+`"version"` is an arbitrary tag to uniquely identify this catalog
+across time for a single node.
 
 ### Encoding
 
