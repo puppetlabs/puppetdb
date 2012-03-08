@@ -1,65 +1,112 @@
-# Puppet CMDB
+# The Grayskull project
 
-The Puppet CMDB is a central store for database about the infrastructure that
-we manage on your network, as well as a tie point for all the behaviour that
-should flow from that infrastructure as it changes and grows.
+Grayskull is a Puppet data warehouse; it manages storage and retrieval
+of all platform-generated data, such as catalogs, facts, reports, etc.
 
-For more details about the motivation and intended use see [the Puppet CMDB Manifesto][manifesto] in Google Docs.
+So far, we've implemented the following features:
 
-(A Puppet Labs account required, sorry.)
+* Fact storage
+* Full catalog storage
+  * Containment edges
+  * Dependency edges
+  * Catalog metadata
+  * Full resource list with all parameters
+  * Node-level tags
+  * Node-level classes
+* REST Fact retrieval
+  * all facts for a given node
+* REST Resource querying
+  * super-set of storeconfigs query API
+  * boolean operators
+  * can query for resources spanning multiple nodes and types
+* Storeconfigs terminus
+  * drop-in replacement of stock storeconfigs code
+  * export resources
+  * collect resources
+  * fully asynchronous operation (compiles aren't slowed down)
+  * _much_ faster storage, in _much_ less space
 
-[manifesto]: https://docs.google.com/a/puppetlabs.com/document/d/1f3KvmdlBR5_wGwazBWEA9vdlU-LNBRyIeflNFUyOXOY/edit?hl=en_US
+## Componentry
 
-## CMDB Query API Specification
+Grayskull consists of several, cooperating components:
 
-### Keywords in these Documents
+**REST-based command processor**
 
-The key words "*MUST*", "*MUST NOT*", "*REQUIRED*", "*SHALL*", "*SHALL NOT*", "*SHOULD*", "*SHOULD NOT*", "*RECOMMENDED*", "*MAY*", and "*OPTIONAL*" in this document are to be interpreted as described in [RFC 2119][RFC2119].
+Grayskull uses a CQRS pattern for making changes to its domain objects
+(facts, catalogs, etc). Instead of simply submitting data to Grayskull
+and having it figure out the intent, the intent needs to be explicitly
+codified as part of the operation. This is known as a "command"
+(e.g. "replace the current facts for node X").
+
+Commands are processed asynchronously, however we try to do our best
+to ensure that once a command has been accepted, it will eventually be
+executed. Ordering is also preserved. To do this, all incoming
+commands are placed in a message queue which the command processing
+subsystem reads from in FIFO order.
+
+Submission of commands is done via HTTP, and documented in the `spec`
+directory. There is a specific required wire format for commands, and
+failure to conform to that format will result in an HTTP error.
+
+**Storage subsystem**
+
+Currently, Grayskull's data is stored in a relational database. There
+are two supported databases:
+
+* An embedded HSQLDB. This does not require a separate database
+  service, and is thus trivial to setup. This database is intended for
+  proof-of-concept use; we _do not_ recommend it for long-term
+  production use.
+
+* PostgreSQL
+
+There is no MySQL support, as it lacks support for recursive queries
+(critical for future graph traversal features).
+
+**REST-based retrieval**
+
+Read-only requests (resource queries, fact queries, etc.) are done
+using Grayskull's REST APIs. Each REST endpoint is documented in the
+`spec` directory.
+
+**Puppet module**
+
+There is a puppet module for automated installation of Grayskull. It
+uses Nginx for SSL termination and reverse proxying.
+
+**Puppet Terminus**
+
+There is a puppet terminus that acts as a drop-in replacement for
+stock storeconfigs functionality. By asynchronously storing catalogs
+in Grayskull, and by leveraging Grayskull's fast querying, compilation
+times are much reduced compared to traditional storeconfigs.
+
+## Keywords in these Documents
+
+The key words "*MUST*", "*MUST NOT*", "*REQUIRED*", "*SHALL*", "*SHALL
+NOT*", "*SHOULD*", "*SHOULD NOT*", "*RECOMMENDED*", "*MAY*", and
+"*OPTIONAL*" in the Grayskull docs are to be interpreted as described
+in [RFC 2119][RFC2119].
 
 [RFC2119]: http://tools.ietf.org/html/rfc2119
 
- * [Common Behaviour and Background](spec/common.md)
- * [Data Models](spec/data-models.md)
- * [Resource Data Model](spec/resource.md)
-
 ## Usage
 
-Install [leiningen][leiningen] (google it)
+* Install [leiningen][leiningen].
 
-To (re)initialize the database:
+* `lein deps`, to download dependencies
 
-    dropdb cmdb
-    createdb cmdb
-    psql cmdb -f resources/cmdb.sql
+* `lein test`, to run the test suite
 
-To get all the requisite dev dependencies:
+* `lein marg`, to generate docs
 
-    lein deps
+* `lein uberjar`, to build a standalone artifact
 
-To execute the command processor:
+* Create a configuration file appropriate for your database
+choice. Look at resources/config.ini for an example configuration
+file.
 
-    lein run commandproc -h
-
-To execute the webapp:
-
-    lein run queryserver -h
-
-Look at resources/config.ini for an example configuration file.
-
-To execute the test suite:
-
-    lein test
-
-Documentation can be generated using `marginalia`; `lein deps` will do that.
-Then you can run the following, which spits out docs into the `docs/`
-directory:
-
-    lein marg
-
-If you want to set some JVM options, like max memory:
-
-    JVM_OPTS='-Xmx2048m' lein run
-
+* `java -jar *standalone.jar services -h`
 
 ## License
 
@@ -67,7 +114,5 @@ Copyright (C) 2011 Puppet Labs
 
 No license to distribute or reuse this product is currently available.
 For details, contact Puppet Labs.
-
-
 
 [leiningen]: https://github.com/technomancy/leiningen

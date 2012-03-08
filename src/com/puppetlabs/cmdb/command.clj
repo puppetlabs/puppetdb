@@ -1,37 +1,41 @@
 ;; ## CMDB command handling
 ;;
-;; Commands are the mechanism by which changes are made to the
-;; CMDB's model of a population. Commands are represented by
-;; `command objects`, which have the following JSON wire format:
+;; Commands are the mechanism by which changes are made to the CMDB's
+;; model of a population. Commands are represented by `command
+;; objects`, which have the following JSON wire format:
 ;;
 ;;     {"command" "..."
 ;;      "version" 123
 ;;      "payload" <json object>}
 ;;
-;; `payload` must be a valid JSON string of any sort. It's up to an individual
-;; handler function how to interpret that object.
+;; `payload` must be a valid JSON string of any sort. It's up to an
+;; individual handler function how to interpret that object.
 ;;
-;; The command object may also contain an `annotations` attribute containing a
-;; map with arbitrary keys and values which may have command-specific meaning
-;; or may be used by the message processing framework itself.
+;; More details can be found in [the spec](../spec/commands.md).
 ;;
-;; Failed messages will have an `attempts` annotation containing an array of
-;; maps of the form:
+;; The command object may also contain an `annotations` attribute
+;; containing a map with arbitrary keys and values which may have
+;; command-specific meaning or may be used by the message processing
+;; framework itself.
+;;
+;; Failed messages will have an `attempts` annotation containing an
+;; array of maps of the form:
 ;;
 ;;     {:timestamp <timestamp>
 ;;      :error     "some error message"
 ;;      :trace     <stack trace from :exception>}
 ;;
-;; Each entry corresponds to a single failed attempt at handling the message,
-;; containing the error message, stack trace, and timestamp for each failure.
-;; The CMDB may discard messages which have been attempted and failed too many
-;; times, or which have experienced fatal errors (including unparseable
-;; messages).
+;; Each entry corresponds to a single failed attempt at handling the
+;; message, containing the error message, stack trace, and timestamp
+;; for each failure.  The CMDB may discard messages which have been
+;; attempted and failed too many times, or which have experienced
+;; fatal errors (including unparseable messages).
 ;;
-;; Failed messages will be stored in files in the "dead letter office", located
-;; under the MQ data directory, in `/discarded/<command>`. These files contain
-;; the annotated message, along with each exception that occured while trying
-;; to handle the message.
+;; Failed messages will be stored in files in the "dead letter
+;; office", located under the MQ data directory, in
+;; `/discarded/<command>`. These files contain the annotated message,
+;; along with each exception that occured while trying to handle the
+;; message.
 ;;
 ;; We currently support the following wire formats for commands:
 ;;

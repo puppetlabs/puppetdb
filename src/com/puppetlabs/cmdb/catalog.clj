@@ -1,10 +1,16 @@
 ;; ## Puppet catalog parsing
 ;;
-;; Puppet catalogs aren't really pre-configured for easy persistence
-;; and manipulation; while they contain complete records of all
-;; resources and edges, and most things are properly encoded as lists
-;; or maps, there are still a number of places where structure is
-;; absent or lacking:
+;; Functions that handle conversion of catalogs from wire format to
+;; internal Grayskull format.
+;;
+;; The wire format is described in detail in [the
+;; spec](../spec/catalog-wire-format.md).
+;;
+;; There are a number of transformations we apply to wire format
+;; catalogs during conversion to our internal format; while wire
+;; format catalogs contain complete records of all resources and
+;; edges, and most things are properly encoded as lists or maps, there
+;; are still a number of places where structure is absent or lacking:
 ;;
 ;; 1. Resource specifiers are represented as opaque strings, like
 ;;    `Class[Foobar]`, as opposed to something like
@@ -17,14 +23,15 @@
 ;;    operations that need to correlate against specific resources
 ;;    unneccesarily difficult
 ;;
-;; The functions in this namespace are designed to take a wire-format
-;; catalog and restructure it to fix the above problems and, in
-;; general, make catalogs more easily manipulatable by Clojure code.
+;; 4. Keys to all maps are strings (to conform with JSON), instead of
+;;    more convenient Clojure keywords
 ;;
 ;; ### Terminology
 ;;
-;; There are a few catalog-specific terms that we use throughout the
-;; codebase:
+;; Unless otherwise indicated, all terminology for catalog components
+;; matches terms listed in [the spec](../spec/catalog-wire-format.md).
+;;
+;; ### Transformed constructs
 ;;
 ;; ### Resource Specifier (resource-spec)
 ;;
@@ -48,10 +55,10 @@
 ;; * `:type` and `:title` are used to produce a `resource-spec` for
 ;;   this resource
 ;;
-;; ### Dependency Specification
+;; ### Edge
 ;;
-;; A representation of an "edge" in the catalog. All edges have the
-;; following form:
+;; A representation of an "edge" (dependency or containment) in the
+;; catalog. All edges have the following form:
 ;;
 ;;     {:source       <resource spec>
 ;;      :target       <resource spec>
@@ -65,7 +72,7 @@
 ;; * `:before`
 ;; * `:subscription-of`
 ;;
-;; ### CMDB catalog
+;; ### Catalog
 ;;
 ;; A wire-format-neutral representation of a Puppet catalog. It is a
 ;; map with the following structure:
