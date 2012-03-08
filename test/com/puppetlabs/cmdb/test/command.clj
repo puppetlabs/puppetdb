@@ -4,6 +4,7 @@
         [com.puppetlabs.utils]
         [com.puppetlabs.cmdb.testutils]
         [clojure.test]
+        [clojure.tools.logging :only [*logger-factory*]]
         [cheshire.core :as json]
         [slingshot.slingshot :only [try+ throw+]]))
 
@@ -194,12 +195,14 @@
 
 (defmacro test-msg-handler
   [command publish-var discard-var & body]
-  `(let [publish#        (call-counter)
+  `(let [log-output#     (atom [])
+         publish#        (call-counter)
          discard-dir#    (fs/temp-dir)
          handle-message# (produce-message-handler publish# discard-dir# {})
          msg#            (json/generate-string ~command)]
      (try
-       (handle-message# msg#)
+       (binding [*logger-factory* (atom-logger log-output#)]
+         (handle-message# msg#))
        (let [~publish-var publish#
              ~discard-var discard-dir#]
          ~@body)
