@@ -120,7 +120,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
   def map_aliases_to_title(hash)
     aliases = {}
     hash['resources'].each do |resource|
-      names = resource['parameters'][:alias] || []
+      names = resource['parameters']['alias'] || []
       resource_hash = {'type' => resource['type'], 'title' => resource['title']}
       names.each do |name|
         alias_hash = {'type' => resource['type'], 'title' => name}
