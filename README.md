@@ -94,11 +94,13 @@ in [RFC 2119][RFC2119].
 
 * Install [leiningen][leiningen].
 
-* `lein deps`
+* `lein deps`, to download dependencies
 
-* `lein test`
+* `lein test`, to run the test suite
 
-* `lein uberjar`
+* `lein marg`, to generate docs
+
+* `lein uberjar`, to build a standalone artifact
 
 * Create a configuration file appropriate for your database
 choice. Look at resources/config.ini for an example configuration
