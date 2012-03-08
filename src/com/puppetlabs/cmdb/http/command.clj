@@ -1,21 +1,10 @@
 ;; ## REST Command endpoints
 ;;
-;; Commands can be submitted via HTTP, provided the following criteria
-;; are met:
+;; Commands can be submitted via HTTP, provided they conform to [the
+;; submission guidelines](../spec/commands.md).
 ;;
-;; * A `POST` is used
-;;
-;; * The `POST` contains a parameter, `payload`
-;;
-;; * The `POST` contains a parameter, `checksum`, that is a SHA-1
-;;   hash of the payload
-;;
-;; The response:
-;;
-;; * Has a content type of `application/json`
-;;
-;; * Contains a JSON object of `true` if the command was successfully
-;;   submitted to the MQ
+;; If the command is intact and standards-compliant, we immediately
+;; relay the command to the internal MQ for asynchronous processing.
 ;;
 (ns com.puppetlabs.cmdb.http.command
   (:require [clojure.tools.logging :as log]
