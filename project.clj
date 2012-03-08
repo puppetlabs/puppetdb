@@ -37,7 +37,7 @@
                  [ring/ring-core "1.0.2"]
                  [ring/ring-jetty-adapter "1.0.2"]]
 
-  :dev-dependencies [[lein-marginalia "0.7.0-SNAPSHOT"]
+  :dev-dependencies [[lein-marginalia "0.7.0"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 

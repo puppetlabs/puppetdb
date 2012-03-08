@@ -1,59 +1,22 @@
 # Resources
 
-The resource data model is focused on the search needs of the StoreConfig system.  It is designed to efficiently return data as required to collect exported resources.
+Querying resources is accomplished by making an HTTP request to the
+`/resources` REST endpoint.
 
-## Resource Data Model (`application/vnd.com.puppetlabs.cmdb.resource+json`)
+# Query format
 
-An individual resource node, as found in a catalog.  Individual resource references are static, immutable objects; they never change, although they may vanish from the collection or be replaced by other objects.
+Queries for resources must conform to the following format:
 
-*field* | *type* | *count* | *detail*
-------- | ------ | ------- | --------
-`uri`   | URI    | 1 | The URI that identifies this resource.
-`type`  | String | 1 | the type of the resource.
-`title` | String | 1 | the title of the resource.
-`exported` | Boolean | 1 | Was this resource exported by the node?
-`parameters` | Map | 1 | The parameters of this resource.
+* A `GET` is used.
 
-REVISIT: This is missing fields that are in the catalog, but are not required for the StoreConfigs use-case.  We should also support returning those, perhaps optionally to avoid wasting bandwidth??
+* There is a single parameter, `query`.
 
-The value of the `parameters` field has the structure:
+* There is an `Accept` header containing `application/json`.
 
-*field* | *type*   | *count* | *detail*
-------- | -------- | ------- | --------
-`name`  | String   | 1 | The name of the parameter.
-`value` | String[] | 1 | The value(s) of the parameter.
+* The `query` parameter is a JSON array of query predicates, in prefix
+  form, conforming to the format described below.
 
-The CMDB MAY represent a single parameter value as an array containing a single string, even if only one value is semantically possible in the Puppet type.
-
-
-## Resource Search
-
-To support the StoreConfig system, the resource model has a search collection representing *all* known resources that are currently in catalogs on the server.
-
-This is a *live* query of the data: as catalog content is added and removed the results of the query will change.
-
-REVISIT: Do we want to support a *static* enumeration here?  We could do that, by "creating" a search resource, enumerating it, and allowing the server to garbage collect by having a mandatory TTL on the collection.
-
-REVISIT: Even without making the enumeration static, do we want to support a Splunk-like "create search, read search" model?  By telling the client that we should keep the query live for a TTL, but they MUST recreate it if we return 404 (and signal no-content with 204), we can ensure that both sides can efficiently manage state without too much risk.
-
-REVISIT: I don't know if I like the transient resource model better, although it is flexible.  For now, doing a single endpoint with a *very* simple format for input is enough to get us going.  When that gets complex?  I think this is the model to follow, but ... see what happens when we build it.
-
-
-
-### `/resources` (`application/vnd.com.puppetlabs.cmdb.resource-list+json`)
-
-Access all resources from all catalogs.  The returned data is an array containing `application/vnd.com.puppetlabs.cmdb.resource+json` objects.
-
-#### Parameters
-
-`query`
-: The JSON representation of the query to return data from.
-
-In addition to the custom parameters, resources query is a paged query, so respects the normal fields for [pagination](common.md#Pagination).
-
-#### Query Format
-
-The `query` parameter is a JSON encoded array representing the structured query, representing the following structure:
+The `query` parameter is described by the following grammar:
 
     query: [ {type} {query}+ ] | [ {match} {field} {value} ]
     field:  string | [ string+ ]
@@ -61,7 +24,8 @@ The `query` parameter is a JSON encoded array representing the structured query,
     type:   "or" | "and" | "not"
     match:  "="
 
-For example, for file resources, tagged "magical", on any host except for "example.local" the JSON query structure would be:
+For example, for file resources, tagged "magical", on any host except
+for "example.local" the JSON query structure would be:
 
     ["and" ["not" ["=" ["node", "certname"] "example.local"]]
            ["=" ["node" "fact" "example"] "whatever"]
@@ -85,6 +49,20 @@ The match operator behaviours are defined:
 `=`
 : Exact string equality of the field and the value.
 
-#### Returned Data Format
+# Response format
 
-An array of zero or more resource objects.  This is the entire set of objects found matching the query.
+An array of zero or more resource objects, with each object having the
+following form:
+
+    {:certname   "the certname of the associated host"
+     :resource   "the resource's unique hash"
+     :type       "File"
+     :title      "/etc/hosts"
+     :exported   "true"
+     :tags       ["foo" "bar"]
+     :sourcefile "/etc/puppet/manifests/site.pp"
+     :sourceline "1"
+     :parameters {<parameter> <value>
+                  <parameter> <value>
+                  ...}}
+
