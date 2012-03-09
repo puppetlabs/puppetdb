@@ -387,7 +387,8 @@
   (mark! (get-in @metrics [command version :retried]))
   (let [attempt (count (:attempts annotations))
         msg (annotate-with-attempt msg e)]
-    (log/error e (format "Retrying command [%s] after attempt %d" command attempt))
+    (log/error (format "Retrying command [%s, %d] after attempt %d, due to: %s"
+                       command version attempt (.getMessage e)))
     (publish-fn (json/generate-string msg))))
 
 ;; ### Message handler
