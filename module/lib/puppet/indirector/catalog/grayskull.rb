@@ -132,7 +132,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
 
   def find_resource(resources, resource_hash)
     return unless resource_hash
-    resources.find {|res| res['type'] == resource_hash['type'] and res['title'] == resource_hash['title']}
+    resources.find {|res| res['type'] == resource_hash['type'] and res['title'].to_s == resource_hash['title'].to_s}
   end
 
   def synthesize_edges(hash)
