@@ -244,7 +244,11 @@ must be supplied as the value to be matched."
   we need to make sure that when generating a hash for a resource we
   look at a stably-sorted view of the resource. Thus, we need to sort
   both the resource as a whole as well as any nested collections it
-  contains."
+  contains.
+
+  This differs from `catalog-resource-identity-string` in that it doesn't
+  consider resource metadata. This function is used to determine whether a
+  resource needs to be stored or is already present in the database."
   [{:keys [type title parameters] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
@@ -263,7 +267,8 @@ must be supplied as the value to be matched."
   "Compute a stably-sorted, string representation of the given resource that
   will uniquely identify it with respect to a catalog. Unlike
   `resource-identity-string`, this string will also include the resource
-  metadata."
+  metadata. This function is used as part of determining whether a catalog
+  needs to be stored."
   [{:keys [type title parameters tags exported file line] :as resource}]
   {:pre [(map? resource)]
    :post [(string? %)]}
