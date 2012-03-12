@@ -236,15 +236,7 @@ must be supplied as the value to be matched."
 
 (defn resource-identity-string
   "Compute a stably-sorted, string representation of the given
-  resource that will uniquely identify it within a population."
-  [{:keys [type title parameters] :as resource}]
-  {:pre  [(map? resource)]
-   :post [(string? %)]}
-  (pr-str [type title (sort parameters)]))
-
-(defn resource-identity-hash
-  "Compute a hash for a given resource that will uniquely identify it
-  within a population.
+  resource that will uniquely identify it within a population.
 
   A resource is represented by a map that itself contains maps and
   sets in addition to scalar values. We want two resources with the
@@ -252,12 +244,35 @@ must be supplied as the value to be matched."
   we need to make sure that when generating a hash for a resource we
   look at a stably-sorted view of the resource. Thus, we need to sort
   both the resource as a whole as well as any nested collections it
-  contains."
+  contains.
+
+  This differs from `catalog-resource-identity-string` in that it doesn't
+  consider resource metadata. This function is used to determine whether a
+  resource needs to be stored or is already present in the database."
+  [{:keys [type title parameters] :as resource}]
+  {:pre  [(map? resource)]
+   :post [(string? %)]}
+  (pr-str [type title (sort parameters)]))
+
+(defn resource-identity-hash
+  "Compute a hash for a given resource that will uniquely identify it
+  within a population."
   [resource]
   {:pre  [(map? resource)]
    :post [(string? %)]}
   (-> (resource-identity-string resource)
       (utils/utf8-string->sha1)))
+
+(defn catalog-resource-identity-string
+  "Compute a stably-sorted, string representation of the given resource that
+  will uniquely identify it with respect to a catalog. Unlike
+  `resource-identity-string`, this string will also include the resource
+  metadata. This function is used as part of determining whether a catalog
+  needs to be stored."
+  [{:keys [type title parameters tags exported file line] :as resource}]
+  {:pre [(map? resource)]
+   :post [(string? %)]}
+  (pr-str [type title (sort tags) exported file line (sort parameters)]))
 
 (defn- resource->values
   "Given a catalog-hash and a resource, return a map representing the
@@ -364,8 +379,8 @@ must be supplied as the value to be matched."
       (assoc :certname certname)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
-      (assoc :resources (sort (for [[ref {:keys [type title tags exported file line]}] resources]
-                              [type title (sort tags) exported file line])))
+      (assoc :resources (sort (for [[ref resource] resources]
+                              (catalog-resource-identity-string resource))))
       (assoc :edges (sort (map edge-identity-string edges)))
       (pr-str)
       (utils/utf8-string->sha1)))

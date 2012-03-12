@@ -16,6 +16,11 @@
 
 (defn random-bool [] (rand-nth [true false]))
 
+(defn random-parameters
+  "Generate a random set of parameters."
+  []
+  (into {} (repeatedly (rand-int 10) #(vector (random-string) (random-string)))))
+
 (defn random-resource
   "Generate a random resource. Can optionally specify type/title, as
   well as any attribute overrides.
@@ -33,9 +38,7 @@
                          "file"       (random-string)
                          "line"       (rand-int 1000)
                          "tags"       (into #{} (repeatedly (rand-int 10) #(random-string)))
-                         "parameters" (merge
-                                       (into {} (repeatedly (rand-int 10) #(vector (random-string) (random-string))))
-                                       extra-params)}]
+                         "parameters" (merge (random-parameters) extra-params)}]
        (merge r overrides))))
 
 ;; A version of random-resource that returns resources with keyword
@@ -64,8 +67,17 @@
   [{:keys [resources] :as c}]
   (let [k (rand-nth (keys resources))
         r (resources k)
-        rand-resource (random-kw-resource)
-        new-resource (assoc rand-resource :type (:type r) :title (:title r))]
+        new-resource (assoc r :parameters (random-parameters))]
+    (assoc c :resources (assoc resources k new-resource))))
+
+(defn mod-resource-metadata-in-catalog
+  "Modifies the metadata of a randomly chosen resource in the given catalog.
+
+  Generates a random resource and applies the old parameters to it."
+  [{:keys [resources] :as c}]
+  (let [k (rand-nth (keys resources))
+        r (resources k)
+        new-resource (merge (random-kw-resource) {:type (:type r) :title (:title r) :parameters (:parameters r)})]
     (assoc c :resources (assoc resources k new-resource))))
 
 (defn add-random-edge-to-catalog
