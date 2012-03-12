@@ -134,6 +134,7 @@
           ;; List of all the tweaking functions
           chaos-monkeys [catutils/add-random-resource-to-catalog
                          catutils/mod-resource-in-catalog
+                         catutils/mod-resource-metadata-in-catalog
                          catutils/add-random-edge-to-catalog
                          catutils/swap-edge-targets-in-catalog]
           ;; Function that will apply a random tweak function
@@ -141,6 +142,7 @@
 
       (is (not= hash (catalog-similarity-hash (catutils/add-random-resource-to-catalog catalog))))
       (is (not= hash (catalog-similarity-hash (catutils/mod-resource-in-catalog catalog))))
+      (is (not= hash (catalog-similarity-hash (catutils/mod-resource-metadata-in-catalog catalog))))
       (is (not= hash (catalog-similarity-hash (catutils/add-random-edge-to-catalog catalog))))
 
       ;; Do the following 100 times: pick up to 10 tweaking functions,
@@ -156,7 +158,7 @@
           (is (not= hash tweaked-hash)
               (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
-  (testing "Catalogs with the same metadata but the different content should have different hashes"
+  (testing "Catalogs with the same metadata but different content should have different hashes"
     (let [catalog            basic-catalog
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
