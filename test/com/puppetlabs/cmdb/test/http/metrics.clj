@@ -53,5 +53,11 @@
             response (*app* request)]
         (is (= (:status response) 200))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
-        (is (= (coll? (json/parse-string (:body response)))
-               true))))))
+
+        ;; Retrieving all the resulting mbeans should work
+        (let [mbeans (json/parse-string (:body response))]
+          (is (= (map? mbeans) true))
+          (doseq [[name uri] mbeans
+                  :let [request (make-request uri)]]
+            (is (= (:status response 200)))
+            (is (= (get-in response [:headers "Content-Type"]) c-t))))))))

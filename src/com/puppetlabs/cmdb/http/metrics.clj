@@ -6,7 +6,7 @@
 ;;
 ;; ### Request and response formats
 ;;
-;; `GET` requests made to `/metrics/mbeans` will return a JSON Array
+;; `GET` requests made to `/metrics/mbeans` will return a JSON Object
 ;; of all MBean names.
 ;;
 ;; `GET` requests made to `/metrics/mean/<name>` will return a JSON
@@ -16,7 +16,7 @@
 ;; ### A note on formatting
 ;;
 ;; Not all JMX properties are trivially serializable to JSON. JMX
-;; Objets can be arbitrary Java objects, and JSON is, well, JSON. To
+;; Objects can be arbitrary Java objects, and JSON is, well, JSON. To
 ;; compensate, we convert to JSON all JMX attributes with analogous
 ;; types (numbers, strings, booleans). For all other attributes, we
 ;; stringify them prior to returning them to the client.
@@ -28,7 +28,8 @@
             [cheshire.core :as json]
             [com.puppetlabs.utils :as pl-utils]
             [ring.util.response :as rr])
-  (:use [net.cgrand.moustache :only (app)]))
+  (:use [clj-http.util :only (url-encode)]
+        [net.cgrand.moustache :only (app)]))
 
 (defn filter-mbean
   "Converts an mbean to a map. For attributes that aren't _simple_
@@ -53,11 +54,17 @@
   {:post [(set? %)]}
   (set (map str (jmx/mbean-names "*:*"))))
 
+(defn linkify-names
+  "Return a map of mbean name to a link that will retrieve the
+  attributes"
+  [names]
+  (zipmap names (map #(format "/metrics/mbean/%s" (url-encode %)) names)))
+
 (defn list-mbeans
   "Returns a JSON array of all MBean names"
   [_]
   (-> (all-mbean-names)
-      (sort)
+      (linkify-names)
       (json/generate-string)
       (rr/response)
       (rr/header "Content-Type" "application/json")

@@ -17,7 +17,11 @@ To get a list of all available metric names:
 
 ## Response format
 
-A JSON array of zero or more Strings.
+A JSON Object mapping a string to a string:
+
+* The key is the name of a valid MBean
+
+* The value is a URI to use for requesting that MBean's attributes
 
 # Retrieving a specific metric
 
