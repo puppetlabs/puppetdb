@@ -17,4 +17,5 @@ class grayskull(
 ) {
   include grayskull::jdk
   include grayskull::users
+  include grayskull::service
 }
