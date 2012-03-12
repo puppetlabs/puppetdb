@@ -156,7 +156,7 @@
           (is (not= hash tweaked-hash)
               (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
-  (testing "Catalogs with the same metadata but the different content should have different hashes"
+  (testing "Catalogs with the same metadata but different content should have different hashes"
     (let [catalog            basic-catalog
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
@@ -176,7 +176,18 @@
               :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
                     tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
         (is (= hash tweaked-hash)
-            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
+            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash)))))
+
+  (testing "Catalogs which differ only in parameters should have different hashes"
+    (let [catalog      basic-catalog
+          hash         (catalog-similarity-hash catalog)
+          resources    (:resources catalog)
+          spec         {:type "File" :title "/etc/foobar"}
+          new-resource (assoc-in (resources spec) [:parameters :owner] "someone")
+          new-catalog  (update-in catalog [:resources] conj {spec new-resource})
+          new-hash     (catalog-similarity-hash new-catalog)]
+      (is (not= hash new-hash)
+          (str catalog "\n has hash: " hash "\n and \n" new-catalog "\n has hash: " new-hash)))))
 
 (deftest fact-persistence
   (testing "Persisted facts"
