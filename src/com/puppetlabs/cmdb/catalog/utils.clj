@@ -19,7 +19,7 @@
 (defn random-parameters
   "Generate a random set of parameters."
   []
-  (into {} (repeatedly (rand-int 10) #(vector (random-string) (random-string)))))
+  (into {} (repeatedly (inc (rand-int 10)) #(vector (random-string) (random-string)))))
 
 (defn random-resource
   "Generate a random resource. Can optionally specify type/title, as
