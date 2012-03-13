@@ -16,10 +16,9 @@
 ;; ### A note on formatting
 ;;
 ;; Not all JMX properties are trivially serializable to JSON. JMX
-;; Objects can be arbitrary Java objects, and JSON is, well, JSON. To
-;; compensate, we convert to JSON all JMX attributes with analogous
-;; types (numbers, strings, booleans). For all other attributes, we
-;; stringify them prior to returning them to the client.
+;; Objects can be arbitrary Java objects, and JSON is, well, JSON.
+;; For attributes that can't be auto-converted to JSON, we stringify
+;; them prior to returning them to the client.
 ;;
 (ns com.puppetlabs.cmdb.http.metrics
   (:require [clojure.java.jmx :as jmx]
@@ -29,20 +28,23 @@
             [com.puppetlabs.utils :as pl-utils]
             [ring.util.response :as rr])
   (:use [clj-http.util :only (url-encode)]
+        [cheshire.custom :only (JSONable)]
         [net.cgrand.moustache :only (app)]))
 
 (defn filter-mbean
-  "Converts an mbean to a map. For attributes that aren't _simple_
-  (numbers, strings, booleans), return a string representation of the
-  value."
+  "Converts an mbean to a map. For attributes that can't be converted to JSON,
+  return a string representation of the value."
   [mbean]
   {:post [(map? %)]}
   (into {} (for [[k v] mbean]
              (cond
-               (or (number? v)
-                   (string? v)
-                   (true? v)
-                   (false? v))
+               ;; Nested structures should themselves be filtered
+               (map? v)
+               [k (filter-mbean v)]
+
+               ;; Cheshire can serialize to JSON anything that
+               ;; implements the JSONable protocol
+               (satisfies? JSONable v)
                [k v]
 
                :else

@@ -1,12 +1,13 @@
 (ns com.puppetlabs.cmdb.test.http.metrics
-  (:require [com.puppetlabs.cmdb.http.metrics :as metrics]
-            [com.puppetlabs.cmdb.http.server :as server]
+  (:import (java.util.concurrent TimeUnit))
+  (:require [com.puppetlabs.cmdb.http.server :as server]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
-  (:use clojure.test
-         ring.mock.request
-         [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+  (:use com.puppetlabs.cmdb.http.metrics
+        clojure.test
+        ring.mock.request
+        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *app* nil)
 
@@ -16,6 +17,24 @@
                           (sql/with-connection db
                             (migrate!)
                             (f))))))
+
+(deftest mean-filtering
+  (testing "MBean filtering"
+    (testing "should pass-through serializable values"
+      (is (= (filter-mbean {:key 123})
+             {:key 123}))
+
+      (testing "in nested structures"
+        (is (= (filter-mbean {:key {:key 123}})
+               {:key {:key 123}}))))
+
+    (testing "should stringify unserializable objects"
+      (is (= (filter-mbean {:key TimeUnit/SECONDS})
+             {:key "SECONDS"}))
+
+      (testing "in nested structures"
+        (is (= (filter-mbean {:key {:key TimeUnit/SECONDS}})
+               {:key {:key "SECONDS"}}))))))
 
 (def c-t "application/json")
 
