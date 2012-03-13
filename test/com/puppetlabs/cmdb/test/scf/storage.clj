@@ -128,7 +128,7 @@
                     (resource-identity-hash r2))))))))
 
 (deftest catalog-dedupe
-  (testing "Catalogs with different metadata but the same content should hash to the same thing"
+  (testing "Catalogs with the same metadata but different content should have different hashes"
     (let [catalog       basic-catalog
           hash          (catalog-similarity-hash catalog)
           ;; List of all the tweaking functions
@@ -158,7 +158,7 @@
           (is (not= hash tweaked-hash)
               (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
-  (testing "Catalogs with the same metadata but different content should have different hashes"
+  (testing "Catalogs with different metadata but the same content should have the same hashes"
     (let [catalog            basic-catalog
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
