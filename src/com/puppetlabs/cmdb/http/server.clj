@@ -6,6 +6,7 @@
 (ns com.puppetlabs.cmdb.http.server
   (:use [com.puppetlabs.cmdb.http.command :only (command-app)]
         [com.puppetlabs.cmdb.http.facts :only (facts-app)]
+        [com.puppetlabs.cmdb.http.metrics :only (metrics-app)]
         [com.puppetlabs.cmdb.http.resources :only (resources-app)]
         [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
@@ -22,7 +23,10 @@
    {:get resources-app}
 
    ["commands"]
-   {:post command-app}))
+   {:post command-app}
+
+   ["metrics" &]
+   {:get metrics-app}))
 
 (defn build-app
   "Given an attribute map representing connectivity to the SCF
