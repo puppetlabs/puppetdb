@@ -10,6 +10,7 @@
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.5.0"]
                  [clj-time "0.3.7"]
+                 [org.clojure/java.jmx "0.1"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Configuration file parsing
