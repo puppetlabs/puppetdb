@@ -8,6 +8,7 @@
         [com.puppetlabs.cmdb.http.facts :only (facts-app)]
         [com.puppetlabs.cmdb.http.metrics :only (metrics-app)]
         [com.puppetlabs.cmdb.http.resources :only (resources-app)]
+        [com.puppetlabs.cmdb.http.node :only (node-app)]
         [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
@@ -18,6 +19,9 @@
    ["facts" node]
    {:get (fn [req]
            (facts-app (assoc-in req [:params "node"] node)))}
+
+   ["nodes"]
+   {:get node-app}
 
    ["resources"]
    {:get resources-app}
