@@ -19,16 +19,15 @@
   "Takes the given command and submits it to the specified endpoint on
   the indicated MQ.
 
-  If successful, this function returns a JSON `true`."
+  If successful, this function returns `true`."
   [payload mq-spec mq-endpoint]
   {:pre  [(string? payload)
           (string? mq-spec)
-          (string? mq-endpoint)]
-   :post [(string? %)]}
+          (string? mq-endpoint)]}
   (with-open [conn (mq/connect! mq-spec)]
     (let [producer (mq-conn/producer conn)]
       (mq-producer/publish producer mq-endpoint payload)))
-  (json/generate-string true))
+  true)
 
 (defn command-app
   "Ring app for processing commands"
@@ -53,9 +52,7 @@
        (rr/status 406))
 
    :else
-   (-> (http->mq (params "payload")
-                 (get-in globals [:command-mq :connection-string])
-                 (get-in globals [:command-mq :endpoint]))
-       (rr/response)
-       (rr/header "Content-Type" "application/json")
-       (rr/status 200))))
+    (-> (http->mq (params "payload")
+                  (get-in globals [:command-mq :connection-string])
+                  (get-in globals [:command-mq :endpoint]))
+      pl-utils/json-response)))

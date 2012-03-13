@@ -176,13 +176,16 @@
           (types candidate)))))
 
 (defn json-response
-  "Returns a Ring response object with the supplied body and a JSON
-  content type"
-  [body]
-  (-> body
-      (json/generate-string)
-      (rr/response)
-      (rr/header "Content-Type" "application/json")))
+  "Returns a Ring response object with the supplied `body` and response `code`,
+  and a JSON content type. If unspecified, `code` will default to 200."
+  ([body]
+   (json-response body 200))
+  ([body code]
+    (-> body
+        (json/generate-string)
+        (rr/response)
+        (rr/header "Content-Type" "application/json")
+        (rr/status code))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments

@@ -22,13 +22,8 @@
   [node db]
   (let [facts (f/facts-for-node db node)]
     (if-not (seq facts)
-      (-> {:error (str "Could not find facts for " node)}
-          (utils/json-response)
-          (rr/status 404))
-      (-> (json/generate-string {:name node :facts facts})
-          (rr/response)
-          (rr/header "Content-Type" "application/json")
-          (rr/status 200)))))
+      (utils/json-response {:error (str "Could not find facts for " node)} 404)
+      (utils/json-response {:name node :facts facts}))))
 
 (defn facts-app
   "Ring app for querying facts"
