@@ -69,6 +69,16 @@ Read-only requests (resource queries, fact queries, etc.) are done
 using Grayskull's REST APIs. Each REST endpoint is documented in the
 `spec` directory.
 
+**Remote REPL**
+
+For debugging purposes, you can open up a remote clojure REPL and use
+it to modify the behavior of Grayskull, live. Use a section like the
+following in your Grayskull config file:
+
+    [repl]
+    enabled = true
+    port = 8081
+
 **Puppet module**
 
 There is a puppet module for automated installation of Grayskull. It

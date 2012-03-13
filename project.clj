@@ -7,6 +7,7 @@
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
+                 [org.clojure/tools.nrepl "0.2.0-beta2"]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.5.0"]
                  [clj-time "0.3.7"]

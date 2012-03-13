@@ -50,10 +50,12 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clojure.tools.logging :as log]
+            [clojure.tools.nrepl.server :as nrepl]
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])
   (:use [clojure.java.io :only [file]]
+        [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -134,6 +136,12 @@
                           (log/info "Starting database compactor")
                           (future
                             (db-garbage-collector db db-gc-interval)))]
+
+      ;; Start debug REPL if necessary
+      (when (= "true" (get-in config [:repl :enabled]))
+        (let [port (get-in config [:repl :port])]
+          (log/info (format "Starting debugging REPL on port %d" port))
+          (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)))
 
       ;; Publish performance data via JMX
       (log/info "Starting JMX metrics publisher")
