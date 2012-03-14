@@ -50,10 +50,13 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clojure.tools.logging :as log]
+            [clojure.tools.nrepl.server :as nrepl]
+            [swank.swank :as swank]
             [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server]
             [clojure.java.jdbc :as sql])
   (:use [clojure.java.io :only [file]]
+        [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.utils :only (cli! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -134,6 +137,17 @@
                           (log/info "Starting database compactor")
                           (future
                             (db-garbage-collector db db-gc-interval)))]
+
+      ;; Start debug REPL if necessary
+      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (get config :repl {})]
+        (when (= "true" enabled)
+          (log/warn (format "Starting %s server on port %d" type port))
+          (cond
+            (= type "nrepl")
+            (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
+
+            (= type "swank")
+            (swank/start-server :host host :port port))))
 
       ;; Publish performance data via JMX
       (log/info "Starting JMX metrics publisher")
