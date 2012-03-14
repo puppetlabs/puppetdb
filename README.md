@@ -77,7 +77,14 @@ following in your Grayskull config file:
 
     [repl]
     enabled = true
+    # Either "nrepl" or "swank"
+    type = swank
     port = 8081
+
+The _nrepl_ repl type opens up a socket you can connect to via telnet. If you
+are using emacs' clojure-mode, you can choose a type of _swank_ and connect
+your editor directly to a running Grayskull instance by using `M-x
+slime-connect`. Using emacs is much nicer than using telnet. :)
 
 **Puppet module**
 
