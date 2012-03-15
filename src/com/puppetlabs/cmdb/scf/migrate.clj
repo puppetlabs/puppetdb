@@ -22,7 +22,8 @@
   "Create the initial database schema."
   []
   (sql/create-table :certnames
-                    ["name" "TEXT" "PRIMARY KEY"])
+                    ["name" "TEXT" "PRIMARY KEY"]
+                    ["deactivated" "TIMESTAMP"])
 
   (sql/create-table :catalogs
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]

@@ -191,29 +191,45 @@
 ;; Catalog replacement
 
 (defmethod process-command! ["replace catalog" 1]
-  [{:keys [payload]} options]
+  [{:keys [payload annotations]} {:keys [db]}]
   ;; Parsing a catalog either works, or it generates a fatal exception
-  (let [catalog  (try+
-                  (cat/parse-from-json-string payload)
-                  (catch Throwable e
-                    (throw+ (fatality! e))))
-        certname (:certname catalog)]
-    (sql/with-connection (:db options)
+  (let [catalog   (try+
+                   (cat/parse-from-json-string payload)
+                   (catch Throwable e
+                     (throw+ (fatality! e))))
+        certname  (:certname catalog)
+        timestamp (get-in catalog [:annotations :received])]
+    (sql/with-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (scf-storage/replace-catalog! catalog))
+      (if (scf-storage/maybe-activate-node! certname timestamp)
+        (scf-storage/replace-catalog! catalog)))
     (log/info (format "[replace catalog] %s" certname))))
 
 ;; Fact replacement
 
 (defmethod process-command! ["replace facts" 1]
-  [{:keys [payload]} {:keys [db]}]
-  (let [{:strs [name values]} (json/parse-string payload)]
+  [{:keys [payload annotations]} {:keys [db]}]
+  (let [{:strs [name values]} (json/parse-string payload)
+        timestamp (:received annotations)]
     (sql/with-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
-      (scf-storage/replace-facts! name values))
+      (if (scf-storage/maybe-activate-node! name timestamp)
+        (scf-storage/replace-facts! name values)))
     (log/info (format "[replace facts] %s" name))))
+
+;; Node deactivation
+
+(defmethod process-command! ["deactivate node" 1]
+  [{:keys [payload]} {:keys [db]}]
+  (let [certname (try+
+                   (json/parse-string payload)
+                   (catch Throwable e
+                     (throw+ (fatality! e))))]
+    (sql/with-connection db
+      (scf-storage/deactivate-node! certname))
+    (log/info (format "[deactivate node] %s" certname))))
 
 ;; ## MQ I/O
 ;;

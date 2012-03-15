@@ -179,6 +179,51 @@ must be supplied as the value to be matched."
   {:pre [certname]}
   (sql/insert-record :certnames {:name certname}))
 
+(defn delete-certname!
+  "Delete the given host from the db"
+  [certname]
+  {:pre [certname]}
+  (sql/delete-rows :certnames ["name=?" certname]))
+
+(defn deactivate-node!
+  "Deactivate the given host, recording the current time. If the node is
+  currently inactivate, no change is made."
+  [certname]
+  {:pre [(string? certname)]}
+  (let [timestamp (java.sql.Timestamp. (.getTime (java.util.Date.)))]
+    (sql/update-values :certnames
+      ["name=? AND deactivated IS NULL" certname]
+      {:deactivated timestamp})))
+
+(defn node-deactivated-time
+  "Returns the time the node specified by `certname` is inactive, or nil if
+  it's activate."
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/with-query-results result-set
+    ["SELECT deactivated FROM certnames WHERE name=?" certname]
+    (:deactivated (first result-set))))
+
+(defn activate-node!
+  "Reactivate the given host"
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/update-values :certnames
+    ["name=?" certname]
+    {:deactivated nil}))
+
+(defn maybe-activate-node!
+  "Reactivate the given host, only if it was deactivated before `time`.
+  Returns true if the node is activated, or if it was already active."
+  [certname time]
+  {:pre [(string? certname)
+         (instance? java.util.Date time)]}
+  (let [timestamp (java.sql.Timestamp. (.getTime time))
+        replaced  (sql/update-values :certnames
+                    ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
+                    {:deactivated nil})]
+    (> (first replaced) 0)))
+
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
   [hash api-version catalog-version]
