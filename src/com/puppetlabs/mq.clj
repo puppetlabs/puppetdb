@@ -74,7 +74,16 @@
           (integer? timeout)
           (pos? timeout)]
    :post [(vector? %)]}
-  (with-open [consumer (mq-conn/seqable connection {:endpoint endpoint :timeout timeout})]
-    (reduce into []
-            (map #(do (mq-seq/ack consumer) [%1])
-                 (mq-seq/mseq consumer)))))
+  (let [contents (atom [])
+        mq-error (promise)
+        consumer (mq-conn/consumer connection
+                                   {:endpoint   endpoint
+                                    :transacted true
+                                    :on-message #(swap! contents conj %)
+                                    :on-failure #(deliver mq-error (:exception %))})]
+    (mq-consumer/start consumer)
+    (deref mq-error timeout nil)
+    (mq-consumer/close consumer)
+    (if (realized? mq-error)
+      (throw @mq-error)
+      @contents)))
