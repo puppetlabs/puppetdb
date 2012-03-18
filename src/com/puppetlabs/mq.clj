@@ -1,7 +1,8 @@
 ;; ## Message Queue utilities
 ;;
 (ns com.puppetlabs.mq
-  (:import (org.apache.activemq.broker BrokerService))
+  (:import [org.apache.activemq.broker BrokerService]
+           [org.apache.activemq ScheduledMessage])
   (:require [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
@@ -29,6 +30,7 @@
      (doto (BrokerService.)
        (.setBrokerName name)
        (.setDataDirectory dir)
+       (.setSchedulerSupport true)
        (.setPersistent true))))
 
 (defn start-broker!
@@ -87,3 +89,23 @@
     (if (realized? mq-error)
       (throw @mq-error)
       @contents)))
+
+(defn delay-property
+  "Returns an ActiveMQ property map indicating a message should be
+  published only after a delay. The following invokations are
+  equivalent:
+
+    (delay-property 360000)
+    (delay-property 1 :hours)
+  "
+  ([number unit]
+     (condp = unit
+       :seconds (delay-property (* 1000 number))
+       :minutes (delay-property (* 60 1000 number))
+       :hours   (delay-property (* 60 60 1000 number))
+       :days    (delay-property (* 24 60 60 1000 number))))
+  ([millis]
+     {:pre  [(number? millis)
+             (pos? millis)]
+      :post [(map? %)]}
+     {ScheduledMessage/AMQ_SCHEDULED_DELAY (str millis)}))
