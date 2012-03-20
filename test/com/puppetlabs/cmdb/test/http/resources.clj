@@ -7,7 +7,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *app* nil)
@@ -111,13 +111,31 @@ to the result of the form supplied to this method."
                               [["=" "tag" "one"] #{foo1 bar1}]
                               [["=" "tag" "two"] #{foo1 bar1}]
                               [["and"
-                                ["=" "node" "one.local"]
+                                ["=" ["node" "name"] "one.local"]
                                 ["=" "type" "File"]]
                                #{foo1}]
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
-        (is-response-equal (get-response query) result))))
+        (is-response-equal (get-response query) result)))
+
+    (testing "querying against inactive nodes"
+      (deactivate-node! "one.local")
+
+      (testing "should exclude inactive nodes when requested"
+        (let [query ["=" ["node" "active"] true]
+              result #{bar1 bar2}]
+          (is-response-equal (get-response query) result)))
+
+      (testing "should exclude active nodes when requested"
+        (let [query ["=" ["node" "active"] false]
+              result #{foo1}]
+          (is-response-equal (get-response query) result)))
+
+      (testing "should include all nodes otherwise"
+        (let [query ["=" "type" "File"]
+              result #{foo1 bar1}]
+          (is-response-equal (get-response query) result)))))
 
   (testing "error handling"
     (let [response (get-response ["="])

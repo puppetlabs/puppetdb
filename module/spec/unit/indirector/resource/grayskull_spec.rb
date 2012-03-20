@@ -58,9 +58,12 @@ describe Puppet::Resource::Grayskull do
       end
 
       before :each do
-
         body = [make_resource_hash('foo'), make_resource_hash('bar')].to_pson
-        query = ['and', ['=', 'type', 'File'], ['=', 'exported', true], ['not', ['=', 'node', host]]]
+        query = ['and',
+                  ['=', 'type', 'File'],
+                  ['=', 'exported', true],
+                  ['=', ['node', 'active'], true],
+                  ['not', ['=', ['node', 'name'], host]]]
 
         result = stub('result', :body => body)
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
