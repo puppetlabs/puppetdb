@@ -74,6 +74,8 @@ using Grayskull's REST APIs. Each REST endpoint is documented in the
 For debugging purposes, you can open up a remote clojure REPL and use
 it to modify the behavior of Grayskull, live.
 
+Vim support would be a welcome addition; please submit patches!
+
 **Puppet module**
 
 There is a puppet module for automated installation of Grayskull. It
@@ -112,6 +114,28 @@ choice. Look at resources/config.ini for an example configuration
 file.
 
 * `java -jar *standalone.jar services -h`
+
+## Web Console
+
+Once you have Grayskull running, visit:
+
+    http://your-grayskull-host:your-grayskull-port/dashboard/index.html?pollingInterval=1000
+
+Grayskull includes a simple, web-based console that displays a fixed
+set of key metrics around Grayskull operations: memory use, queue
+depth, command processing metrics, duplication rate, and REST endpoint
+stats.
+
+We display min/max/median of each metric over a configurable duration,
+as well as an animated SVG sparkline.
+
+Currently the only way to change the attributes of the dashboard is via URL
+parameters:
+
+* width = width of each sparkline
+* height = height of each sparkline
+* nHistorical = how many historical data points to use in each sparkline
+* pollingInterval = how often to poll Grayskull for updates, in milliseconds
 
 ## Configuration
 
