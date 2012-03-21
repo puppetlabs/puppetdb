@@ -36,33 +36,29 @@
   "Takes the given command and submits it to the specified endpoint on
   the indicated MQ.
 
-  If successful, this function returns a JSON `true`."
+  If successful, this function returns `true`."
   [payload mq-spec mq-endpoint]
   {:pre  [(string? payload)
           (string? mq-spec)
-          (string? mq-endpoint)]
-   :post [(string? %)]}
+          (string? mq-endpoint)]}
   (with-open [conn (mq/connect! mq-spec)]
     (let [producer (mq-conn/producer conn)
           message (timestamp-message payload)]
       (mq-producer/publish producer mq-endpoint message)))
-  (json/generate-string true))
+  true)
 
 (defn command-app
   "Ring app for processing commands"
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "payload"))
-   (-> (rr/response "missing payload")
-       (rr/status 400))
+   (pl-utils/error-response "missing payload")
 
    (not (params "checksum"))
-   (-> (rr/response "missing checksum")
-       (rr/status 400))
+   (pl-utils/error-response "missing checksum")
 
    (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload")))
-   (-> (rr/response "checksums don't match")
-       (rr/status 400))
+   (pl-utils/error-response "checksums don't match")
 
    (not (pl-utils/acceptable-content-type
          "application/json"
@@ -71,9 +67,7 @@
        (rr/status 406))
 
    :else
-   (-> (http->mq (params "payload")
-                 (get-in globals [:command-mq :connection-string])
-                 (get-in globals [:command-mq :endpoint]))
-       (rr/response)
-       (rr/header "Content-Type" "application/json")
-       (rr/status 200))))
+    (-> (http->mq (params "payload")
+                  (get-in globals [:command-mq :connection-string])
+                  (get-in globals [:command-mq :endpoint]))
+      pl-utils/json-response)))

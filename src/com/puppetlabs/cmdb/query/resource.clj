@@ -60,7 +60,7 @@ and their parameters which match."
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
-              (format "operators take two arguments, but we found %d" (dec count))))))
+              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [catalog_resources (-> (table :catalog_resources)
                             (project [:catalog_resources.catalog :catalog_resources.resource])
                             (distinct))

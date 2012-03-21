@@ -63,6 +63,10 @@ The returned SQL fragment will contain *one* parameter placeholder, which
 must be supplied as the value to be matched."
   (fn [column] (sql-current-connection-database-name)))
 
+(defmulti sql-as-numeric
+  "Returns appropriate db-specific code for converting the given column to a
+  number, or to NULL if it is not numeric."
+  (fn [_] (sql-current-connection-database-name)))
 
 (defmethod sql-array-type-string "PostgreSQL"
   [basetype]
@@ -79,6 +83,20 @@ must be supplied as the value to be matched."
 (defmethod sql-array-query-string "HSQL Database Engine"
   [column]
   (format "? IN (UNNEST(%s))" column))
+
+(defmethod sql-as-numeric "PostgreSQL"
+  [column]
+  (format (str "CASE WHEN %s~'^\\d+$' THEN %s::integer "
+               "WHEN %s~'^\\d+\\.\\d+$' THEN %s::float "
+               "ELSE NULL END")
+          column column column column))
+
+(defmethod sql-as-numeric "HSQL Database Engine"
+  [column]
+  (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS INTEGER) "
+               "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
+               "ELSE NULL END")
+          column column column column))
 
 (def ns-str (str *ns*))
 
