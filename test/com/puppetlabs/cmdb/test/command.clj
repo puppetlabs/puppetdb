@@ -8,6 +8,14 @@
         [cheshire.core :as json]
         [slingshot.slingshot :only [try+ throw+]]))
 
+(deftest command-formatting
+  (testing "Formatting commands for submission"
+    (is (= (-> (format-command "my command" 1 [1 2 3 4 5])
+             (json/parse-string true))
+           {:command "my command"
+            :version 1
+            :payload "[1,2,3,4,5]"}))))
+
 (deftest command-parsing
   (testing "Command parsing"
 

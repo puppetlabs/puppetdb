@@ -54,12 +54,14 @@
             [com.puppetlabs.cmdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
+            [clj-http.client :as client]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.slingshot :only [try+ throw+]]
+        [clj-http.util :only [url-encode]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))
@@ -140,6 +142,43 @@
   [name]
   {:pre [(keyword? name)]}
   (get-in @metrics ["global" name]))
+
+;; ## Command submission
+
+(defn format-command
+  "Formats `payload` for submission with a command specified by `command` and
+  `version`."
+  [command version payload]
+  (-> {:command command
+       :version version
+       :payload (json/generate-string payload)}
+    (json/generate-string)))
+
+(defn submit-command
+  "Submits `payload` as a valid command of type `command` and `version` to the
+  Grayskull instance specified by `host` and `port`. The `payload` will be
+  converted to JSON before submission. Alternately accepts a string `message`
+  which is a formatted command, ready for submission. Returns the server
+  response."
+  ([host port payload command version]
+  {:pre [(string? command)
+         (integer? version)]}
+   (->> payload
+     (format-command command version)
+     (submit-command host port)))
+  ([host port message]
+   {:pre [(string? host)
+          (integer? port)
+          (string? message)]}
+   (let [body   (format "checksum=%s&payload=%s"
+                       (pl-utils/utf8-string->sha1 message)
+                       (url-encode message))
+        url    (format "http://%s:%s/commands" host port)]
+    (client/post url {:body               body
+                      :throw-exceptions   false
+                      :content-type       :x-www-form-urlencoded
+                      :character-encoding "UTF-8"
+                      :accept             :json}))))
 
 ;; ## Command parsing
 

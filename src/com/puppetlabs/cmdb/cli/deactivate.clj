@@ -14,30 +14,16 @@
 ;; Otherwise, it will exit with the number of failed command submissions.
 ;;
 (ns com.puppetlabs.cmdb.cli.deactivate
-  (:require [clojure.tools.logging :as log]
-            [cheshire.core :as json]
-            [clj-http.client :as client]
-            [clj-http.util :as util])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map utf8-string->sha1)]))
+  (:require [clojure.tools.logging :as log])
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
 (defn deactivate
   "Submits a 'deactivate node' request for `node` to the Grayskull instance
   specified by `host` and `port`. Returns a true value if submission succeeded,
   and a false value otherwise."
   [node host port]
-  (let [msg    (-> {:command "deactivate node"
-                    :version 1
-                    :payload (json/generate-string node)}
-                 (json/generate-string))
-        body   (format "checksum=%s&payload=%s"
-                       (utf8-string->sha1 msg)
-                       (util/url-encode msg))
-        url    (format "http://%s:%s/commands" host port)
-        result (client/post url {:body               body
-                                 :throw-exceptions   false
-                                 :content-type       :x-www-form-urlencoded
-                                 :character-encoding "UTF-8"
-                                 :accept             :json})]
+  (let [result (->> (format-command "deactivate node" 1 node)
+                 (submit-command host port))]
     (if (= 200 (:status result))
       true
       (log/error result))))
