@@ -217,6 +217,18 @@
         (rr/header "Content-Type" "application/json")
         (rr/status code))))
 
+(defn error-response
+  "Returns a Ring response object with a status code of 400. If `error` is a
+  Throwable, its message is used as the body of the response. Otherwise,
+  `error` itself is used."
+  [error]
+  (let [msg (if (instance? Throwable error)
+              (.getMessage error)
+              (str error))]
+    (-> msg
+      (rr/response)
+      (rr/status 400))))
+
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments
   (from a `//`, for example) are elided from the result"

@@ -12,13 +12,9 @@
           nodes (node/search db query)]
       (utils/json-response nodes))
     (catch org.codehaus.jackson.JsonParseException e
-      (-> (.getMessage e)
-        (rr/response)
-        (rr/status 400)))
+      (utils/error-response e))
     (catch IllegalArgumentException e
-      (-> (.getMessage e)
-        (rr/response)
-        (rr/status 400)))))
+      (utils/error-response e))))
 
 ;; TODO: Add an API to specify whether to include facts
 (defn node-app

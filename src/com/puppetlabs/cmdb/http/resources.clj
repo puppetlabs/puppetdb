@@ -82,13 +82,9 @@
       (-> (r/query-resources db q)
           (utils/json-response)))
     (catch org.codehaus.jackson.JsonParseException e
-      (-> (.getMessage e)
-          (rr/response)
-          (rr/status 400)))
+      (utils/error-response e))
     (catch IllegalArgumentException e
-      (-> (.getMessage e)
-          (rr/response)
-          (rr/status 400)))))
+      (utils/error-response e))))
 
 (defn resources-app
   "Ring app for querying resources"

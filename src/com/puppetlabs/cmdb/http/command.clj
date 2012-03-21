@@ -34,16 +34,13 @@
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "payload"))
-   (-> (rr/response "missing payload")
-       (rr/status 400))
+   (pl-utils/error-response "missing payload")
 
    (not (params "checksum"))
-   (-> (rr/response "missing checksum")
-       (rr/status 400))
+   (pl-utils/error-response "missing checksum")
 
    (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload")))
-   (-> (rr/response "checksums don't match")
-       (rr/status 400))
+   (pl-utils/error-response "checksums don't match")
 
    (not (pl-utils/acceptable-content-type
          "application/json"
