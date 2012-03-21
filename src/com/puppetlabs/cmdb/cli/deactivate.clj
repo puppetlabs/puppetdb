@@ -1,3 +1,18 @@
+;; ## Node deactivation
+;;
+;; This utility is used to issue a `deactivate node` request to a running
+;; Grayskull instance, which will record the node as inactive until it receives
+;; another command. Inactive nodes can be filtered from fact and resource
+;; queries.
+;;
+;; The only arguments to the command are a config file, used to find the
+;; Grayskull server, and a list of nodes to attempt to deactivate. Because this
+;; is an asynchronous operation, no feedback is available about whether the
+;; command was actually fulfilled, and it may not be effective immediately.
+;;
+;; If every command submission succeeds, the application will exit 0.
+;; Otherwise, it will exit with the number of failed command submissions.
+;;
 (ns com.puppetlabs.cmdb.cli.deactivate
   (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]
