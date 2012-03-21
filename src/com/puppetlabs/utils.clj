@@ -31,6 +31,36 @@
        default
        (/ dividend divisor))))
 
+;; ## Numerics
+
+(defn parse-int
+  "Parse a string `s` as an integer, returning nil if the string doesn't
+  contain an integer."
+  [s]
+  {:pre  [(string? s)]
+   :post [(or (integer? %) (nil? %))]}
+  (try (Integer/parseInt s)
+    (catch java.lang.NumberFormatException e
+      nil)))
+
+(defn parse-float
+  "Parse a string `s` as a float, returning nil if the string doesn't
+  contain a float"
+  [s]
+  {:pre  [(string? s)]
+   :post [(or (float? %) (nil? %))]}
+  (try (Float/parseFloat s)
+    (catch java.lang.NumberFormatException e
+      nil)))
+
+(defn parse-number
+  "Converts a string `s` to a number, by attempting to parse it as an integer
+  and then as a float. Returns nil if the string isn't numeric."
+  [s]
+  {:pre  [(string? s)]
+   :post [(or (number? %) (nil? %))]}
+  ((some-fn parse-int parse-float) s))
+
 ;; ## Collection operations
 
 (defn symmetric-difference
@@ -176,13 +206,28 @@
           (types candidate)))))
 
 (defn json-response
-  "Returns a Ring response object with the supplied body and a JSON
-  content type"
-  [body]
-  (-> body
-      (json/generate-string)
+  "Returns a Ring response object with the supplied `body` and response `code`,
+  and a JSON content type. If unspecified, `code` will default to 200."
+  ([body]
+   (json-response body 200))
+  ([body code]
+    (-> body
+        (json/generate-string)
+        (rr/response)
+        (rr/header "Content-Type" "application/json")
+        (rr/status code))))
+
+(defn error-response
+  "Returns a Ring response object with a status code of 400. If `error` is a
+  Throwable, its message is used as the body of the response. Otherwise,
+  `error` itself is used."
+  [error]
+  (let [msg (if (instance? Throwable error)
+              (.getMessage error)
+              (str error))]
+    (-> msg
       (rr/response)
-      (rr/header "Content-Type" "application/json")))
+      (rr/status 400))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments

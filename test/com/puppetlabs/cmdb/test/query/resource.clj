@@ -318,7 +318,7 @@
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
-            (re-pattern (str "operators take two arguments, but we found "
+            (re-pattern (str "= requires exactly two arguments, but we found "
                              (dec (count in))))
             (s/query-resources *db* (s/query->sql *db* in))))))
   (testing "bad types in input"
