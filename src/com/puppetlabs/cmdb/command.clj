@@ -18,6 +18,11 @@
 ;; command-specific meaning or may be used by the message processing
 ;; framework itself.
 ;;
+;; Commands should include a `received` annotation containing a timestamp of
+;; when the message was first seen by the system. If this is omitted, it will
+;; be added when the message is first parsed, but may then be somewhat
+;; inaccurate.
+;;
 ;; Failed messages will have an `attempts` annotation containing an
 ;; array of maps of the form:
 ;;
@@ -198,9 +203,11 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message (-> command-string
-                  (json/parse-string true))
-        annotations (get message :annotations {})]
+  (let [message     (-> command-string
+                      (json/parse-string true))
+        annotations (get message :annotations {})
+        received    (get annotations :received (java.util.Date.))
+        annotations (assoc annotations :received received)]
     (assoc message :annotations annotations)))
 
 ;; ## Command processing exception classes

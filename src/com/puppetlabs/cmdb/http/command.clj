@@ -29,7 +29,7 @@
       (-> message
         (assoc-in [:annotations :received] (pl-utils/timestamp))
         (json/generate-string)))
-    (catch Throwable e
+    (catch org.codehaus.jackson.JsonParseException e
       message)))
 
 (defn http->mq
