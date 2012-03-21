@@ -14,7 +14,8 @@
 ;; Otherwise, it will exit with the number of failed command submissions.
 ;;
 (ns com.puppetlabs.cmdb.cli.deactivate
-  (:require [clojure.tools.logging :as log])
+  (:require [clojure.tools.logging :as log]
+            [com.puppetlabs.cmdb.command :as command])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
 (defn deactivate
@@ -22,8 +23,7 @@
   specified by `host` and `port`. Returns a true value if submission succeeded,
   and a false value otherwise."
   [node host port]
-  (let [result (->> (format-command "deactivate node" 1 node)
-                 (submit-command host port))]
+  (let [result (command/submit-command host port node "deactivate node" 1)]
     (if (= 200 (:status result))
       true
       (log/error result))))

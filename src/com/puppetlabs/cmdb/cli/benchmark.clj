@@ -59,8 +59,7 @@
   "Send the given wire-format catalog (associated with `host`) to a
   command-processing endpoint."
   [host catalog]
-  (let [result (->> (command/format-command "replace catalog" 1 catalog)
-                 (command/submit-command hostname port))]
+  (let [result (command/submit-command hostname port catalog "replace catalog" 1)]
     (if (not= 200 (:status result))
       (log/error result))))
 
