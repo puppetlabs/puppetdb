@@ -22,8 +22,7 @@
   "Create the initial database schema."
   []
   (sql/create-table :certnames
-                    ["name" "TEXT" "PRIMARY KEY"]
-                    ["deactivated" "TIMESTAMP"])
+                    ["name" "TEXT" "PRIMARY KEY"])
 
   (sql/create-table :catalogs
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
@@ -106,10 +105,17 @@
   (sql/do-commands
    "CREATE INDEX idx_catalog_resources_tags ON catalog_resources(tags)"))
 
+(defn allow-node-deactivation
+  "Add a column storing when a node was deactivated."
+  []
+  (sql/do-commands
+    "ALTER TABLE certnames ADD deactivated TIMESTAMP WITH TIME ZONE"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
-  {1 initialize-store})
+  {1 initialize-store
+   2 allow-node-deactivation})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
