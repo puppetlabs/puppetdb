@@ -14,7 +14,8 @@
 ;;
 ;; Resources for the node "foo.example.com":
 ;;
-;;     ["=" ["node" "<this value is ignored>"] "foo.example.com"]
+;;     ["=" ["node" "name"] "foo.example.com"]
+;;     ["=" ["node" "active"] true]
 ;;
 ;; Resources whose owner parameter is "joe":
 ;;

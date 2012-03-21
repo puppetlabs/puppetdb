@@ -24,11 +24,11 @@ The `query` parameter is described by the following grammar:
     type:   "or" | "and" | "not"
     match:  "="
 
-For example, for file resources, tagged "magical", on any host except
+For example, for file resources, tagged "magical", on any active host except
 for "example.local" the JSON query structure would be:
 
-    ["and" ["not" ["=" ["node", "certname"] "example.local"]]
-           ["=" ["node" "fact" "example"] "whatever"]
+    ["and" ["not" ["=" ["node", "name"] "example.local"]]
+           ["=" ["node" "active"] true]
            ["=" "type" "File"]
            ["=" "tag"  "magical"]
            ["=" ["parameter", "ensure"] "enabled"]
