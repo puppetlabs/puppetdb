@@ -57,17 +57,18 @@ describe Puppet::Node::Facts::Grayskull do
       end.to raise_error(Puppet::Error, /Fact search against keys of type 'wrong' is unsupported/)
     end
 
-    it "should leave a single term alone" do
+    it "should add a filter against only active nodes" do
       @query = {
         'facts.kernel.eq' => 'Linux',
       }
 
-      query = CGI.escape(["=", ["fact", "kernel"], "Linux"].to_pson)
+      query = CGI.escape(["and", ["=", ["node", "active"], true],
+                                 ["=", ["fact", "kernel"], "Linux"]].to_pson)
 
       response.stubs(:body).returns '[]'
 
       subject.expects(:http_get).with do |_,url,_|
-        url == "/nodes?query=#{query}"
+        url.should == "/nodes?query=#{query}"
       end.returns response
 
       subject.search(request)
@@ -79,13 +80,14 @@ describe Puppet::Node::Facts::Grayskull do
         'facts.uptime.eq' => '10 days',
       }
 
-      query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"],
+      query = CGI.escape(["and", ["=", ["node", "active"], true],
+                                 ["=", ["fact", "kernel"], "Linux"],
                                  ["=", ["fact", "uptime"], "10 days"]].to_pson)
 
       response.stubs(:body).returns '[]'
 
       subject.expects(:http_get).with do |_,url,_|
-        url == "/nodes?query=#{query}"
+        url.should == "/nodes?query=#{query}"
       end.returns response
 
       subject.search(request)
@@ -96,12 +98,13 @@ describe Puppet::Node::Facts::Grayskull do
         'facts.kernel.ne' => 'Linux',
       }
 
-      query = CGI.escape(["not", ["=", ["fact", "kernel"], "Linux"]].to_pson)
+      query = CGI.escape(["and", ["=", ["node", "active"], true],
+                                 ["not", ["=", ["fact", "kernel"], "Linux"]]].to_pson)
 
       response.stubs(:body).returns '[]'
 
       subject.expects(:http_get).with do |_,url,_|
-        url == "/nodes?query=#{query}"
+        url.should == "/nodes?query=#{query}"
       end.returns response
 
       subject.search(request)
@@ -112,12 +115,13 @@ describe Puppet::Node::Facts::Grayskull do
         'facts.kernel' => 'Linux',
       }
 
-      query = CGI.escape(["=", ["fact", "kernel"], "Linux"].to_pson)
+      query = CGI.escape(["and", ["=", ["node", "active"], true],
+                                 ["=", ["fact", "kernel"], "Linux"]].to_pson)
 
       response.stubs(:body).returns '[]'
 
       subject.expects(:http_get).with do |_,url,_|
-        url == "/nodes?query=#{query}"
+        url.should == "/nodes?query=#{query}"
       end.returns response
 
       subject.search(request)
@@ -134,12 +138,13 @@ describe Puppet::Node::Facts::Grayskull do
           "facts.kernel.#{name}" => 'Linux',
         }
 
-        query = CGI.escape([operator, ["fact", "kernel"], "Linux"].to_pson)
+        query = CGI.escape(["and", ["=", ["node", "active"], true],
+                                   [operator, ["fact", "kernel"], "Linux"]].to_pson)
 
         response.stubs(:body).returns '[]'
 
         subject.expects(:http_get).with do |_,url,_|
-          url == "/nodes?query=#{query}"
+          url.should == "/nodes?query=#{query}"
         end.returns response
 
         subject.search(request)

@@ -8,6 +8,7 @@
         ring.mock.request
         [clojure.math.combinatorics :only [combinations]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *app* nil)
@@ -50,6 +51,9 @@ to the result of the form supplied to this method."
     (doseq [name names]
       (sql/insert-record :certnames {:name name}))
 
+    (deactivate-node! "node_a")
+    (deactivate-node! "node_e")
+
     (sql/insert-records
       :certname_facts
       {:certname "node_a" :fact "kernel" :value "Linux"}
@@ -71,12 +75,12 @@ to the result of the form supplied to this method."
                       #{}
                       ["=" ["fact" "uptime_seconds"] "10000"]
                       #{"node_d"}
-                      [">" ["fact" "uptime_seconds"] "1000"]
-                      #{"node_b" "node_d"}
                       ["<" ["fact" "uptime_seconds"] "10000.0"]
                       #{"node_b"}
                       [">=" ["fact" "uptime_seconds"] "10foobar"]
-                      #{}}]
+                      #{}
+                      ["=" ["node" "active"] true]
+                      #{"node_b" "node_c" "node_d"}}]
       (doseq [size (range 1 (inc (count test-cases)))
               terms (combinations test-cases size)
               :let [exprs      (map first terms)
