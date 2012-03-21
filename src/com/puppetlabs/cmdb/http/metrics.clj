@@ -67,10 +67,7 @@
   [_]
   (-> (all-mbean-names)
       (linkify-names)
-      (json/generate-string)
-      (rr/response)
-      (rr/header "Content-Type" "application/json")
-      (rr/status 200)))
+      (pl-utils/json-response)))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
@@ -78,10 +75,7 @@
   (if ((all-mbean-names) name)
     (-> (jmx/mbean name)
         (filter-mbean)
-        (json/generate-string)
-        (rr/response)
-        (rr/header "Content-Type" "application/json")
-        (rr/status 200))
+        (pl-utils/json-response))
     (-> "No such mbean"
         (rr/response)
         (rr/status 404))))

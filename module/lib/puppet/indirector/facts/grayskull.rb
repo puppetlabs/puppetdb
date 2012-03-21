@@ -28,6 +28,49 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
     nil
   end
 
+  # Search for nodes matching a set of fact constraints. The constraints are
+  # specified as a hash of the form:
+  #
+  # `{type.name.operator => value`
+  #
+  # The only accepted `type` is 'facts'.
+  #
+  # `name` must be the fact name to query against.
+  #
+  # `operator` may be one of {eq, ne, lt, gt, le, ge}, and will default to 'eq'
+  # if unspecified.
+  def search(request)
+    return [] unless request.options
+    operator_map = {
+      'eq' => '=',
+      'gt' => '>',
+      'lt' => '<',
+      'ge' => '>=',
+      'le' => '<=',
+    }
+    filters = request.options.sort.map do |key,value|
+      type, name, operator = key.to_s.split('.')
+      operator ||= 'eq'
+      raise Puppet::Error, "Fact search against keys of type '#{type}' is unsupported" unless type == 'facts'
+      if operator == 'ne'
+        ['not', ['=', ['fact', name], value]]
+      else
+        [operator_map[operator], ['fact', name], value]
+      end
+    end
+
+    query = filters.length > 1 ? filters.unshift('and') : filters.first
+    query_param = CGI.escape(query.to_pson)
+
+    response = http_get(request, "/nodes?query=#{query_param}", headers)
+
+    if response.is_a? Net::HTTPSuccess
+      PSON.parse(response.body)
+    else
+      raise Puppet::Error, "Could not perform inventory search: #{response.code} #{response.body}"
+    end
+  end
+
   def headers
     {
       "Accept" => "application/json",
