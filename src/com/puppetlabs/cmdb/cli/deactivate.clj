@@ -7,7 +7,8 @@
 
 (defn deactivate
   "Submits a 'deactivate node' request for `node` to the Grayskull instance
-  specified by `host` and `port`."
+  specified by `host` and `port`. Returns a true value if submission succeeded,
+  and a false value otherwise."
   [node host port]
   (let [msg    (-> {:command "deactivate node"
                     :version 1
@@ -22,7 +23,8 @@
                                  :content-type       :x-www-form-urlencoded
                                  :character-encoding "UTF-8"
                                  :accept             :json})]
-    (if (not= 200 (:status result))
+    (if (= 200 (:status result))
+      true
       (log/error result))))
 
 (defn -main
@@ -31,7 +33,11 @@
                               ["-c" "--config" "Path to config.ini"])
         config      (ini-to-map (:config options))
         host        (get-in config [:jetty :host] "localhost")
-        port        (get-in config [:jetty :port] 8080)]
-    (doseq [node nodes]
-      (log/info (str "Deactivating node " node))
-      (deactivate node host port))))
+        port        (get-in config [:jetty :port] 8080)
+        failures    (->> nodes
+                      (map (fn [node]
+                             (log/info (str "Submitting deactivation command for " node))
+                             (deactivate node host port)))
+                      (filter (complement identity))
+                      (count))]
+    (System/exit failures)))
