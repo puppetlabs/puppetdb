@@ -187,17 +187,16 @@ must be supplied as the value to be matched."
 
 (defn deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
-  currently inactivate, no change is made."
+  currently inactive, no change is made."
   [certname]
   {:pre [(string? certname)]}
-  (let [timestamp (java.sql.Timestamp. (.getTime (java.util.Date.)))]
-    (sql/update-values :certnames
-      ["name=? AND deactivated IS NULL" certname]
-      {:deactivated timestamp})))
+  (sql/do-prepared "UPDATE certnames SET deactivated = current_timestamp
+                    WHERE name=? AND deactivated IS NULL"
+                   [certname]))
 
 (defn node-deactivated-time
-  "Returns the time the node specified by `certname` is inactive, or nil if
-  it's activate."
+  "Returns the time the node specified by `certname` was deactivated, or nil if
+  the node is currently active."
   [certname]
   {:pre [(string? certname)]}
   (sql/with-query-results result-set
@@ -220,8 +219,8 @@ must be supplied as the value to be matched."
          (instance? java.util.Date time)]}
   (let [timestamp (java.sql.Timestamp. (.getTime time))
         replaced  (sql/update-values :certnames
-                    ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
-                    {:deactivated nil})]
+                                     ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
+                                     {:deactivated nil})]
     (> (first replaced) 0)))
 
 (defn add-catalog-metadata!
