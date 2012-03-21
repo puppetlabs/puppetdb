@@ -274,6 +274,8 @@
                    (catch Throwable e
                      (throw+ (fatality! e))))]
     (sql/with-connection db
+      (when-not (scf-storage/certname-exists? certname)
+        (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
     (log/info (format "[deactivate node] %s" certname))))
 
