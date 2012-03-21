@@ -1,3 +1,32 @@
+;; ## Request Format
+;;
+;; There is only one available routes, `/nodes?query=<query>`. The `query`
+;; parameter is an optional JSON array of query predicates in prefix form.
+;;
+;; ### Terms
+;;
+;; The only accepted query terms are of the form `["fact" <fact name>]`.
+;;
+;; ### Predicates
+;;
+;; The recognized predicates are `[= > < >= <= and or not]`.
+;;
+;; `[and or not]` each accept as arguments an array of predicates, which are
+;; composed according to the operator.
+;;
+;; `[> < >= <=]` are arithmetic operators only, and will ignore values which
+;; are not numeric.
+;;
+;; `=` is exact comparison only, and will not consider, for example, "0" and
+;; "0.0" to be equal.
+;;
+;; ## Response Format
+;;
+;; The response is a JSON array of node names matching the predicates, sorted
+;; in ascending order:
+;;
+;; `["foo.example.com" "bar.example.com" "baz.example.com"]`
+;;
 (ns com.puppetlabs.cmdb.http.node
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]

@@ -1,3 +1,8 @@
+;; ## Node query
+;;
+;; This implements the node query operations according to the [node query
+;; spec](../spec/node.md).
+;;
 (ns com.puppetlabs.cmdb.query.node
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
