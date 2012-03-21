@@ -5,11 +5,13 @@
             [ring.util.response :as rr]))
 
 (defn search-nodes
-  "Produce a response body for a request to search for nodes based on `filter-expr`."
-  [filter-expr db]
+  "Produce a response body for a request to search for nodes based on
+  `query`. If no `query` is supplied, all nodes will be returned."
+  [query db]
   (try
-    (let [query (node/query->sql db filter-expr)
-          nodes (node/search db query)]
+    (let [query (if query (json/parse-string query true))
+          sql   (node/query->sql db query)
+          nodes (node/search db sql)]
       (utils/json-response nodes))
     (catch org.codehaus.jackson.JsonParseException e
       (utils/error-response e))
@@ -18,7 +20,7 @@
 
 ;; TODO: Add an API to specify whether to include facts
 (defn node-app
-  "Ring app for querying nodes"
+  "Ring app for querying nodes."
   [{:keys [params headers globals] :as request}]
   (cond
     (not (utils/acceptable-content-type
@@ -27,4 +29,4 @@
     (-> (rr/response "must accept application/json")
       (rr/status 406))
     :else
-    (search-nodes (json/parse-string (params "query") true) (:scf-db globals))))
+    (search-nodes (params "query") (:scf-db globals))))

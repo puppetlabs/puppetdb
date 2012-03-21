@@ -8,8 +8,28 @@
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.utils :only [parse-number]]))
 
+(defmulti compile-predicate->sql
+  "Recursively compile a query into a collection of SQL operations."
+  (fn [db query]
+    (let [operator (string/lower-case (first query))]
+      (cond
+        (#{">" "<" ">=" "<="} operator) :numeric-comparison
+        :else operator))))
+
+(defn query->sql
+  "Converts a vector-structured `query` to a corresponding SQL query which will
+  return nodes matching the `query`."
+  [db query]
+  {:pre [(some-fn nil? sequential? query)]
+   :post [(vector? %)
+          (string? (first %))
+          (every? (complement coll?) %)]}
+  (if query
+    (compile-predicate->sql db query)
+    ["SELECT name AS certname FROM certnames"]))
+
 (defn search
-  "Search for nodes satisfying the given filter."
+  "Search for nodes satisfying the given SQL filter."
   [db [sql & params :as filter-expr]]
   {:pre [(string? sql)
          (every? (complement coll?) params)]
@@ -24,23 +44,8 @@
 (defn fetch-all
   "Retrieves all nodes from the database."
   [db]
-  (search db ["SELECT name AS certname FROM certnames"]))
-
-(defmulti compile-predicate->sql
-  "Recursively compile a query into a collection of SQL operations."
-  (fn [db query]
-    (let [operator (string/lower-case (first query))]
-      (cond
-        (#{">" "<" ">=" "<="} operator) "numeric-comparison"
-        :else operator))))
-
-(defn query->sql
-  [db query]
-  {:pre [(sequential? query)]
-   :post [(vector? %)
-          (string? (first %))
-          (every? (complement coll?) %)]}
-  (compile-predicate->sql db query))
+  (let [sql (query->sql db nil)]
+    (search db sql)))
 
 (defmethod compile-predicate->sql "="
   [db [op path value :as term]]
@@ -50,7 +55,7 @@
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
-               (format "operators take two arguments, but we found %d" (dec count))))))
+               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [tbl (match [path]
               [["fact" (name :when string?)]]
               (-> (table :certname_facts)
@@ -64,7 +69,7 @@
         [sql & params] (compile tbl db)]
     (apply vector (format "(%s)" sql) params)))
 
-(defmethod compile-predicate->sql "numeric-comparison"
+(defmethod compile-predicate->sql :numeric-comparison
   [db [op path value :as term]]
   {:pre [(string? value)]
    :post [(string? (first %))
@@ -72,7 +77,7 @@
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
-               (format "operators take two arguments, but we found %d" (dec count))))))
+               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [[sql & params] (match [path]
                               [["fact" (name :when string?)]]
                               [(format (str "SELECT DISTINCT certname FROM certname_facts "
@@ -120,8 +125,8 @@ operation."
                 (format "(%s)"))]
     (apply vector query params)))
 
-;; NOTE: This will potentially return nodes which don't have values for the
-;; facts being tested.
+;; NOTE: This will include nodes which don't have values for the facts
+;; referenced in the query.
 (defmethod compile-predicate->sql "not"
   [db [op & terms]]
   {:pre [(every? vector? terms)]

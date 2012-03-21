@@ -58,6 +58,9 @@ to the result of the form supplied to this method."
       {:certname "node_c" :fact "kernel" :value "Darwin"}
       {:certname "node_d" :fact "uptime_seconds" :value "10000"})
 
+    (testing "empty query should return all nodes"
+      (is-response-equal (get-response) names))
+
     (let [test-cases {["=" ["fact" "kernel"] "Linux"]
                       #{"node_a" "node_b"}
                       ["not" ["=" ["fact" "kernel"] "Linux"]]
@@ -84,6 +87,7 @@ to the result of the form supplied to this method."
                     or-result  (apply set/union results)
                     not-expr   (cons "not" exprs)
                     not-result (apply set/difference names results)]]
-        (is-response-equal (get-response and-expr) and-result)
-        (is-response-equal (get-response or-expr) or-result)
-        (is-response-equal (get-response not-expr) not-result)))))
+        (testing (str exprs " => " results)
+          (is-response-equal (get-response and-expr) and-result)
+          (is-response-equal (get-response or-expr) or-result)
+          (is-response-equal (get-response not-expr) not-result))))))

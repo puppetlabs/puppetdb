@@ -123,4 +123,4 @@ to the result of the form supplied to this method."
     (let [response (get-response ["="])
           body     (get response :body "null")]
       (is (= (:status response) 400))
-      (is (re-find #"operators take two arguments" body)))))
+      (is (re-find #"= requires exactly two arguments" body)))))
