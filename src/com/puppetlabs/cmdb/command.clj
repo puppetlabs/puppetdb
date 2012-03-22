@@ -402,6 +402,9 @@
 
 ;; ### Message handler
 
+;; The number of times a message can be retried before we discard it
+(def maximum-allowable-retries 16)
+
 (defn produce-message-handler
   "Produce a message handler suitable for use by `process-commands!`. "
   [publish discarded-dir options-map]
@@ -411,7 +414,7 @@
         on-fatal       #(handle-command-failure %1 %2 discard)
         on-retry       #(handle-command-retry %1 %2 publish)]
     (-> #(process-command! % options-map)
-      (wrap-with-discard on-discard 16)
+      (wrap-with-discard on-discard maximum-allowable-retries)
       (wrap-with-exception-handling on-retry on-fatal)
       (wrap-with-command-parser on-parse-error)
       (wrap-with-meter (global-metric :seen))

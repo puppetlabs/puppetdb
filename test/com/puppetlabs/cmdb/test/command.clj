@@ -238,7 +238,7 @@
                 (is (:trace attempt)))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc-in command [:annotations :attempts] [{} {} {} {} {}])
+        (let [command (assoc-in command [:annotations :attempts] (repeat maximum-allowable-retries {}))
               process-counter (call-counter)]
           (with-redefs [process-command! process-counter]
             (test-msg-handler command publish discard-dir
