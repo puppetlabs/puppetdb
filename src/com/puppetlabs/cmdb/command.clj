@@ -383,13 +383,19 @@
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message,
   with an incremented retry counter, after a delay. The delay is based
-  on the following exponential backoff algorithm: `8^N` seconds where
-  `N` is the number of the current attempt."
+  on the following exponential backoff algorithm:
+
+    2^(n-1) + random(2^n)
+
+  `n` is the number of the current attempt, and `random` is a random
+  number between 0 and the argument."
   [{:keys [command version annotations] :as msg} e publish-fn]
   (mark! (get-in @metrics [command version :retried]))
   (let [attempt (count (:attempts annotations))
         msg     (annotate-with-attempt msg e)
-        delay   (Math/pow 8 attempt)]
+        n       (inc attempt)
+        delay   (+ (Math/pow 2 (dec n))
+                   (rand-int (Math/pow 2 n)))]
     (log/error (format "Retrying command [%s, %d] after attempt %d, due to: %s"
                        command version attempt (.getMessage e)))
     (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
@@ -405,7 +411,7 @@
         on-fatal       #(handle-command-failure %1 %2 discard)
         on-retry       #(handle-command-retry %1 %2 publish)]
     (-> #(process-command! % options-map)
-      (wrap-with-discard on-discard 5)
+      (wrap-with-discard on-discard 16)
       (wrap-with-exception-handling on-retry on-fatal)
       (wrap-with-command-parser on-parse-error)
       (wrap-with-meter (global-metric :seen))
@@ -420,7 +426,7 @@
   function will terminate."
   [connection endpoint discarded-dir options-map]
   (let [producer   (mq-conn/producer connection)
-        publish    (fn [& args] (apply mq-producer/publish producer endpoint args))
+        publish    (partial mq-producer/publish producer endpoint)
         on-message (produce-message-handler publish discarded-dir options-map)
         mq-error   (promise)
         consumer   (mq-conn/consumer connection

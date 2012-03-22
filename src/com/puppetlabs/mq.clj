@@ -95,7 +95,7 @@
   published only after a delay. The following invokations are
   equivalent:
 
-    (delay-property 360000)
+    (delay-property 3600000)
     (delay-property 1 :hours)
   "
   ([number unit]
@@ -108,4 +108,4 @@
      {:pre  [(number? millis)
              (pos? millis)]
       :post [(map? %)]}
-     {ScheduledMessage/AMQ_SCHEDULED_DELAY (str millis)}))
+     {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
