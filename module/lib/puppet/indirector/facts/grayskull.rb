@@ -59,7 +59,7 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
       end
     end
 
-    query = filters.length > 1 ? filters.unshift('and') : filters.first
+    query = ["and", ["=", ["node", "active"], true]] + filters
     query_param = CGI.escape(query.to_pson)
 
     response = http_get(request, "/nodes?query=#{query_param}", headers)

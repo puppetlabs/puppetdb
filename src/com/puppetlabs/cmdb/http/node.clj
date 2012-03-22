@@ -5,7 +5,8 @@
 ;;
 ;; ### Terms
 ;;
-;; The only accepted query terms are of the form `["fact" <fact name>]`.
+;; The only accepted query terms are of the form `["fact" <fact name>]` or
+;; `["node" "active"]`.
 ;;
 ;; ### Predicates
 ;;

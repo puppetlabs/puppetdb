@@ -24,8 +24,9 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
     expr = ['and',
              ['=', 'type', type],
              ['=', 'exported', true],
+             ['=', ['node', 'active'], true],
              ['not',
-               ['=', 'node', host]]]
+               ['=', ['node', 'name'], host]]]
 
     filter_expr = build_filter_expression(filter)
     expr << filter_expr if filter_expr

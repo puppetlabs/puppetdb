@@ -54,8 +54,7 @@
 
 (defmethod compile-predicate->sql "="
   [db [op path value :as term]]
-  {:pre [(string? value)]
-   :post [(string? (first %))
+  {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [count (count term)]
     (if (not (= 3 count))
@@ -68,6 +67,13 @@
                           (and (= :certname_facts.fact name)
                                (= :certname_facts.value value))))
                 (project [:certname_facts.certname])
+                (distinct))
+              [["node" "active"]]
+              (-> (table :certnames)
+                (select (where (if value
+                                 (= :certnames.deactivated nil)
+                                 (not (= :certnames.deactivated nil)))))
+                (project [[:certnames.name :as :certname]])
                 (distinct))
               :else (throw (IllegalArgumentException.
                              (str term " is not a valid query term"))))

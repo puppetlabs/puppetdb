@@ -79,7 +79,7 @@
 
 (deftest compile-predicate->sql
   (testing "compiling '=' queries"
-    (testing "should generate fact queries for strings"
+    (testing "should generate fact queries"
       (doseq [[op path value :as term] [["=" ["fact" "kernel"] "Linux"]
                                         ["=" ["fact" "uptime_days"] "200"]
                                         ["=" ["fact" "architecture"] "i386"]]]
@@ -87,17 +87,18 @@
                [(str "(SELECT DISTINCT certname_facts.certname FROM certname_facts "
                      "WHERE ((certname_facts.fact = ?) AND (certname_facts.value = ?)))") (last path) value]))))
 
+    (testing "should generate queries for nodes based on activeness"
+      (is (= (node/compile-predicate->sql *db* ["=" ["node" "active"] true])
+             [(str "(SELECT DISTINCT certnames.name AS certname FROM certnames "
+                   "WHERE (certnames.deactivated IS NULL))")])))
+
     (testing "should reject any other sort of queries"
       (doseq [term [["=" "kernel" "Linux"]
-                    ["=" "node" "foo"]
+                    ["=" ["node" "name"] "foo"]
                     ["=" ["facts" "kernel"] "linux"]
                     ["=" ["foo" "bar"] "baz"]]]
         (is (thrown-with-msg? IllegalArgumentException #"is not a valid query term"
-              (node/compile-predicate->sql *db* term)))))
-
-    (testing "should reject queries for non-string values"
-      (is (thrown? AssertionError
-            (node/compile-predicate->sql *db* ["=" ["fact" "uptime_days"] 200])))))
+              (node/compile-predicate->sql *db* term))))))
 
   (testing "joining terms together"
     (let [term1 ["=" ["fact" "uptime_days"] "200"]

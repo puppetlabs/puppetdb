@@ -12,7 +12,6 @@
 ;; _TODO: consider using multimethods for migration funcs_
 
 (ns com.puppetlabs.cmdb.scf.migrate
-  (:import java.util.Date)
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -105,10 +104,17 @@
   (sql/do-commands
    "CREATE INDEX idx_catalog_resources_tags ON catalog_resources(tags)"))
 
+(defn allow-node-deactivation
+  "Add a column storing when a node was deactivated."
+  []
+  (sql/do-commands
+    "ALTER TABLE certnames ADD deactivated TIMESTAMP WITH TIME ZONE"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
-  {1 initialize-store})
+  {1 initialize-store
+   2 allow-node-deactivation})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
@@ -127,8 +133,9 @@ version can't be determined."
 along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
-  (let [timestamp (java.sql.Timestamp. (.getTime (java.util.Date.)))]
-    (sql/insert-record :schema_migrations {:version version :time timestamp})))
+  (sql/do-prepared
+    "INSERT INTO schema_migrations (version, time) VALUES (?, current_timestamp)"
+    [version]))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."

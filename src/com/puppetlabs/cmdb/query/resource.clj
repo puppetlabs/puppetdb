@@ -71,12 +71,24 @@ and their parameters which match."
                             (sql-array-query-string "tags"))
                     value]
               ;; node join.
-              ["node"]
+              [["node" "name"]]
                    (let [certname_catalogs (-> (table :certname_catalogs)
                                              (select (where
                                                        (= :certname_catalogs.certname value)))
                                              (project [])
                                              ;; ClojureQL loses the DISTINCT when we join unless it's on the left side as well
+                                             (distinct))]
+                     (join certname_catalogs catalog_resources :catalog))
+              ;; {in,}active nodes.
+              [["node" "active"]]
+                   (let [certname_catalogs (-> (table :certname_catalogs)
+                                             (join (table :certnames)
+                                                   (where (= :certname_catalogs.certname
+                                                             :certnames.name)))
+                                             (select (where (if value
+                                                              (= :certnames.deactivated nil)
+                                                              (not (= :certnames.deactivated nil)))))
+                                             (project [])
                                              (distinct))]
                      (join certname_catalogs catalog_resources :catalog))
               ;; param joins.

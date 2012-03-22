@@ -41,6 +41,7 @@
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.cmdb.catalog :as cat]
             [com.puppetlabs.cmdb.catalog.utils :as catutils]
+            [com.puppetlabs.cmdb.command :as command]
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
@@ -49,7 +50,8 @@
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def hosts nil)
-(def rest-url nil)
+(def hostname nil)
+(def port nil)
 (def runinterval nil)
 (def rand-percentage 0)
 
@@ -57,18 +59,7 @@
   "Send the given wire-format catalog (associated with `host`) to a
   command-processing endpoint."
   [host catalog]
-  (let [msg    (-> {:command "replace catalog"
-                    :version 1
-                    :payload (json/generate-string catalog)}
-                   (json/generate-string))
-        body   (format "checksum=%s&payload=%s"
-                       (utf8-string->sha1 msg)
-                       (util/url-encode msg))
-        result (client/post rest-url {:body               body
-                                      :throw-exceptions   false
-                                      :content-type       :x-www-form-urlencoded
-                                      :character-encoding "UTF-8"
-                                      :accept             :json})]
+  (let [result (command/submit-command hostname port catalog "replace catalog" 1)]
     (if (not= 200 (:status result))
       (log/error result))))
 
@@ -133,11 +124,12 @@
   [& args]
   (let [[options _] (cli! args
                           ["-d" "--dir" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-                          ["-u" "--url" "URL to REST endpoint for commands"]
+                          ["-c" "--config" "Path to config.ini"]
                           ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
                           ["-n" "--numhosts" "How many hosts to use during simulation"]
                           ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
+        config      (ini-to-map (:config options))
         dir         (:dir options)
         catalogs    (->> (for [file (fs/glob (fs/file dir "*.json"))]
                            (try
@@ -150,7 +142,8 @@
         nhosts      (:numhosts options)
         hostnames   (into #{} (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
 
-    (def rest-url (:url options))
+    (def hostname (get-in config [:jetty :host] "localhost"))
+    (def port (get-in config [:jetty :port] 8080))
     (def rand-percentage (Integer/parseInt (:rand-perc options)))
     (def runinterval (* 60 1000 (Integer/parseInt (:runinterval options))))
 
