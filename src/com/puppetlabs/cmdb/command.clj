@@ -206,7 +206,7 @@
   (let [message     (-> command-string
                       (json/parse-string true))
         annotations (get message :annotations {})
-        received    (get annotations :received (java.util.Date.))
+        received    (get annotations :received (pl-utils/timestamp))
         annotations (assoc annotations :received received)]
     (assoc message :annotations annotations)))
 
@@ -244,7 +244,7 @@
                    (catch Throwable e
                      (throw+ (fatality! e))))
         certname  (:certname catalog)
-        timestamp (get-in catalog [:annotations :received])]
+        timestamp (:received annotations)]
     (sql/with-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))

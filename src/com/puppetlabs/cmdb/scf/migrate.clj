@@ -12,7 +12,6 @@
 ;; _TODO: consider using multimethods for migration funcs_
 
 (ns com.puppetlabs.cmdb.scf.migrate
-  (:import java.util.Date)
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -134,8 +133,9 @@ version can't be determined."
 along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
-  (let [timestamp (java.sql.Timestamp. (.getTime (java.util.Date.)))]
-    (sql/insert-record :schema_migrations {:version version :time timestamp})))
+  (sql/do-prepared
+    "INSERT INTO schema_migrations (version, time) VALUES (?, current_timestamp)"
+    [version]))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."

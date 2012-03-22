@@ -24,7 +24,8 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
-  (:use [metrics.meters :only (meter mark!)]
+  (:use [clj-time.coerce :only [to-timestamp]]
+        [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
         [metrics.histograms :only (histogram update!)]
@@ -233,9 +234,8 @@ must be supplied as the value to be matched."
   "Reactivate the given host, only if it was deactivated before `time`.
   Returns true if the node is activated, or if it was already active."
   [certname time]
-  {:pre [(string? certname)
-         (instance? java.util.Date time)]}
-  (let [timestamp (java.sql.Timestamp. (.getTime time))
+  {:pre [(string? certname)]}
+  (let [timestamp (to-timestamp time)
         replaced  (sql/update-values :certnames
                                      ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
                                      {:deactivated nil})]

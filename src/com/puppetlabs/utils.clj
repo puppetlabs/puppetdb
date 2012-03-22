@@ -16,7 +16,7 @@
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
         [clj-time.core :only [now]]
-        [clj-time.format :only [formatters unparse]]
+        [clj-time.format :only [formatters unparse parse]]
         [slingshot.slingshot :only (try+ throw+)]))
 
 ;; ## Math
