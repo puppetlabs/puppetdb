@@ -57,7 +57,7 @@
             [clojure.java.jdbc :as sql])
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
-        [com.puppetlabs.utils :only (cli! ini-to-map)]
+        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 ;; ## Wiring
@@ -65,6 +65,7 @@
 ;; The following functions setup interaction between the main
 ;; Grayskull components.
 
+(def configuration nil)
 (def nthreads (+ 2 (.availableProcessors (Runtime/getRuntime))))
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
 (def mq-endpoint "com.puppetlabs.cmdb.commands")
@@ -100,11 +101,21 @@
      (scf-store/garbage-collect!)
      (log/info "Finished database compaction"))))
 
+(defn set-global-configuration!
+  "Store away global configuration"
+  [new-config]
+  (def configuration new-config)
+  new-config)
+
 (defn -main
   [& args]
   (let [[options _]    (cli! args
                              ["-c" "--config" "Path to config.ini"])
-        config         (ini-to-map (:config options))
+        config         (-> options
+                           :config
+                           (ini-to-map)
+                           (configure-logging!)
+                           (set-global-configuration!))
 
         db             (pl-jdbc/pooled-datasource (:database config))
         db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
