@@ -3,12 +3,14 @@
             [com.puppetlabs.cmdb.http.server :as server]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [clj-time.format :as time])
   (:use clojure.test
-         ring.mock.request
-         [com.puppetlabs.cmdb.testutils]
-         [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        ring.mock.request
+        [com.puppetlabs.cmdb.testutils]
+        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.mq]))
 
 (def ^:dynamic *app* nil)
 (def ^:dynamic *conn* nil)
@@ -53,3 +55,24 @@
       (let [req  (make-request {:payload "Testing" :checksum "something bad"})
             resp (*app* req)]
         (is (= (:status resp) 400))))))
+
+(deftest receipt-timestamping
+  (let [good-payload       (json/generate-string {:command "my command" :version 1 :payload "{}"})
+        good-checksum      (pl-utils/utf8-string->sha1 good-payload)
+        bad-payload        "some test message"
+        bad-checksum       (pl-utils/utf8-string->sha1 bad-payload)]
+    (-> {:payload good-payload :checksum good-checksum}
+      (make-request)
+      (*app*))
+    (-> {:payload bad-payload :checksum bad-checksum}
+      (make-request)
+      (*app*))
+
+    (let [[good-msg bad-msg] (drain-into-vec! *conn* "com.puppetlabs.cmdb.commands" 100)
+          good-command       (json/parse-string good-msg true)]
+      (testing "should be timestamped when parseable"
+        (let [timestamp (get-in good-command [:annotations :received])]
+          (time/parse (time/formatters :date-time) timestamp)))
+
+      (testing "should be left alone when not parseable"
+        (is (= bad-msg bad-payload))))))

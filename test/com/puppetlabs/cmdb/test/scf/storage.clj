@@ -359,7 +359,7 @@
           (add-catalog! catalog)
           (delete-catalog! "myhost.mydomain.com")
 
-          (is (= (query-to-vec ["SELECT * FROM certnames"])
+          (is (= (query-to-vec ["SELECT name FROM certnames"])
                  [{:name "myhost.mydomain.com"}]))))
 
       (testing "when deleted, should leave other hosts' resources alone"
@@ -497,3 +497,53 @@
             ; Nothing should have been persisted for this catalog
             (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
                    [{:nrows 0}]))))))))
+
+(deftest node-deactivation
+  (sql/with-connection db
+    (migrate!)
+    (let [certname        "foo.example.com"
+          query-certnames #(query-to-vec ["SELECT name, deactivated FROM certnames"])]
+      (add-certname! certname)
+
+      (testing "deactivating a node"
+        (testing "should mark the node as deactivated"
+          (deactivate-node! certname)
+          (let [result (first (query-certnames))]
+            (is (= certname (:name result)))
+            (is (instance? java.sql.Timestamp (:deactivated result)))))
+
+        (testing "should not change the node if it's already inactive"
+          (let [original (query-certnames)]
+            (deactivate-node! certname)
+            (is (= original (query-certnames))))))
+
+      (testing "activating a node"
+        (testing "should activate the node if it was inactive"
+          (activate-node! certname)
+          (is (= (query-certnames) [{:name certname :deactivated nil}])))
+
+        (testing "should do nothing if the node is already active"
+          (let [original (query-certnames)]
+            (activate-node! certname)
+            (is (= original (query-certnames))))))
+
+      (testing "auto-reactivated based on a command"
+        (let [one-day             (* 24 60 60 1000)
+              before-deactivating (java.util.Date. (- (System/currentTimeMillis) one-day))
+              after-deactivating  (java.util.Date. (+ (System/currentTimeMillis) one-day))]
+          (testing "should activate the node if the command happened after it was deactivated"
+            (deactivate-node! certname)
+            (is (= true (maybe-activate-node! certname after-deactivating)))
+            (is (= (query-certnames) [{:name certname :deactivated nil}])))
+
+          (testing "should not activate the node if the command happened before it was deactivated"
+            (deactivate-node! certname)
+            (is (= false (maybe-activate-node! certname before-deactivating)))
+            (let [result (first (query-certnames))]
+              (is (= certname (:name result)))
+              (is (instance? java.sql.Timestamp (:deactivated result)))))
+
+          (testing "should do nothing if the node is already active"
+            (activate-node! certname)
+            (is (= true (maybe-activate-node! certname (java.util.Date.))))
+            (is (= (query-certnames) [{:name certname :deactivated nil}]))))))))

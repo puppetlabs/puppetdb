@@ -18,6 +18,11 @@
 ;; command-specific meaning or may be used by the message processing
 ;; framework itself.
 ;;
+;; Commands should include a `received` annotation containing a timestamp of
+;; when the message was first seen by the system. If this is omitted, it will
+;; be added when the message is first parsed, but may then be somewhat
+;; inaccurate.
+;;
 ;; Failed messages will have an `attempts` annotation containing an
 ;; array of maps of the form:
 ;;
@@ -54,12 +59,14 @@
             [com.puppetlabs.cmdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
+            [clj-http.client :as client]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.slingshot :only [try+ throw+]]
+        [clj-http.util :only [url-encode]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))
@@ -141,6 +148,43 @@
   {:pre [(keyword? name)]}
   (get-in @metrics ["global" name]))
 
+;; ## Command submission
+
+(defn format-command
+  "Formats `payload` for submission with a command specified by `command` and
+  `version`."
+  [command version payload]
+  (-> {:command command
+       :version version
+       :payload (json/generate-string payload)}
+    (json/generate-string)))
+
+(defn submit-command
+  "Submits `payload` as a valid command of type `command` and `version` to the
+  Grayskull instance specified by `host` and `port`. The `payload` will be
+  converted to JSON before submission. Alternately accepts a string `message`
+  which is a formatted command, ready for submission. Returns the server
+  response."
+  ([host port payload command version]
+  {:pre [(string? command)
+         (integer? version)]}
+   (->> payload
+     (format-command command version)
+     (submit-command host port)))
+  ([host port message]
+   {:pre [(string? host)
+          (integer? port)
+          (string? message)]}
+   (let [body   (format "checksum=%s&payload=%s"
+                       (pl-utils/utf8-string->sha1 message)
+                       (url-encode message))
+        url    (format "http://%s:%s/commands" host port)]
+    (client/post url {:body               body
+                      :throw-exceptions   false
+                      :content-type       :x-www-form-urlencoded
+                      :character-encoding "UTF-8"
+                      :accept             :json}))))
+
 ;; ## Command parsing
 
 (defmulti parse-command
@@ -159,9 +203,11 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message (-> command-string
-                  (json/parse-string true))
-        annotations (get message :annotations {})]
+  (let [message     (-> command-string
+                      (json/parse-string true))
+        annotations (get message :annotations {})
+        received    (get annotations :received (pl-utils/timestamp))
+        annotations (assoc annotations :received received)]
     (assoc message :annotations annotations)))
 
 ;; ## Command processing exception classes
@@ -191,29 +237,47 @@
 ;; Catalog replacement
 
 (defmethod process-command! ["replace catalog" 1]
-  [{:keys [payload]} options]
+  [{:keys [payload annotations]} {:keys [db]}]
   ;; Parsing a catalog either works, or it generates a fatal exception
-  (let [catalog  (try+
-                  (cat/parse-from-json-string payload)
-                  (catch Throwable e
-                    (throw+ (fatality! e))))
-        certname (:certname catalog)]
-    (sql/with-connection (:db options)
+  (let [catalog   (try+
+                   (cat/parse-from-json-string payload)
+                   (catch Throwable e
+                     (throw+ (fatality! e))))
+        certname  (:certname catalog)
+        timestamp (:received annotations)]
+    (sql/with-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (scf-storage/replace-catalog! catalog))
+      (if (scf-storage/maybe-activate-node! certname timestamp)
+        (scf-storage/replace-catalog! catalog)))
     (log/info (format "[replace catalog] %s" certname))))
 
 ;; Fact replacement
 
 (defmethod process-command! ["replace facts" 1]
-  [{:keys [payload]} {:keys [db]}]
-  (let [{:strs [name values]} (json/parse-string payload)]
+  [{:keys [payload annotations]} {:keys [db]}]
+  (let [{:strs [name values]} (json/parse-string payload)
+        timestamp (:received annotations)]
     (sql/with-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
-      (scf-storage/replace-facts! name values))
+      (if (scf-storage/maybe-activate-node! name timestamp)
+        (scf-storage/replace-facts! name values)))
     (log/info (format "[replace facts] %s" name))))
+
+;; Node deactivation
+
+(defmethod process-command! ["deactivate node" 1]
+  [{:keys [payload]} {:keys [db]}]
+  (let [certname (try+
+                   (json/parse-string payload)
+                   (catch Throwable e
+                     (throw+ (fatality! e))))]
+    (sql/with-connection db
+      (when-not (scf-storage/certname-exists? certname)
+        (scf-storage/add-certname! certname))
+      (scf-storage/deactivate-node! certname))
+    (log/info (format "[deactivate node] %s" certname))))
 
 ;; ## MQ I/O
 ;;

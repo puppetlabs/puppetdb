@@ -9,11 +9,28 @@
 (ns com.puppetlabs.cmdb.http.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.mq :as mq]
+            [com.puppetlabs.cmdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
-            [ring.util.response :as rr]))
+            [ring.util.response :as rr])
+  (:use  [slingshot.slingshot :only [try+ throw+]]))
+
+(defn timestamp-message
+  "Parses `message` and adds a `received` annotation indicating the time that
+  we received the message. Returns the modified message in JSON format, or the
+  original message if the message can't be parsed."
+  [message]
+  {:pre [(string? message)]
+   :post [(string? %)]}
+  (try+
+    (let [message (command/parse-command message)]
+      (-> message
+        (assoc-in [:annotations :received] (pl-utils/timestamp))
+        (json/generate-string)))
+    (catch org.codehaus.jackson.JsonParseException e
+      message)))
 
 (defn http->mq
   "Takes the given command and submits it to the specified endpoint on
@@ -25,8 +42,9 @@
           (string? mq-spec)
           (string? mq-endpoint)]}
   (with-open [conn (mq/connect! mq-spec)]
-    (let [producer (mq-conn/producer conn)]
-      (mq-producer/publish producer mq-endpoint payload)))
+    (let [producer (mq-conn/producer conn)
+          message (timestamp-message payload)]
+      (mq-producer/publish producer mq-endpoint message)))
   true)
 
 (defn command-app

@@ -24,7 +24,8 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
-  (:use [metrics.meters :only (meter mark!)]
+  (:use [clj-time.coerce :only [to-timestamp]]
+        [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
         [metrics.histograms :only (histogram update!)]
@@ -196,6 +197,49 @@ must be supplied as the value to be matched."
   [certname]
   {:pre [certname]}
   (sql/insert-record :certnames {:name certname}))
+
+(defn delete-certname!
+  "Delete the given host from the db"
+  [certname]
+  {:pre [certname]}
+  (sql/delete-rows :certnames ["name=?" certname]))
+
+(defn deactivate-node!
+  "Deactivate the given host, recording the current time. If the node is
+  currently inactive, no change is made."
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/do-prepared "UPDATE certnames SET deactivated = current_timestamp
+                    WHERE name=? AND deactivated IS NULL"
+                   [certname]))
+
+(defn node-deactivated-time
+  "Returns the time the node specified by `certname` was deactivated, or nil if
+  the node is currently active."
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/with-query-results result-set
+    ["SELECT deactivated FROM certnames WHERE name=?" certname]
+    (:deactivated (first result-set))))
+
+(defn activate-node!
+  "Reactivate the given host"
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/update-values :certnames
+    ["name=?" certname]
+    {:deactivated nil}))
+
+(defn maybe-activate-node!
+  "Reactivate the given host, only if it was deactivated before `time`.
+  Returns true if the node is activated, or if it was already active."
+  [certname time]
+  {:pre [(string? certname)]}
+  (let [timestamp (to-timestamp time)
+        replaced  (sql/update-values :certnames
+                                     ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
+                                     {:deactivated nil})]
+    (> (first replaced) 0)))
 
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
