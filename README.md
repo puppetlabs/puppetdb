@@ -72,19 +72,7 @@ using Grayskull's REST APIs. Each REST endpoint is documented in the
 **Remote REPL**
 
 For debugging purposes, you can open up a remote clojure REPL and use
-it to modify the behavior of Grayskull, live. Use a section like the
-following in your Grayskull config file:
-
-    [repl]
-    enabled = true
-    # Either "nrepl" or "swank"
-    type = swank
-    port = 8081
-
-The _nrepl_ repl type opens up a socket you can connect to via telnet. If you
-are using emacs' clojure-mode, you can choose a type of _swank_ and connect
-your editor directly to a running Grayskull instance by using `M-x
-slime-connect`. Using emacs is much nicer than using telnet. :)
+it to modify the behavior of Grayskull, live.
 
 **Puppet module**
 
@@ -240,6 +228,34 @@ The hostname to listen on. If not supplied, we bind to all interfaces.
 `port`
 
 The port to listen on. If not supplied, default to 80.
+
+**[repl]**
+
+Enabling a remote REPL allows you to manipulate the behavior of
+Grayskull at runtime. This should only be done for debugging purposes,
+and is thus disabled by default. An example configuration stanza:
+
+    [repl]
+    enabled = true
+    type = nrepl
+    port = 8081
+
+`enabled`
+
+Set to `true` to enable the REPL.
+
+`type`
+
+Either `nrepl` or `swank`.
+
+The _nrepl_ repl type opens up a socket you can connect to via telnet. If you
+are using emacs' clojure-mode, you can choose a type of _swank_ and connect
+your editor directly to a running Grayskull instance by using `M-x
+slime-connect`. Using emacs is much nicer than using telnet. :)
+
+`port`
+
+What port to use for the REPL.
 
 ## Operational information
 
