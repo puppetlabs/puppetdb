@@ -12,6 +12,7 @@
         [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
+        [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]))
 
 (def routes
@@ -37,6 +38,7 @@
   database, generate a Ring application that handles queries"
   [globals]
   (-> routes
+      (wrap-resource "public")
       (wrap-params)
       (wrap-with-metrics (atom {}) #(first (uri-segments %)))
       (wrap-with-globals globals)))

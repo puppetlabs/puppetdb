@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Grayskull: Dashboard</title>
+
+<style>
+@import url(http://fonts.googleapis.com/css?family=Lato);
+@import url(http://fonts.googleapis.com/css?family=Oswald);
+
+body {
+  background-color: white;
+}
+
+.x.axis line {
+  shape-rendering: auto;
+}
+
+.line {
+  fill: none;
+  stroke: #43a2ca;
+  stroke-width: 2.0px;
+}
+
+.graph {
+  float: left;
+  margin: 20px;
+}
+
+.counterbox {
+  font-family: 'Lato', sans-serif;
+  text-align: center;
+}
+
+.counterdesc {
+  font-size: 20px;
+  color: #ef8a62;
+}
+
+.counteraddendum {
+  font-size: 15px;
+  height: 100%;
+  color: #666;
+}
+
+.countertext {
+  font-size: 50px;
+  color: #43a2ca;
+}
+
+.counterbox table {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 5px;
+}
+
+.counterbox td {
+  padding: 0px;
+  color: #999;
+}
+
+.counterlegend, .countertimescale {
+  color: #999;
+  font-variant: small-caps;
+}
+</style>
+
+<script src="http://mbostock.github.com/d3/d3.v2.js?2.8.1"></script>
+<script src="charts.js"></script>
+
+<span id="heap" class="graph"></span>
+<span id="queue" class="graph"></span>
+<span id="proctime" class="graph"></span>
+<span id="procrate" class="graph"></span>
+<span id="processed" class="graph"></span>
+<span id="retried" class="graph"></span>
+<span id="discarded" class="graph"></span>
+<span id="failed" class="graph"></span>
+<span id="dupepct" class="graph"></span>
+<span id="gc-time" class="graph"></span>
+<span id="rest-commands-time" class="graph"></span>
+<span id="rest-resources-time" class="graph"></span>
+
+<script>(function() {
+  // Formatting middleware that collapses small values to 0
+  function clampToZero(f, window) {
+    return function(n) {
+      return f(Math.abs(n) < window ? 0 : n);
+    };
+  };
+
+  // Parse URL arguments
+  function getParameter(paramName) {
+    var searchString = window.location.search.substring(1),
+        i, val, params = searchString.split("&");
+
+    for (i=0;i<params.length;i++) {
+      val = params[i].split("=");
+      if (val[0] == paramName) {
+        return unescape(val[1]);
+      }
+    }
+    return null;
+  };
+
+  var nHistorical = getParameter("nHistorical") || 60;
+  var pollingInterval = getParameter("pollingInterval") || 5000;
+  var width = getParameter("width") || 200;
+  var height = getParameter("height") || 40;
+
+  counterAndSparkline()
+  .url("/metrics/mbean/java.lang:type=Memory")
+  .snag(function(res) { return res["HeapMemoryUsage"]["used"]; })
+  .format(d3.format(",.3s"))
+  .description("JVM Heap")
+  .addendum("bytes")
+  .container("#heap")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.cmdb.commands")
+  .snag(function(res) { return res["QueueSize"]; })
+  .format(d3.format(",s"))
+  .description("Command Queue")
+  .addendum("depth")
+  .container("#queue")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=processing-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("Command Processing")
+  .addendum("sec/command")
+  .container("#proctime")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=processed")
+  .snag(function(res) { return res["FiveMinuteRate"]; })
+  .format(clampToZero(d3.format(",.3s"), 0.001))
+  .description("Command Processing")
+  .addendum("commands/sec")
+  .container("#procrate")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=processed")
+  .snag(function(res) { return res["Count"]; })
+  .format(d3.format(","))
+  .description("Processed")
+  .addendum("since startup")
+  .container("#processed")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=retried")
+  .snag(function(res) { return res["Count"]; })
+  .format(d3.format(","))
+  .description("Retried")
+  .addendum("since startup")
+  .container("#retried")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=discarded")
+  .snag(function(res) { return res["Count"]; })
+  .format(d3.format(","))
+  .description("Discarded")
+  .addendum("since startup")
+  .container("#discarded")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.command:type=global,name=fatal")
+  .snag(function(res) { return res["Count"]; })
+  .format(d3.format(","))
+  .description("Rejected")
+  .addendum("since startup")
+  .container("#failed")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.scf.storage:type=default,name=duplicate-pct")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.1%"))
+  .description("Catalog duplication")
+  .addendum("% of catalogs encountered")
+  .container("#dupepct")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.scf.storage:type=default,name=gc-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("DB Compaction")
+  .addendum("round trip time, seconds")
+  .container("#gc-time")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.http.server:type=commands,name=service-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("Enqueueing")
+  .addendum("service time, seconds")
+  .container("#rest-commands-time")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.http.server:type=resources,name=service-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("Collection Queries")
+  .addendum("service time, seconds")
+  .container("#rest-resources-time")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+})()</script>
+
