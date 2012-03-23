@@ -46,7 +46,7 @@
             [clj-http.client :as client]
             [clj-http.util :as util]
             [fs.core :as fs])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map utf8-string->sha1)]
+  (:use [com.puppetlabs.utils :only (cli! ini-to-map configure-logging! utf8-string->sha1)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def hosts nil)
@@ -129,7 +129,11 @@
                           ["-n" "--numhosts" "How many hosts to use during simulation"]
                           ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
-        config      (ini-to-map (:config options))
+        config      (-> options
+                        :config
+                        (ini-to-map)
+                        (configure-logging!))
+
         dir         (:dir options)
         catalogs    (->> (for [file (fs/glob (fs/file dir "*.json"))]
                            (try
