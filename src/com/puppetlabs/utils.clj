@@ -5,8 +5,10 @@
 ;; altogether. But who has time for that?
 
 (ns com.puppetlabs.utils
-  (:import (org.ini4j Ini))
+  (:import (org.ini4j Ini)
+           [org.apache.log4j PropertyConfigurator])
   (:require [clojure.test]
+            [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
@@ -170,6 +172,33 @@
                         (catch NumberFormatException e val))]]
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
+
+;; ## Logging helpers
+
+(defn configure-logger-via-file!
+  "Reconfigures the current logger based on the supplied configuration
+  file. You can optionally supply a delay (in millis) that governs how
+  often we'll check the config file for updates, and thus reconfigure
+  the logger live."
+  ([logging-conf-file]
+     {:pre [(string? logging-conf-file)]}
+     (configure-logger-via-file! logging-conf-file 10000))
+  ([logging-conf-file reload-interval]
+     {:pre [(string? logging-conf-file)
+            (number? reload-interval)
+            (pos? reload-interval)]}
+     (PropertyConfigurator/configureAndWatch logging-conf-file reload-interval)))
+
+(defn configure-logging!
+  "If there is a logging configuration directive in the supplied
+  config map, use it to configure the default logger. Returns the same
+  config map that was passed in."
+  [config]
+  {:pre [(map? config)]
+   :post [(map? %)]}
+  (when-let [logging-conf (get-in config [:logging :configfile])]
+    (configure-logger-via-file! logging-conf))
+  config)
 
 ;; ## Command-line parsing
 
