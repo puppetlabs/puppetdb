@@ -235,7 +235,7 @@ HTTP configuration options.
 
 `host`
 
-The hostname to listen on. If not supplied, we bing to all interfaces.
+The hostname to listen on. If not supplied, we bind to all interfaces.
 
 `port`
 
