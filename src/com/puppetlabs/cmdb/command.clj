@@ -444,10 +444,19 @@
 
 ;; ### Retry callback
 
+;; The number of times a message can be retried before we discard it
+(def maximum-allowable-retries 16)
+
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message,
-  with an incremented retry counter, after a delay. The delay is based
-  on the following exponential backoff algorithm:
+  with an incremented retry counter, after a delay.
+
+  The error is logged to DEBUG level during the first `M/4` retries,
+  and ERROR thereafter, where `M` is the maximum number of allowable
+  retries.
+
+  The retry delay is based on the following exponential backoff
+  algorithm:
 
     2^(n-1) + random(2^n)
 
@@ -459,15 +468,15 @@
         msg     (annotate-with-attempt msg e)
         n       (inc attempt)
         delay   (+ (Math/pow 2 (dec n))
-                   (rand-int (Math/pow 2 n)))]
-    (log/error (format "Retrying command [%s, %d] after attempt %d, due to: %s"
-                       command version attempt (.getMessage e)))
+                   (rand-int (Math/pow 2 n)))
+        logger  (if (> n (/ maximum-allowable-retries 4))
+                  #(log/error %)
+                  #(log/debug %))]
+    (logger (format "Retrying command [%s, %d] after attempt %d, due to: %s"
+                    command version attempt e))
     (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
 
 ;; ### Message handler
-
-;; The number of times a message can be retried before we discard it
-(def maximum-allowable-retries 16)
 
 (defn produce-message-handler
   "Produce a message handler suitable for use by `process-commands!`. "
