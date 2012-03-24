@@ -288,13 +288,18 @@ must be supplied as the value to be matched."
         tags        (map #(assoc default-row :name %) tags)]
     (apply sql/insert-records :tags tags)))
 
-(defn resource-exists?
-  "Returns a boolean indicating whether or not the given resource exists in the db"
-  [resource-hash]
-  {:pre [(string? resource-hash)]}
-  (sql/with-query-results result-set
-    ["SELECT 1 FROM resource_params WHERE resource=? LIMIT 1" resource-hash]
-    (pos? (count result-set))))
+(defn resources-exist?
+  "Given a collection of resource-hashes, return the subset that
+  already exist in the database."
+  [resource-hashes]
+  {:pre  [(coll? resource-hashes)]
+   :post [(set? resource-hashes)]}
+  (let [qmarks     (apply str (interpose "," (repeat (count resource-hashes) "?")))
+        query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
+        sql-params (vec (cons query resource-hashes))]
+    (sql/with-query-results result-set
+      sql-params
+      (into #{} (map :resource result-set)))))
 
 (defn resource-identity-string
   "Compute a stably-sorted, string representation of the given
@@ -337,8 +342,10 @@ must be supplied as the value to be matched."
   (pr-str [type title (sort tags) exported file line (sort parameters)]))
 
 (defn- resource->values
-  "Given a catalog-hash and a resource, return a map representing the
-  set of database rows pending insertion.
+  "Given a catalog-hash, a resource, and a truthy value indicating
+  whether or not the indicated resource already exists somewhere in
+  the database, return a map representing the set of database rows
+  pending insertion.
 
   The result map has the following format:
 
@@ -353,12 +360,11 @@ must be supplied as the value to be matched."
   1. Each key corresponds to a table, and each value is a list of rows
   2. The mapping of keys and values to table names and columns is done
      by `add-resources!`"
-  [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash]
+  [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:resource :parameters})]}
-  (let [persisted?    (resource-exists? resource-hash)
-        values        {:resource [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
-                       :parameters []}]
+  (let [values {:resource [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
+                :parameters []}]
 
     (if persisted?
       values
@@ -368,8 +374,12 @@ must be supplied as the value to be matched."
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-hash refs-to-resources refs-to-hashes]
-  (let [resource-values   (for [[ref resource] refs-to-resources]
-                            (resource->values catalog-hash resource (refs-to-hashes ref)))
+  (let [hashes-to-refs    (into {} (for [[ref hash] refs-to-hashes] [hash ref]))
+        resource-hashes   (set (keys hashes-to-refs))
+        persisted?        (resources-exist? resource-hashes)
+        resource-values   (for [[ref resource] refs-to-resources
+                                :let [hash (refs-to-hashes ref)]]
+                            (resource->values catalog-hash resource hash (persisted? hash)))
         lookup-table      [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
                            [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
