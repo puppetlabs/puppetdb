@@ -262,3 +262,27 @@
             (is (= 0 (times-called publish)))
             (is (= 1 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
+
+(deftest command-retry-handler
+  (testing "Retry handler"
+    (with-redefs [metrics.meters/mark!  (call-counter)
+                  annotate-with-attempt (call-counter)]
+
+      (testing "should log errors"
+        (let [make-cmd (fn [n] {:command nil :version nil :annotations {:attempts (repeat n {})}})
+              publish  (call-counter)]
+
+          (testing "to DEBUG for initial retries"
+            (let [log-output (atom [])]
+              (binding [*logger-factory* (atom-logger log-output)]
+                (handle-command-retry (make-cmd 1) nil publish))
+
+              (is (= (get-in @log-output [0 1]) :debug))))
+
+          (testing "to ERROR for later retries"
+            (let [log-output (atom [])]
+              (binding [*logger-factory* (atom-logger log-output)]
+                (handle-command-retry (make-cmd maximum-allowable-retries) nil publish))
+
+              (is (= (get-in @log-output [0 1]) :error)))))))))
+
