@@ -102,11 +102,18 @@
        (.isArray)))
 
 (defn keyset
-  "Retuns a set of keys from the supplied map"
+  "Retuns the set of keys from the supplied map"
   [m]
   {:pre  [(map? m)]
    :post [(set? %)]}
   (set (keys m)))
+
+(defn valset
+  "Returns the set of values from the supplied map"
+  [m]
+  {:pre  [(map? m)]
+   :post [(set? %)]}
+  (set (vals m)))
 
 ;; ## Timestamping
 
