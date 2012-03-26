@@ -1,4 +1,4 @@
-(defproject grayskull "1.0.0-SNAPSHOT"
+(defproject grayskull "1.0.0-b1"
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [cheshire "2.2.0"]
