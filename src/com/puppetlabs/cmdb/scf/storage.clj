@@ -25,6 +25,7 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
+        [clojure.set :only (map-invert)]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -292,7 +293,8 @@ must be supplied as the value to be matched."
   "Given a collection of resource-hashes, return the subset that
   already exist in the database."
   [resource-hashes]
-  {:pre  [(coll? resource-hashes)]
+  {:pre  [(coll? resource-hashes)
+          (every? string? resource-hashes)]
    :post [(set? resource-hashes)]}
   (let [qmarks     (apply str (interpose "," (repeat (count resource-hashes) "?")))
         query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
@@ -374,14 +376,12 @@ must be supplied as the value to be matched."
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-hash refs-to-resources refs-to-hashes]
-  (let [hashes-to-refs    (into {} (for [[ref hash] refs-to-hashes] [hash ref]))
-        resource-hashes   (set (keys hashes-to-refs))
-        persisted?        (resources-exist? resource-hashes)
-        resource-values   (for [[ref resource] refs-to-resources
-                                :let [hash (refs-to-hashes ref)]]
-                            (resource->values catalog-hash resource hash (persisted? hash)))
-        lookup-table      [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
-                           [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
+  (let [persisted?      (resources-exist? (utils/valset refs-to-hashes))
+        resource-values (for [[ref resource] refs-to-resources
+                              :let [hash (refs-to-hashes ref)]]
+                          (resource->values catalog-hash resource hash (persisted? hash)))
+        lookup-table    [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
+                         [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table
              :let [param-sets (remove empty? (mapcat lookup resource-values))]
