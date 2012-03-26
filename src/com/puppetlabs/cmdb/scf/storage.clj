@@ -25,7 +25,6 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
-        [clojure.set :only (map-invert)]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
