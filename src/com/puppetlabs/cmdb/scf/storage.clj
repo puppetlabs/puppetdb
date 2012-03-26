@@ -25,6 +25,7 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
+        [clojure.core.memoize :only [memo-lru]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -296,9 +297,9 @@ must be supplied as the value to be matched."
     ["SELECT 1 FROM resource_params WHERE resource=? LIMIT 1" resource-hash]
     (pos? (count result-set))))
 
-(defn resource-identity-string
-  "Compute a stably-sorted, string representation of the given
-  resource that will uniquely identify it within a population.
+(defn resource-identity-hash*
+  "Compute a hash for a given resource that will uniquely identify it
+  _for storage deduplication only_.
 
   A resource is represented by a map that itself contains maps and
   sets in addition to scalar values. We want two resources with the
@@ -308,29 +309,44 @@ must be supplied as the value to be matched."
   both the resource as a whole as well as any nested collections it
   contains.
 
-  This differs from `catalog-resource-identity-string` in that it doesn't
-  consider resource metadata. This function is used to determine whether a
-  resource needs to be stored or is already present in the database."
-  [{:keys [type title parameters] :as resource}]
-  {:pre  [(map? resource)]
-   :post [(string? %)]}
-  (pr-str [type title (sort parameters)]))
+  This differs from `catalog-resource-identity-string` in that it
+  doesn't consider resource metadata. This function is used to
+  determine whether a resource needs to be stored or is already
+  present in the database.
+
+  See `resource-identity-hash`. This variant takes specific attribute
+  of the resource as parameters, whereas `resource-identity-hash`
+  takes a full resource as a parameter. By taking only the minimum
+  required parameters, this function becomes amenable to more efficient
+  memoization."
+  [type title parameters]
+  {:post [(string? %)]}
+  (-> [type title (sort parameters)]
+      (pr-str)
+      (utils/utf8-string->sha1)))
+
+;; Size of the cache is based on the number of unique resources in a
+;; "medium" site persona
+(def resource-identity-hash* (memo-lru resource-identity-hash* 40000))
 
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
-  within a population."
-  [resource]
+  _for storage deduplication only_.
+
+  See `resource-identity-hash*`. This variant takes a full resource as
+  a parameter, whereas `resource-identity-hash*` takes specific
+  attribute of the resource as parameters."
+  [{:keys [type title parameters] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (-> (resource-identity-string resource)
-      (utils/utf8-string->sha1)))
+  (resource-identity-hash* type title parameters))
 
 (defn catalog-resource-identity-string
-  "Compute a stably-sorted, string representation of the given resource that
-  will uniquely identify it with respect to a catalog. Unlike
-  `resource-identity-string`, this string will also include the resource
-  metadata. This function is used as part of determining whether a catalog
-  needs to be stored."
+  "Compute a stably-sorted, string representation of the given
+  resource that will uniquely identify it with respect to a
+  catalog. Unlike `resource-identity-hash`, this string will also
+  include the resource metadata. This function is used as part of
+  determining whether a catalog needs to be stored."
   [{:keys [type title parameters tags exported file line] :as resource}]
   {:pre [(map? resource)]
    :post [(string? %)]}
