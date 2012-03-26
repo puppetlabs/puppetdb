@@ -231,6 +231,27 @@ What username to use when connecting.
 
 A password to use when connecting.
 
+**[command-processing]**
+
+Options relating to the commang-processing subsystem. Every change to
+Grayskull's data stores comes in via commands that are inserted into
+an MQ. Command processor threads pull items off of that queue,
+persisting those changes.
+
+`threads`
+
+How many command processing threads to use. Each thread can process a
+single command at a time. If you notice your MQ depth is rising and
+you've got CPU to spare, increasing the number of threads may help
+churn through the backlog faster.
+
+If you are saturating your CPU, we recommend lowering the number of
+threads.  This prevents other Grayskull subsystems (such as the web
+server, or the MQ itself) from being starved of resources, and can
+actually _increase_ throughput.
+
+This setting defaults to half the number of cores in your system.
+
 **[mq]**
 
 Message queue configuration options.
