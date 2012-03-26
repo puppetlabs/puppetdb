@@ -66,7 +66,6 @@
 ;; Grayskull components.
 
 (def configuration nil)
-(def nthreads (+ 2 (.availableProcessors (Runtime/getRuntime))))
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
 (def mq-endpoint "com.puppetlabs.cmdb.commands")
 
@@ -101,11 +100,26 @@
      (scf-store/garbage-collect!)
      (log/info "Finished database compaction"))))
 
+(defn configure-commandproc-threads
+  "Update the supplied config map with the number of
+  command-processing threads to use. If no value exists in the config
+  map, default to half the number of CPUs."
+  [config]
+  {:pre [(map? config)]
+   :post [(map? %)]}
+  (let [default-nthreads (-> (Runtime/getRuntime)
+                             (.availableProcessors)
+                             (/ 2)
+                             (int))]
+    (update-in config [:command-processing :threads] #(or % default-nthreads))))
+
 (defn set-global-configuration!
   "Store away global configuration"
-  [new-config]
-  (def configuration new-config)
-  new-config)
+  [config]
+  {:pre  [(map? config)]
+   :post [(map? %)]}
+  (def configuration config)
+  config)
 
 (defn -main
   [& args]
@@ -115,6 +129,7 @@
                            :config
                            (ini-to-map)
                            (configure-logging!)
+                           (configure-commandproc-threads)
                            (set-global-configuration!))
 
         db             (pl-jdbc/pooled-datasource (:database config))
@@ -135,7 +150,7 @@
     (let [broker        (do
                           (log/info "Starting broker")
                           (mq/start-broker! (mq/build-embedded-broker mq-dir)))
-          command-procs (do
+          command-procs (let [nthreads (get-in config [:command-processing :threads])]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (into [] (for [n (range nthreads)]
                                      (future
