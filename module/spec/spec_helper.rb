@@ -6,14 +6,24 @@ require 'mocha'
 gem 'rspec', '>=2.0.0'
 require 'rspec/expectations'
 
+# TODO: this is a hack;  here because we are about to require some files that
+#   expect a module by this name to exist.
+module PuppetSpec
+end
+
+# TODO: another hack: assumes that you have the puppet source checked out alongside the puppet-grayskull source
+$LOAD_PATH.unshift File.join(dir, "../../../puppet/spec/lib")
+require 'puppet_spec/settings'
+
 RSpec.configure do |config|
   config.mock_with :mocha
 
   config.before :each do
-    # Set the confdir and vardir to gibberish so that tests
-    # have to be correctly mocked.
-    Puppet[:confdir] = "/dev/null"
-    Puppet[:vardir] = "/dev/null"
+
+    # Initialize "app defaults" settings to a good set of test values
+    PuppetSpec::Settings::TEST_APP_DEFAULTS.each do |key, value|
+      Puppet.settings.set_value(key, value, :application_defaults)
+    end
 
     @logs = []
     Puppet::Util::Log.newdestination(Puppet::Test::LogCollector.new(@logs))
@@ -22,7 +32,8 @@ RSpec.configure do |config|
   end
 
   config.after :each do
-    Puppet.settings.clear
+    Puppet.settings.send(:clear_everything_for_tests)
+
     Puppet::Node::Environment.clear
     Puppet::Util::Storage.clear
 
