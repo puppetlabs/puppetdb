@@ -516,8 +516,8 @@ must be supplied as the value to be matched."
 
 (defn associate-catalog-with-certname!
   "Creates a relationship between the given certname and catalog"
-  [catalog-hash certname]
-  (sql/insert-record :certname_catalogs {:certname certname :catalog catalog-hash}))
+  [catalog-hash certname timestamp]
+  (sql/insert-record :certname_catalogs {:certname certname :catalog catalog-hash :timestamp (to-timestamp timestamp)}))
 
 (defn dissociate-catalog-with-certname!
   "Breaks the relationship between the given certname and catalog"
@@ -536,6 +536,17 @@ must be supplied as the value to be matched."
   (sql/with-query-results result-set
     ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
     (into [] (map :catalog result-set))))
+
+(defn catalog-newer-than?
+  "Returns true if the most current catalog for `certname` is more recent than
+  `time`."
+  [certname time]
+  (let [timestamp (to-timestamp time)]
+    (sql/with-query-results result-set
+      ["SELECT timestamp FROM certname_catalogs WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
+      (if-let [catalog-timestamp (:timestamp (first result-set))]
+        (.after catalog-timestamp timestamp)
+        false))))
 
 ;; ## Database compaction
 
@@ -564,12 +575,12 @@ must be supplied as the value to be matched."
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
-  [{:keys [certname] :as catalog}]
+  [{:keys [certname] :as catalog} timestamp]
   (time! (:replace-catalog metrics)
    (sql/transaction
     (let [catalog-hash (add-catalog! catalog)]
       (dissociate-all-catalogs-for-certname! certname)
-      (associate-catalog-with-certname! catalog-hash certname)))))
+      (associate-catalog-with-certname! catalog-hash certname timestamp)))))
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those

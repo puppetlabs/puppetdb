@@ -161,7 +161,7 @@
         (migrate!)
         (add-certname! certname)
         (let [hash (add-catalog! catalog)]
-          (associate-catalog-with-certname! hash certname))
+          (associate-catalog-with-certname! hash certname (java.util.Date.)))
 
         (testing "should contain proper catalog metadata"
           (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
@@ -218,7 +218,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
-            (replace-catalog! catalog)
+            (replace-catalog! catalog (java.util.Date.))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
                    [{:name certname}]))
@@ -235,12 +235,12 @@
                 prev-new-num  (.count (:new-catalog metrics))]
 
             ;; Do an initial replacement with the same catalog
-            (replace-catalog! catalog)
+            (replace-catalog! catalog (java.util.Date.))
             (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             ;; Store a second catalog, with the same content save the version
-            (replace-catalog! (assoc catalog :version "abc123"))
+            (replace-catalog! (assoc catalog :version "abc123") (java.util.Date.))
             (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
@@ -306,8 +306,8 @@
           (let [hash1 (add-catalog! catalog)
                 ;; Store the same catalog for a different host
                 hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
-            (associate-catalog-with-certname! hash1 certname)
-            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com")
+            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
+            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com" (java.util.Date.))
             (delete-catalog! hash1))
 
           ;; myhost should still be present in the database
@@ -346,7 +346,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname)
+            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
             (delete-catalog! hash1))
 
           ;; All the params should still be there
@@ -358,7 +358,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname)
+            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
             (delete-catalog! hash1))
           (garbage-collect!)
 
@@ -372,7 +372,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname)
+            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
             (dissociate-catalog-with-certname! hash1 certname))
 
           (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
@@ -386,7 +386,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname)
+            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
             (dissociate-catalog-with-certname! hash1 certname))
           (garbage-collect!)
 
