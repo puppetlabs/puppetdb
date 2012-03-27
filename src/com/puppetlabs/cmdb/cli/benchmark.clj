@@ -49,6 +49,8 @@
   (:use [com.puppetlabs.utils :only (cli! ini-to-map configure-logging! utf8-string->sha1)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
+(def cli-description "Development-only benchmarking tool")
+
 (def hosts nil)
 (def hostname nil)
 (def port nil)

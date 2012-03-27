@@ -18,6 +18,8 @@
             [com.puppetlabs.cmdb.command :as command])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
+(def cli-description "Mark nodes as inactive/decommissioned")
+
 (defn deactivate
   "Submits a 'deactivate node' request for `node` to the Grayskull instance
   specified by `host` and `port`. Returns a true value if submission succeeded,
