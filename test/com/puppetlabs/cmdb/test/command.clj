@@ -1,12 +1,21 @@
 (ns com.puppetlabs.cmdb.test.command
-  (:require [fs.core :as fs])
+  (:require [fs.core :as fs]
+            [clojure.java.jdbc :as sql]
+            [com.puppetlabs.cmdb.scf.storage :as scf-store]
+            [com.puppetlabs.cmdb.catalog :as catalog])
   (:use [com.puppetlabs.cmdb.command]
         [com.puppetlabs.utils]
         [com.puppetlabs.cmdb.testutils]
+        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.cmdb.examples]
+        [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
         [cheshire.core :as json]
         [slingshot.slingshot :only [try+ throw+]]))
+
+(use-fixtures :each with-test-db)
 
 (deftest command-formatting
   (testing "Formatting commands for submission"

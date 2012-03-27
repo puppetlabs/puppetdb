@@ -4,17 +4,9 @@
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         [clojure.math.combinatorics :only [combinations]]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.cmdb.fixtures]))
 
-(def ^:dynamic *db* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*db* db]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db)
 
 (deftest fetch-all
   (sql/insert-records
