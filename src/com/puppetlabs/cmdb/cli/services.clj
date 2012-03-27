@@ -60,6 +60,8 @@
         [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
+(def cli-description "Main Grayskull daemon")
+
 ;; ## Wiring
 ;;
 ;; The following functions setup interaction between the main
