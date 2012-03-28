@@ -6,6 +6,7 @@
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
@@ -15,7 +16,7 @@
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
                         (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
+                          (with-transacted-connection db
                             (migrate!)
                             (f))))))
 

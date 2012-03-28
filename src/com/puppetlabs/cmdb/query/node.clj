@@ -5,12 +5,11 @@
 ;;
 (ns com.puppetlabs.cmdb.query.node
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
-  (:require [clojure.string :as string]
-            [clojure.java.jdbc :as sql])
+  (:require [clojure.string :as string])
   (:use clojureql.core
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
-        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.utils :only [parse-number]]))
 
 (defmulti compile-predicate->sql
@@ -40,7 +39,7 @@
          (every? (complement coll?) params)]
    :post [(vector? %)
           (every? string? %)]}
-  (let [nodes (sql/with-connection db
+  (let [nodes (with-transacted-connection db
                (query-to-vec filter-expr))]
     (-> (map :certname nodes)
       (sort)

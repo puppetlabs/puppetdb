@@ -4,6 +4,7 @@
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         [clojure.math.combinatorics :only [combinations]]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -12,7 +13,7 @@
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
                         (binding [*db* db]
-                          (sql/with-connection db
+                          (with-transacted-connection db
                             (migrate!)
                             (f))))))
 

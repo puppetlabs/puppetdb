@@ -53,10 +53,10 @@
             [clojure.tools.nrepl.server :as nrepl]
             [swank.swank :as swank]
             [ring.adapter.jetty :as jetty]
-            [com.puppetlabs.cmdb.http.server :as server]
-            [clojure.java.jdbc :as sql])
+            [com.puppetlabs.cmdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -96,7 +96,7 @@
 
    (Thread/sleep interval)
    (log/info "Beginning database compaction")
-   (sql/with-connection db
+   (with-transacted-connection db
      (scf-store/garbage-collect!)
      (log/info "Finished database compaction"))))
 
@@ -144,7 +144,7 @@
         ring-app       (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
-    (sql/with-connection db
+    (with-transacted-connection db
       (migrate!))
 
     (let [broker        (do

@@ -1,11 +1,11 @@
 (ns com.puppetlabs.cmdb.test.http.metrics
   (:import (java.util.concurrent TimeUnit))
   (:require [com.puppetlabs.cmdb.http.server :as server]
-            [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [cheshire.core :as json])
   (:use com.puppetlabs.cmdb.http.metrics
         clojure.test
         ring.mock.request
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
@@ -14,7 +14,7 @@
 (use-fixtures :each (fn [f]
                       (let [db (test-db)]
                         (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
+                          (with-transacted-connection db
                             (migrate!)
                             (f))))))
 

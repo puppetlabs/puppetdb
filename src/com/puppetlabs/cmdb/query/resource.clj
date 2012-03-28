@@ -4,10 +4,9 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
-            [clojure.string :as string]
-            [clojure.java.jdbc :as sql])
+            [clojure.string :as string])
   (:use clojureql.core
-        [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays]]
+        [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays with-transacted-connection]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
@@ -42,7 +41,7 @@ and their parameters which match."
                    "ON cr.resource = rp.resource "
                    "WHERE (cr.catalog,cr.resource) IN "
                    sql)
-        results (sql/with-connection db
+        results (with-transacted-connection db
                    (apply query-to-vec query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata (apply juxt metadata_cols)]

@@ -3,13 +3,13 @@
             [com.puppetlabs.cmdb.http.server :as server]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [clj-time.format :as time])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.cmdb.testutils]
         [com.puppetlabs.cmdb.testutils :only [test-db]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.mq]))
 
 (def ^:dynamic *app* nil)
@@ -23,7 +23,7 @@
                                             :command-mq {:connection-string "vm://test"
                                                          :endpoint "com.puppetlabs.cmdb.commands"}})
                                     *conn* conn]
-                            (sql/with-connection db
+                            (with-transacted-connection db
                               (migrate!)
                               (f)))))))
 
