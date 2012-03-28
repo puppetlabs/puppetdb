@@ -10,10 +10,7 @@ RSpec.configure do |config|
   config.mock_with :mocha
 
   config.before :each do
-    # Set the confdir and vardir to gibberish so that tests
-    # have to be correctly mocked.
-    Puppet[:confdir] = "/dev/null"
-    Puppet[:vardir] = "/dev/null"
+    Puppet.settings.send(:initialize_everything_for_tests)
 
     @logs = []
     Puppet::Util::Log.newdestination(Puppet::Test::LogCollector.new(@logs))
@@ -22,7 +19,7 @@ RSpec.configure do |config|
   end
 
   config.after :each do
-    Puppet.settings.clear
+    Puppet.settings.send(:clear_everything_for_tests)
     Puppet::Node::Environment.clear
     Puppet::Util::Storage.clear
 
