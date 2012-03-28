@@ -7,18 +7,17 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.testutils :only [with-test-db]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *app* nil)
+(def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (with-transacted-connection db
-                            (migrate!)
-                            (f))))))
+                      (with-test-db *db*
+                        (binding [*app* (server/build-app {:scf-db *db*})]
+                          (f)))))
 
 ;;;; Test the resource listing handlers.
 (def c-t "application/json")
@@ -49,97 +48,100 @@ to the result of the form supplied to this method."
 
 
 (deftest resource-list-handler
-  (sql/insert-records
-   :resource_params
-   {:resource "1" :name "ensure" :value (db-serialize "file")}
-   {:resource "1" :name "owner"  :value (db-serialize "root")}
-   {:resource "1" :name "group"  :value (db-serialize "root")}
-   {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
-  (sql/insert-records
-   :certnames
-   {:name "one.local"}
-   {:name "two.local"})
-  (sql/insert-records
-    :catalogs
-    {:hash "foo" :api_version 1 :catalog_version "12"}
-    {:hash "bar" :api_version 1 :catalog_version "14"})
-  (sql/insert-records
-    :certname_catalogs
-    {:certname "one.local" :catalog "foo"}
-    {:certname "two.local" :catalog "bar"})
-  (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-    {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])})
-  (let [foo1 {:certname   "one.local"
-              :resource   "1"
-              :type       "File"
-              :title      "/etc/passwd"
-              :tags       ["one" "two"]
-              :exported   true
-              :sourcefile nil
-              :sourceline nil
-              :parameters {:ensure "file"
-                           :owner  "root"
-                           :group  "root"
-                           :acl    ["john:rwx" "fred:rwx"]}}
-        bar1 {:certname   "two.local"
-              :resource   "1"
-              :type       "File"
-              :title      "/etc/passwd"
-              :tags       ["one" "two"]
-              :exported   true
-              :sourcefile nil
-              :sourceline nil
-              :parameters {:ensure "file"
-                           :owner  "root"
-                           :group  "root"
-                           :acl    ["john:rwx" "fred:rwx"]}}
-        bar2 {:certname   "two.local"
-              :resource   "2"
-              :type       "Notify"
-              :title      "hello"
-              :tags       []
-              :exported   true
-              :sourcefile nil
-              :sourceline nil
-              :parameters {}}]
-    (testing "query without filter"
-      (is-response-equal (get-response) #{foo1 bar1 bar2}))
+  (with-transacted-connection *db*
+    (migrate!)
+    (sql/insert-records
+     :resource_params
+     {:resource "1" :name "ensure" :value (db-serialize "file")}
+     {:resource "1" :name "owner"  :value (db-serialize "root")}
+     {:resource "1" :name "group"  :value (db-serialize "root")}
+     {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
+    (sql/insert-records
+     :certnames
+     {:name "one.local"}
+     {:name "two.local"})
+    (sql/insert-records
+     :catalogs
+     {:hash "foo" :api_version 1 :catalog_version "12"}
+     {:hash "bar" :api_version 1 :catalog_version "14"})
+    (sql/insert-records
+     :certname_catalogs
+     {:certname "one.local" :catalog "foo"}
+     {:certname "two.local" :catalog "bar"})
+    (sql/insert-records :catalog_resources
+                        {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
+                        {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
+                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
 
-    (testing "query with filter"
-      (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
-                              [["=" "tag" "one"] #{foo1 bar1}]
-                              [["=" "tag" "two"] #{foo1 bar1}]
-                              [["and"
-                                ["=" ["node" "name"] "one.local"]
-                                ["=" "type" "File"]]
-                               #{foo1}]
-                              [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
-                              [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
-                              [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
-        (is-response-equal (get-response query) result)))
+    (let [foo1 {:certname   "one.local"
+                :resource   "1"
+                :type       "File"
+                :title      "/etc/passwd"
+                :tags       ["one" "two"]
+                :exported   true
+                :sourcefile nil
+                :sourceline nil
+                :parameters {:ensure "file"
+                             :owner  "root"
+                             :group  "root"
+                             :acl    ["john:rwx" "fred:rwx"]}}
+          bar1 {:certname   "two.local"
+                :resource   "1"
+                :type       "File"
+                :title      "/etc/passwd"
+                :tags       ["one" "two"]
+                :exported   true
+                :sourcefile nil
+                :sourceline nil
+                :parameters {:ensure "file"
+                             :owner  "root"
+                             :group  "root"
+                             :acl    ["john:rwx" "fred:rwx"]}}
+          bar2 {:certname   "two.local"
+                :resource   "2"
+                :type       "Notify"
+                :title      "hello"
+                :tags       []
+                :exported   true
+                :sourcefile nil
+                :sourceline nil
+                :parameters {}}]
+      (testing "query without filter"
+        (is-response-equal (get-response) #{foo1 bar1 bar2}))
 
-    (testing "querying against inactive nodes"
-      (deactivate-node! "one.local")
-
-      (testing "should exclude inactive nodes when requested"
-        (let [query ["=" ["node" "active"] true]
-              result #{bar1 bar2}]
+      (testing "query with filter"
+        (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
+                                [["=" "tag" "one"] #{foo1 bar1}]
+                                [["=" "tag" "two"] #{foo1 bar1}]
+                                [["and"
+                                  ["=" ["node" "name"] "one.local"]
+                                  ["=" "type" "File"]]
+                                 #{foo1}]
+                                [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
+                                [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
+                                [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
           (is-response-equal (get-response query) result)))
 
-      (testing "should exclude active nodes when requested"
-        (let [query ["=" ["node" "active"] false]
-              result #{foo1}]
-          (is-response-equal (get-response query) result)))
+      (testing "querying against inactive nodes"
+        (deactivate-node! "one.local")
 
-      (testing "should include all nodes otherwise"
-        (let [query ["=" "type" "File"]
-              result #{foo1 bar1}]
-          (is-response-equal (get-response query) result)))))
+        (testing "should exclude inactive nodes when requested"
+          (let [query ["=" ["node" "active"] true]
+                result #{bar1 bar2}]
+            (is-response-equal (get-response query) result)))
 
-  (testing "error handling"
-    (let [response (get-response ["="])
-          body     (get response :body "null")]
-      (is (= (:status response) 400))
-      (is (re-find #"= requires exactly two arguments" body)))))
+        (testing "should exclude active nodes when requested"
+          (let [query ["=" ["node" "active"] false]
+                result #{foo1}]
+            (is-response-equal (get-response query) result)))
+
+        (testing "should include all nodes otherwise"
+          (let [query ["=" "type" "File"]
+                result #{foo1 bar1}]
+            (is-response-equal (get-response query) result)))))
+
+    (testing "error handling"
+      (let [response (get-response ["="])
+            body     (get response :body "null")]
+        (is (= (:status response) 400))
+        (is (re-find #"= requires exactly two arguments" body)))))
