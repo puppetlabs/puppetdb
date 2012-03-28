@@ -80,7 +80,7 @@
   If the query can't be parsed, a 400 is returned."
   [query db]
   (try
-    (let [q (r/query->sql db (json/parse-string query true))]
+    (let [q (r/query->sql (json/parse-string query true))]
       (-> (with-transacted-connection db
             (r/query-resources q))
           (utils/json-response)))

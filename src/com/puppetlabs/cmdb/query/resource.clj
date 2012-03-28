@@ -12,20 +12,20 @@
 
 (defmulti compile-query->sql
   "Recursively compile a query into a collection of SQL operations."
-  (fn [db query]
+  (fn [query]
     (string/lower-case (first query))))
 
 (defn query->sql
   "Compile a vector-structured query into an SQL expression.
 An empty query gathers all resources."
-  [db query]
+  [query]
   {:pre  [(or (nil? query) (vector? query))]
    :post [(vector? %)
           (string? (first %))
           (every? (complement coll?) (rest %))]}
   (if (nil? query)
     ["(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources)"]
-    (compile-query->sql db query)))
+    (compile-query->sql query)))
 
 (defn query-resources
   "Take a query and its parameters, and return a vector of resources
@@ -53,7 +53,7 @@ and their parameters which match."
 ;; predicate, which can then be combined with connectives to build
 ;; complex queries.
 (defmethod compile-query->sql "="
-  [db [op path value :as term]]
+  [[op path value :as term]]
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
@@ -104,7 +104,7 @@ and their parameters which match."
               ;; ...else, failure
               :else (throw (IllegalArgumentException.
                            (str term " is not a valid query term"))))
-        [sql & params] (if (table? tbl) (compile tbl db) tbl)]
+        [sql & params] (if (table? tbl) (compile tbl nil) tbl)]
     (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
@@ -117,13 +117,13 @@ operation."
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
 (defmethod compile-query->sql "and"
-  [db [op & terms]]
+  [[op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map (partial compile-query->sql db) terms)
+  (let [terms (map compile-query->sql terms)
         params (mapcat rest terms)
         query (->> (map first terms)
                    (alias-subqueries)
@@ -135,13 +135,13 @@ operation."
 ;; Join a set of predicates together with an 'or' relationship,
 ;; performing a union operation.
 (defmethod compile-query->sql "or"
-  [db [op & terms]]
+  [[op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map (partial compile-query->sql db) terms)
+  (let [terms (map compile-query->sql terms)
         params (mapcat rest terms)
         query (->> (map first terms)
                    (string/join " UNION ")
@@ -152,13 +152,13 @@ operation."
 ;; performing a set difference. This will reject resources matching
 ;; _any_ child predicate.
 (defmethod compile-query->sql "not"
-  [db [op & terms]]
+  [[op & terms]]
   {:pre [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [[subquery & params] (compile-query->sql db (cons "or" terms))
+  (let [[subquery & params] (compile-query->sql (cons "or" terms))
          query (->> subquery
                     (format (str "SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs "
                             "LEFT OUTER JOIN %s rhs "
