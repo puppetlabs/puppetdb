@@ -32,17 +32,19 @@
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.cmdb.query.node :as node]
-            [ring.util.response :as rr]))
+            [ring.util.response :as rr])
+  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn search-nodes
   "Produce a response body for a request to search for nodes based on
   `query`. If no `query` is supplied, all nodes will be returned."
   [query db]
   (try
-    (let [query (if query (json/parse-string query true))
-          sql   (node/query->sql db query)
-          nodes (node/search db sql)]
-      (utils/json-response nodes))
+    (with-transacted-connection db
+      (let [query (if query (json/parse-string query true))
+            sql   (node/query->sql query)
+            nodes (node/search sql)]
+        (utils/json-response nodes)))
     (catch org.codehaus.jackson.JsonParseException e
       (utils/error-response e))
     (catch IllegalArgumentException e
