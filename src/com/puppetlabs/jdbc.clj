@@ -45,7 +45,7 @@
   [db-spec & body]
   `(sql/with-connection ~db-spec
      (sql/transaction
-      (fn [] ~@body))))
+      ~@body)))
 
 (defn make-connection-pool
   "Create a new database connection pool"
