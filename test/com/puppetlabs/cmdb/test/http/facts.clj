@@ -6,17 +6,16 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.testutils :only [with-test-db]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *app* nil)
+(def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (with-transacted-connection db
-                            (migrate!)
-                            (f))))))
+                      (with-test-db *db*
+                        (binding [*app* (server/build-app {:scf-db *db*})]
+                          (f)))))
 
 (def c-t "application/json")
 
@@ -38,9 +37,11 @@
                "hostname" "myhost"
                "kernel" "Linux"
                "operatingsystem" "Debian"}]
-    (scf-store/add-certname! certname_without_facts)
-    (scf-store/add-certname! certname_with_facts)
-    (scf-store/add-facts! certname_with_facts facts)
+    (with-transacted-connection *db*
+      (migrate!)
+      (scf-store/add-certname! certname_without_facts)
+      (scf-store/add-certname! certname_with_facts)
+      (scf-store/add-facts! certname_with_facts facts))
     (testing "for an absent node"
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]
