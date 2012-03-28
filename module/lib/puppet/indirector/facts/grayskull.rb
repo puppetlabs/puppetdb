@@ -16,7 +16,11 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
   end
 
   def save(request)
-    msg = message(request.instance).to_pson
+    facts = request.instance.dup
+    facts.values = facts.values.dup
+    facts.stringify
+
+    msg = message(facts).to_pson
     msg = Puppet::Resource::Catalog::Grayskull.utf8_string(msg)
     checksum = Digest::SHA1.hexdigest(msg)
     payload = CGI.escape(msg)
