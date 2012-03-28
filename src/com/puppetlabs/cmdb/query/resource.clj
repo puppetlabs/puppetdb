@@ -28,23 +28,21 @@ An empty query gathers all resources."
     (compile-query->sql db query)))
 
 (defn query-resources
-  "Take a vector-structured query, and return a vector of resources
+  "Take a query and its parameters, and return a vector of resources
 and their parameters which match."
-  [db [sql & params]]
-  {:pre [(string? sql)
-         (map? db)]}
-  (let [query (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
-                   "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
-                   "FROM catalog_resources cr "
-                   "JOIN certname_catalogs USING(catalog) "
-                   "LEFT OUTER JOIN resource_params rp "
-                   "ON cr.resource = rp.resource "
-                   "WHERE (cr.catalog,cr.resource) IN "
-                   sql)
-        results (with-transacted-connection db
-                   (apply query-to-vec query params))
+  [[sql & params]]
+  {:pre [(string? sql)]}
+  (let [query         (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
+                           "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
+                           "FROM catalog_resources cr "
+                           "JOIN certname_catalogs USING(catalog) "
+                           "LEFT OUTER JOIN resource_params rp "
+                           "ON cr.resource = rp.resource "
+                           "WHERE (cr.catalog,cr.resource) IN "
+                           sql)
+        results       (apply query-to-vec query params)
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
-        metadata (apply juxt metadata_cols)]
+        metadata      (apply juxt metadata_cols)]
     (vec (for [[resource params] (group-by metadata results)]
            (assoc (zipmap metadata_cols resource) :parameters
                   (into {} (for [param params :when (:name param)]
