@@ -29,6 +29,30 @@ describe Puppet::Node::Facts::Grayskull do
 
       CGI.unescape(@sent_payload).should == payload
     end
+
+    it "should stringify fact values before submitting" do
+      facts.values['something'] = 100
+
+      payload = {
+        :command => "replace facts",
+        :version => 1,
+        :payload => facts.to_pson,
+      }.to_pson
+
+      subject.expects(:http_post).with do |request,uri,body,headers|
+        body =~ /payload=(.+)/
+        @sent_payload = $1
+      end
+
+      save
+
+      message = PSON.parse(CGI.unescape(@sent_payload))
+      sent_facts = PSON.parse(message['payload'])
+
+      # We shouldn't modify the original instance
+      facts.values['something'].should == 100
+      sent_facts['values']['something'].should == '100'
+    end
   end
 
   describe "#search" do
