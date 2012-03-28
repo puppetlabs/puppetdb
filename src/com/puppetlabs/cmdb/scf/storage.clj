@@ -588,6 +588,7 @@ facts associated with the certname."
 
 (defn replace-facts!
   [certname facts]
+  {:pre [(every? string? (vals facts))]}
   (time! (:replace-facts metrics)
    (sql/transaction
     (delete-facts! certname)
