@@ -6,19 +6,17 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.jdbc :only (query-to-vec with-transacted-connection)]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.cmdb.testutils :only [with-test-db]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*db* db]
-                          (sql/with-connection db
-                            (sql/transaction
-                            (migrate!)
-                            (f)))))))
+                      (with-test-db *db*
+                        (with-transacted-connection *db*
+                          (migrate!)
+                          (f)))))
 
 (deftest query->sql
   (testing "comparisons"
@@ -332,6 +330,4 @@
         (is (thrown-with-msg? IllegalArgumentException
               #"is not a valid query term"
               (s/query-resources (s/query->sql input))))))))
-
-
 
