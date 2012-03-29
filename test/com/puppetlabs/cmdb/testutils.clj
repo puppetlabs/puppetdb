@@ -1,6 +1,7 @@
 (ns com.puppetlabs.cmdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
+            [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
             [fs.core :as fs]))
 
@@ -12,6 +13,14 @@
    :subname     (str "mem:"
                      (java.util.UUID/randomUUID)
                      ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+
+(defmacro with-test-db
+  "Creates a binding for `db` pointing to a fresh database, and
+  executes `body`. When `body` returns, the database will be destroyed."
+  [db & body]
+  `(binding [~db (test-db)]
+     (sql/with-connection ~db
+       ~@body)))
 
 (defmacro with-test-broker
   "Constructs and starts an embedded MQ, and evaluates `body` inside a

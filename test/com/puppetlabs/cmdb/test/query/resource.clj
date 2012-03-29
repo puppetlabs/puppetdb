@@ -5,18 +5,18 @@
             [clojure.string :as string])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        [com.puppetlabs.jdbc :only (query-to-vec with-transacted-connection)]
+        [com.puppetlabs.cmdb.testutils :only [with-test-db]]
         [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
 
 (use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*db* db]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+                      (with-test-db *db*
+                        (with-transacted-connection *db*
+                          (migrate!)
+                          (f)))))
 
 (deftest query->sql
   (testing "comparisons"
@@ -25,18 +25,18 @@
           result [(str "(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources "
                        "WHERE (catalog_resources.title = ?))")
                   "whatever"]]
-      (is (= (s/query->sql *db* query) result)
+      (is (= (s/query->sql query) result)
           (str query "=>" result)))
     ;; with a path to the field
-    (let [[sql & params] (s/query->sql *db* ["=" ["node" "name"] "example"])]
+    (let [[sql & params] (s/query->sql ["=" ["node" "name"] "example"])]
       (is (= params ["example"]))
       (is (re-find #"SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM certname_catalogs JOIN catalog_resources" sql))
       (is (re-find #"\(certname_catalogs.certname = \?\)" sql)))
-    (let [[sql & params] (s/query->sql *db* ["=" "tag" "foo"])]
+    (let [[sql & params] (s/query->sql ["=" "tag" "foo"])]
       (is (re-find #"SELECT DISTINCT catalog,resource FROM catalog_resources" sql))
       (is (= params ["foo"]))))
   (testing "order of params in grouping"
-    (let [[sql & params] (s/query->sql *db* ["and"
+    (let [[sql & params] (s/query->sql ["and"
                                         ["=" "type" "foo"]
                                         ["=" "type" "bar"]
                                         ["=" "type" "baz"]])]
@@ -51,38 +51,38 @@
       (doall
        (for [one terms
              two terms]
-         (let [[sql1 & param1] (s/query->sql *db* one)
-               [sql2 & param2] (s/query->sql *db* two)
-               [and-sql & and-params] (s/query->sql *db* ["and" one two])
-               [or-sql & or-params] (s/query->sql *db* ["or" one two])]
+         (let [[sql1 & param1] (s/query->sql one)
+               [sql2 & param2] (s/query->sql two)
+               [and-sql & and-params] (s/query->sql ["and" one two])
+               [or-sql & or-params] (s/query->sql ["or" one two])]
            (is (= and-sql (format "(SELECT DISTINCT catalog,resource FROM %s resources_0 NATURAL JOIN %s resources_1)"
                                   sql1 sql2)))
            (is (= or-sql (format "(%s UNION %s)" sql1 sql2)))
            (is (= and-params (concat param1 param2)))
            (is (= or-params (concat param1 param2)))))))
     (testing "simple {and, or} grouping with many terms"
-      (let [terms-  (map (partial s/query->sql *db*) terms)
+      (let [terms-  (map s/query->sql terms)
                queries (map first terms-)
                joins (->> (map #(format "%s resources_%d" %1 %2) queries (range (count queries)))
                           (string/join " NATURAL JOIN "))
                and- (format "(SELECT DISTINCT catalog,resource FROM %s)" joins)
                or- (format "(%s)" (string/join " UNION " queries))
                params- (mapcat rest terms-)
-               [and-sql & and-params] (s/query->sql *db* (apply vector "and" terms))
-               [or-sql & or-params] (s/query->sql *db* (apply vector "or" terms))]
+               [and-sql & and-params] (s/query->sql (apply vector "and" terms))
+               [or-sql & or-params] (s/query->sql (apply vector "or" terms))]
            (is (= and-sql and-))
            (is (= or-sql or-))
            (is (= and-params params-))
            (is (= or-params params-)))))
 
   (testing "negation"
-    (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]])]
+    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]])]
       (is (= sql (str "(SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs LEFT OUTER JOIN "
                       "((SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources "
                       "WHERE (catalog_resources.type = ?))) rhs "
                       "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource WHERE (rhs.resource IS NULL))")))
       (is (= params ["foo"])))
-    (let [[sql & params] (s/query->sql *db* ["not" ["=" "type" "foo"]
+    (let [[sql & params] (s/query->sql ["not" ["=" "type" "foo"]
                                         ["=" "title" "bar"]])]
       (is (= sql (str "(SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs LEFT OUTER JOIN "
                       "("
@@ -95,7 +95,7 @@
 
   (testing "real world query"
     (let [[sql & params]
-          (s/query->sql *db* ["and"
+          (s/query->sql ["and"
                          ["not" ["=" ["node" "name"] "example.local"]]
                          ["=" "exported" true]
                          ["=" ["parameter" "ensure"] "yellow"]])]
@@ -134,6 +134,7 @@
    {:resource "5" :name "random"  :value (db-serialize "false")}
    {:resource "6" :name "multi"   :value (db-serialize ["one" "two" "three"])}
    {:resource "7" :name "hash"    :value (db-serialize {"foo" 5 "bar" 10})})
+
   (sql/insert-records
    :certnames
    {:name "example.local"}
@@ -300,7 +301,7 @@
                    ["=" "tag" "vivid"]]
                   [foo4]
                   ])]
-        (is (= (set (s/query-resources *db* (s/query->sql *db* input))) (set expect))
+        (is (= (set (s/query-resources (s/query->sql input))) (set expect))
             (str "  " input " =>\n  " expect))))))
 
 
@@ -308,19 +309,19 @@
   (testing "combine terms without arguments"
     (doseq [op ["and" "AND" "or" "OR" "AnD" "Or" "not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (s/query-resources *db* (s/query->sql *db* [op]))))
+            (s/query-resources (s/query->sql [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-            (s/query-resources *db* (s/query->sql *db* [op]))))))
+            (s/query-resources (s/query->sql [op]))))))
   (testing "bad query operators"
     (doseq [in [["if"] ["-"] [{}] [["="]]]]
       (is (thrown-with-msg? IllegalArgumentException #"No method in multimethod"
-            (s/query-resources *db* (s/query->sql *db* in))))))
+            (s/query-resources (s/query->sql in))))))
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
             (re-pattern (str "= requires exactly two arguments, but we found "
                              (dec (count in))))
-            (s/query-resources *db* (s/query->sql *db* in))))))
+            (s/query-resources (s/query->sql in))))))
   (testing "bad types in input"
     (doseq [path (list [] {} [{}] 12 true false 0.12)]
       (doseq [input (list ["=" path "foo"]
@@ -328,7 +329,5 @@
                           ["=" ["bar" path] "foo"])]
         (is (thrown-with-msg? IllegalArgumentException
               #"is not a valid query term"
-              (s/query-resources *db* (s/query->sql *db* input))))))))
-
-
+              (s/query-resources (s/query->sql input))))))))
 

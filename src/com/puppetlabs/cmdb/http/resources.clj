@@ -69,7 +69,8 @@
   (:require [com.puppetlabs.utils :as utils]
             [com.puppetlabs.cmdb.query.resource :as r]
             [cheshire.core :as json]
-            [ring.util.response :as rr]))
+            [ring.util.response :as rr])
+  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
   "Given a query and database connection, return a Ring response with
@@ -79,8 +80,9 @@
   If the query can't be parsed, a 400 is returned."
   [query db]
   (try
-    (let [q (r/query->sql db (json/parse-string query true))]
-      (-> (r/query-resources db q)
+    (let [q (r/query->sql (json/parse-string query true))]
+      (-> (with-transacted-connection db
+            (r/query-resources q))
           (utils/json-response)))
     (catch org.codehaus.jackson.JsonParseException e
       (utils/error-response e))
