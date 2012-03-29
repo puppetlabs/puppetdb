@@ -1,23 +1,13 @@
 (ns com.puppetlabs.cmdb.test.http.resources
-  (:require [com.puppetlabs.cmdb.http.resources :as r]
-            [com.puppetlabs.cmdb.http.server :as server]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]))
 
-(def ^:dynamic *app* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db with-http-app)
 
 ;;;; Test the resource listing handlers.
 (def c-t "application/json")

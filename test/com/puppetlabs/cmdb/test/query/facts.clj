@@ -1,20 +1,10 @@
 (ns com.puppetlabs.cmdb.test.query.facts
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.query.facts :as facts]
-            [clojure.java.jdbc :as sql])
+            [com.puppetlabs.cmdb.query.facts :as facts])
   (:use clojure.test
-         ring.mock.request
-         [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.cmdb.fixtures]))
 
-(def ^:dynamic *db* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*db* db]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db)
 
 (deftest facts-for-node
   (let [certname "some_certname"

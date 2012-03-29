@@ -1,31 +1,14 @@
 (ns com.puppetlabs.cmdb.test.http.command
-  (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.http.server :as server]
-            [com.puppetlabs.utils :as pl-utils]
+  (:require [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [clj-time.format :as time])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.cmdb.testutils]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.cmdb.fixtures]
         [com.puppetlabs.mq]))
 
-(def ^:dynamic *app* nil)
-(def ^:dynamic *conn* nil)
-
-(use-fixtures :each (fn [f]
-                      (with-test-broker "test" conn
-                        (let [db (test-db)]
-                          (binding [*app* (server/build-app
-                                           {:scf-db db
-                                            :command-mq {:connection-string "vm://test"
-                                                         :endpoint "com.puppetlabs.cmdb.commands"}})
-                                    *conn* conn]
-                            (sql/with-connection db
-                              (migrate!)
-                              (f)))))))
+(use-fixtures :each with-test-db with-test-mq with-http-app)
 
 (defn make-request
   [post-body]

@@ -1,81 +1,18 @@
 (ns com.puppetlabs.cmdb.test.scf.storage
-  (:require [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.cmdb.catalog.utils :as catutils]
+  (:require [com.puppetlabs.cmdb.catalog.utils :as catutils]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.cmdb.scf.storage]
+  (:use [com.puppetlabs.cmdb.examples]
+        [com.puppetlabs.cmdb.scf.storage]
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations)]
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
 (def db (test-db))
-
-(def empty-catalog
-  {:certname "simple.mydomain.com"
-   :cmdb-version cat/CMDB-VERSION
-   :api-version 1
-   :version "1330463884"
-   :tags #{"settings"}
-   :classes #{"settings"}
-   :edges #{{:source {:type "Stage" :title "main"}
-             :target {:type "Class" :title "Settings"}
-             :relationship :contains}
-            {:source {:type "Stage" :title "main"}
-             :target {:type "Class" :title "Main"}
-             :relationship :contains}}
-   :resources {{:type "Class" :title "Main"} {:exported false
-                                              :title      "Main"
-                                              :tags       #{"class" "main"}
-                                              :type       "Class"
-                                              :parameters {:name "main"}}
-               {:type "Class" :title "Settings"} {:exported false
-                                                  :title    "Settings"
-                                                  :tags     #{"settings" "class"}
-                                                  :type     "Class"}
-               {:type "Stage" :title "main"} {:exported false
-                                              :title    "main"
-                                              :tags     #{"main" "stage"}
-                                              :type     "Stage"}}
-   :aliases {}})
-
-(def basic-catalog
-  {:certname "myhost.mydomain.com"
-   :cmdb-version cat/CMDB-VERSION
-   :api-version 1
-   :version "123456789"
-   :tags #{"class" "foobar"}
-   :classes #{"foobar" "baz"}
-   :edges #{{:source {:type "Class" :title "foobar"}
-             :target {:type "File" :title "/etc/foobar"}
-             :relationship :contains}
-            {:source {:type "Class" :title "foobar"}
-             :target {:type "File" :title "/etc/foobar/baz"}
-             :relationship :contains}
-            {:source {:type "File" :title "/etc/foobar"}
-             :target {:type "File" :title "/etc/foobar/baz"}
-             :relationship :required-by}}
-   :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
-               {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                    :title      "/etc/foobar"
-                                                    :exported   false
-                                                    :file       "/tmp/foo"
-                                                    :line       10
-                                                    :tags       #{"file" "class" "foobar"}
-                                                    :parameters {:ensure "directory"
-                                                                 :group  "root"
-                                                                 :user   "root"}}
-               {:type "File" :title "/etc/foobar/baz"} {:type       "File"
-                                                        :title      "/etc/foobar/baz"
-                                                        :exported   false
-                                                        :file       "/tmp/bar"
-                                                        :line       20
-                                                        :tags       #{"file" "class" "foobar"}
-                                                        :parameters {:ensure  "directory"
-                                                                     :group   "root"
-                                                                     :user    "root"
-                                                                     :require "File[/etc/foobar]"}}}})
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
@@ -129,7 +66,7 @@
 
 (deftest catalog-dedupe
   (testing "Catalogs with the same metadata but different content should have different hashes"
-    (let [catalog       basic-catalog
+    (let [catalog       (:basic catalogs)
           hash          (catalog-similarity-hash catalog)
           ;; List of all the tweaking functions
           chaos-monkeys [catutils/add-random-resource-to-catalog
@@ -159,7 +96,7 @@
               (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
   (testing "Catalogs with different metadata but the same content should have the same hashes"
-    (let [catalog            basic-catalog
+    (let [catalog            (:basic catalogs)
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
           tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
@@ -219,17 +156,18 @@
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
-    (let [catalog basic-catalog]
+    (let [catalog  (:basic catalogs)
+          certname (:certname catalog)]
 
       (sql/with-connection db
         (migrate!)
-        (add-certname! "myhost.mydomain.com")
+        (add-certname! certname)
         (let [hash (add-catalog! catalog)]
-          (associate-catalog-with-certname! hash "myhost.mydomain.com"))
+          (associate-catalog-with-certname! hash certname (now)))
 
         (testing "should contain proper catalog metadata"
           (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
-                 [{:certname "myhost.mydomain.com" :api_version 1 :catalog_version "123456789"}])))
+                 [{:certname certname :api_version 1 :catalog_version "123456789"}])))
 
         (testing "should contain a complete tags list"
           (is (= (query-to-vec ["SELECT name FROM tags ORDER BY name"])
@@ -256,9 +194,9 @@
 
           (testing "properly associated with the host"
             (is (= (query-to-vec ["SELECT cc.certname, cr.type, cr.title FROM catalog_resources cr, certname_catalogs cc WHERE cc.catalog=cr.catalog ORDER BY cr.type, cr.title"])
-                   [{:certname "myhost.mydomain.com" :type "Class" :title "foobar"}
-                    {:certname "myhost.mydomain.com" :type "File"  :title "/etc/foobar"}
-                    {:certname "myhost.mydomain.com" :type "File"  :title "/etc/foobar/baz"}])))
+                   [{:certname certname :type "Class" :title "foobar"}
+                    {:certname certname :type "File"  :title "/etc/foobar"}
+                    {:certname certname :type "File"  :title "/etc/foobar/baz"}])))
 
           (testing "with all parameters"
             (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
@@ -280,12 +218,12 @@
       (testing "should noop if replaced by themselves"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash (add-catalog! catalog)]
-            (replace-catalog! catalog)
+            (replace-catalog! catalog (now))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
-                   [{:name "myhost.mydomain.com"}]))
+                   [{:name certname}]))
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
@@ -293,26 +231,26 @@
       (testing "should share structure when duplicate catalogs are detected for the same host"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash (add-catalog! catalog)
                 prev-dupe-num (.count (:duplicate-catalog metrics))
                 prev-new-num  (.count (:new-catalog metrics))]
 
             ;; Do an initial replacement with the same catalog
-            (replace-catalog! catalog)
+            (replace-catalog! catalog (now))
             (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             ;; Store a second catalog, with the same content save the version
-            (replace-catalog! (assoc catalog :version "abc123"))
+            (replace-catalog! (assoc catalog :version "abc123") (now))
             (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
-                   [{:name "myhost.mydomain.com"}]))
+                   [{:name certname}]))
 
             (is (= (query-to-vec ["SELECT certname FROM certname_catalogs"])
-                   [{:certname "myhost.mydomain.com"}]))
+                   [{:certname certname}]))
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
@@ -320,23 +258,23 @@
       (testing "should not fail when inserting an 'empty' catalog"
         (sql/with-connection db
           (migrate!)
-          (add-catalog! empty-catalog)))
+          (add-catalog! (:empty catalogs))))
 
       (testing "should noop if replaced by themselves after using manual deletion"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (add-catalog! catalog)
-          (delete-catalog! "myhost.mydomain.com")
+          (delete-catalog! certname)
           (add-catalog! catalog)
 
           (is (= (query-to-vec ["SELECT name FROM certnames"])
-                 [{:name "myhost.mydomain.com"}]))))
+                 [{:name certname}]))))
 
       (testing "should be removed when deleted"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash (add-catalog! catalog)]
             (delete-catalog! hash))
 
@@ -355,28 +293,28 @@
       (testing "when deleted, should leave certnames alone"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (add-catalog! catalog)
-          (delete-catalog! "myhost.mydomain.com")
+          (delete-catalog! certname)
 
           (is (= (query-to-vec ["SELECT name FROM certnames"])
-                 [{:name "myhost.mydomain.com"}]))))
+                 [{:name certname}]))))
 
       (testing "when deleted, should leave other hosts' resources alone"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (add-certname! "myhost2.mydomain.com")
           (let [hash1 (add-catalog! catalog)
                 ;; Store the same catalog for a different host
                 hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
-            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
-            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com")
+            (associate-catalog-with-certname! hash1 certname (now))
+            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com" (now))
             (delete-catalog! hash1))
 
           ;; myhost should still be present in the database
           (is (= (query-to-vec ["SELECT name FROM certnames ORDER BY name"])
-                 [{:name "myhost.mydomain.com"} {:name "myhost2.mydomain.com"}]))
+                 [{:name certname} {:name "myhost2.mydomain.com"}]))
 
           ;; myhost1 should not have any catalogs associated with it
           ;; anymore
@@ -386,19 +324,19 @@
           ;; no tags for myhost
           (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
                                      "WHERE t.catalog=cc.catalog AND cc.certname=?")
-                                     "myhost.mydomain.com"])
+                                     certname])
                  []))
 
           ;; no classes for myhost
           (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
                                      "WHERE c.catalog=cc.catalog AND cc.certname=?")
-                                     "myhost.mydomain.com"])
+                                     certname])
                  []))
 
           ;; no edges for myhost
           (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
                                      "WHERE e.catalog=cc.catalog AND cc.certname=?")
-                                     "myhost.mydomain.com"])
+                                     certname])
                  [{:c 0}]))
 
           ;; All the other resources should still be there
@@ -408,9 +346,9 @@
       (testing "when deleted without GC, should leave params"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (associate-catalog-with-certname! hash1 certname (now))
             (delete-catalog! hash1))
 
           ;; All the params should still be there
@@ -420,9 +358,9 @@
       (testing "when deleted and GC'ed, should leave no dangling params or edges"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
+            (associate-catalog-with-certname! hash1 certname (now))
             (delete-catalog! hash1))
           (garbage-collect!)
 
@@ -434,10 +372,10 @@
       (testing "when dissociated and not GC'ed, should still exist"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
-            (dissociate-catalog-with-certname! hash1 "myhost.mydomain.com"))
+            (associate-catalog-with-certname! hash1 certname (now))
+            (dissociate-catalog-with-certname! hash1 certname))
 
           (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
                  []))
@@ -448,10 +386,10 @@
       (testing "when dissociated and GC'ed, should no longer exist"
         (sql/with-connection db
           (migrate!)
-          (add-certname! "myhost.mydomain.com")
+          (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 "myhost.mydomain.com")
-            (dissociate-catalog-with-certname! hash1 "myhost.mydomain.com"))
+            (associate-catalog-with-certname! hash1 certname (now))
+            (dissociate-catalog-with-certname! hash1 certname))
           (garbage-collect!)
 
           (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
@@ -473,23 +411,7 @@
 
       (testing "on input that violates referential integrity"
         ; This catalog has an edge that points to a non-existant resource
-        (let [catalog {:certname "myhost.mydomain.com"
-                       :cmdb-version cat/CMDB-VERSION
-                       :api-version 1
-                       :version 123456789
-                       :tags #{"class" "foobar"}
-                       :classes #{"foobar"}
-                       :edges #{{:source {:type "Class" :title "foobar"}
-                                 :target {:type "File" :title "does not exist"}
-                                 :relationship :contains}}
-                       :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
-                                   {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                                        :title      "/etc/foobar"
-                                                                        :exported   false
-                                                                        :tags       #{"file" "class" "foobar"}
-                                                                        :parameters {"ensure" "directory"
-                                                                                     "group"  "root"
-                                                                                     "user"   "root"}}}}]
+        (let [catalog (:invalid catalogs)]
           (sql/with-connection db
             (migrate!)
             (is (thrown? AssertionError (add-catalog! {})))
@@ -529,8 +451,8 @@
 
       (testing "auto-reactivated based on a command"
         (let [one-day             (* 24 60 60 1000)
-              before-deactivating (java.util.Date. (- (System/currentTimeMillis) one-day))
-              after-deactivating  (java.util.Date. (+ (System/currentTimeMillis) one-day))]
+              before-deactivating (to-timestamp (- (System/currentTimeMillis) one-day))
+              after-deactivating  (to-timestamp (+ (System/currentTimeMillis) one-day))]
           (testing "should activate the node if the command happened after it was deactivated"
             (deactivate-node! certname)
             (is (= true (maybe-activate-node! certname after-deactivating)))
@@ -545,5 +467,5 @@
 
           (testing "should do nothing if the node is already active"
             (activate-node! certname)
-            (is (= true (maybe-activate-node! certname (java.util.Date.))))
+            (is (= true (maybe-activate-node! certname (now))))
             (is (= (query-certnames) [{:name certname :deactivated nil}]))))))))

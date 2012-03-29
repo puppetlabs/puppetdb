@@ -249,7 +249,9 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (if (scf-storage/maybe-activate-node! certname timestamp)
-        (scf-storage/replace-catalog! catalog)))
+        ;; Only store a catalog if it's newer than the current catalog
+        (if-not (scf-storage/catalog-newer-than? certname timestamp)
+          (scf-storage/replace-catalog! catalog timestamp))))
     (log/info (format "[replace catalog] %s" certname))))
 
 ;; Fact replacement

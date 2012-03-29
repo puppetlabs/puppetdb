@@ -110,11 +110,18 @@
   (sql/do-commands
     "ALTER TABLE certnames ADD deactivated TIMESTAMP WITH TIME ZONE"))
 
+(defn add-catalog-timestamps
+  "Add a column to the certname_catalogs table to store a timestamp."
+  []
+  (sql/do-commands
+    "ALTER TABLE certname_catalogs ADD timestamp TIMESTAMP WITH TIME ZONE"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
   {1 initialize-store
-   2 allow-node-deactivation})
+   2 allow-node-deactivation
+   3 add-catalog-timestamps})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

@@ -1,22 +1,12 @@
 (ns com.puppetlabs.cmdb.test.http.facts
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.http.facts :as facts]
-            [com.puppetlabs.cmdb.http.server :as server]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
-         ring.mock.request
-         [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        ring.mock.request
+        [com.puppetlabs.cmdb.fixtures]))
 
-(def ^:dynamic *app* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db with-http-app)
 
 (def c-t "application/json")
 

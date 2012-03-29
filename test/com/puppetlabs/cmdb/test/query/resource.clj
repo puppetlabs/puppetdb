@@ -1,22 +1,13 @@
 (ns com.puppetlabs.cmdb.test.query.resource
   (:require [com.puppetlabs.cmdb.query.resource :as s]
-            [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
 
-(def ^:dynamic *db* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*db* db]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db)
 
 (deftest query->sql
   (testing "comparisons"
