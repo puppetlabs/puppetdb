@@ -1,24 +1,15 @@
 (ns com.puppetlabs.cmdb.test.http.node
   (:require [clojure.set :as set]
-            [com.puppetlabs.cmdb.http.node :as node]
-            [com.puppetlabs.cmdb.http.server :as server]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         ring.mock.request
         [clojure.math.combinatorics :only [combinations]]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]
+        com.puppetlabs.cmdb.fixtures
         [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
-(def ^:dynamic *app* nil)
-
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db with-http-app)
 
 (def c-t "application/json")
 
@@ -48,19 +39,20 @@ to the result of the form supplied to this method."
 
 (deftest test-node-handler
   (let [names #{"node_a" "node_b" "node_c" "node_d" "node_e"}]
-    (doseq [name names]
-      (sql/insert-record :certnames {:name name}))
+    (with-transacted-connection *db*
+      (doseq [name names]
+        (sql/insert-record :certnames {:name name}))
 
-    (deactivate-node! "node_a")
-    (deactivate-node! "node_e")
+      (deactivate-node! "node_a")
+      (deactivate-node! "node_e")
 
-    (sql/insert-records
-      :certname_facts
-      {:certname "node_a" :fact "kernel" :value "Linux"}
-      {:certname "node_b" :fact "kernel" :value "Linux"}
-      {:certname "node_b" :fact "uptime_seconds" :value "4000"}
-      {:certname "node_c" :fact "kernel" :value "Darwin"}
-      {:certname "node_d" :fact "uptime_seconds" :value "10000"})
+      (sql/insert-records
+       :certname_facts
+       {:certname "node_a" :fact "kernel" :value "Linux"}
+       {:certname "node_b" :fact "kernel" :value "Linux"}
+       {:certname "node_b" :fact "uptime_seconds" :value "4000"}
+       {:certname "node_c" :fact "kernel" :value "Darwin"}
+       {:certname "node_d" :fact "uptime_seconds" :value "10000"}))
 
     (testing "empty query should return all nodes"
       (is-response-equal (get-response) names))
