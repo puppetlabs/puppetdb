@@ -49,6 +49,7 @@
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
+            [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.tools.nrepl.server :as nrepl]
             [swank.swank :as swank]
@@ -144,7 +145,7 @@
         ring-app       (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
-    (with-transacted-connection db
+    (sql/with-connection db
       (migrate!))
 
     (let [broker        (do
