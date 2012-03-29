@@ -28,7 +28,7 @@
 
 (defn with-test-database
   [function]
-  (sql/with-connection db
+  (subject/with-transacted-connection db
     (sql/create-table :test
                       [:key   "VARCHAR(256)" "PRIMARY KEY"]
                       [:value "VARCHAR(256)" "NOT NULL"])

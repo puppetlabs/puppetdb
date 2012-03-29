@@ -4,12 +4,12 @@
             [cheshire.core :as json])
   (:use [com.puppetlabs.cmdb.examples]
         [com.puppetlabs.cmdb.scf.storage]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.cmdb.scf.migrate :only  [migrate!]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations)]
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
 (def db (test-db))
@@ -125,7 +125,7 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (sql/with-connection db
+      (with-transacted-connection db
         (migrate!)
         (add-certname! certname)
         (add-facts! certname facts)
@@ -159,7 +159,7 @@
     (let [catalog  (:basic catalogs)
           certname (:certname catalog)]
 
-      (sql/with-connection db
+      (with-transacted-connection db
         (migrate!)
         (add-certname! certname)
         (let [hash (add-catalog! catalog)]
@@ -216,7 +216,7 @@
                       {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}]))))))
 
       (testing "should noop if replaced by themselves"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
@@ -229,7 +229,7 @@
                    [{:hash hash}])))))
 
       (testing "should share structure when duplicate catalogs are detected for the same host"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)
@@ -256,12 +256,12 @@
                    [{:hash hash}])))))
 
       (testing "should not fail when inserting an 'empty' catalog"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-catalog! (:empty catalogs))))
 
       (testing "should noop if replaced by themselves after using manual deletion"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (add-catalog! catalog)
@@ -272,7 +272,7 @@
                  [{:name certname}]))))
 
       (testing "should be removed when deleted"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
@@ -291,7 +291,7 @@
                  []))))
 
       (testing "when deleted, should leave certnames alone"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (add-catalog! catalog)
@@ -301,7 +301,7 @@
                  [{:name certname}]))))
 
       (testing "when deleted, should leave other hosts' resources alone"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (add-certname! "myhost2.mydomain.com")
@@ -344,7 +344,7 @@
                  [{:c 3}]))))
 
       (testing "when deleted without GC, should leave params"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
@@ -356,7 +356,7 @@
                  [{:c 7}]))))
 
       (testing "when deleted and GC'ed, should leave no dangling params or edges"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
@@ -370,7 +370,7 @@
                  []))))
 
       (testing "when dissociated and not GC'ed, should still exist"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
@@ -384,7 +384,7 @@
                  [{:c 1}]))))
 
       (testing "when dissociated and GC'ed, should no longer exist"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
@@ -401,7 +401,7 @@
     (testing "should noop"
 
       (testing "on bad input"
-        (sql/with-connection db
+        (with-transacted-connection db
           (migrate!)
           (is (thrown? AssertionError (add-catalog! {})))
 
@@ -412,7 +412,7 @@
       (testing "on input that violates referential integrity"
         ; This catalog has an edge that points to a non-existant resource
         (let [catalog (:invalid catalogs)]
-          (sql/with-connection db
+          (with-transacted-connection db
             (migrate!)
             (is (thrown? AssertionError (add-catalog! {})))
 
@@ -421,7 +421,7 @@
                    [{:nrows 0}]))))))))
 
 (deftest node-deactivation
-  (sql/with-connection db
+  (with-transacted-connection db
     (migrate!)
     (let [certname        "foo.example.com"
           query-certnames #(query-to-vec ["SELECT name, deactivated FROM certnames"])]

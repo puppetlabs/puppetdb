@@ -6,7 +6,8 @@
         ring.mock.request
         [clojure.math.combinatorics :only [combinations]]
         com.puppetlabs.cmdb.fixtures
-        [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]))
+        [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -38,19 +39,20 @@ to the result of the form supplied to this method."
 
 (deftest test-node-handler
   (let [names #{"node_a" "node_b" "node_c" "node_d" "node_e"}]
-    (doseq [name names]
-      (sql/insert-record :certnames {:name name}))
+    (with-transacted-connection *db*
+      (doseq [name names]
+        (sql/insert-record :certnames {:name name}))
 
-    (deactivate-node! "node_a")
-    (deactivate-node! "node_e")
+      (deactivate-node! "node_a")
+      (deactivate-node! "node_e")
 
-    (sql/insert-records
-      :certname_facts
-      {:certname "node_a" :fact "kernel" :value "Linux"}
-      {:certname "node_b" :fact "kernel" :value "Linux"}
-      {:certname "node_b" :fact "uptime_seconds" :value "4000"}
-      {:certname "node_c" :fact "kernel" :value "Darwin"}
-      {:certname "node_d" :fact "uptime_seconds" :value "10000"})
+      (sql/insert-records
+       :certname_facts
+       {:certname "node_a" :fact "kernel" :value "Linux"}
+       {:certname "node_b" :fact "kernel" :value "Linux"}
+       {:certname "node_b" :fact "uptime_seconds" :value "4000"}
+       {:certname "node_c" :fact "kernel" :value "Darwin"}
+       {:certname "node_d" :fact "uptime_seconds" :value "10000"}))
 
     (testing "empty query should return all nodes"
       (is-response-equal (get-response) names))

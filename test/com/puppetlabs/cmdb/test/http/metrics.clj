@@ -4,7 +4,8 @@
   (:use com.puppetlabs.cmdb.http.metrics
         com.puppetlabs.cmdb.fixtures
         clojure.test
-        ring.mock.request))
+        ring.mock.request
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)
 

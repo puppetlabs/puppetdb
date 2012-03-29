@@ -16,6 +16,6 @@
     (scf-store/add-certname! certname)
     (scf-store/add-facts! certname facts)
     (testing "with facts present for a node"
-       (is (= (facts/facts-for-node *db* certname) facts)))
+       (is (= (facts/facts-for-node certname) facts)))
     (testing "without facts present for a node"
-       (is (= (facts/facts-for-node *db* "imaginary_node") {})))))
+       (is (= (facts/facts-for-node "imaginary_node") {})))))

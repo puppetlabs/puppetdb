@@ -4,7 +4,9 @@
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.fixtures]))
+        [com.puppetlabs.cmdb.fixtures]
+
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -28,9 +30,10 @@
                "hostname" "myhost"
                "kernel" "Linux"
                "operatingsystem" "Debian"}]
-    (scf-store/add-certname! certname_without_facts)
-    (scf-store/add-certname! certname_with_facts)
-    (scf-store/add-facts! certname_with_facts facts)
+    (with-transacted-connection *db*
+      (scf-store/add-certname! certname_without_facts)
+      (scf-store/add-certname! certname_with_facts)
+      (scf-store/add-facts! certname_with_facts facts))
     (testing "for an absent node"
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]

@@ -6,6 +6,7 @@
         ring.mock.request
         [com.puppetlabs.cmdb.testutils]
         [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.mq]))
 
 (use-fixtures :each with-test-db with-test-mq with-http-app)

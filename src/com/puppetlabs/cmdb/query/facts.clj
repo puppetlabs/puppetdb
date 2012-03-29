@@ -6,10 +6,10 @@
 
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`"
-  [db node]
+  [node]
   {:pre [(string? node)]
    :post [(map? %)]}
-  (let [facts (-> (table db :certname_facts)
+  (let [facts (-> (table :certname_facts)
                   (project [:fact, :value])
                   (select (where (= :certname node))))]
     (into {} (for [fact @facts]
