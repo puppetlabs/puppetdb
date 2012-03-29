@@ -7,6 +7,8 @@
         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations)]
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.cmdb.testutils :only [test-db]]))
 
@@ -161,7 +163,7 @@
         (migrate!)
         (add-certname! certname)
         (let [hash (add-catalog! catalog)]
-          (associate-catalog-with-certname! hash certname (java.util.Date.)))
+          (associate-catalog-with-certname! hash certname (now)))
 
         (testing "should contain proper catalog metadata"
           (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
@@ -218,7 +220,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
-            (replace-catalog! catalog (java.util.Date.))
+            (replace-catalog! catalog (now))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
                    [{:name certname}]))
@@ -235,12 +237,12 @@
                 prev-new-num  (.count (:new-catalog metrics))]
 
             ;; Do an initial replacement with the same catalog
-            (replace-catalog! catalog (java.util.Date.))
+            (replace-catalog! catalog (now))
             (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             ;; Store a second catalog, with the same content save the version
-            (replace-catalog! (assoc catalog :version "abc123") (java.util.Date.))
+            (replace-catalog! (assoc catalog :version "abc123") (now))
             (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
@@ -306,8 +308,8 @@
           (let [hash1 (add-catalog! catalog)
                 ;; Store the same catalog for a different host
                 hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
-            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
-            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com" (java.util.Date.))
+            (associate-catalog-with-certname! hash1 certname (now))
+            (associate-catalog-with-certname! hash2 "myhost2.mydomain.com" (now))
             (delete-catalog! hash1))
 
           ;; myhost should still be present in the database
@@ -346,7 +348,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
+            (associate-catalog-with-certname! hash1 certname (now))
             (delete-catalog! hash1))
 
           ;; All the params should still be there
@@ -358,7 +360,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
+            (associate-catalog-with-certname! hash1 certname (now))
             (delete-catalog! hash1))
           (garbage-collect!)
 
@@ -372,7 +374,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
+            (associate-catalog-with-certname! hash1 certname (now))
             (dissociate-catalog-with-certname! hash1 certname))
 
           (is (= (query-to-vec ["SELECT * FROM certname_catalogs"])
@@ -386,7 +388,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
-            (associate-catalog-with-certname! hash1 certname (java.util.Date.))
+            (associate-catalog-with-certname! hash1 certname (now))
             (dissociate-catalog-with-certname! hash1 certname))
           (garbage-collect!)
 
@@ -449,8 +451,8 @@
 
       (testing "auto-reactivated based on a command"
         (let [one-day             (* 24 60 60 1000)
-              before-deactivating (java.util.Date. (- (System/currentTimeMillis) one-day))
-              after-deactivating  (java.util.Date. (+ (System/currentTimeMillis) one-day))]
+              before-deactivating (to-timestamp (- (System/currentTimeMillis) one-day))
+              after-deactivating  (to-timestamp (+ (System/currentTimeMillis) one-day))]
           (testing "should activate the node if the command happened after it was deactivated"
             (deactivate-node! certname)
             (is (= true (maybe-activate-node! certname after-deactivating)))
@@ -465,5 +467,5 @@
 
           (testing "should do nothing if the node is already active"
             (activate-node! certname)
-            (is (= true (maybe-activate-node! certname (java.util.Date.))))
+            (is (= true (maybe-activate-node! certname (now))))
             (is (= (query-certnames) [{:name certname :deactivated nil}]))))))))
