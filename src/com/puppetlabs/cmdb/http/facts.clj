@@ -15,12 +15,14 @@
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.cmdb.query.facts :as f]
-            [ring.util.response :as rr]))
+            [ring.util.response :as rr])
+  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
   "Produce a response body for a request to lookup facts for `node`."
   [node db]
-  (let [facts (f/facts-for-node db node)]
+  (let [facts (with-transacted-connection db
+                (f/facts-for-node node))]
     (if-not (seq facts)
       (utils/json-response {:error (str "Could not find facts for " node)} 404)
       (utils/json-response {:name node :facts facts}))))

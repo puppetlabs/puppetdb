@@ -39,6 +39,14 @@
          (convert-result-arrays)
          (vec)))))
 
+(defmacro with-transacted-connection
+  "Like `clojure.java.jdbc/with-connection`, except this automatically
+  wraps `body` in a database transaction."
+  [db-spec & body]
+  `(sql/with-connection ~db-spec
+     (sql/transaction
+      ~@body)))
+
 (defn make-connection-pool
   "Create a new database connection pool"
   [{:keys [classname subprotocol subname username password

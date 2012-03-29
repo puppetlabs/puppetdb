@@ -1,22 +1,14 @@
 (ns com.puppetlabs.cmdb.test.http.facts
   (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.http.facts :as facts]
-            [com.puppetlabs.cmdb.http.server :as server]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
-         ring.mock.request
-         [com.puppetlabs.cmdb.testutils :only [test-db]]
-         [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        ring.mock.request
+        [com.puppetlabs.cmdb.fixtures]
 
-(def ^:dynamic *app* nil)
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
-(use-fixtures :each (fn [f]
-                      (let [db (test-db)]
-                        (binding [*app* (server/build-app {:scf-db db})]
-                          (sql/with-connection db
-                            (migrate!)
-                            (f))))))
+(use-fixtures :each with-test-db with-http-app)
 
 (def c-t "application/json")
 
@@ -38,9 +30,10 @@
                "hostname" "myhost"
                "kernel" "Linux"
                "operatingsystem" "Debian"}]
-    (scf-store/add-certname! certname_without_facts)
-    (scf-store/add-certname! certname_with_facts)
-    (scf-store/add-facts! certname_with_facts facts)
+    (with-transacted-connection *db*
+      (scf-store/add-certname! certname_without_facts)
+      (scf-store/add-certname! certname_with_facts)
+      (scf-store/add-facts! certname_with_facts facts))
     (testing "for an absent node"
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]

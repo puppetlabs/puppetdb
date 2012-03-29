@@ -61,12 +61,12 @@
             [com.puppetlabs.utils :as pl-utils]
             [clj-http.client :as client]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [clj-http.util :only [url-encode]]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))
@@ -245,11 +245,13 @@
                      (throw+ (fatality! e))))
         certname  (:certname catalog)
         timestamp (:received annotations)]
-    (sql/with-connection db
+    (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (if (scf-storage/maybe-activate-node! certname timestamp)
-        (scf-storage/replace-catalog! catalog)))
+        ;; Only store a catalog if it's newer than the current catalog
+        (if-not (scf-storage/catalog-newer-than? certname timestamp)
+          (scf-storage/replace-catalog! catalog timestamp))))
     (log/info (format "[replace catalog] %s" certname))))
 
 ;; Fact replacement
@@ -258,7 +260,7 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:strs [name values]} (json/parse-string payload)
         timestamp (:received annotations)]
-    (sql/with-connection db
+    (with-transacted-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
       (if (scf-storage/maybe-activate-node! name timestamp)
@@ -273,7 +275,7 @@
                    (json/parse-string payload)
                    (catch Throwable e
                      (throw+ (fatality! e))))]
-    (sql/with-connection db
+    (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
