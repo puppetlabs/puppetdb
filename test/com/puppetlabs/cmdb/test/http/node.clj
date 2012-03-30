@@ -5,6 +5,8 @@
   (:use clojure.test
         ring.mock.request
         [clojure.math.combinatorics :only [combinations]]
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         com.puppetlabs.cmdb.fixtures
         [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -38,10 +40,12 @@ to the result of the form supplied to this method."
                 nil)) (str response)))
 
 (deftest test-node-handler
-  (let [names #{"node_a" "node_b" "node_c" "node_d" "node_e"}]
+  (let [names     #{"node_a" "node_b" "node_c" "node_d" "node_e"}
+        timestamp (to-timestamp (now))]
     (with-transacted-connection *db*
       (doseq [name names]
-        (sql/insert-record :certnames {:name name}))
+        (sql/insert-record :certnames {:name name})
+        (sql/insert-record :certname_facts_metadata {:certname name :timestamp timestamp}))
 
       (deactivate-node! "node_a")
       (deactivate-node! "node_e")

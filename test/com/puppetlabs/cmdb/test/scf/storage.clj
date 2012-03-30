@@ -128,7 +128,7 @@
       (with-transacted-connection db
         (migrate!)
         (add-certname! certname)
-        (add-facts! certname facts)
+        (add-facts! certname facts (now))
         (testing "should have entries for each fact"
           (is (= (query-to-vec "SELECT certname, fact, value FROM certname_facts ORDER BY fact")
                  [{:certname certname :fact "domain" :value "mydomain.com"}
@@ -145,7 +145,7 @@
                            "hostname" "myhost"
                            "kernel" "Linux"
                            "uptime_seconds" "3600"}]
-            (replace-facts! certname new-facts)
+            (replace-facts! {"name"  certname "values" new-facts} (now))
             (testing "should have only the new facts"
               (is (= (query-to-vec "SELECT fact, value FROM certname_facts ORDER BY fact")
                      [{:fact "domain" :value "mynewdomain.com"}

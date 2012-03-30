@@ -5,7 +5,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.cmdb.fixtures]
-
+        [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)
@@ -33,7 +33,7 @@
     (with-transacted-connection *db*
       (scf-store/add-certname! certname_without_facts)
       (scf-store/add-certname! certname_with_facts)
-      (scf-store/add-facts! certname_with_facts facts))
+      (scf-store/add-facts! certname_with_facts facts (now)))
     (testing "for an absent node"
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]
