@@ -326,6 +326,16 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
+  (deftest replace-catalog-bad-payload
+    (let [command {:command "replace catalog"
+                   :version 1
+                   :payload "bad stuff"}]
+      (testing "should discard the message"
+      (test-msg-handler command publish discard-dir
+        (is (empty? (query-to-vec "SELECT * FROM certname_catalogs")))
+        (is (= 0 (times-called publish)))
+        (is (seq (fs/list-dir discard-dir)))))))
+
   (deftest replace-catalog-newer-catalog
     (sql/insert-record :certnames {:name certname})
     (sql/insert-record :catalogs {:hash "some_catalog_hash" :api_version 1 :catalog_version "foo"})
@@ -405,6 +415,16 @@
                 {:certname certname :fact "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
+
+  (deftest replace-facts-bad-payload
+    (let [command {:command "replace facts"
+                   :version 1
+                   :payload "bad stuff"}]
+      (testing "should discard the message"
+      (test-msg-handler command publish discard-dir
+        (is (empty? (query-to-vec "SELECT * FROM certname_facts")))
+        (is (= 0 (times-called publish)))
+        (is (seq (fs/list-dir discard-dir)))))))
 
   (deftest replace-facts-newer-facts
     (sql/insert-record :certnames {:name certname})

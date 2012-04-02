@@ -258,7 +258,10 @@
 
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:strs [name] :as facts} (json/parse-string payload)
+  (let [{:strs [name] :as facts} (try+
+                                   (json/parse-string payload)
+                                   (catch Throwable e
+                                     (throw+ (fatality! e))))
         timestamp (:received annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? name)
