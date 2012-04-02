@@ -19,4 +19,7 @@
     (testing "with facts present for a node"
        (is (= (facts/facts-for-node certname) facts)))
     (testing "without facts present for a node"
-       (is (= (facts/facts-for-node "imaginary_node") {})))))
+       (is (= (facts/facts-for-node "imaginary_node") {})))
+    (testing "after deleting facts for a node"
+      (scf-store/delete-facts! certname)
+      (is (= (facts/facts-for-node certname) {})))))
