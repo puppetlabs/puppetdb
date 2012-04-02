@@ -178,10 +178,6 @@
             (= type "swank")
             (swank/start-server :host host :port port))))
 
-      ;; Publish performance data via JMX
-      (log/info "Starting JMX metrics publisher")
-      (metrics/report-to-jmx)
-
       ;; Stop services by blocking on the completion of their futures
       (doseq [cp command-procs]
         (deref cp))
