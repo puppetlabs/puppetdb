@@ -548,6 +548,17 @@ must be supplied as the value to be matched."
         (.after catalog-timestamp timestamp)
         false))))
 
+(defn facts-newer-than?
+  "Returns true if the most current facts for `certname` are more recent than
+  `time`."
+  [certname time]
+  (let [timestamp (to-timestamp time)]
+    (sql/with-query-results result-set
+      ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
+      (if-let [facts-timestamp (:timestamp (first result-set))]
+        (.after facts-timestamp timestamp)
+        false))))
+
 ;; ## Database compaction
 
 (defn delete-unassociated-catalogs!
@@ -585,22 +596,26 @@ must be supplied as the value to be matched."
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
 facts associated with the certname."
-  [certname facts]
+  [certname facts timestamp]
   (let [default-row {:certname certname}
         rows (for [[fact value] facts]
                (assoc default-row :fact fact :value value))]
+    (sql/insert-record :certname_facts_metadata
+      {:certname certname :timestamp (to-timestamp timestamp)})
     (apply sql/insert-records :certname_facts rows)))
 
 (defn delete-facts!
   "Delete all the facts for the given certname."
   [certname]
   {:pre [(string? certname)]}
-  (sql/delete-rows :certname_facts ["certname=?" certname]))
+  (sql/delete-rows :certname_facts_metadata ["certname=?" certname]))
 
 (defn replace-facts!
-  [certname facts]
-  {:pre [(every? string? (vals facts))]}
+  [{:strs [name values]} timestamp]
+  {:pre [(string? name)
+         (every? string? (keys values))
+         (every? string? (vals values))]}
   (time! (:replace-facts metrics)
    (sql/transaction
-    (delete-facts! certname)
-    (add-facts! certname facts))))
+    (delete-facts! name)
+    (add-facts! name values timestamp))))

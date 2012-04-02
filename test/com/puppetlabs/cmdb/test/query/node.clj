@@ -3,6 +3,8 @@
             [com.puppetlabs.cmdb.query.node :as node]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [clojure.math.combinatorics :only [combinations]]
         [com.puppetlabs.cmdb.fixtures]))
 
@@ -28,9 +30,11 @@
     (node/search query)))
 
 (deftest search
-  (let [names #{"node_a" "node_b" "node_c" "node_d" "node_e"}]
+  (let [names     #{"node_a" "node_b" "node_c" "node_d" "node_e"}
+        timestamp (to-timestamp (now))]
     (doseq [name names]
-      (sql/insert-record :certnames {:name name}))
+      (sql/insert-record :certnames {:name name})
+      (sql/insert-record :certname_facts_metadata {:certname name :timestamp timestamp}))
 
     (sql/insert-records
       :certname_facts
