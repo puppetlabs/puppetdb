@@ -258,13 +258,14 @@
 
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:strs [name values]} (json/parse-string payload)
+  (let [{:strs [name] :as facts} (json/parse-string payload)
         timestamp (:received annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
       (if (scf-storage/maybe-activate-node! name timestamp)
-        (scf-storage/replace-facts! name values)))
+        (if-not (scf-storage/facts-newer-than? name timestamp)
+          (scf-storage/replace-facts! facts timestamp))))
     (log/info (format "[replace facts] %s" name))))
 
 ;; Node deactivation

@@ -116,12 +116,37 @@
   (sql/do-commands
     "ALTER TABLE certname_catalogs ADD timestamp TIMESTAMP WITH TIME ZONE"))
 
+(defn add-certname-facts-metadata-table
+  "Add a certname_facts_metadata table to aggregate certname_facts entries and
+  store metadata (eg. timestamps)."
+  []
+  (sql/create-table :certname_facts_metadata
+                    ["certname" "TEXT" "UNIQUE" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["timestamp" "TIMESTAMP WITH TIME ZONE"]
+                    ["PRIMARY KEY (certname, timestamp)"])
+  (sql/do-commands
+    "INSERT INTO certname_facts_metadata (certname,timestamp) SELECT name, current_timestamp FROM certnames")
+
+  ;; First we get rid of the existing foreign key to certnames
+  (let [[result & _] (query-to-vec
+                       (str "SELECT constraint_name FROM information_schema.table_constraints "
+                            "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
+        constraint   (:constraint_name result)]
+    (sql/do-commands
+      (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
+
+  ;; Then we replace it with a foreign key to certname_facts_metadata
+  (sql/do-commands
+    (str "ALTER TABLE certname_facts "
+         "ADD FOREIGN KEY (certname) REFERENCES certname_facts_metadata(certname) ON DELETE CASCADE")))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
   {1 initialize-store
    2 allow-node-deactivation
-   3 add-catalog-timestamps})
+   3 add-catalog-timestamps
+   4 add-certname-facts-metadata-table})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
