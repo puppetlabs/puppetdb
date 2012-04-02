@@ -11,7 +11,7 @@
                  [org.clojure/tools.nrepl "0.2.0-beta2"]
                  [swank-clojure "1.4.0"]
                  [clj-stacktrace "0.2.4"]
-                 [metrics-clojure "0.5.0"]
+                 [metrics-clojure "0.7.0"]
                  [clj-time "0.3.7"]
                  [org.clojure/java.jmx "0.1"]
                  ;; Filesystem utilities
