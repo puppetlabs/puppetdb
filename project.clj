@@ -1,4 +1,28 @@
-(defproject grayskull "1.0.0-SNAPSHOT"
+(require '[clojure.string :as s])
+(use '[clojure.java.shell :only (sh)])
+
+(defn version-string
+  "Determine the version number using 'git describe'"
+  []
+  ;; TODO: Use a command of "git describe" once we actually have an
+  ;; annotated tag in the repo.
+  (let [command                ["git" "describe" "--tags"]
+        {:keys [exit out err]} (apply sh command)]
+    (when-not (zero? exit)
+      (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
+                       command exit out err))
+      (System/exit 1))
+
+    ;; We just want the first 4 "components" of the version string,
+    ;; joined with dots
+    (-> out
+        (s/replace #"-" ".")
+        (s/split #"\.")
+        (#(take 4 %))
+        (#(s/join "." %)))))
+
+
+(defproject grayskull (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [cheshire "2.2.0"]
