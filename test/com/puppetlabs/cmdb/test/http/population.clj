@@ -19,7 +19,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([route] (*app* (get-request (str "/population/" route)))))
+  ([route] (*app* (get-request (str "/experimental/population/" route)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

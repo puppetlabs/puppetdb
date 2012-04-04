@@ -19,7 +19,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([node] (*app* (get-request (str "/catalog/" node)))))
+  ([node] (*app* (get-request (str "/experimental/catalog/" node)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

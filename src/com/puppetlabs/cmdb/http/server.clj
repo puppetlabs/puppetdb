@@ -9,8 +9,7 @@
         [com.puppetlabs.cmdb.http.metrics :only (metrics-app)]
         [com.puppetlabs.cmdb.http.resources :only (resources-app)]
         [com.puppetlabs.cmdb.http.node :only (node-app)]
-        [com.puppetlabs.cmdb.http.catalog :only (catalog-app)]
-        [com.puppetlabs.cmdb.http.population :only (population-app)]
+        [com.puppetlabs.cmdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
@@ -26,15 +25,11 @@
    ["nodes"]
    {:get node-app}
 
-   ["catalog" node]
-   {:get (fn [req]
-           (catalog-app (assoc-in req [:params "node"] node)))}
-
-   ["population" &]
-   {:get population-app}
-
    ["resources"]
    {:get resources-app}
+
+   ["experimental" &]
+   {:get experimental-app}
 
    ["commands"]
    {:post command-app}
