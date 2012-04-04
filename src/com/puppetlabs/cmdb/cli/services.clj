@@ -47,13 +47,13 @@
             [com.puppetlabs.cmdb.command :as command]
             [com.puppetlabs.cmdb.metrics :as metrics]
             [com.puppetlabs.jdbc :as pl-jdbc]
+            [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.tools.nrepl.server :as nrepl]
             [swank.swank :as swank]
-            [ring.adapter.jetty :as jetty]
             [com.puppetlabs.cmdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
@@ -137,7 +137,8 @@
 
         db             (pl-jdbc/pooled-datasource (:database config))
         db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
-        web-opts       (get config :jetty {})
+        web-opts       (-> (get config :jetty {})
+                           (assoc :need-client-auth true))
         mq-dir         (get-in config [:mq :dir])
         discard-dir    (file mq-dir "discarded")
 
