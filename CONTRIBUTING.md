@@ -213,14 +213,6 @@ notifying people of this.  This notification is used to let the Puppet
 development community know about your requested change to give them a
 chance to review, test, and comment on the change(s).
 
-If you submitted your change via manually sending a pull request or
-mailing the patches, then we keep track of these using
-[patchwork](https://patchwork.puppetlabs.com).  When code is merged
-into the project it is automatically removed from patchwork, and the
-Redmine ticket is manually updated with the commit SHA1.  In addition,
-the ticket status must be updated by the person who merges the topic
-branch to a status of "Merged - Pending Release"
-
 We do our best to comment on or merge submitted changes within a week.
 However, if there hasn't been any commentary on the pull request or
 mailed patches, and it hasn't been merged in after a week, then feel
@@ -236,8 +228,6 @@ Additional Resources
 * [Writing tests](http://projects.puppetlabs.com/projects/puppet/wiki/Development_Writing_Tests)
 
 * [Bug tracker (Redmine)](http://projects.puppetlabs.com)
-
-* [Patchwork](https://patchwork.puppetlabs.com)
 
 * [Contributor License Agreement](https://projects.puppetlabs.com/contributor_licenses/sign)
 
