@@ -32,7 +32,11 @@ Checklist (and a short version for the impatient)
     - Make sure that you have tests for the bug you are fixing, or
       feature you are adding.
 
-    - Make sure the test suite passes after your commit (rake spec unit).
+    - Make sure the test suite passes after your commit:
+
+      - `lein test`
+
+      - `cd module && rspec spec`
 
   * Submission:
 
@@ -54,8 +58,8 @@ Checklist (and a short version for the impatient)
 
     * Alternate methods:
 
-      - Mail patches to puppet-dev mailing list using `rake mail_patches`,
-        or `git-format-patch(1)` & `git-send-email(1)`.
+      - Mail patches to puppet-dev mailing list using `git-format-patch(1)` &
+        `git-send-email(1)`.
 
       - Attach patches to Redmine ticket.
 
@@ -178,19 +182,9 @@ The long version
 
         If neither of the previous methods works for you, then you can
         also mail the patches inline to the puppet-dev Google Group
-        using either `rake mail_patches`, or by using
-        `git-format-patch(1)`, and `git-send-email(1)` directly.
-
-        `rake mail_patches` handles setting the appropriate flags to
-        `git-format-patch(1)` and `git-send-email(1)` for you, but
-        doesn't allow adding any commentary between the '---', and the
-        diffstat in the resulting email.  It also requires that you
-        have created your topic branch in the form
-        `<type>/<parent>/<name>`.
-
-        If you decide to use `git-format-patch(1)` and
-        `git-send-email(1)` directly, please be sure to use the
-        following flags for `git-format-patch(1)`: -C -M -s -n
+        using `git-format-patch(1)`, and `git-send-email(1)`.
+        Please be sure to use the following flags for
+        `git-format-patch(1)`: -C -M -s -n
         --subject-prefix='PATCH/puppet'
 
       * Attaching patches to Redmine
