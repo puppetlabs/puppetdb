@@ -216,7 +216,7 @@ For ease-of-explanation, let's assume that:
 * you'll be running Grayskull on a host called `grayskull.my.net`
 
 * your puppet installation uses the standard directory structure and
-  its `vardir` is `/var/lib/puppet`
+  its `ssldir` is `/etc/puppet/ssl`
 
 ### Create a keypair
 
@@ -225,8 +225,8 @@ This is pretty easy with Puppet's built-in CA:
     # puppet cert generate grayskull.my.net
     notice: grayskull.my.net has a waiting certificate request
     notice: Signed certificate request for grayskul.my.net
-    notice: Removing file Puppet::SSL::CertificateRequest grayskull.my.net at '/var/lib/puppet/ssl/ca/requests/grayskull.my.net.pem'
-    notice: Removing file Puppet::SSL::CertificateRequest grayskull.my.net at '/var/lib/puppet/ssl/certificate_requests/grayskull.my.net.pem'
+    notice: Removing file Puppet::SSL::CertificateRequest grayskull.my.net at '/etc/puppet/ssl/ca/requests/grayskull.my.net.pem'
+    notice: Removing file Puppet::SSL::CertificateRequest grayskull.my.net at '/etc/puppet/ssl/certificate_requests/grayskull.my.net.pem'
 
 Et voilà, you've got a keypair.
 
@@ -235,7 +235,7 @@ Et voilà, you've got a keypair.
 You'll need to use the JDK's `keytool` command to import your CA's
 cert into a file format that Grayskull can understand:
 
-    # keytool -import -alias "My CA" -file /var/lib/puppet/ssl/ca/ca_crt.pem -keystore truststore.jks
+    # keytool -import -alias "My CA" -file /etc/puppet/ssl/ca/ca_crt.pem -keystore truststore.jks
     Enter keystore password:
     Re-enter new password:
     .
@@ -261,7 +261,7 @@ you can view your certificate:
 
 Note the MD5 fingerprint; you can use it to verify this is the correct cert:
 
-    # openssl x509 -in /var/lib/puppet/ssl/ca/ca_crt.pem -fingerprint -md5
+    # openssl x509 -in /etc/puppet/ssl/ca/ca_crt.pem -fingerprint -md5
     MD5 Fingerprint=99:D3:28:6B:37:13:7A:A2:B8:73:75:4A:31:78:0B:68
 
 ### Create a keystore
@@ -269,11 +269,11 @@ Note the MD5 fingerprint; you can use it to verify this is the correct cert:
 Now we can take the keypair you generated for `grayskull.my.net` and
 import it into a Java _keystore_:
 
-    # cat /var/lib/puppet/ssl/private_keys/grayskull.my.net.pem /var/lib/puppet/ssl/certs/grayskull.my.net.pem > temp.pem
-    # openssl pkcs12 -export -in temp.pem -out activemq.p12 -name grayskull.my.net
+    # cat /etc/puppet/ssl/private_keys/grayskull.my.net.pem /etc/puppet/ssl/certs/grayskull.my.net.pem > temp.pem
+    # openssl pkcs12 -export -in temp.pem -out grayskull.p12 -name grayskull.my.net
     Enter Export Password:
     Verifying - Enter Export Password:
-    # keytool -importkeystore  -destkeystore keystore.jks -srckeystore activemq.p12 -srcstoretype PKCS12 -alias grayskull.my.net
+    # keytool -importkeystore  -destkeystore keystore.jks -srckeystore grayskull.p12 -srcstoretype PKCS12 -alias grayskull.my.net
     Enter destination keystore password:
     Re-enter new password:
     Enter source keystore password:
