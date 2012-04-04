@@ -555,11 +555,4 @@ What port to use for the REPL.
 
 TODO: need moar docz here
 
-## License
-
-Copyright (C) 2011 Puppet Labs
-
-No license to distribute or reuse this product is currently available.
-For details, contact Puppet Labs.
-
 [leiningen]: https://github.com/technomancy/leiningen
