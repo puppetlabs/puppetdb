@@ -46,6 +46,7 @@
             [com.puppetlabs.cmdb.scf.migrate :as migrations]
             [com.puppetlabs.cmdb.command :as command]
             [com.puppetlabs.cmdb.metrics :as metrics]
+            [com.puppetlabs.cmdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
@@ -150,6 +151,9 @@
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
       (migrate!))
+
+    ;; Initialize database-dependent metrics
+    (pop/initialize-metrics db)
 
     (let [broker        (do
                           (log/info "Starting broker")

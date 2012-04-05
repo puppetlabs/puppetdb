@@ -10,9 +10,9 @@ function counterAndSparkline() {
     // How often to poll for new data
     var pollingInterval = 5000;
     // Width of the sparkline
-    var width = 200;
+    var width = 400;
     // Height of the sparkline
-    var height = 40;
+    var height = 60;
     // What URL to poll for JSON
     var url = null;
     // Function used to return a number from the JSON response;
@@ -30,9 +30,11 @@ function counterAndSparkline() {
     function chart() {
         var n = nHistorical;
         var duration = pollingInterval;
-        var w = width;
-        var h = height;
         var now = new Date();
+        var margin = {top: 10, right: 0, bottom: 10, left: 50};
+        var w = width - margin.left;
+        var h = height - margin.top - margin.bottom;
+        var data = [];
 
         // X axis, chronological scale
         var x = d3.time.scale()
@@ -42,15 +44,6 @@ function counterAndSparkline() {
         // Y axis, linear scale
         var y = d3.scale.linear()
             .range([h, 0]);
-
-        // Initial data set. Datums are maps with a time and a
-        // value. The initial data set is seeded to have values of 0
-        // spread out uniformly across the x-axis.
-        var data = d3.range(n).map(function(i) {
-            return {time: x.ticks(n)[i],
-                    value: 0};
-        });
-        var data = [];
 
         // Function that extracts values from a datum
         var value = function(d) { return d.value; };
@@ -65,37 +58,36 @@ function counterAndSparkline() {
 
         // The "box" represents all DOM elements for this metrics'
         // display
-        var box = d3.select(container).append("div")
+        var box = d3.select(container).append("tr")
             .attr("class", "counterbox");
 
         // Add the description and addendum
-        box.append("div")
+        var label = box.append("td");
+        label.append("div")
             .attr("class", "counterdesc")
-            .text(description);
-        box.append("div")
+            .html(description);
+        label.append("div")
             .attr("class", "counteraddendum")
-            .text(addendum);
+            .html(addendum);
 
         // Add the placeholder for the actual metric value
-        var counter = box.append("div")
+        var counter = box.append("td")
             .attr("class", "countertext");
 
-        // Add DOM elements for min/median/max values
-        var details = box.append("table");
-        var detailed_stats = details.append("tr");
-        detailed_stats.append("td").attr("class", "countermin");
-        detailed_stats.append("td").attr("class", "countermed");
-        detailed_stats.append("td").attr("class", "countermax");
-        var details_legend = details.append("tr").attr("class", "counterlegend");
-        details_legend.append("td").text("min");
-        details_legend.append("td").text("med");
-        details_legend.append("td").text("max");
+        // Initial text for the counters
+        box.select(".countertext").html("?");
 
         // Add an SVG element for the sparkline
-        var svg = box.append("svg")
-            .attr("width", w)
-            .attr("height", h)
-            .append("g");
+        var svg = box.append("td").append("svg")
+            .attr("width", w + margin.left + margin.right)
+            .attr("height", h + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        var yaxis = svg.append("g")
+            .attr("class", "y axis")
+            .attr("transform", "translate(-1,0)")
+            .call(y.axis = d3.svg.axis().scale(y).orient("left").ticks(3));
 
         // Add an SVG clip path, to make the scolling sparkline look
         // nicer.
@@ -113,10 +105,70 @@ function counterAndSparkline() {
             .attr("d", line(data))
             .attr("class", "line");
 
-        // Footer that mentiones the time-scale of the sparkline
-        var timescale = box.append("div")
-            .attr("class", "countertimescale")
-            .text(d3.format(".1f")(duration * n / 60000) + " min trend");
+        // Redraw
+        function redraw() {
+            var datavals = data.map(value);
+            var now = new Date();
+
+            // Update our axes (axises?)
+
+            // Scale the x-axis to go from the second datapoint to the
+            // next-to-last datapoint. We do this to make the scolling
+            // smooth.
+            //
+            // By having the x-axis exclude the most recent datum (the
+            // one we just received), that part of the line will be
+            // rendered off the side of the graph, invisible.
+            //
+            // We can then animate the line to scroll to the left,
+            // bringing the new datum into view smoothly.
+            //
+            // So much effort just to have smooth scrolling...
+            if (data.length > 1) {
+                x.domain([now - (n-2)*duration, data[data.length-2].time]);
+            } else {
+                // If we don't have 2 data points, estimate 2 data
+                // points out by adding our duration to the timestamp
+                // of the last data point.
+                x.domain([now - (n-2)*duration, data[data.length-1].time - duration]);
+            };
+
+            // Scale the y-axis to go from the min value to max value,
+            // and round to nice, even numbers to reduce flickering
+            // from the scale changing too much
+            y.domain([d3.min(datavals), d3.max(datavals)]).nice();
+
+            // Display the most recent datum
+            box.select(".countertext")
+                .html(format(data[data.length-1].value));
+
+            // Redraw our line. We draw it in-place, with the newest
+            // data point off the screen. We then transition the line
+            // to the left, bringing in the new datum.
+            //
+            // We use a "linear" easing function to make the scolling
+            // perfectly smooth relative to the polling interval; the
+            // scroll rate matches the data update rate (in theory,
+            // anyways)
+            //
+            // After the transition is done, call the tick() function
+            // again to re-update.
+            svg.select(".line")
+                .attr("d", line(data))
+                .attr("transform", null)
+                .transition()
+                .duration(duration)
+                .ease("linear")
+                .attr("transform", "translate(" + x(now-(n-1)*duration) + ")")
+                .each("end", tick);
+
+            yaxis.transition()
+                .call(y.axis
+                      .ticks(3)
+                      .tickSize(6, 0, 0)
+                      .tickFormat(format));
+
+        };
 
         // Update function
         function tick() {
@@ -131,79 +183,16 @@ function counterAndSparkline() {
                     // Use the user-supplied callback to parse out a
                     // value
                     data.push({time: now, value: snag(res)});
+                    //data.push({time: now, value: Math.floor(Math.random() * 100)});
                 } else {
                     data.push({time: now, value: 0});
                 }
 
-                var datavals = data.map(value);
+                redraw();
 
-                // Update our axes (axises?)
-
-                // Scale the x-axis to go from the second datapoint to
-                // the next-to-last datapoint. We do this to make the
-                // scolling smooth.
-                //
-                // By having the x-axis exclude the
-                // most recent datum (the one we just received), that
-                // part of the line will be rendered off the side of
-                // the graph, invisible.
-                //
-                // We can then animate the line to scroll to the left,
-                // bringing the new datum into view smoothly.
-                //
-                // So much effort just to have smooth scrolling...
-                if (data.length > 1) {
-                    x.domain([now - (n-2)*duration, data[data.length-2].time]);
-                } else {
-                    // If we don't have 2 data points, estimate 2 data
-                    // points out by adding our duration to the
-                    // timestamp of the last data point.
-                    x.domain([now - (n-2)*duration, data[data.length-1].time - duration]);
-                };
-
-                // Scale the y-axis to go from the min value to max
-                // value, and round to nice, even numbers to reduce
-                // flickering from the scale changing too much
-                y.domain([d3.min(datavals), d3.max(datavals)]).nice();
-
-                // Display the most recent datum, or error text if
-                // none was available
-                if (res != null) {
-                    box.select(".countertext")
-                        .text(format(data[data.length-1].value));
-                } else {
-                    box.select(".countertext")
-                        .text("?");
+                if (res == null) {
+                    box.select(".countertext").html("?");
                 }
-
-                // Display the min/median/max of the data set
-                box.select(".countermin")
-                    .text(format(d3.min(datavals)));
-                box.select(".countermax")
-                    .text(format(d3.max(datavals)));
-                box.select(".countermed")
-                    .text(format(d3.median(datavals)));
-
-                // Redraw our line. We draw it in-place, with the
-                // newest data point off the screen. We then
-                // transition the line to the left, bringing in the
-                // new datum.
-                //
-                // We use a "linear" easing function to make the
-                // scolling perfectly smooth relative to the polling
-                // interval; the scroll rate matches the data update
-                // rate (in theory, anyways)
-                //
-                // After the transition is done, call the tick()
-                // function again to re-update.
-                svg.select(".line")
-                    .attr("d", line(data))
-                    .attr("transform", null)
-                    .transition()
-                    .duration(duration)
-                    .ease("linear")
-                    .attr("transform", "translate(" + x(now-(n-1)*duration) + ")")
-                    .each("end", tick);
 
                 // pop the old data point off the front
                 if (data.length > n) {
@@ -212,8 +201,11 @@ function counterAndSparkline() {
             });
         };
 
-        // Start the update routine.
-        tick();
+        // Start the update routine. We randomize the startup time
+        // to introduce jitter between this chart and other charts
+        // rendered on the same page. Otherwise, you could end up
+        // with many simultaneous AJAX requests.
+        setTimeout(tick, Math.ceil(Math.random() * 5000));
     }
 
     // Functions allowing for overrides of default values
