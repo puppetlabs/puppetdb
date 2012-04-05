@@ -2,13 +2,13 @@ require 'puppet/resource/catalog'
 require 'puppet/indirector/rest'
 require 'digest'
 
-class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
+class Puppet::Resource::Catalog::PuppetDB < Puppet::Indirector::REST
   # These settings don't exist in Puppet yet, so we have to hard-code them for now.
-  #use_server_setting :grayskull_server
-  #use_port_setting :grayskull_port
+  #use_server_setting :puppetdb_server
+  #use_port_setting :puppetdb_port
 
   def self.server
-    "grayskull"
+    "puppetdb"
   end
 
   def self.port
@@ -29,7 +29,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
       rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError => e
         # If we got an exception, the string is either invalid or not
         # convertible to UTF-8, so drop those bytes.
-        Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to Grayskull"
+        Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
         str.encode('UTF-8', :invalid => :replace, :undef => :replace)
       end
     end
@@ -41,7 +41,7 @@ class Puppet::Resource::Catalog::Grayskull < Puppet::Indirector::REST
     # http://po-ru.com/diary/fixing-invalid-utf-8-in-ruby-revisited/
     converted_str = iconv.iconv(str + " ")[0..-2]
     if converted_str != str
-      Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to Grayskull"
+      Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
     end
     converted_str
   end

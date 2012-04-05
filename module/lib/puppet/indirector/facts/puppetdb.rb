@@ -2,13 +2,13 @@ require 'puppet/node/facts'
 require 'puppet/indirector/rest'
 require 'digest'
 
-class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
+class Puppet::Node::Facts::PuppetDB < Puppet::Indirector::REST
   # These settings don't exist in Puppet yet, so we have to hard-code them for now.
-  #use_server_setting :grayskull_server
-  #use_port_setting :grayskull_port
+  #use_server_setting :puppetdb_server
+  #use_port_setting :puppetdb_port
 
   def self.server
-    "grayskull"
+    "puppetdb"
   end
 
   def self.port
@@ -21,7 +21,7 @@ class Puppet::Node::Facts::Grayskull < Puppet::Indirector::REST
     facts.stringify
 
     msg = message(facts).to_pson
-    msg = Puppet::Resource::Catalog::Grayskull.utf8_string(msg)
+    msg = Puppet::Resource::Catalog::PuppetDB.utf8_string(msg)
     checksum = Digest::SHA1.hexdigest(msg)
     payload = CGI.escape(msg)
 

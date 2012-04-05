@@ -1,6 +1,6 @@
-class grayskull::users {
-  user { "grayskull":
-    home => $grayskull::installdir,
+class puppetdb::users {
+  user { "puppetdb":
+    home => $puppetdb::installdir,
     managehome => true,
     system     => true,
     ensure => present;

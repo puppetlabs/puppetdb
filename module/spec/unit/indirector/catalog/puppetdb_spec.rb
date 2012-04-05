@@ -3,9 +3,9 @@
 
 require 'spec_helper'
 
-require 'puppet/indirector/catalog/grayskull'
+require 'puppet/indirector/catalog/puppetdb'
 
-describe Puppet::Resource::Catalog::Grayskull do
+describe Puppet::Resource::Catalog::PuppetDB do
   describe "#save" do
     let(:catalog) do
       cat = Puppet::Resource::Catalog.new('foo')

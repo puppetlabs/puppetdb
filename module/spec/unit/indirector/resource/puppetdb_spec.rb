@@ -1,22 +1,22 @@
 #!/usr/bin/env rspec
 require 'spec_helper'
 
-require 'puppet/indirector/resource/grayskull'
+require 'puppet/indirector/resource/puppetdb'
 
-describe Puppet::Resource::Grayskull do
+describe Puppet::Resource::PuppetDB do
 
   describe "when creating the terminus" do
-    it "should use the grayskull_server setting for its server" do
+    it "should use the puppetdb_server setting for its server" do
       pending "We can't set arbitrary settings"
       Puppet[:server] = 'the_wrong_thing'
-      Puppet[:grayskull_server] = 'the_right_thing'
+      Puppet[:puppetdb_server] = 'the_right_thing'
       described_class.server.should == 'the_right_thing'
     end
 
-    it "should use the grayskull_port setting for its server" do
+    it "should use the puppetdb_port setting for its server" do
       pending "We can't set arbitrary settings"
       Puppet[:masterport] = 8140
-      Puppet[:grayskull_port] = 3000
+      Puppet[:puppetdb_port] = 3000
       described_class.port.should == 3000
     end
   end
@@ -38,7 +38,7 @@ describe Puppet::Resource::Grayskull do
       search("exec").should == []
     end
 
-    it "should fail it can't connect to the Grayskull server" do
+    it "should fail it can't connect to the PuppetDB server" do
       expect { search("user") }.to raise_error(Puppet::Error, /Could not retrieve resources/)
     end
 

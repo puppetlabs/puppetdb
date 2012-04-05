@@ -1,11 +1,11 @@
 require 'puppet/indirector/rest'
 
-class Puppet::Resource::Grayskull < Puppet::Indirector::REST
-  #use_server_setting :grayskull_server
-  #use_port_setting :grayskull_port
+class Puppet::Resource::PuppetDB < Puppet::Indirector::REST
+  #use_server_setting :puppetdb_server
+  #use_port_setting :puppetdb_port
 
   def self.server
-    "grayskull"
+    "puppetdb"
   end
 
   def self.port
@@ -36,7 +36,7 @@ class Puppet::Resource::Grayskull < Puppet::Indirector::REST
     begin
       response = http_get(request, "/resources?#{query_string}", headers)
     rescue => e
-      raise Puppet::Error, "Could not retrieve resources from the Grayskull server: #{e}"
+      raise Puppet::Error, "Could not retrieve resources from the PuppetDB server: #{e}"
     end
 
     resources = PSON.load(response.body)

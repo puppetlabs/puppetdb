@@ -1,9 +1,9 @@
 #!/usr/bin/env rspec
 require 'spec_helper'
 
-require 'puppet/indirector/facts/grayskull'
+require 'puppet/indirector/facts/puppetdb'
 
-describe Puppet::Node::Facts::Grayskull do
+describe Puppet::Node::Facts::PuppetDB do
   describe "#save" do
     let(:facts) do
       Puppet::Node::Facts.new('foo')
