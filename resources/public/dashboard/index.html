@@ -66,18 +66,21 @@ body {
 <script src="http://mbostock.github.com/d3/d3.v2.js?2.8.1"></script>
 <script src="charts.js"></script>
 
-<span id="heap" class="graph"></span>
-<span id="queue" class="graph"></span>
-<span id="proctime" class="graph"></span>
-<span id="procrate" class="graph"></span>
-<span id="processed" class="graph"></span>
-<span id="retried" class="graph"></span>
-<span id="discarded" class="graph"></span>
-<span id="failed" class="graph"></span>
-<span id="dupepct" class="graph"></span>
-<span id="gc-time" class="graph"></span>
-<span id="rest-commands-time" class="graph"></span>
-<span id="rest-resources-time" class="graph"></span>
+<div id="heap" class="graph"></div>
+<div id="queue" class="graph"></div>
+<div id="proctime" class="graph"></div>
+<div id="procrate" class="graph"></div>
+<div id="processed" class="graph"></div>
+<div id="retried" class="graph"></div>
+<div id="discarded" class="graph"></div>
+<div id="failed" class="graph"></div>
+<div id="cat-dupe" class="graph"></div>
+<div id="resource-dupe" class="graph"></div>
+<div id="gc-time" class="graph"></div>
+<div id="rest-commands-time" class="graph"></div>
+<div id="rest-resources-time" class="graph"></div>
+<div id="nodes" class="graph"></div>
+<div id="resources" class="graph"></div>
 
 <script>(function() {
   // Formatting middleware that collapses small values to 0
@@ -216,7 +219,20 @@ body {
   .format(d3.format(",.1%"))
   .description("Catalog duplication")
   .addendum("% of catalogs encountered")
-  .container("#dupepct")
+  .container("#cat-dupe")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.query.population:type=default,name=pct-resource-dupes")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.1%"))
+  .description("Resource duplication")
+  .addendum("% of resources stored")
+  .container("#resource-dupe")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)
   .width(width)
@@ -256,6 +272,32 @@ body {
   .description("Collection Queries")
   .addendum("service time, seconds")
   .container("#rest-resources-time")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.query.population:type=default,name=num-nodes")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",s"))
+  .description("Nodes")
+  .addendum("in the population")
+  .container("#nodes")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/metrics/mbean/com.puppetlabs.cmdb.query.population:type=default,name=num-resources")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",s"))
+  .description("Resources")
+  .addendum("in the population")
+  .container("#resources")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)
   .width(width)

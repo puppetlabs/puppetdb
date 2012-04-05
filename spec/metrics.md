@@ -48,6 +48,20 @@ You can use `curl` to grab metrics like so:
 
 # Useful metrics
 
+## Population metrics
+
+* `com.puppetlabs.cmdb.query.population:type=default,name=num-nodes`:
+  The number of nodes in your population.
+
+* `com.puppetlabs.cmdb.query.population:type=default,name=num-resources`:
+  The number of resources in your population.
+
+* `com.puppetlabs.cmdb.query.population:type=default,name=avg-resources-per-node`:
+  The average number of resources per node in your population.
+
+* `com.puppetlabs.cmdb.query.population:type=default,name=pct-resource-dupes`:
+  The percentage of resources that exist on more than one node.
+
 ## Database metrics
 
 * `com.jolbox.bonecp:type=BoneCP`: Database connection pool
