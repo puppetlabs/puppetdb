@@ -45,7 +45,6 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.scf.migrate :as migrations]
             [com.puppetlabs.puppetdb.command :as command]
-            [com.puppetlabs.puppetdb.metrics :as metrics]
             [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
