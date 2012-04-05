@@ -84,9 +84,9 @@ Vim support would be a welcome addition; please submit patches!
 There is a puppet module for automated installation of PuppetDB. It
 uses Nginx for SSL termination and reverse proxying.
 
-**Puppet Terminus**
+**Puppet terminuses**
 
-There is a puppet terminus that acts as a drop-in replacement for
+There are a set of Puppet terminuses that acts as a drop-in replacement for
 stock storeconfigs functionality. By asynchronously storing catalogs
 in PuppetDB, and by leveraging PuppetDB's fast querying, compilation
 times are much reduced compared to traditional storeconfigs.
@@ -191,6 +191,24 @@ the running system.
 For truly large installations, we recommend terminating SSL using
 Apache or Nginx instead of within PuppetDB itself. This permits much
 greater flexibility and control over bandwidth and clients.
+
+## Puppet Setup
+
+In order to talk to PuppetDB, Puppet must be configured to use the PuppetDB
+terminuses. This can be achieved by installing the module on the Puppet master
+and changing the `storeconfigs_backend` setting to `puppetdb`. The location of
+the server can be specified using the `$confdir/puppetdb.conf` file. The basic
+format of this file is:
+
+    [main]
+    server = puppetdb.example.com
+    port = 8080
+
+If no config file is specified, or a value isn't supplied, the defaults will be
+used:
+
+    server = puppetdb
+    port = 8080
 
 ## SSL Setup
 
