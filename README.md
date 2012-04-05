@@ -126,6 +126,8 @@ in [RFC 2119][RFC2119].
   Puppetmaster to enable _storeconfigs_ and point it at your PuppetDB
   installation.
 
+* A Puppetmaster running Puppet version 2.7.12 or better.
+
 ### Storage Requirements
 
 There are 2 currently supported backends for PuppetDB storage:
