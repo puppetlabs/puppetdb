@@ -22,7 +22,7 @@
         (#(s/join "." %)))))
 
 
-(defproject grayskull (version-string)
+(defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [cheshire "2.2.0"]
@@ -69,6 +69,6 @@
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 
-  :aot [com.puppetlabs.cmdb.core]
-  :main com.puppetlabs.cmdb.core
+  :aot [com.puppetlabs.puppetdb.core]
+  :main com.puppetlabs.puppetdb.core
 )

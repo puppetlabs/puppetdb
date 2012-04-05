@@ -1,50 +1,50 @@
-class grayskull::service($ensure=running) {
+class puppetdb::service($ensure=running) {
   case $operatingsystem {
     "Debian": {
-      file { 'grayskull-init':
+      file { 'puppetdb-init':
         ensure  => present,
-        path    => "/etc/init.d/grayskull",
-        content => template('grayskull/init.erb'),
+        path    => "/etc/init.d/puppetdb",
+        content => template('puppetdb/init.erb'),
         mode    => 0755,
-        notify  => Service[grayskull],
+        notify  => Service[puppetdb],
       }
     }
   }
 
-  file { "${grayskull::installdir}/grayskull.jar":
+  file { "${puppetdb::installdir}/puppetdb.jar":
     ensure => present,
-    source => "puppet:///modules/grayskull/grayskull.jar",
-    owner  => grayskull,
-    group  => grayskull,
+    source => "puppet:///modules/puppetdb/puppetdb.jar",
+    owner  => puppetdb,
+    group  => puppetdb,
     mode   => 0644,
-    notify => Service[grayskull],
+    notify => Service[puppetdb],
   }
 
-  file { 'grayskull-config':
+  file { 'puppetdb-config':
     ensure  => present,
-    path => "${grayskull::installdir}/config.ini",
-    content => template('grayskull/config.ini.erb'),
-    owner   => grayskull,
-    group   => grayskull,
+    path => "${puppetdb::installdir}/config.ini",
+    content => template('puppetdb/config.ini.erb'),
+    owner   => puppetdb,
+    group   => puppetdb,
     mode    => 0640,
-    notify  => Service[grayskull],
+    notify  => Service[puppetdb],
   }
 
-  file { 'grayskull-daemonize':
+  file { 'puppetdb-daemonize':
     ensure => present,
-    path   => "${grayskull::installdir}/daemonize.rb",
-    source => "puppet:///modules/grayskull/daemonize.rb",
-    owner  => grayskull,
-    group  => grayskull,
+    path   => "${puppetdb::installdir}/daemonize.rb",
+    source => "puppet:///modules/puppetdb/daemonize.rb",
+    owner  => puppetdb,
+    group  => puppetdb,
     mode   => 0755,
-    notify => Service[grayskull],
+    notify => Service[puppetdb],
   }
 
   package { "libdaemons-ruby":
     ensure => present,
   }
   ->
-  service { grayskull:
+  service { puppetdb:
     ensure => $ensure,
     notify => Service[nginx],
   }

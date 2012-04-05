@@ -2,7 +2,7 @@
   (:import [org.apache.activemq ScheduledMessage])
   (:require [clamq.jms :as jms])
   (:use [com.puppetlabs.mq]
-        [com.puppetlabs.cmdb.testutils]
+        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]))
 
 (deftest delay-calc
