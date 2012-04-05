@@ -39,6 +39,15 @@
          (convert-result-arrays)
          (vec)))))
 
+(defn table-count
+  "Returns the number of rows in the supplied table"
+  [table]
+  (-> "SELECT COUNT(*) as c FROM %s"
+      (format table)
+      (query-to-vec)
+      (first)
+      :c))
+
 (defmacro with-transacted-connection
   "Like `clojure.java.jdbc/with-connection`, except this automatically
   wraps `body` in a database transaction."
