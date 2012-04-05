@@ -1,7 +1,7 @@
 ;; ## Puppet catalog parsing
 ;;
 ;; Functions that handle conversion of catalogs from wire format to
-;; internal Grayskull format.
+;; internal PuppetDB format.
 ;;
 ;; The wire format is described in detail in [the
 ;; spec](../spec/catalog-wire-format.md).

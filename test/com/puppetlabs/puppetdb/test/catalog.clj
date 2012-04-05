@@ -164,7 +164,7 @@
             :target {:title "/tmp/bar", :type "File"}}],
    :name "nick-lewis.puppetlabs.lan",
    :resources [{:exported false,
-                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :file "/Users/nicklewis/projects/puppetdb/test.pp",
                 :line 3,
                 :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
                 :tags ["file" "class"],
@@ -176,7 +176,7 @@
                 :title "Settings",
                 :type "Class"}
                {:exported false,
-                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :file "/Users/nicklewis/projects/puppetdb/test.pp",
                 :line 11,
                 :parameters {:require "File[/tmp/quux]"},
                 :tags ["file" "class"],
@@ -188,7 +188,7 @@
                 :title "main",
                 :type "Stage"}
                {:exported false,
-                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :file "/Users/nicklewis/projects/puppetdb/test.pp",
                 :line 7,
                 :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
                 :tags ["file" "class"],
@@ -200,7 +200,7 @@
                 :title "main",
                 :type "Class"}
                {:exported false,
-                :file "/Users/nicklewis/projects/grayskull/test.pp",
+                :file "/Users/nicklewis/projects/puppetdb/test.pp",
                 :line 12,
                 :parameters {},
                 :tags ["file" "class"],
@@ -250,7 +250,7 @@
             :relationship :required-by}},
   :resources {{:type "File", :title "/tmp/foo"}
               {:exported false,
-               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :file "/Users/nicklewis/projects/puppetdb/test.pp",
                :line 3,
                :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
                :tags #{"class" "file"},
@@ -264,7 +264,7 @@
                :type "Class"},
               {:type "File", :title "/tmp/baz"}
               {:exported false,
-               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :file "/Users/nicklewis/projects/puppetdb/test.pp",
                :line 11,
                :parameters {:require "File[/tmp/quux]"},
                :tags #{"class" "file"},
@@ -278,7 +278,7 @@
                :type "Stage"},
               {:type "File", :title "/tmp/bar"}
               {:exported false,
-               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :file "/Users/nicklewis/projects/puppetdb/test.pp",
                :line 7,
                :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
                :tags #{"class" "file"},
@@ -292,7 +292,7 @@
                :type "Class"},
               {:type "File", :title "/tmp/quux"}
               {:exported false,
-               :file "/Users/nicklewis/projects/grayskull/test.pp",
+               :file "/Users/nicklewis/projects/puppetdb/test.pp",
                :line 12,
                :parameters {},
                :tags #{"class" "file"},

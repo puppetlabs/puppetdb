@@ -1,12 +1,12 @@
 ;; ## Main entrypoint
 ;;
-;; Grayskull consists of several, cooperating components:
+;; PuppetDB consists of several, cooperating components:
 ;;
 ;; * Command processing
 ;;
-;;   Grayskull uses a CQRS pattern for making changes to its domain
+;;   PuppetDB uses a CQRS pattern for making changes to its domain
 ;;   objects (facts, catalogs, etc). Instead of simply submitting data
-;;   to Grayskull and having it figure out the intent, the intent
+;;   to PuppetDB and having it figure out the intent, the intent
 ;;   needs to explicitly be codified as part of the operation. This is
 ;;   known as a "command" (e.g. "replace the current facts for node
 ;;   X").
@@ -30,7 +30,7 @@
 ;;
 ;; * REST interface
 ;;
-;;   All interaction with Grayskull is conducted via its REST API. We
+;;   All interaction with PuppetDB is conducted via its REST API. We
 ;;   embed an instance of Jetty to handle web server duties. Commands
 ;;   that come in via REST are relayed to the message queue. Read-only
 ;;   requests are serviced synchronously.
@@ -62,12 +62,12 @@
         [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
-(def cli-description "Main Grayskull daemon")
+(def cli-description "Main PuppetDB daemon")
 
 ;; ## Wiring
 ;;
 ;; The following functions setup interaction between the main
-;; Grayskull components.
+;; PuppetDB components.
 
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")

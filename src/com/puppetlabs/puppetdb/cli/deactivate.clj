@@ -1,12 +1,12 @@
 ;; ## Node deactivation
 ;;
 ;; This utility is used to issue a `deactivate node` request to a running
-;; Grayskull instance, which will record the node as inactive until it receives
+;; PuppetDB instance, which will record the node as inactive until it receives
 ;; another command. Inactive nodes can be filtered from fact and resource
 ;; queries.
 ;;
 ;; The only arguments to the command are a config file, used to find the
-;; Grayskull server, and a list of nodes to attempt to deactivate. Because this
+;; PuppetDB server, and a list of nodes to attempt to deactivate. Because this
 ;; is an asynchronous operation, no feedback is available about whether the
 ;; command was actually fulfilled, and it may not be effective immediately.
 ;;
@@ -21,7 +21,7 @@
 (def cli-description "Mark nodes as inactive/decommissioned")
 
 (defn deactivate
-  "Submits a 'deactivate node' request for `node` to the Grayskull instance
+  "Submits a 'deactivate node' request for `node` to the PuppetDB instance
   specified by `host` and `port`. Returns a true value if submission succeeded,
   and a false value otherwise."
   [node host port]

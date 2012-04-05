@@ -1,6 +1,6 @@
 # Metrics
 
-Querying Grayskull metrics is accomplished by making an HTTP request
+Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/metrics` REST endpoint.
 
 # Listing available metrics
@@ -71,7 +71,7 @@ You can use `curl` to grab metrics like so:
 ## Command-processing metrics
 
 Each of the following metrics is available for each command supported
-in Grayskull. In the below list of metrics, `<name>` should be
+in PuppetDB. In the below list of metrics, `<name>` should be
 substituted with a command specifier. Example `<name>`s you can use
 include:
 
@@ -109,7 +109,7 @@ the below list of metrics, `<name>` should be substituted with a REST
 endpoint name. Example `<name>`s you can use include:
 
 * `commands`: Stats relating to the command processing REST
-  endpoint. The Grayskull terminus in Puppet talks to this endpoint to
+  endpoint. The PuppetDB terminus in Puppet talks to this endpoint to
   submit new catalogs, facts, etc.
 
 * `metrics`: Stats relating to the metrics REST endpoint. This is the
@@ -135,13 +135,13 @@ independent counters and statistics.
 
 ## Storage metrics
 
-Metrics involving the Grayskull storage subsystem all begin with the
+Metrics involving the PuppetDB storage subsystem all begin with the
 `com.puppetlabs.puppetdb.scf.storage:type=default,name=` prefix. There are
 a number of metrics around individual storage operations (storing
 resources, storing edges, etc.). Metrics of particular note include:
 
 * `com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
-  the percentage of catalogs that Grayskull determines to be
+  the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
 
 * `com.puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: state

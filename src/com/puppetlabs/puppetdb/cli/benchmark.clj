@@ -2,7 +2,7 @@
 ;;
 ;; This command-line utility will simulate catalog submission for a
 ;; population. It requires that a separate, running instance of
-;; Grayskull for it to submit catalogs to.
+;; PuppetDB for it to submit catalogs to.
 ;;
 ;; Aspects of a population this tool currently models:
 ;;
@@ -26,7 +26,7 @@
 ;; When a host needs to submit a new catalog, we determine if the new
 ;; catalog should be different than the previous one (based on a
 ;; user-specified threshold) and send the resulting catalog to
-;; Grayskull.
+;; PuppetDB.
 ;;
 ;; ### Main loop
 ;;

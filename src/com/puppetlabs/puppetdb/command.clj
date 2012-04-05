@@ -161,7 +161,7 @@
 
 (defn submit-command
   "Submits `payload` as a valid command of type `command` and `version` to the
-  Grayskull instance specified by `host` and `port`. The `payload` will be
+  PuppetDB instance specified by `host` and `port`. The `payload` will be
   converted to JSON before submission. Alternately accepts a string `message`
   which is a formatted command, ready for submission. Returns the server
   response."

@@ -22,7 +22,7 @@
         (#(s/join "." %)))))
 
 
-(defproject grayskull (version-string)
+(defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [cheshire "2.2.0"]
