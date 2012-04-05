@@ -1,6 +1,6 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          grayskull
+# Provides:          puppetdb
 # Required-Start:    $network $named $remote_fs $syslog
 # Required-Stop:     $network $named $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -8,13 +8,13 @@
 ### END INIT INFO
 
 
-DIR="<%= scope.lookupvar('grayskull::installdir') %>"
+DIR="<%= scope.lookupvar('puppetdb::installdir') %>"
 DAEMON="$DIR/daemonize.rb"
-JARFILE="$DIR/grayskull.jar"
+JARFILE="$DIR/puppetdb.jar"
 DAEMON_OPTS="/usr/bin/java -jar $JARFILE services -c $DIR/config.ini"
-NAME=grayskull
-DESC="Grayskull"
-PIDFILE="<%= scope.lookupvar('grayskull::installdir') %>/${NAME}.pid"
+NAME=puppetdb
+DESC="PuppetDB"
+PIDFILE="<%= scope.lookupvar('puppetdb::installdir') %>/${NAME}.pid"
 
 test -x $DAEMON || exit 0
 

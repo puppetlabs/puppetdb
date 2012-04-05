@@ -1,6 +1,6 @@
-# Class: grayskull
+# Class: puppetdb
 #
-# This module manages grayskull
+# This module manages PuppetDB
 #
 # Parameters:
 #
@@ -11,11 +11,11 @@
 # Sample Usage:
 #
 # [Remember: No empty lines between comments and class definition]
-class grayskull(
+class puppetdb(
   $port = 8081,
-  $installdir = "/var/lib/grayskull"
+  $installdir = "/var/lib/puppetdb"
 ) {
-  include grayskull::jdk
-  include grayskull::users
-  include grayskull::service
+  include puppetdb::jdk
+  include puppetdb::users
+  include puppetdb::service
 }

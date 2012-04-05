@@ -1,4 +1,4 @@
-name    'puppetlabs-grayskull'
+name    'puppetlabs-puppetdb'
 version '0.0.1'
 source 'UNKNOWN'
 author 'puppetlabs'
