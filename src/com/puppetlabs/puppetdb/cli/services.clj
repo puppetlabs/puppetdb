@@ -17,7 +17,7 @@
 ;;   all incoming commands are placed in a message queue which the
 ;;   command processing subsystem reads from in FIFO order.
 ;;
-;;   Refer to `com.puppetlabs.cmdb.command` for more details.
+;;   Refer to `com.puppetlabs.puppetdb.command` for more details.
 ;;
 ;; * Message queue
 ;;
@@ -41,12 +41,12 @@
 ;;   database. We periodically compact the database to maintain
 ;;   acceptable performance.
 ;;
-(ns com.puppetlabs.cmdb.cli.services
-  (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.scf.migrate :as migrations]
-            [com.puppetlabs.cmdb.command :as command]
-            [com.puppetlabs.cmdb.metrics :as metrics]
-            [com.puppetlabs.cmdb.query.population :as pop]
+(ns com.puppetlabs.puppetdb.cli.services
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.scf.migrate :as migrations]
+            [com.puppetlabs.puppetdb.command :as command]
+            [com.puppetlabs.puppetdb.metrics :as metrics]
+            [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
@@ -55,12 +55,12 @@
             [clojure.tools.logging :as log]
             [clojure.tools.nrepl.server :as nrepl]
             [swank.swank :as swank]
-            [com.puppetlabs.cmdb.http.server :as server])
+            [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main Grayskull daemon")
 
@@ -71,7 +71,7 @@
 
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
-(def mq-endpoint "com.puppetlabs.cmdb.commands")
+(def mq-endpoint "com.puppetlabs.puppetdb.commands")
 
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.

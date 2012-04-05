@@ -8,15 +8,15 @@
 ;;     ./this-program foo arg1 arg2 arg3
 ;;
 ;; ...then we'll look for a namespace called
-;; `com.puppetlabs.cmdb.cli.foo` and invoke its `-main` method with
+;; `com.puppetlabs.puppetdb.cli.foo` and invoke its `-main` method with
 ;; `[arg1 arg2 arg3]`.
 
-(ns com.puppetlabs.cmdb.core
+(ns com.puppetlabs.puppetdb.core
   (:require [clojure.tools.namespace :as ns])
   (:use [clojure.string :only (split)])
   (:gen-class))
 
-(def ns-prefix "com.puppetlabs.cmdb.cli.")
+(def ns-prefix "com.puppetlabs.puppetdb.cli.")
 
 (defn cli-namespaces
   "Return a set of namespaces underneath the .cli parent"

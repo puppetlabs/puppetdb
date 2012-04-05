@@ -1,10 +1,10 @@
-(ns com.puppetlabs.cmdb.test.http.facts
-  (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
+(ns com.puppetlabs.puppetdb.test.http.facts
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 

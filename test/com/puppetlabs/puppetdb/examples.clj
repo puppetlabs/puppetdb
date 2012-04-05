@@ -1,10 +1,10 @@
-(ns com.puppetlabs.cmdb.examples
-  (:use [com.puppetlabs.cmdb.catalog :only [CMDB-VERSION]]))
+(ns com.puppetlabs.puppetdb.examples
+  (:use [com.puppetlabs.puppetdb.catalog :only [CATALOG-VERSION]]))
 
 (def catalogs
   {:empty
    {:certname "empty.catalogs.com"
-    :cmdb-version CMDB-VERSION
+    :puppetdb-version CATALOG-VERSION
     :api-version 1
     :version "1330463884"
     :tags #{"settings"}
@@ -32,7 +32,7 @@
 
    :basic
    {:certname "basic.catalogs.com"
-    :cmdb-version CMDB-VERSION
+    :puppetdb-version CATALOG-VERSION
     :api-version 1
     :version "123456789"
     :tags #{"class" "foobar"}
@@ -69,7 +69,7 @@
 
    :invalid
    {:certname "invalid.catalogs.com"
-    :cmdb-version CMDB-VERSION
+    :puppetdb-version CATALOG-VERSION
     :api-version 1
     :version 123456789
     :tags #{"class" "foobar"}

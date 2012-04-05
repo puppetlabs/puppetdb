@@ -1,6 +1,6 @@
-;; ## CMDB command handling
+;; ## PuppetDB command handling
 ;;
-;; Commands are the mechanism by which changes are made to the CMDB's
+;; Commands are the mechanism by which changes are made to PuppetDB's
 ;; model of a population. Commands are represented by `command
 ;; objects`, which have the following JSON wire format:
 ;;
@@ -32,7 +32,7 @@
 ;;
 ;; Each entry corresponds to a single failed attempt at handling the
 ;; message, containing the error message, stack trace, and timestamp
-;; for each failure.  The CMDB may discard messages which have been
+;; for each failure. PuppetDB may discard messages which have been
 ;; attempted and failed too many times, or which have experienced
 ;; fatal errors (including unparseable messages).
 ;;
@@ -52,11 +52,11 @@
 ;; JSON-formatted string with the aforementioned structure.
 ;;
 
-(ns com.puppetlabs.cmdb.command
+(ns com.puppetlabs.puppetdb.command
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.cmdb.scf.storage :as scf-storage]
-            [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.cmdb.command.dlo :as dlo]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clj-http.client :as client]

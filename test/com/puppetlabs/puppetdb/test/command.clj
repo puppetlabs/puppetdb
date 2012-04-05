@@ -1,14 +1,14 @@
-(ns com.puppetlabs.cmdb.test.command
+(ns com.puppetlabs.puppetdb.test.command
   (:require [fs.core :as fs]
             [clojure.java.jdbc :as sql]
-            [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.catalog :as catalog])
-  (:use [com.puppetlabs.cmdb.command]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.catalog :as catalog])
+  (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.utils]
-        [com.puppetlabs.cmdb.testutils]
-        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.puppetdb.testutils]
+        [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.examples]
+        [com.puppetlabs.puppetdb.examples]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]

@@ -36,18 +36,18 @@
 ;; independently whether or not to submit a catalog during that clock
 ;; tick.
 ;;
-(ns com.puppetlabs.cmdb.cli.benchmark
+(ns com.puppetlabs.puppetdb.cli.benchmark
   (:import (java.io File))
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.cmdb.catalog :as cat]
-            [com.puppetlabs.cmdb.catalog.utils :as catutils]
-            [com.puppetlabs.cmdb.command :as command]
+            [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.catalog.utils :as catutils]
+            [com.puppetlabs.puppetdb.command :as command]
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
             [fs.core :as fs])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map configure-logging! utf8-string->sha1)]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Development-only benchmarking tool")
 

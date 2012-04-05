@@ -1,4 +1,4 @@
-(ns com.puppetlabs.cmdb.command.dlo
+(ns com.puppetlabs.puppetdb.command.dlo
   (:require [clojure.string :as string]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json])

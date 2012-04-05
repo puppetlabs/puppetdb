@@ -1,12 +1,12 @@
-(ns com.puppetlabs.cmdb.test.http.population
+(ns com.puppetlabs.puppetdb.test.http.population
   (:require [cheshire.core :as json]
             ring.middleware.params
-            [com.puppetlabs.cmdb.scf.storage :as scf-store])
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
   (:use clojure.test
         ring.mock.request
         [clj-time.core :only [now]]
-        [com.puppetlabs.cmdb.fixtures]
-        [com.puppetlabs.cmdb.examples]))
+        [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.examples]))
 
 (use-fixtures :each with-test-db with-http-app)
 

@@ -1,13 +1,13 @@
 ;; ## SQL query compiler
 
-(ns com.puppetlabs.cmdb.query.resource
+(ns com.puppetlabs.puppetdb.query.resource
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
             [clojure.string :as string])
   (:use clojureql.core
         [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays with-transacted-connection]]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize sql-array-query-string]]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
 (defmulti compile-query->sql

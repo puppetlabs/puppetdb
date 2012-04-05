@@ -13,9 +13,9 @@
 ;; If every command submission succeeds, the application will exit 0.
 ;; Otherwise, it will exit with the number of failed command submissions.
 ;;
-(ns com.puppetlabs.cmdb.cli.deactivate
+(ns com.puppetlabs.puppetdb.cli.deactivate
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.cmdb.command :as command])
+            [com.puppetlabs.puppetdb.command :as command])
   (:use [com.puppetlabs.utils :only (cli! ini-to-map)]))
 
 (def cli-description "Mark nodes as inactive/decommissioned")

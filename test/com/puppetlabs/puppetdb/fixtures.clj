@@ -1,8 +1,8 @@
-(ns com.puppetlabs.cmdb.fixtures
+(ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
-            [com.puppetlabs.cmdb.http.server :as server])
-  (:use [com.puppetlabs.cmdb.testutils :only [test-db with-test-broker]]
-        [com.puppetlabs.cmdb.scf.migrate :only [migrate!]]))
+            [com.puppetlabs.puppetdb.http.server :as server])
+  (:use [com.puppetlabs.puppetdb.testutils :only [test-db with-test-broker]]
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
 (def ^:dynamic *mq* nil)
@@ -23,7 +23,7 @@
   [f]
   (with-test-broker "test" conn
     (binding [*mq* {:connection-string "vm://test"
-                    :endpoint "com.puppetlabs.cmdb.commands"}
+                    :endpoint "com.puppetlabs.puppetdb.commands"}
               *conn* conn]
       (f))))
 

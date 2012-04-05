@@ -11,10 +11,10 @@
 ;;
 ;; If no facts are known for the node, the response is a 404 with an error message.
 
-(ns com.puppetlabs.cmdb.http.facts
+(ns com.puppetlabs.puppetdb.http.facts
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.cmdb.query.facts :as f]
+            [com.puppetlabs.puppetdb.query.facts :as f]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 

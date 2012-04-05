@@ -69,6 +69,6 @@
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
 
-  :aot [com.puppetlabs.cmdb.core]
-  :main com.puppetlabs.cmdb.core
+  :aot [com.puppetlabs.puppetdb.core]
+  :main com.puppetlabs.puppetdb.core
 )

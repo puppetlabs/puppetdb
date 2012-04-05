@@ -1,9 +1,9 @@
-(ns com.puppetlabs.cmdb.test.query.facts
-  (:require [com.puppetlabs.cmdb.scf.storage :as scf-store]
-            [com.puppetlabs.cmdb.query.facts :as facts])
+(ns com.puppetlabs.puppetdb.test.query.facts
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.query.facts :as facts])
   (:use clojure.test
         [clj-time.core :only [now]]
-        [com.puppetlabs.cmdb.fixtures]))
+        [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)
 

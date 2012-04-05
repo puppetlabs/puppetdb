@@ -1,6 +1,6 @@
-(ns com.puppetlabs.cmdb.http.experimental
-  (:use [com.puppetlabs.cmdb.http.catalog :only (catalog-app)]
-        [com.puppetlabs.cmdb.http.population :only (population-app)]
+(ns com.puppetlabs.puppetdb.http.experimental
+  (:use [com.puppetlabs.puppetdb.http.catalog :only (catalog-app)]
+        [com.puppetlabs.puppetdb.http.population :only (population-app)]
         [net.cgrand.moustache :only (app)]))
 
 (def experimental-app

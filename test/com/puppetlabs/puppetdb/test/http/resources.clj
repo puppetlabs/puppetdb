@@ -1,11 +1,11 @@
-(ns com.puppetlabs.cmdb.test.http.resources
+(ns com.puppetlabs.puppetdb.test.http.resources
   (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.fixtures]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
+        [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)

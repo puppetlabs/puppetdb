@@ -6,10 +6,10 @@
 ;; If the command is intact and standards-compliant, we immediately
 ;; relay the command to the internal MQ for asynchronous processing.
 ;;
-(ns com.puppetlabs.cmdb.http.command
+(ns com.puppetlabs.puppetdb.http.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.mq :as mq]
-            [com.puppetlabs.cmdb.command :as command]
+            [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clamq.protocol.producer :as mq-producer]

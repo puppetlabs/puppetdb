@@ -2,7 +2,7 @@
 ;;
 ;; Wrapper functions around `metrics-clojure`.
 ;;
-(ns com.puppetlabs.cmdb.metrics)
+(ns com.puppetlabs.puppetdb.metrics)
 
 ;; Reference to underlying static containing all declared metrics.
 (def *registry* (com.yammer.metrics.Metrics/defaultRegistry))

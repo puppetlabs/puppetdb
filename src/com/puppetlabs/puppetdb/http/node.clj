@@ -28,10 +28,10 @@
 ;;
 ;; `["foo.example.com" "bar.example.com" "baz.example.com"]`
 ;;
-(ns com.puppetlabs.cmdb.http.node
+(ns com.puppetlabs.puppetdb.http.node
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.cmdb.query.node :as node]
+            [com.puppetlabs.puppetdb.query.node :as node]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 

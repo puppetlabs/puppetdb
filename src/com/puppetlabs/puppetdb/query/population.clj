@@ -2,7 +2,7 @@
 ;;
 ;; Contains queries and metrics that apply across an entire population.
 
-(ns com.puppetlabs.cmdb.query.population
+(ns com.puppetlabs.puppetdb.query.population
   (:use [com.puppetlabs.jdbc :only (query-to-vec table-count with-transacted-connection)]
         [com.puppetlabs.utils :only (quotient)]
         [metrics.gauges :only (gauge)]))

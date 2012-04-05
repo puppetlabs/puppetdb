@@ -1,16 +1,16 @@
-(ns com.puppetlabs.cmdb.test.scf.storage
-  (:require [com.puppetlabs.cmdb.catalog.utils :as catutils]
+(ns com.puppetlabs.puppetdb.test.scf.storage
+  (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.cmdb.examples]
-        [com.puppetlabs.cmdb.scf.storage]
-        [com.puppetlabs.cmdb.scf.migrate :only  [migrate!]]
+  (:use [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.puppetdb.scf.storage]
+        [com.puppetlabs.puppetdb.scf.migrate :only  [migrate!]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations)]
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]))
+        [com.puppetlabs.puppetdb.testutils :only [test-db]]))
 
 (def db (test-db))
 
@@ -101,9 +101,9 @@
           ;; Functions that tweak various attributes of a catalog
           tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
           tweak-version      #(assoc % :version (str (:version %) "?"))
-          tweak-cmdb-version #(assoc % :cmdb-version (inc (:cmdb-version %)))
+          tweak-puppetdb-version #(assoc % :puppetdb-version (inc (:puppetdb-version %)))
           ;; List of all the tweaking functions
-          chaos-monkeys      [tweak-api-version tweak-version tweak-cmdb-version]
+          chaos-monkeys      [tweak-api-version tweak-version tweak-puppetdb-version]
           ;; Function that will apply a random tweak function
           apply-monkey       #((rand-nth chaos-monkeys) %)]
 

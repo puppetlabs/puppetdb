@@ -1,6 +1,6 @@
 # Commands
 
-Commands are the mechanism by which changes are made to the CMDB's
+Commands are the mechanism by which changes are made to PuppetDB's
 model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
 

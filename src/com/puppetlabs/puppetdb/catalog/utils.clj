@@ -3,8 +3,8 @@
 ;; A suite of functions that aid in constructing random catalogs, or
 ;; randomly modifying an existing catalog (wire format or parsed).
 
-(ns com.puppetlabs.cmdb.catalog.utils
-  (:require [com.puppetlabs.cmdb.catalog :as cat])
+(ns com.puppetlabs.puppetdb.catalog.utils
+  (:require [com.puppetlabs.puppetdb.catalog :as cat])
   (:use [clojure.walk :only [keywordize-keys]]))
 
 (defn random-string

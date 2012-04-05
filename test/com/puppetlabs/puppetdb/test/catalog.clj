@@ -1,11 +1,11 @@
-(ns com.puppetlabs.cmdb.test.catalog
-  (:use [com.puppetlabs.cmdb.catalog]
-        [com.puppetlabs.cmdb.catalog.utils]
+(ns com.puppetlabs.puppetdb.test.catalog
+  (:use [com.puppetlabs.puppetdb.catalog]
+        [com.puppetlabs.puppetdb.catalog.utils]
         [clojure.test]))
 
 (defn catalog-before-and-after
   "Test that a wire format catalog is equal, post-processing, to the
-  indicated cmdb representation"
+  indicated puppetdb representation"
   [before after]
   (let [b (parse-from-json-obj before)
         a after]
@@ -43,7 +43,7 @@
     (testing "should work on well-formed input"
       (is (= (restructure-catalog {:data {:name "myhost" :version "12345" :foo "bar"}
                                    :metadata {:api_version 1}})
-             {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :cmdb-version CMDB-VERSION})))
+             {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version CATALOG-VERSION})))
 
     (testing "should error on malformed input"
       (is (thrown? AssertionError (restructure-catalog {})))
@@ -213,7 +213,7 @@
 
  {:certname "nick-lewis.puppetlabs.lan",
   :api-version 1,
-  :cmdb-version 1,
+  :puppetdb-version 1,
   :classes #{"settings"},
   :edges #{{:source {:title "/tmp/baz", :type "File"},
             :target {:title "/tmp/bar", :type "File"},

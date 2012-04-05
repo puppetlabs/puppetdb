@@ -20,7 +20,7 @@
 ;; For attributes that can't be auto-converted to JSON, we stringify
 ;; them prior to returning them to the client.
 ;;
-(ns com.puppetlabs.cmdb.http.metrics
+(ns com.puppetlabs.puppetdb.http.metrics
   (:require [clojure.java.jmx :as jmx]
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]

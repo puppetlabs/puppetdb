@@ -1,10 +1,10 @@
-(ns com.puppetlabs.cmdb.test.scf.migrate
-  (:require [com.puppetlabs.cmdb.scf.migrate :as migrate])
-  (:use [com.puppetlabs.cmdb.scf.migrate]
+(ns com.puppetlabs.puppetdb.test.scf.migrate
+  (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate])
+  (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clojure.test]
         [com.puppetlabs.utils :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.cmdb.testutils :only [test-db]]))
+        [com.puppetlabs.puppetdb.testutils :only [test-db]]))
 
 (def db (test-db))
 

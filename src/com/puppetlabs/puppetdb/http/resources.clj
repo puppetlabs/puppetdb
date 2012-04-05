@@ -65,9 +65,9 @@
 ;;                   <parameter> <value>
 ;;                   ...}}
 
-(ns com.puppetlabs.cmdb.http.resources
+(ns com.puppetlabs.puppetdb.http.resources
   (:require [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.cmdb.query.resource :as r]
+            [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))

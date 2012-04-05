@@ -1,4 +1,4 @@
-(ns com.puppetlabs.cmdb.testutils
+(ns com.puppetlabs.puppetdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
             [clojure.java.jdbc :as sql]

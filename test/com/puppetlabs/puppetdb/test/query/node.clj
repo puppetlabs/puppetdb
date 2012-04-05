@@ -1,12 +1,12 @@
-(ns com.puppetlabs.cmdb.test.query.node
+(ns com.puppetlabs.puppetdb.test.query.node
   (:require [clojure.set :as set]
-            [com.puppetlabs.cmdb.query.node :as node]
+            [com.puppetlabs.puppetdb.query.node :as node]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.math.combinatorics :only [combinations]]
-        [com.puppetlabs.cmdb.fixtures]))
+        [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)
 

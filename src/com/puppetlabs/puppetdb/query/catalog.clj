@@ -8,11 +8,11 @@
 ;;                  ...}
 ;;      :edges     #{<dependency-spec>
 ;;                   <dependency-spec>}}
-(ns com.puppetlabs.cmdb.query.catalog
+(ns com.puppetlabs.puppetdb.query.catalog
   (:refer-clojure :exclude  [case compile conj! distinct disj! drop sort take])
-  (:require [com.puppetlabs.cmdb.query.resource :as r])
+  (:require [com.puppetlabs.puppetdb.query.resource :as r])
   (:use [com.puppetlabs.jdbc]
-        [com.puppetlabs.cmdb.scf.storage :only [catalogs-for-certname]]
+        [com.puppetlabs.puppetdb.scf.storage :only [catalogs-for-certname]]
         clojureql.core))
 
 (defn get-edges

@@ -3,13 +3,13 @@
 ;; Consolidates our disparate REST endpoints into a single Ring
 ;; application.
 
-(ns com.puppetlabs.cmdb.http.server
-  (:use [com.puppetlabs.cmdb.http.command :only (command-app)]
-        [com.puppetlabs.cmdb.http.facts :only (facts-app)]
-        [com.puppetlabs.cmdb.http.metrics :only (metrics-app)]
-        [com.puppetlabs.cmdb.http.resources :only (resources-app)]
-        [com.puppetlabs.cmdb.http.node :only (node-app)]
-        [com.puppetlabs.cmdb.http.experimental :only (experimental-app)]
+(ns com.puppetlabs.puppetdb.http.server
+  (:use [com.puppetlabs.puppetdb.http.command :only (command-app)]
+        [com.puppetlabs.puppetdb.http.facts :only (facts-app)]
+        [com.puppetlabs.puppetdb.http.metrics :only (metrics-app)]
+        [com.puppetlabs.puppetdb.http.resources :only (resources-app)]
+        [com.puppetlabs.puppetdb.http.node :only (node-app)]
+        [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]

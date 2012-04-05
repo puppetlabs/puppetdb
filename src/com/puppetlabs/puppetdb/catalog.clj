@@ -89,14 +89,14 @@
 ;;                     <dependency-spec>,
 ;;                     ...)}
 ;;
-(ns com.puppetlabs.cmdb.catalog
+(ns com.puppetlabs.puppetdb.catalog
   (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
 
-(def CMDB-VERSION
-  ^{:doc "Constant representing the current version number of the CMDB
+(def CATALOG-VERSION
+  ^{:doc "Constant representing the version number of the PuppetDB
   catalog format"}
   (Integer. 1))
 
@@ -179,7 +179,7 @@
 ;; ## High-level parsing routines
 
 (defn restructure-catalog
-  "Given a wire-format catalog, restructure it to conform to cmdb format.
+  "Given a wire-format catalog, restructure it to conform to puppetdb format.
 
   This primarily consists of hoisting certain catalog attributes from
   nested structures to instead be 'top-level'."
@@ -191,7 +191,7 @@
           (:version %)]}
   (-> (wire-catalog :data)
       (dissoc :name)
-      (assoc :cmdb-version CMDB-VERSION)
+      (assoc :puppetdb-version CATALOG-VERSION)
       (assoc :api-version (get-in wire-catalog [:metadata :api_version]))
       (assoc :certname (get-in wire-catalog [:data :name]))
       (assoc :version (str (get-in wire-catalog [:data :version])))))
@@ -202,7 +202,7 @@
 
 (defn parse-from-json-obj
   "Parse a wire-format JSON catalog object contained in `o`, returning a
-  cmdb-suitable representation."
+  puppetdb-suitable representation."
   [o]
   {:post [(map? %)]}
   (-> o
@@ -215,7 +215,7 @@
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
-  cmdb-suitable representation."
+  puppetdb-suitable representation."
   [s]
   {:pre  [(string? s)]
    :post [(map? %)]}
@@ -224,6 +224,6 @@
 
 (defn parse-from-json-file
   "Parse a wire-format JSON catalog located at `filename`, returning a
-  cmdb-suitable representation."
+  puppetdb-suitable representation."
   [filename]
   (parse-from-json-string (slurp filename)))

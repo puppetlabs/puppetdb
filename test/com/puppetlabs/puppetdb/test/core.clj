@@ -1,4 +1,4 @@
-(ns com.puppetlabs.cmdb.test.core
-  (:use [com.puppetlabs.cmdb.core])
+(ns com.puppetlabs.puppetdb.test.core
+  (:use [com.puppetlabs.puppetdb.core])
   (:use [clojure.test]))
 

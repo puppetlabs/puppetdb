@@ -1,7 +1,7 @@
-(ns com.puppetlabs.cmdb.http.catalog
+(ns com.puppetlabs.puppetdb.http.catalog
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.cmdb.query.catalog :as c]
+            [com.puppetlabs.puppetdb.query.catalog :as c]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 

@@ -1,11 +1,11 @@
-(ns com.puppetlabs.cmdb.test.http.command
+(ns com.puppetlabs.puppetdb.test.http.command
   (:require [com.puppetlabs.utils :as pl-utils]
             [cheshire.core :as json]
             [clj-time.format :as time])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.testutils]
-        [com.puppetlabs.cmdb.fixtures]
+        [com.puppetlabs.puppetdb.testutils]
+        [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.mq]))
 
@@ -52,7 +52,7 @@
       (make-request)
       (*app*))
 
-    (let [[good-msg bad-msg] (drain-into-vec! *conn* "com.puppetlabs.cmdb.commands" 100)
+    (let [[good-msg bad-msg] (drain-into-vec! *conn* "com.puppetlabs.puppetdb.commands" 100)
           good-command       (json/parse-string good-msg true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-command [:annotations :received])]

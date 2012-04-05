@@ -1,4 +1,4 @@
-(ns com.puppetlabs.cmdb.test.http.node
+(ns com.puppetlabs.puppetdb.test.http.node
   (:require [clojure.set :as set]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
@@ -7,8 +7,8 @@
         [clojure.math.combinatorics :only [combinations]]
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
-        com.puppetlabs.cmdb.fixtures
-        [com.puppetlabs.cmdb.scf.storage :only [deactivate-node!]]
+        com.puppetlabs.puppetdb.fixtures
+        [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (use-fixtures :each with-test-db with-http-app)

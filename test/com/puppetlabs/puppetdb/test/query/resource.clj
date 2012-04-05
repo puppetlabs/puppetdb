@@ -1,11 +1,11 @@
-(ns com.puppetlabs.cmdb.test.query.resource
-  (:require [com.puppetlabs.cmdb.query.resource :as s]
+(ns com.puppetlabs.puppetdb.test.query.resource
+  (:require [com.puppetlabs.puppetdb.query.resource :as s]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.cmdb.fixtures]
-        [com.puppetlabs.cmdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
+        [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)
 

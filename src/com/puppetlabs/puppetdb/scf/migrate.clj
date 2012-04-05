@@ -11,11 +11,11 @@
 ;;
 ;; _TODO: consider using multimethods for migration funcs_
 
-(ns com.puppetlabs.cmdb.scf.migrate
+(ns com.puppetlabs.puppetdb.scf.migrate
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.cmdb.scf.storage :only [sql-array-type-string]]))
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string]]))
 
 (defn initialize-store
   "Create the initial database schema."

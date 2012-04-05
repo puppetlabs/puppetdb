@@ -1,6 +1,6 @@
 ;; ## Fact query generation
 
-(ns com.puppetlabs.cmdb.query.facts
+(ns com.puppetlabs.puppetdb.query.facts
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:use clojureql.core))
 

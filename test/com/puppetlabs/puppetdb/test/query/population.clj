@@ -1,9 +1,9 @@
-(ns com.puppetlabs.cmdb.test.query.population
-  (:require [com.puppetlabs.cmdb.query.population :as pop]
+(ns com.puppetlabs.puppetdb.test.query.population
+  (:require [com.puppetlabs.puppetdb.query.population :as pop]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
-        [com.puppetlabs.cmdb.scf.storage :only [to-jdbc-varchar-array]]
-        [com.puppetlabs.cmdb.fixtures]))
+        [com.puppetlabs.puppetdb.scf.storage :only [to-jdbc-varchar-array]]
+        [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)
 

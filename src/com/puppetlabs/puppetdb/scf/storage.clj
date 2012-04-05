@@ -18,8 +18,8 @@
 ;; likely result in dangling resources and catalogs; to clean these
 ;; up, it's important to run `garbage-collect!`.
 
-(ns com.puppetlabs.cmdb.scf.storage
-  (:require [com.puppetlabs.cmdb.catalog :as cat]
+(ns com.puppetlabs.puppetdb.scf.storage
+  (:require [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]

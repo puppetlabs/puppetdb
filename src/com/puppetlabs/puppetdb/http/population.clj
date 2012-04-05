@@ -1,5 +1,5 @@
-(ns com.puppetlabs.cmdb.http.population
-  (:require [com.puppetlabs.cmdb.query.population :as p]
+(ns com.puppetlabs.puppetdb.http.population
+  (:require [com.puppetlabs.puppetdb.query.population :as p]
             [com.puppetlabs.utils :as utils]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
