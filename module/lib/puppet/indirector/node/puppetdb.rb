@@ -1,7 +1,7 @@
 require 'puppet/node'
 require 'puppet/indirector/code'
 
-class Puppet::Node::PuppetDB < Puppet::Indirector::Code
+class Puppet::Node::Puppetdb < Puppet::Indirector::Code
   def find(request)
   end
 

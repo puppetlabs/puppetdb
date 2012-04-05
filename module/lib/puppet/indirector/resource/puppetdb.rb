@@ -1,15 +1,14 @@
 require 'puppet/indirector/rest'
 
-class Puppet::Resource::PuppetDB < Puppet::Indirector::REST
+class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
+  # These settings don't exist in Puppet yet, so we have to use a hack with an
+  # external config file.
   #use_server_setting :puppetdb_server
   #use_port_setting :puppetdb_port
 
-  def self.server
-    "puppetdb"
-  end
-
-  def self.port
-    8080
+  def initialize
+    # Make sure we've loaded the config file
+    Puppet.features.puppetdb?
   end
 
   def search(request)

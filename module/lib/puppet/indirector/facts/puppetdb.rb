@@ -2,17 +2,14 @@ require 'puppet/node/facts'
 require 'puppet/indirector/rest'
 require 'digest'
 
-class Puppet::Node::Facts::PuppetDB < Puppet::Indirector::REST
-  # These settings don't exist in Puppet yet, so we have to hard-code them for now.
+class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
+  # These settings don't exist in Puppet yet, so we have to use a hack with an
   #use_server_setting :puppetdb_server
   #use_port_setting :puppetdb_port
 
-  def self.server
-    "puppetdb"
-  end
-
-  def self.port
-    8080
+  def initialize
+    # Make sure we've loaded the config file
+    Puppet.features.puppetdb?
   end
 
   def save(request)
@@ -21,7 +18,7 @@ class Puppet::Node::Facts::PuppetDB < Puppet::Indirector::REST
     facts.stringify
 
     msg = message(facts).to_pson
-    msg = Puppet::Resource::Catalog::PuppetDB.utf8_string(msg)
+    msg = Puppet::Resource::Catalog::Puppetdb.utf8_string(msg)
     checksum = Digest::SHA1.hexdigest(msg)
     payload = CGI.escape(msg)
 

@@ -5,7 +5,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/catalog/puppetdb'
 
-describe Puppet::Resource::Catalog::PuppetDB do
+describe Puppet::Resource::Catalog::Puppetdb do
   describe "#save" do
     let(:catalog) do
       cat = Puppet::Resource::Catalog.new('foo')
