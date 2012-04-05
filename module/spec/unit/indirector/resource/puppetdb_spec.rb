@@ -3,7 +3,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/resource/puppetdb'
 
-describe Puppet::Resource::PuppetDB do
+describe Puppet::Resource::Puppetdb do
 
   describe "when creating the terminus" do
     it "should use the puppetdb_server setting for its server" do

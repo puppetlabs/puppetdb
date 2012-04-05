@@ -3,7 +3,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/facts/puppetdb'
 
-describe Puppet::Node::Facts::PuppetDB do
+describe Puppet::Node::Facts::Puppetdb do
   describe "#save" do
     let(:facts) do
       Puppet::Node::Facts.new('foo')

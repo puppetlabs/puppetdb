@@ -2,17 +2,15 @@ require 'puppet/resource/catalog'
 require 'puppet/indirector/rest'
 require 'digest'
 
-class Puppet::Resource::Catalog::PuppetDB < Puppet::Indirector::REST
-  # These settings don't exist in Puppet yet, so we have to hard-code them for now.
+class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
+  # These settings don't exist in Puppet yet, so we have to use a hack with an
+  # external config file.
   #use_server_setting :puppetdb_server
   #use_port_setting :puppetdb_port
 
-  def self.server
-    "puppetdb"
-  end
-
-  def self.port
-    8080
+  def initialize
+    # Make sure we've loaded the config file
+    Puppet.features.puppetdb?
   end
 
   # These methods don't really belong here, but this is the best we can do to
