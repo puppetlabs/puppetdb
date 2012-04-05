@@ -1,6 +1,6 @@
 # Commands
 
-Commands are the mechanism by which changes are made to the CMDB's
+Commands are the mechanism by which changes are made to PuppetDB's
 model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
 
@@ -48,7 +48,7 @@ receive the following response:
 
 # Command semantics
 
-Commands are processed _asynchronously_. If Grayskull returns a 200
+Commands are processed _asynchronously_. If PuppetDB returns a 200
 when you submit a command, that only indicates that the command has
 been _accepted_ for processing. There are no guarantees around when
 that command will be processed, or that when it is processed it will

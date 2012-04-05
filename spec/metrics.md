@@ -1,6 +1,6 @@
 # Metrics
 
-Querying Grayskull metrics is accomplished by making an HTTP request
+Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/metrics` REST endpoint.
 
 # Listing available metrics
@@ -50,16 +50,16 @@ You can use `curl` to grab metrics like so:
 
 ## Population metrics
 
-* `com.puppetlabs.cmdb.query.population:type=default,name=num-nodes`:
+* `com.puppetlabs.puppetdb.query.population:type=default,name=num-nodes`:
   The number of nodes in your population.
 
-* `com.puppetlabs.cmdb.query.population:type=default,name=num-resources`:
+* `com.puppetlabs.puppetdb.query.population:type=default,name=num-resources`:
   The number of resources in your population.
 
-* `com.puppetlabs.cmdb.query.population:type=default,name=avg-resources-per-node`:
+* `com.puppetlabs.puppetdb.query.population:type=default,name=avg-resources-per-node`:
   The average number of resources per node in your population.
 
-* `com.puppetlabs.cmdb.query.population:type=default,name=pct-resource-dupes`:
+* `com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes`:
   The percentage of resources that exist on more than one node.
 
 ## Database metrics
@@ -71,7 +71,7 @@ You can use `curl` to grab metrics like so:
 ## Command-processing metrics
 
 Each of the following metrics is available for each command supported
-in Grayskull. In the below list of metrics, `<name>` should be
+in PuppetDB. In the below list of metrics, `<name>` should be
 substituted with a command specifier. Example `<name>`s you can use
 include:
 
@@ -85,20 +85,20 @@ statistics for each version independently.
 
 Metrics available for each command:
 
-* `com.puppetlabs.cmdb.command:type=<name>,name=discarded`: stats
+* `com.puppetlabs.puppetdb.command:type=<name>,name=discarded`: stats
   about commands we've discarded (we've retried them as many times as
   we can, to no avail)
 
-* `com.puppetlabs.cmdb.command:type=<name>,name=fatal`: stats about
+* `com.puppetlabs.puppetdb.command:type=<name>,name=fatal`: stats about
   commands we failed to process.
 
-* `com.puppetlabs.cmdb.command:type=<name>,name=processed`: stats
+* `com.puppetlabs.puppetdb.command:type=<name>,name=processed`: stats
   about commands that we've successfully processed
 
-* `com.puppetlabs.cmdb.command:type=<name>,name=processing-time`:
+* `com.puppetlabs.puppetdb.command:type=<name>,name=processing-time`:
   stats about how long it takes to process commands
 
-* `com.puppetlabs.cmdb.command:type=<name>,name=retried`: stats about
+* `com.puppetlabs.puppetdb.command:type=<name>,name=retried`: stats about
   commands that have been submitted for retry (due to transient
   errors)
 
@@ -109,7 +109,7 @@ the below list of metrics, `<name>` should be substituted with a REST
 endpoint name. Example `<name>`s you can use include:
 
 * `commands`: Stats relating to the command processing REST
-  endpoint. The Grayskull terminus in Puppet talks to this endpoint to
+  endpoint. The PuppetDB terminus in Puppet talks to this endpoint to
   submit new catalogs, facts, etc.
 
 * `metrics`: Stats relating to the metrics REST endpoint. This is the
@@ -127,24 +127,24 @@ see the stats for all `200` responses for the `resources`
 endpoint. This allows you to see, per endpoint and per response,
 independent counters and statistics.
 
-* `com.puppetlabs.cmdb.http.server:type=<name>,name=service-time`:
+* `com.puppetlabs.puppetdb.http.server:type=<name>,name=service-time`:
   stats about how long it takes to service all HTTP requests to this endpoint
 
-* `com.puppetlabs.cmdb.http.server:type=<name>,name=<status code>`:
+* `com.puppetlabs.puppetdb.http.server:type=<name>,name=<status code>`:
   stats about how often we're returning this response code
 
 ## Storage metrics
 
-Metrics involving the Grayskull storage subsystem all begin with the
-`com.puppetlabs.cmdb.scf.storage:type=default,name=` prefix. There are
+Metrics involving the PuppetDB storage subsystem all begin with the
+`com.puppetlabs.puppetdb.scf.storage:type=default,name=` prefix. There are
 a number of metrics around individual storage operations (storing
 resources, storing edges, etc.). Metrics of particular note include:
 
-* `com.puppetlabs.cmdb.scf.storage:type=default,name=duplicate-pct`:
-  the percentage of catalogs that Grayskull determines to be
+* `com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
+  the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
 
-* `com.puppetlabs.cmdb.scf.storage:type=default,name=gc-time`: state
+* `com.puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: state
   about how long it takes to do storage compaction
 
 ## JVM Metrics
@@ -155,7 +155,7 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 ## MQ Metrics
 
-* `org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.cmdb.commands`:
+* `org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands`:
   stats about the command processing queue. Queue depth, stats around
   how long messages remain in the queue, etc.
 
