@@ -44,7 +44,9 @@ receive the following response:
 
 * A content-type of `application/json`
 
-* A body of `true`, a single JSON boolean value.
+* The response body is a single JSON string, a UUID corresponding to
+  the submitted command. This can be used by clients to correlate
+  submitted commands with server-side logs, for example.
 
 # Command semantics
 

@@ -18,10 +18,14 @@
 ;; command-specific meaning or may be used by the message processing
 ;; framework itself.
 ;;
-;; Commands should include a `received` annotation containing a timestamp of
-;; when the message was first seen by the system. If this is omitted, it will
-;; be added when the message is first parsed, but may then be somewhat
-;; inaccurate.
+;; Commands should include a `received` annotation containing a
+;; timestamp of when the message was first seen by the system. If this
+;; is omitted, it will be added when the message is first parsed, but
+;; may then be somewhat inaccurate.
+;;
+;; Commands should include an `id` annotation containing a unique,
+;; string identifier for the command. If this is omitted, it will be
+;; added when the message is first parsed.
 ;;
 ;; Failed messages will have an `attempts` annotation containing an
 ;; array of maps of the form:
@@ -207,7 +211,10 @@
                       (json/parse-string true))
         annotations (get message :annotations {})
         received    (get annotations :received (pl-utils/timestamp))
-        annotations (assoc annotations :received received)]
+        id          (get annotations :id (pl-utils/uuid))
+        annotations (-> annotations
+                        (assoc :received received)
+                        (assoc :id id))]
     (assoc message :annotations annotations)))
 
 ;; ## Command processing exception classes
@@ -244,6 +251,7 @@
                    (catch Throwable e
                      (throw+ (fatality! e))))
         certname  (:certname catalog)
+        id        (:id annotations)
         timestamp (:received annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
@@ -252,7 +260,7 @@
         ;; Only store a catalog if it's newer than the current catalog
         (if-not (scf-storage/catalog-newer-than? certname timestamp)
           (scf-storage/replace-catalog! catalog timestamp))))
-    (log/info (format "[replace catalog] %s" certname))))
+    (log/info (format "[%s] [replace catalog] %s" id certname))))
 
 ;; Fact replacement
 
@@ -262,28 +270,30 @@
                                    (json/parse-string payload)
                                    (catch Throwable e
                                      (throw+ (fatality! e))))
-        timestamp (:received annotations)]
+        id                       (:id annotations)
+        timestamp                (:received annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? name)
         (scf-storage/add-certname! name))
       (if (scf-storage/maybe-activate-node! name timestamp)
         (if-not (scf-storage/facts-newer-than? name timestamp)
           (scf-storage/replace-facts! facts timestamp))))
-    (log/info (format "[replace facts] %s" name))))
+    (log/info (format "[%s] [replace facts] %s" id name))))
 
 ;; Node deactivation
 
 (defmethod process-command! ["deactivate node" 1]
-  [{:keys [payload]} {:keys [db]}]
+  [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (try+
                    (json/parse-string payload)
                    (catch Throwable e
-                     (throw+ (fatality! e))))]
+                     (throw+ (fatality! e))))
+        id       (:id annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
-    (log/info (format "[deactivate node] %s" certname))))
+    (log/info (format "[%s] [deactivate node] %s" id certname))))
 
 ;; ## MQ I/O
 ;;
@@ -430,8 +440,9 @@
 
 (defn handle-command-discard
   [{:keys [command annotations] :as msg} discard]
-  (let [attempts (count (:attempts annotations))]
-    (log/error (format "Exceeded allowed %d attempts processing command [%s]" attempts command))
+  (let [attempts (count (:attempts annotations))
+        id       (:id annotations)]
+    (log/error (format "[%s] [%s] Exceeded max %d attempts" id command attempts))
     (discard msg nil)))
 
 (defn handle-parse-error
@@ -444,8 +455,9 @@
   the message."
   [{:keys [command annotations] :as msg} e discard]
   (let [attempt (count (:attempts annotations))
-        msg (annotate-with-attempt msg e)]
-    (log/error e (format "Fatal error processing command [%s] on attempt %d" command attempt))
+        id      (:id annotations)
+        msg     (annotate-with-attempt msg e)]
+    (log/error e (format "[%s] [%s] Fatal error on attempt %d" id command attempt))
     (discard msg e)))
 
 ;; ### Retry callback
@@ -471,6 +483,7 @@
   [{:keys [command version annotations] :as msg} e publish-fn]
   (mark! (get-in @metrics [command version :retried]))
   (let [attempt (count (:attempts annotations))
+        id      (:id annotations)
         msg     (annotate-with-attempt msg e)
         n       (inc attempt)
         delay   (+ (Math/pow 2 (dec n))
@@ -478,8 +491,8 @@
         logger  (if (> n (/ maximum-allowable-retries 4))
                   #(log/error %)
                   #(log/debug %))]
-    (logger (format "Retrying command [%s, %d] after attempt %d, due to: %s"
-                    command version attempt e))
+    (logger (format "[%s] [%s] Retrying after attempt %d, due to: %s"
+                    id command attempt e))
     (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
 
 ;; ### Message handler

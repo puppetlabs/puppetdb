@@ -284,3 +284,10 @@
      :post [(string? %)]}
     (let [bytes (.getBytes s "UTF-8")]
       (digest-func "sha-1" [bytes]))))
+
+;; UUID handling
+
+(defn uuid
+  "Generate a random UUID and return its string representation"
+  []
+  (str (java.util.UUID/randomUUID)))
