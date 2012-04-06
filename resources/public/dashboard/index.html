@@ -14,9 +14,9 @@ body {
 }
 
 .line {
-  fill: none;
+  fill: #edf7ff;
   stroke: #43a2ca;
-  stroke-width: 2.0px;
+  stroke-width: 1.5px;
 }
 
 #metrics {
@@ -27,11 +27,11 @@ body {
 
 #metrics td {
   margin: 0px;
-  padding: 0px 20px;
+  padding: 0px 10px;
 }
 
 #metrics tr {
-  border-bottom: thin solid #ddd;
+  border-bottom: 2px solid #eee;
 }
 
 .counterbox {
@@ -65,7 +65,7 @@ body {
 }
 
 .axis {
-  font-size: 8px;
+  font-size: 10px;
   color: #999;
 }
 
@@ -213,11 +213,11 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.1%"))
-  .description("Catalog duplication")
-  .addendum("% of catalogs encountered")
+  .url("/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=commands,name=service-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("Enqueueing")
+  .addendum("service time, seconds")
   .container("#metrics")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)
@@ -226,11 +226,11 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.1%"))
-  .description("Resource duplication")
-  .addendum("% of resources stored")
+  .url("/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=resources,name=service-time")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("Collection Queries")
+  .addendum("service time, seconds")
   .container("#metrics")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)
@@ -252,11 +252,11 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=commands,name=service-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("Enqueueing")
-  .addendum("service time, seconds")
+  .url("/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.1%"))
+  .description("Catalog duplication")
+  .addendum("% of catalogs encountered")
   .container("#metrics")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)
@@ -265,11 +265,11 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=resources,name=service-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("Collection Queries")
-  .addendum("service time, seconds")
+  .url("/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.1%"))
+  .description("Resource duplication")
+  .addendum("% of resources stored")
   .container("#metrics")
   .nHistorical(nHistorical)
   .pollingInterval(pollingInterval)

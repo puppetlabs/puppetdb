@@ -43,7 +43,7 @@ function counterAndSparkline() {
 
         // Y axis, linear scale
         var y = d3.scale.linear()
-            .range([h, 0]);
+            .range([h, 1]);
 
         // Function that extracts values from a datum
         var value = function(d) { return d.value; };
@@ -51,10 +51,11 @@ function counterAndSparkline() {
         // SVG pathing computation, plotting time vs. value. We use
         // linear interpolation to provide better visibility of data
         // points. For prettier lines, try "basis" or "monotone".
-        var line = d3.svg.line()
+        var line = d3.svg.area()
             .interpolate("linear")
-            .x(function(d) { return x(d.time); })
-            .y(function(d) { return y(d.value); });
+            .x(function(d) { return 1+x(d.time); })
+            .y1(h+1)
+            .y0(function(d) { return y(d.value); });
 
         // The "box" represents all DOM elements for this metrics'
         // display
