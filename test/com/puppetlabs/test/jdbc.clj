@@ -1,13 +1,8 @@
 (ns com.puppetlabs.test.jdbc
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql])
-  (:use [clojure.test]))
-
-(def db {:classname "org.hsqldb.jdbcDriver"
-         :subprotocol "hsqldb"
-         :subname     (str "mem:"
-                           (java.util.UUID/randomUUID)
-                           ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+  (:use [clojure.test]
+        [com.puppetlabs.puppetdb.testutils :only (test-db)]))
 
 (def test-data {"absence"    "presence"
                 "abundant"   "scarce"
@@ -28,7 +23,7 @@
 
 (defn with-test-database
   [function]
-  (subject/with-transacted-connection db
+  (subject/with-transacted-connection (test-db)
     (sql/create-table :test
                       [:key   "VARCHAR(256)" "PRIMARY KEY"]
                       [:value "VARCHAR(256)" "NOT NULL"])
