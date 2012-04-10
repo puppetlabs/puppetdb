@@ -423,6 +423,12 @@ few seconds.
 
 **[database]**
 
+`gc-interval`
+
+How often, in minutes, to compact the database. The compaction process
+reclaims space, and deletes unnecessary rows. If not supplied, the
+default is every 60 minutes.
+
 `classname`, `subprotocol`, and `subname`
 
 These are specific to the type of database you're using. We currently

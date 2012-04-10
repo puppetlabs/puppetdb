@@ -565,13 +565,13 @@ must be supplied as the value to be matched."
   "Remove any catalogs that aren't associated with a certname"
   []
   (time! (:gc-catalogs metrics)
-   (sql/delete-rows :catalogs ["hash NOT IN (SELECT catalog FROM certname_catalogs)"])))
+   (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog=catalogs.hash)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
-   (sql/delete-rows :resource_params ["resource NOT IN (SELECT resource FROM catalog_resources)"])))
+   (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
