@@ -17,18 +17,26 @@
             [ring.util.response :as rr])
   (:use  [slingshot.slingshot :only [try+ throw+]]))
 
-(defn timestamp-message
-  "Parses `message` and adds a `received` annotation indicating the time that
-  we received the message. Returns the modified message in JSON format, or the
-  original message if the message can't be parsed."
-  [message]
-  {:pre [(string? message)]
+(defn format-for-submission
+  "Readies the supplied wire-format command for submission.
+
+  1. Parses `message` and adds a `received` annotation indicating the
+  time that we received the message.
+
+  2. Adds a unique identifier to the command
+
+  Returns the modified message in JSON format, or the original message
+  if the message can't be parsed."
+  [message id]
+  {:pre [(string? message)
+         (string? id)]
    :post [(string? %)]}
   (try+
     (let [message (command/parse-command message)]
       (-> message
-        (assoc-in [:annotations :received] (pl-utils/timestamp))
-        (json/generate-string)))
+          (assoc-in [:annotations :received] (pl-utils/timestamp))
+          (assoc-in [:annotations :id] id)
+          (json/generate-string)))
     (catch org.codehaus.jackson.JsonParseException e
       message)))
 
@@ -36,16 +44,17 @@
   "Takes the given command and submits it to the specified endpoint on
   the indicated MQ.
 
-  If successful, this function returns `true`."
+  If successful, this function returns the command's unique id."
   [payload mq-spec mq-endpoint]
   {:pre  [(string? payload)
           (string? mq-spec)
           (string? mq-endpoint)]}
   (with-open [conn (mq/connect! mq-spec)]
     (let [producer (mq-conn/producer conn)
-          message (timestamp-message payload)]
-      (mq-producer/publish producer mq-endpoint message)))
-  true)
+          id       (pl-utils/uuid)
+          message  (format-for-submission payload id)]
+      (mq-producer/publish producer mq-endpoint message)
+      id)))
 
 (defn command-app
   "Ring app for processing commands"
@@ -67,7 +76,7 @@
        (rr/status 406))
 
    :else
-    (-> (http->mq (params "payload")
-                  (get-in globals [:command-mq :connection-string])
-                  (get-in globals [:command-mq :endpoint]))
-      pl-utils/json-response)))
+   (-> (http->mq (params "payload")
+                 (get-in globals [:command-mq :connection-string])
+                 (get-in globals [:command-mq :endpoint]))
+       pl-utils/json-response)))

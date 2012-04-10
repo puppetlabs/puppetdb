@@ -28,7 +28,11 @@
             resp     (*app* req)]
         (is (= (:status resp) 200))
         (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
-        (is (= (json/parse-string (:body resp)) true))))
+        (is (= (instance? java.util.UUID
+                          (-> (:body resp)
+                              (json/parse-string)
+                              (java.util.UUID/fromString)))
+               true))))
 
     (testing "should return 400 when missing params"
       (let [req  (make-request {})
