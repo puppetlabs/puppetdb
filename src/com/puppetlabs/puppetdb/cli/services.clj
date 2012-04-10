@@ -88,7 +88,7 @@
      (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
 (defn db-garbage-collector
-  "Compact the indicated database every `interval` millis.
+  "Compact the indicated database every `interval` minutes.
 
   This function doesn't terminate. If we encounter an exception during
   compaction, the operation will be retried after `interval` millis."
@@ -97,7 +97,7 @@
    (fn [exception]
      (log/error exception "Error during DB compaction"))
 
-   (Thread/sleep interval)
+   (Thread/sleep (* 60 1000 interval))
    (log/info "Beginning database compaction")
    (with-transacted-connection db
      (scf-store/garbage-collect!)
@@ -136,7 +136,7 @@
                            (set-global-configuration!))
 
         db             (pl-jdbc/pooled-datasource (:database config))
-        db-gc-interval (get (:database config) :gc-interval (* 1000 3600))
+        db-gc-minutes  (get-in config [:database :gc-interval] 60)
         web-opts       (-> (get config :jetty {})
                            (assoc :need-client-auth true))
         mq-dir         (get-in config [:mq :dir])
@@ -167,9 +167,9 @@
                           (future
                             (jetty/run-jetty ring-app web-opts)))
           db-gc         (do
-                          (log/info "Starting database compactor")
+                          (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
                           (future
-                            (db-garbage-collector db db-gc-interval)))]
+                            (db-garbage-collector db db-gc-minutes)))]
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (get config :repl {})]
