@@ -24,7 +24,7 @@ Puppet.features.add(:puppetdb) do
     port = port.to_i
 
     # Make sure we've loaded the terminuses first
-    [:catalog, :facts, :resource].each do |type|
+    [:catalog, :facts, :resource, :node].each do |type|
       Puppet::Indirector::Terminus.terminus_class(type, :puppetdb)
     end
 
@@ -32,6 +32,7 @@ Puppet.features.add(:puppetdb) do
       :catalog  => Puppet::Resource::Catalog::Puppetdb,
       :facts    => Puppet::Node::Facts::Puppetdb,
       :resource => Puppet::Resource::Puppetdb,
+      :node     => Puppet::Node::Puppetdb,
     }.each do |type, terminus|
       terminus.meta_def(:server) { server }
       terminus.meta_def(:port) { port }
