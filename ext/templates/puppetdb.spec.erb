@@ -1,0 +1,98 @@
+%global  _name puppetdb
+
+%global ruby_sitelib     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+
+Name:           %{_name}
+Version:        <%= @version %>
+Release:        1%{?dist}
+Summary:        Puppet Centralized Storage
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+License:       ASL 2.0
+URL:           http://github.com/puppetlabs/puppetdb
+Source0:       http://downloads.puppetlabs.com/puppetdb/%{name}-%{version}.tar.gz
+
+BuildRequires: /usr/sbin/useradd
+<% if @pe -%>
+BuildRequires: facter, puppet
+BuildRequires: rubygem-rake
+<% else -%>
+BuildRequires: pe-facter, pe-puppet
+BuildRequires: pe-rubygem-rake
+<% end -%>
+
+
+Requires:      java-1.6.0-openjdk
+
+BuildArch:     noarch
+
+
+%description
+Puppet Centralized Storage.
+
+%prep
+%setup -q -n %{name}-%{version}
+
+%package indirector
+Summary: Puppet indirector files to connect to PuppetDB
+Group: Development/Libraries
+<% if @pe -%>
+Requires: pe-puppet >= 2.7.12
+<% else -%>
+Requires: puppet >= 2.7.12
+<% end -%>
+
+%description indirector
+Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
+
+
+%build
+
+%install
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/%{_initddir}
+rake install DESTDIR=$RPM_BUILD_ROOT
+rake indirector DESTDIR=$RPM_BUILD_ROOT
+
+
+%post
+# Add PuppetDB user
+getent group %{name} > /dev/null || groupadd -r %{name}
+getent passwd %{name} > /dev/null || \
+useradd -r -g %{name} -d /opt/puppet/share/%{_name} -s /sbin/nologin \
+     -c "PuppetDB daemon"  %{name}
+# Register the puppetDB service
+/sbin/chkconfig --add %{name}
+
+
+%postun
+# Remove PuppetDB user
+getent group %{name} > /dev/null || groupdel -r %{name}
+getent passwd %{name} > /dev/null || userdel -r %{name}
+/sbin/chkconfig --del %{name}
+
+
+%files
+%doc  *.md
+%defattr(-, %{name}, %{name})
+%config(noreplace)%{_sysconfdir}/%{_name}/config.ini
+%config(noreplace)%{_sysconfdir}/%{_name}/log4j.properties
+%config(noreplace)%{_sysconfdir}/sysconfig/%{name}
+%{_datadir}/%{_name}/%{_name}.jar
+%dir %{_datadir}/%{_name}/db
+%{_initddir}/%{_name}
+%ghost %{_localstatedir}/log/%{name}
+%{_sharedstatedir}/%{name}
+%{_datadir}/%{name}/state
+%doc spec
+%{_sysconfdir}/logrotate.d/*
+
+%files indirector
+%defattr(-, puppet, puppet)
+# There are not specs yet in our rpms
+%{ruby_sitelib}/puppet
+
+
+%changelog
+* Mon Apr 02 2012 Michael Stahnke <stahnma@puppetlabs.com> - 0.1.0-1
+- Initial Packaging

@@ -1,20 +1,22 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          puppetdb
+# Provides:          <%= @name %>
 # Required-Start:    $network $named $remote_fs $syslog
 # Required-Stop:     $network $named $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 ### END INIT INFO
+#
+. /etc/default/<%= @name %>
 
 
-DIR="<%= scope.lookupvar('puppetdb::installdir') %>"
+DIR="<%= @install_dir %>"
 DAEMON="$DIR/daemonize.rb"
 JARFILE="$DIR/puppetdb.jar"
-DAEMON_OPTS="/usr/bin/java -jar $JARFILE services -c $DIR/config.ini"
-NAME=puppetdb
+DAEMON_OPTS="${JAVA_BIN} ${JAVA_ARGS}  -jar $JARFILE services -c <%= @config_dir %>/config.ini"
+NAME=<%= @name %>
 DESC="PuppetDB"
-PIDFILE="<%= scope.lookupvar('puppetdb::installdir') %>/${NAME}.pid"
+PIDFILE="<%= @install_dir %>/${NAME}.pid"
 
 test -x $DAEMON || exit 0
 

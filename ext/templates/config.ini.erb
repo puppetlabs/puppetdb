@@ -1,0 +1,51 @@
+# See README.md for more thorough explanations of each section and
+# option.
+
+[logging]
+# Use an external log4j config file
+# configfile = <%= @config_dir -%>/log4j.properties
+
+[database]
+# For the embedded DB: org.hsqldb.jdbcDriver
+# For PostgreSQL: org.postgresql.Driver
+classname = org.hsqldb.jdbcDriver
+
+# For the embedded DB: hsqldb
+# For PostgreSQL: postgresql
+subprotocol = postgresql
+
+# For the embedded DB: file:/path/to/database;hsqldb.tx=mvcc;sql.syntax_pgs=true
+# For PostgreSQL: //host:port/databaseName
+subname = file:<%= @lib_dir -%>/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
+
+# Connect as a specific user
+# username = foobar
+
+# Use a specific password
+# password = foobar
+
+[command-processing]
+# How many command-processing threads to use, defaults to (CPUs / 2)
+# threads = 4
+
+[mq]
+# Where to persist message queue data
+dir = <%= @lib_dir  -%>/mq
+
+
+[jetty]
+# What hostname to listen on, defaults to binding to '*'
+# hostname = localhost
+
+# What port to listen on
+port = 8080
+
+[repl]
+# Set to true to enable the remote REPL
+enabled = false
+
+# Either nrepl or swank
+type = nrepl
+
+# What port the REPL should listen on
+port = 8081

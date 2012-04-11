@@ -1,0 +1,46 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+export DH_OPTIONS
+
+BUILD_ROOT=$(CURDIR)/debian/tmp
+
+%:
+	dh $@
+
+install::
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+	echo $(CURDIR)
+	echo $(BUILD_ROOT)
+	mkdir -p $(BUILD_ROOT)
+	rake install DESTDIR=$(BUILD_ROOT)
+	rake indirector DESTDIR=$(BUILD_ROOT)
+	dh_installdocs -p puppetdb spec
+
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_install -i
+	dh_installdocs -i
+	dh_installlogcheck
+	dh_installman
+	dh_installinit -ppuppetdb
+	dh_installlogrotate -i -ppuppetdb
+	dh_compress -i
+	dh_fixperms -i
+	dh_installdeb -i
+	dh_shlibdeps -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure
+
+clean::
+	dh_clean
+	rm -rf debian/patches
+	rm -rf .pc

@@ -1,0 +1,9 @@
+/var/log/<%= @name -%>/<%= @name -%>.log {
+    weekly
+    missingok
+    rotate 12
+    compress
+    copytruncate
+    notifempty
+    create 640  <%= @name -%> <%= @name %>
+}

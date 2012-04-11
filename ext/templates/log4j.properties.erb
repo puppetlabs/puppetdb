@@ -8,14 +8,15 @@ log4j.appender.A1.layout.ConversionPattern=%d %-5p [%t] [%c{2}] %m%n
 
 # Appender that logs to a file
 log4j.appender.F1=org.apache.log4j.FileAppender
-log4j.appender.F1.File=/var/log/puppetdb.log
+log4j.appender.F1.File=<%= @log_dir || "/var/log/puppetdb" -%>/puppetdb.log
+
 log4j.appender.F1.layout=org.apache.log4j.PatternLayout
 log4j.appender.F1.layout.ConversionPattern=%d %-5p [%t] [%c{2}] %m%n
 
-# Shut up, ActiveMQ!
+# Suppress internal ActiveMQ logging
 log4j.logger.org.apache.activemq=WARN
 
-# Shut up, Spring Framework!
+# Suppress internal Spring Framework logging
 log4j.logger.org.springframework.jms.connection=WARN
 
 # Turn on to see verbose storage activity

@@ -1,0 +1,26 @@
+Source: <%= @name %>
+Section: utils
+Priority: optional
+Maintainer: Puppet Labs <info@puppetlabs.com>
+<% if @pe -%>
+Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rake, pe-facter, pe-puppet
+<% else -%>
+Build-Depends: debhelper (>= 7.0.0~), cdbs, rake, facter, puppet
+<% end -%>
+Standards-Version: 3.9.1
+Homepage: http://puppetlabs.com
+
+Package: <%= @name %>
+Architecture: all
+Depends: ${misc:Depends},  java6-runtime-headless, adduser
+Suggests: postgresql
+Description:PuppetDB Centralized Storage.
+
+Package: <%= @name %>-indirector
+Architecture: all
+<% if @pe -%>
+Depends:  ${misc:Depends}, pe-puppet-common
+<% else -%>
+Depends:  ${misc:Depends}, puppet-common
+<% end -%>
+Description:Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
