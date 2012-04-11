@@ -126,8 +126,7 @@
 
 (defn -main
   [& args]
-  (let [[options _]    (cli! args
-                             ["-c" "--config" "Path to config.ini"])
+  (let [[options _]    (cli! args)
         config         (-> options
                            :config
                            (ini-to-map)

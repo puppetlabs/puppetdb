@@ -167,6 +167,10 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
+  {:pre [(string? filename)]
+   :post [(map? %)
+          (every? keyword? (keys %))
+          (every? map? (vals %))]}
   (let [ini        (Ini. (reader filename))
         m          (atom {})
         keywordize #(keyword (string/lower-case %))]
@@ -174,9 +178,7 @@
     (doseq [[name section] ini
             [key _] section
             :let [val (.fetch section key)
-                  val (try
-                        (Integer/parseInt val)
-                        (catch NumberFormatException e val))]]
+                  val (or (parse-int val) val)]]
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
 
@@ -217,8 +219,10 @@
   process will immediately exit."
   [args & specs]
   (let [specs                    (conj specs
-                                       ["-h" "--help" "Show help" :default false :flag true])
-        [options posargs banner] (apply cli/cli args specs)]
+                                       ["-c" "--config" "Path to config.ini" :required true]
+                                       ["-h" "--help" "Show help" :default false :flag true]
+                                       ["--trace" "Print stacktraces on error" :default false :flag true])
+       [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
       (println banner)
       (System/exit 0))

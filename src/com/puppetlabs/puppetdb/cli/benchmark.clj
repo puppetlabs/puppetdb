@@ -126,7 +126,6 @@
   [& args]
   (let [[options _] (cli! args
                           ["-d" "--dir" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-                          ["-c" "--config" "Path to config.ini"]
                           ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
                           ["-n" "--numhosts" "How many hosts to use during simulation"]
                           ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
