@@ -116,6 +116,37 @@
                              (int))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
+(defn configure-web-server
+  "Update the supplied config map with information about the HTTP webserver to
+  start. This will specify client auth, and add a default host/port
+  http://puppetdb:8080 if none are supplied (and SSL is not specified)."
+  [config]
+  {:pre [(map? config)]
+   :post [(map? config)]}
+  (let [web-opts     (get config :jetty {})
+        default-port (when-not (or (:ssl? web-opts) (:ssl-port web-opts))
+                       8080)
+        port         (get web-opts :port default-port)]
+    (assoc config :jetty
+           (-> web-opts
+             (assoc :need-client-auth true)
+             (assoc :port port)))))
+
+(defn configure-database
+  "Update the supplied config map with information about the database. Adds a
+  default hsqldb and a gc-interval of 60 minutes. If a single part of the
+  database information is specified (such as classname but not subprotocol), no
+  defaults will be filled in."
+  [config]
+  {:pre [(map? config)]
+   :post [(map? config)]}
+  (let [default-db {:classname "org.hsqldb.jdbcDriver"
+                    :subprotocol "hsqldb"
+                    :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}
+        db         (get config :database default-db)]
+    (assoc config :database
+           (merge {:gc-interval 60} db))))
+
 (defn set-global-configuration!
   "Store away global configuration"
   [config]
@@ -124,27 +155,30 @@
   (def configuration config)
   config)
 
+(defn parse-config
+  "Parses the given config file (if present) and configure its various
+  subcomponents."
+  [file]
+  (let [config (if file (ini-to-map file) {})]
+    (-> config
+      (configure-logging!)
+      (configure-commandproc-threads)
+      (configure-web-server)
+      (configure-database)
+      (set-global-configuration!))))
+
 (defn -main
   [& args]
-  (let [[options _]    (cli! args)
-        config         (-> options
-                           :config
-                           (ini-to-map)
-                           (configure-logging!)
-                           (configure-commandproc-threads)
-                           (set-global-configuration!))
-
-        db             (pl-jdbc/pooled-datasource (:database config))
-        db-gc-minutes  (get-in config [:database :gc-interval] 60)
-        web-opts       (-> (get config :jetty {})
-                           (assoc :need-client-auth true))
-        mq-dir         (get-in config [:mq :dir])
-        discard-dir    (file mq-dir "discarded")
-
-        globals        {:scf-db db
-                        :command-mq {:connection-string mq-addr
-                                     :endpoint mq-endpoint}}
-        ring-app       (server/build-app globals)]
+  (let [[options _]   (cli! args)
+        {:keys [jetty database mq] :as config} (parse-config (:config options))
+        db            (pl-jdbc/pooled-datasource database)
+        db-gc-minutes (get database :gc-interval 60)
+        mq-dir        (get mq :dir "/var/lib/puppetdb/mq")
+        discard-dir   (file mq-dir "discarded")
+        globals       {:scf-db db
+                       :command-mq {:connection-string mq-addr
+                                    :endpoint mq-endpoint}}
+        ring-app      (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
@@ -164,14 +198,14 @@
           web-app       (do
                           (log/info "Starting query server")
                           (future
-                            (jetty/run-jetty ring-app web-opts)))
+                            (jetty/run-jetty ring-app jetty)))
           db-gc         (do
                           (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
                           (future
                             (db-garbage-collector db db-gc-minutes)))]
 
       ;; Start debug REPL if necessary
-      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (get config :repl {})]
+      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
         (when (= "true" enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (cond
