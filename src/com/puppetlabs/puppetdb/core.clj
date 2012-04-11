@@ -14,7 +14,7 @@
 (ns com.puppetlabs.puppetdb.core
   (:require [clojure.tools.namespace :as ns])
   (:use [clojure.string :only (split)]
-        [clojure.stacktrace :only [print-throwable print-stack-trace]])
+        [clojure.stacktrace :only [print-stack-trace]])
   (:gen-class))
 
 (def ns-prefix "com.puppetlabs.puppetdb.cli.")
@@ -79,8 +79,6 @@
         (System/exit 0)
         (catch Throwable e
           (binding [*out* *err*]
-            (if ((set args) "--trace")
-              (print-stack-trace e)
-              (print-throwable e))
-            (println))
-          (System/exit 1))))))
+            (print-stack-trace e)
+            (println)
+            (System/exit 1)))))))

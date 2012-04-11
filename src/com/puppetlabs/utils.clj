@@ -128,19 +128,32 @@
 ;; ## Exception handling
 
 (defn keep-going*
-  "Executes the supplied fn repeatedly"
+  "Executes the supplied fn repeatedly. Execution may be stopped with an
+  InterruptedException."
   [f on-error]
-  (try
-   (f)
-   (catch Throwable e
-     (on-error e)))
-  (recur f on-error))
+  (if (try
+        (f)
+        (catch InterruptedException e
+          false)
+        (catch Throwable e
+          (on-error e)
+          true))
+    (recur f on-error)))
 
 (defmacro keep-going
   "Executes body, repeating the execution of body even if an exception
   is thrown"
   [on-error & body]
   `(keep-going* (fn [] ~@body) ~on-error))
+
+(defmacro with-error-delivery
+  "Executes body, and delivers an exception to the provided promise if one is
+  thrown."
+  [error & body]
+  `(try
+     ~@body
+     (catch Throwable e#
+       (deliver ~error e#))))
 
 ;; ## Unit testing
 

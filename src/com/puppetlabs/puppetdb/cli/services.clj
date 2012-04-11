@@ -58,7 +58,7 @@
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
+        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map with-error-delivery)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -187,22 +187,23 @@
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics db)
 
-    (let [broker        (do
+    (let [error         (promise)
+          broker        (do
                           (log/info "Starting broker")
                           (mq/start-broker! (mq/build-embedded-broker mq-dir)))
           command-procs (let [nthreads (get-in config [:command-processing :threads])]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (into [] (for [n (range nthreads)]
-                                     (future
-                                       (load-from-mq mq-addr mq-endpoint discard-dir db)))))
+                                     (future (with-error-delivery error
+                                               (load-from-mq mq-addr mq-endpoint discard-dir db))))))
           web-app       (do
                           (log/info "Starting query server")
-                          (future
-                            (jetty/run-jetty ring-app jetty)))
+                          (future (with-error-delivery error
+                                    (jetty/run-jetty ring-app jetty))))
           db-gc         (do
                           (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
-                          (future
-                            (db-garbage-collector db db-gc-minutes)))]
+                          (future (with-error-delivery error
+                                    (db-garbage-collector db db-gc-minutes))))]
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
@@ -215,10 +216,13 @@
             (= type "swank")
             (swank/start-server :host host :port port))))
 
-      ;; Stop services by blocking on the completion of their futures
-      (doseq [cp command-procs]
-        (deref cp))
-      (deref web-app)
-      (deref db-gc)
-      ;; Stop the mq the old-fashioned way
-      (mq/stop-broker! broker))))
+      (let [exception (deref error)]
+        (doseq [cp command-procs]
+          (future-cancel cp))
+        (future-cancel web-app)
+        (future-cancel db-gc)
+        ;; Stop the mq the old-fashioned way
+        (mq/stop-broker! broker)
+
+        ;; Now throw the exception so the top-level handler will see it
+        (throw exception)))))
