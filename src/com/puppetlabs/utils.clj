@@ -215,10 +215,10 @@
   "If there is a logging configuration directive in the supplied
   config map, use it to configure the default logger. Returns the same
   config map that was passed in."
-  [config]
+  [{:keys [global] :as config}]
   {:pre [(map? config)]
    :post [(map? %)]}
-  (when-let [logging-conf (get-in config [:logging :configfile])]
+  (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
   config)
 

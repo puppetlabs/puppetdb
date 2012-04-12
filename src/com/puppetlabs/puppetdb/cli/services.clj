@@ -130,15 +130,41 @@
   default hsqldb and a gc-interval of 60 minutes. If a single part of the
   database information is specified (such as classname but not subprotocol), no
   defaults will be filled in."
-  [config]
+  [{:keys [database global] :as config}]
   {:pre [(map? config)]
    :post [(map? config)]}
-  (let [default-db {:classname "org.hsqldb.jdbcDriver"
+  (let [vardir     (:vardir global)
+        default-db {:classname "org.hsqldb.jdbcDriver"
                     :subprotocol "hsqldb"
-                    :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}
-        db         (get config :database default-db)]
+                    :subname (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
     (assoc config :database
-           (merge {:gc-interval 60} db))))
+           (merge {:gc-interval 60} (or database default-db)))))
+
+(defn validate-vardir
+  "Checks that `vardir` is specified, exists, and is writeable, throwing
+  appropriate exceptions if any condition is unmet."
+  [vardir]
+  (if-let [vardir (file vardir)]
+    (cond
+      (not (.isAbsolute vardir))
+      (throw (IllegalArgumentException.
+               (format "Vardir %s must be an absolute path." vardir)))
+
+      (not (.exists vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
+
+      (not (.isDirectory vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s is not a directory." vardir)))
+
+      (not (.canWrite vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s is not writable." vardir))))
+
+    (throw (IllegalArgumentException.
+             "Required setting 'vardir' is not specified. Please set it to a writable directory.")))
+  vardir)
 
 (defn set-global-configuration!
   "Store away global configuration"
@@ -163,10 +189,11 @@
 (defn -main
   [& args]
   (let [[options _]   (cli! args)
-        {:keys [jetty database mq] :as config} (parse-config (:config options))
+        {:keys [jetty database global] :as config} (parse-config (:config options))
+        vardir        (validate-vardir (:vardir global))
         db            (pl-jdbc/pooled-datasource database)
         db-gc-minutes (get database :gc-interval 60)
-        mq-dir        (get mq :dir "/var/lib/puppetdb/mq")
+        mq-dir        (str (file vardir "mq"))
         discard-dir   (file mq-dir "discarded")
         globals       {:scf-db db
                        :command-mq {:connection-string mq-addr

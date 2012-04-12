@@ -24,7 +24,7 @@
         (is (nil? (get-in config [:database :subname])))))
 
     (testing "should default to hsqldb"
-      (let [config (configure-database {})
+      (let [config (configure-database {:global {:vardir "/var/lib/puppetdb"}})
             expected {:classname "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
@@ -44,3 +44,39 @@
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:need-client-auth false}})]
       (is (= (get-in config [:jetty :need-client-auth]) true)))))
+
+(deftest vardir-validation
+  (testing "should fail if it's not specified"
+    (is (thrown-with-msg? IllegalArgumentException #"is not specified"
+          (validate-vardir nil))))
+
+  (testing "should fail if it's not an absolute path"
+    (is (thrown-with-msg? IllegalArgumentException #"must be an absolute path"
+          (validate-vardir "foo/bar/baz"))))
+
+  (testing "should fail if it doesn't exist"
+    (is (thrown-with-msg? java.io.FileNotFoundException #"does not exist"
+          (validate-vardir "/abc/def/ghi"))))
+
+  (testing "should fail if it's not a directory"
+    (let [filename (doto (java.io.File/createTempFile "not_a" "directory")
+                     (.deleteOnExit))]
+      (is (thrown-with-msg? java.io.FileNotFoundException #"is not a directory"
+            (validate-vardir filename)))))
+
+  (testing "should fail if it's not writable"
+    (let [filename (doto (java.io.File/createTempFile "not" "writable")
+                     (.deleteOnExit)
+                     (.delete)
+                     (.mkdir)
+                     (.setReadOnly))]
+      (is (thrown-with-msg? java.io.FileNotFoundException #"is not writable"
+            (validate-vardir filename)))))
+
+  (testing "should return the value if everything is okay"
+    (let [filename (doto (java.io.File/createTempFile "totally" "okay")
+                     (.deleteOnExit)
+                     (.delete)
+                     (.mkdir)
+                     (.setWritable true))]
+      (is (= (validate-vardir filename) filename)))))
