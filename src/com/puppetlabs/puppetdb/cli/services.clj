@@ -123,14 +123,7 @@
   [config]
   {:pre [(map? config)]
    :post [(map? config)]}
-  (let [web-opts     (get config :jetty {})
-        default-port (when-not (or (:ssl? web-opts) (:ssl-port web-opts))
-                       8080)
-        port         (get web-opts :port default-port)]
-    (assoc config :jetty
-           (-> web-opts
-             (assoc :need-client-auth true)
-             (assoc :port port)))))
+  (assoc-in config [:jetty :need-client-auth] true))
 
 (defn configure-database
   "Update the supplied config map with information about the database. Adds a

@@ -43,16 +43,4 @@
 (deftest http-configuration
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:need-client-auth false}})]
-      (is (= (get-in config [:jetty :need-client-auth]) true))))
-
-  (testing "should add a default port 8080 if ssl? and ssl-port are not specified"
-    (let [config (configure-web-server {})]
-      (is (= (get-in config [:jetty :port]) 8080))))
-
-  (testing "should not add a default port if ssl? is true"
-    (let [config (configure-web-server {:jetty {:ssl? true}})]
-      (is (nil? (get-in config [:jetty :port])))))
-
-  (testing "should not add a default port if ssl-port is specified"
-    (let [config (configure-web-server {:jetty {:ssl-port 8081}})]
-      (is (nil? (get-in config [:jetty :port]))))))
+      (is (= (get-in config [:jetty :need-client-auth]) true)))))
