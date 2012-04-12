@@ -56,6 +56,8 @@
   "Version of `ring.adapter.jetty/run-jetty` that uses the above
   monkey patch."
   [handler options]
+  (when (empty? (select-keys options [:port :ssl? :ssl-port]))
+    (throw (IllegalArgumentException. "No ports were specified to bind")))
   (with-redefs [jetty/add-ssl-connector! add-ssl-connector!
                 jetty/create-server      create-server]
     (jetty/run-jetty handler options)))

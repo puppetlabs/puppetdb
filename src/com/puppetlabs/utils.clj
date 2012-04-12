@@ -128,19 +128,32 @@
 ;; ## Exception handling
 
 (defn keep-going*
-  "Executes the supplied fn repeatedly"
+  "Executes the supplied fn repeatedly. Execution may be stopped with an
+  InterruptedException."
   [f on-error]
-  (try
-   (f)
-   (catch Throwable e
-     (on-error e)))
-  (recur f on-error))
+  (if (try
+        (f)
+        (catch InterruptedException e
+          false)
+        (catch Throwable e
+          (on-error e)
+          true))
+    (recur f on-error)))
 
 (defmacro keep-going
   "Executes body, repeating the execution of body even if an exception
   is thrown"
   [on-error & body]
   `(keep-going* (fn [] ~@body) ~on-error))
+
+(defmacro with-error-delivery
+  "Executes body, and delivers an exception to the provided promise if one is
+  thrown."
+  [error & body]
+  `(try
+     ~@body
+     (catch Throwable e#
+       (deliver ~error e#))))
 
 ;; ## Unit testing
 
@@ -167,6 +180,10 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
+  {:pre [(string? filename)]
+   :post [(map? %)
+          (every? keyword? (keys %))
+          (every? map? (vals %))]}
   (let [ini        (Ini. (reader filename))
         m          (atom {})
         keywordize #(keyword (string/lower-case %))]
@@ -174,9 +191,7 @@
     (doseq [[name section] ini
             [key _] section
             :let [val (.fetch section key)
-                  val (try
-                        (Integer/parseInt val)
-                        (catch NumberFormatException e val))]]
+                  val (or (parse-int val) val)]]
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
 
@@ -200,10 +215,10 @@
   "If there is a logging configuration directive in the supplied
   config map, use it to configure the default logger. Returns the same
   config map that was passed in."
-  [config]
+  [{:keys [global] :as config}]
   {:pre [(map? config)]
    :post [(map? %)]}
-  (when-let [logging-conf (get-in config [:logging :configfile])]
+  (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
   config)
 
@@ -217,8 +232,10 @@
   process will immediately exit."
   [args & specs]
   (let [specs                    (conj specs
-                                       ["-h" "--help" "Show help" :default false :flag true])
-        [options posargs banner] (apply cli/cli args specs)]
+                                       ["-c" "--config" "Path to config.ini" :required true]
+                                       ["-h" "--help" "Show help" :default false :flag true]
+                                       ["--trace" "Print stacktraces on error" :default false :flag true])
+       [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
       (println banner)
       (System/exit 0))

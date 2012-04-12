@@ -532,6 +532,8 @@
     (mq-cons/start consumer)
 
     ;; Block until an exception is thrown by the consumer thread
-    (deref mq-error)
-    (mq-cons/close consumer)
-    (throw @mq-error)))
+    (try
+      (deref mq-error)
+      (throw @mq-error)
+      (finally
+        (mq-cons/close consumer)))))
