@@ -69,7 +69,7 @@
 ;; PuppetDB components.
 
 (def configuration nil)
-(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
+(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 
 (defn load-from-mq
