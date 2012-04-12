@@ -383,16 +383,14 @@ the same that Puppet proper uses for much of its own configuration.
 
 Here is an example configuration file:
 
-    [logging]
-    configfile = /var/lib/puppetdb/log4j.properties
+    [global]
+    vardir = /var/lib/puppetdb
+    logging-config = /var/lib/puppetdb/log4j.properties
 
     [database]
     classname = org.postgresql.Driver
     subprotocol = postgresql
     subname = //localhost:5432/puppetdb
-
-    [mq]
-    dir = /var/lib/puppetdb/mq
 
     [jetty]
     port = 8080
@@ -400,13 +398,17 @@ Here is an example configuration file:
 There's not much to it, as you can see. Here's a more detailed
 breakdown of each available section:
 
-**[logging]**
+**[global]**
+This section is used to configure application-wide behavior.
 
-This section is optional. If there's no `[logging]` section in the
-configuration file, we default to logging at INFO level to standard
-out.
+`vardir`
 
-`configfile`
+This setting is used as the parent directory for the MQ's data directory. Also,
+if a database isn't specified, the default database's files will be stored in
+<vardir>/db. The directory must exist and be writable in order for the
+application to run.
+
+`logging-config`
 
 Full path to a
 [log4j.properties](http://logging.apache.org/log4j/1.2/manual.html)
@@ -416,6 +418,9 @@ some exhaustive information.
 
 For an example log4j.properties file, you can look at the `ext`
 directory for versions we include in packages.
+
+If this setting isn't provided, we default to logging at INFO
+level to standard out.
 
 You can edit the logging configuration file after you've started
 PuppetDB, and those changes will automatically get picked up after a
@@ -436,6 +441,9 @@ support 2 different configurations:
 
 An embedded database (for proof-of-concept or extremely tiny
 installations), and PostgreSQL.
+
+If no database information is supplied, an HSQLDB database at
+<vardir>/db will be used.
 
 **Embedded database**
 
@@ -496,16 +504,6 @@ server, or the MQ itself) from being starved of resources, and can
 actually _increase_ throughput.
 
 This setting defaults to half the number of cores in your system.
-
-**[mq]**
-
-Message queue configuration options.
-
-`dir`
-
-What directory to use to persist the message queue (because that stuff
-is important!). If the directory doesn't exist, it will be created
-automatically upon startup.
 
 **[jetty]**
 

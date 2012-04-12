@@ -58,7 +58,7 @@
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map)]
+        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map with-error-delivery)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -69,7 +69,7 @@
 ;; PuppetDB components.
 
 (def configuration nil)
-(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1")
+(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 
 (defn load-from-mq
@@ -116,6 +116,56 @@
                              (int))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
+(defn configure-web-server
+  "Update the supplied config map with information about the HTTP webserver to
+  start. This will specify client auth, and add a default host/port
+  http://puppetdb:8080 if none are supplied (and SSL is not specified)."
+  [config]
+  {:pre [(map? config)]
+   :post [(map? config)]}
+  (assoc-in config [:jetty :need-client-auth] true))
+
+(defn configure-database
+  "Update the supplied config map with information about the database. Adds a
+  default hsqldb and a gc-interval of 60 minutes. If a single part of the
+  database information is specified (such as classname but not subprotocol), no
+  defaults will be filled in."
+  [{:keys [database global] :as config}]
+  {:pre [(map? config)]
+   :post [(map? config)]}
+  (let [vardir     (:vardir global)
+        default-db {:classname "org.hsqldb.jdbcDriver"
+                    :subprotocol "hsqldb"
+                    :subname (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
+    (assoc config :database
+           (merge {:gc-interval 60} (or database default-db)))))
+
+(defn validate-vardir
+  "Checks that `vardir` is specified, exists, and is writeable, throwing
+  appropriate exceptions if any condition is unmet."
+  [vardir]
+  (if-let [vardir (file vardir)]
+    (cond
+      (not (.isAbsolute vardir))
+      (throw (IllegalArgumentException.
+               (format "Vardir %s must be an absolute path." vardir)))
+
+      (not (.exists vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
+
+      (not (.isDirectory vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s is not a directory." vardir)))
+
+      (not (.canWrite vardir))
+      (throw (java.io.FileNotFoundException.
+               (format "Vardir %s is not writable." vardir))))
+
+    (throw (IllegalArgumentException.
+             "Required setting 'vardir' is not specified. Please set it to a writable directory.")))
+  vardir)
+
 (defn set-global-configuration!
   "Store away global configuration"
   [config]
@@ -124,28 +174,31 @@
   (def configuration config)
   config)
 
+(defn parse-config
+  "Parses the given config file (if present) and configure its various
+  subcomponents."
+  [file]
+  (let [config (if file (ini-to-map file) {})]
+    (-> config
+      (configure-logging!)
+      (configure-commandproc-threads)
+      (configure-web-server)
+      (configure-database)
+      (set-global-configuration!))))
+
 (defn -main
   [& args]
-  (let [[options _]    (cli! args
-                             ["-c" "--config" "Path to config.ini"])
-        config         (-> options
-                           :config
-                           (ini-to-map)
-                           (configure-logging!)
-                           (configure-commandproc-threads)
-                           (set-global-configuration!))
-
-        db             (pl-jdbc/pooled-datasource (:database config))
-        db-gc-minutes  (get-in config [:database :gc-interval] 60)
-        web-opts       (-> (get config :jetty {})
-                           (assoc :need-client-auth true))
-        mq-dir         (get-in config [:mq :dir])
-        discard-dir    (file mq-dir "discarded")
-
-        globals        {:scf-db db
-                        :command-mq {:connection-string mq-addr
-                                     :endpoint mq-endpoint}}
-        ring-app       (server/build-app globals)]
+  (let [[options _]   (cli! args)
+        {:keys [jetty database global] :as config} (parse-config (:config options))
+        vardir        (validate-vardir (:vardir global))
+        db            (pl-jdbc/pooled-datasource database)
+        db-gc-minutes (get database :gc-interval 60)
+        mq-dir        (str (file vardir "mq"))
+        discard-dir   (file mq-dir "discarded")
+        globals       {:scf-db db
+                       :command-mq {:connection-string mq-addr
+                                    :endpoint mq-endpoint}}
+        ring-app      (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
@@ -154,25 +207,26 @@
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics db)
 
-    (let [broker        (do
+    (let [error         (promise)
+          broker        (do
                           (log/info "Starting broker")
                           (mq/start-broker! (mq/build-embedded-broker mq-dir)))
           command-procs (let [nthreads (get-in config [:command-processing :threads])]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (into [] (for [n (range nthreads)]
-                                     (future
-                                       (load-from-mq mq-addr mq-endpoint discard-dir db)))))
+                                     (future (with-error-delivery error
+                                               (load-from-mq mq-addr mq-endpoint discard-dir db))))))
           web-app       (do
                           (log/info "Starting query server")
-                          (future
-                            (jetty/run-jetty ring-app web-opts)))
+                          (future (with-error-delivery error
+                                    (jetty/run-jetty ring-app jetty))))
           db-gc         (do
                           (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
-                          (future
-                            (db-garbage-collector db db-gc-minutes)))]
+                          (future (with-error-delivery error
+                                    (db-garbage-collector db db-gc-minutes))))]
 
       ;; Start debug REPL if necessary
-      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (get config :repl {})]
+      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
         (when (= "true" enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (cond
@@ -182,10 +236,13 @@
             (= type "swank")
             (swank/start-server :host host :port port))))
 
-      ;; Stop services by blocking on the completion of their futures
-      (doseq [cp command-procs]
-        (deref cp))
-      (deref web-app)
-      (deref db-gc)
-      ;; Stop the mq the old-fashioned way
-      (mq/stop-broker! broker))))
+      (let [exception (deref error)]
+        (doseq [cp command-procs]
+          (future-cancel cp))
+        (future-cancel web-app)
+        (future-cancel db-gc)
+        ;; Stop the mq the old-fashioned way
+        (mq/stop-broker! broker)
+
+        ;; Now throw the exception so the top-level handler will see it
+        (throw exception)))))

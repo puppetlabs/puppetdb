@@ -38,7 +38,8 @@
   connections."
   [^BrokerService broker]
   (.start broker)
-  (.waitUntilStarted broker))
+  (.waitUntilStarted broker)
+  broker)
 
 (defn stop-broker!
   "Stops the supplied broker"

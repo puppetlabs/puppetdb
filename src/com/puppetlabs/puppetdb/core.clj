@@ -13,7 +13,8 @@
 
 (ns com.puppetlabs.puppetdb.core
   (:require [clojure.tools.namespace :as ns])
-  (:use [clojure.string :only (split)])
+  (:use [clojure.string :only (split)]
+        [clojure.stacktrace :only [print-stack-trace]])
   (:gen-class))
 
 (def ns-prefix "com.puppetlabs.puppetdb.cli.")
@@ -73,4 +74,11 @@
     (let [module (str ns-prefix subcommand)
           args (rest args)]
       (require (symbol module))
-      (apply (resolve (symbol module "-main")) args))))
+      (try
+        (apply (resolve (symbol module "-main")) args)
+        (System/exit 0)
+        (catch Throwable e
+          (binding [*out* *err*]
+            (print-stack-trace e)
+            (println)
+            (System/exit 1)))))))
