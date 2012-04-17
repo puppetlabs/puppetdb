@@ -4,9 +4,18 @@ require 'spec_helper'
 require 'puppet/indirector/facts/puppetdb'
 
 describe Puppet::Node::Facts::Puppetdb do
+  before :each do
+    Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
+  end
+
   describe "#save" do
+    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:facts) do
       Puppet::Node::Facts.new('foo')
+    end
+
+    before :each do
+      response.stubs(:body).returns "a UUID"
     end
 
     def save
@@ -23,7 +32,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.expects(:http_post).with do |request,uri,body,headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
-      end
+      end.returns response
 
       save
 
@@ -42,7 +51,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.expects(:http_post).with do |request,uri,body,headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
-      end
+      end.returns response
 
       save
 
@@ -57,7 +66,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
   describe "#search" do
     let(:request) { Puppet::Node::Facts.indirection.request(:search, 'facts', @query) }
-    let(:response) { Net::HTTPOK.new('1.1', 200, '') }
+    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
 
     it "should return the nodes from the response" do
       @query = {
@@ -176,14 +185,14 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should raise an error if a failure occurs" do
-      response = Net::HTTPBadRequest.new('1.1', 400, '')
+      response = Net::HTTPBadRequest.new('1.1', 400, 'Bad Request')
       response.stubs(:body).returns 'Something bad happened!'
 
       subject.stubs(:http_get).returns response
 
       expect do
         subject.search(request)
-      end.to raise_error(Puppet::Error, /Could not perform inventory search: 400 Something bad happened!/)
+      end.to raise_error(Puppet::Error, /Could not perform inventory search from PuppetDB at localhost:0: \[400 Bad Request\] Something bad happened!/)
     end
   end
 end

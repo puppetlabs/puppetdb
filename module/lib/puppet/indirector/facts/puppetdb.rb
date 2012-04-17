@@ -1,28 +1,16 @@
 require 'puppet/node/facts'
 require 'puppet/indirector/rest'
-require 'digest'
+require 'puppet/util/puppetdb'
 
 class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
-  # These settings don't exist in Puppet yet, so we have to use a hack with an
-  #use_server_setting :puppetdb_server
-  #use_port_setting :puppetdb_port
-
-  def initialize
-    # Make sure we've loaded the config file
-    Puppet.features.puppetdb?
-  end
+  include Puppet::Util::Puppetdb
 
   def save(request)
     facts = request.instance.dup
     facts.values = facts.values.dup
     facts.stringify
 
-    msg = message(facts).to_pson
-    msg = Puppet::Resource::Catalog::Puppetdb.utf8_string(msg)
-    checksum = Digest::SHA1.hexdigest(msg)
-    payload = CGI.escape(msg)
-
-    http_post(request, "/commands", "checksum=#{checksum}&payload=#{payload}", headers)
+    submit_command(request, facts, 'replace facts', 1)
   end
 
   def find(request)
@@ -63,12 +51,17 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     query = ["and", ["=", ["node", "active"], true]] + filters
     query_param = CGI.escape(query.to_pson)
 
-    response = http_get(request, "/nodes?query=#{query_param}", headers)
+    begin
+      response = http_get(request, "/nodes?query=#{query_param}", headers)
 
-    if response.is_a? Net::HTTPSuccess
-      PSON.parse(response.body)
-    else
-      raise Puppet::Error, "Could not perform inventory search: #{response.code} #{response.body}"
+      if response.is_a? Net::HTTPSuccess
+        PSON.parse(response.body)
+      else
+        # Newline characters cause an HTTP error, so strip them
+        raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+      end
+    rescue => e
+      raise Puppet::Error, "Could not perform inventory search from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
   end
 
@@ -76,14 +69,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     {
       "Accept" => "application/json",
       "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
-    }
-  end
-
-  def message(instance)
-    {
-      :command => "replace facts",
-      :version => 1,
-      :payload => instance.to_pson,
     }
   end
 end
