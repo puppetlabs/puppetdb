@@ -26,7 +26,16 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   end
 
   def find(request)
-    nil
+    begin
+      response = http_get(request, "/facts/#{request.key}", headers)
+
+      if response.is_a? Net::HTTPSuccess
+        result = PSON.parse(response.body)
+        Puppet::Node::Facts.new(result['name'], result['facts'])
+      end
+    rescue => e
+      nil
+    end
   end
 
   # Search for nodes matching a set of fact constraints. The constraints are

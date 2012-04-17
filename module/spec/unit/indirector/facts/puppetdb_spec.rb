@@ -55,6 +55,41 @@ describe Puppet::Node::Facts::Puppetdb do
     end
   end
 
+  describe "#find" do
+    let(:request) { Puppet::Node::Facts.indirection.request(:find, 'facts') }
+
+    it "should return the facts if they're found" do
+      facts = {'a' => '1',
+                'b' => '2'}
+      body = {:name => 'some_node',
+              :facts => facts}.to_pson
+
+      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response.stubs(:body).returns body
+
+      subject.stubs(:http_get).returns response
+
+      result = subject.find(request)
+      result.should be_a(Puppet::Node::Facts)
+      result.name.should == 'some_node'
+      result.values.should include(facts)
+    end
+
+    it "should return nil if no facts are found" do
+      response = Net::HTTPOK.new('1.1', 404, 'Not Found')
+
+      subject.stubs(:http_get).returns response
+
+      subject.find(request).should be_nil
+    end
+
+    it "should return nil if an error occurs" do
+      subject.stubs(:http_get).raises Puppet::Error, "Everything is terrible!"
+
+      subject.find(request).should be_nil
+    end
+  end
+
   describe "#search" do
     let(:request) { Puppet::Node::Facts.indirection.request(:search, 'facts', @query) }
     let(:response) { Net::HTTPOK.new('1.1', 200, '') }
