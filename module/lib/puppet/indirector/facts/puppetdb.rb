@@ -32,9 +32,14 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
         Puppet::Node::Facts.new(result['name'], result['facts'])
+      elsif response.is_a? Net::HTTPNotFound
+        nil
+      else
+        # Newline characters cause an HTTP error, so strip them
+        raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
       end
     rescue => e
-      nil
+      raise Puppet::Error, "Failed to find facts from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
   end
 

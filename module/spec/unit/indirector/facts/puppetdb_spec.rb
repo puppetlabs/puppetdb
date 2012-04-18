@@ -76,17 +76,30 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return nil if no facts are found" do
-      response = Net::HTTPOK.new('1.1', 404, 'Not Found')
+      response = Net::HTTPNotFound.new('1.1', 404, 'Not Found')
 
       subject.stubs(:http_get).returns response
 
       subject.find(request).should be_nil
     end
 
-    it "should return nil if an error occurs" do
+    it "should fail if an HTTP error code is returned" do
+      response = Net::HTTPForbidden.new('1.1', 403, "Forbidden")
+      response.stubs(:body).returns ''
+
+      subject.stubs(:http_get).returns response
+
+      expect {
+        subject.find(request)
+      }.to raise_error Puppet::Error, /\[403 Forbidden\]/
+    end
+
+    it "should fail if an error occurs" do
       subject.stubs(:http_get).raises Puppet::Error, "Everything is terrible!"
 
-      subject.find(request).should be_nil
+      expect {
+        subject.find(request)
+      }.to raise_error Puppet::Error, /Everything is terrible!/
     end
   end
 
