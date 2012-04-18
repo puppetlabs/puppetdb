@@ -15,7 +15,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     before :each do
-      response.stubs(:body).returns "a UUID"
+      response.stubs(:body).returns '{"uuid": "a UUID"}'
     end
 
     def save
