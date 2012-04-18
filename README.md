@@ -212,6 +212,18 @@ used:
     server = puppetdb
     port = 8080
 
+*Additionally*, you will need to specify a "routes" file, which is located by
+default at `$confdir/routes.yaml`. The content should be:
+
+    master:
+      facts:
+        terminus: puppetdb
+        cache: yaml
+
+This configuration tells Puppet to use PuppetDB as the authoritative source of
+fact information, which is what is necessary for inventory search to consult
+it.
+
 ## SSL Setup
 
 PuppetDB can do full, verified HTTPS communication between
