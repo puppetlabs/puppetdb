@@ -133,6 +133,7 @@
   [f on-error]
   (if (try
         (f)
+        true
         (catch InterruptedException e
           false)
         (catch Throwable e
