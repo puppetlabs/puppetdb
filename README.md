@@ -194,6 +194,34 @@ For truly large installations, we recommend terminating SSL using
 Apache or Nginx instead of within PuppetDB itself. This permits much
 greater flexibility and control over bandwidth and clients.
 
+## Installation
+
+### Installing from system packages
+
+If installing from a distribution maintained package, such as those
+listed on the
+[Downloading Puppet Wiki Page](http://projects.puppetlabs.com/projects/puppet/wiki/Downloading_Puppet)
+all OS prerequisites should be handled by your package manager. See
+the Wiki for information on how to enable repositories for your
+particular OS. Usually the latest stable version is available as a
+package. If you would like to do puppet-development or see the latest
+versions, however, you will want to install from source.
+
+### Installing from source
+
+While we recommend using pre-built packages for production use, it is
+occasionally handy to have a source-based installation:
+
+    $ mkdir -p ~/git && cd ~/git
+    $ git clone git://github.com/puppetlabs/puppetdb
+    $ cd puppetdb
+    $ rake install DESTDIR=/opt/puppetdb
+
+You can replace `/opt/puppetdb` with a target installation prefix of
+your choosing.
+
+_TODO: add instructions for terminus installation_
+
 ## Puppet Setup
 
 In order to talk to PuppetDB, Puppet must be configured to use the PuppetDB
