@@ -44,17 +44,19 @@
   "Takes the given command and submits it to the specified endpoint on
   the indicated MQ.
 
-  If successful, this function returns the command's unique id."
+  If successful, this function returns a map containing the command's unique
+  id."
   [payload mq-spec mq-endpoint]
   {:pre  [(string? payload)
           (string? mq-spec)
-          (string? mq-endpoint)]}
+          (string? mq-endpoint)]
+   :post [(map? %)]}
   (with-open [conn (mq/connect! mq-spec)]
     (let [producer (mq-conn/producer conn)
           id       (pl-utils/uuid)
           message  (format-for-submission payload id)]
       (mq-producer/publish producer mq-endpoint message)
-      id)))
+      {:uuid id})))
 
 (defn command-app
   "Ring app for processing commands"
