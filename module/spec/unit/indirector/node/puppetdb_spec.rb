@@ -12,7 +12,11 @@ describe Puppet::Node::Puppetdb do
   end
 
   describe "#destroy" do
-    it "should POST a 'deactive node' command as a URL-encoded PSON string" do
+    let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+
+    it "should POST a 'deactivate node' command as a URL-encoded PSON string" do
+      response.stubs(:body).returns "a UUID"
+
       payload = {
         :command => "deactivate node",
         :version => 1,
@@ -22,7 +26,7 @@ describe Puppet::Node::Puppetdb do
       subject.expects(:http_post).with do |request,uri,body,headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
-      end
+      end.returns response
 
       destroy
 

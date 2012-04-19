@@ -4,28 +4,12 @@ require 'spec_helper'
 require 'puppet/indirector/resource/puppetdb'
 
 describe Puppet::Resource::Puppetdb do
-
-  describe "when creating the terminus" do
-    it "should use the puppetdb_server setting for its server" do
-      pending "We can't set arbitrary settings"
-      Puppet[:server] = 'the_wrong_thing'
-      Puppet[:puppetdb_server] = 'the_right_thing'
-      described_class.server.should == 'the_right_thing'
-    end
-
-    it "should use the puppetdb_port setting for its server" do
-      pending "We can't set arbitrary settings"
-      Puppet[:masterport] = 8140
-      Puppet[:puppetdb_port] = 3000
-      described_class.port.should == 3000
-    end
+  before :each do
+    Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
   end
 
   describe "#search" do
     let(:host) { 'default.local' }
-    before :each do
-      described_class.stubs(:port).returns 0
-    end
 
     def search(type)
       scope = Puppet::Parser::Scope.new
@@ -34,7 +18,9 @@ describe Puppet::Resource::Puppetdb do
     end
 
     it "should return an empty array if no resources match" do
-      subject.stubs(:http_get).returns(stub('response', :body => '[]'))
+      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response.stubs(:body).returns '[]'
+      subject.stubs(:http_get).returns response
       search("exec").should == []
     end
 
@@ -65,11 +51,13 @@ describe Puppet::Resource::Puppetdb do
                   ['=', ['node', 'active'], true],
                   ['not', ['=', ['node', 'name'], host]]]
 
-        result = stub('result', :body => body)
+        response = Net::HTTPOK.new('1.1', 200, 'OK')
+        response.stubs(:body).returns body
+
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
           path, query_string = uri.split('?query=')
           path == '/resources' and PSON.load(query_string) == query
-        end.returns result
+        end.returns response
       end
 
       it "should return a list of parser resources if any resources are found" do
@@ -87,9 +75,6 @@ describe Puppet::Resource::Puppetdb do
         search('File').should == search('File')
       end
     end
-  end
-
-  describe "#filter" do
   end
 
   describe "#validate_filter" do
