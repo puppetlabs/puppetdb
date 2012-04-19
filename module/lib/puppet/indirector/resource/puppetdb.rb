@@ -1,15 +1,8 @@
 require 'puppet/indirector/rest'
+require 'puppet/util/puppetdb'
 
 class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
-  # These settings don't exist in Puppet yet, so we have to use a hack with an
-  # external config file.
-  #use_server_setting :puppetdb_server
-  #use_port_setting :puppetdb_port
-
-  def initialize
-    # Make sure we've loaded the config file
-    Puppet.features.puppetdb?
-  end
+  include Puppet::Util::Puppetdb
 
   def search(request)
     type   = request.key
@@ -34,8 +27,13 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
     begin
       response = http_get(request, "/resources?#{query_string}", headers)
+
+      unless response.is_a? Net::HTTPSuccess
+        # Newline characters cause an HTTP error, so strip them
+        raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+      end
     rescue => e
-      raise Puppet::Error, "Could not retrieve resources from the PuppetDB server: #{e}"
+      raise Puppet::Error, "Could not retrieve resources from the PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
 
     resources = PSON.load(response.body)
