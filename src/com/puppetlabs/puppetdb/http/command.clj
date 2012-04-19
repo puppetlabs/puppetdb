@@ -63,10 +63,8 @@
    (not (params "payload"))
    (pl-utils/error-response "missing payload")
 
-   (not (params "checksum"))
-   (pl-utils/error-response "missing checksum")
-
-   (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload")))
+   (and (params "checksum")
+        (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload"))))
    (pl-utils/error-response "checksums don't match")
 
    (not (pl-utils/acceptable-content-type
