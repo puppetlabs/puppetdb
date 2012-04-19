@@ -34,10 +34,15 @@
                               (java.util.UUID/fromString)))
                true))))
 
-    (testing "should return 400 when missing params"
+    (testing "should return 400 when missing payload"
       (let [req  (make-request {})
             resp (*app* req)]
         (is (= (:status resp) 400))))
+
+    (testing "should not do checksum verification if no checksum is provided"
+      (let [req (make-request {:payload "my payload!"})
+            resp (*app* req)]
+        (is (= (:status resp) 200))))
 
     (testing "should return 400 when checksums don't match"
       (let [req  (make-request {:payload "Testing" :checksum "something bad"})

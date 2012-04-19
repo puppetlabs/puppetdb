@@ -28,14 +28,14 @@ conform to the following rules:
 * There is a parameter, `payload`, that contains the entire command as
   outlined above.
 
-* There is a parameter, `checksum`, that contains a SHA-1 hash of the
-  payload.
-
 * There is an `Accept` header that contains `application/json`.
 
 * The POST body is url-encoded
 
 * The content-type is `x-www-form-urlencoded`.
+
+Optionally, there may be a parameter, `checksum`, that contains a SHA-1 hash of
+the payload, and will be used for verification.
 
 If a command has been successfully submitted, the submitter will
 receive the following response:
