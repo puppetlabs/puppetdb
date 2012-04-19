@@ -30,7 +30,8 @@
         (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
         (is (= (instance? java.util.UUID
                           (-> (:body resp)
-                              (json/parse-string)
+                              (json/parse-string true)
+                              (:uuid)
                               (java.util.UUID/fromString)))
                true))))
 

@@ -15,7 +15,7 @@ describe Puppet::Node::Puppetdb do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
 
     it "should POST a 'deactivate node' command as a URL-encoded PSON string" do
-      response.stubs(:body).returns "a UUID"
+      response.stubs(:body).returns '{"uuid": "a UUID"}'
 
       payload = {
         :command => "deactivate node",

@@ -39,7 +39,9 @@ module Puppet::Util::Puppetdb
       response = http_post(request, "/commands", "checksum=#{checksum}&payload=#{payload}", headers)
 
       if response.is_a? Net::HTTPSuccess
-        Puppet.info "'#{command}' command#{for_whom} submitted to PuppetDB with UUID #{response.body}"
+        result = PSON.parse(response.body)
+        Puppet.info "'#{command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
+        result
       else
         # Newline characters cause an HTTP error, so strip them
         raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
@@ -47,7 +49,6 @@ module Puppet::Util::Puppetdb
     rescue => e
       raise Puppet::Error, "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
-    nil
   end
 
   def format_command(payload, command, version)
