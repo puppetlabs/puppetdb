@@ -26,7 +26,21 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   end
 
   def find(request)
-    nil
+    begin
+      response = http_get(request, "/facts/#{request.key}", headers)
+
+      if response.is_a? Net::HTTPSuccess
+        result = PSON.parse(response.body)
+        Puppet::Node::Facts.new(result['name'], result['facts'])
+      elsif response.is_a? Net::HTTPNotFound
+        nil
+      else
+        # Newline characters cause an HTTP error, so strip them
+        raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+      end
+    rescue => e
+      raise Puppet::Error, "Failed to find facts from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
+    end
   end
 
   # Search for nodes matching a set of fact constraints. The constraints are
