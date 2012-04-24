@@ -157,7 +157,7 @@ task :install => [  JAR_FILE  ] do
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
   mkdir_p "#{DESTDIR}/etc/logrotate.d/"
   sh "ln -sf #{@config_dir} #{DESTDIR}/#{@lib_dir}/config"
-  sh "ln -sf #{@log_dir} #{DESTDIR}/#{@install_dir}/logs"
+  sh "ln -sf #{@log_dir} #{DESTDIR}/#{@install_dir}/log"
 
   if PE_BUILD == false or PE_BUILD == nil or PE_BUILD == ''
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"

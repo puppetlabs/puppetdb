@@ -43,6 +43,7 @@ BuildRequires: ruby
 <% end -%>
 BuildArch:     noarch
 Requires:      java-1.6.0-openjdk
+Requires:      chkconfig
 
 %description
 Puppet Centralized Storage.
@@ -77,16 +78,21 @@ rake install DESTDIR=$RPM_BUILD_ROOT
 rake terminus DESTDIR=$RPM_BUILD_ROOT
 <% end -%>
 
-%post
+mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
+
+%pre
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
 useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
      -c "PuppetDB daemon"  %{name}
+
+%post
 # Register the puppetDB service
 /sbin/chkconfig --add %{name}
 
 %preun
+/sbin/service %{name} stop >/dev/null 2>&1
 /sbin/chkconfig --del %{name}
 
 %postun
@@ -106,7 +112,7 @@ getent passwd %{name} > /dev/null || userdel -r %{name}
 %{_datadir}/%{realname}/%{realname}.jar
 %dir %{_datadir}/%{realname}/db
 %{_datadir}/%{realname}/config
-%{_datadir}/%{realname}/logs
+%{_datadir}/%{realname}/log
 %{_initddir}/%{name}
 <% unless @pe -%>
 %{_sharedstatedir}/%{realname}
