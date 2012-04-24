@@ -37,7 +37,7 @@
           (assoc-in [:annotations :received] (pl-utils/timestamp))
           (assoc-in [:annotations :id] id)
           (json/generate-string)))
-    (catch org.codehaus.jackson.JsonParseException e
+    (catch com.fasterxml.jackson.core.JsonParseException e
       message)))
 
 (defn http->mq

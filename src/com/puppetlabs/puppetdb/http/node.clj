@@ -45,7 +45,7 @@
             sql   (node/query->sql query)
             nodes (node/search sql)]
         (utils/json-response nodes)))
-    (catch org.codehaus.jackson.JsonParseException e
+    (catch com.fasterxml.jackson.core.JsonParseException e
       (utils/error-response e))
     (catch IllegalArgumentException e
       (utils/error-response e))))
