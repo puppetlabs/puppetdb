@@ -124,7 +124,7 @@ task :template => [ ] do
    erb "ext/templates/deb/control.erb", "ext/files/debian/control"
    erb "ext/templates/deb/postrm.erb", "ext/files/debian/#{@name}.postrm"
    erb "ext/templates/deb/base.install.erb", "ext/files/debian/#{@name}.install"
-   erb "ext/templates/deb/indirector.install.erb", "ext/files/debian/#{@name}-indirector.install"
+   erb "ext/templates/deb/terminus.install.erb", "ext/files/debian/#{@name}-terminus.install"
    erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
    sh "chmod 755 ext/files/debian/rules"
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
@@ -138,7 +138,7 @@ task :template => [ ] do
    erb "ext/templates/logrotate.erb", "ext/files/puppetdb.logrotate"
    erb "ext/templates/init_redhat.erb", "ext/files/puppetdb.redhat.init"
    erb "ext/templates/puppetdb_default.erb", "ext/files/puppetdb.default"
-   erb "ext/templates/puppetdb.spec.erb", "ext/files/puppetdb.spec"
+   erb "ext/templates/puppetdb.spec.erb", "ext/files/#{@name}.spec"
 
 end
 
@@ -167,15 +167,15 @@ task :install => [  JAR_FILE  ] do
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
-
   end
+
   sh "cp -p puppetdb.jar #{DESTDIR}/#{@install_dir}"
   sh "cp -pr ext/files/log4j.properties #{DESTDIR}/#{@config_dir}/log4j.properties"
   sh "cp -pr ext/files/config.ini       #{DESTDIR}/#{@config_dir}/config.ini"
-  sh "cp -pr ext/files/puppetdb.logrotate  #{DESTDIR}/etc/logrotate.d"
+  sh "cp -pr ext/files/puppetdb.logrotate  #{DESTDIR}/etc/logrotate.d/#{@name}"
 
   # figure out which init script to install based on facter
-  if osfamily == "RedHat"
+  if osfamily.downcase == "RedHat".downcase
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
     sh "cp -p ext/files/puppetdb.default #{DESTDIR}/etc/sysconfig/#{@name}"
@@ -189,20 +189,21 @@ task :install => [  JAR_FILE  ] do
   end
 end
 
-desc "Install the indirector components onto an existing puppet setup"
-task :indirector do
+desc "Install the terminus components onto an existing puppet setup"
+task :terminus do
   require 'facter'
   osfamily = Facter.value(:osfamily).downcase
   if osfamily.downcase =~ /debian/    and PE_BUILD == ''
     @plibdir = '/usr/lib/ruby/1.8'
-  elsif osfamily.downcase =~ /debian/ and PE_BUILD.downcase == "TRUE"
+  elsif osfamily.downcase =~ /debian/ and PE_BUILD.downcase == "true"
     @plibdir = '/opt/puppet/lib/ruby/1.8'
   elsif osfamily.downcase =~ /redhat/ and PE_BUILD == ''
-    @plibdir = '/usr/lib/ruby/1.8'
-  elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "TRUE"
-    @plibdir = '/opt/pupept/lib/ruby/1.8'
+    @plibdir = '/usr/lib/ruby/site_ruby/1.8'
+  elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "true"
+    @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
   end
 
+puts "PLIBDIR #{@plibdir}"
   mkdir_p "#{DESTDIR}#{@plibdir}/puppet/indirector"
   sh "cp -pr ext/master/lib/puppet/* #{DESTDIR}#{@plibdir}/puppet/"
   #TODO Fix up specs when the specs ship with the puppet packages
@@ -226,8 +227,8 @@ task :srpm => [ :package ] do
   mkdir_p "#{temp}/SOURCES"
   mkdir_p "#{temp}/SPECS"
   sh "cp -p pkg/puppetdb-#{@version}.tar.gz #{temp}/SOURCES"
-  sh "cp -p ext/files/puppetdb.spec #{temp}/SPECS"
-  sh "rpmbuild #{args} -bs --nodeps #{temp}/SPECS/puppetdb.spec"
+  sh "cp -p ext/files/#{@name}.spec #{temp}/SPECS"
+  sh "rpmbuild #{args} -bs --nodeps #{temp}/SPECS/#{@name}.spec"
   output = `ls #{temp}/SRPMS/*rpm`
   sh "mv #{temp}/SRPMS/*rpm pkg/rpm"
   rm_rf temp

@@ -17,7 +17,7 @@ install::
 	echo $(BUILD_ROOT)
 	mkdir -p $(BUILD_ROOT)
 	rake install DESTDIR=$(BUILD_ROOT)
-	rake indirector DESTDIR=$(BUILD_ROOT)
+	rake terminus DESTDIR=$(BUILD_ROOT)
 	dh_installdocs -p puppetdb spec
 
 binary-indep: build install
