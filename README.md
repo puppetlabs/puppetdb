@@ -280,7 +280,8 @@ For ease-of-explanation, let's assume that:
 
 ### Create a keypair
 
-This is pretty easy with Puppet's built-in CA:
+This is pretty easy with Puppet's built-in CA. On the host acting as
+your CA (your puppetmaster, most likely):
 
     # puppet cert generate puppetdb.my.net
     notice: puppetdb.my.net has a waiting certificate request
@@ -288,14 +289,39 @@ This is pretty easy with Puppet's built-in CA:
     notice: Removing file Puppet::SSL::CertificateRequest puppetdb.my.net at '/etc/puppet/ssl/ca/requests/puppetdb.my.net.pem'
     notice: Removing file Puppet::SSL::CertificateRequest puppetdb.my.net at '/etc/puppet/ssl/certificate_requests/puppetdb.my.net.pem'
 
-Et voilà, you've got a keypair.
+Et voilà, you've got a keypair. Copy the following files from your CA
+to the machine that will be running PuppetDB:
+
+* `/etc/puppet/ssl/ca/ca_crt.pem`
+* `/etc/puppet/ssl/private_keys/puppetdb.my.net.pem`
+* `/etc/puppet/ssl/certs/puppetdb.my.net.pem`
+
+You can do that using `scp`:
+
+    # scp /etc/puppet/ssl/ca/ca_crt.pem puppetdb.my.net:/tmp/certs/ca_crt.pem
+    # scp /etc/puppet/ssl/private_keys/puppetdb.my.net.pem puppetdb.my.net:/tmp/certs/privkey.pem
+    # scp /etc/puppet/ssl/certs/puppetdb.my.net.pem puppetdb.my.net:/tmp/certs/pubkey.pem
+
+The rest of the SSL setup occurs on the PuppetDB host; once you've
+copied the aforementioned files over, you don't need to remain logged
+in to your CA.
 
 ### Create a truststore
 
-You'll need to use the JDK's `keytool` command to import your CA's
-cert into a file format that PuppetDB can understand:
+On the PuppetDB host, you'll need to use the JDK's `keytool` command
+to import your CA's cert into a file format that PuppetDB can
+understand.
 
-    # keytool -import -alias "My CA" -file /etc/puppet/ssl/ca/ca_crt.pem -keystore truststore.jks
+First, change into the directory where you copied the generated certs
+and the CA cert from the previous section. If you copied them to, say,
+`/tmp/certs`:
+
+    # cd /tmp/certs
+
+Now use `keytool` to create a _truststore_ file. A _truststore_
+contains the set of CA certs to use for validation.
+
+    # keytool -import -alias "My CA" -file ca_crt.pem -keystore truststore.jks
     Enter keystore password:
     Re-enter new password:
     .
@@ -321,15 +347,17 @@ you can view your certificate:
 
 Note the MD5 fingerprint; you can use it to verify this is the correct cert:
 
-    # openssl x509 -in /etc/puppet/ssl/ca/ca_crt.pem -fingerprint -md5
+    # openssl x509 -in ca_crt.pem -fingerprint -md5
     MD5 Fingerprint=99:D3:28:6B:37:13:7A:A2:B8:73:75:4A:31:78:0B:68
 
 ### Create a keystore
 
 Now we can take the keypair you generated for `puppetdb.my.net` and
-import it into a Java _keystore_:
+import it into a Java _keystore_. A _keystore_ file contains
+certificate to use during HTTPS. Again, on the PuppetDB host in the
+same directory you were using in the previous section:
 
-    # cat /etc/puppet/ssl/private_keys/puppetdb.my.net.pem /etc/puppet/ssl/certs/puppetdb.my.net.pem > temp.pem
+    # cat privkey.pem pubkey.pem > temp.pem
     # openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name puppetdb.my.net
     Enter Export Password:
     Verifying - Enter Export Password:
@@ -391,6 +419,11 @@ administrative consoles.
 
 That should do it; the next time you start PuppetDB, it will be doing
 HTTPS and using the CA's certificate for verifiying clients.
+
+With HTTPS properly setup, the PuppetDB host no longer requires the
+PEM files copied over during configuration. Those can be safely
+deleted from the PuppetDB box (the "master copies" exist on your CA
+host).
 
 ## Web Console
 
