@@ -26,8 +26,7 @@
 (deftest node-status
   (let [catalog   (:basic catalogs)
         certname  (:certname catalog)
-        ;; Millis are lost in the db, so strip them now for easier comparison
-        timestamp (.withMillisOfSecond (now) 0)]
+        timestamp (now)]
     (scf-store/add-certname! certname)
     (scf-store/replace-catalog! catalog timestamp)
     (scf-store/add-facts! certname {} timestamp)

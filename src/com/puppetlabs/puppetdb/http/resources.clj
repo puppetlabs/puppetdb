@@ -84,7 +84,7 @@
       (-> (with-transacted-connection db
             (r/query-resources q))
           (utils/json-response)))
-    (catch org.codehaus.jackson.JsonParseException e
+    (catch com.fasterxml.jackson.core.JsonParseException e
       (utils/error-response e))
     (catch IllegalArgumentException e
       (utils/error-response e))))
