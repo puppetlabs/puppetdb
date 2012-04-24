@@ -1,3 +1,7 @@
+;; ## Status query
+;;
+;; This implements the status query HTTP API according to the [status query
+;; spec](../spec/status.md).
 (ns com.puppetlabs.puppetdb.http.status
   (:require [com.puppetlabs.utils :as utils]
             [ring.util.response :as rr])
