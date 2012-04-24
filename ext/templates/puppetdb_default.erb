@@ -1,3 +1,5 @@
-JAVA_BIN=<%= @java_bin || "/usr/bin/java"  -%>
-INSTALL_DIR=<%= @install_dir || "/usr/share/puppetdb" -%>
-JAVA_ARGS=<%= @java_args || "" -%>
+USER="<%= @name -%>"
+CONFIG="<%= @config_dir -%>/config.ini"
+JAVA_BIN="<%= @java_bin || "/usr/bin/java"  -%>"
+INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
+JAVA_ARGS="<%= @java_args || "-Xmx192m " -%>"
