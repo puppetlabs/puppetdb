@@ -12,7 +12,7 @@ classname = org.hsqldb.jdbcDriver
 
 # For the embedded DB: hsqldb
 # For PostgreSQL: postgresql
-subprotocol = postgresql
+subprotocol = hsqldb
 
 # For the embedded DB: file:/path/to/database;hsqldb.tx=mvcc;sql.syntax_pgs=true
 # For PostgreSQL: //host:port/databaseName
@@ -31,7 +31,6 @@ subname = file:<%= @lib_dir -%>/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
 [mq]
 # Where to persist message queue data
 dir = <%= @lib_dir  -%>/mq
-
 
 [jetty]
 # What hostname to listen on, defaults to binding to '*'
