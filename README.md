@@ -74,8 +74,9 @@ using PuppetDB's REST APIs. Each REST endpoint is documented in the
 
 **Remote REPL**
 
-For debugging purposes, you can open up a remote clojure REPL and use
-it to modify the behavior of PuppetDB, live.
+For debugging purposes, you can open up a remote clojure
+(REPL)[http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop]
+and use it to modify the behavior of PuppetDB, live.
 
 Vim support would be a welcome addition; please submit patches!
 
@@ -449,26 +450,6 @@ parameters:
 * nHistorical = how many historical data points to use in each sparkline
 * pollingInterval = how often to poll PuppetDB for updates, in milliseconds
 
-## Additional commands
-
-### Deactivating nodes
-
-A Puppet Face action is provided to "deactivate" nodes. Deactivating the node
-will cause it to be excluded from storeconfigs queries, and it useful if a node
-no longer exists. The node's data is still preserved, however, and the node
-will be reactivated if a new catalog or facts are received for it.
-
-`puppet node deactivate <node> [<node> ...] --mode master`
-
-This command will submit deactivation commands to PuppetDB for each of the
-nodes provided. It's necessary to run this in master mode so that it can be
-sure to find the right puppetdb.conf file.
-
-Note that `puppet node destroy` can also be used to deactivate nodes, as the
-current behavior of destroy in PuppetDB is to simply deactivate. However, this
-behavior may change in future, and the command is not specific to PuppetDB, so
-the preferred method is `puppet node deactivate`.
-
 ## Configuration guide
 
 PuppetDB is configured using an INI-style file format. The format is
@@ -642,9 +623,11 @@ Passphrase to use to unlock the truststore file.
 
 **[repl]**
 
-Enabling a remote REPL allows you to manipulate the behavior of
-PuppetDB at runtime. This should only be done for debugging purposes,
-and is thus disabled by default. An example configuration stanza:
+Enabling a remote
+(REPL)[http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop]
+allows you to manipulate the behavior of PuppetDB at runtime. This
+should only be done for debugging purposes, and is thus disabled by
+default. An example configuration stanza:
 
     [repl]
     enabled = true
@@ -659,10 +642,11 @@ Set to `true` to enable the REPL.
 
 Either `nrepl` or `swank`.
 
-The _nrepl_ repl type opens up a socket you can connect to via telnet. If you
-are using emacs' clojure-mode, you can choose a type of _swank_ and connect
-your editor directly to a running PuppetDB instance by using `M-x
-slime-connect`. Using emacs is much nicer than using telnet. :)
+The _nrepl_ repl type opens up a socket you can connect to via
+telnet. If you are using emacs' clojure-mode, you can choose a type of
+_swank_ and connect your editor directly to a running PuppetDB
+instance by using `M-x slime-connect`. Using emacs is much nicer than
+using telnet. :)
 
 `port`
 
@@ -670,6 +654,83 @@ What port to use for the REPL.
 
 ## Operational information
 
-TODO: need moar docz here
+### Deactivating nodes
+
+A Puppet Face action is provided to "deactivate" nodes. Deactivating
+the node will cause it to be excluded from storeconfigs queries, and
+it useful if a node no longer exists. The node's data is still
+preserved, however, and the node will be reactivated if a new catalog
+or facts are received for it.
+
+`puppet node deactivate <node> [<node> ...] --mode master`
+
+This command will submit deactivation commands to PuppetDB for each of
+the nodes provided. It's necessary to run this in master mode so that
+it can be sure to find the right puppetdb.conf file.
+
+Note that `puppet node destroy` can also be used to deactivate nodes,
+as the current behavior of destroy in PuppetDB is to simply
+deactivate. However, this behavior may change in future, and the
+command is not specific to PuppetDB, so the preferred method is
+`puppet node deactivate`.
+
+### Connecting to a remote REPL
+
+If you have configured your PuppetDB instance to start up a remote
+REPL, you can connect to it and begin issuing low-level debugging
+commands.
+
+For example, let's say that you'd like to perform some emergency
+database compaction, and you've got an _nrepl_ type REPL configured on
+port 8082:
+
+    $ telnet localhost 8082
+    Connected to localhost.
+    Escape character is '^]'.
+    ;; Clojure 1.3.0
+    user=> (+ 1 2 3)
+    6
+
+At this point, you're at an interactive terminal that allows you to
+manipulate the running PuppetDB instance. This is really a
+developer-oriented feature; you have to know both Clojure and the
+PuppetDB codebase to make full use of the REPL.
+
+To compact the database, you can just execute the function in the
+PuppetDB codebase that performs garbage collection:
+
+    user=> (use 'com.puppetlabs.puppetdb.cli.services)
+    nil
+    user=> (use 'com.puppetlabs.puppetdb.scf.storage)
+    nil
+    user=> (use 'clojure.java.jdbc)
+    nil
+    user=> (with-connection (:database configuration)
+             (garbage-collect!))
+    (0)
+
+You can also manipulate the running PuppetDB instance by redefining
+functions on-the-fly. Let's say that for debugging purposes, you'd
+like to log every time a catalog is deleted. You can just redefine
+the existing `delete-catalog!` function dynamically:
+
+    user=> (ns com.puppetlabs.puppetdb.scf.storage)
+    nil
+    com.puppetlabs.puppetdb.scf.storage=>
+    (def original-delete-catalog! delete-catalog!)
+    #'com.puppetlabs.puppetdb.scf.storage/original-delete-catalog!
+    com.puppetlabs.puppetdb.scf.storage=>
+    (defn delete-catalog!
+      [catalog-hash]
+      (log/info (str "Deleting catalog " catalog-hash))
+      (original-delete-catalog! catalog-hash))
+    #'com.puppetlabs.puppetdb.scf.storage/delete-catalog!
+
+Now any time that function is called, you'll see a message logged.
+
+Note that any changes you make to the running system are transient;
+they don't persist between restarts. As such, this is really meant to
+be used as a development aid, or as a way of introspecting a running
+system for troubleshooting purposes.
 
 [leiningen]: https://github.com/technomancy/leiningen
