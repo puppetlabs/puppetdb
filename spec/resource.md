@@ -24,6 +24,35 @@ The `query` parameter is described by the following grammar:
     type:   "or" | "and" | "not"
     match:  "="
 
+`field` may be any of:
+
+`tag`
+: a tag on the resource
+
+`[node name]`
+: the name of the node associated with the resource
+
+`[node active]`
+: `true` if the node has not been deactivated, `false` if it has
+
+`[parameter <resource_param>]`
+: a parameter of the resource
+
+`type`
+: the resource type
+
+`title`
+: the resource title
+
+`exported`
+: whether or not the resource is exported
+
+`sourcefile`
+: the manifest file the resource was declared in
+
+`sourceline`
+: the line of the manifest on which the resource was declared
+
 For example, for file resources, tagged "magical", on any active host except
 for "example.local" the JSON query structure would be:
 
