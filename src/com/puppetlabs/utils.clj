@@ -266,7 +266,7 @@
    (json-response body 200))
   ([body code]
     (-> body
-        (json/generate-string)
+        (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
         (rr/response)
         (rr/header "Content-Type" "application/json")
         (rr/status code))))
