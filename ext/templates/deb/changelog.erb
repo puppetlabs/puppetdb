@@ -1,4 +1,11 @@
-<%= @name -%> (<%= version -%>-1puppetlabs1) hardy lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+<% if @pe
+  tag = 'puppet'
+  dists = 'lucid squeeze precise'
+  else
+  tag = 'puppetlabs'
+  dists = 'hardy lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise'
+  end -%>
+<%= @name -%> (<%= version -%>-1<%= tag -%>1) <%= dists -%>; urgency=low
 
   * Add postgresql to suggests
   * Adding an init script from Puppet Labs Ops
