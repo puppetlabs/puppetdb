@@ -4,9 +4,7 @@ case "$1" in
     purge)
         rm -f <%= @config_dir -%>/config.ini
 
-        if [ -d "<%= @install_dir -%>" ]; then
-            rmdir --ignore-fail-on-non-empty <%= @install_dir %>
-        fi
+        rm -rf <%= @link -%> <%= @install_dir -%>
 
         # Remove puppet log files
         rm -rf <%= @log_dir %>

@@ -14,6 +14,18 @@ def version
   end
 end
 
+require 'facter'
+osfamily = Facter.value(:osfamily).downcase
+if osfamily.downcase =~ /debian/    and PE_BUILD == ''
+  @plibdir = '/usr/lib/ruby/1.8'
+elsif osfamily.downcase =~ /debian/ and PE_BUILD.downcase == "true"
+  @plibdir = '/opt/puppet/lib/ruby/1.8'
+elsif osfamily.downcase =~ /redhat/ and PE_BUILD == ''
+  @plibdir = '/usr/lib/ruby/site_ruby/1.8'
+elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "true"
+  @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
+end
+
 if PE_BUILD == "true" or PE_BUILD == "TRUE"
     @install_dir = "/opt/puppet/share/puppetdb"
     @config_dir = "/etc/puppetlabs/puppetdb"
@@ -128,7 +140,9 @@ task :template => [ ] do
    erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
    sh "chmod 755 ext/files/debian/rules"
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
-   erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
+   erb "ext/templates/deb/base.postinst.erb", "ext/files/debian/#{@name}.postinst"
+   erb "ext/templates/deb/terminus.postinst.erb", "ext/files/debian/#{@name}-terminus.postinst"
+   erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
    erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
    sh "cp -pr ext/templates/deb/* ext/files/debian"
@@ -194,19 +208,6 @@ end
 
 desc "Install the terminus components onto an existing puppet setup"
 task :terminus do
-  require 'facter'
-  osfamily = Facter.value(:osfamily).downcase
-  if osfamily.downcase =~ /debian/    and PE_BUILD == ''
-    @plibdir = '/usr/lib/ruby/1.8'
-  elsif osfamily.downcase =~ /debian/ and PE_BUILD.downcase == "true"
-    @plibdir = '/opt/puppet/lib/ruby/1.8'
-  elsif osfamily.downcase =~ /redhat/ and PE_BUILD == ''
-    @plibdir = '/usr/lib/ruby/site_ruby/1.8'
-  elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "true"
-    @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
-  end
-
-puts "PLIBDIR #{@plibdir}"
   mkdir_p "#{DESTDIR}#{@plibdir}/puppet/indirector"
   sh "cp -pr ext/master/lib/puppet/* #{DESTDIR}#{@plibdir}/puppet/"
   #TODO Fix up specs when the specs ship with the puppet packages
