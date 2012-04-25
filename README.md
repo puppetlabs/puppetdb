@@ -223,6 +223,39 @@ your choosing.
 
 _TODO: add instructions for terminus installation_
 
+### Installing PostgreSQL
+
+While a full discussion of how to install PostgreSQL is outside the
+scope of this document, you can get a local copy of PostgreSQL
+installed for testing fairly easily.
+
+For example, if you're on a Mac you can install PostgreSQL easily
+through Homebrew:
+
+    $ brew install postgresql
+
+    # Now start the database
+    $ postgres -D /usr/local/var/postgres &
+
+    # Create a database
+    $ createdb puppetdb
+
+On a Debian box you can install PostgreSQL locally like so:
+
+    $ apt-get install postgresql
+
+    # Switch to the postgres user
+    $ sudo -u postgres sh
+
+    # Create a new user and database for puppetdb
+    $ createuser -DRSP puppetdb
+    $ createdb -O puppetdb puppetdb
+    $ exit
+
+    # You can now login to the database via TCP with the credentials
+    # you just established
+    $ psql -h localhost puppetdb puppetdb
+
 ## Puppet Setup
 
 In order to talk to PuppetDB, Puppet must be configured to use the PuppetDB
