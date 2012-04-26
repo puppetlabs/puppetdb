@@ -130,7 +130,7 @@ task :template => [ ] do
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
    erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
-   erb "ext/templates/init_debian.erb", "ext/files/puppetdb.debian.init"
+   erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
    sh "cp -pr ext/templates/deb/* ext/files/debian"
    sh "rm -f ext/files/debian/*.erb"
 
@@ -162,11 +162,14 @@ task :install => [  JAR_FILE  ] do
   if PE_BUILD == false or PE_BUILD == nil or PE_BUILD == ''
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
+    mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
     sh "ln -sf #{@link}/state #{DESTDIR}#{@lib_dir}/state"
     sh "ln -sf #{@link}/db #{DESTDIR}#{@lib_dir}/db"
+    sh "ln -sf #{@link}/mq #{DESTDIR}#{@lib_dir}/mq"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
+    mkdir_p "#{DESTDIR}#{@lib_dir}/mq"
   end
 
   sh "cp -p puppetdb.jar #{DESTDIR}/#{@install_dir}"
