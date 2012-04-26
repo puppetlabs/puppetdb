@@ -1,5 +1,14 @@
-USER="<%= @name -%>"
-CONFIG="<%= @config_dir -%>/config.ini"
+###########################################
+# Init settings for <%= @name %>
+###########################################
+
+# Location of your Java binary (version 6 or higher)
 JAVA_BIN="<%= @java_bin || "/usr/bin/java"  -%>"
-INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
+
+# Modify this if you'd like to change the memory allocation, enable JMX, etc
 JAVA_ARGS="<%= @java_args || "-Xmx192m " -%>"
+
+# These normally shouldn't need to be edited if using OS packages
+USER="<%= @name -%>"
+INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
+CONFIG="<%= @config_dir -%>/config.ini"
