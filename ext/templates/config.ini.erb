@@ -1,55 +1,55 @@
-; See README.md for more thorough explanations of each section and
-; option.
+# See README.md for more thorough explanations of each section and
+# option.
 
 [global]
-; Store mq/db data in a custom directory
+# Store mq/db data in a custom directory
 vardir = <%= @lib_dir -%>
 
-; Use an external log4j config file
-; logging-config = <%= @lib_dir -%>/log4j.properties
+# Use an external log4j config file
+# logging-config = <%= @config_dir -%>/log4j.properties
 
 [database]
-; For the embedded DB: org.hsqldb.jdbcDriver
-; For PostgreSQL: org.postgresql.Driver
-; Defaults to embedded DB
-; classname = org.hsqldb.jdbcDriver
+# For the embedded DB: org.hsqldb.jdbcDriver
+# For PostgreSQL: org.postgresql.Driver
+# Defaults to embedded DB
+# classname = org.hsqldb.jdbcDriver
 
-; For the embedded DB: hsqldb
-; For PostgreSQL: postgresql
-; Defaults to embedded DB
-; subprotocol = hsqldb
+# For the embedded DB: hsqldb
+# For PostgreSQL: postgresql
+# Defaults to embedded DB
+# subprotocol = hsqldb
 
-; For the embedded DB: file:/path/to/database;hsqldb.tx=mvcc;sql.syntax_pgs=true
-; For PostgreSQL: //host:port/databaseName
-; Defaults to embedded DB located in <vardir>/db
-; subname = file:<%= @lib_dir -%>/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
+# For the embedded DB: file:/path/to/database;hsqldb.tx=mvcc;sql.syntax_pgs=true
+# For PostgreSQL: //host:port/databaseName
+# Defaults to embedded DB located in <vardir>/db
+# subname = file:<%= @lib_dir -%>/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
 
-; Connect as a specific user
-; username = foobar
+# Connect as a specific user
+# username = foobar
 
-; Use a specific password
-; password = foobar
+# Use a specific password
+# password = foobar
 
-; How often (in minutes) to compact the database
-; gc-interval = 60
+# How often (in minutes) to compact the database
+# gc-interval = 60
 
 [command-processing]
-; How many command-processing threads to use, defaults to (CPUs / 2)
-; threads = 4
+# How many command-processing threads to use, defaults to (CPUs / 2)
+# threads = 4
 
 [jetty]
-; What hostname to listen on, defaults to binding to '*'
+# What hostname to listen on, defaults to binding to '*'
 host = localhost
 
-; What port to listen on
+# What port to listen on
 port = 8080
 
 [repl]
-; Set to true to enable the remote REPL
+# Set to true to enable the remote REPL
 enabled = false
 
-; Either nrepl or swank
+# Either nrepl or swank
 type = nrepl
 
-; What port the REPL should listen on
+# What port the REPL should listen on
 port = 8081
