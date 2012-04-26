@@ -6,6 +6,7 @@
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
 %global  _initddir   %{_realsysconfdir}/rc.d/init.d
+%global _rundir /var/run
 
 <% if @pe -%>
 %global p_vendor pe
@@ -79,6 +80,12 @@ rake terminus DESTDIR=$RPM_BUILD_ROOT
 <% end -%>
 
 mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
+mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
+touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
 
 %pre
 # Add PuppetDB user
@@ -99,6 +106,7 @@ useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
 # Remove PuppetDB user
 getent group %{name} > /dev/null || groupdel -r %{name}
 getent passwd %{name} > /dev/null || userdel -r %{name}
+rm -rf %{_rundir}/%{name} || :
 
 
 %files
@@ -109,16 +117,15 @@ getent passwd %{name} > /dev/null || userdel -r %{name}
 %config(noreplace)%{_sysconfdir}/%{realname}/log4j.properties
 %config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
-%{_datadir}/%{realname}/%{realname}.jar
-%dir %{_datadir}/%{realname}/db
-%{_datadir}/%{realname}/config
-%{_datadir}/%{realname}/log
+%{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>
 %{_sharedstatedir}/%{realname}
 <% end -%>
 %{_datadir}/%{realname}/state
-%ghost %{_localstatedir}/log/%{name}
+%dir %{_localstatedir}/log/%{name}
+%ghost %{_localstatedir}/log/%{name}/%{name}.log
+%ghost %{_rundir}/%{name}
 
 
 %files terminus
