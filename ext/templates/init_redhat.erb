@@ -1,4 +1,10 @@
-#! /bin/sh
+#!/bin/sh
+#
+# <%= @name -%> Centralized Storage Daemon for Puppet
+#
+# chkconfig: - 20 80
+# description: Centralized Storage Daemon for Puppet
+
 ### BEGIN INIT INFO
 # Provides:          <%= @name %>
 # Required-Start:    $remote_fs $syslog
@@ -9,159 +15,111 @@
 # Description:       Start <%= @name -%> daemon placed in /etc/init.d.
 ### END INIT INFO
 
-# Author: Ben Hughes <ben@puppetlabs.com>
-#         Michael Stahnke <stahnma@puppetlabs.com>
+# Author:  Michael Stahnke <stahnma@puppetlabs.com>
 # Copyright 2012 Puppet Labs
 
+# Source function library.
+. /etc/rc.d/init.d/functions
 
-# You should only need to edit the default/<%= @name -%> file and not
-#   this init script directly
-if [ -r "/etc/default/<%= @name -%>" ] ; then
-  . /etc/default/<%= @name %>
-else
-  exit 1
-fi
+prog="<%= @name -%>"
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
+##########################################
+#  You should not have to edit this init script.
+#  Please attempt to make changes in /etc/sysconfig/<%= @name %>
+##########################################
+
+[ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
+
+config=$CONFIG
+
+<% if @pe -%>
+PATH=/opt/puppet/bin:/opt/puppet/sbin:/sbin:/usr/sbin:/bin:/usr/bin
+<% else -%>
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-NAME=<%= @name %>
-DESC="<%= @name -%> centralized storage daemon"
-JARFILE="puppetdb.jar"
-PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
-
+<% end -%>
+JARFILE="<%= @name -%>.jar"
 JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
+lockfile=/var/lock/subsys/$prog
+EXEC="$JAVA_BIN $JAVA_ARGS"
+PIDFILE="/var/run/$prog/$prog"
 
-# Exit if the package is not installed
-[ -x "$JAVA_BIN" ] || exit 0
+if `which runuser &> /dev/null` ; then
+    SU=runuser
+else
+    SU=su
+fi
 
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
-# and status_of_proc is working.
-. /lib/lsb/init-functions
-
-#
-# Function that starts the daemon/service
-#
-do_start()
-{
-    # We need to do something with the log file...
-
-    # Return
-    #   0 if daemon has been started
-    #   1 if daemon was already running
-    #   2 if daemon could not be started
-    start-stop-daemon --start $EXTRA_ARGS --quiet --pidfile $PIDFILE --chdir $INSTALL_DIR --exec $JAVA_BIN --test > /dev/null \
-        || return 1
-    start-stop-daemon --start $EXTRA_ARGS --quiet --pidfile $PIDFILE --chdir $INSTALL_DIR --exec $JAVA_BIN -- \
-        $JAVA_ARGS \
-        || return 2
-    # Add code here, if necessary, that waits for the process to be ready
-    # to handle requests from services started subsequently which depend
-    # on this one.  As a last resort, sleep for some time.
-
-    # <%= @name -%> takes a long time to spin up on ningyo, waiting for it
-    # would be bad.
+find_my_pid() {
+    if [ ! -d  "/var/run/$prog" ] ; then
+      mkdir -p /var/run/$prog
+      chown -R $USER:$USER /var/run/$prog
+    fi
+    pid=`ps -ef | grep $JAVA_BIN | grep ^$USER | grep " services -c " | awk '{print $2}'`
 }
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-    # Return
-    #   0 if daemon has been stopped
-    #   1 if daemon was already stopped
-    #   2 if daemon could not be stopped
-    #   other if a failure occurred
-    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
-    RETVAL="$?"
-    [ "$RETVAL" = 2 ] && return 2
-    # Wait for children to finish too if this is a daemon that forks
-    # and if the daemon is only ever run from this initscript.
-    # If the above conditions are not satisfied then add some other code
-    # that waits for the process to drop all resources that could be
-    # needed by services started subsequently.  A last resort is to
-    # sleep for some time.
-    start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $JAVA_BIN
-    [ "$?" = 2 ] && return 2
-    # Many daemons don't delete their pidfiles when they exit.
-    rm -f $PIDFILE
-    return "$RETVAL"
+start() {
+    # call status here and figure out current state
+    rh_status_q
+    [ -x $JAVA_BIN ] || exit 5
+    [ -f $config ] || exit 6
+    echo -n $"Starting $prog: "
+    $SU $USER -s /bin/bash -c "$EXEC &"
+    sleep 1
+    find_my_pid
+    echo $pid > $PIDFILE
+    [ -s $PIDFILE ] && success $"$base startup" || failure $"$base startup"
+    echo
+    [ -s $PIDFILE ] && touch $lockfile
+    return $retval
 }
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-    #
-    # If the daemon can reload its configuration without
-    # restarting (for example, when it is sent a SIGHUP),
-    # then implement that here.
-    #
-    start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-    return 0
+stop() {
+    echo -n $"Stopping $prog: "
+    find_my_pid
+    if [ -s "$PIDFILE" ] ; then
+        kill `cat $PIDFILE`
+    else
+        kill $pid
+    fi
+    retval=$?
+    [ $retval -eq 0 ] && success $"$base stopped" || failure $"$base stopped"
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile $PIDFILE
+    return $retval
 }
+
+restart() {
+    stop
+    start
+}
+
+rh_status() {
+    status -p $PIDFILE $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
 
 case "$1" in
-  start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-    do_start
-    case "$?" in
-        0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-    esac
-    ;;
-  stop)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-    do_stop
-    case "$?" in
-        0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-    esac
-    ;;
-  status)
-       status_of_proc "$JAVA_BIN" "$NAME" && exit 0 || exit $?
-       ;;
-  #reload|force-reload)
-    #
-    # If do_reload() is not implemented then leave this commented out
-    # and leave 'force-reload' as an alias for 'restart'.
-    #
-    #log_daemon_msg "Reloading $DESC" "$NAME"
-    #do_reload
-    #log_end_msg $?
-    #;;
-  restart|force-reload)
-    #
-    # If the "reload" option is implemented then remove the
-    # 'force-reload' alias
-    #
-    log_daemon_msg "Restarting $DESC" "$NAME"
-    do_stop
-    case "$?" in
-      0|1)
-        do_start
-        case "$?" in
-            0) log_end_msg 0 ;;
-            1) log_end_msg 1 ;; # Old process is still running
-            *) log_end_msg 1 ;; # Failed to start
-        esac
+    start)
+        rh_status_q && exit 0
+        $1
         ;;
-      *)
-        # Failed to stop
-        log_end_msg 1
+    stop)
+        #rh_status_q || exit 0
+        $1
         ;;
-    esac
-    ;;
-  *)
-    echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
-    exit 3
-    ;;
+    restart)
+        $1
+        ;;
+    status)
+        rh_status
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart}"
+        exit 2
 esac
-
-:
+exit $?
