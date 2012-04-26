@@ -6,23 +6,23 @@
 vardir = <%= @lib_dir -%>
 
 # Use an external log4j config file
-# logging-config = <%= @config_dir -%>/log4j.properties
+logging-config = <%= @config_dir -%>/log4j.properties
 
 [database]
 # For the embedded DB: org.hsqldb.jdbcDriver
 # For PostgreSQL: org.postgresql.Driver
 # Defaults to embedded DB
-# classname = org.hsqldb.jdbcDriver
+classname = org.hsqldb.jdbcDriver
 
 # For the embedded DB: hsqldb
 # For PostgreSQL: postgresql
 # Defaults to embedded DB
-# subprotocol = hsqldb
+subprotocol = hsqldb
 
 # For the embedded DB: file:/path/to/database;hsqldb.tx=mvcc;sql.syntax_pgs=true
 # For PostgreSQL: //host:port/databaseName
 # Defaults to embedded DB located in <vardir>/db
-# subname = file:<%= @lib_dir -%>/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
+subname = file:<%= @lib_dir -%>/db/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
 
 # Connect as a specific user
 # username = foobar
@@ -38,7 +38,7 @@ vardir = <%= @lib_dir -%>
 # threads = 4
 
 [jetty]
-# What hostname to listen on, defaults to binding to '*'
+# What host to listen on, defaults to binding to '*'
 host = localhost
 
 # What port to listen on
