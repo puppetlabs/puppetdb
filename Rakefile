@@ -14,6 +14,16 @@ def version
   end
 end
 
+def cp_pr(src, dest, options={})
+  mandatory = {:preserve => true}
+  cp_r(src, dest, options.merge(mandatory))
+end
+
+def cp_p(src, dest, options={})
+  mandatory = {:preserve => true}
+  cp(src, dest, options.merge(mandatory))
+end
+
 require 'facter'
 osfamily = Facter.value(:osfamily).downcase
 if osfamily.downcase =~ /debian/    and PE_BUILD == ''
@@ -78,7 +88,7 @@ desc "Build the uberjar"
 task :uberjar => [  ] do
   if `which lein`
     sh "lein uberjar"
-    sh "mv #{JAR_FILE_V} #{JAR_FILE}"
+    mv JAR_FILE_V, JAR_FILE
   else
     puts "You need lein on your system"
     exit 1
@@ -89,17 +99,14 @@ desc "Create a source tar archive"
 task :package => [ JAR_FILE, :template  ] do
   workdir = "pkg/puppetdb-#{@version}"
   mkdir_p workdir
-  filelist = [ "ext", "*.md", JAR_FILE, "spec", "Rakefile" ]
-  filelist.each do |f|
-    sh "cp -pr #{f} #{workdir}"
+  FileList[ "ext", "*.md", JAR_FILE, "spec", "Rakefile" ].each do |f|
+    cp_pr f, workdir
   end
-  sh "mv #{workdir}/ext/files/debian #{workdir}"
+  mv "#{workdir}/ext/files/debian", workdir
   sh "cd pkg; tar --exclude=.gitignore -zcf puppetdb-#{@version}.tar.gz puppetdb-#{@version}"
-  sh "rm -rf #{workdir}"
+  rm_rf workdir
   puts
   puts "Wrote #{`pwd`.strip}/pkg/puppetdb-#{@version}"
-
-
 end
 
 file JAR_FILE do |t|
@@ -110,14 +117,12 @@ task :allclean => [ :clobber ]
 
 desc "Remove build artifacts (other than clojure (lein) builds)"
 task :clean do
-  sh  "rm -rf ext/files"
-  sh  "rm -f *.tar.gz"
-  sh  "rm -rf pkg"
+  rm_rf FileList["ext/files", "pkg", "*.tar.gz"]
 end
 
 desc "Get rid of build artifacts including clojure (lein) builds"
 task :clobber => [ :clean ] do
-  sh  "rm -f puppetdb*.jar"
+  rm_rf FileList["puppetdb*jar"]
 end
 
 
@@ -138,15 +143,15 @@ task :template => [ ] do
    erb "ext/templates/deb/base.install.erb", "ext/files/debian/#{@name}.install"
    erb "ext/templates/deb/terminus.install.erb", "ext/files/debian/#{@name}-terminus.install"
    erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
-   sh "chmod 755 ext/files/debian/rules"
+   chmod 0755, "ext/files/debian/rules"
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
    erb "ext/templates/deb/base.postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/deb/terminus.postinst.erb", "ext/files/debian/#{@name}-terminus.postinst"
    erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
    erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
-   sh "cp -pr ext/templates/deb/* ext/files/debian"
-   sh "rm -f ext/files/debian/*.erb"
+   cp_pr FileList["ext/templates/deb/*"], "ext/files/debian"
+   rm_rf FileList["ext/files/debian/*.erb"]
 
    # files for rpm
    erb "ext/templates/logrotate.erb", "ext/files/puppetdb.logrotate"
@@ -170,46 +175,46 @@ task :install => [  JAR_FILE  ] do
   mkdir_p "#{DESTDIR}/etc/init.d/"
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
   mkdir_p "#{DESTDIR}/etc/logrotate.d/"
-  sh "ln -sf #{@config_dir} #{DESTDIR}/#{@lib_dir}/config"
-  sh "ln -sf #{@log_dir} #{DESTDIR}/#{@install_dir}/log"
+  ln_sf @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
+  ln_sf @log_dir, "#{DESTDIR}/#{@install_dir}/log"
 
   if PE_BUILD == false or PE_BUILD == nil or PE_BUILD == ''
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
-    sh "ln -sf #{@link}/state #{DESTDIR}#{@lib_dir}/state"
-    sh "ln -sf #{@link}/db #{DESTDIR}#{@lib_dir}/db"
-    sh "ln -sf #{@link}/mq #{DESTDIR}#{@lib_dir}/mq"
+    ln_sf "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
+    ln_sf "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
+    ln_sf "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
     mkdir_p "#{DESTDIR}#{@lib_dir}/mq"
   end
 
-  sh "cp -p puppetdb.jar #{DESTDIR}/#{@install_dir}"
-  sh "cp -pr ext/files/log4j.properties #{DESTDIR}/#{@config_dir}/log4j.properties"
-  sh "cp -pr ext/files/config.ini       #{DESTDIR}/#{@config_dir}/config.ini"
-  sh "cp -pr ext/files/puppetdb.logrotate  #{DESTDIR}/etc/logrotate.d/#{@name}"
+  cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
+  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/log4j.properties"
+  cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}/config.ini"
+  cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
 
   # figure out which init script to install based on facter
   if osfamily.downcase == "RedHat".downcase
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
-    sh "cp -p ext/files/puppetdb.default #{DESTDIR}/etc/sysconfig/#{@name}"
-    sh "cp -p ext/files/puppetdb.redhat.init  #{DESTDIR}/etc/rc.d/init.d/#{@name}"
-    sh "chmod 755 #{DESTDIR}/etc/rc.d/init.d/#{@name}"
+    cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+    cp_p "ext/files/puppetdb.redhat.init", "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
+    chmod 0755, "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
   else
     mkdir_p "#{DESTDIR}/etc/default"
-    sh "cp -p ext/files/puppetdb.default #{DESTDIR}/etc/default/#{@name}"
-    sh "cp -pr ext/files/puppetdb.debian.init #{DESTDIR}/etc/init.d/#{@name}"
-    sh "chmod 755 #{DESTDIR}/etc/init.d/#{@name}"
+    cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/default/#{@name}"
+    cp_pr "ext/files/puppetdb.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
+    chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   end
 end
 
 desc "Install the terminus components onto an existing puppet setup"
 task :terminus do
   mkdir_p "#{DESTDIR}#{@plibdir}/puppet/indirector"
-  sh "cp -pr ext/master/lib/puppet/* #{DESTDIR}#{@plibdir}/puppet/"
+  cp_pr FileList["ext/master/lib/puppet/*"], "#{DESTDIR}#{@plibdir}/puppet/"
   #TODO Fix up specs when the specs ship with the puppet packages
 end
 
@@ -230,11 +235,11 @@ task :srpm => [ :package ] do
   mkdir_p 'pkg/rpm'
   mkdir_p "#{temp}/SOURCES"
   mkdir_p "#{temp}/SPECS"
-  sh "cp -p pkg/puppetdb-#{@version}.tar.gz #{temp}/SOURCES"
-  sh "cp -p ext/files/#{@name}.spec #{temp}/SPECS"
+  cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}/SOURCES"
+  cp_p "ext/files/#{@name}.spec", "#{temp}/SPECS"
   sh "rpmbuild #{args} -bs --nodeps #{temp}/SPECS/#{@name}.spec"
   output = `ls #{temp}/SRPMS/*rpm`
-  sh "mv #{temp}/SRPMS/*rpm pkg/rpm"
+  mv FileList["#{temp}/SRPMS/*rpm"], "pkg/rpm"
   rm_rf temp
   puts
   puts "Wrote #{`pwd`.strip}/pkg/rpm/#{output.split('/')[-1]}"
@@ -244,14 +249,14 @@ desc "Build deb package"
 task :deb  => [ :package ] do
   temp = `mktemp -d -t tmpXXXXXX`.strip
   mkdir_p temp
-  sh "cp -p pkg/puppetdb-#{@version}.tar.gz #{temp}"
+  cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}"
   sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{version}.tar.gz"
-  sh "mv #{temp}/puppetdb-#{@version}.tar.gz #{temp}/#{@name}_#{@version}.orig.tar.gz"
+  mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@version}.orig.tar.gz"
   #%x{cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us}
   sh "cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us"
   mkdir_p "pkg/deb"
   rm_rf "#{temp}/puppetdb-#{@version}"
-  sh "mv #{temp}/* pkg/deb"
+  mv FileList["#{temp}/*"], "pkg/deb"
   rm_rf temp
   puts
   puts "Wrote debian package output to #{`pwd`.strip}/pkg/deb"
