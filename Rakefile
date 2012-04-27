@@ -103,6 +103,7 @@ task :package => [ JAR_FILE, :template  ] do
     cp_pr f, workdir
   end
   mv "#{workdir}/ext/files/debian", workdir
+  cp_pr "puppet", "#{workdir}/ext/master"
   sh "cd pkg; tar --exclude=.gitignore -zcf puppetdb-#{@version}.tar.gz puppetdb-#{@version}"
   rm_rf workdir
   puts
