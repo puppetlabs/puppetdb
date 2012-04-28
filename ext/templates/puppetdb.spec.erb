@@ -1,0 +1,150 @@
+%global   realname puppetdb
+
+%global ruby_sitelib     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+
+# These macros are not always defined on much older rpm-based systems
+%global  _sharedstatedir /var/lib
+%global  _realsysconfdir /etc
+%global  _initddir   %{_realsysconfdir}/rc.d/init.d
+%global _rundir /var/run
+
+<% if @pe -%>
+%global p_vendor pe
+%global _orig_prefix %{_prefix}
+%global name_prefix  %{p_vendor}-
+%global _sysconfdir /etc/puppetlabs
+%define _lib lib
+%define _prefix /opt/puppet
+<% end -%>
+
+<% if @pe -%>
+Name:           pe-puppetdb
+<% else -%>
+Name:           puppetdb
+<% end -%>
+Version:        <%= @version %>
+Release:        1%{?dist}
+BuildRoot:      %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+Summary:        Puppet Centralized Storage Daemon
+License:       ASL 2.0
+URL:           http://github.com/puppetlabs/puppetdb
+Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{version}.tar.gz
+Group:         System Environment/Daemons
+
+BuildRequires: /usr/sbin/useradd
+<% if @pe -%>
+BuildRequires: pe-facter, pe-puppet
+BuildRequires: pe-rubygem-rake
+BuildRequires: pe-ruby
+<% else -%>
+BuildRequires: facter, puppet
+BuildRequires: rubygem-rake
+BuildRequires: ruby
+<% end -%>
+BuildArch:     noarch
+Requires:      java-1.6.0-openjdk
+Requires:      chkconfig
+
+%description
+Puppet Centralized Storage.
+
+%package terminus
+Summary: Puppet terminus files to connect to PuppetDB
+Group: Development/Libraries
+<% if @pe -%>
+Requires: pe-puppet >= 2.7.12
+<% else -%>
+Requires: puppet >= 2.7.12
+<% end -%>
+
+%description terminus
+Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
+
+%prep
+%setup -q -n %{realname}-%{version}
+
+%build
+
+%install
+
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/%{_initddir}
+
+<% if @pe -%>
+PATH=/opt/puppet/bin:$PATH rake install DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+PATH=/opt/puppet/bin:$PATH rake terminus DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+<% else -%>
+rake install DESTDIR=$RPM_BUILD_ROOT
+rake terminus DESTDIR=$RPM_BUILD_ROOT
+<% end -%>
+
+mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
+mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
+touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%pre
+# Add PuppetDB user
+getent group %{name} > /dev/null || groupadd -r %{name}
+getent passwd %{name} > /dev/null || \
+useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
+     -c "PuppetDB daemon"  %{name}
+
+%post
+# Register the puppetDB service
+/sbin/chkconfig --add %{name}
+
+%preun
+/sbin/service %{name} stop >/dev/null 2>&1
+/sbin/chkconfig --del %{name}
+
+%postun
+# Remove PuppetDB user
+getent group %{name} > /dev/null || groupdel -r %{name}
+getent passwd %{name} > /dev/null || userdel -r %{name}
+rm -rf %{_rundir}/%{name} || :
+
+
+%files
+%defattr(-, %{name}, %{name})
+%doc *.md
+%doc spec
+%config(noreplace)%{_sysconfdir}/%{realname}/config.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/log4j.properties
+%config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
+%config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
+%{_datadir}/%{realname}
+%{_initddir}/%{name}
+<% unless @pe -%>
+%{_sharedstatedir}/%{realname}
+<% end -%>
+%{_datadir}/%{realname}/state
+%dir %{_localstatedir}/log/%{name}
+%ghost %{_localstatedir}/log/%{name}/%{name}.log
+%ghost %{_rundir}/%{name}
+
+
+%files terminus
+<% if @pe -%>
+%defattr(-, pe-puppet, pe-puppet)
+<% else -%>
+%defattr(-, puppet, puppet)
+<% end -%>
+# There are not specs yet in our rpms
+%{ruby_sitelib}/puppet
+
+
+%changelog
+<%
+hostname = `hostname --fqdn`
+dt=`date +"%a %b %d %Y"`
+-%>
+* <%= dt.strip -%> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname.strip -%>> - <%= version %>
+- Autobuild from Rake task
+
+* Mon Apr 02 2012 Michael Stahnke <stahnma@puppetlabs.com> - 0.1.0-1
+- Initial Packaging

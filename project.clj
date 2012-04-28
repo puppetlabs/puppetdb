@@ -4,9 +4,7 @@
 (defn version-string
   "Determine the version number using 'git describe'"
   []
-  ;; TODO: Use a command of "git describe" once we actually have an
-  ;; annotated tag in the repo.
-  (let [command                ["git" "describe" "--tags"]
+  (let [command                ["git" "describe"]
         {:keys [exit out err]} (apply sh command)]
     (when-not (zero? exit)
       (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
