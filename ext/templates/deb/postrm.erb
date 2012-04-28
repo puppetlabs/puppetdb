@@ -1,0 +1,25 @@
+#!/bin/sh -e
+
+case "$1" in
+    purge)
+        rm -f <%= @config_dir -%>/config.ini
+
+        rm -rf <%= @link -%> <%= @install_dir -%>
+
+        # Remove puppet log files
+        rm -rf <%= @log_dir %>
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+
+
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ]; then
+
+    # Set correct permissions and ownership for puppetdb directories
+    if ! dpkg-statoverride --list <%= @log_dir -%> >/dev/null 2>&1; then
+        dpkg-statoverride --update --add <%= @name -%>  <%= @name -%> 0750 <%= @log_dir %>
+    fi
+
+    if ! dpkg-statoverride --list <%= @install_dir -%> >/dev/null 2>&1; then
+        dpkg-statoverride --update --add <%= @name -%>  <%= @name -%> 0750 <%= @install_dir %>
+    fi
+
+    if ! dpkg-statoverride --list <%= @config_dir -%> >/dev/null 2>&1; then
+        dpkg-statoverride --update --add <%= @name -%>  <%= @name -%> 0750 <%= @config_dir %>
+    fi
+
+    if ! dpkg-statoverride --list <%= @lib_dir -%> >/dev/null 2>&1; then
+        dpkg-statoverride --update --add <%= @name -%>  <%= @name -%> 0750 <%= @lib_dir %>
+    fi
+
+    if ! dpkg-statoverride --list <%= @link -%> >/dev/null 2>&1; then
+        dpkg-statoverride --update --add <%= @name -%>  <%= @name -%> 0750 <%= @link %>
+    fi
+
+    chown -R <%= @name -%>:<%= @name -%> <%= @link -%> <%= @log_dir -%> <%= @install_dir -%> <%= @config_dir -%> <%= @lib_dir %>
+fi
+
+#DEBHELPER#

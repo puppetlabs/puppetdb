@@ -1,0 +1,7 @@
+<%= @config_dir.gsub(/^\//, '') %>
+<%= @log_dir.gsub(/^\//, '') %>
+<%= @install_dir.gsub(/^\//, '') %>
+<%= @lib_dir.gsub(/^\//, '') %>
+<% if @pe == false -%>
+<%= @link.gsub(/^\//, '') -%>
+<% end -%>

@@ -1,0 +1,125 @@
+#!/bin/sh
+#
+# <%= @name -%> Centralized Storage Daemon for Puppet
+#
+# chkconfig: - 20 80
+# description: Centralized Storage Daemon for Puppet
+
+### BEGIN INIT INFO
+# Provides:          <%= @name %>
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: <%= @name -%> stored config server
+# Description:       Start <%= @name -%> daemon placed in /etc/init.d.
+### END INIT INFO
+
+# Author:  Michael Stahnke <stahnma@puppetlabs.com>
+# Copyright 2012 Puppet Labs
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+prog="<%= @name -%>"
+
+##########################################
+#  You should not have to edit this init script.
+#  Please attempt to make changes in /etc/sysconfig/<%= @name %>
+##########################################
+
+[ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
+
+config=$CONFIG
+
+<% if @pe -%>
+PATH=/opt/puppet/bin:/opt/puppet/sbin:/sbin:/usr/sbin:/bin:/usr/bin
+<% else -%>
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+<% end -%>
+JARFILE="<%= @name -%>.jar"
+JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
+EXTRA_ARGS="--chuid $USER --background --make-pidfile"
+lockfile=/var/lock/subsys/$prog
+EXEC="$JAVA_BIN $JAVA_ARGS"
+PIDFILE="/var/run/$prog/$prog"
+
+if `which runuser &> /dev/null` ; then
+    SU=runuser
+else
+    SU=su
+fi
+
+find_my_pid() {
+    if [ ! -d  "/var/run/$prog" ] ; then
+      mkdir -p /var/run/$prog
+      chown -R $USER:$USER /var/run/$prog
+    fi
+    pid=`ps -ef | grep $JAVA_BIN | grep ^$USER | grep " services -c " | awk '{print $2}'`
+}
+
+start() {
+    # call status here and figure out current state
+    rh_status_q
+    [ -x $JAVA_BIN ] || exit 5
+    [ -f $config ] || exit 6
+    echo -n $"Starting $prog: "
+    $SU $USER -s /bin/bash -c "$EXEC &"
+    sleep 1
+    find_my_pid
+    echo $pid > $PIDFILE
+    [ -s $PIDFILE ] && success $"$base startup" || failure $"$base startup"
+    echo
+    [ -s $PIDFILE ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    find_my_pid
+    if [ -s "$PIDFILE" ] ; then
+        kill `cat $PIDFILE`
+    else
+        kill $pid
+    fi
+    retval=$?
+    [ $retval -eq 0 ] && success $"$base stopped" || failure $"$base stopped"
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile $PIDFILE
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+rh_status() {
+    status -p $PIDFILE $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        #rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    status)
+        rh_status
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart}"
+        exit 2
+esac
+exit $?

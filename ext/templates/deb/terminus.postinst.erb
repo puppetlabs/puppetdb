@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ]; then
+
+<% if @pe -%>
+    chown -R pe-puppet:pe-puppet <%= @plibdir -%>/puppet
+<% else -%>
+    chown -R puppet:puppet <%= @plibdir -%>/puppet
+<% end -%>
+
+fi
+
+#DEBHELPER#
