@@ -221,7 +221,11 @@ occasionally handy to have a source-based installation:
 You can replace `/opt/puppetdb` with a target installation prefix of
 your choosing.
 
-_TODO: add instructions for terminus installation_
+The Puppet terminuses can be installed from source by copying them into the
+same directory as your Puppet installation. Using Ruby 1.8 on Linux (without
+rvm), this is probably `/usr/lib/ruby/1.8/puppet`.
+
+    $ cp -R ext/master/lib/puppet /usr/lib/ruby/1.8/puppet
 
 ### Installing PostgreSQL
 
