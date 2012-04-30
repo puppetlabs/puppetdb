@@ -228,7 +228,8 @@ source, without any installation step. This can be accomplished using
     # Download the dependencies
     $ lein deps
 
-    # Start the server from source. A sample config file is provided in pkg/
+    # Start the server from source. A sample config is provided in the root of
+    # the repo, in config.sample.ini
     $ lein run services -c /path/to/config.ini
 
 From here you can make changes to the code, and trying them out is as easy as
