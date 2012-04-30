@@ -1,4 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
+  (:require [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]))
 
@@ -7,13 +8,16 @@
     (let [config (configure-commandproc-threads {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
 
-  (testing "should default to half the available CPUs"
-    (let [config (configure-commandproc-threads {})
-          expected (-> (Runtime/getRuntime)
-                     (.availableProcessors)
-                     (/ 2)
-                     (int))]
-      (is (= (get-in config [:command-processing :threads]) expected)))))
+  (let [with-ncores (fn [cores]
+                      (with-redefs [utils/num-cpus (constantly cores)]
+                        (-> (configure-commandproc-threads {})
+                            (get-in [:command-processing :threads]))))]
+    (testing "should default to half the available CPUs"
+      (is (= (with-ncores 4) 2)))
+    (testing "should default to half the available CPUs, rounding down"
+      (is (= (with-ncores 5) 2)))
+    (testing "should default to half the available CPUs, even on single core boxes"
+      (is (= (with-ncores 1) 1)))))
 
 (deftest database-configuration
   (testing "database"
