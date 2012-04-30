@@ -213,7 +213,7 @@ The Puppet terminuses can be installed from source by copying them into the
 same directory as your Puppet installation. Using Ruby 1.8 on Linux (without
 rvm), this is probably `/usr/lib/ruby/1.8/puppet`.
 
-    $ cp -R ext/master/lib/puppet /usr/lib/ruby/1.8/puppet
+    $ cp -R puppet/lib/puppet /usr/lib/ruby/1.8/puppet
 
 ### Running directly from source
 
@@ -247,7 +247,7 @@ Other useful commands:
 
 To use the Puppet module from source, add the Ruby code to $RUBYLIB.
 
-    $ export RUBYLIB=$RUBYLIB:`pwd`/ext/master/lib
+    $ export RUBYLIB=$RUBYLIB:`pwd`/puppet/lib
 
 Restart the Puppet master each time changes are made to the Ruby code.
 
