@@ -309,3 +309,12 @@
   "Generate a random UUID and return its string representation"
   []
   (str (java.util.UUID/randomUUID)))
+
+;; System interface
+
+(defn num-cpus
+  "Grabs the number of available CPUs for the local host"
+  []
+  {:post [(pos? %)]}
+  (-> (Runtime/getRuntime)
+      (.availableProcessors)))

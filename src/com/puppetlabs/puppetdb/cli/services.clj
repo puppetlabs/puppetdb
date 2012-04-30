@@ -112,8 +112,7 @@
   {:pre [(map? config)]
    :post [(map? %)
           (pos? (get-in % [:command-processing :threads]))]}
-  (let [default-nthreads (-> (Runtime/getRuntime)
-                             (.availableProcessors)
+  (let [default-nthreads (-> (pl-utils/num-cpus)
                              (/ 2)
                              (int)
                              (max 1))]
