@@ -106,14 +106,17 @@
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
   command-processing threads to use. If no value exists in the config
-  map, default to half the number of CPUs."
+  map, default to half the number of CPUs. If only one CPU exists, we
+  will use one command-processing thread."
   [config]
   {:pre [(map? config)]
-   :post [(map? %)]}
+   :post [(map? %)
+          (pos? (get-in % [:command-processing :threads]))]}
   (let [default-nthreads (-> (Runtime/getRuntime)
                              (.availableProcessors)
                              (/ 2)
-                             (int))]
+                             (int)
+                             (max 1))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
 (defn configure-web-server
