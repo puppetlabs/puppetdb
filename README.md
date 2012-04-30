@@ -101,18 +101,6 @@ in [RFC 2119][RFC2119].
 
 [RFC2119]: http://tools.ietf.org/html/rfc2119
 
-## Building the project
-
-* Install [leiningen][leiningen].
-
-* `lein deps`, to download dependencies
-
-* `lein test`, to run the test suite
-
-* `lein marg`, to generate docs
-
-* `lein uberjar`, to build a standalone artifact
-
 ## Installation guide
 
 ### Basic Requirements
@@ -222,6 +210,42 @@ You can replace `/opt/puppetdb` with a target installation prefix of
 your choosing.
 
 _TODO: add instructions for terminus installation_
+
+### Running directly from source
+
+While installing from source is useful for simply running a development version
+for testing, for development it's better to be able to run *directly* from
+source, without any installation step. This can be accomplished using
+[leiningen](https://github.com/technomancy/leiningen#installation), a Clojure build tool.
+
+    # Install leiningen
+
+    # Get the code!
+    $ mkdir -p ~/git && cd ~/git
+    $ git clone git://github.com/puppetlabs/puppetdb
+    $ cd puppetdb
+
+    # Download the dependencies
+    $ lein deps
+
+    # Start the server from source. A sample config is provided in the root of
+    # the repo, in config.sample.ini
+    $ lein run services -c /path/to/config.ini
+
+From here you can make changes to the code, and trying them out is as easy as
+restarting the server.
+
+Other useful commands:
+
+* `lein test` to run the test suite
+
+* `lein marg` to build docs in `docs/uberdoc.html`
+
+To use the Puppet module from source, add the Ruby code to $RUBYLIB.
+
+    $ export RUBYLIB=$RUBYLIB:`pwd`/ext/master/lib
+
+Restart the Puppet master each time changes are made to the Ruby code.
 
 ### Installing PostgreSQL
 
