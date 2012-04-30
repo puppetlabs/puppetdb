@@ -240,9 +240,11 @@ Other useful commands:
 
 * `lein marg` to build docs in `docs/uberdoc.html`
 
-To use the Puppet module from source, you can symlink the `module/`
-subdirectory into your modulepath. Note that changes to the module code will
-need an agent run to pluginsync the new files.
+To use the Puppet module from source, add the Ruby code to $RUBYLIB.
+
+    $ export RUBYLIB=$RUBYLIB:`pwd`/ext/master/lib
+
+Restart the Puppet master each time changes are made to the Ruby code.
 
 ### Installing PostgreSQL
 
