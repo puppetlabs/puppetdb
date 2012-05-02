@@ -24,7 +24,7 @@ An empty query gathers all resources."
           (string? (first %))
           (every? (complement coll?) (rest %))]}
   (if (nil? query)
-    ["(SELECT DISTINCT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources)"]
+    ["(SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources)"]
     (compile-query->sql query)))
 
 (defn query-resources
@@ -59,12 +59,11 @@ and their parameters which match."
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [catalog_resources (-> (table :catalog_resources)
-                              (project [:catalog_resources.catalog :catalog_resources.resource])
-                              (distinct))
+                            (project [:catalog_resources.catalog :catalog_resources.resource]))
         tbl               (match [path]
                                  ;; tag join.
                                  ["tag"]
-                                 [(format "SELECT DISTINCT catalog,resource FROM catalog_resources WHERE %s"
+                   [(format "SELECT catalog,resource FROM catalog_resources WHERE %s"
                                           (sql-array-query-string "tags"))
                                   value]
                                  ;; node join.
@@ -72,9 +71,7 @@ and their parameters which match."
                                  (let [certname_catalogs (-> (table :certname_catalogs)
                                                              (select (where
                                                                       (= :certname_catalogs.certname value)))
-                                                             (project [])
-                                                             ;; ClojureQL loses the DISTINCT when we join unless it's on the left side as well
-                                                             (distinct))]
+                                             (project []))]
                                    (join certname_catalogs catalog_resources :catalog))
                                  ;; {in,}active nodes.
                                  [["node" "active"]]
@@ -85,8 +82,7 @@ and their parameters which match."
                                                              (select (where (if value
                                                                               (= :certnames.deactivated nil)
                                                                               (not (= :certnames.deactivated nil)))))
-                                                             (project [])
-                                                             (distinct))]
+                                             (project []))]
                                    (join certname_catalogs catalog_resources :catalog))
                                  ;; param joins.
                                  [["parameter" (name :when string?)]]
@@ -94,9 +90,9 @@ and their parameters which match."
                                                            (select (where
                                                                     (and (= :resource_params.name name)
                                                                          (= :resource_params.value (db-serialize value)))))
-                                                           (project [])
-                                                           (distinct))]
+                                           (project []))]
                                    (join resource_params catalog_resources :resource))
+
                                  ;; metadata match.
                                  [(metadata :when string?)]
                                  (select catalog_resources
@@ -128,7 +124,7 @@ operation."
         query  (->> (map first terms)
                     (alias-subqueries)
                     (string/join " NATURAL JOIN ")
-                    (str "SELECT DISTINCT catalog,resource FROM ")
+                   (str "SELECT catalog,resource FROM ")
                     (format "(%s)"))]
     (apply vector query params)))
 
@@ -160,7 +156,7 @@ operation."
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [[subquery & params] (compile-query->sql (cons "or" terms))
         query               (->> subquery
-                                 (format (str "SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs "
+                    (format (str "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs "
                                               "LEFT OUTER JOIN %s rhs "
                                               "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource "
                                               "WHERE (rhs.resource IS NULL)"))
