@@ -1,0 +1,27 @@
+#!/bin/sh
+
+
+# Setup the SSL stuff
+
+bash <%= @sbin_dir -%>/puppetdb-ssl-setup
+
+pw=`cat <%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt`
+
+
+find <%= @config_dir -%> | xargs chmod 640
+chown -R <%= @name -%>:<%= @name -%> <%= @config_dir -%>/..
+
+
+cat > <%= @config_dir -%>/jetty.ini << EOF
+[jetty]
+# Hostname to list for clear-text HTTP.  Default is localhost
+#host = localhost
+# Port to listen on for clear-text HTTP.
+port = 8080
+ssl-host = `facter fqdn`
+ssl-port = 8081
+keystore = <%= @config_dir -%>/../ssl/keystore.jks
+truststore = <%= @config_dir -%>/../ssl/truststore.jks
+key-password = $pw
+trust-password = $pw
+EOF

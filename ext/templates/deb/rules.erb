@@ -30,7 +30,7 @@ binary-indep: build install
 	dh_installinit -ppuppetdb
 	dh_installlogrotate -i -ppuppetdb
 	dh_compress -i
-	dh_fixperms -i
+	dh_fixperms -i -X puppetdb-ssl-setup -X etc
 	dh_installdeb -i
 	dh_shlibdeps -i
 	dh_gencontrol -i
