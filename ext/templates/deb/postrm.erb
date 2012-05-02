@@ -2,7 +2,7 @@
 
 case "$1" in
     purge)
-        rm -f <%= @config_dir -%>/config.ini
+        rm -rf <%= @config_dir -%>
 
         rm -rf <%= @link -%> <%= @install_dir -%>
 

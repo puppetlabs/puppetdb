@@ -38,7 +38,7 @@ end
 
 if PE_BUILD == "true" or PE_BUILD == "TRUE"
     @install_dir = "/opt/puppet/share/puppetdb"
-    @config_dir = "/etc/puppetlabs/puppetdb"
+    @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/pe-puppetdb"
     @log_dir = "/var/log/pe-puppetdb"
     @lib_dir = "/opt/puppet/share/puppetdb"
@@ -47,7 +47,7 @@ if PE_BUILD == "true" or PE_BUILD == "TRUE"
     @version = version
 else
     @install_dir = "/usr/share/puppetdb"
-    @config_dir = "/etc/puppetdb"
+    @config_dir = "/etc/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/puppetdb"
     @log_dir = "/var/log/puppetdb"
     @lib_dir = "/usr/share/puppetdb"
@@ -135,6 +135,9 @@ task :template => [ ] do
    # files for deb and rpm
    erb "ext/templates/log4j.properties.erb", "ext/files/log4j.properties"
    erb "ext/templates/config.ini.erb" , "ext/files/config.ini"
+   erb "ext/templates/jetty.ini.erb",  "ext/files/jetty.ini"
+   erb "ext/templates/repl.ini.erb",  "ext/files/repl.ini"
+   erb "ext/templates/database.ini.erb",  "ext/files/database.ini"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
@@ -172,6 +175,7 @@ task :install => [  JAR_FILE  ] do
   osfamily = Facter.value(:osfamily).downcase
   mkdir_p "#{DESTDIR}/#{@install_dir}"
   mkdir_p "#{DESTDIR}/#{@config_dir}"
+  mkdir_p "#{DESTDIR}/#{@config_dir}/.."
   mkdir_p "#{DESTDIR}/#{@log_dir}"
   mkdir_p "#{DESTDIR}/etc/init.d/"
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
@@ -186,16 +190,21 @@ task :install => [  JAR_FILE  ] do
     ln_sf "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
     ln_sf "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
     ln_sf "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
+    mkdir_p "#{DESTDIR}#/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
     mkdir_p "#{DESTDIR}#{@lib_dir}/mq"
+    mkdir_p "#{DESTDIR}#/etc/puppetlabs/puppetdb"
   end
 
   cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
-  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/log4j.properties"
-  cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}/config.ini"
+  cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/database.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/jetty.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/repl.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
+  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
 
   # figure out which init script to install based on facter
   if osfamily.downcase == "RedHat".downcase
@@ -210,8 +219,8 @@ task :install => [  JAR_FILE  ] do
     cp_pr "ext/files/puppetdb.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   end
-  chmod 0640, "#{DESTDIR}/#{@config_dir}/config.ini"
-  chmod 0640, "#{DESTDIR}/#{@config_dir}/log4j.properties"
+  chmod 0750, "#{DESTDIR}/#{@config_dir}"
+  chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
 end
 
 desc "Install the terminus components onto an existing puppet setup"
@@ -255,7 +264,6 @@ task :deb  => [ :package ] do
   cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}"
   sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{version}.tar.gz"
   mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@version}.orig.tar.gz"
-  #%x{cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us}
   sh "cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us"
   mkdir_p "pkg/deb"
   rm_rf "#{temp}/puppetdb-#{@version}"
