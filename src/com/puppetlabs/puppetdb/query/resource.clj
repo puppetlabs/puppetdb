@@ -122,9 +122,7 @@ operation."
   (let [terms  (map compile-query->sql terms)
         params (mapcat rest terms)
         query  (->> (map first terms)
-                    (alias-subqueries)
-                    (string/join " NATURAL JOIN ")
-                   (str "SELECT catalog,resource FROM ")
+                   (string/join " INTERSECT ALL ")
                     (format "(%s)"))]
     (apply vector query params)))
 
@@ -140,7 +138,7 @@ operation."
   (let [terms  (map compile-query->sql terms)
         params (mapcat rest terms)
         query  (->> (map first terms)
-                    (string/join " UNION ")
+                   (string/join " UNION ALL ")
                     (format "(%s)"))]
     (apply vector query params)))
 
@@ -156,9 +154,6 @@ operation."
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [[subquery & params] (compile-query->sql (cons "or" terms))
         query               (->> subquery
-                    (format (str "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs "
-                                              "LEFT OUTER JOIN %s rhs "
-                                              "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource "
-                                              "WHERE (rhs.resource IS NULL)"))
-                                 (format "(%s)"))]
+                 (format "SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources EXCEPT %s")
+                 (format "(%s)"))]
     (apply vector query params)))
