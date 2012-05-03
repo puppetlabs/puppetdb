@@ -92,7 +92,7 @@ and their parameters which match."
                                                                          (= :resource_params.value (db-serialize value)))))
                                            (project [:resource]))
                          [sql & params]  (compile resource_params nil)]
-                     (apply vector (format "SELECT catalog,resource FROM catalog_resources WHERE resource IN (%s)" sql) params))
+                     (apply vector (format "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs WHERE EXISTS (SELECT * FROM (%s) rhs WHERE lhs.resource = rhs.resource)" sql) params))
                                  ;; metadata match.
                                  [(metadata :when string?)]
                                  (select catalog_resources
@@ -154,6 +154,6 @@ operation."
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [[subquery & params] (compile-query->sql (cons "or" terms))
         query               (->> subquery
-                 (format "SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources EXCEPT %s")
+                 (format "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs WHERE NOT EXISTS (SELECT * FROM %s rhs WHERE lhs.resource = rhs.resource AND lhs.catalog = rhs.catalog)")
                  (format "(%s)"))]
     (apply vector query params)))
