@@ -122,7 +122,9 @@ operation."
   (let [terms  (map compile-query->sql terms)
         params (mapcat rest terms)
         query  (->> (map first terms)
-                   (string/join " INTERSECT ALL ")
+                   (alias-subqueries)
+                   (string/join " NATURAL JOIN ")
+                   (str "SELECT catalog,resource FROM ")
                     (format "(%s)"))]
     (apply vector query params)))
 
