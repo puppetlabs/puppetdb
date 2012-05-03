@@ -4,11 +4,26 @@
   (:import (org.mortbay.jetty Server)
            (org.mortbay.jetty.bio SocketConnector)
            (org.mortbay.jetty.security SslSocketConnector))
-  (:require [ring.adapter.jetty :as jetty]))
+  (:require [ring.adapter.jetty :as jetty])
+  (:use [clojure.tools.logging :as log]))
 
 ;; We need to monkey-patch `add-ssl-connector!` in order to set the
 ;; appropriate options for Client Certificate Authentication, and use
 ;; an ssl-specific host for the socket listener.
+
+;; Work around an issue with OpenJDK's PKCS11 implementation preventing TLSv1
+;; connections from working correctly
+;;
+;; http://stackoverflow.com/questions/9586162/openjdk-and-php-ssl-connection-fails
+;; https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/948875
+(if (re-find #"OpenJDK" (System/getProperty "java.vm.name"))
+  (try
+    (let [blacklist (filter #(instance? sun.security.pkcs11.SunPKCS11 %) (java.security.Security/getProviders))]
+      (doseq [provider blacklist]
+        (log/info (str "Removing buggy security provider " provider))
+        (java.security.Security/removeProvider (.getName provider))))
+    (catch Throwable e
+      (log/error e "Could not remove security providers; HTTPS may not work!"))))
 
 (defn add-ssl-connector!
   "Add an SslSocketConnector to a Jetty Server instance."
