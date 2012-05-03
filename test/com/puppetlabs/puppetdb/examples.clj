@@ -3,128 +3,128 @@
 
 (def catalogs
   {:empty
-   {:certname "empty.catalogs.com"
+   {:certname         "empty.catalogs.com"
     :puppetdb-version CATALOG-VERSION
-    :api-version 1
-    :version "1330463884"
-    :tags #{"settings"}
-    :classes #{"settings"}
-    :edges #{{:source {:type "Stage" :title "main"}
-              :target {:type "Class" :title "Settings"}
-              :relationship :contains}
-             {:source {:type "Stage" :title "main"}
-              :target {:type "Class" :title "Main"}
-              :relationship :contains}}
-    :resources {{:type "Class" :title "Main"} {:exported false
-                                               :title      "Main"
-                                               :tags       #{"class" "main"}
-                                               :type       "Class"
-                                               :parameters {:name "main"}}
-                {:type "Class" :title "Settings"} {:exported false
-                                                   :title    "Settings"
-                                                   :tags     #{"settings" "class"}
-                                                   :type     "Class"}
-                {:type "Stage" :title "main"} {:exported false
-                                               :title    "main"
-                                               :tags     #{"main" "stage"}
-                                               :type     "Stage"}}
-    :aliases {}}
+    :api-version      1
+    :version          "1330463884"
+    :tags             #{"settings"}
+    :classes          #{"settings"}
+    :edges            #{{:source       {:type "Stage" :title "main"}
+                         :target       {:type "Class" :title "Settings"}
+                         :relationship :contains}
+                        {:source       {:type "Stage" :title "main"}
+                         :target       {:type "Class" :title "Main"}
+                         :relationship :contains}}
+    :resources        {{:type "Class" :title "Main"}     {:exported   false
+                                                          :title      "Main"
+                                                          :tags       #{"class" "main"}
+                                                          :type       "Class"
+                                                          :parameters {:name "main"}}
+                       {:type "Class" :title "Settings"} {:exported false
+                                                          :title    "Settings"
+                                                          :tags     #{"settings" "class"}
+                                                          :type     "Class"}
+                       {:type "Stage" :title "main"}     {:exported false
+                                                          :title    "main"
+                                                          :tags     #{"main" "stage"}
+                                                          :type     "Stage"}}
+    :aliases          {}}
 
    :basic
-   {:certname "basic.catalogs.com"
+   {:certname         "basic.catalogs.com"
     :puppetdb-version CATALOG-VERSION
-    :api-version 1
-    :version "123456789"
-    :tags #{"class" "foobar"}
-    :classes #{"foobar" "baz"}
-    :edges #{{:source {:type "Class" :title "foobar"}
-              :target {:type "File" :title "/etc/foobar"}
-              :relationship :contains}
-             {:source {:type "Class" :title "foobar"}
-              :target {:type "File" :title "/etc/foobar/baz"}
-              :relationship :contains}
-             {:source {:type "File" :title "/etc/foobar"}
-              :target {:type "File" :title "/etc/foobar/baz"}
-              :relationship :required-by}}
-    :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
-                {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                     :title      "/etc/foobar"
-                                                     :exported   false
-                                                     :file       "/tmp/foo"
-                                                     :line       10
-                                                     :tags       #{"file" "class" "foobar"}
-                                                     :parameters {:ensure "directory"
-                                                                  :group  "root"
-                                                                  :user   "root"}}
-                {:type "File" :title "/etc/foobar/baz"} {:type       "File"
-                                                         :title      "/etc/foobar/baz"
-                                                         :exported   false
-                                                         :file       "/tmp/bar"
-                                                         :line       20
-                                                         :tags       #{"file" "class" "foobar"}
-                                                         :parameters {:ensure  "directory"
-                                                                      :group   "root"
-                                                                      :user    "root"
-                                                                      :require "File[/etc/foobar]"}}}}
+    :api-version      1
+    :version          "123456789"
+    :tags             #{"class" "foobar"}
+    :classes          #{"foobar" "baz"}
+    :edges            #{{:source       {:type "Class" :title "foobar"}
+                         :target       {:type "File" :title "/etc/foobar"}
+                         :relationship :contains}
+                        {:source       {:type "Class" :title "foobar"}
+                         :target       {:type "File" :title "/etc/foobar/baz"}
+                         :relationship :contains}
+                        {:source       {:type "File" :title "/etc/foobar"}
+                         :target       {:type "File" :title "/etc/foobar/baz"}
+                         :relationship :required-by}}
+    :resources        {{:type "Class" :title "foobar"}         {:type "Class" :title "foobar" :exported false}
+                       {:type "File" :title "/etc/foobar"}     {:type       "File"
+                                                                :title      "/etc/foobar"
+                                                                :exported   false
+                                                                :file       "/tmp/foo"
+                                                                :line       10
+                                                                :tags       #{"file" "class" "foobar"}
+                                                                :parameters {:ensure "directory"
+                                                                             :group  "root"
+                                                                             :user   "root"}}
+                       {:type "File" :title "/etc/foobar/baz"} {:type       "File"
+                                                                :title      "/etc/foobar/baz"
+                                                                :exported   false
+                                                                :file       "/tmp/bar"
+                                                                :line       20
+                                                                :tags       #{"file" "class" "foobar"}
+                                                                :parameters {:ensure  "directory"
+                                                                             :group   "root"
+                                                                             :user    "root"
+                                                                             :require "File[/etc/foobar]"}}}}
 
    :invalid
-   {:certname "invalid.catalogs.com"
+   {:certname         "invalid.catalogs.com"
     :puppetdb-version CATALOG-VERSION
-    :api-version 1
-    :version 123456789
-    :tags #{"class" "foobar"}
-    :classes #{"foobar"}
-    :edges #{{:source {:type "Class" :title "foobar"}
-              :target {:type "File" :title "does not exist"}
-              :relationship :contains}}
-    :resources {{:type "Class" :title "foobar"} {:type "Class" :title "foobar" :exported false}
-                {:type "File" :title "/etc/foobar"} {:type       "File"
-                                                     :title      "/etc/foobar"
-                                                     :exported   false
-                                                     :tags       #{"file" "class" "foobar"}
-                                                     :parameters {"ensure" "directory"
-                                                                  "group"  "root"
-                                                                  "user"   "root"}}}}})
+    :api-version      1
+    :version          123456789
+    :tags             #{"class" "foobar"}
+    :classes          #{"foobar"}
+    :edges            #{{:source       {:type "Class" :title "foobar"}
+                         :target       {:type "File" :title "does not exist"}
+                         :relationship :contains}}
+    :resources        {{:type "Class" :title "foobar"}     {:type "Class" :title "foobar" :exported false}
+                       {:type "File" :title "/etc/foobar"} {:type       "File"
+                                                            :title      "/etc/foobar"
+                                                            :exported   false
+                                                            :tags       #{"file" "class" "foobar"}
+                                                            :parameters {"ensure" "directory"
+                                                                         "group"  "root"
+                                                                         "user"   "root"}}}}})
 
 (def wire-catalogs
   {:empty
-   {:metadata {:api_version 1}
+   {:metadata      {:api_version 1}
     :document_type "Catalog"
     :data
     {:edges
      [{:relationship "contains"
-       :target {:title "Settings" :type "Class"}
-       :source {:title "main" :type "Stage"}}
+       :target       {:title "Settings" :type "Class"}
+       :source       {:title "main" :type "Stage"}}
       {:relationship "contains"
-       :target {:title "main" :type "Class"}
-       :source {:title "main" :type "Stage"}}
+       :target       {:title "main" :type "Class"}
+       :source       {:title "main" :type "Stage"}}
       {:relationship "contains"
-       :target {:title "default" :type "Node"}
-       :source {:title "main" :type "Class"}}]
-     :name "empty.wire-catalogs.com"
+       :target       {:title "default" :type "Node"}
+       :source       {:title "main" :type "Class"}}]
+     :name        "empty.wire-catalogs.com"
      :resources
-     [{:exported false
-       :title "Settings"
+     [{:exported   false
+       :title      "Settings"
        :parameters {}
-       :tags ["class" "settings"]
-       :type "Class"}
-      {:exported false
-       :title "main"
+       :tags       ["class" "settings"]
+       :type       "Class"}
+      {:exported   false
+       :title      "main"
        :parameters {:name "main"}
-       :tags ["class"]
-       :type "Class"}
-      {:exported false
-       :title "main"
+       :tags       ["class"]
+       :type       "Class"}
+      {:exported   false
+       :title      "main"
        :parameters {:name "main"}
-       :tags ["stage"]
-       :type "Stage"}
-      {:exported false
-       :title "default"
+       :tags       ["stage"]
+       :type       "Stage"}
+      {:exported   false
+       :title      "default"
        :parameters {}
-       :tags ["node" "default" "class"]
-       :type "Node"}]
-     :tags ["settings" "default" "node"]
-     :classes ["settings" "default"]
-     :version 1332533763
+       :tags       ["node" "default" "class"]
+       :type       "Node"}]
+     :tags        ["settings" "default" "node"]
+     :classes     ["settings" "default"]
+     :version     1332533763
      :environment "production"}
     }})

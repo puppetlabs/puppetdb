@@ -109,7 +109,7 @@
   map, default to half the number of CPUs. If only one CPU exists, we
   will use one command-processing thread."
   [config]
-  {:pre [(map? config)]
+  {:pre  [(map? config)]
    :post [(map? %)
           (pos? (get-in % [:command-processing :threads]))]}
   (let [default-nthreads (-> (pl-utils/num-cpus)
@@ -123,7 +123,7 @@
   start. This will specify client auth, and add a default host/port
   http://puppetdb:8080 if none are supplied (and SSL is not specified)."
   [config]
-  {:pre [(map? config)]
+  {:pre  [(map? config)]
    :post [(map? config)]}
   (assoc-in config [:jetty :need-client-auth] true))
 
@@ -133,12 +133,12 @@
   database information is specified (such as classname but not subprotocol), no
   defaults will be filled in."
   [{:keys [database global] :as config}]
-  {:pre [(map? config)]
+  {:pre  [(map? config)]
    :post [(map? config)]}
   (let [vardir     (:vardir global)
-        default-db {:classname "org.hsqldb.jdbcDriver"
+        default-db {:classname   "org.hsqldb.jdbcDriver"
                     :subprotocol "hsqldb"
-                    :subname (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
+                    :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
     (assoc config :database
            (merge {:gc-interval 60} (or database default-db)))))
 
@@ -148,24 +148,24 @@
   [vardir]
   (if-let [vardir (file vardir)]
     (cond
-      (not (.isAbsolute vardir))
-      (throw (IllegalArgumentException.
-               (format "Vardir %s must be an absolute path." vardir)))
+     (not (.isAbsolute vardir))
+     (throw (IllegalArgumentException.
+             (format "Vardir %s must be an absolute path." vardir)))
 
-      (not (.exists vardir))
-      (throw (java.io.FileNotFoundException.
-               (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
+     (not (.exists vardir))
+     (throw (java.io.FileNotFoundException.
+             (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
 
-      (not (.isDirectory vardir))
-      (throw (java.io.FileNotFoundException.
-               (format "Vardir %s is not a directory." vardir)))
+     (not (.isDirectory vardir))
+     (throw (java.io.FileNotFoundException.
+             (format "Vardir %s is not a directory." vardir)))
 
-      (not (.canWrite vardir))
-      (throw (java.io.FileNotFoundException.
-               (format "Vardir %s is not writable." vardir))))
+     (not (.canWrite vardir))
+     (throw (java.io.FileNotFoundException.
+             (format "Vardir %s is not writable." vardir))))
 
     (throw (IllegalArgumentException.
-             "Required setting 'vardir' is not specified. Please set it to a writable directory.")))
+            "Required setting 'vardir' is not specified. Please set it to a writable directory.")))
   vardir)
 
 (defn set-global-configuration!
@@ -182,25 +182,25 @@
   [file]
   (let [config (if file (ini-to-map file) {})]
     (-> config
-      (configure-logging!)
-      (configure-commandproc-threads)
-      (configure-web-server)
-      (configure-database)
-      (set-global-configuration!))))
+        (configure-logging!)
+        (configure-commandproc-threads)
+        (configure-web-server)
+        (configure-database)
+        (set-global-configuration!))))
 
 (defn -main
   [& args]
-  (let [[options _]   (cli! args)
+  (let [[options _]                                (cli! args)
         {:keys [jetty database global] :as config} (parse-config (:config options))
-        vardir        (validate-vardir (:vardir global))
-        db            (pl-jdbc/pooled-datasource database)
-        db-gc-minutes (get database :gc-interval 60)
-        mq-dir        (str (file vardir "mq"))
-        discard-dir   (file mq-dir "discarded")
-        globals       {:scf-db db
-                       :command-mq {:connection-string mq-addr
-                                    :endpoint mq-endpoint}}
-        ring-app      (server/build-app globals)]
+        vardir                                     (validate-vardir (:vardir global))
+        db                                         (pl-jdbc/pooled-datasource database)
+        db-gc-minutes                              (get database :gc-interval 60)
+        mq-dir                                     (str (file vardir "mq"))
+        discard-dir                                (file mq-dir "discarded")
+        globals                                    {:scf-db     db
+                                                    :command-mq {:connection-string mq-addr
+                                                                 :endpoint          mq-endpoint}}
+        ring-app                                   (server/build-app globals)]
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
@@ -232,11 +232,11 @@
         (when (= "true" enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (cond
-            (= type "nrepl")
-            (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
+           (= type "nrepl")
+           (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
 
-            (= type "swank")
-            (swank/start-server :host host :port port))))
+           (= type "swank")
+           (swank/start-server :host host :port port))))
 
       (let [exception (deref error)]
         (doseq [cp command-procs]

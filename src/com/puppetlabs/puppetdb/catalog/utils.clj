@@ -56,7 +56,7 @@
   "Adds a random resource to the given catalog"
   [{:keys [resources] :as c}]
   (let [new-resource (random-kw-resource)
-        key {:type (:type new-resource) :title (:title new-resource)}]
+        key          {:type (:type new-resource) :title (:title new-resource)}]
     (assoc c :resources (assoc resources key (random-kw-resource)))))
 
 (defn mod-resource-in-catalog
@@ -65,8 +65,8 @@
   Takes the candidate resources, and gives it a new, randomly
   generated set of parameters"
   [{:keys [resources] :as c}]
-  (let [k (rand-nth (keys resources))
-        r (resources k)
+  (let [k            (rand-nth (keys resources))
+        r            (resources k)
         new-resource (assoc r :parameters (random-parameters))]
     (assoc c :resources (assoc resources k new-resource))))
 
@@ -75,8 +75,8 @@
 
   Generates a random resource and applies the old parameters to it."
   [{:keys [resources] :as c}]
-  (let [k (rand-nth (keys resources))
-        r (resources k)
+  (let [k            (rand-nth (keys resources))
+        r            (resources k)
         new-resource (merge (random-kw-resource) {:type (:type r) :title (:title r) :parameters (:parameters r)})]
     (assoc c :resources (assoc resources k new-resource))))
 

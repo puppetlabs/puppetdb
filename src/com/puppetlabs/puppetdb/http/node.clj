@@ -55,10 +55,10 @@
   "Ring app for querying nodes."
   [{:keys [params headers globals] :as request}]
   (cond
-    (not (utils/acceptable-content-type
-           "application/json"
-           (headers "accept")))
-    (-> (rr/response "must accept application/json")
-      (rr/status 406))
-    :else
-    (search-nodes (params "query") (:scf-db globals))))
+   (not (utils/acceptable-content-type
+         "application/json"
+         (headers "accept")))
+   (-> (rr/response "must accept application/json")
+       (rr/status 406))
+   :else
+   (search-nodes (params "query") (:scf-db globals))))

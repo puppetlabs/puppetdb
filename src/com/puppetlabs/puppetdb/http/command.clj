@@ -28,17 +28,17 @@
   Returns the modified message in JSON format, or the original message
   if the message can't be parsed."
   [message id]
-  {:pre [(string? message)
-         (string? id)]
+  {:pre  [(string? message)
+          (string? id)]
    :post [(string? %)]}
   (try+
-    (let [message (command/parse-command message)]
-      (-> message
-          (assoc-in [:annotations :received] (pl-utils/timestamp))
-          (assoc-in [:annotations :id] id)
-          (json/generate-string)))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      message)))
+   (let [message (command/parse-command message)]
+     (-> message
+         (assoc-in [:annotations :received] (pl-utils/timestamp))
+         (assoc-in [:annotations :id] id)
+         (json/generate-string)))
+   (catch com.fasterxml.jackson.core.JsonParseException e
+     message)))
 
 (defn http->mq
   "Takes the given command and submits it to the specified endpoint on

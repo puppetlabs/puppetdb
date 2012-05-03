@@ -154,7 +154,7 @@
 
     ;; Create an agent for each host
     (def hosts
-      (into [] (map #(agent {:host %,
+      (into [] (map #(agent {:host    %,
                              :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
                              :catalog (associate-catalog-with-host % (rand-nth catalogs))})
                     hostnames)))

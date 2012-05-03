@@ -38,17 +38,17 @@
   {:post [(map? %)]}
   (into {} (for [[k v] mbean]
              (cond
-               ;; Nested structures should themselves be filtered
-               (map? v)
-               [k (filter-mbean v)]
+              ;; Nested structures should themselves be filtered
+              (map? v)
+              [k (filter-mbean v)]
 
-               ;; Cheshire can serialize to JSON anything that
-               ;; implements the JSONable protocol
-               (satisfies? JSONable v)
-               [k v]
+              ;; Cheshire can serialize to JSON anything that
+              ;; implements the JSONable protocol
+              (satisfies? JSONable v)
+              [k v]
 
-               :else
-               [k (str v)]))))
+              :else
+              [k (str v)]))))
 
 (defn all-mbean-names
   "Return a set of all mbeans names"

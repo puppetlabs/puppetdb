@@ -10,16 +10,16 @@
   collecting that resource."
   [{:keys [params headers globals] :as request}]
   (cond
-    (not (utils/acceptable-content-type
-           "application/json"
-           (headers "accept")))
-    (-> (rr/response "must accept application/json"))
+   (not (utils/acceptable-content-type
+         "application/json"
+         (headers "accept")))
+   (-> (rr/response "must accept application/json"))
 
-    :else
-    (with-transacted-connection (:scf-db globals)
-      (utils/json-response (p/correlate-exported-resources)))))
+   :else
+   (with-transacted-connection (:scf-db globals)
+     (utils/json-response (p/correlate-exported-resources)))))
 
 (def population-app
   (app
-    ["exported-resources"]
-    {:get get-exported-resources}))
+   ["exported-resources"]
+   {:get get-exported-resources}))

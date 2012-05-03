@@ -19,14 +19,14 @@
   [{:keys [params headers globals] :as request}]
   (let [node (params "node")]
     (cond
-      (empty? node)
-      (-> (rr/response "missing node")
-        (rr/status 400))
+     (empty? node)
+     (-> (rr/response "missing node")
+         (rr/status 400))
 
-      (not (utils/acceptable-content-type
-             "application/json"
-             (headers "accept")))
-      (-> (rr/response "must accept application/json"))
+     (not (utils/acceptable-content-type
+           "application/json"
+           (headers "accept")))
+     (-> (rr/response "must accept application/json"))
 
-      :else
-      (produce-body node (:scf-db globals)))))
+     :else
+     (produce-body node (:scf-db globals)))))
