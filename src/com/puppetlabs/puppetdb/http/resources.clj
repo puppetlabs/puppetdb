@@ -93,10 +93,13 @@
   "Ring app for querying resources"
   [{:keys [params headers globals] :as request}]
   (cond
+   (not (params "query"))
+   (utils/error-response "missing query")
+
    (not (utils/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
        (rr/status 406))
    :else
-   (produce-body (params "query" "null") (:scf-db globals))))
+   (produce-body (params "query") (:scf-db globals))))
