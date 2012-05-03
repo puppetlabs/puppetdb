@@ -90,9 +90,9 @@ and their parameters which match."
                                                            (select (where
                                                                     (and (= :resource_params.name name)
                                                                          (= :resource_params.value (db-serialize value)))))
-                                           (project []))]
-                                   (join resource_params catalog_resources :resource))
-
+                                           (project [:resource]))
+                         [sql & params]  (compile resource_params nil)]
+                     (apply vector (format "SELECT catalog,resource FROM catalog_resources WHERE resource IN (%s)" sql) params))
                                  ;; metadata match.
                                  [(metadata :when string?)]
                                  (select catalog_resources
