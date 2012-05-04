@@ -22,20 +22,20 @@
   [{:keys [params headers globals] :as request}]
   (let [node (params "node")]
     (cond
-      (empty? node)
-      (-> (rr/response "missing node")
-        (rr/status 400))
+     (empty? node)
+     (-> (rr/response "missing node")
+         (rr/status 400))
 
-      (not (utils/acceptable-content-type
-             "application/json"
-             (headers "accept")))
-      (-> (rr/response "must accept application/json"))
+     (not (utils/acceptable-content-type
+           "application/json"
+           (headers "accept")))
+     (-> (rr/response "must accept application/json"))
 
-      :else
-      (produce-node-status node (:scf-db globals)))))
+     :else
+     (produce-node-status node (:scf-db globals)))))
 
 (def status-app
   (app
-    ["nodes" node]
-    {:get (fn [req]
-            (node-status-app (assoc-in req [:params "node"] node)))}))
+   ["nodes" node]
+   {:get (fn [req]
+           (node-status-app (assoc-in req [:params "node"] node)))}))

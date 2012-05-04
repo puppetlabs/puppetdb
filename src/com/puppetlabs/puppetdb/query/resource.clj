@@ -59,52 +59,52 @@ and their parameters which match."
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [catalog_resources (-> (table :catalog_resources)
-                            (project [:catalog_resources.catalog :catalog_resources.resource])
-                            (distinct))
-        tbl (match [path]
-              ;; tag join.
-              ["tag"]
-                   [(format "SELECT DISTINCT catalog,resource FROM catalog_resources WHERE %s"
-                            (sql-array-query-string "tags"))
-                    value]
-              ;; node join.
-              [["node" "name"]]
-                   (let [certname_catalogs (-> (table :certname_catalogs)
-                                             (select (where
-                                                       (= :certname_catalogs.certname value)))
-                                             (project [])
-                                             ;; ClojureQL loses the DISTINCT when we join unless it's on the left side as well
-                                             (distinct))]
-                     (join certname_catalogs catalog_resources :catalog))
-              ;; {in,}active nodes.
-              [["node" "active"]]
-                   (let [certname_catalogs (-> (table :certname_catalogs)
-                                             (join (table :certnames)
-                                                   (where (= :certname_catalogs.certname
-                                                             :certnames.name)))
-                                             (select (where (if value
-                                                              (= :certnames.deactivated nil)
-                                                              (not (= :certnames.deactivated nil)))))
-                                             (project [])
-                                             (distinct))]
-                     (join certname_catalogs catalog_resources :catalog))
-              ;; param joins.
-              [["parameter" (name :when string?)]]
-                   (let [resource_params (-> (table :resource_params)
-                                           (select (where
-                                                     (and (= :resource_params.name name)
-                                                          (= :resource_params.value (db-serialize value)))))
-                                           (project [])
-                                           (distinct))]
-                     (join resource_params catalog_resources :resource))
-              ;; metadata match.
-              [(metadata :when string?)]
-                   (select catalog_resources
-                     (where (= (keyword metadata) value)))
-              ;; ...else, failure
-              :else (throw (IllegalArgumentException.
-                           (str term " is not a valid query term"))))
-        [sql & params] (if (table? tbl) (compile tbl nil) tbl)]
+                              (project [:catalog_resources.catalog :catalog_resources.resource])
+                              (distinct))
+        tbl               (match [path]
+                                 ;; tag join.
+                                 ["tag"]
+                                 [(format "SELECT DISTINCT catalog,resource FROM catalog_resources WHERE %s"
+                                          (sql-array-query-string "tags"))
+                                  value]
+                                 ;; node join.
+                                 [["node" "name"]]
+                                 (let [certname_catalogs (-> (table :certname_catalogs)
+                                                             (select (where
+                                                                      (= :certname_catalogs.certname value)))
+                                                             (project [])
+                                                             ;; ClojureQL loses the DISTINCT when we join unless it's on the left side as well
+                                                             (distinct))]
+                                   (join certname_catalogs catalog_resources :catalog))
+                                 ;; {in,}active nodes.
+                                 [["node" "active"]]
+                                 (let [certname_catalogs (-> (table :certname_catalogs)
+                                                             (join (table :certnames)
+                                                                   (where (= :certname_catalogs.certname
+                                                                             :certnames.name)))
+                                                             (select (where (if value
+                                                                              (= :certnames.deactivated nil)
+                                                                              (not (= :certnames.deactivated nil)))))
+                                                             (project [])
+                                                             (distinct))]
+                                   (join certname_catalogs catalog_resources :catalog))
+                                 ;; param joins.
+                                 [["parameter" (name :when string?)]]
+                                 (let [resource_params (-> (table :resource_params)
+                                                           (select (where
+                                                                    (and (= :resource_params.name name)
+                                                                         (= :resource_params.value (db-serialize value)))))
+                                                           (project [])
+                                                           (distinct))]
+                                   (join resource_params catalog_resources :resource))
+                                 ;; metadata match.
+                                 [(metadata :when string?)]
+                                 (select catalog_resources
+                                         (where (= (keyword metadata) value)))
+                                 ;; ...else, failure
+                                 :else (throw (IllegalArgumentException.
+                                               (str term " is not a valid query term"))))
+        [sql & params]    (if (table? tbl) (compile tbl nil) tbl)]
     (apply vector (format "(%s)" sql) params)))
 
 (defn- alias-subqueries
@@ -118,34 +118,34 @@ operation."
 ;; performing an intersection (via natural join).
 (defmethod compile-query->sql "and"
   [[op & terms]]
-  {:pre [(every? vector? terms)]
+  {:pre  [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map compile-query->sql terms)
+  (let [terms  (map compile-query->sql terms)
         params (mapcat rest terms)
-        query (->> (map first terms)
-                   (alias-subqueries)
-                   (string/join " NATURAL JOIN ")
-                   (str "SELECT DISTINCT catalog,resource FROM ")
-                   (format "(%s)"))]
+        query  (->> (map first terms)
+                    (alias-subqueries)
+                    (string/join " NATURAL JOIN ")
+                    (str "SELECT DISTINCT catalog,resource FROM ")
+                    (format "(%s)"))]
     (apply vector query params)))
 
 ;; Join a set of predicates together with an 'or' relationship,
 ;; performing a union operation.
 (defmethod compile-query->sql "or"
   [[op & terms]]
-  {:pre [(every? vector? terms)]
+  {:pre  [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map compile-query->sql terms)
+  (let [terms  (map compile-query->sql terms)
         params (mapcat rest terms)
-        query (->> (map first terms)
-                   (string/join " UNION ")
-                   (format "(%s)"))]
+        query  (->> (map first terms)
+                    (string/join " UNION ")
+                    (format "(%s)"))]
     (apply vector query params)))
 
 ;; Join a set of predicates together with a 'not' relationship,
@@ -153,16 +153,16 @@ operation."
 ;; _any_ child predicate.
 (defmethod compile-query->sql "not"
   [[op & terms]]
-  {:pre [(every? vector? terms)]
+  {:pre  [(every? vector? terms)]
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [[subquery & params] (compile-query->sql (cons "or" terms))
-         query (->> subquery
-                    (format (str "SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs "
-                            "LEFT OUTER JOIN %s rhs "
-                            "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource "
-                            "WHERE (rhs.resource IS NULL)"))
-                    (format "(%s)"))]
+        query               (->> subquery
+                                 (format (str "SELECT DISTINCT lhs.catalog,lhs.resource FROM catalog_resources lhs "
+                                              "LEFT OUTER JOIN %s rhs "
+                                              "ON lhs.catalog = rhs.catalog AND lhs.resource = rhs.resource "
+                                              "WHERE (rhs.resource IS NULL)"))
+                                 (format "(%s)"))]
     (apply vector query params)))

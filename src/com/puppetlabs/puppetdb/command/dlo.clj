@@ -9,7 +9,7 @@
   including timestamp, error information, and stacktrace."
   [index {:keys [timestamp error trace] :as attempt}]
   (let [trace-str (string/join "\n" trace)
-        index (if (nil? index) index (inc index))]
+        index     (if (nil? index) index (inc index))]
     (format "Attempt %d @ %s\n\n%s\n%s\n" index timestamp error trace-str)))
 
 (defn summarize-exception
@@ -45,4 +45,3 @@
         filename (file dir subdir basename)]
     (make-parents filename)
     (spit filename contents)))
-

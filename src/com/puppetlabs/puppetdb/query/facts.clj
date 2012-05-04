@@ -7,7 +7,7 @@
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`"
   [node]
-  {:pre [(string? node)]
+  {:pre  [(string? node)]
    :post [(map? %)]}
   (let [facts (-> (table :certname_facts)
                   (project [:fact, :value])

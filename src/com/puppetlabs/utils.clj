@@ -42,8 +42,8 @@
   {:pre  [(string? s)]
    :post [(or (integer? %) (nil? %))]}
   (try (Integer/parseInt s)
-    (catch java.lang.NumberFormatException e
-      nil)))
+       (catch java.lang.NumberFormatException e
+         nil)))
 
 (defn parse-float
   "Parse a string `s` as a float, returning nil if the string doesn't
@@ -52,8 +52,8 @@
   {:pre  [(string? s)]
    :post [(or (float? %) (nil? %))]}
   (try (Float/parseFloat s)
-    (catch java.lang.NumberFormatException e
-      nil)))
+       (catch java.lang.NumberFormatException e
+         nil)))
 
 (defn parse-number
   "Converts a string `s` to a number, by attempting to parse it as an integer
@@ -121,9 +121,9 @@
   "Returns a timestamp string for the given `time`, or the current time if none
   is provided. The format of the timestamp is eg. 2012-02-23T22:01:39.539Z."
   ([]
-   (timestamp (now)))
+     (timestamp (now)))
   ([time]
-   (unparse (formatters :date-time) time)))
+     (unparse (formatters :date-time) time)))
 
 ;; ## Exception handling
 
@@ -164,7 +164,7 @@
 ;;     (is (thrown+? <some exception> (...)))
 (defmethod clojure.test/assert-expr 'thrown+? [msg form]
   (let [klass (second form)
-        body (nthnext form 2)]
+        body  (nthnext form 2)]
     `(try+ ~@body
            (clojure.test/do-report {:type :fail, :message ~msg,
                                     :expected '~form, :actual nil})
@@ -181,7 +181,7 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
-  {:pre [(string? filename)]
+  {:pre  [(string? filename)]
    :post [(map? %)
           (every? keyword? (keys %))
           (every? map? (vals %))]}
@@ -217,7 +217,7 @@
   config map, use it to configure the default logger. Returns the same
   config map that was passed in."
   [{:keys [global] :as config}]
-  {:pre [(map? config)]
+  {:pre  [(map? config)]
    :post [(map? %)]}
   (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
@@ -236,7 +236,7 @@
                                        ["-c" "--config" "Path to config.ini" :required true]
                                        ["-h" "--help" "Show help" :default false :flag true]
                                        ["--trace" "Print stacktraces on error" :default false :flag true])
-       [options posargs banner] (apply cli/cli args specs)]
+        [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
       (println banner)
       (System/exit 0))
@@ -254,8 +254,8 @@
     (let [[prefix suffix] (.split candidate "/")
           wildcard        (str prefix "/*")
           types           (->> (clojure.string/split header #",")
-                              (map #(.trim %))
-                              (set))]
+                               (map #(.trim %))
+                               (set))]
       (or (types wildcard)
           (types candidate)))))
 
@@ -263,13 +263,13 @@
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
   ([body]
-   (json-response body 200))
+     (json-response body 200))
   ([body code]
-    (-> body
-        (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
-        (rr/response)
-        (rr/header "Content-Type" "application/json")
-        (rr/status code))))
+     (-> body
+         (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
+         (rr/response)
+         (rr/header "Content-Type" "application/json")
+         (rr/status code))))
 
 (defn error-response
   "Returns a Ring response object with a status code of 400. If `error` is a
@@ -280,8 +280,8 @@
               (.getMessage error)
               (str error))]
     (-> msg
-      (rr/response)
-      (rr/status 400))))
+        (rr/response)
+        (rr/status 400))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments
@@ -298,7 +298,7 @@
     "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
     string"
     [s]
-    {:pre [(string? s)]
+    {:pre  [(string? s)]
      :post [(string? %)]}
     (let [bytes (.getBytes s "UTF-8")]
       (digest-func "sha-1" [bytes]))))

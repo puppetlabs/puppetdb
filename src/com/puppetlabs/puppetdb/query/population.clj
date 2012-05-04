@@ -56,17 +56,17 @@
   "Create a set of gauges that calculate population-wide metrics"
   [db]
   {:num-resources          (gauge [ns-str "default" "num-resources"]
-                             (with-transacted-connection db
-                               (num-resources)))
+                                  (with-transacted-connection db
+                                    (num-resources)))
    :num-nodes              (gauge [ns-str "default" "num-nodes"]
-                             (with-transacted-connection db
-                               (num-nodes)))
+                                  (with-transacted-connection db
+                                    (num-nodes)))
    :avg-resources-per-node (gauge [ns-str "default" "avg-resources-per-node"]
-                             (with-transacted-connection db
-                               (avg-resource-per-node)))
+                                  (with-transacted-connection db
+                                    (avg-resource-per-node)))
    :pct-resource-dupes     (gauge [ns-str "default" "pct-resource-dupes"]
-                             (with-transacted-connection db
-                               (pct-resource-duplication)))})
+                                  (with-transacted-connection db
+                                    (pct-resource-duplication)))})
 
 (defn initialize-metrics
   "Initializes the set of population-wide metrics"

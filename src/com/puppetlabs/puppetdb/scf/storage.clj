@@ -180,8 +180,8 @@ must be supplied as the value to be matched."
   serialized database column."
   [value]
   (json/generate-string (if (map? value)
-                      (into (sorted-map) value)
-                      value)))
+                          (into (sorted-map) value)
+                          value)))
 
 ;; ## Entity manipulation
 
@@ -228,8 +228,8 @@ must be supplied as the value to be matched."
   [certname]
   {:pre [(string? certname)]}
   (sql/update-values :certnames
-    ["name=?" certname]
-    {:deactivated nil}))
+                     ["name=?" certname]
+                     {:deactivated nil}))
 
 (defn maybe-activate-node!
   "Reactivate the given host, only if it was deactivated before `time`.
@@ -248,8 +248,8 @@ must be supplied as the value to be matched."
   {:pre [(string? hash)
          (number? api-version)
          (string? catalog-version)]}
-  (sql/insert-record :catalogs {:hash hash
-                                :api_version api-version
+  (sql/insert-record :catalogs {:hash            hash
+                                :api_version     api-version
                                 :catalog_version catalog-version}))
 
 (defn update-catalog-metadata!
@@ -260,7 +260,7 @@ must be supplied as the value to be matched."
          (string? catalog-version)]}
   (sql/update-values :catalogs
                      ["hash=?" hash]
-                     {:api_version api-version
+                     {:api_version     api-version
                       :catalog_version catalog-version}))
 
 (defn catalog-exists?
@@ -354,7 +354,7 @@ must be supplied as the value to be matched."
   include the resource metadata. This function is used as part of
   determining whether a catalog needs to be stored."
   [{:keys [type title parameters tags exported file line] :as resource}]
-  {:pre [(map? resource)]
+  {:pre  [(map? resource)]
    :post [(string? %)]}
   (pr-str [type title (sort tags) exported file line (sort parameters)]))
 
@@ -380,7 +380,7 @@ must be supplied as the value to be matched."
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:resource :parameters})]}
-  (let [values {:resource [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
+  (let [values {:resource   [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
                 :parameters []}]
 
     (if persisted?
@@ -467,7 +467,7 @@ must be supplied as the value to be matched."
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
       (assoc :resources (sort (for [[ref resource] resources]
-                              (catalog-resource-identity-string resource))))
+                                (catalog-resource-identity-string resource))))
       (assoc :edges (sort (map edge-identity-string edges)))
       (pr-str)
       (utils/utf8-string->sha1)))
@@ -481,33 +481,33 @@ must be supplied as the value to be matched."
          (map? resources)]}
 
   (time! (:add-catalog metrics)
-    (let [resource-hashes (time! (:resource-hashes metrics)
-                            (doall
-                              (map resource-identity-hash (vals resources))))
-          hash (time! (:catalog-hash metrics)
-                 (catalog-similarity-hash catalog))]
+         (let [resource-hashes (time! (:resource-hashes metrics)
+                                      (doall
+                                       (map resource-identity-hash (vals resources))))
+               hash            (time! (:catalog-hash metrics)
+                                      (catalog-similarity-hash catalog))]
 
-     (sql/transaction
-      (let [exists? (catalog-exists? hash)]
+           (sql/transaction
+            (let [exists? (catalog-exists? hash)]
 
-        (when exists?
-          (inc! (:duplicate-catalog metrics))
-          (update-catalog-metadata! hash api-version version))
+              (when exists?
+                (inc! (:duplicate-catalog metrics))
+                (update-catalog-metadata! hash api-version version))
 
-        (when-not exists?
-          (inc! (:new-catalog metrics))
-          (add-catalog-metadata! hash api-version version)
-          (time! (:add-classes metrics)
-            (add-classes! hash classes))
-          (time! (:add-tags metrics)
-            (add-tags! hash tags))
-          (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
-            (time! (:add-resources metrics)
-              (add-resources! hash resources refs-to-hashes))
-            (time! (:add-edges metrics)
-              (add-edges! hash edges refs-to-hashes))))))
+              (when-not exists?
+                (inc! (:new-catalog metrics))
+                (add-catalog-metadata! hash api-version version)
+                (time! (:add-classes metrics)
+                       (add-classes! hash classes))
+                (time! (:add-tags metrics)
+                       (add-tags! hash tags))
+                (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
+                  (time! (:add-resources metrics)
+                         (add-resources! hash resources refs-to-hashes))
+                  (time! (:add-edges metrics)
+                         (add-edges! hash edges refs-to-hashes))))))
 
-     hash)))
+           hash)))
 
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
@@ -565,21 +565,21 @@ must be supplied as the value to be matched."
   "Remove any catalogs that aren't associated with a certname"
   []
   (time! (:gc-catalogs metrics)
-   (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog=catalogs.hash)"])))
+         (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog=catalogs.hash)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
-   (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
+         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
   (time! (:gc metrics)
-   (sql/transaction
-    (delete-unassociated-catalogs!)
-    (delete-unassociated-params!))))
+         (sql/transaction
+          (delete-unassociated-catalogs!)
+          (delete-unassociated-params!))))
 
 ;; ## High-level entity manipulation
 
@@ -588,20 +588,20 @@ must be supplied as the value to be matched."
   associated host with the supplied one."
   [{:keys [certname] :as catalog} timestamp]
   (time! (:replace-catalog metrics)
-   (sql/transaction
-    (let [catalog-hash (add-catalog! catalog)]
-      (dissociate-all-catalogs-for-certname! certname)
-      (associate-catalog-with-certname! catalog-hash certname timestamp)))))
+         (sql/transaction
+          (let [catalog-hash (add-catalog! catalog)]
+            (dissociate-all-catalogs-for-certname! certname)
+            (associate-catalog-with-certname! catalog-hash certname timestamp)))))
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
 facts associated with the certname."
   [certname facts timestamp]
   (let [default-row {:certname certname}
-        rows (for [[fact value] facts]
-               (assoc default-row :fact fact :value value))]
+        rows        (for [[fact value] facts]
+                      (assoc default-row :fact fact :value value))]
     (sql/insert-record :certname_facts_metadata
-      {:certname certname :timestamp (to-timestamp timestamp)})
+                       {:certname certname :timestamp (to-timestamp timestamp)})
     (apply sql/insert-records :certname_facts rows)))
 
 (defn delete-facts!
@@ -616,6 +616,6 @@ facts associated with the certname."
          (every? string? (keys values))
          (every? string? (vals values))]}
   (time! (:replace-facts metrics)
-   (sql/transaction
-    (delete-facts! name)
-    (add-facts! name values timestamp))))
+         (sql/transaction
+          (delete-facts! name)
+          (add-facts! name values timestamp))))
