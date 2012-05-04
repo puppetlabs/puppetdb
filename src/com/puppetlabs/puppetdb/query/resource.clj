@@ -1,19 +1,44 @@
 ;; ## SQL query compiler
 
 (ns com.puppetlabs.puppetdb.query.resource
-  (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
             [clojure.string :as string])
-  (:use clojureql.core
-        [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays with-transacted-connection]]
+  (:use [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays with-transacted-connection]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
-(defmulti compile-query->sql
-  "Recursively compile a query into a collection of SQL operations."
+(defmulti compile-term
+  "Recursively compile a query into a structured map reflecting the terms of
+  the query."
   (fn [query]
     (string/lower-case (first query))))
+
+(defn build-join-expr
+  "Builds an inner join expression between catalog_resources and the given
+  `table`. The only acceptable tables are `certnames` and `certname_catalogs`,
+  each of which *must* have rows corresponding to the `catalog_resources`
+  table. Thus this operation is safe."
+  [table]
+  (condp = table
+    ;; We will always also join to certname_catalogs if we're joining to
+    ;; certnames, but handle it separately, because we could ONLY join to
+    ;; certname_catalogs, and don't want duplicate joins. I wish this were more
+    ;; generic.
+    :certnames
+    "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"
+
+    :certname_catalogs
+    "INNER JOIN certname_catalogs USING(catalog)"))
+
+(defn compile-query->sql
+  "Compile a query into a collection of SQL operations."
+  [query]
+  (let [{:keys [where joins params]} (compile-term query)
+        join-expr (->> joins
+                    (map build-join-expr)
+                    (string/join " "))]
+    (apply vector (format "SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources %s WHERE %s" join-expr where) params)))
 
 (defn query->sql
   "Compile a vector-structured query into an SQL expression.
@@ -32,15 +57,15 @@ An empty query gathers all resources."
 and their parameters which match."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (let [query         (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
-                           "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
-                           "FROM catalog_resources cr "
-                           "JOIN certname_catalogs USING(catalog) "
-                           "LEFT OUTER JOIN resource_params rp "
-                           "ON cr.resource = rp.resource "
-                           "WHERE (cr.catalog,cr.resource) IN "
-                           sql)
-        results       (apply query-to-vec query params)
+  (let [query         (format (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
+                                   "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
+                                   "FROM catalog_resources cr "
+                                   "JOIN certname_catalogs USING(catalog) "
+                                   "LEFT OUTER JOIN resource_params rp "
+                                   "ON cr.resource = rp.resource "
+                                   "WHERE (cr.catalog,cr.resource) IN (%s)")
+                              sql)
+        results (apply query-to-vec query params)
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]
     (vec (for [[resource params] (group-by metadata results)]
@@ -52,56 +77,44 @@ and their parameters which match."
 ;; will produce a query that selects a set of hashes matching the
 ;; predicate, which can then be combined with connectives to build
 ;; complex queries.
-(defmethod compile-query->sql "="
+(defmethod compile-term "="
   [[op path value :as term]]
   (let [count (count term)]
     (if (not (= 3 count))
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (let [catalog_resources (-> (table :catalog_resources)
-                            (project [:catalog_resources.catalog :catalog_resources.resource]))
-        tbl               (match [path]
-                                 ;; tag join.
-                                 ["tag"]
-                   [(format "SELECT catalog,resource FROM catalog_resources WHERE %s"
-                                          (sql-array-query-string "tags"))
-                                  value]
-                                 ;; node join.
-                                 [["node" "name"]]
-                                 (let [certname_catalogs (-> (table :certname_catalogs)
-                                                             (select (where
-                                                                      (= :certname_catalogs.certname value)))
-                                             (project []))]
-                                   (join certname_catalogs catalog_resources :catalog))
-                                 ;; {in,}active nodes.
-                                 [["node" "active"]]
-                                 (let [certname_catalogs (-> (table :certname_catalogs)
-                                                             (join (table :certnames)
-                                                                   (where (= :certname_catalogs.certname
-                                                                             :certnames.name)))
-                                                             (select (where (if value
-                                                                              (= :certnames.deactivated nil)
-                                                                              (not (= :certnames.deactivated nil)))))
-                                             (project []))]
-                                   (join certname_catalogs catalog_resources :catalog))
-                                 ;; param joins.
-                                 [["parameter" (name :when string?)]]
-                                 (let [resource_params (-> (table :resource_params)
-                                                           (select (where
-                                                                    (and (= :resource_params.name name)
-                                                                         (= :resource_params.value (db-serialize value)))))
-                                           (project [:resource]))
-                         [sql & params]  (compile resource_params nil)]
-                     (apply vector (format "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs WHERE EXISTS (SELECT * FROM (%s) rhs WHERE lhs.resource = rhs.resource)" sql) params))
-                                 ;; metadata match.
-                                 [(metadata :when string?)]
-                                 (select catalog_resources
-                                         (where (= (keyword metadata) value)))
-                                 ;; ...else, failure
-                                 :else (throw (IllegalArgumentException.
-                                               (str term " is not a valid query term"))))
-        [sql & params]    (if (table? tbl) (compile tbl nil) tbl)]
-    (apply vector (format "(%s)" sql) params)))
+  (match [path]
+         ;; tag join.
+         ["tag"]
+         {:where (sql-array-query-string "tags")
+          :params [value]}
+
+         ;; node join.
+         [["node" "name"]]
+         {:joins [:certname_catalogs]
+          :where "certname_catalogs.certname = ?"
+          :params [value]}
+
+         ;; {in,}active nodes.
+         [["node" "active"]]
+         {:joins [:certname_catalogs :certnames]
+          :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+
+         ;; param joins.
+         [["parameter" (name :when string?)]]
+         {:where "EXISTS (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ? AND rp.resource = catalog_resources.resource)"
+          :params [name (db-serialize value)]}
+
+         ;; metadata match.
+         [(metadata :when string?)]
+         (if (re-matches #"(?i)[a-z_][a-z0-9_]*" metadata)
+           {:where (format "catalog_resources.%s = ?" metadata)
+            :params [value]}
+           (throw (IllegalArgumentException. "illegal metadata column name %s" metadata)))
+
+         ;; ...else, failure
+         :else (throw (IllegalArgumentException.
+                        (str term " is not a valid query term")))))
 
 (defn- alias-subqueries
   "Produce distinct aliases for a list of queries, suitable for a join
@@ -112,50 +125,50 @@ operation."
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
-(defmethod compile-query->sql "and"
+(defmethod compile-term "and"
   [[op & terms]]
   {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms  (map compile-query->sql terms)
-        params (mapcat rest terms)
-        query  (->> (map first terms)
-                   (alias-subqueries)
-                   (string/join " NATURAL JOIN ")
-                   (str "SELECT catalog,resource FROM ")
-                    (format "(%s)"))]
-    (apply vector query params)))
+  (let [terms (map compile-term terms)
+        joins (distinct (mapcat :joins terms))
+        params (mapcat :params terms)
+        query (->> (map :where terms)
+                   (map #(format "(%s)" %))
+                   (string/join " AND "))]
+    {:joins joins
+     :where query
+     :params params}))
 
 ;; Join a set of predicates together with an 'or' relationship,
 ;; performing a union operation.
-(defmethod compile-query->sql "or"
+(defmethod compile-term "or"
   [[op & terms]]
   {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms  (map compile-query->sql terms)
-        params (mapcat rest terms)
-        query  (->> (map first terms)
-                   (string/join " UNION ALL ")
-                    (format "(%s)"))]
-    (apply vector query params)))
+  (let [terms (map compile-term terms)
+        joins (distinct (mapcat :joins terms))
+        params (mapcat :params terms)
+        query (->> (map :where terms)
+                   (map #(format "(%s)" %))
+                   (string/join " OR "))]
+    {:joins joins
+     :where query
+     :params params}))
 
 ;; Join a set of predicates together with a 'not' relationship,
 ;; performing a set difference. This will reject resources matching
 ;; _any_ child predicate.
-(defmethod compile-query->sql "not"
+(defmethod compile-term "not"
   [[op & terms]]
   {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [[subquery & params] (compile-query->sql (cons "or" terms))
-        query               (->> subquery
-                 (format "SELECT lhs.catalog,lhs.resource FROM catalog_resources lhs WHERE NOT EXISTS (SELECT * FROM %s rhs WHERE lhs.resource = rhs.resource AND lhs.catalog = rhs.catalog)")
-                 (format "(%s)"))]
-    (apply vector query params)))
+  (let [term (compile-term (cons "or" terms))
+        query (->> (:where term)
+                   (format "NOT (%s)"))]
+    (assoc term :where query)))
