@@ -647,7 +647,7 @@ HTTP configuration options.
 `host`
 
 The hostname to listen on for _unencrypted_ HTTP traffic. If not
-supplied, we bind to all interfaces.
+supplied, we bind to localhost.
 
 `port`
 
@@ -656,8 +656,8 @@ won't listen for unencrypted traffic at all.
 
 `ssl-host`
 
-The hostname to listen on for HTTPS. If not supplied, we bind to all
-interfaces.
+The hostname to listen on for HTTPS. If not supplied, we bind to
+localhost.
 
 `ssl-port`
 
