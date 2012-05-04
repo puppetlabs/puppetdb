@@ -13,6 +13,7 @@
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
             [digest]
+            [fs.core :as fs]
             [ring.util.response :as rr])
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
@@ -181,7 +182,8 @@
   returned as integers, and all section names and keys are returned as
   symbols."
   [filename]
-  {:pre  [(string? filename)]
+  {:pre  [(or (string? filename)
+              (instance? java.io.File filename))]
    :post [(map? %)
           (every? keyword? (keys %))
           (every? map? (vals %))]}
@@ -195,6 +197,28 @@
                   val (or (parse-int val) val)]]
       (swap! m assoc-in [(keywordize name) (keywordize key)] val))
     @m))
+
+(defn inis-to-map
+  "Takes a path and converts the pointed-at .ini files into a nested
+  map (see `ini-to-map` for details). If `path` is a file, the
+  behavior is exactly the same as `ini-to-map`. If `path` is a
+  directory, we return a merged version of parsing all the .ini files
+  in the directory (we do not do a recursive find of .ini files)."
+  ([path]
+     (inis-to-map path "*.ini"))
+  ([path glob-pattern]
+     {:pre  [(or (string? path)
+                 (instance? java.io.File path))]
+      :post [(map? %)]}
+     (let [files (if-not (fs/directory? path)
+                   [path]
+                   (fs/glob (fs/file path glob-pattern)))]
+       (->> files
+            (sort)
+            (map fs/absolute-path)
+            (map ini-to-map)
+            (apply merge)
+            (merge {})))))
 
 ;; ## Logging helpers
 

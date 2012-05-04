@@ -1,4 +1,5 @@
 (ns com.puppetlabs.test.utils
+  (:require [fs.core :as fs])
   (:use [com.puppetlabs.utils]
         [clojure.test]))
 
@@ -73,3 +74,44 @@
     (testing "should produce the correct hash"
       (is (= "8843d7f92416211de9ebb963ff4ce28125932878"
              (utf8-string->sha1 "foobar"))))))
+
+(deftest ini-parsing
+  (testing "Parsing ini files"
+    (testing "should work for a single file"
+      (let [tf (fs/temp-file)]
+        (spit tf "[foo]\nbar=baz")
+
+        (testing "when specified as a file object"
+          (is (= (inis-to-map tf)
+                 {:foo {:bar "baz"}})))
+
+        (testing "when specified as a string"
+          (is (= (inis-to-map (fs/absolute-path tf))
+                 {:foo {:bar "baz"}})))))
+
+    (testing "should work for a directory"
+      (let [td (fs/temp-dir)]
+        (testing "when no matching files exist"
+          (is (= (inis-to-map td) {})))
+
+        (spit (fs/file td "a.ini") "[foo]\nbar=baz")
+
+        (testing "when only a single matching file exists"
+          (is (= (inis-to-map td)
+                 {:foo {:bar "baz"}})))
+
+        ;; Now add a second file
+        (spit (fs/file td "b.ini") "[bar]\nbar=baz")
+
+        (testing "when multiple matching files exist"
+          (is (= (inis-to-map td)
+                 {:foo {:bar "baz"}
+                  :bar {:bar "baz"}})))
+
+        ;; Now add a file that clobbers data from another
+        (spit (fs/file td "c.ini") "[bar]\nbar=goo")
+
+        (testing "when multiple matching files exist"
+          (is (= (inis-to-map td)
+                 {:foo {:bar "baz"}
+                  :bar {:bar "goo"}})))))))
