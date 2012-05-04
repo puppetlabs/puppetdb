@@ -102,7 +102,7 @@ and their parameters which match."
 
          ;; param joins.
          [["parameter" (name :when string?)]]
-         {:where "EXISTS (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ? AND rp.resource = catalog_resources.resource)"
+         {:where "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
           :params [name (db-serialize value)]}
 
          ;; metadata match.
