@@ -22,8 +22,8 @@
   {:post [(or (nil? %)
               (= #{:name :deactivated :catalog_timestamp :facts_timestamp} (keyset %)))]}
   (let [results (query-to-vec (str "SELECT certnames.name, certnames.deactivated, c.timestamp AS catalog_timestamp, f.timestamp AS facts_timestamp "
-                                  "FROM certnames LEFT OUTER JOIN certname_catalogs c ON certnames.name = c.certname "
-                                  "LEFT OUTER JOIN certname_facts_metadata f ON certnames.name = f.certname "
-                                  "WHERE certnames.name = ?")
-                             node)]
+                                   "FROM certnames LEFT OUTER JOIN certname_catalogs c ON certnames.name = c.certname "
+                                   "LEFT OUTER JOIN certname_facts_metadata f ON certnames.name = f.certname "
+                                   "WHERE certnames.name = ?")
+                              node)]
     (first results)))

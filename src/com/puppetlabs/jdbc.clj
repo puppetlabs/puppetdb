@@ -10,13 +10,13 @@
   "Converts Java and JDBC arrays in a result set using the provided function
   (eg. vec, set). Values which aren't arrays are unchanged."
   ([result-set]
-   (convert-result-arrays vec result-set))
+     (convert-result-arrays vec result-set))
   ([f result-set]
-   (let [convert #(cond
-                    (utils/array? %) (f %)
-                    (isa? (class %) java.sql.Array) (f (.getArray %))
-                    :else %)]
-     (map #(utils/mapvals convert %) result-set))))
+     (let [convert #(cond
+                     (utils/array? %) (f %)
+                     (isa? (class %) java.sql.Array) (f (.getArray %))
+                     :else %)]
+       (map #(utils/mapvals convert %) result-set))))
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
@@ -33,11 +33,11 @@
   ([sql-query & params]
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
-   (sql/with-query-results result-set
-     (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
-     (-> result-set
-         (convert-result-arrays)
-         (vec)))))
+     (sql/with-query-results result-set
+       (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
+       (-> result-set
+           (convert-result-arrays)
+           (vec)))))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
@@ -61,11 +61,11 @@
   [{:keys [classname subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements]
-    :or {partition-conn-min 1
-         partition-conn-max 10
-         partition-count    5
-         stats              true}
-    :as db}]
+    :or   {partition-conn-min 1
+           partition-conn-max 10
+           partition-count    5
+           stats              true}
+    :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
   (let [config (doto (new BoneCPConfig)

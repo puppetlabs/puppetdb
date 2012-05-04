@@ -22,8 +22,8 @@
   `*mq*` and the connection as `*conn*`."
   [f]
   (with-test-broker "test" conn
-    (binding [*mq* {:connection-string "vm://test"
-                    :endpoint "com.puppetlabs.puppetdb.commands"}
+    (binding [*mq*   {:connection-string "vm://test"
+                      :endpoint          "com.puppetlabs.puppetdb.commands"}
               *conn* conn]
       (f))))
 
@@ -33,6 +33,6 @@
   are available. Note this means this fixture should be nested _within_
   `with-test-db` or `with-test-mq`."
   [f]
-  (binding [*app* (server/build-app {:scf-db *db*
+  (binding [*app* (server/build-app {:scf-db     *db*
                                      :command-mq *mq*})]
     (f)))

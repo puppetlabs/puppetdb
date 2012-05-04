@@ -90,7 +90,7 @@
    "CREATE INDEX idx_resources_params_name ON resource_params(name)")
 
   (sql/do-commands
-    "CREATE INDEX idx_certname_facts_certname ON certname_facts(certname)")
+   "CREATE INDEX idx_certname_facts_certname ON certname_facts(certname)")
 
   (sql/do-commands
    "CREATE INDEX idx_certname_facts_fact ON certname_facts(fact)")
@@ -108,13 +108,13 @@
   "Add a column storing when a node was deactivated."
   []
   (sql/do-commands
-    "ALTER TABLE certnames ADD deactivated TIMESTAMP WITH TIME ZONE"))
+   "ALTER TABLE certnames ADD deactivated TIMESTAMP WITH TIME ZONE"))
 
 (defn add-catalog-timestamps
   "Add a column to the certname_catalogs table to store a timestamp."
   []
   (sql/do-commands
-    "ALTER TABLE certname_catalogs ADD timestamp TIMESTAMP WITH TIME ZONE"))
+   "ALTER TABLE certname_catalogs ADD timestamp TIMESTAMP WITH TIME ZONE"))
 
 (defn add-certname-facts-metadata-table
   "Add a certname_facts_metadata table to aggregate certname_facts entries and
@@ -125,20 +125,20 @@
                     ["timestamp" "TIMESTAMP WITH TIME ZONE"]
                     ["PRIMARY KEY (certname, timestamp)"])
   (sql/do-commands
-    "INSERT INTO certname_facts_metadata (certname,timestamp) SELECT name, current_timestamp FROM certnames")
+   "INSERT INTO certname_facts_metadata (certname,timestamp) SELECT name, current_timestamp FROM certnames")
 
   ;; First we get rid of the existing foreign key to certnames
   (let [[result & _] (query-to-vec
-                       (str "SELECT constraint_name FROM information_schema.table_constraints "
-                            "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
+                      (str "SELECT constraint_name FROM information_schema.table_constraints "
+                           "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
         constraint   (:constraint_name result)]
     (sql/do-commands
-      (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
+     (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
 
   ;; Then we replace it with a foreign key to certname_facts_metadata
   (sql/do-commands
-    (str "ALTER TABLE certname_facts "
-         "ADD FOREIGN KEY (certname) REFERENCES certname_facts_metadata(certname) ON DELETE CASCADE")))
+   (str "ALTER TABLE certname_facts "
+        "ADD FOREIGN KEY (certname) REFERENCES certname_facts_metadata(certname) ON DELETE CASCADE")))
 
 ;; The available migrations, as a map from migration version to migration
 ;; function.
@@ -153,9 +153,9 @@
 version can't be determined."
   []
   (try
-    (let [query "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1"
+    (let [query   "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1"
           results (sql/transaction
-                    (query-to-vec query))]
+                   (query-to-vec query))]
       (:version (first results)))
     (catch java.sql.SQLException e
       0)))
@@ -166,8 +166,8 @@ along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
   (sql/do-prepared
-    "INSERT INTO schema_migrations (version, time) VALUES (?, current_timestamp)"
-    [version]))
+   "INSERT INTO schema_migrations (version, time) VALUES (?, current_timestamp)"
+   [version]))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
@@ -186,8 +186,8 @@ already at the latest schema version."
   []
   (if-let [pending (seq (pending-migrations))]
     (sql/transaction
-      (doseq [[version migration] pending]
-      (log/info (format "Migrating to version %d" version))
-      (migration)
-      (record-migration! version)))
+     (doseq [[version migration] pending]
+       (log/info (format "Migrating to version %d" version))
+       (migration)
+       (record-migration! version)))
     (log/info "There are no pending migrations")))

@@ -72,7 +72,7 @@
       (System/exit 1))
 
     (let [module (str ns-prefix subcommand)
-          args (rest args)]
+          args   (rest args)]
       (require (symbol module))
       (try
         (apply (resolve (symbol module "-main")) args)

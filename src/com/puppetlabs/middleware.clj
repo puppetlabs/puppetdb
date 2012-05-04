@@ -63,6 +63,6 @@
   transformed string. The result will be used to organize the metrics:
   URI's with the same normalized representation will share timers and
   meters. To have all URIs share the same metrics, use `identity`."
- [app storage normalize-uri]
+  [app storage normalize-uri]
   `(let [prefix# ~(str *ns*)]
      (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))

@@ -22,14 +22,14 @@
                    "FROM certname_catalogs INNER JOIN edges USING(catalog) INNER JOIN catalog_resources sources ON edges.catalog = sources.catalog AND source = sources.resource "
                    "INNER JOIN catalog_resources targets ON edges.catalog = targets.catalog AND target = targets.resource WHERE certname = ?")]
     (into #{} (for [{:keys [source_type source_title target_type target_title relationship]} (query-to-vec query node)]
-                  {:source {:type source_type :title source_title}
-                   :target {:type target_type :title target_title}
-                   :relationship relationship}))))
+                {:source       {:type source_type :title source_title}
+                 :target       {:type target_type :title target_title}
+                 :relationship relationship}))))
 
 (defn catalog-for-node
   "Retrieve the catalog for `node`."
   [node]
-  {:pre [(string? node)]
+  {:pre  [(string? node)]
    :post [(or (nil? %)
               (and (map? %)
                    (= node (:name %))
@@ -39,14 +39,14 @@
     (let [resources       (r/query-resources ["(SELECT cr.catalog,cr.resource FROM certname_catalogs INNER JOIN catalog_resources cr USING(catalog) WHERE certname = ?)" node])
           resource-counts (if (seq resources)
                             @(-> (table :catalog_resources)
-                              (select (where (in :resource (map :resource resources))))
-                              (aggregate [[:count/* :as :copies]] [:type :title]))
+                                 (select (where (in :resource (map :resource resources))))
+                                 (aggregate [[:count/* :as :copies]] [:type :title]))
                             [])
           resource-counts (into {} (for [{:keys [type title copies]} resource-counts]
                                      [{:type type :title title} copies]))
           resource-map    (into {} (for [{:keys [type title] :as resource} resources]
                                      [(format "%s[%s]" type title) (assoc resource :count (resource-counts {:type type :title title}))]))
           edges           (get-edges node)]
-      {:name node
+      {:name      node
        :resources resource-map
-       :edges edges})))
+       :edges     edges})))

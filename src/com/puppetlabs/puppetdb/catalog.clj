@@ -106,7 +106,7 @@
   "Convert a textual resource specifier like `\"Class[foo]\"` into a map
   of the form `{:type \"Class\" :title \"foo\"}`"
   [str]
-  {:pre [(string? str)]
+  {:pre  [(string? str)]
    :post [(map? %)
           (:type %)
           (:title %)]}

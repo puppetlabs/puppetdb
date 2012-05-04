@@ -8,7 +8,7 @@
 (defn test-db
   "Return a map of connection attrs for an in-memory database"
   []
-  {:classname "org.hsqldb.jdbcDriver"
+  {:classname   "org.hsqldb.jdbcDriver"
    :subprotocol "hsqldb"
    :subname     (str "mem:"
                      (java.util.UUID/randomUUID)
@@ -43,8 +43,8 @@
        (with-open [~conn-var (mq/connect! conn-str#)]
          ~@body)
        (finally
-        (mq/stop-broker! broker#)
-        (fs/delete-dir dir#)))))
+         (mq/stop-broker! broker#)
+         (fs/delete-dir dir#)))))
 
 (defn call-counter
   "Returns a method that just tracks how many times it's called, and
@@ -59,7 +59,7 @@
          (alter ncalls inc)
          (alter arguments conj args)))
       {:ncalls ncalls
-       :args arguments})))
+       :args   arguments})))
 
 (defn times-called
   "Returns the number of times a `call-counter` function has been

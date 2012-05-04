@@ -161,7 +161,7 @@
   (-> {:command command
        :version version
        :payload (json/generate-string payload)}
-    (json/generate-string)))
+      (json/generate-string)))
 
 (defn submit-command
   "Submits `payload` as a valid command of type `command` and `version` to the
@@ -170,24 +170,24 @@
   which is a formatted command, ready for submission. Returns the server
   response."
   ([host port payload command version]
-  {:pre [(string? command)
-         (integer? version)]}
-   (->> payload
-     (format-command command version)
-     (submit-command host port)))
+     {:pre [(string? command)
+            (integer? version)]}
+     (->> payload
+          (format-command command version)
+          (submit-command host port)))
   ([host port message]
-   {:pre [(string? host)
-          (integer? port)
-          (string? message)]}
-   (let [body   (format "checksum=%s&payload=%s"
-                       (pl-utils/utf8-string->sha1 message)
-                       (url-encode message))
-        url    (format "http://%s:%s/commands" host port)]
-    (client/post url {:body               body
-                      :throw-exceptions   false
-                      :content-type       :x-www-form-urlencoded
-                      :character-encoding "UTF-8"
-                      :accept             :json}))))
+     {:pre [(string? host)
+            (integer? port)
+            (string? message)]}
+     (let [body (format "checksum=%s&payload=%s"
+                        (pl-utils/utf8-string->sha1 message)
+                        (url-encode message))
+           url  (format "http://%s:%s/commands" host port)]
+       (client/post url {:body               body
+                         :throw-exceptions   false
+                         :content-type       :x-www-form-urlencoded
+                         :character-encoding "UTF-8"
+                         :accept             :json}))))
 
 ;; ## Command parsing
 
@@ -208,7 +208,7 @@
           (number? (:version %))
           (map? (:annotations %))]}
   (let [message     (-> command-string
-                      (json/parse-string true))
+                        (json/parse-string true))
         annotations (get message :annotations {})
         received    (get annotations :received (pl-utils/timestamp))
         id          (get annotations :id (pl-utils/uuid))
@@ -267,9 +267,9 @@
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:strs [name] :as facts} (try+
-                                   (json/parse-string payload)
-                                   (catch Throwable e
-                                     (throw+ (fatality! e))))
+                                  (json/parse-string payload)
+                                  (catch Throwable e
+                                    (throw+ (fatality! e))))
         id                       (:id annotations)
         timestamp                (:received annotations)]
     (with-transacted-connection db
@@ -285,9 +285,9 @@
 (defmethod process-command! ["deactivate node" 1]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (try+
-                   (json/parse-string payload)
-                   (catch Throwable e
-                     (throw+ (fatality! e))))
+                  (json/parse-string payload)
+                  (catch Throwable e
+                    (throw+ (fatality! e))))
         id       (:id annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
@@ -333,21 +333,21 @@
   successful or a Throwable object if one is thrown."
   [msg]
   (try+
-    (parse-command msg)
-    (catch Throwable e
-      e)))
+   (parse-command msg)
+   (catch Throwable e
+     e)))
 
 (defn annotate-with-attempt
   "Adds an `attempt` annotation to `msg` indicating there was a failed attempt
   at handling the message, including the error and trace from `e`."
   [{:keys [annotations] :as msg} e]
-  {:pre [(map? annotations)]
+  {:pre  [(map? annotations)]
    :post [(= (count (get-in % [:annotations :attempts]))
              (inc (count (:attempts annotations))))]}
   (let [attempts (get annotations :attempts [])
-        attempt {:timestamp (pl-utils/timestamp)
-                 :error (str e)
-                 :trace (map str (.getStackTrace e))}]
+        attempt  {:timestamp (pl-utils/timestamp)
+                  :error     (str e)
+                  :trace     (map str (.getStackTrace e))}]
     (update-in msg [:annotations :attempts] conj attempt)))
 
 (defn wrap-with-exception-handling
@@ -399,7 +399,7 @@
   middleware."
   [f on-discard max-retries]
   (fn [{:keys [command version annotations] :as msg}]
-    (let [retries (count (:attempts annotations))
+    (let [retries    (count (:attempts annotations))
           cmd-metric #(get-in @metrics [command version %])]
       (create-metrics-for-command! command version)
       (mark! (cmd-metric :seen))
@@ -506,11 +506,11 @@
         on-fatal       #(handle-command-failure %1 %2 discard)
         on-retry       #(handle-command-retry %1 %2 publish)]
     (-> #(process-command! % options-map)
-      (wrap-with-discard on-discard maximum-allowable-retries)
-      (wrap-with-exception-handling on-retry on-fatal)
-      (wrap-with-command-parser on-parse-error)
-      (wrap-with-meter (global-metric :seen))
-      (wrap-with-thread-name "command-proc"))))
+        (wrap-with-discard on-discard maximum-allowable-retries)
+        (wrap-with-exception-handling on-retry on-fatal)
+        (wrap-with-command-parser on-parse-error)
+        (wrap-with-meter (global-metric :seen))
+        (wrap-with-thread-name "command-proc"))))
 
 ;; ### Principal function
 
