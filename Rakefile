@@ -135,7 +135,6 @@ task :template => [ ] do
    # files for deb and rpm
    erb "ext/templates/log4j.properties.erb", "ext/files/log4j.properties"
    erb "ext/templates/config.ini.erb" , "ext/files/config.ini"
-   chmod 640 , "ext/files/config.ini"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
@@ -196,8 +195,6 @@ task :install => [  JAR_FILE  ] do
   cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
   cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/log4j.properties"
   cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}/config.ini"
-  chmod 640, "#{DESTDIR}/#{@config_dir}/config.ini"
-  chmod 640, "#{DESTDIR}/#{@config_dir}/log4j.properties"
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
 
   # figure out which init script to install based on facter
@@ -213,6 +210,8 @@ task :install => [  JAR_FILE  ] do
     cp_pr "ext/files/puppetdb.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   end
+  chmod 0640, "#{DESTDIR}/#{@config_dir}/config.ini"
+  chmod 0640, "#{DESTDIR}/#{@config_dir}/log4j.properties"
 end
 
 desc "Install the terminus components onto an existing puppet setup"
