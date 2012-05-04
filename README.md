@@ -530,6 +530,10 @@ Here is an example configuration file:
     [jetty]
     port = 8080
 
+You can specify either a single configuration file or a directory of
+.ini files. If you specify a directory (_conf.d_ style) we'll merge
+all the .ini files together in alphabetical order.
+
 There's not much to it, as you can see. Here's a more detailed
 breakdown of each available section:
 

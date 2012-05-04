@@ -58,7 +58,7 @@
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! ini-to-map with-error-delivery)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -180,7 +180,7 @@
   "Parses the given config file (if present) and configure its various
   subcomponents."
   [file]
-  (let [config (if file (ini-to-map file) {})]
+  (let [config (if file (inis-to-map file) {})]
     (-> config
         (configure-logging!)
         (configure-commandproc-threads)
