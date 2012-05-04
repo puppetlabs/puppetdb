@@ -46,7 +46,7 @@
             [clj-http.client :as client]
             [clj-http.util :as util]
             [fs.core :as fs])
-  (:use [com.puppetlabs.utils :only (cli! ini-to-map configure-logging! utf8-string->sha1)]
+  (:use [com.puppetlabs.utils :only (cli! inis-to-map configure-logging! utf8-string->sha1)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Development-only benchmarking tool")
@@ -132,7 +132,7 @@
 
         config      (-> options
                         :config
-                        (ini-to-map)
+                        (inis-to-map)
                         (configure-logging!))
 
         dir         (:dir options)
