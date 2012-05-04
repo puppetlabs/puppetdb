@@ -37,7 +37,6 @@ to the result of the form supplied to this method."
                 (set (json/parse-string (:body response) true))
                 nil)) (str response)))
 
-
 (deftest resource-list-handler
   (with-transacted-connection *db*
     (sql/insert-records
@@ -96,8 +95,12 @@ to the result of the form supplied to this method."
                 :sourcefile nil
                 :sourceline nil
                 :parameters {}}]
+
       (testing "query without filter"
-        (is-response-equal (get-response) #{foo1 bar1 bar2}))
+        (let [response (get-response)
+              body     (get response :body "null")]
+          (is (= (:status response) 400))
+          (is (re-find #"missing query" body))))
 
       (testing "query with filter"
         (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
