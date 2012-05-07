@@ -36,7 +36,7 @@
                    (map? (:resources %))
                    (set? (:edges %))))]}
   (when (seq (catalogs-for-certname node))
-    (let [resources       (r/query-resources ["(SELECT cr.catalog,cr.resource FROM certname_catalogs INNER JOIN catalog_resources cr USING(catalog) WHERE certname = ?)" node])
+    (let [resources       (r/query-resources ["WHERE certname = ?" node])
           resource-counts (if (seq resources)
                             @(-> (table :catalog_resources)
                                  (select (where (in :resource (map :resource resources))))

@@ -29,41 +29,33 @@
     "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"
 
     :certname_catalogs
-    "INNER JOIN certname_catalogs USING(catalog)"))
+    ""
+    (count "INNER JOIN certname_catalogs USING(catalog)")))
 
-(defn compile-query->sql
-  "Compile a query into a collection of SQL operations."
+(defn query->sql
+  "Compile a query into an SQL expression."
   [query]
+  {:pre  [(vector? query)]
+   :post [(vector? %)
+          (string? (first %))
+          (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term query)
         join-expr (->> joins
                     (map build-join-expr)
                     (string/join " "))]
-    (apply vector (format "SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources %s WHERE %s" join-expr where) params)))
-
-(defn query->sql
-  "Compile a vector-structured query into an SQL expression.
-An empty query gathers all resources."
-  [query]
-  {:pre  [(or (nil? query) (vector? query))]
-   :post [(vector? %)
-          (string? (first %))
-          (every? (complement coll?) (rest %))]}
-  (if (nil? query)
-    ["(SELECT catalog_resources.catalog,catalog_resources.resource FROM catalog_resources)"]
-    (compile-query->sql query)))
+    (apply vector (format "%s WHERE %s" join-expr where) params)))
 
 (defn query-resources
   "Take a query and its parameters, and return a vector of resources
 and their parameters which match."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (let [query         (format (str "SELECT certname_catalogs.certname, cr.resource, cr.type, cr.title,"
-                                   "cr.tags, cr.exported, cr.sourcefile, cr.sourceline, rp.name, rp.value "
-                                   "FROM catalog_resources cr "
+  (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
+                                   "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
+                                   "FROM catalog_resources "
                                    "JOIN certname_catalogs USING(catalog) "
                                    "LEFT OUTER JOIN resource_params rp "
-                                   "ON cr.resource = rp.resource "
-                                   "WHERE (cr.catalog,cr.resource) IN (%s)")
+                                   "USING(resource) %s")
                               sql)
         results (apply query-to-vec query params)
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
