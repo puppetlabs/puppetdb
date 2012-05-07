@@ -16,9 +16,9 @@
 
 (defn build-join-expr
   "Builds an inner join expression between catalog_resources and the given
-  `table`. The only acceptable tables are `certnames` and `certname_catalogs`,
-  each of which *must* have rows corresponding to the `catalog_resources`
-  table. Thus this operation is safe."
+  `table`. The only currently acceptable table is `certnames`,
+  which *must* have rows corresponding to the `catalog_resources`
+  table, ensuring the INNER JOIN won't lose any rows."
   [table]
   (condp = table
     ;; We will always also join to certname_catalogs if we're joining to
@@ -26,11 +26,7 @@
     ;; certname_catalogs, and don't want duplicate joins. I wish this were more
     ;; generic.
     :certnames
-    "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"
-
-    :certname_catalogs
-    ""
-    (count "INNER JOIN certname_catalogs USING(catalog)")))
+    "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -83,13 +79,12 @@ and their parameters which match."
 
          ;; node join.
          [["node" "name"]]
-         {:joins [:certname_catalogs]
-          :where "certname_catalogs.certname = ?"
+         {:where "certname_catalogs.certname = ?"
           :params [value]}
 
          ;; {in,}active nodes.
          [["node" "active"]]
-         {:joins [:certname_catalogs :certnames]
+         {:joins [:certnames]
           :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
          ;; param joins.
