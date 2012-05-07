@@ -12,7 +12,10 @@
   "Recursively compile a query into a structured map reflecting the terms of
   the query."
   (fn [query]
-    (string/lower-case (first query))))
+    (let [operator (string/lower-case (first query))]
+      (cond
+        (#{"and" "or"} operator) :connective
+        :else operator))))
 
 (defn build-join-expr
   "Builds an inner join expression between catalog_resources and the given
@@ -112,7 +115,7 @@ operation."
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
-(defmethod compile-term "and"
+(defmethod compile-term :connective
   [[op & terms]]
   {:pre  [(every? vector? terms)]
    :post [(string? (:where %))]}
@@ -123,25 +126,7 @@ operation."
         params (mapcat :params terms)
         query (->> (map :where terms)
                    (map #(format "(%s)" %))
-                   (string/join " AND "))]
-    {:joins joins
-     :where query
-     :params params}))
-
-;; Join a set of predicates together with an 'or' relationship,
-;; performing a union operation.
-(defmethod compile-term "or"
-  [[op & terms]]
-  {:pre  [(every? vector? terms)]
-   :post [(string? (:where %))]}
-  (when (empty? terms)
-    (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map compile-term terms)
-        joins (distinct (mapcat :joins terms))
-        params (mapcat :params terms)
-        query (->> (map :where terms)
-                   (map #(format "(%s)" %))
-                   (string/join " OR "))]
+                   (string/join (format " %s " (string/upper-case op))))]
     {:joins joins
      :where query
      :params params}))
