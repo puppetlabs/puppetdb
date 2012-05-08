@@ -1,5 +1,24 @@
 ;; ## SQL query compiler
-
+;;
+;; The query compiler operates in effectively a three-step process. Because the
+;; query is compiled depth-first, however, the first two steps may be
+;; intermingled.
+;;
+;; The first step is compilation of = predicates into where clauses, params,
+;; and any necessary join tables. The where clauses are formulated such that
+;; they can be combined using AND/OR without requiring any extra joins or
+;; logic.
+;;
+;; The second step is compilation of and/or/not predicates. The first two of
+;; these are compiled fairly trivially by joining their child WHERE clauses
+;; with AND/OR, and concatenating the joins and params lists. "not" predicates
+;; are first compiled as an OR predicate, whose WHERE clause is then prepended
+;; with NOT.
+;;
+;; The final step is building the ultimate query which will be executed. This
+;; means building JOIN expressions for any necessary tables, and appending the
+;; JOINs and WHERE clause to the query which fetches the desired columns.
+;;
 (ns com.puppetlabs.puppetdb.query.resource
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
