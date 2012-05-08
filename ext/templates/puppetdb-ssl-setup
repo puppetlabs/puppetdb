@@ -11,7 +11,7 @@ fqdn=`facter fqdn`
 password=` LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
 tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
 mycert=`puppet agent --configprint  hostcert`
-myca=`puppet agent --configprint cacert`
+myca=`puppet agent --configprint localcacert`
 privkey=`puppet agent --configprint hostprivkey`
 
 if [ -d "/etc/puppetlabs/puppetdb" ] ; then
@@ -27,7 +27,7 @@ cp $privkey $tmpdir/privkey.pem
 cp $mycert $tmpdir/pubkey.pem
 
 cd $tmpdir
-keytool -import -alias "PuppetDB CA" -keystore truststore.jks -storepass "$password" -trustcacerts  -file ca_crt.pem -noprompt
+keytool -import -alias "PuppetDB CA" -keystore truststore.jks -storepass "$password" -trustcacerts  -file ca.pem -noprompt
 cat privkey.pem pubkey.pem > temp.pem
 echo "$password" | openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name $fqdn  -passout fd:0
 keytool -importkeystore  -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias $fqdn   -deststorepass "$password" -srcstorepass "$password"
