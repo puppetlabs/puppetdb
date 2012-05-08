@@ -19,7 +19,6 @@
         (#(take 4 %))
         (#(s/join "." %)))))
 
-
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.3.0"]
@@ -66,6 +65,8 @@
   :dev-dependencies [[lein-marginalia "0.7.0"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
+
+  :jar-exclusions [#"leiningen/"]
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core
