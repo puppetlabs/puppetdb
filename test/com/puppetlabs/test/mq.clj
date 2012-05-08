@@ -21,15 +21,15 @@
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
           (connect-and-publish! conn "queue" tracer-msg)
-          (is (= [tracer-msg] (drain-into-vec! conn "queue" 1000))))))
+          (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))
 
     (testing "should respect delayed message sending properties"
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
           (connect-and-publish! conn "queue" tracer-msg (delay-property 2 :seconds))
           ;; After 1s, there should be nothing in the queue
-          (is (= [] (drain-into-vec! conn "queue" 1000)))
+          (is (= [] (timed-drain-into-vec! conn "queue" 1000)))
           (Thread/sleep 1000)
           ;; After another 1s, we should see the message
-          (is (= [tracer-msg] (drain-into-vec! conn "queue" 1000))))))))
+          (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))))
 

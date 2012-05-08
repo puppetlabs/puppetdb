@@ -63,7 +63,7 @@
   (let [producer (mq-conn/producer connection)]
     (apply mq-producer/publish producer args)))
 
-(defn drain-into-vec!
+(defn timed-drain-into-vec!
   "Drains the indicated MQ endpoint into a vector
 
   `connection` - established MQ connection
@@ -90,6 +90,38 @@
     (if (realized? mq-error)
       (throw @mq-error)
       @contents)))
+
+(defn bounded-drain-into-vec!
+  "Drains N messages from the indicated MQ endpoint into a vector
+
+  `connection` - established MQ connection
+
+  `endpoint` - which MQ endpoint you wish to drain
+
+  `limit` - block until this many message have been received."
+  [connection endpoint limit]
+  {:pre  [(string? endpoint)
+          (integer? limit)
+          (pos? limit)]
+   :post [(vector? %)
+          (= limit (count %))]}
+  (let [contents (atom [])
+        mq-error (promise)
+        consumer (mq-conn/consumer connection
+                                   {:endpoint   endpoint
+                                    :transacted true
+                                    :on-message #(swap! contents conj %)
+                                    :on-failure #(deliver mq-error (:exception %))})]
+    (mq-consumer/start consumer)
+    (loop []
+      (when (> limit (count @contents))
+        (Thread/sleep 10)
+        (recur)))
+
+    (mq-consumer/close consumer)
+    (if (realized? mq-error)
+      (throw @mq-error)
+      (vec (take limit @contents)))))
 
 (defn delay-property
   "Returns an ActiveMQ property map indicating a message should be
