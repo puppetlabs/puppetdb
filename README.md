@@ -243,7 +243,7 @@ Other useful commands:
 
 * `lein test` to run the test suite
 
-* `lein marg` to build docs in `docs/uberdoc.html`
+* `lein docs` to build docs in `docs/uberdoc.html`
 
 To use the Puppet module from source, add the Ruby code to $RUBYLIB.
 
