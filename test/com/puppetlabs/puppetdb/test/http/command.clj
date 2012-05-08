@@ -62,7 +62,7 @@
       (make-request)
       (*app*))
 
-    (let [[good-msg bad-msg] (drain-into-vec! *conn* "com.puppetlabs.puppetdb.commands" 100)
+    (let [[good-msg bad-msg] (drain-into-vec! *conn* "com.puppetlabs.puppetdb.commands" 1000)
           good-command       (json/parse-string good-msg true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-command [:annotations :received])]

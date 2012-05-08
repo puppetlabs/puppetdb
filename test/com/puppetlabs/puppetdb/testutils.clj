@@ -37,6 +37,7 @@
          ^BrokerService broker# (mq/build-embedded-broker broker-name# dir#)]
 
      (.setUseJmx broker# false)
+     (.setPersistent broker# false)
      (mq/start-broker! broker#)
 
      (try
