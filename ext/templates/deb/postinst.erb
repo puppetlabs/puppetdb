@@ -3,13 +3,19 @@
 
 # Setup the SSL stuff
 
-bash <%= @sbin_dir -%>/puppetdb-ssl-setup
+<%= @sbin_dir -%>/puppetdb-ssl-setup
 
 pw=`cat <%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt`
 
 
-find <%= @config_dir -%> | xargs chmod 640
+find  <%= @config_dir -%> -type f | xargs chmod 640
 chown -R <%= @name -%>:<%= @name -%> <%= @config_dir -%>/..
+chown -R <%= @name -%>:<%= @name -%> <%= @install_dir %>
+<% unless  @pe -%>
+chown -R <%= @name -%>:<%= @name -%> <%= @link  %>
+<% end -%>
+chown -R <%= @name -%>:<%= @name -%> /var/log/<%= @name %>
+
 
 
 cat > <%= @config_dir -%>/jetty.ini << EOF
