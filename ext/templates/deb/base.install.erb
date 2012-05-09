@@ -1,7 +1,9 @@
 <%= @config_dir.gsub(/^\//, '') %>
+<%= @config_dir.gsub(/^\//, '') %>/../log4j.properties
 <%= @log_dir.gsub(/^\//, '') %>
 <%= @install_dir.gsub(/^\//, '') %>
 <%= @lib_dir.gsub(/^\//, '') %>
+<%= @sbin_dir.gsub(/^\//, '') %>
 <% if @pe == false -%>
 <%= @link.gsub(/^\//, '') -%>
 <% end -%>
