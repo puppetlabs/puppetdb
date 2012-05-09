@@ -26,8 +26,8 @@ cat > <%= @config_dir -%>/jetty.ini << EOF
 port = 8080
 ssl-host = `facter fqdn`
 ssl-port = 8081
-keystore = <%= @config_dir -%>/../ssl/keystore.jks
-truststore = <%= @config_dir -%>/../ssl/truststore.jks
+keystore = <%= File.dirname(@config_dir) -%>/ssl/keystore.jks
+truststore = <%= File.dirname(@config_dir) -%>/ssl/truststore.jks
 key-password = $pw
 trust-password = $pw
 EOF
