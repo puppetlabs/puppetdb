@@ -38,16 +38,17 @@ end
 
 if PE_BUILD == "true" or PE_BUILD == "TRUE"
     @install_dir = "/opt/puppet/share/puppetdb"
-    @config_dir = "/etc/puppetlabs/puppetdb"
+    @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/pe-puppetdb"
     @log_dir = "/var/log/pe-puppetdb"
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @pe = true
     @version = version
+    @sbin_dir = "/opt/puppet/sbin"
 else
     @install_dir = "/usr/share/puppetdb"
-    @config_dir = "/etc/puppetdb"
+    @config_dir = "/etc/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/puppetdb"
     @log_dir = "/var/log/puppetdb"
     @lib_dir = "/usr/share/puppetdb"
@@ -55,6 +56,7 @@ else
     @name = "puppetdb"
     @pe = false
     @version = version
+    @sbin_dir = "/usr/sbin"
 end
 
 desc "Create a source install of PuppetDB"
@@ -135,6 +137,9 @@ task :template => [ ] do
    # files for deb and rpm
    erb "ext/templates/log4j.properties.erb", "ext/files/log4j.properties"
    erb "ext/templates/config.ini.erb" , "ext/files/config.ini"
+   erb "ext/templates/jetty.ini.erb",  "ext/files/jetty.ini"
+   erb "ext/templates/repl.ini.erb",  "ext/files/repl.ini"
+   erb "ext/templates/database.ini.erb",  "ext/files/database.ini"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
@@ -149,9 +154,12 @@ task :template => [ ] do
    erb "ext/templates/deb/base.postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/deb/terminus.postinst.erb", "ext/files/debian/#{@name}-terminus.postinst"
    erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
+   erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
    erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
    cp_pr FileList["ext/templates/deb/*"], "ext/files/debian"
+   cp_pr "ext/templates/puppetdb-ssl-setup", "ext/files"
+   chmod 0700, "ext/files/puppetdb-ssl-setup"
    rm_rf FileList["ext/files/debian/*.erb"]
 
    # files for rpm
@@ -172,9 +180,11 @@ task :install => [  JAR_FILE  ] do
   osfamily = Facter.value(:osfamily).downcase
   mkdir_p "#{DESTDIR}/#{@install_dir}"
   mkdir_p "#{DESTDIR}/#{@config_dir}"
+  mkdir_p "#{DESTDIR}/#{@config_dir}/.."
   mkdir_p "#{DESTDIR}/#{@log_dir}"
   mkdir_p "#{DESTDIR}/etc/init.d/"
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
+  mkdir_p "#{DESTDIR}/#{@sbin_dir}"
   mkdir_p "#{DESTDIR}/etc/logrotate.d/"
   ln_sf @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
   ln_sf @log_dir, "#{DESTDIR}/#{@install_dir}/log"
@@ -186,16 +196,22 @@ task :install => [  JAR_FILE  ] do
     ln_sf "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
     ln_sf "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
     ln_sf "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
+    mkdir_p "#{DESTDIR}#/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
     mkdir_p "#{DESTDIR}#{@lib_dir}/mq"
+    mkdir_p "#{DESTDIR}#/etc/puppetlabs/puppetdb"
   end
 
   cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
-  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/log4j.properties"
-  cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}/config.ini"
+  cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/database.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/jetty.ini", "#{DESTDIR}/#{@config_dir}"
+  cp_pr "ext/files/repl.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
+  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
+  cp_pr "ext/files/puppetdb-ssl-setup", "#{DESTDIR}/#{@sbin_dir}"
 
   # figure out which init script to install based on facter
   if osfamily.downcase == "RedHat".downcase
@@ -210,8 +226,9 @@ task :install => [  JAR_FILE  ] do
     cp_pr "ext/files/puppetdb.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   end
-  chmod 0640, "#{DESTDIR}/#{@config_dir}/config.ini"
-  chmod 0640, "#{DESTDIR}/#{@config_dir}/log4j.properties"
+  chmod 0750, "#{DESTDIR}/#{@config_dir}"
+  chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
+  chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-ssl-setup"
 end
 
 desc "Install the terminus components onto an existing puppet setup"
@@ -255,7 +272,6 @@ task :deb  => [ :package ] do
   cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}"
   sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{version}.tar.gz"
   mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@version}.orig.tar.gz"
-  #%x{cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us}
   sh "cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us"
   mkdir_p "pkg/deb"
   rm_rf "#{temp}/puppetdb-#{@version}"
