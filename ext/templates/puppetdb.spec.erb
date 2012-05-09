@@ -98,6 +98,32 @@ useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
 # Register the puppetDB service
 /sbin/chkconfig --add %{name}
 
+<%= @sbin_dir -%>/puppetdb-ssl-setup
+
+pw=`cat <%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt`
+
+find  <%= @config_dir -%> -type f | xargs chmod 640
+chown -R <%= @name -%>:<%= @name -%> <%= @config_dir -%>/..
+chown -R <%= @name -%>:<%= @name -%> <%= @install_dir %>
+<% unless  @pe -%>
+chown -R <%= @name -%>:<%= @name -%> <%= @link  %>
+<% end -%>
+chown -R <%= @name -%>:<%= @name -%> /var/log/<%= @name %>
+
+cat > <%= @config_dir -%>/jetty.ini << EOF
+[jetty]
+# Hostname to list for clear-text HTTP.  Default is localhost
+#host = localhost
+# Port to listen on for clear-text HTTP.
+port = 8080
+ssl-host = `facter fqdn`
+ssl-port = 8081
+keystore = <%= File.dirname(@config_dir) -%>/ssl/keystore.jks
+truststore = <%= File.dirname(@config_dir) -%>/ssl/truststore.jks
+key-password = $pw
+trust-password = $pw
+EOF
+
 %preun
 /sbin/service %{name} stop >/dev/null 2>&1
 /sbin/chkconfig --del %{name}
@@ -113,10 +139,14 @@ rm -rf %{_rundir}/%{name} || :
 %defattr(-, %{name}, %{name})
 %doc *.md
 %doc spec
-%config(noreplace)%{_sysconfdir}/%{realname}/config.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/config.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/log4j.properties
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/database.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/jetty.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/repl.ini
 %config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
+%{_sbindir}/puppetdb-ssl-setup
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>

@@ -62,7 +62,7 @@ start() {
     # call status here and figure out current state
     rh_status_q
     [ -x $JAVA_BIN ] || exit 5
-    [ -f $config ] || exit 6
+    [ -d $config ] || exit 6
     echo -n $"Starting $prog: "
     $SU $USER -s /bin/bash -c "$EXEC &"
     sleep 1
