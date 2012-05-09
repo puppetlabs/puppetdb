@@ -113,10 +113,14 @@ rm -rf %{_rundir}/%{name} || :
 %defattr(-, %{name}, %{name})
 %doc *.md
 %doc spec
-%config(noreplace)%{_sysconfdir}/%{realname}/config.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/config.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/log4j.properties
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/database.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/jetty.ini
+%config(noreplace)%{_sysconfdir}/%{realname}/conf.d/repl.ini
 %config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
+%{_sbindir}/puppetdb-ssl-setup
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>
