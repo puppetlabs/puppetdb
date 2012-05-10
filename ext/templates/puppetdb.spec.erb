@@ -37,10 +37,12 @@ BuildRequires: /usr/sbin/useradd
 BuildRequires: pe-facter, pe-puppet
 BuildRequires: pe-rubygem-rake
 BuildRequires: pe-ruby
+Requires:      pe-puppet >= 2.7.12
 <% else -%>
 BuildRequires: facter, puppet
 BuildRequires: rubygem-rake
 BuildRequires: ruby
+Requires:      puppet >= 2.7.12
 <% end -%>
 BuildArch:     noarch
 Requires:      java-1.6.0-openjdk
