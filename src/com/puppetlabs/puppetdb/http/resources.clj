@@ -80,10 +80,12 @@
   If the query can't be parsed, a 400 is returned."
   [query db]
   (try
-    (let [q (r/query->sql (json/parse-string query true))]
-      (-> (with-transacted-connection db
-            (r/query-resources q))
-          (utils/json-response)))
+    (with-transacted-connection db
+      (-> query
+        (json/parse-string true)
+        (r/query->sql)
+        (r/query-resources)
+        (utils/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (utils/error-response e))
     (catch IllegalArgumentException e
