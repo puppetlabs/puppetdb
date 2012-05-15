@@ -62,7 +62,18 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   def build_filter_expression(filter)
     return nil unless filter
 
-    equal_expr = ['=', ['parameter', filter.first], filter.last]
+    field = filter.first
+    value = filter.last
+
+    # Title and tag aren't parameters, so we have to special-case them.
+    path = case field
+           when "tag", "title"
+             field
+           else
+             ['parameter', field]
+           end
+
+    equal_expr = ['=', path, value]
 
     filter[1] == '!=' ? ['not', equal_expr] : equal_expr
   end
