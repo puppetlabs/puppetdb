@@ -110,6 +110,14 @@ describe Puppet::Resource::Puppetdb do
     it "should return a not-equal query if the operator is '!='" do
       subject.build_filter_expression(['param','!=','value']).should == ['not', ['=',['parameter','param'],'value']]
     end
+
+    it "should handle title correctly" do
+      subject.build_filter_expression(['title','=','value']).should == ['=', 'title', 'value']
+    end
+
+    it "should handle tag correctly" do
+      subject.build_filter_expression(['tag','=','value']).should == ['=', 'tag', 'value']
+    end
   end
 
   describe "#headers" do
