@@ -16,9 +16,15 @@ install::
 	echo $(CURDIR)
 	echo $(BUILD_ROOT)
 	mkdir -p $(BUILD_ROOT)
+<% if @pe -%>
+	/opt/puppet/bin/rake install DESTDIR=$(BUILD_ROOT) PE_BUILD=true
+	/opt/puppet/bin/rake terminus DESTDIR=$(BUILD_ROOT) PE_BUILD=true
+	dh_installdocs -p pe-puppetdb spec
+<% else -%>
 	rake install DESTDIR=$(BUILD_ROOT)
 	rake terminus DESTDIR=$(BUILD_ROOT)
 	dh_installdocs -p puppetdb spec
+<% end -%>
 
 binary-indep: build install
 	dh_testdir
@@ -27,8 +33,13 @@ binary-indep: build install
 	dh_installdocs -i
 	dh_installlogcheck
 	dh_installman
+<% if @pe -%>
+	dh_installinit -ppe-puppetdb
+	dh_installlogrotate -i -ppe-puppetdb
+<% else -%>
 	dh_installinit -ppuppetdb
 	dh_installlogrotate -i -ppuppetdb
+<% end -%>
 	dh_compress -i
 	dh_fixperms -i -X puppetdb-ssl-setup -X etc
 	dh_installdeb -i
