@@ -14,6 +14,7 @@
     ;; We just want the first 4 "components" of the version string,
     ;; joined with dots
     (-> out
+        (s/trim)
         (s/replace #"-" ".")
         (s/split #"\.")
         (#(take 4 %))
