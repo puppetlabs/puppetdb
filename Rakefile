@@ -2,8 +2,14 @@
 require 'rake'
 require 'erb'
 
-PE_BUILD= ENV['PE_BUILD'] || ''
+PE_BUILD = ENV['PE_BUILD'] || ''
+
+if PE_BUILD.downcase == 'true'
+  ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
+end
+PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
+
 
 def version
 # This ugly bit removes the gSHA1 portion of the describe as that causes failing tests
@@ -24,6 +30,7 @@ def cp_p(src, dest, options={})
   cp(src, dest, options.merge(mandatory))
 end
 
+
 require 'facter'
 osfamily = Facter.value(:osfamily).downcase
 if osfamily.downcase =~ /debian/    and PE_BUILD == ''
@@ -36,7 +43,8 @@ elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "true"
   @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
 end
 
-if PE_BUILD == "true" or PE_BUILD == "TRUE"
+
+if PE_BUILD.downcase.strip == "true"
     @install_dir = "/opt/puppet/share/puppetdb"
     @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/pe-puppetdb"
@@ -46,6 +54,7 @@ if PE_BUILD == "true" or PE_BUILD == "TRUE"
     @pe = true
     @version = version
     @sbin_dir = "/opt/puppet/sbin"
+    @java_bin = "/opt/puppet/bin/java"
 else
     @install_dir = "/usr/share/puppetdb"
     @config_dir = "/etc/puppetdb/conf.d"
@@ -132,8 +141,9 @@ end
 file "ext/files/config.ini" => [ :template, JAR_FILE ]   do
 end
 
-task :template => [ ] do
+task :template => [ :clean ] do
    mkdir_p "ext/files/debian"
+
    # files for deb and rpm
    erb "ext/templates/log4j.properties.erb", "ext/files/log4j.properties"
    erb "ext/templates/config.ini.erb" , "ext/files/config.ini"
@@ -223,7 +233,7 @@ task :install => [  JAR_FILE  ] do
   else
     mkdir_p "#{DESTDIR}/etc/default"
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/default/#{@name}"
-    cp_pr "ext/files/puppetdb.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
+    cp_pr "ext/files/#{@name}.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   end
   chmod 0750, "#{DESTDIR}/#{@config_dir}"
