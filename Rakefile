@@ -54,7 +54,6 @@ if PE_BUILD.downcase.strip == "true"
     @pe = true
     @version = version
     @sbin_dir = "/opt/puppet/sbin"
-    @java_bin = "/opt/puppet/bin/java"
 else
     @install_dir = "/usr/share/puppetdb"
     @config_dir = "/etc/puppetdb/conf.d"
