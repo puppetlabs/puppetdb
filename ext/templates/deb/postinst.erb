@@ -3,7 +3,7 @@
 
 # Setup the SSL stuff
 
-if ! [ "$1" =  "upgrade" ] ; then
+if [ ! -f "<%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt" ] ; then
   <%= @sbin_dir -%>/puppetdb-ssl-setup
 
   pw=`cat <%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt`
