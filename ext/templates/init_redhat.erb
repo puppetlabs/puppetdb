@@ -37,7 +37,7 @@ PATH=/opt/puppet/bin:/opt/puppet/sbin:/sbin:/usr/sbin:/bin:/usr/bin
 <% else -%>
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 <% end -%>
-JARFILE="<%= @name -%>.jar"
+JARFILE="puppetdb.jar"
 JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
 lockfile=/var/lock/subsys/$prog
