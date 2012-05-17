@@ -97,6 +97,9 @@ useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
      -c "PuppetDB daemon"  %{name}
 
 %post
+<% if @pe -%>
+export PATH=/opt/puppet/bin:$PATH
+<% end -%>
 # If this is an install (as opposed to an upgrade)...
 if [ "$1" = "1" ]; then
   # Register the puppetDB service
