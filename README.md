@@ -75,7 +75,7 @@ using PuppetDB's REST APIs. Each REST endpoint is documented in the
 **Remote REPL**
 
 For debugging purposes, you can open up a remote clojure
-(REPL)[http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop]
+[REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
 and use it to modify the behavior of PuppetDB, live.
 
 Vim support would be a welcome addition; please submit patches!
@@ -110,7 +110,7 @@ in [RFC 2119][RFC2119].
   any linux distribution. Or if you like, you can download a recent
   JDK directly from Oracle.
 
-* An existing Puppet infrastrucure. You must first setup a
+* An existing Puppet infrastructure. You must first setup a
   Puppetmaster installation, then setup PuppetDB, then configure the
   Puppetmaster to enable _storeconfigs_ and point it at your PuppetDB
   installation.
@@ -480,7 +480,7 @@ the local box. Then tunnels could be used to gain access to
 administrative consoles.
 
 That should do it; the next time you start PuppetDB, it will be doing
-HTTPS and using the CA's certificate for verifiying clients.
+HTTPS and using the CA's certificate for verifying clients.
 
 With HTTPS properly setup, the PuppetDB host no longer requires the
 PEM files copied over during configuration. Those can be safely
@@ -625,7 +625,7 @@ A password to use when connecting.
 
 **[command-processing]**
 
-Options relating to the commang-processing subsystem. Every change to
+Options relating to the command-processing subsystem. Every change to
 PuppetDB's data stores comes in via commands that are inserted into
 an MQ. Command processor threads pull items off of that queue,
 persisting those changes.
