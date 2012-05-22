@@ -96,20 +96,36 @@ module Puppet::Util::Puppetdb
     default_server = "puppetdb"
     default_port = 8080
 
-    require 'puppet/util/inifile'
-
     config = File.join(Puppet[:confdir], "puppetdb.conf")
 
     if File.exists?(config)
       Puppet.debug("Configuring PuppetDB terminuses with config file #{config}")
+      content = File.read(config)
     else
       Puppet.debug("No puppetdb.conf file found; falling back to default #{default_server}:#{default_port}")
+      content = ''
     end
 
-    ini = Puppet::Util::IniConfig::File.new
-    ini.read(config)
+    result = {}
+    section = nil
+    content.lines.each_with_index do |line,number|
+      # Gotta track the line numbers properly
+      number += 1
+      case line
+      when /^\[(\w+)\s*\]$/
+        section = $1
+        result[section] ||= {}
+      when /^\s*(\w+)\s*=\s*(\w+)\s*$/
+        raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config}:#{number}" unless section
+        result[section][$1] = $2
+      when /^\s*$/
+        # Skip blank lines
+      else
+        raise "Unparseable line '#{line}' in PuppetDB config #{config}:#{number}"
+      end
+    end
 
-    main_section = ini[:main] || {}
+    main_section = result['main'] || {}
     server = main_section['server'] || default_server
     port = main_section['port'] || default_port
 

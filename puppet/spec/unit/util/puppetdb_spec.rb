@@ -34,25 +34,50 @@ describe Puppet::Util::Puppetdb do
     end
 
     describe "with a config file" do
-      before :each do
+      def write_config(content)
         conf = File.join(confdir, 'puppetdb.conf')
-        File.open(conf, 'w') do |file|
-          file.print <<CONF
+        File.open(conf, 'w') { |file| file.print(content) }
+      end
+
+      it "should use the config value if specified" do
+        write_config <<CONF
 [main]
 server = main_server
 port = 1234
 CONF
-        end
-      end
-
-      it "should use the config value if specified" do
         described_class.load_puppetdb_config.should == ['main_server', 1234]
       end
 
       it "should use the default if no value is specified" do
-        File.truncate(config, 0)
+        write_config ''
 
         described_class.load_puppetdb_config.should == ['puppetdb', 8080]
+      end
+
+      it "should be insensitive to whitespace" do
+        write_config <<CONF
+[main]
+    server = main_server
+      port    =  1234
+CONF
+
+        described_class.load_puppetdb_config.should == ['main_server', 1234]
+      end
+
+      it "should raise if a setting is outside of a section" do
+        write_config 'foo = bar'
+
+        expect do
+          described_class.load_puppetdb_config
+        end.to raise_error(/Setting 'foo = bar' is illegal outside of section/)
+      end
+
+      it "should raise if an illegal line is encountered" do
+        write_config 'foo bar baz'
+
+        expect do
+          described_class.load_puppetdb_config
+        end.to raise_error(/Unparseable line 'foo bar baz'/)
       end
     end
   end
