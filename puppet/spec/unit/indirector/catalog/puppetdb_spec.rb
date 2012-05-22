@@ -105,6 +105,24 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource.should_not be_nil
         resource['parameters']['alias'].should be_nil
       end
+
+      describe "for non-isomorphic resources" do
+        let(:resource) do
+          Puppet::Resource.new(:exec, 'an_exec', :parameters => {:command => '/bin/true'})
+        end
+
+        it "should not create aliases" do
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
+          result = subject.add_namevar_aliases(hash, catalog)
+
+          resource = result['resources'].find do |res|
+            res['type'] == 'Exec' and res['title'] == 'an_exec'
+          end
+
+          resource.should_not be_nil
+          resource['parameters']['alias'].should be_nil
+        end
+      end
     end
 
     describe "#munge_edges" do

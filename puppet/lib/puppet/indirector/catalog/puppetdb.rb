@@ -47,6 +47,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash['resources'].each do |resource|
       real_resource = catalog.resource(resource['type'], resource['title'])
 
+      # Non-isomorphic resources aren't unique based on namevar, so we can't
+      # use it as an alias
+      type = real_resource.resource_type
+      next if type.respond_to?(:isomorphic?) and !type.isomorphic?
+
       aliases = [real_resource[:alias]].flatten.compact
 
       name = real_resource[real_resource.send(:namevar)]
