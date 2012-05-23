@@ -18,10 +18,12 @@
 ;; https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/948875
 (if (re-find #"OpenJDK" (System/getProperty "java.vm.name"))
   (try
-    (let [blacklist (filter #(instance? sun.security.pkcs11.SunPKCS11 %) (java.security.Security/getProviders))]
+    (let [klass     (Class/forName "sun.security.pkcs11.SunPKCS11")
+          blacklist (filter #(instance? klass %) (java.security.Security/getProviders))]
       (doseq [provider blacklist]
         (log/info (str "Removing buggy security provider " provider))
         (java.security.Security/removeProvider (.getName provider))))
+    (catch ClassNotFoundException e)
     (catch Throwable e
       (log/error e "Could not remove security providers; HTTPS may not work!"))))
 
