@@ -72,7 +72,7 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-type-string "PostgreSQL"
   [basetype]
-  (format "%s ARRAY" basetype))
+  (format "%s ARRAY[1]" basetype))
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
