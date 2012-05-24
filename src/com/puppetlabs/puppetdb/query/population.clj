@@ -22,7 +22,12 @@
   "The number of resources in the population"
   []
   {:post [(number? %)]}
-  (table-count "catalog_resources"))
+  (-> (str "SELECT COUNT(*) as c "
+           "FROM certname_catalogs cc, catalog_resources cr, certnames c "
+           "WHERE cc.catalog=cr.catalog AND c.name=cc.certname AND c.deactivated IS NULL")
+      (query-to-vec)
+      (first)
+      :c))
 
 (defn num-nodes
   "The number of unique certnames in the population"
