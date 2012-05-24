@@ -32,9 +32,8 @@ URL:           http://github.com/puppetlabs/puppetdb
 Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{version}.tar.gz
 Group:         System Environment/Daemons
 
-BuildRequires: /usr/sbin/useradd
 <% if @pe -%>
-BuildRequires: pe-facter, pe-puppet
+BuildRequires: pe-facter >= 1.6.2, pe-puppet
 BuildRequires: pe-rubygem-rake
 BuildRequires: pe-ruby
 Requires:      pe-puppet >= 2.7.12
@@ -45,7 +44,16 @@ BuildRequires: ruby
 Requires:      puppet >= 2.7.12
 <% end -%>
 BuildArch:     noarch
+<% if @osfamily == 'suse' %>
+BuildRequires: aaa_base
+BuildRequires: java-1_6_0-ibm
+BuildRequires: unzip
+BuildRequires: sles-release
+Requires:      java-1_6_0-ibm
+<% else %>
+BuildRequires: /usr/sbin/useradd
 Requires:      java-1.6.0-openjdk
+<% end %>
 Requires:      chkconfig
 
 %description
@@ -69,6 +77,9 @@ Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 %build
 
 %install
+<% if @osfamily == 'suse' %>
+export NO_BRP_CHECK_BYTECODE_VERSION=true
+<% end %>
 
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}

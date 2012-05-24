@@ -32,14 +32,16 @@ end
 
 
 require 'facter'
-osfamily = Facter.value(:osfamily).downcase
-if osfamily.downcase =~ /debian/    and PE_BUILD == ''
+@osfamily = Facter.value(:osfamily).downcase
+if @osfamily =~ /debian/    and PE_BUILD == ''
   @plibdir = '/usr/lib/ruby/1.8'
-elsif osfamily.downcase =~ /debian/ and PE_BUILD.downcase == "true"
+elsif @osfamily =~ /debian/ and PE_BUILD.downcase == "true"
   @plibdir = '/opt/puppet/lib/ruby/1.8'
-elsif osfamily.downcase =~ /redhat/ and PE_BUILD == ''
+elsif @osfamily =~ /redhat/ and PE_BUILD == ''
   @plibdir = '/usr/lib/ruby/site_ruby/1.8'
-elsif osfamily.downcase =~ /redhat/ and PE_BUILD.downcase == "true"
+elsif @osfamily =~ /redhat/ and PE_BUILD.downcase == "true"
+  @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
+elsif @osfamily =~ /suse/ and PE_BUILD.downcase == "true"
   @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
 end
 
@@ -186,7 +188,8 @@ task :install => [  JAR_FILE  ] do
   end
 
   require 'facter'
-  osfamily = Facter.value(:osfamily).downcase
+  raise "Oh damn. You need a newer facter or better facts. Facter version: #{Facter.version}" if Facter.value(:osfamily).nil?
+  @osfamily = Facter.value(:osfamily).downcase
   mkdir_p "#{DESTDIR}/#{@install_dir}"
   mkdir_p "#{DESTDIR}/#{@config_dir}"
   mkdir_p "#{DESTDIR}/#{@config_dir}/.."
@@ -223,17 +226,19 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/puppetdb-ssl-setup", "#{DESTDIR}/#{@sbin_dir}"
 
   # figure out which init script to install based on facter
-  if osfamily.downcase == "RedHat".downcase
+  if @osfamily == "redhat" || @osfamily == "suse"
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
     cp_p "ext/files/puppetdb.redhat.init", "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
-  else
+  elsif @osfamily == "debian"
     mkdir_p "#{DESTDIR}/etc/default"
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/default/#{@name}"
     cp_pr "ext/files/#{@name}.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
+  else
+    raise "Unknown or unsupported osfamily: #{@osfamily}"
   end
   chmod 0750, "#{DESTDIR}/#{@config_dir}"
   chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
