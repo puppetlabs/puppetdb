@@ -42,6 +42,22 @@
       (deactivate-node! "h1")
       (is (= 0 (pop/num-resources))))))
 
+(deftest node-count
+  (testing "Counting nodes"
+    (testing "should return 0 when no resources present"
+      (is (= 0 (pop/num-nodes))))
+
+    (testing "should only count active nodes"
+      (sql/insert-records
+       :certnames
+       {:name "h1"}
+       {:name "h2"})
+
+      (is (= 2 (pop/num-nodes)))
+
+      (deactivate-node! "h1")
+      (is (= 1 (pop/num-nodes))))))
+
 (deftest resource-dupes
   (testing "Computing resource duplication"
     (testing "should return 0 when no resources present"
@@ -73,4 +89,9 @@
       (let [total  4
             unique 3
             dupes  (/ (- total unique) total)]
-        (is (= dupes (pop/pct-resource-duplication)))))))
+        (is (= dupes (pop/pct-resource-duplication))))
+
+      ;; If we remove h2's resources, the only resources left are all
+      ;; unique and should result in a duplicate percentage of zero
+      (deactivate-node! "h2")
+      (is (= 0 (pop/pct-resource-duplication))))))

@@ -11,6 +11,7 @@
   "Fetch a map of {exported-resource [#{exporting-nodes} #{collecting-nodes}]},
   to correlate the nodes exporting and collecting resources."
   []
+  ;; TODO: This needs to only return results for active nodes
   (query-to-vec (str "SELECT DISTINCT exporters.type, exporters.title, "
                      "(SELECT certname FROM certname_catalogs WHERE catalog=exporters.catalog) AS exporter, "
                      "(SELECT certname FROM certname_catalogs WHERE catalog=collectors.catalog) AS collector "
@@ -22,7 +23,7 @@
   "The number of resources in the population"
   []
   {:post [(number? %)]}
-  (-> (str "SELECT COUNT(*) as c "
+  (-> (str "SELECT COUNT(*) AS c "
            "FROM certname_catalogs cc, catalog_resources cr, certnames c "
            "WHERE cc.catalog=cr.catalog AND c.name=cc.certname AND c.deactivated IS NULL")
       (query-to-vec)
@@ -33,7 +34,10 @@
   "The number of unique certnames in the population"
   []
   {:post [(number? %)]}
-  (table-count "certnames"))
+  (-> "SELECT COUNT(*) AS c FROM certnames WHERE deactivated IS NULL"
+      (query-to-vec)
+      (first)
+      :c))
 
 (defn avg-resource-per-node
   "The average number of resources per node"
@@ -46,7 +50,8 @@
   []
   {:post [(number? %)]}
   (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
-                                          "(SELECT DISTINCT resource FROM catalog_resources) r"))
+                                          "(SELECT DISTINCT resource FROM catalog_resources cr, certname_catalogs cc, certnames c "
+                                          " WHERE cr.catalog=cc.catalog AND cc.certname=c.name AND c.deactivated IS NULL) r"))
                        (first)
                        (:c))
         num-total  (num-resources)]
