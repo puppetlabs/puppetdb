@@ -1,24 +1,26 @@
 (require '[clojure.string :as s])
 (use '[clojure.java.shell :only (sh)])
 
-(defn version-string
-  "Determine the version number using 'git describe'"
-  []
-  (let [command                ["git" "describe"]
-        {:keys [exit out err]} (apply sh command)]
-    (when-not (zero? exit)
-      (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
-                       command exit out err))
-      (System/exit 1))
+(def version-string
+  (memoize
+   (fn []
+     "Determine the version number using 'git describe'"
+     []
+     (let [command                ["git" "describe"]
+           {:keys [exit out err]} (apply sh command)]
+       (when-not (zero? exit)
+         (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
+                          command exit out err))
+         (System/exit 1))
 
-    ;; We just want the first 4 "components" of the version string,
-    ;; joined with dots
-    (-> out
-        (s/trim)
-        (s/replace #"-" ".")
-        (s/split #"\.")
-        (#(take 4 %))
-        (#(s/join "." %)))))
+       ;; We just want the first 4 "components" of the version string,
+       ;; joined with dots
+       (-> out
+           (s/trim)
+           (s/replace #"-" ".")
+           (s/split #"\.")
+           (#(take 4 %))
+           (#(s/join "." %)))))))
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -68,6 +70,7 @@
                      [ring-mock "0.1.1"]]
 
   :jar-exclusions [#"leiningen/"]
+  :manifest {"Build-Version" ~(version-string)}
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core

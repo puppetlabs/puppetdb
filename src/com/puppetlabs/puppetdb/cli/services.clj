@@ -68,6 +68,7 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
+(def version (pl-utils/get-version-from-manifest))
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
@@ -201,6 +202,9 @@
                                                     :command-mq {:connection-string mq-addr
                                                                  :endpoint          mq-endpoint}}
         ring-app                                   (server/build-app globals)]
+
+    (when version
+      (log/info (format "PuppetDB version %s" version)))
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
