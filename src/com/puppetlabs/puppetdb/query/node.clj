@@ -54,7 +54,7 @@
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [count (count term)]
-    (if (not (= 3 count))
+    (if (not= 3 count)
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [tbl            (match [path]
@@ -69,7 +69,7 @@
                               (-> (table :certnames)
                                   (select (where (if value
                                                    (= :certnames.deactivated nil)
-                                                   (not (= :certnames.deactivated nil)))))
+                                                   (not= :certnames.deactivated nil))))
                                   (project [[:certnames.name :as :certname]])
                                   (distinct))
                               :else (throw (IllegalArgumentException.
@@ -83,7 +83,7 @@
    :post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [count (count term)]
-    (if (not (= 3 count))
+    (if (not= 3 count)
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (let [[sql & params] (match [path]
