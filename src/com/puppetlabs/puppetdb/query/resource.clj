@@ -90,7 +90,7 @@ and their parameters which match."
 (defmethod compile-term "="
   [[op path value :as term]]
   (let [count (count term)]
-    (if (not (= 3 count))
+    (if (not= 3 count)
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (match [path]
