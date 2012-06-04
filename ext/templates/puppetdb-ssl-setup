@@ -10,9 +10,9 @@ set -e
 fqdn=`facter fqdn`
 password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
 tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
-mycert=`puppet agent --configprint  hostcert`
-myca=`puppet agent --configprint localcacert`
-privkey=`puppet agent --configprint hostprivkey`
+mycert=`puppet master --configprint  hostcert`
+myca=`puppet master --configprint localcacert`
+privkey=`puppet master --configprint hostprivkey`
 
 if [ -d "/etc/puppetlabs/puppetdb" ] ; then
   confdir="/etc/puppetlabs/puppetdb"
