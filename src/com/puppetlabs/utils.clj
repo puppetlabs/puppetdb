@@ -327,14 +327,14 @@
     (let [bytes (.getBytes s "UTF-8")]
       (digest-func "sha-1" [bytes]))))
 
-;; UUID handling
+;; ## UUID handling
 
 (defn uuid
   "Generate a random UUID and return its string representation"
   []
   (str (java.util.UUID/randomUUID)))
 
-;; System interface
+;; ## System interface
 
 (defn num-cpus
   "Grabs the number of available CPUs for the local host"
@@ -342,3 +342,24 @@
   {:post [(pos? %)]}
   (-> (Runtime/getRuntime)
       (.availableProcessors)))
+
+;; ## META-INF parsing
+
+(defn get-version-from-manifest
+  "Returns the PuppetDB version number as indicated by a maven POM
+  file embedded in the current JAR. If we aren't running from within a
+  a JAR, or if we can't locate a maven artifact on the CLASSPATH, we
+  return nil.
+
+  Yes, this code is kind of inscrutable and impossible to unit test
+  (usefully) without building actual artifacts. :("
+  []
+  (let [props-path (->> ["META-INF" "maven" "puppetdb" "puppetdb" "pom.properties"]
+                        (apply clojure.java.io/file)
+                        (.getPath))
+        props-file (clojure.java.io/resource props-path)]
+    (when props-file
+      (with-open [rdr (clojure.java.io/reader props-file)]
+        (let [props (java.util.Properties.)]
+          (.load props rdr)
+          (get props "version"))))))
