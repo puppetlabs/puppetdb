@@ -210,6 +210,12 @@
     (sql/with-connection db
       (migrate!))
 
+    ;; Do an initial GC, to clean up anything left over from previous
+    ;; runs of the daemon
+    (log/info "Compacting database")
+    (with-transacted-connection db
+      (scf-store/garbage-collect!))
+
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics db)
 
