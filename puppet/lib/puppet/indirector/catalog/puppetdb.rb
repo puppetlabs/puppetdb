@@ -22,6 +22,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
     add_parameters_if_missing(data)
     add_namevar_aliases(data, catalog)
+    sort_unordered_metaparams(data)
     munge_edges(data)
     synthesize_edges(data)
 
@@ -34,6 +35,10 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     :notify    => {:direction => :forward, :relationship => 'notifies'},
     :subscribe => {:direction => :reverse, :relationship => 'subscription-of'},
   }
+
+  # Metaparams that may contain arrays, but whose semantics are
+  # fundamentally unordered
+  UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
 
   def add_parameters_if_missing(hash)
     hash['resources'].each do |resource|
@@ -62,6 +67,19 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       resource['parameters']['alias'] = aliases unless aliases.empty?
     end
 
+    hash
+  end
+
+  def sort_unordered_metaparams(hash)
+    hash['resources'].each do |resource|
+      params = resource['parameters']
+      UnorderedMetaparams.each do |metaparam|
+        if params[metaparam].kind_of? Array then
+          values = params[metaparam].sort
+          params[metaparam] = values unless values.empty?
+        end
+      end
+    end
     hash
   end
 

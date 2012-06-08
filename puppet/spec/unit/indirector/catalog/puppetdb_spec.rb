@@ -125,6 +125,42 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
     end
 
+    describe "#sort_unordered_metaparams" do
+      let(:resource) do
+        Puppet::Resource.new(:exec, 'an_exec', :parameters => {:command => '/bin/true',
+                                                               :path    => ['/foo/goo', '/foo/bar'],
+                                                               :audit   => 'path',
+                                                               :tag     => ['c', 'b', 'a']})
+      end
+
+      it "should leave ordered/singleton metaparams (and vanilla params) alone" do
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        result = subject.sort_unordered_metaparams(hash)
+
+        resource = result['resources'].find do |res|
+          res['type'] == 'Exec' and res['title'] == 'an_exec'
+        end
+
+        resource.should_not be_nil
+        resource['parameters'][:command].should == '/bin/true'
+        resource['parameters'][:path].should == ['/foo/goo', '/foo/bar']
+        resource['parameters'][:audit].should == 'path'
+      end
+
+      it "should sort unordered metaparams with array values" do
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        result = subject.sort_unordered_metaparams(hash)
+
+        resource = result['resources'].find do |res|
+          res['type'] == 'Exec' and res['title'] == 'an_exec'
+        end
+
+        resource.should_not be_nil
+        resource['parameters'][:audit].should == 'path'
+        resource['parameters'][:tag].should == ['a', 'b', 'c']
+      end
+    end
+
     describe "#munge_edges" do
       it "should replace existing source/target refs with type/title hashes" do
         result = subject.munge_edges(catalog_data_hash)
