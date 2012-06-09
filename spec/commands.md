@@ -13,8 +13,8 @@ which have the following JSON wire format:
 `version` is a JSON integer describing what version of the given
 command you're attempting to invoke.
 
-`payload` must be a valid JSON string of any sort. It's up to an
-individual handler function how to interpret that object.
+`payload` is any JSON object or value, including strings, numbers, maps, and arrays.  
+It's up to an individual handler function how to interpret that object.
 
 The entire command MUST be encoded as UTF-8.
 
