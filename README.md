@@ -31,7 +31,7 @@ So far, we've implemented the following features:
 
 ## Componentry
 
-PuppetDB consists of several, cooperating components:
+PuppetDB consists of several cooperating components:
 
 **REST-based command processor**
 
@@ -87,7 +87,7 @@ uses Nginx for SSL termination and reverse proxying.
 
 **Puppet terminuses**
 
-There are a set of Puppet terminuses that acts as a drop-in replacement for
+There are a set of Puppet terminuses that act as a drop-in replacement for
 stock storeconfigs functionality. By asynchronously storing catalogs
 in PuppetDB, and by leveraging PuppetDB's fast querying, compilation
 times are much reduced compared to traditional storeconfigs.
@@ -193,7 +193,7 @@ listed on the
 all OS prerequisites should be handled by your package manager. See
 the Wiki for information on how to enable repositories for your
 particular OS. Usually the latest stable version is available as a
-package. If you would like to do puppet-development or see the latest
+package. If you would like to do puppet development or see the latest
 versions, however, you will want to install from source.
 
 ### Installing from source
@@ -534,6 +534,13 @@ You can specify either a single configuration file or a directory of
 .ini files. If you specify a directory (_conf.d_ style) we'll merge
 all the .ini files together in alphabetical order.
 
+If you've installed puppetdb from a package, the default is to use
+the _conf.d_ style, directory-based approach.  The default config
+directory is `/etc/puppetdb/conf.d` (or `/etc/puppetlabs/puppetdb/conf.d`
+for Puppet Enterprise installations).  If you're running from source
+you may use the "-c" command-line argument to specify your config file
+or directory.
+
 There's not much to it, as you can see. Here's a more detailed
 breakdown of each available section:
 
@@ -625,10 +632,10 @@ A password to use when connecting.
 
 **[command-processing]**
 
-Options relating to the command-processing subsystem. Every change to
-PuppetDB's data stores comes in via commands that are inserted into
-an MQ. Command processor threads pull items off of that queue,
-persisting those changes.
+The following options relate to the command-processing subsystem.
+Every change to PuppetDB's data stores comes in via commands that
+are inserted into a message queue (MQ). Command processor threads pull
+items off of that queue, persisting those changes.
 
 `threads`
 
