@@ -64,6 +64,16 @@ CONF
         described_class.load_puppetdb_config.should == ['main_server', 1234]
       end
 
+      it "should accept valid hostnames" do
+        write_config <<CONF
+[main]
+server = foo.example-thing.com
+port = 8080
+CONF
+
+        described_class.load_puppetdb_config.should == ['foo.example-thing.com', 8080]
+      end
+
       it "should raise if a setting is outside of a section" do
         write_config 'foo = bar'
 
