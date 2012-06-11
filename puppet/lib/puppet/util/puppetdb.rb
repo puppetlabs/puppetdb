@@ -94,7 +94,7 @@ module Puppet::Util::Puppetdb
 
   def self.load_puppetdb_config
     default_server = "puppetdb"
-    default_port = 8080
+    default_port = 8081
 
     config = File.join(Puppet[:confdir], "puppetdb.conf")
 
@@ -115,7 +115,7 @@ module Puppet::Util::Puppetdb
       when /^\[(\w+)\s*\]$/
         section = $1
         result[section] ||= {}
-      when /^\s*(\w+)\s*=\s*(\w+)\s*$/
+      when /^\s*(\w+)\s*=\s*(\S+)\s*$/
         raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config}:#{number}" unless section
         result[section][$1] = $2
       when /^\s*$/
