@@ -28,8 +28,8 @@ describe Puppet::Util::Puppetdb do
     end
 
     describe "with no config file" do
-      it "should use the default server and port for every terminus" do
-        described_class.load_puppetdb_config.should == ['puppetdb', 8080]
+      it "should use the default server and port" do
+        described_class.load_puppetdb_config.should == ['puppetdb', 8081]
       end
     end
 
@@ -51,7 +51,7 @@ CONF
       it "should use the default if no value is specified" do
         write_config ''
 
-        described_class.load_puppetdb_config.should == ['puppetdb', 8080]
+        described_class.load_puppetdb_config.should == ['puppetdb', 8081]
       end
 
       it "should be insensitive to whitespace" do
@@ -68,10 +68,10 @@ CONF
         write_config <<CONF
 [main]
 server = foo.example-thing.com
-port = 8080
+port = 8081
 CONF
 
-        described_class.load_puppetdb_config.should == ['foo.example-thing.com', 8080]
+        described_class.load_puppetdb_config.should == ['foo.example-thing.com', 8081]
       end
 
       it "should raise if a setting is outside of a section" do

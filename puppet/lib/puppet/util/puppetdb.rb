@@ -94,7 +94,7 @@ module Puppet::Util::Puppetdb
 
   def self.load_puppetdb_config
     default_server = "puppetdb"
-    default_port = 8080
+    default_port = 8081
 
     config = File.join(Puppet[:confdir], "puppetdb.conf")
 
