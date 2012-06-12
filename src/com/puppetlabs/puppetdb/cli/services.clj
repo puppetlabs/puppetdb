@@ -98,11 +98,11 @@
    (fn [exception]
      (log/error exception "Error during DB compaction"))
 
-   (Thread/sleep (* 60 1000 interval))
    (log/info "Beginning database compaction")
    (with-transacted-connection db
      (scf-store/garbage-collect!)
-     (log/info "Finished database compaction"))))
+     (log/info "Finished database compaction"))
+   (Thread/sleep (* 60 1000 interval))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
