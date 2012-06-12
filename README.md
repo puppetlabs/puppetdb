@@ -294,13 +294,13 @@ format of this file is:
 
     [main]
     server = puppetdb.example.com
-    port = 8080
+    port = 8081
 
 If no config file is specified, or a value isn't supplied, the defaults will be
 used:
 
     server = puppetdb
-    port = 8080
+    port = 8081
 
 *Additionally*, you will need to specify a "routes" file, which is located by
 default at `$confdir/routes.yaml`. The content should be:
