@@ -3,22 +3,64 @@
 
 #TODO Move this into the init script and ensure it only runs when something is wrong with configuraiton
 
-# This should be run on the host with PuppetDB
-PATH=/opt/puppet/bin:$PATH
+while getopts "i" opt;
+do
+    case $opt in
+        i)
+            interactive=true
+    esac
+done
+
+${interactive:=false}
+
+if $interactive
+then
+    dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    cd $dir
+    answers_file="puppetdb-ssl-setup-answers.txt"
+    if [ -f "$answers_file" ]
+    then
+        echo "Reading answers file '$answers_file'"
+        . $answers_file
+    fi
+
+    vars=( agent_confdir agent_vardir puppetdb_confdir )
+    prompts=( "Puppet Agent confdir" "Puppet Agent vardir" "PuppetDB confdir" )
+
+    for (( i=0; i<${#vars[@]}; i++ ))
+    do
+        read -p "${prompts[$i]} [${!vars[$i]}]: " input
+        export ${vars[$i]}=${input:-${!vars[$i]}}
+    done
+
+    cat /dev/null > $answers_file
+    for (( i=0; i<${#vars[@]}; i++ ))
+    do
+        echo "${vars[$i]}=${!vars[$i]}" >> $answers_file
+    done
+else
+    # This should be run on the host with PuppetDB
+    PATH=/opt/puppet/bin:$PATH
+    agent_confdir=`puppet agent --configprint confdir`
+    agent_vardir=`puppet agent --configprint vardir`
+
+    if [ -d "/etc/puppetlabs/puppetdb" ] ; then
+      puppetdb_confdir="/etc/puppetlabs/puppetdb"
+    else
+      puppetdb_confdir="/etc/puppetdb"
+    fi
+fi
+
 set -e
 
 fqdn=`facter fqdn`
 password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
 tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
-mycert=`puppet agent --configprint  hostcert`
-myca=`puppet agent --configprint localcacert`
-privkey=`puppet agent --configprint hostprivkey`
+mycertname=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
+mycert=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
+myca=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
+privkey=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
 
-if [ -d "/etc/puppetlabs/puppetdb" ] ; then
-  confdir="/etc/puppetlabs/puppetdb"
-else
-  confdir="/etc/puppetdb"
-fi
 
 rm -rf $tmpdir
 mkdir -p $tmpdir
@@ -32,10 +74,32 @@ cat privkey.pem pubkey.pem > temp.pem
 echo "$password" | openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name $fqdn  -passout fd:0
 keytool -importkeystore  -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias $fqdn   -deststorepass "$password" -srcstorepass "$password"
 
-rm -rf $confdir/ssl
-mkdir -p $confdir/ssl
-cp -pr  *jks $confdir/ssl
-echo $password > ${confdir}/ssl/puppetdb_keystore_pw.txt
-chmod 600 ${confdir}/ssl/*
-chmod 700 ${confdir}/ssl
+rm -rf $puppetdb_confdir/ssl
+mkdir -p $puppetdb_confdir/ssl
+cp -pr  *jks $puppetdb_confdir/ssl
+echo $password > ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
+chmod 600 ${puppetdb_confdir}/ssl/*
+chmod 700 ${puppetdb_confdir}/ssl
 rm -rf $tmpdir
+
+if $interactive
+then
+    echo "Certificate generation complete.  You will need to make sure that the puppetdb.conf"
+    echo " file on your puppet master looks like this:"
+    echo "    [main]"
+    echo "    server = ${mycertname}"
+    echo "    port   = 8081"
+    echo
+    echo " And that the config.ini (or other .ini) on your puppetdb system contains the"
+    echo "  following:"
+    echo
+    echo "    [jetty]"
+    echo "    #host           = localhost"
+    echo "    port           = 8080"
+    echo "    ssl-host       = ${fqdn}"
+    echo "    ssl-port       = 8081"
+    echo "    keystore       = ${puppetdb_confdir}/ssl/keystore.jks"
+    echo "    truststore     = ${puppetdb_confdir}/ssl/truststore.jks"
+    echo "    key-password   = ${password}"
+    echo "    trust-password = ${password}"
+fi
