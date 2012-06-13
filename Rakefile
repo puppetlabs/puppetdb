@@ -12,8 +12,10 @@ DESTDIR=  ENV['DESTDIR'] || ''
 
 
 def version
-# This ugly bit removes the gSHA1 portion of the describe as that causes failing tests
-  if File.exists?('.git')
+  if File.exists?('version')
+    File.read('version').chomp
+  elsif File.exists?('.git')
+    # This ugly bit removes the gSHA1 portion of the describe as that causes failing tests
     %x{git describe}.chomp.gsub('-', '.').split('.')[0..3].join('.').gsub('v', '')
   else
     %x{pwd}.strip!.split('.')[-1]
