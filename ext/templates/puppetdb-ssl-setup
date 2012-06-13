@@ -22,7 +22,7 @@ fi
 
 rm -rf $tmpdir
 mkdir -p $tmpdir
-cp $myca $tmpdir
+cp $myca $tmpdir/ca.pem
 cp $privkey $tmpdir/privkey.pem
 cp $mycert $tmpdir/pubkey.pem
 
