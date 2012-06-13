@@ -250,7 +250,7 @@ end
 desc "Install the terminus components onto an existing puppet setup"
 task :terminus do
   mkdir_p "#{DESTDIR}#{@plibdir}/puppet/indirector"
-  cp_pr FileList["puppet/lib/puppet/*"], "#{DESTDIR}#{@plibdir}/puppet/"
+  cp_pr FileList["ext/master/lib/puppet/*"], "#{DESTDIR}#{@plibdir}/puppet/"
   #TODO Fix up specs when the specs ship with the puppet packages
 end
 
