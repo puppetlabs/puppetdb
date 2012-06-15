@@ -1,0 +1,85 @@
+test_name "collections with queries" do
+
+  exporter, *collectors = hosts
+
+  dir = collectors.first.tmpdir('collections')
+
+  manifest = <<MANIFEST
+node "#{exporter}" {
+  @@file { "#{dir}/file-a":
+    ensure => present,
+    mode => 0777,
+  }
+
+  @@file { "#{dir}/file-b":
+    ensure => present,
+    mode => 0755,
+  }
+
+  @@file { "#{dir}/file-c":
+    ensure => present,
+    mode => 0744,
+  }
+
+  @@file { "#{dir}/file-d":
+    ensure => present,
+    mode => 0744,
+  }
+}
+
+node #{collectors.map {|collector| "\"#{collector}\""}.join(', ')} {
+  # The magic of facts!
+  include $test_name
+
+  file { "#{dir}":
+    ensure => directory,
+  }
+}
+
+class equal_query {
+  File <<| mode == 0744 |>>
+}
+
+class not_equal_query {
+  File <<| mode != 0755 |>>
+}
+MANIFEST
+
+  tmpdir = master.tmpdir('storeconfigs')
+
+  manifest_file = File.join(tmpdir, 'site.pp')
+
+  create_remote_file(master, manifest_file, manifest)
+
+  on master, "chmod -R +rX #{tmpdir}"
+
+  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --autosign true --manifest #{manifest_file}", :preserve_ssl => true do
+
+    step "Run exporter to populate the database" do
+      run_agent_on exporter, "--test --server #{master}", :acceptable_exit_codes => [0,2]
+
+      # Wait until the catalog has been processed
+      sleep_until_queue_empty database
+    end
+
+    test_collection = proc do |nodes, test_name, expected|
+      on nodes, "rm -rf #{dir}"
+
+      on nodes, "FACTER_test_name=#{test_name} puppet agent --test --server #{master}", :acceptable_exit_codes => [0,2]
+
+      nodes.each do |node|
+        on node, "ls #{dir}"
+        created = stdout.split.map(&:strip).sort
+        assert_equal(expected, created, "#{node} collected #{created.join(', ')} instead of #{expected.join(', ')} for #{test_name}")
+      end
+    end
+
+    step "= queries should work" do
+      test_collection.call collectors, "equal_query", %w[file-c file-d]
+    end
+
+    step "!= queries should work" do
+      test_collection.call collectors, "not_equal_query", %w[file-a file-c file-d]
+    end
+  end
+end
