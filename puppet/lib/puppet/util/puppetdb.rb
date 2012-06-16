@@ -1,4 +1,5 @@
 require 'puppet/util'
+require 'puppet/util/puppetdb/char_encoding'
 require 'digest'
 
 module Puppet::Util::Puppetdb
@@ -58,37 +59,10 @@ module Puppet::Util::Puppetdb
       :payload => payload.to_pson,
     }.to_pson
 
-    utf8_string(message)
+    CharEncoding.utf8_string(message)
   end
 
-  def utf8_string(str)
-    # Ruby 1.8 doesn't have String#encode, and String#encode('UTF-8') on an
-    # invalid UTF-8 string will leave the invalid byte sequences, so we have
-    # to use iconv in both of those cases.
-    if RUBY_VERSION =~ /1.8/ or str.encoding == Encoding::UTF_8
-      iconv_to_utf8(str)
-    else
-      begin
-        str.encode('UTF-8')
-      rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError => e
-        # If we got an exception, the string is either invalid or not
-        # convertible to UTF-8, so drop those bytes.
-        Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
-        str.encode('UTF-8', :invalid => :replace, :undef => :replace)
-      end
-    end
-  end
 
-  def iconv_to_utf8(str)
-    iconv = Iconv.new('UTF-8//IGNORE', 'UTF-8')
-
-    # http://po-ru.com/diary/fixing-invalid-utf-8-in-ruby-revisited/
-    converted_str = iconv.iconv(str + " ")[0..-2]
-    if converted_str != str
-      Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
-    end
-    converted_str
-  end
 
   private
 
