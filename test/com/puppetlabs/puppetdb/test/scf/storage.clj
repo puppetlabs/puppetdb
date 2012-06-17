@@ -28,7 +28,7 @@
             (is (= str1 str2)))
           (when-not (= value1 value2)
             (is (not= str1 str2)
-              (str value1 " should not serialize the same as " value2))))))))
+                (str value1 " should not serialize the same as " value2))))))))
 
 (deftest hash-computation
   (testing "Hashes for resources"
@@ -54,11 +54,11 @@
              (resource-identity-hash {:tags #{3 2 1}}))))
 
     (testing "should be different for non-equivalent resources"
-      ; Take a population of 5 resource, put them into a set to make
-      ; sure we only care about a population of unique resources, take
-      ; any 2 elements from that set, and those 2 resources should
-      ; have different hashes.
-      (let [candidates (into #{} (repeatedly 5 catutils/random-kw-resource))
+                                        ; Take a population of 5 resource, put them into a set to make
+                                        ; sure we only care about a population of unique resources, take
+                                        ; any 2 elements from that set, and those 2 resources should
+                                        ; have different hashes.
+      (let [candidates (set (repeatedly 5 catutils/random-kw-resource))
             pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)
@@ -138,7 +138,7 @@
                   {:certname certname :fact "operatingsystem" :value "Debian"}])))
         (testing "should add the certname if necessary"
           (is (= (query-to-vec "SELECT name FROM certnames"))
-                 [{:name certname}]))
+              [{:name certname}]))
         (testing "replacing facts"
           (let [new-facts {"domain" "mynewdomain.com"
                            "fqdn" "myhost.mynewdomain.com"
@@ -324,19 +324,19 @@
           ;; no tags for myhost
           (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
                                      "WHERE t.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
+                                certname])
                  []))
 
           ;; no classes for myhost
           (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
                                      "WHERE c.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
+                                certname])
                  []))
 
           ;; no edges for myhost
           (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
                                      "WHERE e.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
+                                certname])
                  [{:c 0}]))
 
           ;; All the other resources should still be there
@@ -405,18 +405,18 @@
           (migrate!)
           (is (thrown? AssertionError (add-catalog! {})))
 
-          ; Nothing should have been persisted for this catalog
+                                        ; Nothing should have been persisted for this catalog
           (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
                  [{:nrows 0}]))))
 
       (testing "on input that violates referential integrity"
-        ; This catalog has an edge that points to a non-existant resource
+                                        ; This catalog has an edge that points to a non-existant resource
         (let [catalog (:invalid catalogs)]
           (with-transacted-connection db
             (migrate!)
             (is (thrown? AssertionError (add-catalog! {})))
 
-            ; Nothing should have been persisted for this catalog
+                                        ; Nothing should have been persisted for this catalog
             (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
                    [{:nrows 0}]))))))))
 

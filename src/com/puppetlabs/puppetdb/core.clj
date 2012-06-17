@@ -23,10 +23,10 @@
   "Return a set of namespaces underneath the .cli parent"
   []
   {:post [(set? %)]}
-  (into #{} (for [namespace (ns/find-namespaces-on-classpath)
-                  :let [ns-str (name namespace)]
-                  :when (.startsWith ns-str ns-prefix)]
-              namespace)))
+  (set (for [namespace (ns/find-namespaces-on-classpath)
+             :let [ns-str (name namespace)]
+             :when (.startsWith ns-str ns-prefix)]
+         namespace)))
 
 (defn var-from-ns
   "Resolve a var, by name, from a (potentially un-required)
@@ -46,10 +46,10 @@
   "Return the set of available subcommands for this application"
   []
   {:post [(set? %)]}
-  (into #{} (for [namespace (cli-namespaces)
-                  :let [ns-str (name namespace)
-                        subcmd (last (split ns-str #"\."))]]
-              subcmd)))
+  (set (for [namespace (cli-namespaces)
+             :let [ns-str (name namespace)
+                   subcmd (last (split ns-str #"\."))]]
+         subcmd)))
 
 (defn usage
   "Display help text to the user"
