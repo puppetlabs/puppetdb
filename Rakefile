@@ -1,4 +1,3 @@
-
 require 'rake'
 require 'erb'
 
@@ -110,7 +109,7 @@ task :uberjar => [  ] do
 end
 
 desc "Create a source tar archive"
-task :package => [ JAR_FILE, :template  ] do
+task :package => [ :clobber, JAR_FILE, :template  ] do
   workdir = "pkg/puppetdb-#{@version}"
   mkdir_p workdir
   FileList[ "ext", "*.md", JAR_FILE, "spec", "Rakefile" ].each do |f|
