@@ -137,8 +137,8 @@
                   {:certname certname :fact "kernel" :value "Linux"}
                   {:certname certname :fact "operatingsystem" :value "Debian"}])))
         (testing "should add the certname if necessary"
-          (is (= (query-to-vec "SELECT name FROM certnames"))
-                 [{:name certname}]))
+          (is (= (query-to-vec "SELECT name FROM certnames")
+                 [{:name certname}])))
         (testing "replacing facts"
           (let [new-facts {"domain" "mynewdomain.com"
                            "fqdn" "myhost.mynewdomain.com"
