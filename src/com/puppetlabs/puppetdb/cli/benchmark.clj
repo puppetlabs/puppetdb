@@ -142,10 +142,10 @@
                              (catch Exception e
                                (log/error (format "Error parsing %s; skipping" file)))))
                          (remove nil?)
-                         (into []))
+                         (vec))
 
         nhosts      (:numhosts options)
-        hostnames   (into #{} (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
+        hostnames   (set (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
 
     (def hostname (get-in config [:jetty :host] "localhost"))
     (def port (get-in config [:jetty :port] 8080))
@@ -154,10 +154,10 @@
 
     ;; Create an agent for each host
     (def hosts
-      (into [] (map #(agent {:host    %,
-                             :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
-                             :catalog (associate-catalog-with-host % (rand-nth catalogs))})
-                    hostnames)))
+      (vec (map #(agent {:host    %,
+                         :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
+                         :catalog (associate-catalog-with-host % (rand-nth catalogs))})
+                hostnames)))
 
     ;; Loop forever
     (world-loop)))
