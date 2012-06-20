@@ -219,9 +219,9 @@
                           (mq/start-broker! (mq/build-embedded-broker mq-dir)))
           command-procs (let [nthreads (get-in config [:command-processing :threads])]
                           (log/info (format "Starting %d command processor threads" nthreads))
-                          (into [] (for [n (range nthreads)]
-                                     (future (with-error-delivery error
-                                               (load-from-mq mq-addr mq-endpoint discard-dir db))))))
+                          (vec (for [n (range nthreads)]
+                                 (future (with-error-delivery error
+                                           (load-from-mq mq-addr mq-endpoint discard-dir db))))))
           web-app       (do
                           (log/info "Starting query server")
                           (future (with-error-delivery error

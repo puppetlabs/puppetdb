@@ -170,7 +170,7 @@
         (is (= 0 (times-called on-discard)))
         (is (= 0 (- (global-count :discarded) prev-discarded)))
         ;; Verify that all the command-specific metrics are present
-        (is (= (into #{} (keys (get-in @metrics ["foobar" 1])))
+        (is (= (set (keys (get-in @metrics ["foobar" 1])))
                #{:seen :processed :fatal :retried :discarded :processing-time :retry-counts}))))
 
     (testing "should discard messages that exceed the max allowable attempts"

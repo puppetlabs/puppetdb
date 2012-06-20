@@ -58,7 +58,7 @@
       ; sure we only care about a population of unique resources, take
       ; any 2 elements from that set, and those 2 resources should
       ; have different hashes.
-      (let [candidates (into #{} (repeatedly 5 catutils/random-kw-resource))
+      (let [candidates (set (repeatedly 5 catutils/random-kw-resource))
             pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)

@@ -301,7 +301,7 @@ must be supplied as the value to be matched."
         sql-params (vec (cons query resource-hashes))]
     (sql/with-query-results result-set
       sql-params
-      (into #{} (map :resource result-set)))))
+      (set (map :resource result-set)))))
 
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
@@ -535,7 +535,7 @@ must be supplied as the value to be matched."
   [certname]
   (sql/with-query-results result-set
     ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
-    (into [] (map :catalog result-set))))
+    (vec (map :catalog result-set))))
 
 (defn catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than

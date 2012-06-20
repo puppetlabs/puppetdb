@@ -37,7 +37,7 @@
                          "exported"   (random-bool)
                          "file"       (random-string)
                          "line"       (rand-int 1000)
-                         "tags"       (into #{} (repeatedly (rand-int 10) #(random-string)))
+                         "tags"       (set (repeatedly (rand-int 10) #(random-string)))
                          "parameters" (merge (random-parameters) extra-params)}]
        (merge r overrides))))
 
