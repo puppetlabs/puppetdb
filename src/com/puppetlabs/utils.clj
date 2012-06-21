@@ -5,8 +5,9 @@
 ;; altogether. But who has time for that?
 
 (ns com.puppetlabs.utils
-  (:import (org.ini4j Ini)
-           [org.apache.log4j PropertyConfigurator])
+  (:import [org.ini4j Ini]
+           [org.apache.log4j PropertyConfigurator]
+           [javax.naming.ldap LdapName])
   (:require [clojure.test]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
@@ -15,7 +16,7 @@
             [digest]
             [fs.core :as fs]
             [ring.util.response :as rr])
-  (:use [clojure.core.incubator :only (-?>)]
+  (:use [clojure.core.incubator :only (-?> -?>>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
         [clj-time.core :only [now]]
@@ -275,6 +276,46 @@
       (println banner)
       (System/exit 0))
     [options posargs]))
+
+;; ## SSL Certificate handling
+
+(defn cn-for-dn
+  "Extracts the CN (common name) from an LDAP DN (distinguished name).
+
+  If more than one CN entry exists in the given DN, we return the most-specific
+  one (the one that comes last, textually). If no CN is present in the DN, we
+  return nil.
+
+  Example:
+
+      (cn-for-dn \"CN=foo.bar.com,OU=meh,C=us\")
+      \"foo.bar.com\"
+
+      (cn-for-dn \"CN=foo.bar.com,CN=baz.goo.com,OU=meh,C=us\")
+      \"baz.goo.com\"
+
+      (cn-for-dn \"OU=meh,C=us\")
+      nil"
+  [dn]
+  {:pre [(string? dn)]}
+  (-?>> dn
+        (LdapName.)
+        (.getRdns)
+        (filter #(= "CN" (.getType %)))
+        (first)
+        (.getValue)
+        (str)))
+
+(defn cn-for-cert
+  "Extract the CN from the DN of an x509 certificate. See `cn-for-dn` for details
+  on how extraction is performed.
+
+  If no CN exists in the certificate DN, nil is returned."
+  [^java.security.cert.X509Certificate cert]
+  (-> cert
+      (.getSubjectDN)
+      (.getName)
+      (cn-for-dn)))
 
 ;; ## Ring helpers
 

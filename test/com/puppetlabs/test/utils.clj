@@ -115,3 +115,32 @@
           (is (= (inis-to-map td)
                  {:foo {:bar "baz"}
                   :bar {:bar "goo"}})))))))
+
+(deftest cert-utils
+  (testing "extracting cn from a dn"
+    (is (thrown? AssertionError (cn-for-dn 123))
+        "should throw error when arg is a number")
+    (is (thrown? AssertionError (cn-for-dn nil))
+        "should throw error when arg is nil")
+
+    (is (= (cn-for-dn "") nil)
+        "should return nil when passed an empty string")
+    (is (= (cn-for-dn "MEH=bar") nil)
+        "should return nil when no CN is present")
+    (is (= (cn-for-dn "cn=foo.bar.com") nil)
+        "should return nil when CN present but lower case")
+    (is (= (cn-for-dn "cN=foo.bar.com") nil)
+        "should return nil when CN present but with mixed case")
+
+    (is (= (cn-for-dn "CN=foo.bar.com") "foo.bar.com")
+        "should work when only CN is present")
+    (is (= (cn-for-dn "CN=foo.bar.com,OU=something") "foo.bar.com")
+        "should work when more than just the CN is present")
+    (is (= (cn-for-dn "CN=foo.bar.com,OU=something") "foo.bar.com")
+        "should work when more than just the CN is present")
+    (is (= (cn-for-dn "OU=something,CN=foo.bar.com") "foo.bar.com")
+        "should work when more than just the CN is present and CN is last")
+    (is (= (cn-for-dn "OU=something,CN=foo.bar.com,D=foobar") "foo.bar.com")
+        "should work when more than just the CN is present and CN is in the middle")
+    (is (= (cn-for-dn "CN=foo.bar.com,CN=goo.bar.com,OU=something") "goo.bar.com")
+        "should use the most specific CN if multiple CN's are present")))
