@@ -22,6 +22,16 @@
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
 
+;; ## I/O
+
+(defn lines
+  "Returns a sequence of lines from the given filename"
+  [filename]
+  (-> filename
+      (fs/file)
+      (reader)
+      (line-seq)))
+
 ;; ## Math
 
 (defn quotient
