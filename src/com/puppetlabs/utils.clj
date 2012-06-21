@@ -319,6 +319,24 @@
 
 ;; ## Ring helpers
 
+(defn cn-whitelist->authorizer
+  "Given a 'whitelist' file containing allowed CNs (one per line),
+   build a function that takes a Ring request and returns true if the
+   CN contained in the client certificate appears in the whitelist.
+
+   `whitelist` can be either a local filename or a File object.
+
+   This makes use of the `:ssl-client-cn` request parameter. See
+   `com.puppetlabs.middleware/wrap-with-certificate-cn`."
+  [whitelist]
+  {:pre  [(or (string? whitelist)
+              (instance? java.io.File whitelist))]
+   :post [(fn? %)]}
+  (let [allowed? (set (lines whitelist))]
+    (fn [{:keys [ssl-client-cn scheme] :as req}]
+      (or (= scheme :http)
+          (allowed? ssl-client-cn)))))
+
 (defn acceptable-content-type
   "Returns a boolean indicating whether the `candidate` mime type
   matches any of those listed in `header`, an Accept header."

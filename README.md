@@ -693,6 +693,17 @@ your puppet infrastructure.
 
 Passphrase to use to unlock the truststore file.
 
+`certificate-whitelist`
+
+Optional. Path to a file that contains a list of hostnames, one per
+line.  Incoming HTTPS requests will have their certificates validated
+against this list of hostnames, and only those with an _exact_,
+matching entry will be allowed through.
+
+If not supplied, we'll perform standard HTTPS without any additional
+authorization. We'll still make sure that all HTTPS clients supply
+valid, verifiable SSL client certificates.
+
 **[repl]**
 
 Enabling a remote

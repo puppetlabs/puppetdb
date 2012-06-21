@@ -11,7 +11,8 @@
         [com.puppetlabs.puppetdb.http.node :only (node-app)]
         [com.puppetlabs.puppetdb.http.status :only (status-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
-        [com.puppetlabs.middleware :only (wrap-with-globals wrap-with-metrics)]
+        [com.puppetlabs.middleware :only
+         (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
@@ -42,11 +43,21 @@
    {:get metrics-app}))
 
 (defn build-app
-  "Given an attribute map representing connectivity to the SCF
-  database, generate a Ring application that handles queries"
-  [globals]
-  (-> routes
-      (wrap-resource "public")
-      (wrap-params)
-      (wrap-with-metrics (atom {}) #(first (uri-segments %)))
-      (wrap-with-globals globals)))
+  "Generate a Ring application that handles PuppetDB requests
+
+  `options` is a list of keys and values where keys can be the following:
+
+  * `globals` - a map containing global state useful to request handlers.
+
+  * `authorized?` - a function that takes a request and returns a
+    truthy value if the request is authorized. If not supplied, we default
+    to authorizing all requests."
+  [& options]
+  (let [opts (apply hash-map options)]
+    (-> routes
+        (wrap-resource "public")
+        (wrap-params)
+        (wrap-with-authorization (opts :authorized? (constantly true)))
+        (wrap-with-certificate-cn)
+        (wrap-with-metrics (atom {}) #(first (uri-segments %)))
+        (wrap-with-globals (opts :globals)))))

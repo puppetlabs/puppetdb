@@ -144,3 +144,30 @@
         "should work when more than just the CN is present and CN is in the middle")
     (is (= (cn-for-dn "CN=foo.bar.com,CN=goo.bar.com,OU=something") "goo.bar.com")
         "should use the most specific CN if multiple CN's are present")))
+
+(deftest cert-whitelist-auth
+  (testing "cert whitelist authorizer"
+    (testing "should fail when whitelist is not given"
+      (is (thrown? AssertionError (cn-whitelist->authorizer nil))))
+
+    (testing "should fail when whitelist is given, but not readable"
+      (is (thrown? java.io.FileNotFoundException
+                   (cn-whitelist->authorizer "/this/does/not/exist"))))
+
+    (testing "when whitelist is present"
+      (let [whitelist (fs/temp-file)]
+        (.deleteOnExit whitelist)
+        (spit whitelist "foo\nbar\n")
+
+        (let [authorized? (cn-whitelist->authorizer whitelist)]
+          (testing "should allow plain-text, HTTP requests"
+            (is (authorized? {:scheme :http :ssl-client-cn "foobar"})))
+
+          (testing "should fail HTTPS requests without a client cert"
+            (is (not (authorized? {:scheme :https}))))
+
+          (testing "should reject certs that don't appear in the whitelist"
+            (is (not (authorized? {:scheme :https :ssl-client-cn "goo"}))))
+
+          (testing "should accept certs that appear in the whitelist"
+            (is (authorized? {:scheme :https :ssl-client-cn "foo"}))))))))

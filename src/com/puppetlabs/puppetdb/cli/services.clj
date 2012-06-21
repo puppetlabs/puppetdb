@@ -200,8 +200,7 @@
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db     db
                                                     :command-mq {:connection-string mq-addr
-                                                                 :endpoint          mq-endpoint}}
-        ring-app                                   (server/build-app globals)]
+                                                                 :endpoint          mq-endpoint}}]
 
     (when version
       (log/info (format "PuppetDB version %s" version)))
@@ -222,10 +221,13 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          web-app       (do
+          web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
+                                            (pl-utils/cn-whitelist->authorizer wl)
+                                            (constantly true))
+                              app         (server/build-app :globals globals :authorized? authorized?)]
                           (log/info "Starting query server")
                           (future (with-error-delivery error
-                                    (jetty/run-jetty ring-app jetty))))
+                                    (jetty/run-jetty app jetty))))
           db-gc         (do
                           (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
                           (future (with-error-delivery error

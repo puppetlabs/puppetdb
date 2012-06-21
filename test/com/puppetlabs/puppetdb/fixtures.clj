@@ -33,6 +33,5 @@
   are available. Note this means this fixture should be nested _within_
   `with-test-db` or `with-test-mq`."
   [f]
-  (binding [*app* (server/build-app {:scf-db     *db*
-                                     :command-mq *mq*})]
+  (binding [*app* (server/build-app :globals {:scf-db *db* :command-mq *mq*})]
     (f)))
