@@ -126,7 +126,7 @@
   [config]
   {:pre  [(map? config)]
    :post [(map? config)]}
-  (assoc-in config [:jetty :need-client-auth] true))
+  (assoc-in config [:jetty :client-auth] :need))
 
 (defn configure-database
   "Update the supplied config map with information about the database. Adds a
