@@ -21,8 +21,10 @@ privkey=`puppet master --configprint hostprivkey`
 
 if [ -d "/etc/puppetlabs/puppetdb" ] ; then
   confdir="/etc/puppetlabs/puppetdb"
+  user=pe-puppetdb
 else
   confdir="/etc/puppetdb"
+  user=puppetdb
 fi
 
 rm -rf $tmpdir
@@ -43,4 +45,5 @@ cp -pr  *jks $confdir/ssl
 echo $password > ${confdir}/ssl/puppetdb_keystore_pw.txt
 chmod 600 ${confdir}/ssl/*
 chmod 700 ${confdir}/ssl
+chown -R ${user}:${user} ${confdir}/ssl
 rm -rf $tmpdir
