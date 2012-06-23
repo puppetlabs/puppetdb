@@ -8,6 +8,11 @@ PATH=/opt/puppet/bin:$PATH
 set -e
 
 fqdn=`facter fqdn`
+# use hostname if fqdn is not available
+if [ ! -n "$fqdn" ] ; then
+  fqdn=`facter hostname`
+fi
+
 password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
 tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
 mycert=`puppet master --configprint  hostcert`
