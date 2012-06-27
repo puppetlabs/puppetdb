@@ -13,7 +13,7 @@ test_name "Setup PuppetDB"
 # TODO: I'm not 100% sure whether this is the right or best way to determine
 #  whether we're running from source or running from a package; might want
 #  to change this.
-install_type = PuppetAcceptance::Options.options[:type] == 'git' ? :git : :package
+install_type = options[:type] == 'git' ? :git : :package
 PuppetDBExtensions.test_mode = install_type
 
 
