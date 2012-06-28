@@ -5,10 +5,14 @@ require 'spec_helper'
 require 'puppet/indirector/node/puppetdb'
 
 describe Puppet::Node::Puppetdb do
+  before :each do
+    Puppet::Node.indirection.stubs(:terminus).returns(subject)
+  end
+
   let(:node) { "something.example.com" }
 
   def destroy
-    subject.destroy(Puppet::Node.indirection.request(:destroy, node))
+    Puppet::Node.indirection.destroy(node)
   end
 
   describe "#destroy" do

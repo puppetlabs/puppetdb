@@ -6,6 +6,7 @@ require 'puppet/indirector/facts/puppetdb'
 describe Puppet::Node::Facts::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
+    Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
   end
 
   describe "#save" do
@@ -65,7 +66,9 @@ describe Puppet::Node::Facts::Puppetdb do
   end
 
   describe "#find" do
-    let(:request) { Puppet::Node::Facts.indirection.request(:find, 'facts') }
+    def find_facts()
+      Puppet::Node::Facts.indirection.find('facts')
+    end
 
     it "should return the facts if they're found" do
       facts = {'a' => '1',
@@ -78,7 +81,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       subject.stubs(:http_get).returns response
 
-      result = subject.find(request)
+      result = find_facts
       result.should be_a(Puppet::Node::Facts)
       result.name.should == 'some_node'
       result.values.should include(facts)
@@ -89,7 +92,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       subject.stubs(:http_get).returns response
 
-      subject.find(request).should be_nil
+      find_facts.should be_nil
     end
 
     it "should fail if an HTTP error code is returned" do
@@ -99,7 +102,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.stubs(:http_get).returns response
 
       expect {
-        subject.find(request)
+        find_facts
       }.to raise_error Puppet::Error, /\[403 Forbidden\]/
     end
 
@@ -107,39 +110,41 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.stubs(:http_get).raises Puppet::Error, "Everything is terrible!"
 
       expect {
-        subject.find(request)
+        find_facts
       }.to raise_error Puppet::Error, /Everything is terrible!/
     end
   end
 
   describe "#search" do
-    let(:request) { Puppet::Node::Facts.indirection.request(:search, 'facts', @query) }
+    def search_facts(query)
+      Puppet::Node::Facts.indirection.search('facts', query)
+    end
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
 
     it "should return the nodes from the response" do
-      @query = {
+      args = {
         'facts.kernel.eq' => 'Linux',
       }
 
       response.stubs(:body).returns '["foo", "bar", "baz"]'
       subject.stubs(:http_get).returns response
 
-      subject.search(request).should == ['foo', 'bar', 'baz']
+      search_facts(args).should == ['foo', 'bar', 'baz']
     end
 
     it "should only allow searches against facts" do
-      @query = {
+      args = {
         'facts.kernel.eq' => 'Linux',
         'wrong.kernel.eq' => 'Linux',
       }
 
       expect do
-        subject.search(request)
+        search_facts(args)
       end.to raise_error(Puppet::Error, /Fact search against keys of type 'wrong' is unsupported/)
     end
 
     it "should add a filter against only active nodes" do
-      @query = {
+      args = {
         'facts.kernel.eq' => 'Linux',
       }
 
@@ -152,11 +157,11 @@ describe Puppet::Node::Facts::Puppetdb do
         url.should == "/nodes?query=#{query}"
       end.returns response
 
-      subject.search(request)
+      search_facts(args)
     end
 
     it "should combine multiple terms with 'and'" do
-      @query = {
+      args = {
         'facts.kernel.eq' => 'Linux',
         'facts.uptime.eq' => '10 days',
       }
@@ -171,11 +176,11 @@ describe Puppet::Node::Facts::Puppetdb do
         url.should == "/nodes?query=#{query}"
       end.returns response
 
-      subject.search(request)
+      search_facts(args)
     end
 
     it "should add 'not' to a != query" do
-      @query = {
+      args = {
         'facts.kernel.ne' => 'Linux',
       }
 
@@ -188,11 +193,11 @@ describe Puppet::Node::Facts::Puppetdb do
         url.should == "/nodes?query=#{query}"
       end.returns response
 
-      subject.search(request)
+      search_facts(args)
     end
 
     it "should default the operator to = if one is not specified" do
-      @query = {
+      args = {
         'facts.kernel' => 'Linux',
       }
 
@@ -205,7 +210,7 @@ describe Puppet::Node::Facts::Puppetdb do
         url.should == "/nodes?query=#{query}"
       end.returns response
 
-      subject.search(request)
+      search_facts(args)
     end
 
     {
@@ -215,7 +220,7 @@ describe Puppet::Node::Facts::Puppetdb do
       'le' => '<='
     }.each do |name, operator|
       it "should map '#{name}' to #{operator}" do
-        @query = {
+        args = {
           "facts.kernel.#{name}" => 'Linux',
         }
 
@@ -228,7 +233,7 @@ describe Puppet::Node::Facts::Puppetdb do
           url.should == "/nodes?query=#{query}"
         end.returns response
 
-        subject.search(request)
+        search_facts(args)
       end
     end
 
@@ -239,7 +244,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.stubs(:http_get).returns response
 
       expect do
-        subject.search(request)
+        search_facts(nil)
       end.to raise_error(Puppet::Error, /Could not perform inventory search from PuppetDB at localhost:0: \[400 Bad Request\] Something bad happened!/)
     end
   end

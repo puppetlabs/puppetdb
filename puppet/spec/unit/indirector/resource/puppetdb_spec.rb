@@ -6,6 +6,7 @@ require 'puppet/indirector/resource/puppetdb'
 describe Puppet::Resource::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
+    Puppet::Resource.indirection.stubs(:terminus).returns(subject)
   end
 
   describe "#search" do
@@ -14,7 +15,7 @@ describe Puppet::Resource::Puppetdb do
     def search(type)
       scope = Puppet::Parser::Scope.new
       args = { :host => host, :filter => nil, :scope => scope }
-      subject.search(Puppet::Resource.indirection.request(:search, type, args))
+      Puppet::Resource.indirection.search(type, args)
     end
 
     it "should return an empty array if no resources match" do
