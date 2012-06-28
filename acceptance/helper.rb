@@ -3,12 +3,26 @@
 require 'cgi'
 
 module PuppetDBExtensions
+
+  def self.test_mode=(mode)
+    @test_mode = mode
+  end
+  def self.test_mode()
+    @test_mode
+  end
+
   def start_puppetdb(host)
     on host, "service puppetdb start"
+
     on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+    num_retries = 0
     until exit_code == 0
       sleep 1
       on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+      num_retries += 1
+      if (num_retries > 60)
+        fail("Unable to start puppetdb")
+      end
     end
   end
 

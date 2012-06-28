@@ -12,7 +12,7 @@ node "#{exporter}" {
   }
 }
 
-node #{collectors.map {|collector| "\"#{collector}\""}.join(', ')} {
+node #{collectors.map {|collector| "\"#{collector.node_name}\""}.join(', ')} {
   # The magic of facts!
   include $test_name
 
@@ -71,12 +71,12 @@ MANIFEST
 
     step "deactivate the exporter node" do
       # Deactivate the node and wait until it's been processed
-      on database, "puppet node deactivate '#{exporter}'"
+      on database, "puppet node deactivate '#{exporter.node_name}'"
       sleep_until_queue_empty database
 
       # Check that it's actually deactivated
-      on database, "puppet node status '#{exporter}'" do
-        assert_match(/Deactivated at/, result.output, "#{exporter} was not properly deactivated")
+      on database, "puppet node status '#{exporter.node_name}'" do
+        assert_match(/Deactivated at/, result.output, "#{exporter.node_name} was not properly deactivated")
       end
     end
 
@@ -90,8 +90,8 @@ MANIFEST
       # Wait until the catalog has been processed
       sleep_until_queue_empty database
 
-      on database, "puppet node status '#{exporter}'" do
-        assert_match(/Currently active/, result.output, "#{exporter} was not properly reactivated")
+      on database, "puppet node status '#{exporter.node_name}'" do
+        assert_match(/Currently active/, result.output, "#{exporter.node_name} was not properly reactivated")
       end
     end
 
