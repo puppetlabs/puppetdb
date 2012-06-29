@@ -17,7 +17,7 @@ install_type = options[:type] == 'git' ? :git : :package
 PuppetDBExtensions.test_mode = install_type
 
 
-pkg_dir = File.join(File.dirname(__FILE__), '..', 'pkg')
+pkg_dir = File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg')
 
 # This is used for handling metrics
 step "Install JSON on the PuppetDB server" do
