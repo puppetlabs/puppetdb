@@ -33,10 +33,10 @@ node "#{name}" {
     step "Run agent to collect resources" do
 
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2] do
-        host = result.host
+        hostname = result.host
 
         names.each do |name|
-          assert_match(/Hello from #{CGI.escape(name)}/, result.output, "#{host.name} failed to collect from #{name}")
+          assert_match(/Hello from #{CGI.escape(name)}/, result.output, "#{hostname} failed to collect from #{name}")
         end
       end
     end
