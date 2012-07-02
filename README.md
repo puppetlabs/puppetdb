@@ -746,6 +746,18 @@ deactivate. However, this behavior may change in future, and the
 command is not specific to PuppetDB, so the preferred method is
 `puppet node deactivate`.
 
+### Redoing SSL setup after changing certs
+
+If you've recently changed the certificates in use by the PuppetDB
+server, you'll need to update the SSL configuration for PuppetDB
+itself.
+
+If you've installed PuppetDB from Puppet Labs packages, you can simply
+re-run the `puppetdb-ssl-setup` script.
+
+Otherwise, you'll need to perform again all the steps in the _SSL
+Configuration_ section of this document.
+
 ### Connecting to a remote REPL
 
 If you have configured your PuppetDB instance to start up a remote
