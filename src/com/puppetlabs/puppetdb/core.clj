@@ -12,7 +12,8 @@
 ;; `[arg1 arg2 arg3]`.
 
 (ns com.puppetlabs.puppetdb.core
-  (:require [clojure.tools.namespace :as ns])
+  (:require [com.puppetlabs.utils :as utils]
+            [clojure.tools.namespace :as ns])
   (:use [clojure.string :only (split)]
         [clojure.stacktrace :only [print-stack-trace]])
   (:gen-class))
@@ -63,6 +64,7 @@
 
 (defn -main
   [& args]
+  (utils/set-default-uncaught-exception-handler!)
   (let [subcommand (first args)
         allowed?   (available-subcommands)]
 
@@ -78,7 +80,5 @@
         (apply (resolve (symbol module "-main")) args)
         (System/exit 0)
         (catch Throwable e
-          (binding [*out* *err*]
-            (print-stack-trace e)
-            (println)
-            (System/exit 1)))))))
+          (utils/catch-all-logger e)
+          (System/exit 1))))))
