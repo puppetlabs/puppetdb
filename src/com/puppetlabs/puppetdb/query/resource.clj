@@ -125,13 +125,6 @@ and their parameters which match."
          :else (throw (IllegalArgumentException.
                         (str term " is not a valid query term")))))
 
-(defn- alias-subqueries
-  "Produce distinct aliases for a list of queries, suitable for a join
-operation."
-  [queries]
-  (let [ids (range (count queries))]
-    (map #(format "%s resources_%d" %1 %2) queries ids)))
-
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
 (defmethod compile-term :connective

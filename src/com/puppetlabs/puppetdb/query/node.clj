@@ -12,13 +12,22 @@
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.utils :only [parse-number]]))
 
-(defmulti compile-predicate->sql
-  "Recursively compile a query into a collection of SQL operations."
+(defmulti compile-term
+  "Recursively compile a query into a structured map reflecting the terms of
+  the query."
   (fn [query]
     (let [operator (string/lower-case (first query))]
       (cond
        (#{">" "<" ">=" "<="} operator) :numeric-comparison
+       (#{"and" "or"} operator) :connective
        :else operator))))
+
+(defn build-join-expr
+  "Builds an inner join expression between catalog_resources and the given
+  `table`. There aren't any actual possibilities for this currently, but the
+  function is left here to aid in possible unification of various query paths."
+  [table]
+  (condp = table))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -27,10 +36,14 @@
   {:pre  [(some-fn nil? sequential? query)]
    :post [(vector? %)
           (string? (first %))
-          (every? (complement coll?) %)]}
+          (every? (complement coll?) (rest %))]}
   (if query
-    (compile-predicate->sql query)
-    ["SELECT name AS certname FROM certnames"]))
+    (let [{:keys [where joins params]} (compile-term query)
+          join-expr (->> joins
+                      (map build-join-expr)
+                      (string/join " "))]
+      (apply vector (format "%s WHERE %s" join-expr where) params))
+    [""]))
 
 (defn search
   "Search for nodes satisfying the given SQL filter."
@@ -39,7 +52,8 @@
           (every? (complement coll?) params)]
    :post [(vector? %)
           (every? string? %)]}
-  (let [nodes (query-to-vec filter-expr)]
+  (let [query (format "SELECT name AS certname FROM certnames %s" sql)
+        nodes (apply query-to-vec query params)]
     (-> (map :certname nodes)
         (sort)
         (vec))))
@@ -47,106 +61,71 @@
 (defn fetch-all
   "Retrieves all nodes from the database."
   []
-  (search (query->sql nil)))
+  (search [""]))
 
-(defmethod compile-predicate->sql "="
+(defmethod compile-term "="
   [[op path value :as term]]
-  {:post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+  {:post [(map? %)
+          (:where %)]}
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
-              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (let [tbl            (match [path]
-                              [["fact" (name :when string?)]]
-                              (-> (table :certname_facts)
-                                  (select (where
-                                           (and (= :certname_facts.fact name)
-                                                (= :certname_facts.value value))))
-                                  (project [:certname_facts.certname])
-                                  (distinct))
-                              [["node" "active"]]
-                              (-> (table :certnames)
-                                  (select (where (if value
-                                                   (= :certnames.deactivated nil)
-                                                   (not= :certnames.deactivated nil))))
-                                  (project [[:certnames.name :as :certname]])
-                                  (distinct))
-                              :else (throw (IllegalArgumentException.
-                                            (str term " is not a valid query term"))))
-        [sql & params] (compile tbl nil)]
-    (apply vector (format "(%s)" sql) params)))
+               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+  (match [path]
+         [["fact" (name :when string?)]]
+         {:where "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND cf.value = ?)"
+          :params [name value]}
+         [["node" "active"]]
+         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
-(defmethod compile-predicate->sql :numeric-comparison
+         :else (throw (IllegalArgumentException.
+                        (str term " is not a valid query term")))))
+
+(defmethod compile-term :numeric-comparison
   [[op path value :as term]]
   {:pre  [(string? value)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(map? %)
+          (:where %)]}
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (let [[sql & params] (match [path]
-                              [["fact" (name :when string?)]]
-                              [(format (str "SELECT DISTINCT certname FROM certname_facts "
-                                            "WHERE certname_facts.fact = ? AND %s %s ?")
-                                       (sql-as-numeric "certname_facts.value") op)
-                               name (parse-number value)]
-                              :else (throw (IllegalArgumentException.
-                                            (str term " is not a valid query term"))))]
-    (apply vector (format "(%s)" sql) params)))
+  (match [path]
+         [["fact" (name :when string?)]]
+         {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+          :params [name (parse-number value)]}
 
-(defn- alias-subqueries
-  "Produce distinct aliases for a list of queries, suitable for a join
-operation."
-  [queries]
-  (let [ids (range (count queries))]
-    (map #(format "%s resources_%d" %1 %2) queries ids)))
+         :else (throw (IllegalArgumentException.
+                        (str term " is not a valid query term")))))
 
-(defmethod compile-predicate->sql "and"
+;; Join a set of predicates together with an 'and' relationship,
+;; performing an intersection (via natural join).
+(defmethod compile-term :connective
   [[op & terms]]
   {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms  (map compile-predicate->sql terms)
-        params (mapcat rest terms)
-        query  (->> (map first terms)
-                    (alias-subqueries)
-                    (string/join " NATURAL JOIN ")
-                    (str "SELECT DISTINCT certname FROM ")
-                    (format "(%s)"))]
-    (apply vector query params)))
+  (let [terms (map compile-term terms)
+        joins (distinct (mapcat :joins terms))
+        params (mapcat :params terms)
+        query (->> (map :where terms)
+                   (map #(format "(%s)" %))
+                   (string/join (format " %s " (string/upper-case op))))]
+    {:joins joins
+     :where query
+     :params params}))
 
-(defmethod compile-predicate->sql "or"
+;; Join a set of predicates together with a 'not' relationship,
+;; performing a set difference. This will reject resources matching
+;; _any_ child predicate.
+(defmethod compile-term "not"
   [[op & terms]]
   {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms  (map compile-predicate->sql terms)
-        params (mapcat rest terms)
-        query  (->> (map first terms)
-                    (string/join " UNION ")
-                    (format "(%s)"))]
-    (apply vector query params)))
-
-;; NOTE: This will include nodes which don't have values for the facts
-;; referenced in the query.
-(defmethod compile-predicate->sql "not"
-  [[op & terms]]
-  {:pre  [(every? vector? terms)]
-   :post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
-  (when (empty? terms)
-    (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [[subquery & params] (compile-predicate->sql (cons "or" terms))
-        query               (->> subquery
-                                 (format (str "SELECT DISTINCT lhs.name AS certname FROM certnames lhs "
-                                              "LEFT OUTER JOIN %s rhs "
-                                              "ON lhs.name = rhs.certname "
-                                              "WHERE (rhs.certname IS NULL)"))
-                                 (format "(%s)"))]
-    (apply vector query params)))
+  (let [term (compile-term (cons "or" terms))
+        query (->> (:where term)
+                   (format "NOT (%s)"))]
+    (assoc term :where query)))
