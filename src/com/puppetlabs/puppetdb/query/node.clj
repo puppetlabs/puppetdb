@@ -74,7 +74,7 @@
   (match [path]
          [["fact" (name :when string?)]]
          {:where "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND cf.value = ?)"
-          :params [name value]}
+          :params [name (str value)]}
          [["node" "active"]]
          {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
@@ -83,20 +83,22 @@
 
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
-  {:pre  [(string? value)]
-   :post [(map? %)
+  {:post [(map? %)
           (:where %)]}
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (match [path]
-         [["fact" (name :when string?)]]
-         {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
-          :params [name (parse-number value)]}
+  (if-let [number (parse-number (str value))]
+    (match [path]
+           [["fact" (name :when string?)]]
+           {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+            :params [name number]}
 
-         :else (throw (IllegalArgumentException.
-                        (str term " is not a valid query term")))))
+           :else (throw (IllegalArgumentException.
+                          (str term " is not a valid query term"))))
+    (throw (IllegalArgumentException.
+             (format "Value %s must be a number for %s comparison." value op)))))
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
