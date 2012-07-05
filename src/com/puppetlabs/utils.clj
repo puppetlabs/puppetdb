@@ -18,6 +18,7 @@
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
+        [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
@@ -221,6 +222,47 @@
             (merge {})))))
 
 ;; ## Logging helpers
+
+(defn catch-all-logger
+  "A logging function useful for catch-all purposes, that is, to
+  ensure that a log message gets in front of a user the best we can
+  even if that means duplicated output.
+
+  This is really only suitable for _last-ditch_ exception handling,
+  where we want to make sure an exception is logged (because nobody
+  higher up in the stack will log it for us)."
+  ([exception]
+     (catch-all-logger exception "Uncaught exception"))
+  ([exception message]
+     (print-cause-trace exception)
+     (flush)
+     (log/error exception message)))
+
+(defn set-default-uncaught-exception-handler!
+  "Sets the JVM global handler for uncaught exceptions to the supplied
+  function.
+
+  `f` is a function that takes 2 arguments (the Thread object involved
+  in the exception, and the Exception itself). The return value is
+  ignored.
+
+  If `f` isn't supplied, we default to using
+  `com.puppetlabs.utils/catch-all-logger`.
+
+  If a default handler is already defined, we throw an exception."
+  ([]
+     (set-default-uncaught-exception-handler!
+      (fn [_ e]
+        (catch-all-logger e))))
+  ([f]
+     {:pre [(fn? f)]}
+     (when (Thread/getDefaultUncaughtExceptionHandler)
+       (throw (IllegalStateException. "Default handler already defined; won't override")))
+
+     (let [handler (proxy [Thread$UncaughtExceptionHandler] []
+                     (uncaughtException [thread exception]
+                       (f thread exception)))]
+       (Thread/setDefaultUncaughtExceptionHandler handler))))
 
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
