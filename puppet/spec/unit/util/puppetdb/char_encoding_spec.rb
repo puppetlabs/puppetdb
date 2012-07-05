@@ -12,7 +12,7 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       instr = in_bytes.pack('c*')
       out = described_class.ruby18_clean_utf8(instr)
       #pp out.bytes.to_a.map { |b| "0x%02x" % b }.join(" ")
-      out.bytes.to_a.should == expected_bytes
+      out.should == expected_bytes.pack('c*')
     end
 
 
