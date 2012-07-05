@@ -18,6 +18,7 @@
   (:use [clojure.core.incubator :only (-?>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
+        [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
@@ -233,8 +234,9 @@
   ([exception]
      (catch-all-logger exception "Uncaught exception"))
   ([exception message]
-     (log/error exception message)
-     (.printStackTrace exception)))
+     (print-cause-trace exception)
+     (flush)
+     (log/error exception message)))
 
 (defn set-default-uncaught-exception-handler!
   "Sets the JVM global handler for uncaught exceptions to the supplied
