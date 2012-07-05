@@ -94,6 +94,50 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource['parameters']['alias'].should include(name)
       end
 
+      context "with resource types that provide #title_patterns" do
+        context "if #title_patterns munges the title to set the namevar" do
+          it "should add namevar to aliases if it's not already present" do
+            # So, what we are testing here is the case where the resource type
+            #  defines one or more title_patterns, which, when used to set
+            #  the value of the namevar, may munge the value via regex
+            #  awesomeness.  'File' is an example of such a resource, as
+            #  it will strip trailing slashes from the title to set the
+            #  :path parameter, if :path is not specified.
+            #
+            # In a case like this it is important that the munged value of
+            #  the namevar be set as an alias, so that catalog dependencies
+            #  can be resolved properly.
+
+            # To test this, first we create a File resource whose title contains
+            #  a trailing slash.
+            file_resource = Puppet::Resource.new(:file, '/tmp/foo/')
+
+            # I find it fairly well revolting that we can hack stuff into
+            #  the compiler via this global :code variable.  It doesn't seem
+            #  like it should be hard to provide a more explicit and sensible
+            #  way to accomplish this...
+            Puppet[:code] = file_resource.to_manifest
+
+            hash = subject.add_parameters_if_missing(catalog.to_pson_data_hash['data'])
+            result = subject.add_namevar_aliases(hash, catalog)
+
+            resource = result['resources'].find do |res|
+              res['type'] == 'File' and res['title'] == '/tmp/foo/'
+            end
+
+            # Now we need to check to make sure that there is an alias without
+            #  the trailing slash.  This test relies on the secret knowledge
+            #  that the File resource has a title_pattern that munges the
+            #  namevar (in this case, removes trailing slashes), but hopefully
+            #  this test should cover other resource types that fall into
+            #  this category as well.
+            resource.should_not be_nil
+            resource['parameters']['alias'].should_not be_nil
+            resource['parameters']['alias'].should include('/tmp/foo')
+          end
+        end
+      end
+
       it "should not create an alias parameter if the list would be empty" do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         result = subject.add_namevar_aliases(hash, catalog)
