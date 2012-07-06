@@ -1,8 +1,38 @@
 ;; ## Ring middleware
 
 (ns com.puppetlabs.middleware
+  (:require [com.puppetlabs.utils :as utils]
+            [ring.util.response :as rr])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]))
+
+(defn wrap-with-authorization
+  "Ring middleware that will only pass through a request if the
+  supplied authorization function allows it. Otherwise an HTTP 403 is
+  returned to the client.
+
+  `authorized?` is expected to take a single argument, the current
+  request. The request is allowed only if the return value of
+  `authorized?` is truthy."
+  [app authorized?]
+  (fn [req]
+    (if (authorized? req)
+      (app req)
+      (-> "You shall not pass!"
+          (rr/response)
+          (rr/status 403)))))
+
+(defn wrap-with-certificate-cn
+  "Ring middleware that will annotate the request with an
+  :ssl-client-cn key representing the CN contained in the client
+  certificate of the request. If no client certificate is present,
+  the key's value is set to nil."
+  [app]
+  (fn [{:keys [ssl-client-cert] :as req}]
+    (let [cn  (if ssl-client-cert
+                (utils/cn-for-cert ssl-client-cert))
+          req (assoc req :ssl-client-cn cn)]
+      (app req))))
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:

@@ -115,3 +115,59 @@
           (is (= (inis-to-map td)
                  {:foo {:bar "baz"}
                   :bar {:bar "goo"}})))))))
+
+(deftest cert-utils
+  (testing "extracting cn from a dn"
+    (is (thrown? AssertionError (cn-for-dn 123))
+        "should throw error when arg is a number")
+    (is (thrown? AssertionError (cn-for-dn nil))
+        "should throw error when arg is nil")
+
+    (is (= (cn-for-dn "") nil)
+        "should return nil when passed an empty string")
+    (is (= (cn-for-dn "MEH=bar") nil)
+        "should return nil when no CN is present")
+    (is (= (cn-for-dn "cn=foo.bar.com") nil)
+        "should return nil when CN present but lower case")
+    (is (= (cn-for-dn "cN=foo.bar.com") nil)
+        "should return nil when CN present but with mixed case")
+
+    (is (= (cn-for-dn "CN=foo.bar.com") "foo.bar.com")
+        "should work when only CN is present")
+    (is (= (cn-for-dn "CN=foo.bar.com,OU=something") "foo.bar.com")
+        "should work when more than just the CN is present")
+    (is (= (cn-for-dn "CN=foo.bar.com,OU=something") "foo.bar.com")
+        "should work when more than just the CN is present")
+    (is (= (cn-for-dn "OU=something,CN=foo.bar.com") "foo.bar.com")
+        "should work when more than just the CN is present and CN is last")
+    (is (= (cn-for-dn "OU=something,CN=foo.bar.com,D=foobar") "foo.bar.com")
+        "should work when more than just the CN is present and CN is in the middle")
+    (is (= (cn-for-dn "CN=foo.bar.com,CN=goo.bar.com,OU=something") "goo.bar.com")
+        "should use the most specific CN if multiple CN's are present")))
+
+(deftest cert-whitelist-auth
+  (testing "cert whitelist authorizer"
+    (testing "should fail when whitelist is not given"
+      (is (thrown? AssertionError (cn-whitelist->authorizer nil))))
+
+    (testing "should fail when whitelist is given, but not readable"
+      (is (thrown? java.io.FileNotFoundException
+                   (cn-whitelist->authorizer "/this/does/not/exist"))))
+
+    (testing "when whitelist is present"
+      (let [whitelist (fs/temp-file)]
+        (.deleteOnExit whitelist)
+        (spit whitelist "foo\nbar\n")
+
+        (let [authorized? (cn-whitelist->authorizer whitelist)]
+          (testing "should allow plain-text, HTTP requests"
+            (is (authorized? {:scheme :http :ssl-client-cn "foobar"})))
+
+          (testing "should fail HTTPS requests without a client cert"
+            (is (not (authorized? {:scheme :https}))))
+
+          (testing "should reject certs that don't appear in the whitelist"
+            (is (not (authorized? {:scheme :https :ssl-client-cn "goo"}))))
+
+          (testing "should accept certs that appear in the whitelist"
+            (is (authorized? {:scheme :https :ssl-client-cn "foo"}))))))))
