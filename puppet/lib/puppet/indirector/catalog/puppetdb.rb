@@ -15,6 +15,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     nil
   end
 
+  # TODO: I think that almost everything below this line should be
+  #  private, but I don't want to break all the tests right now...
+
   def munge_catalog(catalog)
     hash = catalog.to_pson_data_hash
 
@@ -59,7 +62,16 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
       aliases = [real_resource[:alias]].flatten.compact
 
-      name = real_resource[real_resource.send(:namevar)]
+      # This makes me a little sad.  It turns out that the "to_hash" method
+      #  of Puppet::Resource can have side effects.  In particular, if the
+      #  resource type specifies a title_pattern, calling "to_hash" will trigger
+      #  the title_pattern processing, which can have the side effect of
+      #  populating the namevar (potentially with a munged value).  Thus,
+      #  it is important that we search for namevar aliases in that hash
+      #  rather than in the resource itself.
+      real_resource_hash = real_resource.to_hash
+
+      name = real_resource_hash[real_resource.send(:namevar)]
       unless name.nil? or real_resource.title == name or aliases.include?(name)
         aliases << name
       end
