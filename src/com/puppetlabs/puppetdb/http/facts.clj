@@ -1,8 +1,7 @@
 ;; ## REST Fact endpoints
 ;;
 ;; There is only one route available for querying facts, which is
-;; '/facts/<node>'. This route responds with a JSON version of the following
-;; map:
+;; '/facts/<node>'. This route responds with the following JSON:
 ;;
 ;;     {"name": "node"
 ;;      "facts":
