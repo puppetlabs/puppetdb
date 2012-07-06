@@ -264,6 +264,17 @@
                        (f thread exception)))]
        (Thread/setDefaultUncaughtExceptionHandler handler))))
 
+(defn add-shutdown-hook!
+  "Adds a shutdown hook to the JVM runtime.
+
+  `f` is a function that takes 0 arguments; the return value is ignored.  This
+  function will be called if the JVM receiveds an interrupt signal (e.g. from
+  `kill` or CTRL-C); you can use it to log shutdown messages, handle state
+  cleanup, etc."
+  [f]
+  {:pre [(fn? f)]}
+  (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
+
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
   file. You can optionally supply a delay (in millis) that governs how

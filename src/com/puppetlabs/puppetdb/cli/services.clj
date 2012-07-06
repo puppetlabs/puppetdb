@@ -189,6 +189,12 @@
         (configure-database)
         (set-global-configuration!))))
 
+(defn on-shutdown
+  "General cleanup when a shutdown request is received."
+  []
+  ;; nothing much to do here for now, but let's at least log that we're shutting down.
+  (log/info "Shutdown request received; puppetdb exiting."))
+
 (defn -main
   [& args]
   (let [[options _]                                (cli! args)
@@ -205,6 +211,9 @@
 
     (when version
       (log/info (format "PuppetDB version %s" version)))
+
+    ;; Add a shutdown hook where we can handle any required cleanup
+    (pl-utils/add-shutdown-hook! on-shutdown)
 
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
