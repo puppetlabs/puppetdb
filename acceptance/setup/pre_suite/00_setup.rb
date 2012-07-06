@@ -47,8 +47,8 @@ end
 
 if (PuppetDBExtensions.test_mode == :package)
   step "Install Puppet on all systems" do
-    on hosts, "wget http://apt.puppetlabs.com/puppetlabs-release_1.0-3_all.deb"
-    on hosts, "dpkg -i puppetlabs-release_1.0-3_all.deb"
+    on hosts, "wget http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
+    on hosts, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
     on hosts, "apt-get update"
     on hosts, "apt-get install --force-yes -y puppet"
   end
