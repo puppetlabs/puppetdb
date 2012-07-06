@@ -78,46 +78,55 @@ describe Puppet::Resource::Puppetdb do
     end
   end
 
-  describe "#validate_filter" do
-    it "should be valid if there is no filter" do
-      subject.validate_filter(nil).should == true
-    end
-
-    # Assert that this is a case-insensitive rule, too.
-    %w{and or AND OR And Or anD oR < > <= >= <>}.each do |op|
-      it "should fail if the filter uses a #{op.inspect} operator" do
-        filter = [%w{tag == foo}, op, %w{title == bar}]
-        expect { subject.validate_filter(filter) }.to raise_error Puppet::Error, /not supported/
-      end
-    end
-
-    %w{= == !=}.each do |op|
-      it "should not fail if the filter uses the #{op.inspect} operator" do
-        filter = [%w{tag == foo}, op, %w{title == bar}]
-        subject.validate_filter(filter).should == true
-      end
-    end
-  end
-
-  describe "#build_filter_expression" do
+  describe "#build_expression" do
     it "should return nil if there is no filter" do
-      subject.build_filter_expression(nil).should == nil
+      subject.build_expression(nil).should == nil
+    end
+
+    it "should fail if the filter uses an illegal operator" do
+      expect do
+        subject.build_expression(['foo', 'xor', 'bar'])
+      end.to raise_error(Puppet::Error, /not supported/)
     end
 
     it "should return an equal query if the operator is '='" do
-      subject.build_filter_expression(['param','=','value']).should == ['=',['parameter','param'],'value']
+      subject.build_expression(['param','=','value']).should == ['=',['parameter','param'],'value']
     end
 
     it "should return a not-equal query if the operator is '!='" do
-      subject.build_filter_expression(['param','!=','value']).should == ['not', ['=',['parameter','param'],'value']]
+      subject.build_expression(['param','!=','value']).should == ['not', ['=',['parameter','param'],'value']]
     end
 
     it "should handle title correctly" do
-      subject.build_filter_expression(['title','=','value']).should == ['=', 'title', 'value']
+      subject.build_expression(['title','=','value']).should == ['=', 'title', 'value']
     end
 
     it "should handle tag correctly" do
-      subject.build_filter_expression(['tag','=','value']).should == ['=', 'tag', 'value']
+      subject.build_expression(['tag','=','value']).should == ['=', 'tag', 'value']
+    end
+
+    it "should conjoin 'and' queries with 'and'" do
+      query = [['tag', '=', 'one'], 'and', ['tag', '=', 'two']]
+      subject.build_expression(query).should == ['and',
+                                                  ['=', 'tag', 'one'],
+                                                  ['=', 'tag', 'two']]
+    end
+
+    it "should conjoin 'or' queries with 'or'" do
+      query = [['tag', '=', 'one'], 'or', ['tag', '=', 'two']]
+      subject.build_expression(query).should == ['or',
+                                                  ['=', 'tag', 'one'],
+                                                  ['=', 'tag', 'two']]
+    end
+
+    it "should construct complex, nested queries" do
+      query = [[['tag', '=', 'one'], 'and', ['tag', '=', 'two']], 'or', ['tag', '!=', 'three']]
+      subject.build_expression(query).should == ['or',
+                                                  ['and',
+                                                    ['=', 'tag', 'one'],
+                                                    ['=', 'tag', 'two']],
+                                                  ['not',
+                                                   ['=', 'tag', 'three']]]
     end
   end
 

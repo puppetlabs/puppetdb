@@ -10,8 +10,6 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     filter = request.options[:filter]
     scope  = request.options[:scope]
 
-    validate_filter(filter)
-
     # At minimum, we want to filter to the right type of exported resources.
     expr = ['and',
              ['=', 'type', type],
@@ -20,7 +18,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
              ['not',
                ['=', ['node', 'name'], host]]]
 
-    filter_expr = build_filter_expression(filter)
+    filter_expr = build_expression(filter)
     expr << filter_expr if filter_expr
 
     query_string = "query=#{expr.to_pson}"
@@ -47,24 +45,22 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     end
   end
 
-  def validate_filter(filter)
-    return true unless filter
-
-    if filter[1] =~ /^(and|or)$/i
-      raise Puppet::Error, "Complex search on StoreConfigs resources is not supported"
-    elsif ! ['=', '==', '!='].include? filter[1]
-      raise Puppet::Error, "Operator #{filter[1].inspect} in #{filter.inspect} not supported"
-    end
-
-    true
-  end
-
-  def build_filter_expression(filter)
+  def build_expression(filter)
     return nil unless filter
 
-    field = filter.first
-    value = filter.last
+    lhs, op, rhs = filter
 
+    case op
+    when '=', '==', '!='
+      build_predicate(op, lhs, rhs)
+    when 'and', 'or'
+      build_join(op, lhs, rhs)
+    else
+      raise Puppet::Error, "Operator #{op} in #{filter.inspect} not supported"
+    end
+  end
+
+  def build_predicate(op, field, value)
     # Title and tag aren't parameters, so we have to special-case them.
     path = case field
            when "tag", "title"
@@ -75,7 +71,14 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
     equal_expr = ['=', path, value]
 
-    filter[1] == '!=' ? ['not', equal_expr] : equal_expr
+    op == '!=' ? ['not', equal_expr] : equal_expr
+  end
+
+  def build_join(op, lhs, rhs)
+    lhs = build_expression(lhs)
+    rhs = build_expression(rhs)
+
+    [op, lhs, rhs]
   end
 
   def headers
