@@ -90,7 +90,7 @@ describe Puppet::Resource::Puppetdb do
     end
 
     it "should return an equal query if the operator is '='" do
-      subject.build_expression(['param','=','value']).should == ['=',['parameter','param'],'value']
+      subject.build_expression(['param','==','value']).should == ['=',['parameter','param'],'value']
     end
 
     it "should return a not-equal query if the operator is '!='" do
@@ -98,29 +98,29 @@ describe Puppet::Resource::Puppetdb do
     end
 
     it "should handle title correctly" do
-      subject.build_expression(['title','=','value']).should == ['=', 'title', 'value']
+      subject.build_expression(['title','==','value']).should == ['=', 'title', 'value']
     end
 
     it "should handle tag correctly" do
-      subject.build_expression(['tag','=','value']).should == ['=', 'tag', 'value']
+      subject.build_expression(['tag','==','value']).should == ['=', 'tag', 'value']
     end
 
     it "should conjoin 'and' queries with 'and'" do
-      query = [['tag', '=', 'one'], 'and', ['tag', '=', 'two']]
+      query = [['tag', '==', 'one'], 'and', ['tag', '==', 'two']]
       subject.build_expression(query).should == ['and',
                                                   ['=', 'tag', 'one'],
                                                   ['=', 'tag', 'two']]
     end
 
     it "should conjoin 'or' queries with 'or'" do
-      query = [['tag', '=', 'one'], 'or', ['tag', '=', 'two']]
+      query = [['tag', '==', 'one'], 'or', ['tag', '==', 'two']]
       subject.build_expression(query).should == ['or',
                                                   ['=', 'tag', 'one'],
                                                   ['=', 'tag', 'two']]
     end
 
     it "should construct complex, nested queries" do
-      query = [[['tag', '=', 'one'], 'and', ['tag', '=', 'two']], 'or', ['tag', '!=', 'three']]
+      query = [[['tag', '==', 'one'], 'and', ['tag', '==', 'two']], 'or', ['tag', '!=', 'three']]
       subject.build_expression(query).should == ['or',
                                                   ['and',
                                                     ['=', 'tag', 'one'],

@@ -51,7 +51,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     lhs, op, rhs = filter
 
     case op
-    when '=', '==', '!='
+    when '==', '!='
       build_predicate(op, lhs, rhs)
     when 'and', 'or'
       build_join(op, lhs, rhs)
