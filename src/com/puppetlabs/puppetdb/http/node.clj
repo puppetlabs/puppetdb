@@ -5,8 +5,8 @@
 ;;
 ;; ### Terms
 ;;
-;; The only accepted query terms are of the form `["fact" <fact name>]` or
-;; `["node" "active"]`.
+;; The only accepted query terms are of the form `["fact", <fact name>]` or
+;; `["node", "active"]`.
 ;;
 ;; ### Predicates
 ;;
@@ -26,7 +26,7 @@
 ;; The response is a JSON array of node names matching the predicates, sorted
 ;; in ascending order:
 ;;
-;; `["foo.example.com" "bar.example.com" "baz.example.com"]`
+;; `["foo.example.com", "bar.example.com", "baz.example.com"]`
 ;;
 (ns com.puppetlabs.puppetdb.http.node
   (:require [cheshire.core :as json]

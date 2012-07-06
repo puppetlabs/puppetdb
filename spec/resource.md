@@ -56,11 +56,11 @@ The `query` parameter is described by the following grammar:
 For example, for file resources, tagged "magical", on any active host except
 for "example.local" the JSON query structure would be:
 
-    ["and" ["not" ["=" ["node", "name"] "example.local"]]
-           ["=" ["node" "active"] true]
-           ["=" "type" "File"]
-           ["=" "tag"  "magical"]
-           ["=" ["parameter", "ensure"] "enabled"]
+    ["and", ["not", ["=", ["node", "name"], "example.local"]],
+            ["=", ["node", "active"], true],
+            ["=", "type", "File"],
+            ["=", "tag", "magical"],
+            ["=", ["parameter", "ensure"], "enabled"]
 
 The conditional type behaviours are defined:
 
@@ -83,15 +83,15 @@ The match operator behaviours are defined:
 An array of zero or more resource objects, with each object having the
 following form:
 
-    {:certname   "the certname of the associated host"
-     :resource   "the resource's unique hash"
-     :type       "File"
-     :title      "/etc/hosts"
-     :exported   "true"
-     :tags       ["foo" "bar"]
-     :sourcefile "/etc/puppet/manifests/site.pp"
-     :sourceline "1"
-     :parameters {<parameter> <value>
-                  <parameter> <value>
-                  ...}}
+    {"certname":   "the certname of the associated host",
+     "resource":   "the resource's unique hash",
+     "type":       "File",
+     "title":      "/etc/hosts",
+     "exported":   "true",
+     "tags":       ["foo", "bar"],
+     "sourcefile": "/etc/puppet/manifests/site.pp",
+     "sourceline": "1",
+     "parameters": {<parameter>: <value>,
+                   <parameter>: <value>,
+                   ...}}
 

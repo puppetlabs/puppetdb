@@ -4,9 +4,9 @@ Commands are the mechanism by which changes are made to PuppetDB's
 model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
 
-    {"command" "..."
-     "version" 123
-     "payload" <json object>}
+    {"command": "...",
+     "version": 123,
+     "payload": <json object>}
 
 `command` is a string identifier for the desired command.
 
