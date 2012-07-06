@@ -1,9 +1,8 @@
 ;; ## Monkey patches for Ring's Jetty adapter
 ;;
 (ns com.puppetlabs.jetty
-  (:import (org.mortbay.jetty Server)
-           (org.mortbay.jetty.bio SocketConnector)
-           (org.mortbay.jetty.security SslSocketConnector))
+  (:import (org.eclipse.jetty.server Server)
+           (org.eclipse.jetty.server.nio SelectChannelConnector))
   (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]))
 
@@ -27,36 +26,14 @@
     (catch Throwable e
       (log/error e "Could not remove security providers; HTTPS may not work!"))))
 
-(defn add-ssl-connector!
-  "Add an SslSocketConnector to a Jetty Server instance."
-  [^Server server options]
-  (let [ssl-connector (SslSocketConnector.)]
-    (doto ssl-connector
-      (.setPort        (options :ssl-port 443))
-      (.setHost        (options :ssl-host "localhost"))
-      (.setKeystore    (options :keystore))
-      (.setKeyPassword (options :key-password)))
-    (when (options :truststore)
-      (.setTruststore ssl-connector (options :truststore)))
-    (when (options :trust-password)
-      (.setTrustPassword ssl-connector (options :trust-password)))
-    (when (options :need-client-auth)
-      (.setNeedClientAuth ssl-connector true))
-    (when (options :want-client-auth)
-      (.setWantClientAuth ssl-connector true))
-    (.addConnector server ssl-connector)))
-
-(defn add-connector!
-  "Add a plain SocketConnector to a Jetty Server instance."
-  [^Server server options]
-  (let [connector (SocketConnector.)]
-    (doto connector
-      (.setPort (options :port))
-      (.setHost (options :host "localhost")))
-    (.addConnector server connector)))
-
 ;; Monkey-patched version of `create-server` that will only create a
 ;; non-SSL connector if the options specifically dictate it.
+
+(defn plaintext-connector
+  [options]
+  (doto (SelectChannelConnector.)
+    (.setPort (options :port 80))
+    (.setHost (options :host "localhost"))))
 
 (defn- create-server
   "Construct a Jetty Server instance."
@@ -64,9 +41,12 @@
   (let [server (doto (Server.)
                  (.setSendDateHeader true))]
     (when (options :port)
-      (add-connector! server options))
+      (.addConnector server (plaintext-connector options)))
+
     (when (or (options :ssl?) (options :ssl-port))
-      (add-ssl-connector! server options))
+      (let [ssl-host (options :ssl-host (options :host "localhost"))
+            options  (assoc options :host ssl-host)]
+        (.addConnector server (#'jetty/ssl-connector options))))
     server))
 
 (defn run-jetty
@@ -75,6 +55,5 @@
   [handler options]
   (when (empty? (select-keys options [:port :ssl? :ssl-port]))
     (throw (IllegalArgumentException. "No ports were specified to bind")))
-  (with-redefs [jetty/add-ssl-connector! add-ssl-connector!
-                jetty/create-server      create-server]
+  (with-redefs [jetty/create-server create-server]
     (jetty/run-jetty handler options)))

@@ -46,8 +46,8 @@
 
 (deftest http-configuration
   (testing "should enable need-client-auth"
-    (let [config (configure-web-server {:jetty {:need-client-auth false}})]
-      (is (= (get-in config [:jetty :need-client-auth]) true)))))
+    (let [config (configure-web-server {:jetty {:client-auth false}})]
+      (is (= (get-in config [:jetty :client-auth]) :need)))))
 
 (deftest vardir-validation
   (testing "should fail if it's not specified"

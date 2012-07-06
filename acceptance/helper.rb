@@ -11,6 +11,14 @@ module PuppetDBExtensions
     @test_mode
   end
 
+  def puppetdb_confdir(host)
+    if host.is_pe?
+      "/etc/puppetlabs/puppetdb"
+    else
+      "/etc/puppetdb"
+    end
+  end
+
   def start_puppetdb(host)
     on host, "service puppetdb start"
 
@@ -28,6 +36,11 @@ module PuppetDBExtensions
 
   def stop_puppetdb(host)
     on host, "service puppetdb stop"
+  end
+
+  def restart_puppetdb(host)
+    stop_puppetdb(host)
+    start_puppetdb(host)
   end
 
   def sleep_until_queue_empty(host, timeout=nil)
