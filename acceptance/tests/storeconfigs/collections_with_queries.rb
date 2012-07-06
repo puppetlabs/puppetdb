@@ -7,23 +7,27 @@ test_name "collections with queries" do
   manifest = <<MANIFEST
 node "#{exporter}" {
   @@file { "#{dir}/file-a":
-    ensure => present,
-    mode => 0777,
+    ensure  => present,
+    mode    => 0777,
+    content => "foo"
   }
 
   @@file { "#{dir}/file-b":
-    ensure => present,
-    mode => 0755,
+    ensure  => present,
+    mode    => 0755,
+    content => "bar"
   }
 
   @@file { "#{dir}/file-c":
-    ensure => present,
-    mode => 0744,
+    ensure  => present,
+    mode    => 0744,
+    content => "foo",
   }
 
   @@file { "#{dir}/file-d":
-    ensure => present,
-    mode => 0744,
+    ensure  => present,
+    mode    => 0744,
+    content => "bar"
   }
 }
 
@@ -42,6 +46,18 @@ class equal_query {
 
 class not_equal_query {
   File <<| mode != 0755 |>>
+}
+
+class or_query {
+  File <<| mode == 0755 or content == "bar" |>>
+}
+
+class and_query {
+  File <<| mode == 0744 and content == "foo" |>>
+}
+
+class nested_query {
+  File <<| (mode == 0777 or mode == 0755) and content == "bar" |>>
 }
 MANIFEST
 
@@ -80,6 +96,18 @@ MANIFEST
 
     step "!= queries should work" do
       test_collection.call collectors, "not_equal_query", %w[file-a file-c file-d]
+    end
+
+    step "queries joined with 'or' should work" do
+      test_collection.call collectors, "or_query", %w[file-b file-d]
+    end
+
+    step "queries joined with 'and' should work" do
+      test_collection.call collectors, "and_query", %w[file-c]
+    end
+
+    step "complex nested queries should work" do
+      test_collection.call collectors, "nested_query", %w[file-b]
     end
   end
 end
