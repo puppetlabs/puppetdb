@@ -49,10 +49,10 @@
   Created metrics are stored in the supplied `storage` atom with the
   following structure:
 
-    {:timers {<normalized uri> <service time metric>
-              <normalized uri> <service time metric>}
-     :meters {<normalized uri> {<status code> <reqs/s>
-                                <status code> <reqs/s>}}}
+      {:timers {<normalized uri> <service time metric>
+                <normalized uri> <service time metric>}
+       :meters {<normalized uri> {<status code> <reqs/s>
+                                  <status code> <reqs/s>}}}
 
   `app`: The ring app to be wrapped
 

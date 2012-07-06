@@ -4,10 +4,11 @@
 ;; '/facts/<node>'. This route responds with a JSON version of the following
 ;; map:
 ;;
-;;     {:name "node"
-;;      :facts {"fact" "value"
-;;              "fact" "value"
-;;              ...}}
+;;     {"name": "node"
+;;      "facts":
+;;        {"fact": "value",
+;;         "fact": "value",
+;;         ...}}
 ;;
 ;; If no facts are known for the node, the response is a 404 with an error message.
 

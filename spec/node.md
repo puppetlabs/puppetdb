@@ -14,7 +14,7 @@ The `query` parameter is a similar format to resource queries.
 Only queries against facts and filters based on node activeness are currently
 supported.
 
-These terms must be of the form `["fact" <fact name>]` or `["node" "active"]`,
+These terms must be of the form `["fact", <fact name>]` or `["node", "active"]`,
 respectively.
 
 Accepted operators are: `[= > < >= <= and or not]`
@@ -28,10 +28,10 @@ the query.
 This query will return active nodes whose kernel is Linux and whose uptime is less
 than 30 days:
 
-    ["and"
-      ["=" ["node" "active"] true]
-      ["=" ["fact" "kernel"] "Linux"]
-      [">" ["fact" "uptime_days"] 30]]
+    ["and",
+      ["=", ["node", "active"], true],
+      ["=", ["fact", "kernel"], "Linux"],
+      [">", ["fact", "uptime_days"], 30]]
 
 If no `query` parameter is supplied, all nodes will be returned.
 
@@ -40,4 +40,4 @@ If no `query` parameter is supplied, all nodes will be returned.
 The response is a JSON array of node names matching the predicates, sorted
 in ascending order:
 
-`["foo.example.com" "bar.example.com" "baz.example.com"]`
+`["foo.example.com", "bar.example.com", "baz.example.com"]`

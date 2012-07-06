@@ -4,9 +4,9 @@
 ;; model of a population. Commands are represented by `command
 ;; objects`, which have the following JSON wire format:
 ;;
-;;     {"command" "..."
-;;      "version" 123
-;;      "payload" <json object>}
+;;     {"command": "...",
+;;      "version": 123,
+;;      "payload": <json object>}
 ;;
 ;; `payload` must be a valid JSON string of any sort. It's up to an
 ;; individual handler function how to interpret that object.

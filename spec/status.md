@@ -9,10 +9,10 @@ The format of the response is:
 
 Node status information will be returned in a JSON hash of the form:
 
-    {"name" <node>
-     "deactivated" <timestamp>
-     "catalog_timestamp" <timestamp>
-     "facts_timestamp" <timestamp>}
+    {"name": <node>,
+     "deactivated": <timestamp>,
+     "catalog_timestamp": <timestamp>,
+     "facts_timestamp": <timestamp>}
 
 If the node is active, "deactivated" will be null. If a catalog or facts are
 not present, the corresponding timestamps will be null.
