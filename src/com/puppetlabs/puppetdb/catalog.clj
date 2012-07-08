@@ -219,8 +219,7 @@
   [s]
   {:pre  [(string? s)]
    :post [(map? %)]}
-  (-> (json/parse-string s true)
-      (parse-from-json-obj)))
+  (parse-from-json-obj (json/parse-string s true)))
 
 (defn parse-from-json-file
   "Parse a wire-format JSON catalog located at `filename`, returning a

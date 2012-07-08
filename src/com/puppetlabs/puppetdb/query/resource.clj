@@ -160,6 +160,5 @@ operation."
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [term (compile-term (cons "or" terms))
-        query (->> (:where term)
-                   (format "NOT (%s)"))]
+        query (format "NOT (%s)" (:where term))]
     (assoc term :where query)))
