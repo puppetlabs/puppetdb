@@ -158,10 +158,9 @@
   "Formats `payload` for submission with a command specified by `command` and
   `version`."
   [command version payload]
-  (-> {:command command
-       :version version
-       :payload (json/generate-string payload)}
-      (json/generate-string)))
+  (json/generate-string {:command command
+                         :version version
+                         :payload (json/generate-string payload)}))
 
 (defn submit-command
   "Submits `payload` as a valid command of type `command` and `version` to the
@@ -207,8 +206,7 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message     (-> command-string
-                        (json/parse-string true))
+  (let [message     (json/parse-string command-string true)
         annotations (get message :annotations {})
         received    (get annotations :received (pl-utils/timestamp))
         id          (get annotations :id (pl-utils/uuid))

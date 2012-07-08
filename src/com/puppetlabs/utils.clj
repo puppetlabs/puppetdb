@@ -462,8 +462,7 @@
   "Grabs the number of available CPUs for the local host"
   []
   {:post [(pos? %)]}
-  (-> (Runtime/getRuntime)
-      (.availableProcessors)))
+  (.availableProcessors (Runtime/getRuntime)))
 
 ;; ## META-INF parsing
 
