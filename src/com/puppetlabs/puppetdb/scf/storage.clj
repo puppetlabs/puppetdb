@@ -240,7 +240,7 @@ must be supplied as the value to be matched."
         replaced  (sql/update-values :certnames
                                      ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
                                      {:deactivated nil})]
-    (> (first replaced) 0)))
+    (pos? (first replaced))))
 
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
@@ -420,8 +420,7 @@ must be supplied as the value to be matched."
   [edge]
   {:pre  [(map? edge)]
    :post [(string? %)]}
-  (-> (edge-identity-string edge)
-      (utils/utf8-string->sha1)))
+  (utils/utf8-string->sha1 (edge-identity-string edge)))
 
 (defn add-edges!
   "Persist the given edges in the database
