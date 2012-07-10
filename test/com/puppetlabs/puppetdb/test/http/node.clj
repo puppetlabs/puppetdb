@@ -67,14 +67,14 @@ to the result of the form supplied to this method."
                       #{"node_c" "node_d" "node_e"}
                       ["=" ["fact" "kernel"] "Nothing"]
                       #{}
-                      ["=" ["fact" "uptime"] "Linux"]
-                      #{}
+                      ["=" ["fact" "uptime_seconds"] 10000]
+                      #{"node_d"}
+                      ["<" ["fact" "uptime_seconds"] 10000]
+                      #{"node_b"}
                       ["=" ["fact" "uptime_seconds"] "10000"]
                       #{"node_d"}
                       ["<" ["fact" "uptime_seconds"] "10000.0"]
                       #{"node_b"}
-                      [">=" ["fact" "uptime_seconds"] "10foobar"]
-                      #{}
                       ["=" ["node" "active"] true]
                       #{"node_b" "node_c" "node_d"}}]
       (doseq [size (range 1 (inc (count test-cases)))
@@ -90,4 +90,9 @@ to the result of the form supplied to this method."
         (testing (str exprs " => " results)
           (is-response-equal (get-response and-expr) and-result)
           (is-response-equal (get-response or-expr) or-result)
-          (is-response-equal (get-response not-expr) not-result))))))
+          (is-response-equal (get-response not-expr) not-result))))
+
+    (doseq [expr [[">=" ["fact" "uptime_seconds"] "10foobar"]
+                  [">=" ["fact" "uptime_seconds"] "non-numeric"]
+                  ["<" ["fact" "uptime_seconds"] true]]]
+      (is (= 400 (:status (get-response expr)))))))
