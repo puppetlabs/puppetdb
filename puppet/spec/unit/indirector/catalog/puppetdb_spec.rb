@@ -78,6 +78,22 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
     end
 
+    describe "#stringify_titles" do
+      it "should make all resource titles strings if they aren't" do
+        Puppet[:code] = <<-MANIFEST
+          $foo = true
+          notify { $foo: }
+        MANIFEST
+
+        hash = catalog.to_pson_data_hash['data']
+        result = subject.stringify_titles(hash)
+
+        result['resources'].should be_any { |res|
+          res['type'] == 'Notify' and res['title'] == 'true'
+        }
+      end
+    end
+
     describe "#add_namevar_aliases" do
       it "should add namevar to aliases if it's not already present" do
         name = 'with a different name'
