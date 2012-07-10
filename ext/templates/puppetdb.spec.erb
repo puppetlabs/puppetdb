@@ -101,6 +101,11 @@ touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
 rm -rf $RPM_BUILD_ROOT
 
 %pre
+# Here we'll do a little bit of cleanup just in case something went horribly
+# awry during a previous install/uninstall:
+if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
+   rm <%= @install_dir %>/start_service_after_upgrade
+fi
 # If this is an upgrade (as opposed to an install) then we need to check
 #  and see if the service is running.  If it is, we need to stop it.
 #  we want to shut down and disable the service.
