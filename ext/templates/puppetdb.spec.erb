@@ -101,6 +101,23 @@ touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
 rm -rf $RPM_BUILD_ROOT
 
 %pre
+# Here we'll do a little bit of cleanup just in case something went horribly
+# awry during a previous install/uninstall:
+if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
+   rm <%= @install_dir %>/start_service_after_upgrade
+fi
+# If this is an upgrade (as opposed to an install) then we need to check
+#  and see if the service is running.  If it is, we need to stop it.
+#  we want to shut down and disable the service.
+if [ "$1" = "2" ] ; then
+    if /sbin/service %{name} status > /dev/null ; then
+        # If we need to restart the service after the upgrade
+        #  is finished, we will touch a temp file so that
+        #  we can detect that state
+        touch <%= @install_dir %>/start_service_after_upgrade
+        /sbin/service %{name} stop >/dev/null 2>&1
+    fi
+fi
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
@@ -144,14 +161,29 @@ EOF
 fi
 
 %preun
-/sbin/service %{name} stop >/dev/null 2>&1
-/sbin/chkconfig --del %{name}
+# If this is an uninstall (as opposed to an upgrade) then
+#  we want to shut down and disable the service.
+if [ "$1" = "0" ] ; then
+    /sbin/service %{name} stop >/dev/null 2>&1
+    /sbin/chkconfig --del %{name}
+fi
 
 %postun
 # Remove PuppetDB user
 getent group %{name} > /dev/null || groupdel -r %{name}
 getent passwd %{name} > /dev/null || userdel -r %{name}
 rm -rf %{_rundir}/%{name} || :
+
+# If this is an upgrade (as opposed to an install) then we need to check
+#  and see if we stopped the service during the install (we indicate
+#  this via the existence of a temp file that was created during that
+#  phase).  If we did, then we need to restart it.
+if [ "$1" = "1" ] ; then
+    if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
+        rm <%= @install_dir %>/start_service_after_upgrade
+        /sbin/service %{name} start >/dev/null 2>&1
+    fi
+fi
 
 
 %files
