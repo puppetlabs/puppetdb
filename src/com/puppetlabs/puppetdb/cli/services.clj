@@ -178,10 +178,16 @@
   config)
 
 (defn parse-config
-  "Parses the given config file (if present) and configure its various
+  "Parses the given config file/directory and configures its various
   subcomponents."
-  [file]
-  (let [config (if file (inis-to-map file) {})]
+  [path]
+  (let [file (file path)]
+    (if-not (and (.exists file)
+                 (.canRead file))
+      (throw (IllegalArgumentException.
+        (format "Configuration path '%s' must be exist and must be readable." path)))))
+
+  (let [config (if path (inis-to-map path) {})]
     (-> config
         (configure-logging!)
         (configure-commandproc-threads)
