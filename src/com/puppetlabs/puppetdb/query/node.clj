@@ -33,7 +33,7 @@
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
   [query]
-  {:pre  [(some-fn nil? sequential? query)]
+  {:pre  [((some-fn nil? sequential?) query)]
    :post [(vector? %)
           (string? (first %))
           (every? (complement coll?) (rest %))]}
@@ -66,7 +66,7 @@
 (defmethod compile-term "="
   [[op path value :as term]]
   {:post [(map? %)
-          (:where %)]}
+          (string? (:where %))]}
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
@@ -84,7 +84,7 @@
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
   {:post [(map? %)
-          (:where %)]}
+          (string? (:where %))]}
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
