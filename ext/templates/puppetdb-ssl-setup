@@ -49,7 +49,7 @@ else
       user=pe-puppetdb
     else
       puppetdb_confdir="/etc/puppetdb"
-      user=pe-puppet
+      user=puppetdb
     fi
 fi
 
