@@ -121,7 +121,7 @@ fi
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
-useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
+useradd -r -g %{name} -d <%= @install_dir %> -s /sbin/nologin \
      -c "PuppetDB daemon"  %{name}
 
 %post
@@ -169,10 +169,13 @@ if [ "$1" = "0" ] ; then
 fi
 
 %postun
-# Remove PuppetDB user
-getent group %{name} > /dev/null || groupdel -r %{name}
-getent passwd %{name} > /dev/null || userdel -r %{name}
-rm -rf %{_rundir}/%{name} || :
+# Remove PuppetDB user if this is an uninstall (as opposed to
+#  an upgrade)...
+if [ "$1" = "0" ]; then
+    getent passwd %{name} > /dev/null && userdel %{name}
+    getent group %{name} > /dev/null && groupdel %{name}
+    rm -rf %{_rundir}/%{name} || :
+fi
 
 # If this is an upgrade (as opposed to an install) then we need to check
 #  and see if we stopped the service during the install (we indicate
