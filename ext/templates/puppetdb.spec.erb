@@ -104,7 +104,7 @@ rm -rf $RPM_BUILD_ROOT
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
-useradd -r -g %{name} -d /opt/puppet/share/%{realname} -s /sbin/nologin \
+useradd -r -g %{name} -d <%= @install_dir %> -s /sbin/nologin \
      -c "PuppetDB daemon"  %{name}
 
 %post
@@ -148,10 +148,13 @@ fi
 /sbin/chkconfig --del %{name}
 
 %postun
-# Remove PuppetDB user
-getent group %{name} > /dev/null || groupdel -r %{name}
-getent passwd %{name} > /dev/null || userdel -r %{name}
-rm -rf %{_rundir}/%{name} || :
+# Remove PuppetDB user if this is an uninstall (as opposed to
+#  an upgrade)...
+if [ "$1" = "0" ]; then
+    getent passwd %{name} > /dev/null && userdel %{name}
+    getent group %{name} > /dev/null && groupdel %{name}
+    rm -rf %{_rundir}/%{name} || :
+fi
 
 
 %files
