@@ -64,7 +64,7 @@ start() {
     [ -x $JAVA_BIN ] || exit 5
     [ -d $config ] || exit 6
     echo -n $"Starting $prog: "
-    $SU $USER -s /bin/bash -c "$EXEC &"
+    daemon --user $USER --pidfile $PIDFILE "$EXEC >> <%= @log_dir %>/puppetdb-daemon.log 2>&1 &"
     sleep 1
     find_my_pid
     echo $pid > $PIDFILE
