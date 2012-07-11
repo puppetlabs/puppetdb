@@ -31,6 +31,9 @@ def cp_p(src, dest, options={})
   cp(src, dest, options.merge(mandatory))
 end
 
+def ln_sfT(src, dest)
+  `ln -sfT "#{src}" "#{dest}"`
+end
 
 require 'facter'
 @osfamily = Facter.value(:osfamily).downcase
@@ -199,16 +202,16 @@ task :install => [  JAR_FILE  ] do
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
   mkdir_p "#{DESTDIR}/#{@sbin_dir}"
   mkdir_p "#{DESTDIR}/etc/logrotate.d/"
-  ln_sf @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
-  ln_sf @log_dir, "#{DESTDIR}/#{@install_dir}/log"
+  ln_sfT @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
+  ln_sfT @log_dir, "#{DESTDIR}/#{@install_dir}/log"
 
   if PE_BUILD == false or PE_BUILD == nil or PE_BUILD == ''
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
-    ln_sf "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
-    ln_sf "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
-    ln_sf "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
+    ln_sfT "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
+    ln_sfT "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
+    ln_sfT "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
     mkdir_p "#{DESTDIR}#/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
