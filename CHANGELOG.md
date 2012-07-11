@@ -1,3 +1,157 @@
+0.9.2
+=====
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Jason Ashby
+* Kushal Pisavadia
+* Erik Dalén
+* Deepak Giridharagopal
+* Nick Lewis
+* Matthaus Litteken
+* Chris Price
+
+Notable changes:
+
+* Allow more advanced storeconfigs queries
+
+  Now, when using PuppetDB, your puppet manifests can use "and" and
+  "or" in collection queries:
+
+    File <<| mode == 0755 or content == "bar" |>>
+
+* (#15388) Add redirect from '/' to the dashboard
+
+  Prior to this fix, if you started up PuppetDB and then attempted to
+  browse to "/", you'd get an error message that might lead you to
+  believe that the server wasn't actually running (depending on your
+  browser).
+
+  This commit simply adds a redirect from "/" to the dashboard index
+  page.
+
+* (#14688) Improve stdout/stderr handling for redhat init script
+
+  Prior to this fix, the redhat init script was keeping stdout/stderr
+  open when you called "service puppetdb stop". This resulted in some
+  undesirable behavior; starting the service over an ssh connection
+  would not release the ssh connection, errors would appear on the
+  console rather than in the log file, etc. Now, daemon startup
+  redirects stdout/stderr to a file (puppetdb-daemon.log) instead of
+  spamming the console, and we more properly background the launched
+  process to prevent "locking" of a parent SSH connection.
+
+* (#15349) Work around non-string resource titles
+
+  It's possible in some cases for Puppet to generate a resource whose
+  title isn't a string. However, since the generated edges refer to
+  the resource using a string title, we end up with a mismatch. Now we
+  will stringify all resource titles on the way out. In future, Puppet
+  should do this for us.
+
+* (#15446) Improve handling of user/group removal on rpm removal
+
+  Fixed the following bugs in our handling of user/group removal
+  during rpm removal:
+
+  1. We were not conditioning the calls to groupdel / userdel to avoid
+     running them during an upgrade, which meant that we were trying
+     to delete them even during upgrades... which would have been bad.
+  2. We had an || where we needed an &&, so we weren't actually
+     calling the groupdel / userdel commands.
+  3. We were hard-coding the user's home dir to a bad path.
+  4. We had some '-r' flags that were wrong and/or unnecessary.
+
+* (#15136, #15340) Properly handle non-string node queries
+
+  Previously, these would result in 500 errors as the database failed
+  the comparisons because of mismatched types. Now, all equality
+  comparisons will be done against strings, and all numeric
+  comparisons will be done against numbers.
+
+  For equality comparisons, non-string arguments will be
+  converted. This allows natural queries against numbers or booleans
+  to work despite all fact values technically being strings.
+
+  For numeric comparisons, non-numeric arguments will be converted.
+  However, if the argument doesn't represent a number, the query will
+  be rejected.
+
+* (#15075) Improve handling of service start/stop during rpm
+  upgrade/uninstall
+
+  On uninstall, we now check to see if this is part of an upgrade or
+  not, and we only stop and disable the service if this is *not* part
+  of an upgrade. Also, we stop the service before we install the new
+  package, and restart it after we finish removing the old package.
+
+* (#14947) Restrict accetable client certificates by CN
+
+  PuppetDB now implements an optional whitelist for HTTPS clients. If
+  enabled by the user, we validate that the CN of the supplied client
+  certificate exactly matches an entry in the whitelist. This feature
+  is off by default.
+
+* (#15321) Add aliases for namevars that are munged via `title_pattern`
+
+  When we are creating aliases for resources (in order to ensure
+  dependency resolution in the catalog), we need to take into account
+  the case where the resource type defines one or more title_patterns,
+  which, when used to set the value of the namevar, may munge the
+  value via regex awesomeness.  'File' is an example of such a
+  resource, as it will strip trailing slashes from the title to set
+  the :path parameter if :path is not specified.
+
+  Because this `title_pattern` munging happens as a side effect of the
+  Puppet::Resource#to_hash method, it is important that our namevar
+  alias code search that hash for necessary aliases rather than
+  searching the Puppet::Resource instance directly.
+
+* (#15059) Stop loading non-SSL content in the dashboard
+
+  You can now view the PuppetDB dashboard using HTTPS without
+  triggering browser warnings about mixing HTTP and HTTPS content.
+
+* Improved "logging of last resort"
+
+  There are certain points in the lifecycle of PuppetDB where it's
+  critical that we properly log an exception, even if that means we
+  spam different log targets (logfiles, stdout, stderr, etc) and
+  duplicate output. Daemon startup and unhandled exceptions within a
+  thread are two such critical points. We now more thoroughly ensure
+  that these types of errors get logged properly.
+
+* `puppetdb-ssl-setup` should be able to be re-executed
+
+  The script can now be executed multiple times. It will ensure that
+  all generated files are readable by the PuppetDB daemon, and it
+  reconfigures PuppetDB to use the newly-generated keystore and
+  truststore passwords.
+
+* `puppetdb-ssl-setup` shouldn't fail when FQDN can't be determined
+
+  We now revert to using `facter hostname`, to allow installation to
+  continue unimpeded.
+
+* Change SSL setup to use master SSL keys intead of agent
+
+  This fixes installation bugs on systems that use different Puppet
+  `ssldir` settings for `[master]` and `[agent]`.
+
+* Automatic testing against Puppet 3.x ("telly")
+
+  Spec tests now properly execute against Telly, and they are plugged
+  into our continuous integration system.
+
+* Acceptance testing
+
+  We not automatically run PuppetDB through a series of
+  acceptance-level tests (included in the source tree). This verifies
+  correct behavior in an actual multi-node Puppet environment. Tests
+  are executed automatically as part of Puppet Labs' continuous
+  integration system.
+
 0.9.1
 =====
 
