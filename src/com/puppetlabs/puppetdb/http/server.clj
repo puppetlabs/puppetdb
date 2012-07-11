@@ -16,7 +16,8 @@
         [com.puppetlabs.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
-        [ring.middleware.params :only (wrap-params)]))
+        [ring.middleware.params :only (wrap-params)]
+        [ring.util.response :only (redirect)]))
 
 (def routes
   (app
@@ -40,7 +41,10 @@
    {:get status-app}
 
    ["metrics" &]
-   {:get metrics-app}))
+   {:get metrics-app}
+
+   [""]
+   {:get (constantly (redirect "/dashboard/index.html"))}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests
