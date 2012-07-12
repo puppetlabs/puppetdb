@@ -12,7 +12,7 @@ release:
 * Matthaus Litteken
 * Chris Price
 
-Notable changes:
+Notable features:
 
 * Allow more advanced storeconfigs queries
 
@@ -20,6 +20,20 @@ Notable changes:
   "or" in collection queries:
 
     File <<| mode == 0755 or content == "bar" |>>
+
+* (#14947) Restrict accetable client certificates by CN
+
+  PuppetDB now implements an optional whitelist for HTTPS clients. If
+  enabled by the user, we validate that the CN of the supplied client
+  certificate exactly matches an entry in the whitelist. This allows
+  users to restrict access to PuppetDB using the same CA
+  infrastructure that Puppet already uses. For example, you can
+  restrict access to PuppetDB to just your puppetmaster boxes.
+
+  This feature is off by default. Refer to the documentation on the
+  `certificate-whitelist` configuration option for details.
+
+Notable fixes:
 
 * (#15388) Add redirect from '/' to the dashboard
 
@@ -85,13 +99,6 @@ Notable changes:
   not, and we only stop and disable the service if this is *not* part
   of an upgrade. Also, we stop the service before we install the new
   package, and restart it after we finish removing the old package.
-
-* (#14947) Restrict accetable client certificates by CN
-
-  PuppetDB now implements an optional whitelist for HTTPS clients. If
-  enabled by the user, we validate that the CN of the supplied client
-  certificate exactly matches an entry in the whitelist. This feature
-  is off by default.
 
 * (#15321) Add aliases for namevars that are munged via `title_pattern`
 
