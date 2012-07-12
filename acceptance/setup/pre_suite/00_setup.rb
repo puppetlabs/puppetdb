@@ -168,6 +168,10 @@ step "Install PuppetDB on the PuppetDB server" do
     setup_postgres()
   end
 
+  step "Print out database.ini for posterity" do
+    on database, "cat /etc/puppetdb/conf.d/database.ini"
+  end
+
   step "Start PuppetDB" do
     start_puppetdb(database)
   end
