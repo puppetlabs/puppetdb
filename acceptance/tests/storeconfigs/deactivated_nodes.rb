@@ -1,5 +1,10 @@
 test_name "queries against deactivated nodes" do
 
+  if hosts.length <= 1
+    skip_test "This test requires more than one host"
+    next
+  end
+
   exporter, *collectors = hosts
 
   dir = collectors.first.tmpdir('collections')
