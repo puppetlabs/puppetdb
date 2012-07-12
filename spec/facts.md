@@ -29,3 +29,11 @@ facts should be retrieved.
     }
 
 If no facts are known for the supplied node, an HTTP 404 is returned.
+
+# Example
+
+[You can use `curl`](curl.md) to grab facts like so:
+
+    curl -H "Accept: application/json" 'http://localhost:8080/facts/<node>'
+
+where <node> is the certname of the host you wish to view the facts for.
