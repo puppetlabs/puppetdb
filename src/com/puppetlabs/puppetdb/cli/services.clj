@@ -181,19 +181,18 @@
   "Parses the given config file/directory and configures its various
   subcomponents."
   [path]
+  {:pre [(string? path)]}
   (let [file (file path)]
-    (if-not (and (.exists file)
-                 (.canRead file))
+    (when-not (.canRead file)
       (throw (IllegalArgumentException.
-        (format "Configuration path '%s' must be exist and must be readable." path)))))
+        (format "Configuration path '%s' must exist and must be readable." path)))))
 
-  (let [config (if path (inis-to-map path) {})]
-    (-> config
-        (configure-logging!)
-        (configure-commandproc-threads)
-        (configure-web-server)
-        (configure-database)
-        (set-global-configuration!))))
+  (-> (inis-to-map path)
+      (configure-logging!)
+      (configure-commandproc-threads)
+      (configure-web-server)
+      (configure-database)
+      (set-global-configuration!)))
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
