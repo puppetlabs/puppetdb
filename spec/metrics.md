@@ -42,9 +42,9 @@ A JSON Object mapping strings to (strings/numbers/booleans).
 
 # Example
 
-You can use `curl` to grab metrics like so:
+[You can use `curl`](curl.md) to grab metrics like so:
 
-    curl -v -H "Accept: application/json" 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'
+    curl -H "Accept: application/json" 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'
 
 # Useful metrics
 
