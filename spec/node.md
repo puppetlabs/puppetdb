@@ -41,3 +41,10 @@ The response is a JSON array of node names matching the predicates, sorted
 in ascending order:
 
 `["foo.example.com", "bar.example.com", "baz.example.com"]`
+
+# Example
+
+[You can use `curl`](curl.md) to query information about nodes like so:
+
+    curl -H "Accept: application/json" 'http://localhost:8080/nodes'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'

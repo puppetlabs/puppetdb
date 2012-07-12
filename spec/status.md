@@ -19,3 +19,11 @@ not present, the corresponding timestamps will be null.
 
 If no information is known about the node, the result will be a 404 with a JSON
 hash containing an "error" key with a message indicating such.
+
+# Example
+
+[You can use `curl`](curl.md) to query status like so:
+
+    curl -H "Accept: application/json" 'http://localhost:8080/status/nodes/<node>'
+
+where <node> is the certname of the host you wish to view the facts for.
