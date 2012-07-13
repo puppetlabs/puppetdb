@@ -64,6 +64,14 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash['resources'].each do |resource|
       real_resource = catalog.resource(resource['type'], resource['title'])
 
+      # Resources with composite namevars can't be referred to by
+      # anything other than their title when declaring
+      # relationships. Trying to snag the :alias for these resources
+      # will only return _part_ of the name (a problem with Puppet
+      # proper), so skipping the adding of aliases for these resources
+      # is both an optimization and a safeguard.
+      next if real_resource.key_attributes.count > 1
+
       # Non-isomorphic resources aren't unique based on namevar, so we can't
       # use it as an alias
       type = real_resource.resource_type
