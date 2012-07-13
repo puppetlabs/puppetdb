@@ -1,6 +1,16 @@
 #!/usr/bin/env ruby
 
+require 'lib/puppet_acceptance/dsl/install_utils'
+
+extend PuppetAcceptance::DSL::InstallUtils
+
+
 LeinCommandPrefix = "cd /opt/puppet-git-repos/puppetdb; LEIN_ROOT=true"
+
+
+test_name "Setup PuppetDB"
+
+
 
 def get_tar_file(source_dir, prefix)
   # TODO: use Ruby's standard temp file mechanism
@@ -8,7 +18,78 @@ def get_tar_file(source_dir, prefix)
   '/tmp/data.tar'
 end
 
-test_name "Setup PuppetDB"
+def setup_postgres()
+  step "Install postgres on the PuppetDB server" do
+
+    step "Install the puppetdb/postgres modules and dependencies" do
+      # TODO: change this to install from a less stupid place once the
+      #  puppetdb module gets cleaned up
+      install_from_git(database, "puppetlabs-puppetdb",
+                       "git://github.com/cprice-puppet/puppetlabs-puppetdb.git",
+                       "master")
+
+      # TODO: change this to install from a less stupid place once the
+      #  postgres module gets cleaned up
+      install_from_git(database, "puppet-postgresql",
+                       "git://github.com/cprice-puppet/puppet-postgresql.git",
+                       "feature/master/align-with-puppetlabs-mysql")
+
+      # TODO: change this to install from a tag once we do a 2.3.4 stdlib release
+      install_from_git(database, "puppetlabs-stdlib",
+                       "git://github.com/puppetlabs/puppetlabs-stdlib.git",
+                       "e299ac6212b0468426f971b216447ef6bc679149")
+
+      install_from_git(database, "puppetlabs-firewall",
+                       "git://github.com/puppetlabs/puppetlabs-firewall.git",
+                       "master")
+    end
+
+    step "Apply a manifest to use the modules to set up postgres for puppetdb" do
+      module_path = database.tmpfile("puppetdb_modulepath")
+      on database, "rm #{module_path}"
+      on database, "mkdir #{module_path}"
+      on database, "ln -s #{SourcePath}/puppetlabs-puppetdb #{module_path}/puppetdb"
+      on database, "ln -s #{SourcePath}/puppet-postgresql #{module_path}/postgresql"
+      on database, "ln -s #{SourcePath}/puppetlabs-stdlib #{module_path}/stdlib"
+      on database, "ln -s #{SourcePath}/puppetlabs-firewall #{module_path}/firewall"
+
+      manifest_path = database.tmpfile("puppetdb_postgres_manifest.pp")
+      # TODO: use more stuff from the puppetdb module once it is robust enough
+      #  to handle what we need.
+      manifest_content = <<-EOS
+
+  class { '::postgresql::server':
+    config_hash => {
+        'ip_mask_allow_all_users' => '0.0.0.0/0',
+        'listen_addresses' => '*',
+        'manage_redhat_firewall' => true,
+
+        'ip_mask_deny_postgres_user' => '0.0.0.0/32',
+        'postgres_password' => 'puppet',
+    },
+  }
+
+  postgresql::db{ 'puppetdb':
+    user          => 'puppetdb',
+    password      => 'puppetdb',
+    grant         => 'all',
+  }
+
+  $database = 'postgres'
+  $database_host = 'localhost'
+
+  file { 'puppetdb: database.ini':
+      ensure      => file,
+      path        => "/etc/puppetdb/conf.d/database.ini",
+      content     => template('puppetdb/server/database.ini.erb')
+  }
+      EOS
+
+      create_remote_file(database, manifest_path, manifest_content)
+      on database, puppet_apply("--modulepath #{module_path} #{manifest_path}")
+    end
+  end
+end
 
 # TODO: I'm not 100% sure whether this is the right or best way to determine
 #  whether we're running from source or running from a package; might want
@@ -77,12 +158,18 @@ step "Install PuppetDB on the PuppetDB server" do
       on database, "#{LeinCommandPrefix} rake template"
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.preinst install"
       on database, "#{LeinCommandPrefix} rake install"
-      # TODO: might want to move this into teardown, but if it doesn't happen
-      #  at some point then you will end up with a bad jetty.ini file.
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.postinst"
+      # For debugging?
       on database, "cat /etc/puppetdb/conf.d/jetty.ini"
-
     end
+  end
+
+  if (options[:puppetdb_database] == 'postgres')
+    setup_postgres()
+  end
+
+  step "Print out database.ini for posterity" do
+    on database, "cat /etc/puppetdb/conf.d/database.ini"
   end
 
   step "Start PuppetDB" do
