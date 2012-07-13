@@ -487,6 +487,33 @@ PEM files copied over during configuration. Those can be safely
 deleted from the PuppetDB box (the "master copies" exist on your CA
 host).
 
+## Puppet Apply
+
+When using Puppet without a master (using Puppet apply), the configuration
+slightly differs. You will need to configure puppetdb.conf on every
+node, exactly as above.
+
+The inventory service is not currently supported when using Puppet apply, due
+to a limitation in Puppet. Further, the routes file `$confdir/routes.yaml` will
+need to be configured to entirely disable facts storage, to prevent Puppet from
+retrieving its facts from PuppetDB and therefore using stale facts:
+
+    apply:
+      facts:
+        terminus: facter
+        cache: facter
+
+This will cause Puppet to use *only* Facter for retrieving facts, and not to
+store them anywhere.
+
+If you are indeed entirely masterless, and thus don't have a central CA with
+client certificate, you will be unable to use the embedded SSL support in
+PuppetDB. This limitation is due to the fact that PuppetDB currently requires
+client authentication, which is impossible when the client has no certificate.
+Whitelist authorization is also unavailable in this mode.  You will need to
+disable the ssl/key/trust configuration options from `jetty.ini` and use an SSL
+proxy which can be configured for optional or no client authentication.
+
 ## Web Console
 
 Once you have PuppetDB running, visit the following URL on your
