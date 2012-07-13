@@ -5,7 +5,7 @@
   tag = 'puppetlabs'
   dists = 'hardy lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise'
   end -%>
-<%= @name -%> (<%= version -%>-1<%= tag -%>1) <%= dists -%>; urgency=low
+<%= @name -%> (<%= version -%>-1<%= tag -%><%= @release -%>) <%= dists -%>; urgency=low
 
   * Add postgresql to suggests
   * Adding an init script from Puppet Labs Ops
