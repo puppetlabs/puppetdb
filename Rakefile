@@ -9,7 +9,6 @@ end
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
 
-
 def version
   if File.exists?('version')
     File.read('version').chomp
@@ -59,6 +58,7 @@ if PE_BUILD.downcase.strip == "true"
     @name ="pe-puppetdb"
     @pe = true
     @version = version
+    @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/opt/puppet/sbin"
 else
     @install_dir = "/usr/share/puppetdb"
@@ -70,6 +70,7 @@ else
     @name = "puppetdb"
     @pe = false
     @version = version
+    @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/usr/sbin"
 end
 
