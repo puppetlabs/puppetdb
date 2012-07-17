@@ -143,6 +143,9 @@ task :clobber => [ :clean ] do
   rm_rf FileList["puppetdb*jar"]
 end
 
+task :version do
+  puts version
+end
 
 file "ext/files/config.ini" => [ :template, JAR_FILE ]   do
 end
