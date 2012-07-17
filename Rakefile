@@ -52,6 +52,7 @@ end
 
 if PE_BUILD.downcase.strip == "true"
     @install_dir = "/opt/puppet/share/puppetdb"
+    @etc_dir = "/etc/puppetlabs/puppetdb"
     @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/pe-puppetdb"
     @log_dir = "/var/log/pe-puppetdb"
@@ -62,11 +63,12 @@ if PE_BUILD.downcase.strip == "true"
     @sbin_dir = "/opt/puppet/sbin"
 else
     @install_dir = "/usr/share/puppetdb"
+    @etc_dir = "/etc/puppetdb"
     @config_dir = "/etc/puppetdb/conf.d"
     @initscriptname = "/etc/init.d/puppetdb"
     @log_dir = "/var/log/puppetdb"
-    @lib_dir = "/usr/share/puppetdb"
-    @link = "/var/lib/puppetdb"
+    @lib_dir = "/var/lib/puppetdb"
+    @link = "/usr/share/puppetdb"
     @name = "puppetdb"
     @pe = false
     @version = version
@@ -113,15 +115,18 @@ end
 
 desc "Create a source tar archive"
 task :package => [ :clobber, JAR_FILE, :template  ] do
-  workdir = "pkg/puppetdb-#{@version}"
+  temp = `mktemp -d -t tmpXXXXXX`.strip
+  workdir = File.join(temp, "puppetdb-#{@version}")
   mkdir_p workdir
   FileList[ "ext", "*.md", JAR_FILE, "spec", "Rakefile" ].each do |f|
     cp_pr f, workdir
   end
   mv "#{workdir}/ext/files/debian", workdir
   cp_pr "puppet", "#{workdir}/ext/master"
-  sh "cd pkg; tar --exclude=.gitignore -zcf puppetdb-#{@version}.tar.gz puppetdb-#{@version}"
-  rm_rf workdir
+  mkdir_p "pkg"
+  pkg_dir = File.expand_path(File.join(".", "pkg"))
+  sh "cd #{temp}; tar --exclude=.gitignore -zcf #{pkg_dir}/puppetdb-#{@version}.tar.gz puppetdb-#{@version}"
+  rm_rf temp
   puts
   puts "Wrote #{`pwd`.strip}/pkg/puppetdb-#{@version}"
 end
@@ -166,7 +171,6 @@ task :template => [ :clean ] do
    erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
    chmod 0755, "ext/files/debian/rules"
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
-   erb "ext/templates/deb/base.postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/deb/terminus.postinst.erb", "ext/files/debian/#{@name}-terminus.postinst"
    erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
    erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
@@ -209,9 +213,9 @@ task :install => [  JAR_FILE  ] do
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
-    ln_sfT "#{@link}/state", "#{DESTDIR}#{@lib_dir}/state"
-    ln_sfT "#{@link}/db", "#{DESTDIR}#{@lib_dir}/db"
-    ln_sfT "#{@link}/mq", "#{DESTDIR}#{@lib_dir}/mq"
+    ln_sfT "#{@lib_dir}/state", "#{DESTDIR}#{@link}/state"
+    ln_sfT "#{@lib_dir}/db", "#{DESTDIR}#{@link}/db"
+    ln_sfT "#{@lib_dir}/mq", "#{DESTDIR}#{@link}/mq"
     mkdir_p "#{DESTDIR}#/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
