@@ -276,6 +276,7 @@ task :srpm => [ :package ] do
   mkdir_p 'pkg/rpm'
   mkdir_p "#{temp}/SOURCES"
   mkdir_p "#{temp}/SPECS"
+  mkdir_p "#{temp}/SRPMS"
   cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}/SOURCES"
   cp_p "ext/files/#{@name}.spec", "#{temp}/SPECS"
   sh "rpmbuild #{args} -bs --nodeps #{temp}/SPECS/#{@name}.spec"
