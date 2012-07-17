@@ -13,7 +13,10 @@ describe Puppet::Resource::Puppetdb do
     let(:host) { 'default.local' }
 
     def search(type)
-      scope = Puppet::Parser::Scope.new
+      # The API for creating scope objects is different between Puppet 2.7 and
+      # 3.0. The scope here isn't really used for anything relevant, so it's
+      # easiest to make it a stub to run against both versions of Puppet.
+      scope = stub('scope', :source => nil)
       args = { :host => host, :filter => nil, :scope => scope }
       Puppet::Resource.indirection.search(type, args)
     end
