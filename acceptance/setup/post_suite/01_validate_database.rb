@@ -44,7 +44,7 @@ step "Verify we've been talking to the correct database" do
     #  OK.  I mean... right? ;)
 
     ["postgresql", "postgresql-server"].each do |pkg|
-      result = on(database, "puppet resource package #{pkg} |grep \"ensure\" |grep \"purged\" |wc -l").stdout.strip.to_i
+      result = on(database, "puppet resource package #{pkg} |grep \"ensure\" |egrep \"(absent)|(purged)\" |wc -l").stdout.strip.to_i
       assert_equal(1, result, "Expected 'ensure => purged' for package '#{pkg}'")
     end
 
