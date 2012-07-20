@@ -205,8 +205,7 @@ step "Install PuppetDB on the PuppetDB server" do
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.preinst install"
       on database, "#{LeinCommandPrefix} rake install"
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.postinst"
-      # For debugging?
-      on database, "cat /etc/puppetdb/conf.d/jetty.ini"
+
     end
   end
 
@@ -214,6 +213,9 @@ step "Install PuppetDB on the PuppetDB server" do
     setup_postgres()
   end
 
+  step "Print out jetty.ini for posterity" do
+    on database, "cat /etc/puppetdb/conf.d/jetty.ini"
+  end
   step "Print out database.ini for posterity" do
     on database, "cat /etc/puppetdb/conf.d/database.ini"
   end
