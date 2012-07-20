@@ -91,6 +91,25 @@ def setup_postgres()
   end
 end
 
+def setup_maven_squid_proxy()
+  m2_settings_path = "/root/.m2/settings.xml"
+  m2_settings_content = <<-EOS
+<settings>
+    <proxies>
+        <proxy>
+            <active>true</active>
+            <protocol>http</protocol>
+            <host>modi.puppetlabs.lan</host>
+            <port>3128</port>
+        </proxy>
+    </proxies>
+</settings>
+  EOS
+
+  create_remote_file(database, m2_settings_path, m2_settings_content)
+end
+
+
 # TODO: I'm not 100% sure whether this is the right or best way to determine
 #  whether we're running from source or running from a package; might want
 #  to change this.
@@ -142,6 +161,10 @@ if (PuppetDBExtensions.test_mode == :package)
 else (PuppetDBExtensions.test_mode == :git)
   step "Install dependencies on the PuppetDB server" do
     on database, "apt-get install -y openjdk-6-jre-headless libjson-ruby"
+  end
+
+  step "Configure maven to use local squid proxy" do
+    setup_maven_squid_proxy()
   end
 
   step "Install lein on the PuppetDB server" do
