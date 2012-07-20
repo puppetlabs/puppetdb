@@ -179,20 +179,25 @@
 
 (defn parse-config
   "Parses the given config file/directory and configures its various
-  subcomponents."
-  [path]
-  {:pre [(string? path)]}
-  (let [file (file path)]
-    (when-not (.canRead file)
-      (throw (IllegalArgumentException.
-        (format "Configuration path '%s' must exist and must be readable." path)))))
+  subcomponents.  Also accepts an optional map argument 'initial_config'; if
+  provided, any initial values in this map will be included
+  in the resulting config map."
+  ([path]
+    (parse-config path {}))
+  ([path initial_config]
+    {:pre [(string? path)
+           (map? initial_config)]}
+    (let [file (file path)]
+      (when-not (.canRead file)
+        (throw (IllegalArgumentException.
+          (format "Configuration path '%s' must exist and must be readable." path)))))
 
-  (-> (inis-to-map path)
-      (configure-logging!)
-      (configure-commandproc-threads)
-      (configure-web-server)
-      (configure-database)
-      (set-global-configuration!)))
+    (-> (inis-to-map path initial_config)
+        (configure-logging!)
+        (configure-commandproc-threads)
+        (configure-web-server)
+        (configure-database)
+        (set-global-configuration!))))
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
@@ -203,7 +208,8 @@
 (defn -main
   [& args]
   (let [[options _]                                (cli! args)
-        {:keys [jetty database global] :as config} (parse-config (:config options))
+        initial_config                             {:debug (:debug options)}
+        {:keys [jetty database global] :as config} (parse-config (:config options) initial_config)
         vardir                                     (validate-vardir (:vardir global))
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)

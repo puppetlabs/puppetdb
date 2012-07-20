@@ -7,6 +7,10 @@
 (ns com.puppetlabs.utils
   (:import [org.ini4j Ini]
            [org.apache.log4j PropertyConfigurator]
+           [org.apache.log4j ConsoleAppender]
+           [org.apache.log4j PatternLayout]
+           [org.apache.log4j Logger]
+           [org.apache.log4j Level]
            [javax.naming.ldap LdapName])
   (:require [clojure.test]
             [clojure.tools.logging :as log]
@@ -215,12 +219,19 @@
   map (see `ini-to-map` for details). If `path` is a file, the
   behavior is exactly the same as `ini-to-map`. If `path` is a
   directory, we return a merged version of parsing all the .ini files
-  in the directory (we do not do a recursive find of .ini files)."
+  in the directory (we do not do a recursive find of .ini files).
+
+  Also accepts an optional map argument 'initial_config'; if
+  provided, any initial values in this map will be included
+  in the resulting config map."
   ([path]
-     (inis-to-map path "*.ini"))
-  ([path glob-pattern]
+     (inis-to-map path "*.ini" {}))
+  ([path initial_config]
+     (inis-to-map path "*.ini" initial_config))
+  ([path glob-pattern initial_config]
      {:pre  [(or (string? path)
-                 (instance? java.io.File path))]
+                 (instance? java.io.File path))
+             (map? initial_config)]
       :post [(map? %)]}
      (let [files (if-not (fs/directory? path)
                    [path]
@@ -230,7 +241,7 @@
             (map fs/absolute-path)
             (map ini-to-map)
             (apply merge)
-            (merge {})))))
+            (merge initial_config)))))
 
 ;; ## Logging helpers
 
@@ -286,6 +297,26 @@
   {:pre [(fn? f)]}
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
+(defn create-debug-appender
+  "Instantiates and returns a log4f Appender configured for DEBUG-level logging
+  to the console."
+  []
+  (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
+    (doto (ConsoleAppender.)
+      (.setLayout layout)
+      (.setThreshold Level/DEBUG)
+      (.activateOptions))))
+
+(defn add-debug-logger!
+  "Adds a console logger to the current logging configuration, and ensures
+  that the root log4j logger is set to log at level DEBUG or finer."
+  []
+  (let [root-logger (Logger/getRootLogger)]
+    (.addAppender root-logger create-debug-appender)
+    (if (> (.toInt (.getLevel root-logger))
+           (Level/DEBUG_INT))
+      (.setLevel root-logger Level/DEBUG))))
+
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
   file. You can optionally supply a delay (in millis) that governs how
@@ -304,11 +335,14 @@
   "If there is a logging configuration directive in the supplied
   config map, use it to configure the default logger. Returns the same
   config map that was passed in."
-  [{:keys [global] :as config}]
+  [{:keys [global debug] :as config}]
   {:pre  [(map? config)]
    :post [(map? %)]}
   (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
+  (when debug
+      (add-debug-logger!)
+      (log/debug "Debug logging enabled"))
   config)
 
 ;; ## Command-line parsing
@@ -323,6 +357,7 @@
   (let [specs                    (conj specs
                                        ["-c" "--config" "Path to config.ini" :required true]
                                        ["-h" "--help" "Show help" :default false :flag true]
+                                       ["-d" "--debug" "Enable debug mode" :default false :flag true]
                                        ["--trace" "Print stacktraces on error" :default false :flag true])
         [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
