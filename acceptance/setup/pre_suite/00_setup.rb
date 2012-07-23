@@ -5,7 +5,8 @@ require 'lib/puppet_acceptance/dsl/install_utils'
 extend PuppetAcceptance::DSL::InstallUtils
 
 
-LeinCommandPrefix = "cd /opt/puppet-git-repos/puppetdb; LEIN_ROOT=true"
+LEIN_COMMAND_PREFIX = "cd /opt/puppet-git-repos/puppetdb; LEIN_ROOT=true"
+PROXY_URL = "http://modi.puppetlabs.lan:3128"
 
 
 test_name "Setup PuppetDB"
@@ -112,6 +113,36 @@ def setup_maven_squid_proxy()
 end
 
 
+def setup_apt_proxy()
+    step "Configure apt to use local http proxy" do
+      apt_conf_file_path = "/etc/apt/apt.conf.d/99apt-http-proxy"
+      apt_conf_file_content = <<-EOS
+// Configure apt to use a local http proxy
+Acquire::http::Proxy "#{PROXY_URL}";
+    EOS
+
+    create_remote_file(database, apt_conf_file_path, apt_conf_file_content)
+  end
+end
+
+def setup_yum_proxy()
+  step "Configure yum to use local http proxy" do
+
+    existing_yumconf = on(database, "cat /etc/yum.conf").stdout
+    new_yumconf_lines = []
+    existing_yumconf.each_line do |line|
+      # filter out existing proxy line if there is one.
+      unless line =~ /^\s*proxy\s*=/
+        new_yumconf_lines << line
+      end
+    end
+    new_yumconf_lines << "proxy=#{PROXY_URL}\n"
+    on(database, "mv /etc/yum.conf /etc/yum.conf.bak-puppet_acceptance")
+    create_remote_file(database, "/etc/yum.conf", new_yumconf_lines.join)
+  end
+end
+
+
 # TODO: I'm not 100% sure whether this is the right or best way to determine
 #  whether we're running from source or running from a package; might want
 #  to change this.
@@ -119,22 +150,37 @@ install_type = options[:type] == 'git' ? :git : :package
 PuppetDBExtensions.test_mode = install_type
 
 pkg_dir = File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg')
+osfamily = :debian
 
-# Determine whether we're Debian or RedHat. Note that "git" installs are
-# currently assumed to be *Debian only*.
-on(database, "which yum", :silent => true)
-if result.exit_code == 0
-  osfamily = 'RedHat'
-else
-  osfamily = 'Debian'
+# TODO: do we need to worry about supporting any other OS's?
+step "Determine whether we're Debian or RedHat" do
+  on(database, "which yum", :silent => true)
+  if result.exit_code == 0
+    osfamily = :redhat
+  end
 end
+
+
+step "Configure package manager to use local http proxy" do
+  # TODO: this should probably run on every host, not just on the database host,
+  #  and it should probably be moved into the main acceptance framework instead
+  #  of being used only for our project.
+
+  if (osfamily == :debian)
+    setup_apt_proxy()
+  else
+    setup_yum_proxy()
+  end
+end
+
+
 
 # TODO: I think it would be nice to get rid of all of these conditionals; maybe
 #  we could refactor this into a base class with two child classes that handle
 #  the differences... or something less ugly than this :)
 if (PuppetDBExtensions.test_mode == :package)
   step "Install Puppet on all systems" do
-    if osfamily == 'Debian'
+    if osfamily == :debian
       on hosts, "wget http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
       on hosts, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
       on hosts, "apt-get update"
@@ -162,7 +208,7 @@ if (PuppetDBExtensions.test_mode == :package)
   end
 else (PuppetDBExtensions.test_mode == :git)
   step "Install dependencies on the PuppetDB server" do
-    if osfamily == 'Debian'
+    if osfamily == :debian
       on database, "apt-get install -y openjdk-6-jre-headless libjson-ruby"
     else
       on database, "yum install -y java-1.6.0-openjdk rubygem-rake unzip"
@@ -193,7 +239,7 @@ end
 step "Install PuppetDB on the PuppetDB server" do
   if (PuppetDBExtensions.test_mode == :package)
     step "Install the package" do
-      if osfamily == 'Debian'
+      if osfamily == :debian
         on database, "apt-get install -y libjson-ruby"
         on database, "mkdir -p /tmp/packages/puppetdb"
         scp_to database, File.join(pkg_dir, "puppetdb.deb"), "/tmp/packages/puppetdb"
@@ -206,7 +252,7 @@ step "Install PuppetDB on the PuppetDB server" do
     end
   else
     step "Install PuppetDB via rake" do
-      if (osfamily == 'Debian')
+      if (osfamily == :debian)
         preinst = "debian/puppetdb.preinst install"
         postinst = "debian/puppetdb.postinst"
       else
@@ -215,9 +261,9 @@ step "Install PuppetDB on the PuppetDB server" do
       end
 
       on database, "rm -rf /etc/puppetdb/ssl"
-      on database, "#{LeinCommandPrefix} rake template"
+      on database, "#{LEIN_COMMAND_PREFIX} rake template"
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{preinst}"
-      on database, "#{LeinCommandPrefix} rake install"
+      on database, "#{LEIN_COMMAND_PREFIX} rake install"
       on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{postinst}"
     end
   end
@@ -240,7 +286,7 @@ end
 
 step "Install the PuppetDB terminuses on the master" do
   if (PuppetDBExtensions.test_mode == :package)
-    if osfamily == 'Debian'
+    if osfamily == :debian
       on master, "mkdir -p /tmp/packages/puppetdb"
       scp_to master, File.join(pkg_dir, "puppetdb-terminus.deb"), "/tmp/packages/puppetdb"
 
@@ -251,7 +297,7 @@ step "Install the PuppetDB terminuses on the master" do
     end
   else
     step "Install the termini via rake" do
-      on master, "#{LeinCommandPrefix} rake sourceterminus"
+      on master, "#{LEIN_COMMAND_PREFIX} rake sourceterminus"
     end
   end
 
