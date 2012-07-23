@@ -1,0 +1,9 @@
+chmod 755 <%= @etc_dir %>
+chown -R <%= @name %>:<%= @name %> <%= @etc_dir %>/*
+chmod -R 640 <%= @etc_dir %>/*
+chmod -R ug+X <%= @etc_dir %>/*
+
+chgrp <%= @name %> <%= @log_dir %>
+chmod 775 <%= @log_dir %>
+
+chown -R <%= @name %>:<%= @name %> <%= @lib_dir %>
