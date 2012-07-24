@@ -169,6 +169,7 @@ task :template => [ :clean ] do
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
    erb "ext/templates/puppetdb_default.erb", "ext/files/debian/#{@name}.default"
    erb "ext/templates/deb/control.erb", "ext/files/debian/control"
+   erb "ext/templates/deb/prerm.erb", "ext/files/debian/#{@name}.prerm"
    erb "ext/templates/deb/postrm.erb", "ext/files/debian/#{@name}.postrm"
    erb "ext/templates/deb/base.install.erb", "ext/files/debian/#{@name}.install"
    erb "ext/templates/deb/terminus.install.erb", "ext/files/debian/#{@name}-terminus.install"
