@@ -219,19 +219,12 @@
   map (see `ini-to-map` for details). If `path` is a file, the
   behavior is exactly the same as `ini-to-map`. If `path` is a
   directory, we return a merged version of parsing all the .ini files
-  in the directory (we do not do a recursive find of .ini files).
-
-  Also accepts an optional map argument 'initial_config'; if
-  provided, any initial values in this map will be included
-  in the resulting config map."
+  in the directory (we do not do a recursive find of .ini files)."
   ([path]
-     (inis-to-map path "*.ini" {}))
-  ([path initial_config]
-     (inis-to-map path "*.ini" initial_config))
-  ([path glob-pattern initial_config]
+     (inis-to-map path "*.ini"))
+  ([path glob-pattern]
      {:pre  [(or (string? path)
-                 (instance? java.io.File path))
-             (map? initial_config)]
+                 (instance? java.io.File path))]
       :post [(map? %)]}
      (let [files (if-not (fs/directory? path)
                    [path]
@@ -241,7 +234,7 @@
             (map fs/absolute-path)
             (map ini-to-map)
             (apply merge)
-            (merge initial_config)))))
+            (merge {})))))
 
 ;; ## Logging helpers
 
@@ -297,25 +290,40 @@
   {:pre [(fn? f)]}
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
-(defn create-debug-appender
-  "Instantiates and returns a log4f Appender configured for DEBUG-level logging
-  to the console."
-  []
-  (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
-    (doto (ConsoleAppender.)
-      (.setLayout layout)
-      (.setThreshold Level/DEBUG)
-      (.activateOptions))))
+(defn create-console-appender
+  "Instantiates and returns a logging appender configured to write to
+  the console, using the standard puppetdb logging configuration.
 
-(defn add-debug-logger!
+  `level` is an optional argument (of type `org.apache.log4j.Level`)
+  indicating the logging threshold for the new appender.  Defaults
+  to `DEBUG`."
+  ([]
+    (create-console-appender Level/DEBUG))
+  ([level]
+    { :pre [(instance? Level level)]}
+    (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
+      (doto (ConsoleAppender.)
+        (.setLayout layout)
+        (.setThreshold level)
+        (.activateOptions)))))
+
+(defn add-console-logger!
   "Adds a console logger to the current logging configuration, and ensures
-  that the root log4j logger is set to log at level DEBUG or finer."
-  []
-  (let [root-logger (Logger/getRootLogger)]
-    (.addAppender root-logger create-debug-appender)
-    (if (> (.toInt (.getLevel root-logger))
-           (Level/DEBUG_INT))
-      (.setLevel root-logger Level/DEBUG))))
+  that the root logger is set to log at the logging level of the new
+  logger or finer.
+
+  `level` is an optional argument (of type `org.apache.log4j.Level`)
+  indicating the logging threshold for the new logger.  Defaults
+  to `DEBUG`."
+  ([]
+    (add-console-logger! Level/DEBUG))
+  ([level]
+    { :pre [(instance? Level level)]}
+    (let [root-logger (Logger/getRootLogger)]
+      (.addAppender root-logger (create-console-appender level))
+      (if (> (.toInt (.getLevel root-logger))
+             (.toInt level))
+        (.setLevel root-logger level)))))
 
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
@@ -341,7 +349,7 @@
   (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
   (when debug
-      (add-debug-logger!)
+      (add-console-logger! Level/DEBUG)
       (log/debug "Debug logging enabled"))
   config)
 

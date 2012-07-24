@@ -201,7 +201,7 @@ fi
 %config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
 %{_sbindir}/puppetdb-ssl-setup
-%{_sbindir}/puppetdb-services
+%{_sbindir}/puppetdb-foreground
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>

@@ -179,20 +179,20 @@
 
 (defn parse-config
   "Parses the given config file/directory and configures its various
-  subcomponents.  Also accepts an optional map argument 'initial_config'; if
+  subcomponents.  Also accepts an optional map argument 'initial-config'; if
   provided, any initial values in this map will be included
   in the resulting config map."
   ([path]
     (parse-config path {}))
-  ([path initial_config]
+  ([path initial-config]
     {:pre [(string? path)
-           (map? initial_config)]}
+           (map? initial-config)]}
     (let [file (file path)]
       (when-not (.canRead file)
         (throw (IllegalArgumentException.
           (format "Configuration path '%s' must exist and must be readable." path)))))
 
-    (-> (inis-to-map path initial_config)
+    (-> (merge initial-config (inis-to-map path))
         (configure-logging!)
         (configure-commandproc-threads)
         (configure-web-server)
