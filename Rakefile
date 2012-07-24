@@ -164,6 +164,8 @@ task :template => [ :clean ] do
    erb "ext/templates/jetty.ini.erb",  "ext/files/jetty.ini"
    erb "ext/templates/repl.ini.erb",  "ext/files/repl.ini"
    erb "ext/templates/database.ini.erb",  "ext/files/database.ini"
+   erb "ext/templates/puppetdb-foreground.erb",  "ext/files/puppetdb-foreground"
+   chmod 0700, "ext/files/puppetdb-foreground"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
@@ -242,6 +244,7 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
   cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
   cp_pr "ext/files/puppetdb-ssl-setup", "#{DESTDIR}/#{@sbin_dir}"
+  cp_pr "ext/files/puppetdb-foreground", "#{DESTDIR}/#{@sbin_dir}"
 
   # figure out which init script to install based on facter
   if @osfamily == "redhat" || @osfamily == "suse"
@@ -261,6 +264,7 @@ task :install => [  JAR_FILE  ] do
   chmod 0750, "#{DESTDIR}/#{@config_dir}"
   chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-ssl-setup"
+  chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-foreground"
 end
 
 desc "INTERNAL USE ONLY: Install the terminus components from the puppetdb package tarball onto an existing puppet setup"

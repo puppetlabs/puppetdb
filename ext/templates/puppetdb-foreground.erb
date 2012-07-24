@@ -1,0 +1,3 @@
+#!/bin/bash
+
+su <%= @name -%> -s /bin/bash -c "<%= @java_bin || "/usr/bin/java"  -%> <%= @java_args || "-Xmx192m " -%> -jar <%= @install_dir || "/usr/share/puppetdb" -%>/puppetdb.jar services -c <%= @config_dir -%> $@"
