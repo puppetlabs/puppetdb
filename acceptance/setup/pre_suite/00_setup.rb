@@ -92,6 +92,8 @@ def setup_postgres()
 end
 
 def setup_maven_squid_proxy()
+  on(database, "mkdir -p /root/.m2")
+
   m2_settings_path = "/root/.m2/settings.xml"
   m2_settings_content = <<-EOS
 <settings>
@@ -160,7 +162,11 @@ if (PuppetDBExtensions.test_mode == :package)
   end
 else (PuppetDBExtensions.test_mode == :git)
   step "Install dependencies on the PuppetDB server" do
-    on database, "apt-get install -y openjdk-6-jre-headless libjson-ruby"
+    if osfamily == 'Debian'
+      on database, "apt-get install -y openjdk-6-jre-headless libjson-ruby"
+    else
+      on database, "yum install -y java-1.6.0-openjdk rubygem-rake unzip"
+    end
   end
 
   step "Configure maven to use local squid proxy" do
@@ -200,12 +206,19 @@ step "Install PuppetDB on the PuppetDB server" do
     end
   else
     step "Install PuppetDB via rake" do
+      if (osfamily == 'Debian')
+        preinst = "debian/puppetdb.preinst install"
+        postinst = "debian/puppetdb.postinst"
+      else
+        preinst = "dev/redhat/redhat_dev_preinst install"
+        postinst = "dev/redhat/redhat_dev_postinst install"
+      end
+
       on database, "rm -rf /etc/puppetdb/ssl"
       on database, "#{LeinCommandPrefix} rake template"
-      on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.preinst install"
+      on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{preinst}"
       on database, "#{LeinCommandPrefix} rake install"
-      on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/debian/puppetdb.postinst"
-
+      on database, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{postinst}"
     end
   end
 
@@ -263,7 +276,7 @@ master:
   step "Configure puppetdb.conf to point to the PuppetDB server" do
     puppetdb_conf = <<-CONF
 [main]
-server = #{database}
+server = #{database.node_name}
 port = 8081
     CONF
 

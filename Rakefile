@@ -191,6 +191,12 @@ task :template => [ :clean ] do
    erb "ext/templates/puppetdb_default.erb", "ext/files/puppetdb.default"
    erb "ext/templates/puppetdb.spec.erb", "ext/files/#{@name}.spec"
 
+   # developer utility files for redhat
+   mkdir_p "ext/files/dev/redhat"
+   erb "ext/templates/dev/redhat/redhat_dev_preinst.erb", "ext/files/dev/redhat/redhat_dev_preinst"
+   erb "ext/templates/dev/redhat/redhat_dev_postinst.erb", "ext/files/dev/redhat/redhat_dev_postinst"
+
+
 end
 
 desc "Install PuppetDB (DESTDIR and PE_BUILD optional arguments)"

@@ -50,7 +50,7 @@ module PuppetDBExtensions
     begin
       Timeout.timeout(timeout) do
         until queue_size == 0
-          result = on host, %Q(curl -H 'Accept: application/json' http://localhost:8080/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null | ruby -rjson -e 'puts JSON.parse(STDIN.read)["QueueSize"]')
+          result = on host, %Q(curl -H 'Accept: application/json' http://localhost:8080/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
           queue_size = Integer(result.stdout.chomp)
         end
       end
