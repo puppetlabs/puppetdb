@@ -21,7 +21,10 @@ module PuppetDBExtensions
 
   def start_puppetdb(host)
     on host, "service puppetdb start"
+    sleep_until_started(host)
+  end
 
+  def sleep_until_started(host)
     on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
     num_retries = 0
     until exit_code == 0
@@ -36,6 +39,19 @@ module PuppetDBExtensions
 
   def stop_puppetdb(host)
     on host, "service puppetdb stop"
+  end
+
+  def sleep_until_stopped(host, timeout=nil)
+    on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+    num_retries = 0
+    until exit_code == 7
+      sleep 1
+      on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+      num_retries += 1
+      if (num_retries > 60)
+        fail("Unable to stop puppetdb")
+      end
+    end
   end
 
   def restart_puppetdb(host)
