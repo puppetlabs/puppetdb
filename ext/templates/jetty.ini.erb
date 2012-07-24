@@ -1,6 +1,15 @@
 [jetty]
-# What host to listen on, defaults to binding to localhost
-host = localhost
-
-# Cleartext HTTP port
+# Hostname to list for clear-text HTTP.  Default is localhost
+#host = localhost
+# Port to listen on for clear-text HTTP.
 port = 8080
+<%# placeholder string for ssl-host; will be overwritten by the
+        puppetdb-ssl-setup script %>
+ssl-host = `facter fqdn`
+ssl-port = 8081
+keystore = <%= @etc_dir -%>/ssl/keystore.jks
+truststore = <%= @etc_dir -%>/ssl/truststore.jks
+<%# these are placeholder passwords, will be overwritten by the
+        puppetdb-ssl-setup script %>
+key-password = PASSWORD
+trust-password = PASSWORD
