@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+ # Create the "<%= @name -%>" user
+    if ! getent passwd <%= @name -%>  > /dev/null; then
+        adduser --system --home <%= @install_dir -%>  \
+            <%= @name %>
+    fi
+
+    # Create the "<%= @name -%>" group, if it is missing, and set the
+    # primary group of the "<%= @name -%>" user to this group.
+    if ! getent group <%= @name -%> > /dev/null; then
+         groupadd --system <%= @name %>
+         usermod -g <%= @name -%> <%= @name %>
+    fi
+fi
