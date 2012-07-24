@@ -7,6 +7,10 @@
 (ns com.puppetlabs.utils
   (:import [org.ini4j Ini]
            [org.apache.log4j PropertyConfigurator]
+           [org.apache.log4j ConsoleAppender]
+           [org.apache.log4j PatternLayout]
+           [org.apache.log4j Logger]
+           [org.apache.log4j Level]
            [javax.naming.ldap LdapName])
   (:require [clojure.test]
             [clojure.tools.logging :as log]
@@ -286,6 +290,41 @@
   {:pre [(fn? f)]}
   (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
 
+(defn create-console-appender
+  "Instantiates and returns a logging appender configured to write to
+  the console, using the standard puppetdb logging configuration.
+
+  `level` is an optional argument (of type `org.apache.log4j.Level`)
+  indicating the logging threshold for the new appender.  Defaults
+  to `DEBUG`."
+  ([]
+    (create-console-appender Level/DEBUG))
+  ([level]
+    { :pre [(instance? Level level)]}
+    (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
+      (doto (ConsoleAppender.)
+        (.setLayout layout)
+        (.setThreshold level)
+        (.activateOptions)))))
+
+(defn add-console-logger!
+  "Adds a console logger to the current logging configuration, and ensures
+  that the root logger is set to log at the logging level of the new
+  logger or finer.
+
+  `level` is an optional argument (of type `org.apache.log4j.Level`)
+  indicating the logging threshold for the new logger.  Defaults
+  to `DEBUG`."
+  ([]
+    (add-console-logger! Level/DEBUG))
+  ([level]
+    { :pre [(instance? Level level)]}
+    (let [root-logger (Logger/getRootLogger)]
+      (.addAppender root-logger (create-console-appender level))
+      (if (> (.toInt (.getLevel root-logger))
+             (.toInt level))
+        (.setLevel root-logger level)))))
+
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
   file. You can optionally supply a delay (in millis) that governs how
@@ -304,11 +343,14 @@
   "If there is a logging configuration directive in the supplied
   config map, use it to configure the default logger. Returns the same
   config map that was passed in."
-  [{:keys [global] :as config}]
+  [{:keys [global debug] :as config}]
   {:pre  [(map? config)]
    :post [(map? %)]}
   (when-let [logging-conf (:logging-config global)]
     (configure-logger-via-file! logging-conf))
+  (when debug
+      (add-console-logger! Level/DEBUG)
+      (log/debug "Debug logging enabled"))
   config)
 
 ;; ## Command-line parsing
@@ -323,6 +365,7 @@
   (let [specs                    (conj specs
                                        ["-c" "--config" "Path to config.ini" :required true]
                                        ["-h" "--help" "Show help" :default false :flag true]
+                                       ["-d" "--debug" "Enable debug mode" :default false :flag true]
                                        ["--trace" "Print stacktraces on error" :default false :flag true])
         [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
