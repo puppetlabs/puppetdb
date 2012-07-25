@@ -21,6 +21,7 @@
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
@@ -214,6 +215,21 @@ must be supplied as the value to be matched."
   (sql/do-prepared "UPDATE certnames SET deactivated = ?
                     WHERE name=? AND deactivated IS NULL"
                    [(to-timestamp (now)) certname]))
+
+(defn stale-nodes
+  "Return a list of nodes that have seen no activity between
+  (now-`time` and now)"
+  [time]
+  {:pre  [(utils/isa-datetime? time)]
+   :post [(coll? %)]}
+  (let [ts (to-timestamp time)]
+    (map :name (jdbc/query-to-vec "SELECT c.name FROM certnames c
+                                   LEFT OUTER JOIN certname_catalogs cc ON c.name=cc.certname
+                                   LEFT OUTER JOIN certname_facts_metadata fm ON c.name=fm.certname
+                                   WHERE c.deactivated IS NULL
+                                   AND (cc.timestamp IS NULL OR cc.timestamp < ?)
+                                   AND (fm.timestamp IS NULL OR fm.timestamp < ?)"
+                                  ts ts))))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
