@@ -3,11 +3,13 @@
 (ns com.puppetlabs.mq
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage])
-  (:require [clamq.activemq :as activemq]
+  (:require [cheshire.core :as json]
+            [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
             [clamq.protocol.seqable :as mq-seq]
-            [clamq.protocol.producer :as mq-producer]))
+            [clamq.protocol.producer :as mq-producer])
+  (:use [cheshire.custom :only (JSONable)]))
 
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
@@ -62,6 +64,14 @@
   [connection & args]
   (let [producer (mq-conn/producer connection)]
     (apply mq-producer/publish producer args)))
+
+(defn publish-json!
+  "Publish the `msg` to the queue identified by `endpoint` using an MQ
+  handle `connection`."
+  [connection endpoint msg]
+  {:pre [(string? endpoint)
+         (satisfies? JSONable msg)]}
+  (connect-and-publish! connection endpoint (json/generate-string msg)))
 
 (defn timed-drain-into-vec!
   "Drains the indicated MQ endpoint into a vector
