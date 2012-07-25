@@ -14,7 +14,9 @@
 (ns com.puppetlabs.puppetdb.scf.migrate
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
+  (:use [clj-time.coerce :only [to-timestamp]]
+        [clj-time.core :only [now]]
+        [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string]]))
 
 (defn initialize-store
@@ -124,8 +126,9 @@
                     ["certname" "TEXT" "UNIQUE" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["timestamp" "TIMESTAMP WITH TIME ZONE"]
                     ["PRIMARY KEY (certname, timestamp)"])
-  (sql/do-commands
-   "INSERT INTO certname_facts_metadata (certname,timestamp) SELECT name, current_timestamp FROM certnames")
+  (sql/do-prepared
+   "INSERT INTO certname_facts_metadata (certname,timestamp) SELECT name, ? FROM certnames"
+   [(to-timestamp (now))])
 
   ;; First we get rid of the existing foreign key to certnames
   (let [[result & _] (query-to-vec
@@ -166,8 +169,8 @@ along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
   (sql/do-prepared
-   "INSERT INTO schema_migrations (version, time) VALUES (?, current_timestamp)"
-   [version]))
+   "INSERT INTO schema_migrations (version, time) VALUES (?, ?)"
+   [version (to-timestamp (now))]))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."

@@ -25,6 +25,7 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
+        [clj-time.core :only [ago days now]]
         [clojure.core.memoize :only [memo-lru]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
@@ -210,9 +211,9 @@ must be supplied as the value to be matched."
   currently inactive, no change is made."
   [certname]
   {:pre [(string? certname)]}
-  (sql/do-prepared "UPDATE certnames SET deactivated = current_timestamp
+  (sql/do-prepared "UPDATE certnames SET deactivated = ?
                     WHERE name=? AND deactivated IS NULL"
-                   [certname]))
+                   [(to-timestamp (now)) certname]))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
