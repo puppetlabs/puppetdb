@@ -24,7 +24,7 @@
     (testing "should work when well-formed"
       (let [payload  "This is a test"
             checksum (pl-utils/utf8-string->sha1 payload)
-            req      (make-request {:payload "This is a test" :checksum checksum})
+            req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
         (is (= (:status resp) 200))
         (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
