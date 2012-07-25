@@ -586,6 +586,7 @@ must be supplied as the value to be matched."
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
   [{:keys [certname] :as catalog} timestamp]
+  {:pre [(utils/isa-datetime? timestamp)]}
   (time! (:replace-catalog metrics)
          (sql/transaction
           (let [catalog-hash (add-catalog! catalog)]
@@ -596,6 +597,7 @@ must be supplied as the value to be matched."
   "Given a certname and a map of fact names to values, store records for those
 facts associated with the certname."
   [certname facts timestamp]
+  {:pre [(utils/isa-datetime? timestamp)]}
   (let [default-row {:certname certname}
         rows        (for [[fact value] facts]
                       (assoc default-row :fact fact :value value))]

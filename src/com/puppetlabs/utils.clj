@@ -25,6 +25,7 @@
         [clojure.set :only (difference union)]
         [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
+        [clj-time.coerce :only [ICoerce]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
 
@@ -132,7 +133,13 @@
    :post [(set? %)]}
   (set (vals m)))
 
-;; ## Timestamping
+;; ## Date and Time
+
+(defn isa-datetime?
+  "Predicate returning whether or not the supplied object is
+  convertible to a Joda DateTime"
+  [x]
+  (satisfies? ICoerce x))
 
 (defn timestamp
   "Returns a timestamp string for the given `time`, or the current time if none
