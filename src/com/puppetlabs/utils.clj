@@ -353,6 +353,22 @@
     (log/debug "Debug logging enabled"))
   config)
 
+(defmacro demarcate
+  "Executes `body`, but logs `msg` to info before and after `body` is
+  executed. `body` is executed in an implicit do, and the last
+  expression's return value is returned by `demarcate`.
+
+    user> (demarcate \"reticulating splines\" (+ 1 2 3))
+    \"Starting reticulating splines\"
+    \"Finished reticulating splines\"
+    6
+  "
+  [msg & body]
+  `(do (log/info (str "Starting " ~msg))
+       (let [result# (do ~@body)]
+         (log/info (str "Finished " ~msg))
+         result#)))
+
 ;; ## Command-line parsing
 
 (defn cli!
