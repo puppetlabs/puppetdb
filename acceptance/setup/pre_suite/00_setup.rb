@@ -112,7 +112,6 @@ def setup_maven_squid_proxy()
   create_remote_file(database, m2_settings_path, m2_settings_content)
 end
 
-
 def setup_apt_proxy()
     step "Configure apt to use local http proxy" do
       apt_conf_file_path = "/etc/apt/apt.conf.d/99apt-http-proxy"
@@ -142,40 +141,25 @@ def setup_yum_proxy()
   end
 end
 
-
-def install_puppetdb_package(dev_or_production)
-  if (dev_or_production == :production)
-    install_puppetdb_from_production_repo()
-  elsif (dev_or_production == :dev)
-    install_puppetdb_from_dev_repo()
+def install_puppetdb(host)
+  if @osfamily == :debian
+    on host, "yes | apt-get install -y --force-yes puppetdb"
+  elsif @osfamily == :redhat
+    on host, "yum install -y puppetdb"
   else
     raise ArgumentError, "Unsupported OS family: '#{@osfamily}'"
   end
 end
 
-def install_puppetdb_from_production_repo()
-  if (@osfamily == :debian)
-    on database, "apt-get -f -y install puppetdb"
-  elsif (@osfamily == :redhat)
-    on database, "yum install -y --disablerepo puppetlabs-prerelease puppetdb"
+def install_puppetdb_terminuses(host)
+  if @osfamily == :debian
+    on host, "apt-get install -y --force-yes puppetdb-terminus"
+  elsif @osfamily == :redhat
+    on host, "yum install -y puppetdb-terminus"
   else
     raise ArgumentError, "Unsupported OS family: '#{@osfamily}'"
   end
 end
-
-def install_puppetdb_from_dev_repo()
-  if (@osfamily == :debian)
-    on database, "mkdir -p /tmp/packages/puppetdb"
-    scp_to database, File.join(@pkg_dir, "puppetdb.deb"), "/tmp/packages/puppetdb"
-    on database, "dpkg -i --force-confdef /tmp/packages/puppetdb/puppetdb.deb", :acceptable_exit_codes => (0..255)
-    on database, "apt-get -f -y --force-yes install"
-  elsif (@osfamily == :redhat)
-    on database, "yum install -y --disablerepo puppetlabs-products puppetdb"
-  else
-    raise ArgumentError, "Unsupported OS family: '#{@osfamily}'"
-  end
-end
-
 
 # TODO: I'm not 100% sure whether this is the right or best way to determine
 #  whether we're running from source or running from a package; might want
@@ -194,7 +178,6 @@ step "Determine whether we're Debian or RedHat" do
   end
 end
 
-
 step "Configure package manager to use local http proxy" do
   # TODO: this should probably run on every host, not just on the database host,
   #  and it should probably be moved into the main acceptance framework instead
@@ -207,77 +190,66 @@ step "Configure package manager to use local http proxy" do
   end
 end
 
-
-
 # TODO: I think it would be nice to get rid of all of these conditionals; maybe
 #  we could refactor this into a base class with two child classes that handle
 #  the differences... or something less ugly than this :)
-if (PuppetDBExtensions.test_mode == :package)
-  step "Install Puppet on all systems" do
-    if @osfamily == :debian
-      on hosts, "wget http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
-      on hosts, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
-      on hosts, "apt-get update"
-      on hosts, "apt-get install --force-yes -y puppet"
-    else
-      create_remote_file hosts, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*6, '')
-      [puppetlabs-dependencies]
-      name=Puppet Labs Dependencies - $basearch
-      baseurl=http://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
-      gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-      enabled=1
-      gpgcheck=1
-      REPO
+step "Install Puppet and other dependencies" do
+  case PuppetDBExtensions.test_mode
+  when :package
+    step "Add Puppet Labs repositories" do
+      if @osfamily == :debian
+        on hosts, "wget http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
+        on hosts, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
+        on hosts, "apt-get update"
+      else
+        create_remote_file hosts, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
+        [puppetlabs-dependencies]
+        name=Puppet Labs Dependencies - $basearch
+        baseurl=http://yum.puppetlabs.com/el/$releasever/dependencies/$basearch
+        gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+        enabled=1
+        gpgcheck=1
+        REPO
 
-      create_remote_file hosts, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*6, '')
-      [puppetlabs-products]
-      name=Puppet Labs Products - $basearch
-      baseurl=http://yum.puppetlabs.com/el/$releasever/products/$basearch
-      gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
-      enabled=1
-      gpgcheck=1
-      REPO
-
-      create_remote_file database, '/etc/yum.repos.d/puppetlabs-prerelease.repo', <<-REPO.gsub(' '*6, '')
-      [puppetlabs-prerelease]
-      name=Puppet Labs Prerelease - $basearch
-      baseurl=http://neptune.puppetlabs.lan/dev/el/$releasever/products/$basearch
-      enabled=1
-      gpgcheck=0
-      REPO
-
-      on hosts, "yum install -y puppet"
+        create_remote_file hosts, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
+        [puppetlabs-products]
+        name=Puppet Labs Products - $basearch
+        baseurl=http://yum.puppetlabs.com/el/$releasever/products/$basearch
+        gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+        enabled=1
+        gpgcheck=1
+        REPO
+      end
     end
-  end
 
-  step "Install dependencies on the PuppetDB server" do
-    if @osfamily == :redhat
-      on database, "yum install -y unzip"
+    step "Install dependencies" do
+      if @osfamily == :debian
+        on hosts, "apt-get install -y puppet"
+      elsif @osfamily == :redhat
+        on hosts, "yum install -y puppet unzip"
+      end
     end
-  end
-
-
-
-else (PuppetDBExtensions.test_mode == :git)
-  step "Install dependencies on the PuppetDB server" do
-    if @osfamily == :debian
-      on database, "apt-get install -y openjdk-6-jre-headless"
-    else
-      on database, "yum install -y java-1.6.0-openjdk rubygem-rake"
+  when :git
+    step "Install dependencies on the PuppetDB server" do
+      if @osfamily == :debian
+        on database, "apt-get install -y openjdk-6-jre-headless"
+      else
+        on database, "yum install -y java-1.6.0-openjdk rubygem-rake"
+      end
     end
-  end
 
-  step "Configure maven to use local squid proxy" do
-    setup_maven_squid_proxy()
-  end
+    step "Configure maven to use local squid proxy" do
+      setup_maven_squid_proxy
+    end
 
-  step "Install lein on the PuppetDB server" do
-    which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
-    needs_lein = which_result.exit_code == 1
-    if (needs_lein)
-      on database, "curl -k https://raw.github.com/technomancy/leiningen/1.7.1/bin/lein -o /usr/local/bin/lein"
-      on database, "chmod +x /usr/local/bin/lein"
-      on database, "LEIN_ROOT=true lein"
+    step "Install lein on the PuppetDB server" do
+      which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
+      needs_lein = which_result.exit_code == 1
+      if (needs_lein)
+        on database, "curl -k https://raw.github.com/technomancy/leiningen/1.7.1/bin/lein -o /usr/local/bin/lein"
+        on database, "chmod +x /usr/local/bin/lein"
+        on database, "LEIN_ROOT=true lein"
+      end
     end
   end
 end
@@ -288,18 +260,43 @@ step "Run an agent to create the SSL certs" do
   end
 end
 
+if (options[:puppetdb_install_mode] == :upgrade)
+  step "Install most recent released PuppetDB on the PuppetDB server for upgrade test" do
+    install_puppetdb(database)
+    start_puppetdb(database)
+    install_puppetdb_terminuses(master)
+  end
+end
+
+step "Add development repository" do
+  if @osfamily == :debian
+    on database, "echo deb http://apt-dev.puppetlabs.lan $(lsb_release -sc) main >> /etc/apt/sources.list"
+    on database, "apt-get update"
+  elsif @osfamily == :yum
+    create_remote_file database, '/etc/yum.repos.d/puppetlabs-prerelease.repo', <<-REPO.gsub(' '*6, '')
+    [puppetlabs-development]
+    name=Puppet Labs Development - $basearch
+    baseurl=http://neptune.puppetlabs.lan/dev/el/$releasever/products/$basearch
+    enabled=1
+    gpgcheck=0
+    REPO
+  end
+end
+
 step "Install PuppetDB on the PuppetDB server" do
   if (PuppetDBExtensions.test_mode == :package)
     Log.notify("Installing puppetdb from package; install mode: '#{options[:puppetdb_install_mode].inspect}'")
-    if (options[:puppetdb_install_mode] == :upgrade)
-      initial_install_repo = :production
-    else
-      initial_install_repo = :dev
-    end
 
+    # Remove this so that the SSL setup script will run again
+    on database, "rm -f /etc/puppetdb/ssl/puppetdb_keystore_pw.txt"
 
-    step "Install the package" do
-      install_puppetdb_package(initial_install_repo)
+    install_puppetdb(database)
+
+    # The package should start the service on debian, and during upgrades we
+    # already started it so it should still be running. But on redhat without
+    # upgrade, we do need to start it manually.
+    if options[:puppetdb_install_mode] == :install and @osfamily == :redhat
+      start_puppetdb(database)
     end
   else
     step "Install PuppetDB via rake" do
@@ -320,7 +317,7 @@ step "Install PuppetDB on the PuppetDB server" do
   end
 
   if (options[:puppetdb_database] == 'postgres')
-    setup_postgres()
+    setup_postgres
   end
 
   step "Print out jetty.ini for posterity" do
@@ -329,34 +326,11 @@ step "Install PuppetDB on the PuppetDB server" do
   step "Print out database.ini for posterity" do
     on database, "cat /etc/puppetdb/conf.d/database.ini"
   end
-
-  step "Start PuppetDB" do
-    start_puppetdb(database)
-  end
-
-  if (options[:puppetdb_install_mode] == :upgrade)
-    step "Upgrade PuppetDB from package" do
-      install_puppetdb_package(:dev)
-    end
-
-    step "Wait for PuppetDB to finish restarting" do
-      sleep_until_started(database)
-    end
-  end
 end
 
 step "Install the PuppetDB terminuses on the master" do
   if (PuppetDBExtensions.test_mode == :package)
-    if @osfamily == :debian
-      on master, "mkdir -p /tmp/packages/puppetdb"
-      scp_to master, File.join(@pkg_dir, "puppetdb-terminus.deb"), "/tmp/packages/puppetdb"
-
-      on master, "dpkg -i /tmp/packages/puppetdb/puppetdb-terminus.deb", :acceptable_exit_codes => (0..255)
-      on master, "apt-get -f -y install"
-    else
-      # TODO: deal with upgrades for terminus package
-      on master, "yum install -y --disablerepo puppetlabs-products puppetdb-terminus"
-    end
+    install_puppetdb_terminuses(master)
   else
     step "Install the termini via rake" do
       on master, "#{LEIN_COMMAND_PREFIX} rake sourceterminus"
