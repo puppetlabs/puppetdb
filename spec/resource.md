@@ -99,4 +99,4 @@ following form:
 
 [You can use `curl`](curl.md) to query information about resources like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/resources' --data-urlencode 'query=["=", "type", "File"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/resources' --data-urlencode 'query=["and", ["=", "type", "File"], ["=", "title", "/etc/ipsec.conf"]]'
