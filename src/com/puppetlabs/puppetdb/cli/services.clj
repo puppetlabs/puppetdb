@@ -35,11 +35,11 @@
 ;;   that come in via REST are relayed to the message queue. Read-only
 ;;   requests are serviced synchronously.
 ;;
-;; * Database garbage collector
+;; * Database compactor
 ;;
-;;   As catalogs are modified, unused records may accumulate in the
-;;   database. We periodically compact the database to maintain
-;;   acceptable performance.
+;;   As catalogs are modified, unused records may accumulate and stale
+;;   data may linger in the database. We periodically compact the
+;;   database to maintain acceptable performance.
 ;;
 (ns com.puppetlabs.puppetdb.cli.services
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -50,6 +50,7 @@
             [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
+            [clj-time.core :as time]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.tools.nrepl.server :as nrepl]
@@ -57,6 +58,7 @@
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
+        [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
@@ -88,21 +90,31 @@
    (with-open [conn (mq/connect! mq)]
      (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
-(defn db-garbage-collector
+(defn db-compactor
   "Compact the indicated database every `interval` minutes.
 
   This function doesn't terminate. If we encounter an exception during
   compaction, the operation will be retried after `interval` millis."
-  [db interval]
-  (pl-utils/keep-going
-   (fn [exception]
-     (log/error exception "Error during DB compaction"))
+  [db mq mq-endpoint interval node-ttl-days]
+  (let [sleep #(Thread/sleep (* 60 1000 interval))]
+    (pl-utils/keep-going
+     (fn [exception]
+       (log/error exception "Error during DB compaction")
+       (sleep))
 
-   (log/info "Beginning database compaction")
-   (with-transacted-connection db
-     (scf-store/garbage-collect!)
-     (log/info "Finished database compaction"))
-   (Thread/sleep (* 60 1000 interval))))
+     (pl-utils/demarcate
+      "database compaction"
+      (with-transacted-connection db
+        (scf-store/garbage-collect!)))
+
+     (when node-ttl-days
+       (pl-utils/demarcate
+        "sweep of stale nodes"
+        (with-transacted-connection db
+          (doseq [node (scf-store/stale-nodes (time/ago (time/days node-ttl-days)))]
+            (command/enqueue-command! mq mq-endpoint "deactivate node" 1 node)))))
+
+     (sleep))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -136,12 +148,15 @@
   [{:keys [database global] :as config}]
   {:pre  [(map? config)]
    :post [(map? config)]}
-  (let [vardir     (:vardir global)
-        default-db {:classname   "org.hsqldb.jdbcDriver"
-                    :subprotocol "hsqldb"
-                    :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
-    (assoc config :database
-           (merge {:gc-interval 60} (or database default-db)))))
+  (let [vardir       (:vardir global)
+        default-db   {:classname   "org.hsqldb.jdbcDriver"
+                      :subprotocol "hsqldb"
+                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
+        default-opts {:gc-interval 60
+                      :node-ttl-days nil}
+        db           (merge default-opts
+                            (or database default-db))]
+    (assoc config :database db)))
 
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
@@ -213,6 +228,7 @@
         vardir                                     (validate-vardir (:vardir global))
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
+        node-ttl-days                              (get database :node-ttl-days)
         mq-dir                                     (str (file vardir "mq"))
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db     db
@@ -251,7 +267,7 @@
           db-gc         (do
                           (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
                           (future (with-error-delivery error
-                                    (db-garbage-collector db db-gc-minutes))))]
+                                    (db-compactor db mq-addr mq-endpoint db-gc-minutes node-ttl-days))))]
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]

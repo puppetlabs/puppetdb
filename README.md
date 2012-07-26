@@ -607,6 +607,15 @@ How often, in minutes, to compact the database. The compaction process
 reclaims space, and deletes unnecessary rows. If not supplied, the
 default is every 60 minutes.
 
+`node-ttl-days`
+
+Auto-deactivate nodes that haven't seen any activity (no new catalogs,
+facts, etc) in the indicated number of days. Nodes will be checked for
+staleness every `gc-interval` minutes. Manual deactivation will
+continue to work as always.
+
+If unset, auto-deactivation of nodes is disabled.
+
 `classname`, `subprotocol`, and `subname`
 
 These are specific to the type of database you're using. We currently
@@ -783,6 +792,9 @@ as the current behavior of destroy in PuppetDB is to simply
 deactivate. However, this behavior may change in future, and the
 command is not specific to PuppetDB, so the preferred method is
 `puppet node deactivate`.
+
+If you'd like PuppetDB to automatically deactivate nodes, refer to the
+`node-ttl-days` configuration variable.
 
 ### Redoing SSL setup after changing certs
 
