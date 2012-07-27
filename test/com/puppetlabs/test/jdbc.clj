@@ -45,3 +45,11 @@
             (str query " => " result " with vector"))
         (is (= (apply subject/query-to-vec query) result)
             (str query " => " result " with multiple params"))))))
+
+(deftest limited-query-to-vec
+  (testing "query does not exceed limit"
+    (is (= (subject/limited-query-to-vec 100 "SELECT key FROM test WHERE key LIKE 'ab%'")
+          (map #(hash-map :key %) ["absence" "abundant"]))))
+  (testing "query exceeds limit"
+    (is (thrown-with-msg? IllegalArgumentException #"more than the maximum number of results"
+          (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
