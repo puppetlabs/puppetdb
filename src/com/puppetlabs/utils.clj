@@ -135,7 +135,7 @@
 
 ;; ## Date and Time
 
-(defn isa-datetime?
+(defn datetime?
   "Predicate returning whether or not the supplied object is
   convertible to a Joda DateTime"
   [x]
