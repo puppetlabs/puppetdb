@@ -32,6 +32,13 @@
   tests. This will provide the `*db*` and `*mq*` to the app as globals if they
   are available. Note this means this fixture should be nested _within_
   `with-test-db` or `with-test-mq`."
-  [f]
-  (binding [*app* (server/build-app :globals {:scf-db *db* :command-mq *mq*})]
-    (f)))
+  ([f]
+    (with-http-app {} f))
+  ([globals-overrides f]
+    (binding [*app* (server/build-app
+                       :globals (merge
+                                  {:scf-db *db*
+                                   :command-mq *mq*
+                                   :resource-query-limit 5000}
+                                  globals-overrides))]
+      (f))))

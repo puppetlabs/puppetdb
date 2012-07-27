@@ -20,6 +20,32 @@
                      :else %)]
        (map #(utils/mapvals convert %) result-set))))
 
+(defn limited-query-to-vec
+  "Take a limit and an SQL query (with optional parameters), and return the
+  result of the query as a vector.  These results, unlike a normal query result,
+  are not tied to the database connection and can be safely returned.
+
+  A value of `0` for `limit` is interpreted as 'no limit'.  For any other value,
+  the function raises an error if the query would return more than `limit`
+  results.
+
+  Can be invoked in two ways: either passing the limit and the SQL query string,
+  or the limit and a vector of the query string and parameters.
+
+  (limited-query-to-vec 1000 \"select * from table\")
+  (limited-query-to-vec 1000 [\"select * from table where column = ?\" 12])"
+  [limit query]
+  {:pre [(and (integer? limit) (>= limit 0))
+         ((some-fn string? vector?) query)]}
+  (let [query-vector (if (string? query) [query] query)
+        sql-query-and-params (add-limit-clause* limit query-vector)]
+    (sql/with-query-results result-set
+      sql-query-and-params
+      (let [limited-result-set (limit-result-set!* limit result-set)]
+        (-> limited-result-set
+          (convert-result-arrays)
+          (vec))))))
+
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
   query as a vector.  These results, unlike a normal query result, are
@@ -35,11 +61,8 @@
   ([sql-query & params]
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
-     (sql/with-query-results result-set
-       (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
-       (-> result-set
-           (convert-result-arrays)
-           (vec)))))
+    {:pre [((some-fn string? vector?) sql-query-and-params)]}
+       (limited-query-to-vec 0 sql-query-and-params)))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
