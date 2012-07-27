@@ -25,11 +25,12 @@ module PuppetDBExtensions
   end
 
   def sleep_until_started(host)
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+    # Omit 127 because it means "command not found".
+    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
     num_retries = 0
     until exit_code == 0
       sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
       num_retries += 1
       if (num_retries > 60)
         fail("Unable to start puppetdb")
@@ -39,14 +40,15 @@ module PuppetDBExtensions
 
   def stop_puppetdb(host)
     on host, "service puppetdb stop"
+    sleep_until_stopped(host)
   end
 
-  def sleep_until_stopped(host, timeout=nil)
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+  def sleep_until_stopped(host)
+    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
     num_retries = 0
     until exit_code == 7
       sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => [0,7]
+      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
       num_retries += 1
       if (num_retries > 60)
         fail("Unable to stop puppetdb")
