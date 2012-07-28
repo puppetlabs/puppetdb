@@ -35,11 +35,12 @@
 ;;   that come in via REST are relayed to the message queue. Read-only
 ;;   requests are serviced synchronously.
 ;;
-;; * Database compactor
+;; * Database sweeper
 ;;
 ;;   As catalogs are modified, unused records may accumulate and stale
-;;   data may linger in the database. We periodically compact the
-;;   database to maintain acceptable performance.
+;;   data may linger in the database. We periodically sweep the
+;;   database, compacting it and performing regular cleanup so we can
+;;   maintain acceptable performance.
 ;;
 (ns com.puppetlabs.puppetdb.cli.services
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -74,6 +75,7 @@
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
+(def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
 
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.
@@ -90,29 +92,32 @@
    (with-open [conn (mq/connect! mq)]
      (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
-(defn db-compactor
-  "Compact the indicated database every `interval` minutes.
+(defn sweep-database!
+  "Sweep the indicated database every `interval` minutes.
 
   This function doesn't terminate. If we encounter an exception during
-  compaction, the operation will be retried after `interval` millis."
-  [db mq mq-endpoint interval node-ttl-days]
+  compaction, the operation will be retried after `interval` millis.
+
+  This function will perform database garbage collection, and will also
+  deactivate nodes more stale than `node-ttl-days`"
+  [db interval node-ttl-days]
   (let [sleep #(Thread/sleep (* 60 1000 interval))]
     (pl-utils/keep-going
      (fn [exception]
-       (log/error exception "Error during DB compaction")
+       (log/error exception "Error during database sweep")
        (sleep))
 
      (pl-utils/demarcate
-      "database compaction"
+      "database garbage collection"
       (with-transacted-connection db
         (scf-store/garbage-collect!)))
 
-     (when node-ttl-days
+     (when (pos? node-ttl-days)
        (pl-utils/demarcate
-        "sweep of stale nodes"
+        (format "sweep of stale nodes (%s day threshold)" node-ttl-days)
         (with-transacted-connection db
           (doseq [node (scf-store/stale-nodes (time/ago (time/days node-ttl-days)))]
-            (command/enqueue-command! mq mq-endpoint "deactivate node" 1 node)))))
+            (send-command! "deactivate node" 1 node)))))
 
      (sleep))))
 
@@ -153,7 +158,7 @@
                       :subprotocol "hsqldb"
                       :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
         default-opts {:gc-interval 60
-                      :node-ttl-days nil}
+                      :node-ttl-days 0}
         db           (merge default-opts
                             (or database default-db))]
     (assoc config :database db)))
@@ -265,9 +270,9 @@
                           (future (with-error-delivery error
                                     (jetty/run-jetty app jetty))))
           db-gc         (do
-                          (log/info (format "Starting database compactor (%d minute interval)" db-gc-minutes))
+                          (log/info (format "Starting database sweeper (%d minute interval)" db-gc-minutes))
                           (future (with-error-delivery error
-                                    (db-compactor db mq-addr mq-endpoint db-gc-minutes node-ttl-days))))]
+                                    (sweep-database! db db-gc-minutes node-ttl-days))))]
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
