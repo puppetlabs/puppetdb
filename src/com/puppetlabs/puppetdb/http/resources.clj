@@ -79,7 +79,7 @@
 
   If the query can't be parsed, a 400 is returned.
 
-  If the query would return more than `limit` results, a 400 is returned."
+  If the query would return more than `limit` results, HTTP-INTERNAL-ERROR is returned."
   [limit query db]
   {:pre [(and (integer? limit) (>= limit 0))]}
   (try
@@ -92,7 +92,9 @@
     (catch com.fasterxml.jackson.core.JsonParseException e
       (http-utils/error-response e))
     (catch IllegalArgumentException e
-      (http-utils/error-response e))))
+      (http-utils/error-response e))
+    (catch IllegalStateException e
+      (http-utils/error-response e http-utils/HTTP-INTERNAL-ERROR ))))
 
 (defn resources-app
   "Ring app for querying resources"

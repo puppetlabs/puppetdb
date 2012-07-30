@@ -73,7 +73,7 @@
   [limit]
   ; TODO: tempted to create a custom exception for this, or at least
   ;  some kind of general-purpose PuppetDBException
-  (throw (IllegalArgumentException.
+  (throw (IllegalStateException.
            (format
              "Query returns more than the maximum number of results (max: %s)"
              limit))))
