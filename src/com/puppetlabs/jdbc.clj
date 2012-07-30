@@ -4,7 +4,9 @@
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
-            [com.puppetlabs.utils :as utils]))
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.utils :as utils])
+  (:use com.puppetlabs.jdbc.internal))
 
 (defn convert-result-arrays
   "Converts Java and JDBC arrays in a result set using the provided function
@@ -64,19 +66,25 @@
     :or   {partition-conn-min 1
            partition-conn-max 10
            partition-count    5
-           stats              true}
+           stats              true
+          ;; setting this to a String value, because that's what it would
+          ;;  be in the config file and we're manually converting it to a boolean
+           log-statements     "true"
+           log-slow-statements 10}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
-  (let [config (doto (new BoneCPConfig)
-                 (.setDefaultAutoCommit false)
-                 (.setLazyInit true)
-                 (.setMinConnectionsPerPartition partition-conn-min)
-                 (.setMaxConnectionsPerPartition partition-conn-max)
-                 (.setPartitionCount partition-count)
-                 (.setStatisticsEnabled stats)
-                 ;; paste the URL back together from parts.
-                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
+  (let [log-statements (Boolean/parseBoolean log-statements)
+        config (doto (new BoneCPConfig)
+                (.setDefaultAutoCommit false)
+                (.setLazyInit true)
+                (.setMinConnectionsPerPartition partition-conn-min)
+                (.setMaxConnectionsPerPartition partition-conn-max)
+                (.setPartitionCount partition-count)
+                (.setStatisticsEnabled stats)
+                ;; paste the URL back together from parts.
+                (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
+                (.setConnectionHook (connection-hook* log-statements log-slow-statements)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))
