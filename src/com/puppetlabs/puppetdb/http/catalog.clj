@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.catalog
   (:require [cheshire.core :as json]
-            [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.http.utils :as http-utils]
             [com.puppetlabs.puppetdb.query.catalog :as c]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -11,8 +11,8 @@
   (let [catalog (with-transacted-connection db
                   (c/catalog-for-node node))]
     (if catalog
-      (utils/json-response catalog)
-      (utils/json-response {:error (str "Could not find catalog for " node)} 404))))
+      (http-utils/json-response catalog)
+      (http-utils/json-response {:error (str "Could not find catalog for " node)} 404))))
 
 (defn catalog-app
   "Ring app for retrieving catalogs"
@@ -23,7 +23,7 @@
      (-> (rr/response "missing node")
          (rr/status 400))
 
-     (not (utils/acceptable-content-type
+     (not (http-utils/acceptable-content-type
            "application/json"
            (headers "accept")))
      (-> (rr/response "must accept application/json"))

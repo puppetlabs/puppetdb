@@ -25,7 +25,7 @@
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [com.puppetlabs.utils :as pl-utils]
+            [com.puppetlabs.http.utils :as http-utils]
             [ring.util.response :as rr])
   (:use [clj-http.util :only (url-encode)]
         [cheshire.custom :only (JSONable)]
@@ -67,7 +67,7 @@
   [_]
   (-> (all-mbean-names)
       (linkify-names)
-      (pl-utils/json-response)))
+      (http-utils/json-response)))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
@@ -75,7 +75,7 @@
   (if ((all-mbean-names) name)
     (-> (jmx/mbean name)
         (filter-mbean)
-        (pl-utils/json-response))
+        (http-utils/json-response))
     (-> "No such mbean"
         (rr/response)
         (rr/status 404))))
@@ -94,7 +94,7 @@
   we return an HTTP 406."
   [f content-type]
   (fn [{:keys [headers] :as req}]
-    (if (pl-utils/acceptable-content-type content-type (headers "accept"))
+    (if (http-utils/acceptable-content-type content-type (headers "accept"))
       (f req)
       (-> (format "must accept %s" content-type)
           (rr/response)
