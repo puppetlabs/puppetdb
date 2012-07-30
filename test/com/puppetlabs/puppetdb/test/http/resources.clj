@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.resources
   (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
+            [com.puppetlabs.http.utils :as http-utils]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
@@ -120,7 +121,7 @@ to the result of the form supplied to this method."
           (fn []
             (let [response (get-response ["=" "type" "File"])
                   body     (get response :body "null")]
-              (is (= (:status response) 400))
+              (is (= (:status response) http-utils/HTTP-INTERNAL-ERROR))
               (is (re-find #"more than the maximum number of results" body))))))
 
       (testing "querying against inactive nodes"
