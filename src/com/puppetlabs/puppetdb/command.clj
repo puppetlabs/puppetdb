@@ -193,7 +193,7 @@
    :payload (json/generate-string payload)})
 
 (defn annotate-command
-  "Annotate a command-map with a timetamp and UUID"
+  "Annotate a command-map with a timestamp and UUID"
   [message]
   {:pre  [(map? message)]
    :post [(map? %)]}
