@@ -365,7 +365,7 @@
   (let [specs                    (conj specs
                                        ["-c" "--config" "Path to config.ini" :required true]
                                        ["-h" "--help" "Show help" :default false :flag true]
-                                       ["-d" "--debug" "Enable debug mode" :default false :flag true]
+                                       ["-D" "--debug" "Enable debug mode" :default false :flag true]
                                        ["--trace" "Print stacktraces on error" :default false :flag true])
         [options posargs banner] (apply cli/cli args specs)]
     (when (:help options)
