@@ -22,3 +22,11 @@ subname = file:<%= @lib_dir -%>/db/db;hsqldb.tx=mvcc;sql.syntax_pgs=true
 
 # How often (in minutes) to compact the database
 # gc-interval = 60
+
+# If this is set to true, then all SQL statements will be logged at DEBUG
+#  level.
+log-statements = true
+
+# Number of seconds before any SQL query is considered 'slow'; offending
+#  queries will not be interrupted, but will be logged at the WARN log level.
+log-slow-statements = 10

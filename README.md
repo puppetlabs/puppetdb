@@ -548,6 +548,7 @@ Here is an example configuration file:
     [global]
     vardir = /var/lib/puppetdb
     logging-config = /var/lib/puppetdb/log4j.properties
+    resource-query-limit = 5000
 
     [database]
     classname = org.postgresql.Driver
@@ -598,6 +599,16 @@ level to standard out.
 You can edit the logging configuration file after you've started
 PuppetDB, and those changes will automatically get picked up after a
 few seconds.
+
+`resource-query-limit`
+
+This setting defines a maximum number of legal results that a resource
+query can return.  If you issue a query that would result in more
+results than this value, the query will simply return an error.  (This
+can be used to prevent accidental queries that would yield huge numbers
+of results from consuming undesirable amounts of resources on the server.)
+
+The default value is 5000.
 
 **[database]**
 
@@ -656,6 +667,24 @@ What username to use when connecting.
 `password`
 
 A password to use when connecting.
+
+`log-statements`
+
+This should be set to either `true` or `false`.  If `true` (which is the default),
+then all of the raw SQL statements executed against the database will be logged--
+if your log level is set to `DEBUG` or finer.  If this setting is `true` and
+you are logging at, e.g., `INFO`, it is possible to edit your `log4j.properties`
+file to change the logging level while the PuppetDB service is running, and you
+should see the SQL statements begin to appear in the log without restarting
+the service.
+
+`log-slow-statements`
+
+The number of seconds that any individual SQL query may run before it is considered
+"slow" and is logged as a warning.  Note that this does not actually interrupt
+the query in any way; it simply checks queries after they complete and logs them
+if their duration exceeded this setting.  The default value is 10 seconds.  You
+may set this setting to zero to disable this feature.
 
 **[command-processing]**
 

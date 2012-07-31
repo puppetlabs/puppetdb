@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.resources
   (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
+            [com.puppetlabs.http.utils :as http-utils]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
@@ -114,6 +115,14 @@ to the result of the form supplied to this method."
                                 [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                                 [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
           (is-response-equal (get-response query) result)))
+
+      (testing "query exceeding resource-query-limit"
+        (with-http-app {:resource-query-limit 1}
+          (fn []
+            (let [response (get-response ["=" "type" "File"])
+                  body     (get response :body "null")]
+              (is (= (:status response) http-utils/HTTP-INTERNAL-ERROR))
+              (is (re-find #"more than the maximum number of results" body))))))
 
       (testing "querying against inactive nodes"
         (deactivate-node! "one.local")
