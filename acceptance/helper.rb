@@ -4,12 +4,55 @@ require 'cgi'
 
 module PuppetDBExtensions
 
-  def self.test_mode=(mode)
-    @test_mode = mode
+  def self.initialize_test_config(options, os_families, db_module_path)
+    install_type =
+        case options[:type]
+          when 'git'
+            :git
+          when 'manual':
+            :package
+          else
+            raise ArgumentError, "Unsupported install type '#{options[:type]}'"
+        end
+
+    database =
+        case options[:puppetdb_database]
+          when 'postgres'
+            :postgres
+          when 'embedded'
+            :embedded
+          else
+            raise ArgumentError, "Unsupported database '#{options[:puppetdb_database]}'"
+        end
+
+    self.config_instance = {
+        :install_type => install_type,
+        :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
+        :os_families => os_families,
+        :db_module_path => db_module_path,
+        :database => database,
+        :install_mode => options[:puppetdb_install_mode],
+    }
   end
-  def self.test_mode()
-    @test_mode
+
+  def self.config_instance=(config)
+    @config = config
   end
+  private_class_method :config_instance=
+
+  def self.config
+    @config
+  end
+
+  def get_os_family(host)
+    on(host, "which yum", :silent => true)
+    if result.exit_code == 0
+      :redhat
+    else
+      :debian
+    end
+  end
+
 
   def puppetdb_confdir(host)
     if host.is_pe?
@@ -20,8 +63,10 @@ module PuppetDBExtensions
   end
 
   def start_puppetdb(host)
-    on host, "service puppetdb start"
-    sleep_until_started(host)
+    step "Starting PuppetDB" do
+      on host, "service puppetdb start"
+      sleep_until_started(host)
+    end
   end
 
   def sleep_until_started(host)
@@ -37,6 +82,115 @@ module PuppetDBExtensions
       end
     end
   end
+
+
+  def install_puppetdb(host)
+    os = PuppetDBExtensions.config[:os_families][host.name]
+    case os
+    when :debian
+      on host, "yes | apt-get install -y --force-yes puppetdb"
+    when :redhat
+      on host, "yum install -y puppetdb"
+    else
+      raise ArgumentError, "Unsupported OS family: '#{os}'"
+    end
+  end
+
+  def validate_package_version(host)
+    step "Verifying package version" do
+      os = PuppetDBExtensions.config[:os_families][host.name]
+      installed_version =
+        case os
+          when :debian
+            result = on host, "dpkg-query --showformat \"\\${Version}\" --show puppetdb"
+            result.stdout.strip.gsub(/-.*$/, "")
+          when :redhat
+            result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}\""
+            result.stdout.strip
+          else
+            raise ArgumentError, "Unsupported OS family: '#{os}'"
+        end
+      PuppetAcceptance::Log.notify "Expecting package version: '#{ENV['PUPPETDB_EXPECTED_VERSION']}', actual version: '#{installed_version}'"
+      assert_equal(installed_version, ENV['PUPPETDB_EXPECTED_VERSION'])
+    end
+  end
+
+  def configure_puppetdb(host)
+    step "Configure database.ini file" do
+      manifest_path = host.tmpfile("puppetdb_manifest.pp")
+      # TODO: use more stuff from the puppetdb module once it is robust enough
+      #  to handle what we need.
+      manifest_content = <<-EOS
+  $database = '#{PuppetDBExtensions.config[:database]}'
+  $database_host = 'localhost'
+
+  file { 'puppetdb: database.ini':
+      ensure      => file,
+      path        => "/etc/puppetdb/conf.d/database.ini",
+      content     => template('puppetdb/server/database.ini.erb')
+  }
+      EOS
+
+      create_remote_file(host, manifest_path, manifest_content)
+      on host, puppet_apply("--modulepath #{PuppetDBExtensions.config[:db_module_path]} #{manifest_path}")
+    end
+
+    step "Print out jetty.ini for posterity" do
+      on host, "cat /etc/puppetdb/conf.d/jetty.ini"
+    end
+    step "Print out database.ini for posterity" do
+      on host, "cat /etc/puppetdb/conf.d/database.ini"
+    end
+
+  end
+
+  def install_puppetdb_termini(host)
+    os = PuppetDBExtensions.config[:os_families][host.name]
+    case os
+    when :debian
+      on host, "apt-get install -y --force-yes puppetdb-terminus"
+    when :redhat
+      on host, "yum install -y puppetdb-terminus"
+    else
+      raise ArgumentError, "Unsupported OS family: '#{os}'"
+    end
+  end
+
+  def configure_termini(master, database)
+    step "Configure routes.yaml to talk to the PuppetDB server" do
+      routes = <<-ROUTES
+  master:
+    catalog:
+      terminus: compiler
+      cache: puppetdb
+    facts:
+      terminus: puppetdb
+      cache: yaml
+      ROUTES
+
+      routes_file = File.join(master['puppetpath'], 'routes.yaml')
+
+      create_remote_file(master, routes_file, routes)
+
+      on master, "chmod +r #{routes_file}"
+    end
+
+    step "Configure puppetdb.conf to point to the PuppetDB server" do
+      puppetdb_conf = <<-CONF
+[main]
+server = #{database.name}
+port = 8081
+      CONF
+
+      puppetdb_conf_file = File.join(master['puppetpath'], 'puppetdb.conf')
+
+      create_remote_file(master, puppetdb_conf_file, puppetdb_conf)
+
+      on master, "chmod +r #{puppetdb_conf_file}"
+    end
+  end
+
+
 
   def stop_puppetdb(host)
     on host, "service puppetdb stop"

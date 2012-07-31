@@ -1,3 +1,5 @@
+test_config = PuppetDBExtensions.config
+
 step "Verify we've been talking to the correct database" do
 
   # The goal here is just to try to make sure we've tested
@@ -8,7 +10,8 @@ step "Verify we've been talking to the correct database" do
   #  all pass even if they were running against a different
   #  database than we'd intended.)
 
-  if (options[:puppetdb_database] == 'postgres')
+  puts "DATABASE: '#{config[:database]}'"
+  if (test_config[:database] == :postgres)
 
     # If we're running w/postgres, we're going to use some hacky raw SQL
     #  and shell magic to validate that the database schema version is the
