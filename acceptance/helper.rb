@@ -25,7 +25,7 @@ module PuppetDBExtensions
             raise ArgumentError, "Unsupported database '#{options[:puppetdb_database]}'"
         end
 
-    self.config_instance = {
+    @config = {
         :install_type => install_type,
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
         :os_families => os_families,
@@ -35,13 +35,8 @@ module PuppetDBExtensions
     }
   end
 
-  def self.config_instance=(config)
-    @config = config
-  end
-  private_class_method :config_instance=
-
-  def self.config
-    @config
+  class << self
+    attr_reader :config
   end
 
   def get_os_family(host)
