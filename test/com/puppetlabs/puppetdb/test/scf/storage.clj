@@ -6,8 +6,8 @@
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only  [migrate!]]
         [clojure.test]
-        [clojure.math.combinatorics :only (combinations)]
-        [clj-time.core :only [now]]
+        [clojure.math.combinatorics :only (combinations subsets)]
+        [clj-time.core :only [ago from-now now days]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.testutils :only [test-db]]))
@@ -424,7 +424,8 @@
   (with-transacted-connection db
     (migrate!)
     (let [certname        "foo.example.com"
-          query-certnames #(query-to-vec ["SELECT name, deactivated FROM certnames"])]
+          query-certnames #(query-to-vec ["select name, deactivated from certnames"])
+          deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
       (add-certname! certname)
 
       (testing "deactivating a node"
@@ -432,7 +433,7 @@
           (deactivate-node! certname)
           (let [result (first (query-certnames))]
             (is (= certname (:name result)))
-            (is (instance? java.sql.Timestamp (:deactivated result)))))
+            (is (deactivated? result))))
 
         (testing "should not change the node if it's already inactive"
           (let [original (query-certnames)]
@@ -450,9 +451,8 @@
             (is (= original (query-certnames))))))
 
       (testing "auto-reactivated based on a command"
-        (let [one-day             (* 24 60 60 1000)
-              before-deactivating (to-timestamp (- (System/currentTimeMillis) one-day))
-              after-deactivating  (to-timestamp (+ (System/currentTimeMillis) one-day))]
+        (let [before-deactivating (to-timestamp (ago (days 1)))
+              after-deactivating  (to-timestamp (from-now (days 1)))]
           (testing "should activate the node if the command happened after it was deactivated"
             (deactivate-node! certname)
             (is (= true (maybe-activate-node! certname after-deactivating)))
@@ -463,9 +463,44 @@
             (is (= false (maybe-activate-node! certname before-deactivating)))
             (let [result (first (query-certnames))]
               (is (= certname (:name result)))
-              (is (instance? java.sql.Timestamp (:deactivated result)))))
+              (is (deactivated? result))))
 
           (testing "should do nothing if the node is already active"
             (activate-node! certname)
             (is (= true (maybe-activate-node! certname (now))))
             (is (= (query-certnames) [{:name certname :deactivated nil}]))))))))
+
+(deftest node-staleness
+  (testing "retrieving stale nodes based on age"
+    (let [query-certnames #(query-to-vec ["select name, deactivated from certnames order by name"])
+          deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
+
+      (testing "should return nothing if all nodes are more recent than max age"
+        (with-transacted-connection db
+          (migrate!)
+          (let [catalog (:empty catalogs)
+                certname (:certname catalog)]
+            (add-certname! certname)
+            (replace-catalog! catalog (now))
+              (is (= (stale-nodes (ago (days 1))) [])))))
+
+      (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
+        (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
+                        #(replace-facts! {"name" "node1" "values" {"foo" "bar"}} (ago (days 2)))]]
+          (doseq [func-set (subsets mutators)]
+            (with-transacted-connection db
+              (migrate!)
+              (add-certname! "node1")
+              (dorun (map #(%) func-set))
+              (is (= (stale-nodes (ago (days 1))) ["node1"]))))))
+
+      (testing "should only return nodes older than max age, and leave others alone"
+        (with-transacted-connection db
+          (migrate!)
+          (let [catalog (:empty catalogs)]
+            (add-certname! "node1")
+            (add-certname! "node2")
+            (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
+            (replace-catalog! (assoc catalog :certname "node2") (now))
+
+            (is (= (set (stale-nodes (ago (days 1)))) #{"node1"}))))))))

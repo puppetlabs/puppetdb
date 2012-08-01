@@ -21,10 +21,12 @@
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
+        [clj-time.core :only [ago days now]]
         [clojure.core.memoize :only [memo-lru]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
@@ -210,9 +212,24 @@ must be supplied as the value to be matched."
   currently inactive, no change is made."
   [certname]
   {:pre [(string? certname)]}
-  (sql/do-prepared "UPDATE certnames SET deactivated = current_timestamp
+  (sql/do-prepared "UPDATE certnames SET deactivated = ?
                     WHERE name=? AND deactivated IS NULL"
-                   [certname]))
+                   [(to-timestamp (now)) certname]))
+
+(defn stale-nodes
+  "Return a list of nodes that have seen no activity between
+  (now-`time` and now)"
+  [time]
+  {:pre  [(utils/datetime? time)]
+   :post [(coll? %)]}
+  (let [ts (to-timestamp time)]
+    (map :name (jdbc/query-to-vec "SELECT c.name FROM certnames c
+                                   LEFT OUTER JOIN certname_catalogs cc ON c.name=cc.certname
+                                   LEFT OUTER JOIN certname_facts_metadata fm ON c.name=fm.certname
+                                   WHERE c.deactivated IS NULL
+                                   AND (cc.timestamp IS NULL OR cc.timestamp < ?)
+                                   AND (fm.timestamp IS NULL OR fm.timestamp < ?)"
+                                  ts ts))))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
@@ -586,6 +603,7 @@ must be supplied as the value to be matched."
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
   [{:keys [certname] :as catalog} timestamp]
+  {:pre [(utils/datetime? timestamp)]}
   (time! (:replace-catalog metrics)
          (sql/transaction
           (let [catalog-hash (add-catalog! catalog)]
@@ -596,6 +614,7 @@ must be supplied as the value to be matched."
   "Given a certname and a map of fact names to values, store records for those
 facts associated with the certname."
   [certname facts timestamp]
+  {:pre [(utils/datetime? timestamp)]}
   (let [default-row {:certname certname}
         rows        (for [[fact value] facts]
                       (assoc default-row :fact fact :value value))]

@@ -69,6 +69,7 @@
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])
   (:use [slingshot.slingshot :only [try+ throw+]]
+        [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [metrics.meters :only (meter mark!)]
@@ -152,42 +153,6 @@
   {:pre [(keyword? name)]}
   (get-in @metrics ["global" name]))
 
-;; ## Command submission
-
-(defn format-command
-  "Formats `payload` for submission with a command specified by `command` and
-  `version`."
-  [command version payload]
-  (json/generate-string {:command command
-                         :version version
-                         :payload (json/generate-string payload)}))
-
-(defn submit-command
-  "Submits `payload` as a valid command of type `command` and `version` to the
-  PuppetDB instance specified by `host` and `port`. The `payload` will be
-  converted to JSON before submission. Alternately accepts a string `message`
-  which is a formatted command, ready for submission. Returns the server
-  response."
-  ([host port payload command version]
-     {:pre [(string? command)
-            (integer? version)]}
-     (->> payload
-          (format-command command version)
-          (submit-command host port)))
-  ([host port message]
-     {:pre [(string? host)
-            (integer? port)
-            (string? message)]}
-     (let [body (format "checksum=%s&payload=%s"
-                        (pl-utils/utf8-string->sha1 message)
-                        (url-encode message))
-           url  (format "http://%s:%s/commands" host port)]
-       (client/post url {:body               body
-                         :throw-exceptions   false
-                         :content-type       :x-www-form-urlencoded
-                         :character-encoding "UTF-8"
-                         :accept             :json}))))
-
 ;; ## Command parsing
 
 (defmulti parse-command
@@ -214,6 +179,97 @@
                         (assoc :received received)
                         (assoc :id id))]
     (assoc message :annotations annotations)))
+
+(defn assemble-command
+  "Builds a command-map from the supplied parameters"
+  [command version payload]
+  {:pre  [(string? command)
+          (number? version)
+          (satisfies? JSONable payload)]
+   :post [(map? %)
+          (string? (:payload %))]}
+  {:command command
+   :version version
+   :payload (json/generate-string payload)})
+
+(defn annotate-command
+  "Annotate a command-map with a timestamp and UUID"
+  [message]
+  {:pre  [(map? message)]
+   :post [(map? %)]}
+  (-> message
+      (assoc-in [:annotations :received] (pl-utils/timestamp))
+      (assoc-in [:annotations :id] (pl-utils/uuid))))
+
+;; ## Command submission
+
+(defn submit-command-via-http!
+  "Submits `payload` as a valid command of type `command` and
+  `version` to the PuppetDB instance specified by `host` and
+  `port`. The `payload` will be converted to JSON before
+  submission. Alternately accepts a command-map object (such as those
+  returned by `parse-command`). Returns the server response."
+  ([host port command version payload]
+     {:pre [(string? command)
+            (integer? version)]}
+     (->> payload
+          (assemble-command command version)
+          (submit-command-via-http! host port)))
+  ([host port command-map]
+     {:pre [(string? host)
+            (integer? port)
+            (map? command-map)]}
+     (let [message (json/generate-string command-map)
+           body (format "checksum=%s&payload=%s"
+                        (pl-utils/utf8-string->sha1 message)
+                        (url-encode message))
+           url  (format "http://%s:%s/commands" host port)]
+       (client/post url {:body               body
+                         :throw-exceptions   false
+                         :content-type       :x-www-form-urlencoded
+                         :character-encoding "UTF-8"
+                         :accept             :json}))))
+
+(defn enqueue-raw-command!
+  "Takes the given command and submits it to the `mq-endpoint`
+  location on the MQ identified by `mq-spec`. We will annotate the
+  command (see `annotate-command`) prior to submission.
+
+  If the given command can't be parsed, we submit it as-is without
+  annotating."
+  [mq-spec mq-endpoint raw-command]
+  {:pre  [(string? mq-spec)
+          (string? mq-endpoint)
+          (string? raw-command)]
+   :post [(string? %)]}
+  (let [[msg id] (try
+                   (let [cmd (-> raw-command
+                                 (parse-command)
+                                 (annotate-command))]
+                     [(json/generate-string cmd) (get-in cmd [:annotations :id])])
+                   (catch com.fasterxml.jackson.core.JsonParseException e
+                     [raw-command (pl-utils/uuid)]))]
+    (with-open [conn (mq/connect! mq-spec)]
+      (mq/connect-and-publish! conn mq-endpoint msg))
+    id))
+
+(defn enqueue-command!
+  "Takes the given command and submits it to the specified endpoint on
+  the indicated MQ.
+
+  If successful, this function returns a map containing the command's unique
+  id."
+  [mq-spec mq-endpoint command version payload]
+  {:pre  [(string? mq-spec)
+          (string? mq-endpoint)
+          (string? command)
+          (number? version)]
+   :post [(string? %)]}
+  (with-open [conn (mq/connect! mq-spec)]
+    (let [command-map (-> (assemble-command command version payload)
+                          (annotate-command))]
+      (mq/publish-json! conn mq-endpoint command-map)
+      (get-in command-map [:annotations :id]))))
 
 ;; ## Command processing exception classes
 
