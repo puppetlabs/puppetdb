@@ -33,3 +33,13 @@
           ;; After another 1s, we should see the message
           (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))))
 
+(deftest json-publish
+  (testing "publish-json!"
+    (testing "should fail when handed objects that can't be serialized"
+      (with-test-broker "test" conn
+        (is (thrown? AssertionError (publish-json! conn "queue" conn)))))
+
+    (testing "should published a serialized version of the object"
+      (with-test-broker "test" conn
+        (publish-json! conn "queue" "foo")
+        (is (= ["\"foo\""] (bounded-drain-into-vec! conn "queue" 1)))))))

@@ -17,10 +17,9 @@
 
 (use-fixtures :each with-test-db)
 
-(deftest command-formatting
+(deftest command-assembly
   (testing "Formatting commands for submission"
-    (is (= (-> (format-command "my command" 1 [1 2 3 4 5])
-             (json/parse-string true))
+    (is (= (assemble-command "my command" 1 [1 2 3 4 5])
            {:command "my command"
             :version 1
             :payload "[1,2,3,4,5]"}))))

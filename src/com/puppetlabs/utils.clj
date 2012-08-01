@@ -25,6 +25,7 @@
         [clojure.set :only (difference union)]
         [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
+        [clj-time.coerce :only [ICoerce]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
 
@@ -132,7 +133,13 @@
    :post [(set? %)]}
   (set (vals m)))
 
-;; ## Timestamping
+;; ## Date and Time
+
+(defn datetime?
+  "Predicate returning whether or not the supplied object is
+  convertible to a Joda DateTime"
+  [x]
+  (satisfies? ICoerce x))
 
 (defn timestamp
   "Returns a timestamp string for the given `time`, or the current time if none
@@ -352,6 +359,22 @@
     (add-console-logger! Level/DEBUG)
     (log/debug "Debug logging enabled"))
   config)
+
+(defmacro demarcate
+  "Executes `body`, but logs `msg` to info before and after `body` is
+  executed. `body` is executed in an implicit do, and the last
+  expression's return value is returned by `demarcate`.
+
+    user> (demarcate \"reticulating splines\" (+ 1 2 3))
+    \"Starting reticulating splines\"
+    \"Finished reticulating splines\"
+    6
+  "
+  [msg & body]
+  `(do (log/info (str "Starting " ~msg))
+       (let [result# (do ~@body)]
+         (log/info (str "Finished " ~msg))
+         result#)))
 
 ;; ## Command-line parsing
 

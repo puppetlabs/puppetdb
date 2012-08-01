@@ -32,7 +32,7 @@
             expected {:classname "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
-        (is (= (dissoc (:database config) :gc-interval)
+        (is (= (select-keys (:database config) #{:classname :subprotocol :subname})
                expected)))))
 
   (testing "gc-interval"
