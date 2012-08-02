@@ -16,8 +16,8 @@
     (let [[prefix suffix] (.split candidate "/")
           wildcard        (str prefix "/*")
           types           (->> (clojure.string/split header #",")
-        (map #(.trim %))
-        (set))]
+                            (map #(.trim %))
+                            (set))]
       (or (types wildcard)
         (types candidate)))))
 
