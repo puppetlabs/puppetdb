@@ -3,6 +3,7 @@
 ;;  to change without notice.
 
 (ns com.puppetlabs.jdbc.internal
+  (:use [clojure.string :only (join)])
   (:import (com.jolbox.bonecp.hooks AbstractConnectionHook))
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]))
@@ -13,22 +14,20 @@
   make these available unless we've enabled SQL statement logging, so we have
   to check first to see whether that is enabled.  If it's not, we print out
   a message letting the user know how they can enable it."
-  [log-statements params]
-  { :pre [(instance? java.lang.Boolean log-statements)]}
-  (if log-statements
+  [log-statements? params]
+  (if log-statements?
     (format "Query Params: %s"
-      (clojure.string/join ", "
+      (join ", "
         (map #(str "'" (.getValue %) "'") params)))
     (str "(Query params unavailable: to enable logging of query params, please set "
       "'log-statements' to true in the [database] section of your config file.)")))
 
 (defn connection-hook*
   "Helper method for building up a `ConnectionHook` for our connection pool.
-  Currently only defines behavior for "
-  [log-statements query-execution-limit]
-  { :pre [(instance? java.lang.Boolean log-statements)
-          (and (integer? query-execution-limit)
-            (pos? query-execution-limit))]}
+  Currently only defines behavior for `onQueryExecuteTimeLimitExceeded`, which
+  is called for slow queries.  There are several other hooks available that we
+  could provide handlers for in the future."
+  [log-statements? query-execution-limit]
   (proxy [AbstractConnectionHook] []
     ;; the name of this method is a bit misleading; the way it actually works
     ;; is that *after* a query completes, the connection class will check to
@@ -38,9 +37,9 @@
     ;; TODO: consider adding a call to EXPLAIN here.
     (onQueryExecuteTimeLimitExceeded
       [conn stmt sql params time-elapsed]
-      (log/warn (format (str "Query exceeded specified time limit of %s seconds.  "
-                          "Actual execution time: %.4f seconds; Query: %s; "
-                          (query-params->str* log-statements params))
+      (log/warn (format (str "Query slower than %ss threshold:  "
+                          "actual execution time: %.4f seconds; Query: %s; "
+                          (query-params->str* log-statements? params))
                   query-execution-limit
                   (/ time-elapsed 1000000000.0)
                   stmt)))))
@@ -72,7 +71,7 @@
   that a query result limit was exceeded."
   [limit]
   ; TODO: tempted to create a custom exception for this, or at least
-  ;  some kind of general-purpose PuppetDBException
+  ;  some kind of general-purpose PuppetDBEsxception
   (throw (IllegalStateException.
            (format
              "Query returns more than the maximum number of results (max: %s)"
@@ -96,6 +95,6 @@
     (let [limited-result-set (take (inc limit) result-set)]
       (when (> (count limited-result-set) limit)
         (throw-limit-exception!* limit))
-      (take limit limited-result-set))
+      limited-result-set)
     result-set))
 
