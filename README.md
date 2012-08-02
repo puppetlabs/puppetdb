@@ -548,7 +548,7 @@ Here is an example configuration file:
     [global]
     vardir = /var/lib/puppetdb
     logging-config = /var/lib/puppetdb/log4j.properties
-    resource-query-limit = 5000
+    resource-query-limit = 20000
 
     [database]
     classname = org.postgresql.Driver

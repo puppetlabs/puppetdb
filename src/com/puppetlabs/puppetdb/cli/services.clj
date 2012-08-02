@@ -206,7 +206,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global] :as config} (merge initial-config (parse-config (:config options)))
         vardir                                     (validate-vardir (:vardir global))
-        resource-query-limit                       (get global :resource-query-limit 5000)
+        resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
         mq-dir                                     (str (file vardir "mq"))
