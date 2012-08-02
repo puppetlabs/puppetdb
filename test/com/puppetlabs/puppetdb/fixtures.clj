@@ -39,6 +39,6 @@
                        :globals (merge
                                   {:scf-db *db*
                                    :command-mq *mq*
-                                   :resource-query-limit 5000}
+                                   :resource-query-limit 20000}
                                   globals-overrides))]
       (f))))
