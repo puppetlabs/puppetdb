@@ -8,6 +8,15 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]))
 
+(defn query-param->str*
+  "Helper method for converting a single parameter from a prepared statement
+  to a human-eradable string, including the java type of the param value."
+  [param]
+  (let [val (.getValue param)]
+    (format "(%s - %s)"
+      (if (string? val) (str "'" val "'") val)
+      (pr-str (type val)))))
+
 (defn query-params->str*
   "Helper method for converting a list of parameters from a prepared statement
   to a human-readable string.  Our current connection pool library does not
@@ -17,10 +26,9 @@
   [log-statements? params]
   (if log-statements?
     (format "Query Params: %s"
-      (join ", "
-        (map #(str "'" (.getValue %) "'") params)))
+      (join ", " (map query-param->str* params)))
     (str "(Query params unavailable: to enable logging of query params, please set "
-      "'log-statements' to true in the [database] section of your config file.)")))
+        "'log-statements' to true in the [database] section of your config file.)")))
 
 (defn connection-hook*
   "Helper method for building up a `ConnectionHook` for our connection pool.
@@ -71,7 +79,7 @@
   that a query result limit was exceeded."
   [limit]
   ; TODO: tempted to create a custom exception for this, or at least
-  ;  some kind of general-purpose PuppetDBEsxception
+  ;  some kind of general-purpose PuppetDBException
   (throw (IllegalStateException.
            (format
              "Query returns more than the maximum number of results (max: %s)"
