@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.population
   (:require [com.puppetlabs.puppetdb.query.population :as p]
-            [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.http.utils :as http-utils]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [net.cgrand.moustache :only [app]]))
@@ -10,14 +10,14 @@
   collecting that resource."
   [{:keys [params headers globals] :as request}]
   (cond
-   (not (utils/acceptable-content-type
+   (not (http-utils/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json"))
 
    :else
    (with-transacted-connection (:scf-db globals)
-     (utils/json-response (p/correlate-exported-resources)))))
+     (http-utils/json-response (p/correlate-exported-resources)))))
 
 (def population-app
   (app

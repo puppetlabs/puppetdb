@@ -13,7 +13,7 @@
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
-        [com.puppetlabs.utils :only (uri-segments)]
+        [com.puppetlabs.http.utils :only (uri-segments)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]

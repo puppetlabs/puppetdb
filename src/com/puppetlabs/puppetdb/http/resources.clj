@@ -66,7 +66,7 @@
 ;;                     ...}}
 
 (ns com.puppetlabs.puppetdb.http.resources
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [com.puppetlabs.http.utils :as http-utils]
             [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json]
             [ring.util.response :as rr])
@@ -88,20 +88,20 @@
         (json/parse-string true)
         (r/query->sql)
         ((partial r/limited-query-resources limit))
-        (utils/json-response)))
+        (http-utils/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
-      (utils/error-response e))
+      (http-utils/error-response e))
     (catch IllegalArgumentException e
-      (utils/error-response e))))
+      (http-utils/error-response e))))
 
 (defn resources-app
   "Ring app for querying resources"
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "query"))
-   (utils/error-response "missing query")
+   (http-utils/error-response "missing query")
 
-   (not (utils/acceptable-content-type
+   (not (http-utils/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
