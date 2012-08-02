@@ -97,7 +97,7 @@
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
-  (let [log-statements (Boolean/parseBoolean log-statements)
+  (let [log-statements? (Boolean/parseBoolean log-statements)
         config (doto (new BoneCPConfig)
                 (.setDefaultAutoCommit false)
                 (.setLazyInit true)
@@ -107,11 +107,11 @@
                 (.setStatisticsEnabled stats)
                 ;; paste the URL back together from parts.
                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                (.setConnectionHook (connection-hook* log-statements log-slow-statements)))]
+                (.setConnectionHook (connection-hook* log-statements? log-slow-statements)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))
-    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (when log-statements? (.setLogStatementsEnabled config log-statements?))
     (when log-slow-statements
       (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
     ;; ...aaand, create the pool.

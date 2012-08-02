@@ -668,16 +668,6 @@ What username to use when connecting.
 
 A password to use when connecting.
 
-`log-statements`
-
-This should be set to either `true` or `false`.  If `true` (which is the default),
-then all of the raw SQL statements executed against the database will be logged--
-if your log level is set to `DEBUG` or finer.  If this setting is `true` and
-you are logging at, e.g., `INFO`, it is possible to edit your `log4j.properties`
-file to change the logging level while the PuppetDB service is running, and you
-should see the SQL statements begin to appear in the log without restarting
-the service.
-
 `log-slow-statements`
 
 The number of seconds that any individual SQL query may run before it is considered
