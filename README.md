@@ -608,7 +608,7 @@ results than this value, the query will simply return an error.  (This
 can be used to prevent accidental queries that would yield huge numbers
 of results from consuming undesirable amounts of resources on the server.)
 
-The default value is 5000.
+The default value is 20000.
 
 **[database]**
 
