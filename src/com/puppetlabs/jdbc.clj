@@ -20,6 +20,26 @@
                      :else %)]
        (map #(utils/mapvals convert %) result-set))))
 
+(defn add-limit-clause!
+  "Helper function for ensuring that a query does not return more than a certain
+  number of results.  (Adds a limit clause to an SQL query if necessary.)
+
+  Accepts two parameters: `limit` and `query`.  `query` should be an SQL query
+  (String) that you wish to apply a LIMIT clause to.
+
+  `limit` is an integer specifying the maximum number of results that we are looking
+  for.  If `limit` is zero, then we return the original `query` unaltered.  If
+  `limit is greater than zero, we add a limit clause using the time-honored trick
+  of using the value of `limit + 1`;  This allows us to later compare the size of
+  the result set against the original limit and detect cases where we've exceeded
+  the maximum."
+  [limit query]
+  {:pre [(and (integer? limit) (>= limit 0))
+         (string? query)]}
+  (if (> limit 0)
+    (format "select results.* from (%s) results LIMIT %s" query (inc limit))
+    query))
+
 (defn limited-query-to-vec
   "Take a limit and an SQL query (with optional parameters), and return the
   result of the query as a vector.  These results, unlike a normal query result,
