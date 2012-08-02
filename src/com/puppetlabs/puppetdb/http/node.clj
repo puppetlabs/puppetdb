@@ -30,7 +30,7 @@
 ;;
 (ns com.puppetlabs.puppetdb.http.node
   (:require [cheshire.core :as json]
-            [com.puppetlabs.http.utils :as http-utils]
+            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.node :as node]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -44,18 +44,18 @@
       (let [query (if query (json/parse-string query true))
             sql   (node/query->sql query)
             nodes (node/search sql)]
-        (http-utils/json-response nodes)))
+        (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
-      (http-utils/error-response e))
+      (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (http-utils/error-response e))))
+      (pl-http/error-response e))))
 
 ;; TODO: Add an API to specify whether to include facts
 (defn node-app
   "Ring app for querying nodes."
   [{:keys [params headers globals] :as request}]
   (cond
-   (not (http-utils/acceptable-content-type
+   (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")

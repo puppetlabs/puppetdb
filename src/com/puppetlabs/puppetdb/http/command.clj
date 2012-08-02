@@ -11,7 +11,7 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]
-            [com.puppetlabs.http.utils :as pl-http-utils]
+            [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
@@ -64,13 +64,13 @@
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "payload"))
-   (pl-http-utils/error-response "missing payload")
+   (pl-http/error-response "missing payload")
 
    (and (params "checksum")
         (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload"))))
-   (pl-http-utils/error-response "checksums don't match")
+   (pl-http/error-response "checksums don't match")
 
-   (not (pl-http-utils/acceptable-content-type
+   (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
@@ -80,4 +80,4 @@
    (-> (http->mq (params "payload")
                  (get-in globals [:command-mq :connection-string])
                  (get-in globals [:command-mq :endpoint]))
-       pl-http-utils/json-response)))
+       pl-http/json-response)))

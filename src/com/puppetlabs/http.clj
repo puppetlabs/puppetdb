@@ -1,6 +1,6 @@
 ;; ## Utility functions related to HTTP
 
-(ns com.puppetlabs.http.utils
+(ns com.puppetlabs.http
   (:require [ring.util.response :as rr]
             [cheshire.core :as json]))
 

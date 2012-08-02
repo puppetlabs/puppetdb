@@ -1,5 +1,5 @@
-(ns com.puppetlabs.test.http.utils
-  (:use [com.puppetlabs.http.utils]
+(ns com.puppetlabs.test.http
+  (:use [com.puppetlabs.http]
         [clojure.test])
 
 (deftest conneg
