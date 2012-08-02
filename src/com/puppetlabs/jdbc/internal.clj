@@ -1,6 +1,7 @@
-;; ## internal (private-ish) helper functions for com.puppetlabs.jdbc.  External
-;;  code should not call any of these functions directly, as they are subject
-;;  to change without notice.
+;; ## JDBC helper functions
+;;
+;; *External code should not call any of these functions directly, as they are*
+;; *subject to change without notice.*
 
 (ns com.puppetlabs.jdbc.internal
   (:use [clojure.string :only (join)])
