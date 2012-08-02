@@ -13,7 +13,7 @@
 
 (ns com.puppetlabs.puppetdb.http.facts
   (:require [cheshire.core :as json]
-            [com.puppetlabs.http.utils :as http-utils]
+            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.facts :as f]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -24,8 +24,8 @@
   (let [facts (with-transacted-connection db
                 (f/facts-for-node node))]
     (if-not (seq facts)
-      (http-utils/json-response {:error (str "Could not find facts for " node)} 404)
-      (http-utils/json-response {:name node :facts facts}))))
+      (pl-http/json-response {:error (str "Could not find facts for " node)} 404)
+      (pl-http/json-response {:name node :facts facts}))))
 
 (defn facts-app
   "Ring app for querying facts"
@@ -35,7 +35,7 @@
    (-> (rr/response "missing node")
        (rr/status 400))
 
-   (not (http-utils/acceptable-content-type
+   (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")

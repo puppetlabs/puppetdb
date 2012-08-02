@@ -3,7 +3,7 @@
 ;; This implements the status query HTTP API according to the [status query
 ;; spec](../spec/status.md).
 (ns com.puppetlabs.puppetdb.http.status
-  (:require [com.puppetlabs.http.utils :as http-utils]
+  (:require [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.puppetdb.query.status]
         [net.cgrand.moustache :only (app)]
@@ -14,8 +14,8 @@
   [node db]
   (if-let [status (with-transacted-connection db
                     (node-status node))]
-    (http-utils/json-response status)
-    (http-utils/json-response {:error (str "No information is known about " node)} 404)))
+    (pl-http/json-response status)
+    (pl-http/json-response {:error (str "No information is known about " node)} 404)))
 
 (defn node-status-app
   "Ring app for retrieving node status"
@@ -26,7 +26,7 @@
      (-> (rr/response "missing node")
          (rr/status 400))
 
-     (not (http-utils/acceptable-content-type
+     (not (pl-http/acceptable-content-type
            "application/json"
            (headers "accept")))
      (-> (rr/response "must accept application/json"))
