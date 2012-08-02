@@ -24,6 +24,7 @@
             [cheshire.core :as json]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec convert-result-arrays with-transacted-connection]]
+        [com.puppetlabs.jdbc.internal :only [add-limit-clause*]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
@@ -76,8 +77,9 @@
                                 "JOIN certname_catalogs USING(catalog) "
                                 "LEFT OUTER JOIN resource_params rp "
                                 "USING(resource) %s")
-    sql)
-        results (limited-query-to-vec limit (apply vector query params))
+                          sql)
+        limited-query (add-limit-clause* limit query)
+        results (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]
     (vec (for [[resource params] (group-by metadata results)]

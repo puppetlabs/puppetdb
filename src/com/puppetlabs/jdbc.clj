@@ -37,8 +37,7 @@
   [limit query]
   {:pre [(and (integer? limit) (>= limit 0))
          ((some-fn string? vector?) query)]}
-  (let [query-vector (if (string? query) [query] query)
-        sql-query-and-params (add-limit-clause* limit query-vector)]
+  (let [sql-query-and-params (if (string? query) [query] query)]
     (sql/with-query-results result-set
       sql-query-and-params
       (let [limited-result-set (limit-result-set!* limit result-set)]
