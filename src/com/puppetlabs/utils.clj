@@ -303,14 +303,14 @@
   indicating the logging threshold for the new appender.  Defaults
   to `DEBUG`."
   ([]
-    (create-console-appender Level/DEBUG))
+     (create-console-appender Level/DEBUG))
   ([level]
-    {:pre [(instance? Level level)]}
-    (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
-      (doto (ConsoleAppender.)
-        (.setLayout layout)
-        (.setThreshold level)
-        (.activateOptions)))))
+     {:pre [(instance? Level level)]}
+     (let [layout (PatternLayout. "%d %-5p [%t] [%c{2}] %m%n")]
+       (doto (ConsoleAppender.)
+         (.setLayout layout)
+         (.setThreshold level)
+         (.activateOptions)))))
 
 (defn add-console-logger!
   "Adds a console logger to the current logging configuration, and ensures
@@ -321,14 +321,14 @@
   indicating the logging threshold for the new logger.  Defaults
   to `DEBUG`."
   ([]
-    (add-console-logger! Level/DEBUG))
+     (add-console-logger! Level/DEBUG))
   ([level]
-    {:pre [(instance? Level level)]}
-    (let [root-logger (Logger/getRootLogger)]
-      (.addAppender root-logger (create-console-appender level))
-      (if (> (.toInt (.getLevel root-logger))
-             (.toInt level))
-        (.setLevel root-logger level)))))
+     {:pre [(instance? Level level)]}
+     (let [root-logger (Logger/getRootLogger)]
+       (.addAppender root-logger (create-console-appender level))
+       (if (> (.toInt (.getLevel root-logger))
+              (.toInt level))
+         (.setLevel root-logger level)))))
 
 (defn configure-logger-via-file!
   "Reconfigures the current logger based on the supplied configuration
