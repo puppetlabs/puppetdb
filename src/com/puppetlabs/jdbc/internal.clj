@@ -15,8 +15,8 @@
   [param]
   (let [val (.getValue param)]
     (format "(%s - %s)"
-      (if (string? val) (str "'" val "'") val)
-      (pr-str (type val)))))
+            (if (string? val) (str "'" val "'") val)
+            (pr-str (type val)))))
 
 (defn query-params->str
   "Helper method for converting a list of parameters from a prepared statement
@@ -27,9 +27,9 @@
   [log-statements? params]
   (if log-statements?
     (format "Query Params: %s"
-      (join ", " (map query-param->str params)))
+            (join ", " (map query-param->str params)))
     (str "(Query params unavailable: to enable logging of query params, please set "
-        "'log-statements' to true in the [database] section of your config file.)")))
+         "'log-statements' to true in the [database] section of your config file.)")))
 
 (defn connection-hook
   "Helper method for building up a `ConnectionHook` for our connection pool.
@@ -47,22 +47,22 @@
     (onQueryExecuteTimeLimitExceeded
       [conn stmt sql params time-elapsed]
       (log/warn (format (str "Query slower than %ss threshold:  "
-                          "actual execution time: %.4f seconds; Query: %s; "
-                          (query-params->str log-statements? params))
-                  query-execution-limit
-                  (/ time-elapsed 1000000000.0)
-                  stmt)))))
+                             "actual execution time: %.4f seconds; Query: %s; "
+                             (query-params->str log-statements? params))
+                        query-execution-limit
+                        (/ time-elapsed 1000000000.0)
+                        stmt)))))
 
 (defn limit-exception
   "Helper method; simply throws an exception with a message explaining
   that a query result limit was exceeded."
   [limit]
-  ; TODO: tempted to create a custom exception for this, or at least
-  ;  some kind of general-purpose PuppetDBException
+  ;; TODO: tempted to create a custom exception for this, or at least
+  ;; some kind of general-purpose PuppetDBException
   (IllegalStateException.
-           (format
-             "Query returns more than the maximum number of results (max: %s)"
-             limit)))
+   (format
+    "Query returns more than the maximum number of results (max: %s)"
+    limit)))
 
 
 (defn limit-result-set!
@@ -78,10 +78,10 @@
   {:pre [(and (integer? limit) (>= limit 0))]}
   (if (pos? limit)
     ;; we're doing a `take` with `limit + 1` here, so that we can
-    ;;  correctly identify whether the query *exceeded* the specified limit.
+    ;; correctly identify whether the query *exceeded* the specified
+    ;; limit.
     (let [limited-result-set (take (inc limit) result-set)]
       (when (> (count limited-result-set) limit)
         (throw (limit-exception limit)))
       limited-result-set)
     result-set))
-

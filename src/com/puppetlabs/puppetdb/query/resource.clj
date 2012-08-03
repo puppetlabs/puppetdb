@@ -36,8 +36,8 @@
   (fn [query]
     (let [operator (string/lower-case (first query))]
       (cond
-        (#{"and" "or"} operator) :connective
-        :else operator))))
+       (#{"and" "or"} operator) :connective
+       :else operator))))
 
 (defn build-join-expr
   "Builds an inner join expression between catalog_resources and the given
@@ -61,9 +61,9 @@
           (string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term query)
-        join-expr (->> joins
-                    (map build-join-expr)
-                    (string/join " "))]
+        join-expr                    (->> joins
+                                          (map build-join-expr)
+                                          (string/join " "))]
     (apply vector (format "%s WHERE %s" join-expr where) params)))
 
 (defn limited-query-resources
@@ -72,23 +72,23 @@
    return more than `limit` results.  (A value of `0` for `limit` means
    that the query should not be limited.)"
   [limit [sql & params]]
-  {:pre [(and (integer? limit) (>= limit 0))]
+  {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
   (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
-                                "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
-                                "FROM catalog_resources "
-                                "JOIN certname_catalogs USING(catalog) "
-                                "LEFT OUTER JOIN resource_params rp "
-                                "USING(resource) %s")
-                          sql)
+                                   "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
+                                   "FROM catalog_resources "
+                                   "JOIN certname_catalogs USING(catalog) "
+                                   "LEFT OUTER JOIN resource_params rp "
+                                   "USING(resource) %s")
+                              sql)
         limited-query (add-limit-clause limit query)
-        results (limited-query-to-vec limit (apply vector limited-query params))
+        results       (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]
     (vec (for [[resource params] (group-by metadata results)]
            (assoc (zipmap metadata_cols resource) :parameters
-             (into {} (for [param params :when (:name param)]
-                        [(:name param) (json/parse-string (:value param))])))))))
+                  (into {} (for [param params :when (:name param)]
+                             [(:name param) (json/parse-string (:value param))])))))))
 
 (defn query-resources
   "Take a query and its parameters, and return a vector of resources
@@ -110,12 +110,12 @@
   (match [path]
          ;; tag join.
          ["tag"]
-         {:where (sql-array-query-string "tags")
+         {:where  (sql-array-query-string "tags")
           :params [value]}
 
          ;; node join.
          [["node" "name"]]
-         {:where "certname_catalogs.certname = ?"
+         {:where  "certname_catalogs.certname = ?"
           :params [value]}
 
          ;; {in,}active nodes.
@@ -125,19 +125,19 @@
 
          ;; param joins.
          [["parameter" (name :when string?)]]
-         {:where "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
+         {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
           :params [name (db-serialize value)]}
 
          ;; metadata match.
          [(metadata :when string?)]
          (if (re-matches #"(?i)[a-z_][a-z0-9_]*" metadata)
-           {:where (format "catalog_resources.%s = ?" metadata)
+           {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
            (throw (IllegalArgumentException. "illegal metadata column name %s" metadata)))
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
-                        (str term " is not a valid query term")))))
+                       (str term " is not a valid query term")))))
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
@@ -147,14 +147,14 @@
    :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map compile-term terms)
-        joins (distinct (mapcat :joins terms))
+  (let [terms  (map compile-term terms)
+        joins  (distinct (mapcat :joins terms))
         params (mapcat :params terms)
-        query (->> (map :where terms)
-                   (map #(format "(%s)" %))
-                   (string/join (format " %s " (string/upper-case op))))]
-    {:joins joins
-     :where query
+        query  (->> (map :where terms)
+                    (map #(format "(%s)" %))
+                    (string/join (format " %s " (string/upper-case op))))]
+    {:joins  joins
+     :where  query
      :params params}))
 
 ;; Join a set of predicates together with a 'not' relationship,
@@ -166,6 +166,6 @@
    :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [term (compile-term (cons "or" terms))
+  (let [term  (compile-term (cons "or" terms))
         query (format "NOT (%s)" (:where term))]
     (assoc term :where query)))
