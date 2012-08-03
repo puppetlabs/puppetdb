@@ -53,16 +53,16 @@
                   (/ time-elapsed 1000000000.0)
                   stmt)))))
 
-(defn throw-limit-exception!*
+(defn limit-exception*
   "Helper method; simply throws an exception with a message explaining
   that a query result limit was exceeded."
   [limit]
   ; TODO: tempted to create a custom exception for this, or at least
   ;  some kind of general-purpose PuppetDBException
-  (throw (IllegalStateException.
+  (IllegalStateException.
            (format
              "Query returns more than the maximum number of results (max: %s)"
-             limit))))
+             limit)))
 
 
 (defn limit-result-set!*
@@ -81,7 +81,7 @@
     ;;  correctly identify whether the query *exceeded* the specified limit.
     (let [limited-result-set (take (inc limit) result-set)]
       (when (> (count limited-result-set) limit)
-        (throw-limit-exception!* limit))
+        (throw (limit-exception* limit)))
       limited-result-set)
     result-set))
 

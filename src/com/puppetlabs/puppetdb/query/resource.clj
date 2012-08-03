@@ -26,7 +26,7 @@
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection
-                                    add-limit-clause!]]
+                                    add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
@@ -72,7 +72,8 @@
    return more than `limit` results.  (A value of `0` for `limit` means
    that the query should not be limited.)"
   [limit [sql & params]]
-  {:pre [(and (integer? limit) (>= limit 0))]}
+  {:pre [(and (integer? limit) (>= limit 0))]
+   :post [(or (zero? limit) (<= (count %) limit))]}
   (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
                                 "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
                                 "FROM catalog_resources "
@@ -80,7 +81,7 @@
                                 "LEFT OUTER JOIN resource_params rp "
                                 "USING(resource) %s")
                           sql)
-        limited-query (add-limit-clause! limit query)
+        limited-query (add-limit-clause limit query)
         results (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]

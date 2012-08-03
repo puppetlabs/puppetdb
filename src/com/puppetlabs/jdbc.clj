@@ -20,7 +20,7 @@
                      :else %)]
        (map #(utils/mapvals convert %) result-set))))
 
-(defn add-limit-clause!
+(defn add-limit-clause
   "Helper function for ensuring that a query does not return more than a certain
   number of results.  (Adds a limit clause to an SQL query if necessary.)
 
@@ -36,7 +36,7 @@
   [limit query]
   {:pre [(and (integer? limit) (>= limit 0))
          (string? query)]}
-  (if (> limit 0)
+  (if (pos? limit)
     (format "select results.* from (%s) results LIMIT %s" query (inc limit))
     query))
 
@@ -56,7 +56,8 @@
   (limited-query-to-vec 1000 [\"select * from table where column = ?\" 12])"
   [limit query]
   {:pre [(and (integer? limit) (>= limit 0))
-         ((some-fn string? vector?) query)]}
+         ((some-fn string? vector?) query)]
+   :post [(or (zero? limit) (<= (count %) limit))]}
   (let [sql-query-and-params (if (string? query) [query] query)]
     (sql/with-query-results result-set
       sql-query-and-params
