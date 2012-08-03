@@ -39,9 +39,9 @@
           (every? (complement coll?) (rest %))]}
   (if query
     (let [{:keys [where joins params]} (compile-term query)
-          join-expr (->> joins
-                      (map build-join-expr)
-                      (string/join " "))]
+          join-expr                    (->> joins
+                                            (map build-join-expr)
+                                            (string/join " "))]
       (apply vector (format "%s WHERE %s" join-expr where) params))
     [""]))
 
@@ -70,16 +70,16 @@
   (let [count (count term)]
     (if (not= 3 count)
       (throw (IllegalArgumentException.
-               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (match [path]
          [["fact" (name :when string?)]]
-         {:where "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND cf.value = ?)"
+         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND cf.value = ?)"
           :params [name (str value)]}
          [["node" "active"]]
          {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
          :else (throw (IllegalArgumentException.
-                        (str term " is not a valid query term")))))
+                       (str term " is not a valid query term")))))
 
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
@@ -92,13 +92,13 @@
   (if-let [number (parse-number (str value))]
     (match [path]
            [["fact" (name :when string?)]]
-           {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+           {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
             :params [name number]}
 
            :else (throw (IllegalArgumentException.
-                          (str term " is not a valid query term"))))
+                         (str term " is not a valid query term"))))
     (throw (IllegalArgumentException.
-             (format "Value %s must be a number for %s comparison." value op)))))
+            (format "Value %s must be a number for %s comparison." value op)))))
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
@@ -108,14 +108,14 @@
    :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms (map compile-term terms)
-        joins (distinct (mapcat :joins terms))
+  (let [terms  (map compile-term terms)
+        joins  (distinct (mapcat :joins terms))
         params (mapcat :params terms)
-        query (->> (map :where terms)
-                   (map #(format "(%s)" %))
-                   (string/join (format " %s " (string/upper-case op))))]
-    {:joins joins
-     :where query
+        query  (->> (map :where terms)
+                    (map #(format "(%s)" %))
+                    (string/join (format " %s " (string/upper-case op))))]
+    {:joins  joins
+     :where  query
      :params params}))
 
 ;; Join a set of predicates together with a 'not' relationship,
@@ -127,7 +127,7 @@
    :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [term (compile-term (cons "or" terms))
+  (let [term  (compile-term (cons "or" terms))
         query (->> (:where term)
                    (format "NOT (%s)"))]
     (assoc term :where query)))

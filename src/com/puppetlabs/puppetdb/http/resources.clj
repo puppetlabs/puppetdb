@@ -85,10 +85,10 @@
   (try
     (with-transacted-connection db
       (-> query
-        (json/parse-string true)
-        (r/query->sql)
-        ((partial r/limited-query-resources limit))
-        (pl-http/json-response)))
+          (json/parse-string true)
+          (r/query->sql)
+          ((partial r/limited-query-resources limit))
+          (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

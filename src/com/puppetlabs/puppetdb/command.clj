@@ -220,10 +220,10 @@
             (integer? port)
             (map? command-map)]}
      (let [message (json/generate-string command-map)
-           body (format "checksum=%s&payload=%s"
-                        (pl-utils/utf8-string->sha1 message)
-                        (url-encode message))
-           url  (format "http://%s:%s/commands" host port)]
+           body    (format "checksum=%s&payload=%s"
+                           (pl-utils/utf8-string->sha1 message)
+                           (url-encode message))
+           url     (format "http://%s:%s/commands" host port)]
        (client/post url {:body               body
                          :throw-exceptions   false
                          :content-type       :x-www-form-urlencoded

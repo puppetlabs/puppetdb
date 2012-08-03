@@ -157,7 +157,7 @@
         default-db   {:classname   "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
-        default-opts {:gc-interval 60
+        default-opts {:gc-interval   60
                       :node-ttl-days 0}
         db           (merge default-opts
                             (or database default-db))]
@@ -201,18 +201,18 @@
   "Parses the given config file/directory and configures its various
   subcomponents."
   [path]
-    {:pre [(string? path)]}
-    (let [file (file path)]
-      (when-not (.canRead file)
-        (throw (IllegalArgumentException.
-          (format "Configuration path '%s' must exist and must be readable." path)))))
+  {:pre [(string? path)]}
+  (let [file (file path)]
+    (when-not (.canRead file)
+      (throw (IllegalArgumentException.
+              (format "Configuration path '%s' must exist and must be readable." path)))))
 
-    (-> (inis-to-map path)
-        (configure-logging!)
-        (configure-commandproc-threads)
-        (configure-web-server)
-        (configure-database)
-        (set-global-configuration!)))
+  (-> (inis-to-map path)
+      (configure-logging!)
+      (configure-commandproc-threads)
+      (configure-web-server)
+      (configure-database)
+      (set-global-configuration!)))
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
@@ -232,9 +232,9 @@
         node-ttl-days                              (get database :node-ttl-days)
         mq-dir                                     (str (file vardir "mq"))
         discard-dir                                (file mq-dir "discarded")
-        globals                                    {:scf-db     db
-                                                    :command-mq {:connection-string mq-addr
-                                                                 :endpoint          mq-endpoint}
+        globals                                    {:scf-db               db
+                                                    :command-mq           {:connection-string mq-addr
+                                                                           :endpoint          mq-endpoint}
                                                     :resource-query-limit resource-query-limit}]
 
 
