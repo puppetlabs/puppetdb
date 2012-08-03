@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.http.catalog
   (:require [cheshire.core :as json]
             ring.middleware.params
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [clj-time.core :only [now]]
@@ -25,7 +26,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= 200   (:status response)))
+  (is (= pl-http/status-ok   (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= (when-let [body (:body response)]
            (let [body (json/parse-string body)
@@ -84,13 +85,13 @@ to the result of the form supplied to this method."
                    "target" {"type" "Class" "title" "Main"}
                    "relationship" "contains"}}}))
 
-    (testing "should return 404 if the catalog isn't found"
+    (testing "should return status-not-found if the catalog isn't found"
       (let [response (get-response "non-existent-node")]
-        (is (= 404 (:status response)))
+        (is (= pl-http/status-not-found (:status response)))
         (is (= {:error "Could not find catalog for non-existent-node"}
                (json/parse-string (:body response) true)))))
 
     (testing "should fail if no node is specified"
       (let [response (get-response)]
-        (is (= 400 (:status response)))
+        (is (= pl-http/status-bad-request (:status response)))
         (is (= "missing node") (:body response))))))

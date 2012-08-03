@@ -4,7 +4,9 @@
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
-            [com.puppetlabs.utils :as utils]))
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.utils :as utils])
+  (:use com.puppetlabs.jdbc.internal))
 
 (defn convert-result-arrays
   "Converts Java and JDBC arrays in a result set using the provided function
@@ -17,6 +19,52 @@
                      (isa? (class %) java.sql.Array) (f (.getArray %))
                      :else %)]
        (map #(utils/mapvals convert %) result-set))))
+
+(defn add-limit-clause
+  "Helper function for ensuring that a query does not return more than a certain
+  number of results.  (Adds a limit clause to an SQL query if necessary.)
+
+  Accepts two parameters: `limit` and `query`.  `query` should be an SQL query
+  (String) that you wish to apply a LIMIT clause to.
+
+  `limit` is an integer specifying the maximum number of results that we are looking
+  for.  If `limit` is zero, then we return the original `query` unaltered.  If
+  `limit is greater than zero, we add a limit clause using the time-honored trick
+  of using the value of `limit + 1`;  This allows us to later compare the size of
+  the result set against the original limit and detect cases where we've exceeded
+  the maximum."
+  [limit query]
+  {:pre [(and (integer? limit) (>= limit 0))
+         (string? query)]}
+  (if (pos? limit)
+    (format "select results.* from (%s) results LIMIT %s" query (inc limit))
+    query))
+
+(defn limited-query-to-vec
+  "Take a limit and an SQL query (with optional parameters), and return the
+  result of the query as a vector.  These results, unlike a normal query result,
+  are not tied to the database connection and can be safely returned.
+
+  A value of `0` for `limit` is interpreted as 'no limit'.  For any other value,
+  the function raises an error if the query would return more than `limit`
+  results.
+
+  Can be invoked in two ways: either passing the limit and the SQL query string,
+  or the limit and a vector of the query string and parameters.
+
+  (limited-query-to-vec 1000 \"select * from table\")
+  (limited-query-to-vec 1000 [\"select * from table where column = ?\" 12])"
+  [limit query]
+  {:pre [(and (integer? limit) (>= limit 0))
+         ((some-fn string? vector?) query)]
+   :post [(or (zero? limit) (<= (count %) limit))]}
+  (let [sql-query-and-params (if (string? query) [query] query)]
+    (sql/with-query-results result-set
+      sql-query-and-params
+      (let [limited-result-set (limit-result-set! limit result-set)]
+        (-> limited-result-set
+          (convert-result-arrays)
+          (vec))))))
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
@@ -33,11 +81,8 @@
   ([sql-query & params]
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
-     (sql/with-query-results result-set
-       (if (string? sql-query-and-params) [sql-query-and-params] sql-query-and-params)
-       (-> result-set
-           (convert-result-arrays)
-           (vec)))))
+    {:pre [((some-fn string? vector?) sql-query-and-params)]}
+       (limited-query-to-vec 0 sql-query-and-params)))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
@@ -64,23 +109,29 @@
     :or   {partition-conn-min 1
            partition-conn-max 10
            partition-count    5
-           stats              true}
+           stats              true
+          ;; setting this to a String value, because that's what it would
+          ;;  be in the config file and we're manually converting it to a boolean
+           log-statements     "true"
+           log-slow-statements 10}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
-  (let [config (doto (new BoneCPConfig)
-                 (.setDefaultAutoCommit false)
-                 (.setLazyInit true)
-                 (.setMinConnectionsPerPartition partition-conn-min)
-                 (.setMaxConnectionsPerPartition partition-conn-max)
-                 (.setPartitionCount partition-count)
-                 (.setStatisticsEnabled stats)
-                 ;; paste the URL back together from parts.
-                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname)))]
+  (let [log-statements? (Boolean/parseBoolean log-statements)
+        config (doto (new BoneCPConfig)
+                (.setDefaultAutoCommit false)
+                (.setLazyInit true)
+                (.setMinConnectionsPerPartition partition-conn-min)
+                (.setMaxConnectionsPerPartition partition-conn-max)
+                (.setPartitionCount partition-count)
+                (.setStatisticsEnabled stats)
+                ;; paste the URL back together from parts.
+                (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
+                (.setConnectionHook (connection-hook log-statements? log-slow-statements)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))
-    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (when log-statements? (.setLogStatementsEnabled config log-statements?))
     (when log-slow-statements
       (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
     ;; ...aaand, create the pool.

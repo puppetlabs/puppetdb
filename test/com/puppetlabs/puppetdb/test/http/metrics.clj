@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.metrics
   (:import (java.util.concurrent TimeUnit))
-  (:require [cheshire.core :as json])
+  (:require [cheshire.core :as json]
+            [com.puppetlabs.http :as pl-http])
   (:use com.puppetlabs.puppetdb.http.metrics
         com.puppetlabs.puppetdb.fixtures
         clojure.test
@@ -40,20 +41,20 @@
 
 (deftest metrics-set-handler
   (testing "Remote metrics endpoint"
-    (testing "should return a 404 for an unknown metric"
+    (testing "should return a pl-http/status-not-found for an unknown metric"
       (let [request (make-request "mbean/does_not_exist")
             response (*app* request)]
-        (is (= (:status response) 404))))
+        (is (= (:status response) pl-http/status-not-found))))
 
-    (testing "should return a 406 for unacceptable content type"
+    (testing "should return a pl-http/status-not-acceptable for unacceptable content type"
       (let [request (make-request "mbeans" {:content-type "text/plain"})
             response (*app* request)]
-        (is (= (:status response) 406))))
+        (is (= (:status response) pl-http/status-not-acceptable))))
 
-    (testing "should return a 200 for an existing metric"
+    (testing "should return a pl-http/status-ok for an existing metric"
       (let [request (make-request "mbean/java.lang:type=Memory")
             response (*app* request)]
-        (is (= (:status response) 200))
+        (is (= (:status response) pl-http/status-ok))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (map? (json/parse-string (:body response) true))
                true))))
@@ -61,7 +62,7 @@
     (testing "should return a list of all mbeans"
       (let [request (make-request "mbeans")
             response (*app* request)]
-        (is (= (:status response) 200))
+        (is (= (:status response) pl-http/status-ok))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
 
         ;; Retrieving all the resulting mbeans should work
@@ -69,5 +70,5 @@
           (is (= (map? mbeans) true))
           (doseq [[name uri] mbeans
                   :let [request (make-request uri)]]
-            (is (= (:status response 200)))
+            (is (= (:status response pl-http/status-ok)))
             (is (= (get-in response [:headers "Content-Type"]) c-t))))))))

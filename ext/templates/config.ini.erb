@@ -8,6 +8,9 @@ vardir = <%= @lib_dir -%>
 # Use an external log4j config file
 logging-config = <%= @config_dir -%>/../log4j.properties
 
+# Maximum number of results that a resource query may return
+resource-query-limit = 20000
+
 [command-processing]
 # How many command-processing threads to use, defaults to (CPUs / 2)
 # threads = 4

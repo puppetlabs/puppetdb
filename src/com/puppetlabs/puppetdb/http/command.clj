@@ -10,6 +10,7 @@
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]
+            [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]))
 
 (defn command-app
@@ -17,21 +18,21 @@
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "payload"))
-   (pl-utils/error-response "missing payload")
+   (pl-http/error-response "missing payload")
 
    (and (params "checksum")
         (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload"))))
-   (pl-utils/error-response "checksums don't match")
+   (pl-http/error-response "checksums don't match")
 
-   (not (pl-utils/acceptable-content-type
+   (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
 
    :else
    (let [uuid (command/enqueue-raw-command! (get-in globals [:command-mq :connection-string])
                                             (get-in globals [:command-mq :endpoint])
                                             (params "payload"))]
      (-> {:uuid uuid}
-         (pl-utils/json-response)))))
+         (pl-http/json-response)))))
