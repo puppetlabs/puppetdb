@@ -61,7 +61,7 @@
   (let [sql-query-and-params (if (string? query) [query] query)]
     (sql/with-query-results result-set
       sql-query-and-params
-      (let [limited-result-set (limit-result-set!* limit result-set)]
+      (let [limited-result-set (limit-result-set! limit result-set)]
         (-> limited-result-set
           (convert-result-arrays)
           (vec))))))
@@ -127,7 +127,7 @@
                 (.setStatisticsEnabled stats)
                 ;; paste the URL back together from parts.
                 (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                (.setConnectionHook (connection-hook* log-statements? log-slow-statements)))]
+                (.setConnectionHook (connection-hook log-statements? log-slow-statements)))]
     ;; configurable without default
     (when username (.setUsername config username))
     (when password (.setPassword config password))

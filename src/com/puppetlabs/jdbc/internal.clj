@@ -9,7 +9,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]))
 
-(defn query-param->str*
+(defn query-param->str
   "Helper method for converting a single parameter from a prepared statement
   to a human-eradable string, including the java type of the param value."
   [param]
@@ -18,7 +18,7 @@
       (if (string? val) (str "'" val "'") val)
       (pr-str (type val)))))
 
-(defn query-params->str*
+(defn query-params->str
   "Helper method for converting a list of parameters from a prepared statement
   to a human-readable string.  Our current connection pool library does not
   make these available unless we've enabled SQL statement logging, so we have
@@ -27,11 +27,11 @@
   [log-statements? params]
   (if log-statements?
     (format "Query Params: %s"
-      (join ", " (map query-param->str* params)))
+      (join ", " (map query-param->str params)))
     (str "(Query params unavailable: to enable logging of query params, please set "
         "'log-statements' to true in the [database] section of your config file.)")))
 
-(defn connection-hook*
+(defn connection-hook
   "Helper method for building up a `ConnectionHook` for our connection pool.
   Currently only defines behavior for `onQueryExecuteTimeLimitExceeded`, which
   is called for slow queries.  There are several other hooks available that we
@@ -48,12 +48,12 @@
       [conn stmt sql params time-elapsed]
       (log/warn (format (str "Query slower than %ss threshold:  "
                           "actual execution time: %.4f seconds; Query: %s; "
-                          (query-params->str* log-statements? params))
+                          (query-params->str log-statements? params))
                   query-execution-limit
                   (/ time-elapsed 1000000000.0)
                   stmt)))))
 
-(defn limit-exception*
+(defn limit-exception
   "Helper method; simply throws an exception with a message explaining
   that a query result limit was exceeded."
   [limit]
@@ -65,7 +65,7 @@
              limit)))
 
 
-(defn limit-result-set!*
+(defn limit-result-set!
   "Given a `limit` and a `result-set` (which is usually the result of a call to
   `clojure.java.jdbc/with-query-results`), this function verifies that the
   `result-set` does not contain more than `limit` results and then returns the
@@ -81,7 +81,7 @@
     ;;  correctly identify whether the query *exceeded* the specified limit.
     (let [limited-result-set (take (inc limit) result-set)]
       (when (> (count limited-result-set) limit)
-        (throw (limit-exception* limit)))
+        (throw (limit-exception limit)))
       limited-result-set)
     result-set))
 
