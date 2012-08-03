@@ -62,7 +62,7 @@
   command-processing endpoint."
   [host catalog]
   (let [result (command/submit-command-via-http! hostname port "replace catalog" 1 catalog)]
-    (if (not= 200 (:status result))
+    (if (not= pl-http/status-ok (:status result))
       (log/error result))))
 
 (defn tweak-catalog

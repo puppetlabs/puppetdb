@@ -23,7 +23,10 @@
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec convert-result-arrays with-transacted-connection]]
+  (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
+                                    convert-result-arrays
+                                    with-transacted-connection
+                                    add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
         [clojure.core.match :only [match]]))
 
@@ -63,25 +66,36 @@
                     (string/join " "))]
     (apply vector (format "%s WHERE %s" join-expr where) params)))
 
-(defn query-resources
-  "Take a query and its parameters, and return a vector of resources
-and their parameters which match."
-  [[sql & params]]
-  {:pre [(string? sql)]}
+(defn limited-query-resources
+  "Take a limit, a query, and its parameters, and return a vector of resources
+   and their parameters which match.  Throws an exception if the query would
+   return more than `limit` results.  (A value of `0` for `limit` means
+   that the query should not be limited.)"
+  [limit [sql & params]]
+  {:pre [(and (integer? limit) (>= limit 0))]
+   :post [(or (zero? limit) (<= (count %) limit))]}
   (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
-                                   "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
-                                   "FROM catalog_resources "
-                                   "JOIN certname_catalogs USING(catalog) "
-                                   "LEFT OUTER JOIN resource_params rp "
-                                   "USING(resource) %s")
-                              sql)
-        results (apply query-to-vec query params)
+                                "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
+                                "FROM catalog_resources "
+                                "JOIN certname_catalogs USING(catalog) "
+                                "LEFT OUTER JOIN resource_params rp "
+                                "USING(resource) %s")
+                          sql)
+        limited-query (add-limit-clause limit query)
+        results (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]
     (vec (for [[resource params] (group-by metadata results)]
            (assoc (zipmap metadata_cols resource) :parameters
-                  (into {} (for [param params :when (:name param)]
-                             [(:name param) (json/parse-string (:value param))])))))))
+             (into {} (for [param params :when (:name param)]
+                        [(:name param) (json/parse-string (:value param))])))))))
+
+(defn query-resources
+  "Take a query and its parameters, and return a vector of resources
+   and their parameters which match."
+  [[sql & params]]
+  {:pre [(string? sql)]}
+  (limited-query-resources 0 (apply vector sql params)))
 
 ;; Compile an '=' predicate, the basic atom of a resource query. This
 ;; will produce a query that selects a set of hashes matching the

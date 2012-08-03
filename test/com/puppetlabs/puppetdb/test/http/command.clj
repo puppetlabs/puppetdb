@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.command
   (:require [com.puppetlabs.utils :as pl-utils]
+            [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clj-time.format :as time])
   (:use clojure.test
@@ -26,7 +27,7 @@
             checksum (pl-utils/utf8-string->sha1 payload)
             req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
-        (is (= (:status resp) 200))
+        (is (= (:status resp) pl-http/status-ok))
         (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
         (is (= (instance? java.util.UUID
                           (-> (:body resp)
@@ -35,20 +36,20 @@
                               (java.util.UUID/fromString)))
                true))))
 
-    (testing "should return 400 when missing payload"
+    (testing "should return status-bad-request when missing payload"
       (let [req  (make-request {})
             resp (*app* req)]
-        (is (= (:status resp) 400))))
+        (is (= (:status resp) pl-http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
       (let [req (make-request {:payload "my payload!"})
             resp (*app* req)]
-        (is (= (:status resp) 200))))
+        (is (= (:status resp) pl-http/status-ok))))
 
     (testing "should return 400 when checksums don't match"
       (let [req  (make-request {:payload "Testing" :checksum "something bad"})
             resp (*app* req)]
-        (is (= (:status resp) 400))))))
+        (is (= (:status resp) pl-http/status-bad-request))))))
 
 (deftest receipt-timestamping
   (let [good-payload       (json/generate-string {:command "my command" :version 1 :payload "{}"})

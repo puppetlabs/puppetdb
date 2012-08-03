@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.facts
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
@@ -37,21 +38,21 @@
     (testing "for an absent node"
       (let [request (make-request "/facts/imaginary_node")
             response (*app* request)]
-        (is (= (:status response) 404))
+        (is (= (:status response) pl-http/status-not-found))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response) true)
                {:error "Could not find facts for imaginary_node"}))))
     (testing "for a present node without facts"
       (let [request (make-request (format "/facts/%s" certname_without_facts))
             response (*app* request)]
-        (is (= (:status response) 404))
+        (is (= (:status response) pl-http/status-not-found))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response) true)
                {:error (str "Could not find facts for " certname_without_facts)}))))
     (testing "for a present node with facts"
       (let [request (make-request (format "/facts/%s" certname_with_facts))
             response (*app* request)]
-        (is (= (:status response) 200))
+        (is (= (:status response) pl-http/status-ok))
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response))
                {"name" certname_with_facts "facts" facts}))))))

@@ -199,25 +199,20 @@
 
 (defn parse-config
   "Parses the given config file/directory and configures its various
-  subcomponents.  Also accepts an optional map argument 'initial-config'; if
-  provided, any initial values in this map will be included
-  in the resulting config map."
-  ([path]
-    (parse-config path {}))
-  ([path initial-config]
-    {:pre [(string? path)
-           (map? initial-config)]}
+  subcomponents."
+  [path]
+    {:pre [(string? path)]}
     (let [file (file path)]
       (when-not (.canRead file)
         (throw (IllegalArgumentException.
           (format "Configuration path '%s' must exist and must be readable." path)))))
 
-    (-> (merge initial-config (inis-to-map path))
+    (-> (inis-to-map path)
         (configure-logging!)
         (configure-commandproc-threads)
         (configure-web-server)
         (configure-database)
-        (set-global-configuration!))))
+        (set-global-configuration!)))
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
@@ -228,9 +223,10 @@
 (defn -main
   [& args]
   (let [[options _]                                (cli! args)
-        initial_config                             {:debug (:debug options)}
-        {:keys [jetty database global] :as config} (parse-config (:config options) initial_config)
+        initial-config                             {:debug (:debug options)}
+        {:keys [jetty database global] :as config} (merge initial-config (parse-config (:config options)))
         vardir                                     (validate-vardir (:vardir global))
+        resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
         node-ttl-days                              (get database :node-ttl-days)
@@ -238,7 +234,10 @@
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db     db
                                                     :command-mq {:connection-string mq-addr
-                                                                 :endpoint          mq-endpoint}}]
+                                                                 :endpoint          mq-endpoint}
+                                                    :resource-query-limit resource-query-limit}]
+
+
 
     (when version
       (log/info (format "PuppetDB version %s" version)))

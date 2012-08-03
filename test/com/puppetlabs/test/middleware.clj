@@ -1,5 +1,6 @@
 (ns com.puppetlabs.test.middleware
   (:require [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.http :as pl-http]
             [fs.core :as fs]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.middleware]
@@ -31,7 +32,7 @@
           ;; Normalize urls based on reversing the url
           normalize-uri #(apply str (reverse %))
           handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status 200)))
+                                      (rr/status pl-http/status-ok)))
           app           (wrap-with-metrics handler storage normalize-uri)]
 
       (app {:uri "/foo"})
@@ -47,13 +48,13 @@
   (testing "Should only allow authorized requests"
     ;; Setup an app that only lets through odd numbers
     (let [handler     (fn [req] (-> (rr/response nil)
-                                    (rr/status 200)))
+                                    (rr/status pl-http/status-ok)))
           authorized? odd?
           app         (wrap-with-authorization handler authorized?)]
       ;; Even numbers should trigger an unauthorized response
-      (is (= 403 (:status (app 0))))
+      (is (= pl-http/status-forbidden (:status (app 0))))
       ;; Odd numbers should get through fine
-      (is (= 200 (:status (app 1)))))))
+      (is (= pl-http/status-ok (:status (app 1)))))))
 
 (deftest wrapping-cert-cn-extraction
   (with-redefs [utils/cn-for-cert :cn]

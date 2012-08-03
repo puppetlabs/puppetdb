@@ -2,6 +2,7 @@
 
 (ns com.puppetlabs.middleware
   (:require [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]))
@@ -20,7 +21,7 @@
       (app req)
       (-> "You shall not pass!"
           (rr/response)
-          (rr/status 403)))))
+          (rr/status pl-http/status-forbidden)))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an

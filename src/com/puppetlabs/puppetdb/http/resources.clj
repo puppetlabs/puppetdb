@@ -66,42 +66,47 @@
 ;;                     ...}}
 
 (ns com.puppetlabs.puppetdb.http.resources
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given a query and database connection, return a Ring response with
-  the query results. The result format conforms to that documented
+  "Given a `limit`, a query, and database connection, return a Ring
+  response with the query results. The result format conforms to that documented
   above.
 
-  If the query can't be parsed, a 400 is returned."
-  [query db]
+  If the query can't be parsed, a 400 is returned.
+
+  If the query would return more than `limit` results, `status-internal-error` is returned."
+  [limit query db]
+  {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
       (-> query
         (json/parse-string true)
         (r/query->sql)
-        (r/query-resources)
-        (utils/json-response)))
+        ((partial r/limited-query-resources limit))
+        (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
-      (utils/error-response e))
+      (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (utils/error-response e))))
+      (pl-http/error-response e))
+    (catch IllegalStateException e
+      (pl-http/error-response e pl-http/status-internal-error))))
 
 (defn resources-app
   "Ring app for querying resources"
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "query"))
-   (utils/error-response "missing query")
+   (pl-http/error-response "missing query")
 
-   (not (utils/acceptable-content-type
+   (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
    :else
-   (produce-body (params "query") (:scf-db globals))))
+   (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals))))
