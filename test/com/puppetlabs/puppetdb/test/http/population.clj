@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.http.population
   (:require [cheshire.core :as json]
             ring.middleware.params
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [clj-time.core :only [now]]
@@ -25,7 +26,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= 200   (:status response)))
+  (is (= pl-http/status-ok   (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= (when-let [body (:body response)]
            (json/parse-string body true))

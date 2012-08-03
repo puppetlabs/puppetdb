@@ -24,7 +24,7 @@
   (let [facts (with-transacted-connection db
                 (f/facts-for-node node))]
     (if-not (seq facts)
-      (pl-http/json-response {:error (str "Could not find facts for " node)} 404)
+      (pl-http/json-response {:error (str "Could not find facts for " node)} pl-http/status-not-found)
       (pl-http/json-response {:name node :facts facts}))))
 
 (defn facts-app
@@ -33,13 +33,13 @@
   (cond
    (not (params "node"))
    (-> (rr/response "missing node")
-       (rr/status 400))
+       (rr/status pl-http/status-bad-request))
 
    (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
 
    :else
    (produce-body (params "node") (:scf-db globals))))

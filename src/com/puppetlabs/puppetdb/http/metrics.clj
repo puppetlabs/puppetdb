@@ -78,7 +78,7 @@
         (pl-http/json-response))
     (-> "No such mbean"
         (rr/response)
-        (rr/status 404))))
+        (rr/status pl-http/status-not-found))))
 
 (def routes
   (app
@@ -98,7 +98,7 @@
       (f req)
       (-> (format "must accept %s" content-type)
           (rr/response)
-          (rr/status 406)))))
+          (rr/status pl-http/status-not-acceptable)))))
 
 (def metrics-app
   (-> routes

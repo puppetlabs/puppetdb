@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.http.node
   (:require [clojure.set :as set]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [clojure.math.combinatorics :only [combinations]]
@@ -33,7 +34,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= 200   (:status response)))
+  (is (= pl-http/status-ok   (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
@@ -95,4 +96,4 @@ to the result of the form supplied to this method."
     (doseq [expr [[">=" ["fact" "uptime_seconds"] "10foobar"]
                   [">=" ["fact" "uptime_seconds"] "non-numeric"]
                   ["<" ["fact" "uptime_seconds"] true]]]
-      (is (= 400 (:status (get-response expr)))))))
+      (is (= pl-http/status-bad-request (:status (get-response expr)))))))

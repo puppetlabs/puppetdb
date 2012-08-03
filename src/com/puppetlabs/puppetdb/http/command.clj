@@ -28,7 +28,7 @@
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
 
    :else
    (let [uuid (command/enqueue-raw-command! (get-in globals [:command-mq :connection-string])

@@ -2,9 +2,38 @@
 
 (ns com.puppetlabs.http
   (:require [ring.util.response :as rr]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [clojure.reflect :as r]
+            [clojure.string :as s]))
 
-(def HTTP-INTERNAL-ERROR java.net.HttpURLConnection/HTTP_INTERNAL_ERROR)
+(def http-constants
+  (->> java.net.HttpURLConnection
+    (r/reflect)
+    (:members)
+    (map :name)
+    (map str)
+    (filter #(.startsWith % "HTTP_"))))
+
+(defn http-constant->kw
+  "Convert the name a constant from the java.net.HttpURLConnection class into a keyword that we will use to define a Clojure constant."
+  [name]
+  (-> name
+    (s/split #"HTTP_")
+    (second)
+    ((partial str "status-"))
+    (.replace "_" "-")
+    (.toLowerCase)
+    (symbol)))
+
+;; define constants for all of the HTTP status codes defined in the
+;; java class
+(doseq [name http-constants]
+  (let [key (http-constant->kw name)
+        val (-> (.getField java.net.HttpURLConnection name)
+      (.get nil))]
+    (intern *ns* key val)))
+
+
 
 (defn acceptable-content-type
   "Returns a boolean indicating whether the `candidate` mime type
@@ -25,7 +54,7 @@
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
   ([body]
-    (json-response body 200))
+    (json-response body status-ok))
   ([body code]
     (-> body
       (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
@@ -37,9 +66,9 @@
   "Returns a Ring response object with the status code specified by `code`.
    If `error` is a Throwable, its message is used as the body of the response.
    Otherwise, `error` itself is used.  If unspecified, `code` will default to
-   400."
+   `status-bad-request`."
   ([error]
-    (error-response error 400))
+    (error-response error status-bad-request))
   ([error code]
     (let [msg (if (instance? Throwable error)
       (.getMessage error)

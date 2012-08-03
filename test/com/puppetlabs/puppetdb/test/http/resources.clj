@@ -32,7 +32,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= 200   (:status response)))
+  (is (= pl-http/status-ok   (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
@@ -100,7 +100,7 @@ to the result of the form supplied to this method."
       (testing "query without filter"
         (let [response (get-response)
               body     (get response :body "null")]
-          (is (= (:status response) 400))
+          (is (= (:status response) pl-http/status-bad-request))
           (is (re-find #"missing query" body))))
 
       (testing "query with filter"
@@ -121,7 +121,7 @@ to the result of the form supplied to this method."
           (fn []
             (let [response (get-response ["=" "type" "File"])
                   body     (get response :body "null")]
-              (is (= (:status response) pl-http/HTTP-INTERNAL-ERROR))
+              (is (= (:status response) pl-http/status-internal-error))
               (is (re-find #"more than the maximum number of results" body))))))
 
       (testing "querying against inactive nodes"
@@ -145,5 +145,5 @@ to the result of the form supplied to this method."
     (testing "error handling"
       (let [response (get-response ["="])
             body     (get response :body "null")]
-        (is (= (:status response) 400))
+        (is (= (:status response) pl-http/status-bad-request))
         (is (re-find #"= requires exactly two arguments" body)))))

@@ -15,7 +15,7 @@
   (if-let [status (with-transacted-connection db
                     (node-status node))]
     (pl-http/json-response status)
-    (pl-http/json-response {:error (str "No information is known about " node)} 404)))
+    (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 
 (defn node-status-app
   "Ring app for retrieving node status"
@@ -24,7 +24,7 @@
     (cond
      (empty? node)
      (-> (rr/response "missing node")
-         (rr/status 400))
+         (rr/status pl-http/status-bad-request))
 
      (not (pl-http/acceptable-content-type
            "application/json"

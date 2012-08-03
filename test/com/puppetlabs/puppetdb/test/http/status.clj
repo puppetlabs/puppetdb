@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.http.status
   (:require [cheshire.core :as json]
             ring.middleware.params
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [clj-time.core :only [now]]
@@ -34,7 +35,7 @@
     (testing "should be active, and have catalog and facts timestamp if active with catalog+facts"
       (let [response (get-response certname)
             status   (json/parse-string (:body response) true)]
-        (is (= 200 (:status response)))
+        (is (= pl-http/status-ok (:status response)))
 
         (is (= certname (:name status)))
         (is (nil? (:deactivated status)))
@@ -48,16 +49,16 @@
     (testing "should be deactivated, with null timestamps if deactivated with no data"
       (let [response (get-response certname)
             status   (json/parse-string (:body response) true)]
-        (is (= 200 (:status response)))
+        (is (= pl-http/status-ok (:status response)))
 
         (is (= certname (:name status)))
         (is (instance? org.joda.time.DateTime (parse (:deactivated status))))
         (is (nil? (:catalog_timestamp status)))
         (is (nil? (:facts_timestamp status)))))
 
-    (testing "should return 404 for an unknown node"
+    (testing "should return status-not-found for an unknown node"
       (let [response (get-response "unknown-node")
             result (json/parse-string (:body response) true)]
-        (is (= 404 (:status response)))
+        (is (= pl-http/status-not-found (:status response)))
 
         (is (= "No information is known about unknown-node" (:error result)))))))

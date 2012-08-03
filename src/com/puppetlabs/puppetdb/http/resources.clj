@@ -79,7 +79,7 @@
 
   If the query can't be parsed, a 400 is returned.
 
-  If the query would return more than `limit` results, HTTP-INTERNAL-ERROR is returned."
+  If the query would return more than `limit` results, `status-internal-error` is returned."
   [limit query db]
   {:pre [(and (integer? limit) (>= limit 0))]}
   (try
@@ -94,7 +94,7 @@
     (catch IllegalArgumentException e
       (pl-http/error-response e))
     (catch IllegalStateException e
-      (pl-http/error-response e pl-http/HTTP-INTERNAL-ERROR ))))
+      (pl-http/error-response e pl-http/status-internal-error))))
 
 (defn resources-app
   "Ring app for querying resources"
@@ -107,6 +107,6 @@
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
    :else
    (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals))))

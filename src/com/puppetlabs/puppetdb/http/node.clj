@@ -59,6 +59,6 @@
          "application/json"
          (headers "accept")))
    (-> (rr/response "must accept application/json")
-       (rr/status 406))
+       (rr/status pl-http/status-not-acceptable))
    :else
    (search-nodes (params "query") (:scf-db globals))))

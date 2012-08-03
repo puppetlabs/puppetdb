@@ -12,7 +12,7 @@
                   (c/catalog-for-node node))]
     (if catalog
       (pl-http/json-response catalog)
-      (pl-http/json-response {:error (str "Could not find catalog for " node)} 404))))
+      (pl-http/json-response {:error (str "Could not find catalog for " node)} pl-http/status-not-found))))
 
 (defn catalog-app
   "Ring app for retrieving catalogs"
@@ -21,7 +21,7 @@
     (cond
      (empty? node)
      (-> (rr/response "missing node")
-         (rr/status 400))
+         (rr/status pl-http/status-bad-request))
 
      (not (pl-http/acceptable-content-type
            "application/json"
