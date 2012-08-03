@@ -12,9 +12,6 @@ step "Install development build of PuppetDB on the PuppetDB server" do
   when :package
     Log.notify("Installing puppetdb from package; install mode: '#{options[:puppetdb_install_mode].inspect}'")
 
-    # Remove this so that the SSL setup script will run again
-    on database, "rm -f /etc/puppetdb/ssl/puppetdb_keystore_pw.txt"
-
     install_puppetdb(database)
 
     validate_package_version(database)
