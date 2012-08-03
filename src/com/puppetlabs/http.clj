@@ -1,10 +1,18 @@
-;; ## Utility functions related to HTTP
+;; ## HTTP Utility library
+;;
+;; This namespace contains some http-related constants and utility functions.
 
 (ns com.puppetlabs.http
   (:require [ring.util.response :as rr]
             [cheshire.core :as json]
             [clojure.reflect :as r]
             [clojure.string :as s]))
+
+
+;; ## HTTP Status codes
+;;
+;; This section creates a series of variables representing legal HTTP status
+;;  codes. e.g. `status-ok` == 200, `status-bad-request` == 400, etc.
 
 (def http-constants
   (->> java.net.HttpURLConnection
@@ -14,8 +22,9 @@
     (map str)
     (filter #(.startsWith % "HTTP_"))))
 
-(defn http-constant->kw
-  "Convert the name a constant from the java.net.HttpURLConnection class into a keyword that we will use to define a Clojure constant."
+(defn http-constant->sym
+  "Convert the name a constant from the java.net.HttpURLConnection class into a
+  symbol that we will use to define a Clojure constant."
   [name]
   (-> name
     (s/split #"HTTP_")
@@ -28,12 +37,13 @@
 ;; define constants for all of the HTTP status codes defined in the
 ;; java class
 (doseq [name http-constants]
-  (let [key (http-constant->kw name)
+  (let [key (http-constant->sym name)
         val (-> (.getField java.net.HttpURLConnection name)
       (.get nil))]
     (intern *ns* key val)))
 
 
+;; ## HTTP/Ring utility functions
 
 (defn acceptable-content-type
   "Returns a boolean indicating whether the `candidate` mime type
