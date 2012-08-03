@@ -79,7 +79,7 @@ stop() {
     find_my_pid
     if [ -s "$PIDFILE" ] ; then
         kill `cat $PIDFILE`
-    else
+    elif [ "$pid" != "" ] ; then
         kill $pid
     fi
     retval=$?
