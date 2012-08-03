@@ -61,30 +61,35 @@ if [ ! -n "$fqdn" ] ; then
   fqdn=`facter hostname`
 fi
 
-password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
-tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
 mycertname=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
 mycert=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
 myca=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
 privkey=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
 
+pw_file=${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
 
-rm -rf $tmpdir
-mkdir -p $tmpdir
-cp $myca $tmpdir/ca.pem
-cp $privkey $tmpdir/privkey.pem
-cp $mycert $tmpdir/pubkey.pem
+if [ -f $pw_file ]; then
+  password=`cat $pw_file`
+else
+  password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
+  tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
+  rm -rf $tmpdir
+  mkdir -p $tmpdir
+  cp $myca $tmpdir/ca.pem
+  cp $privkey $tmpdir/privkey.pem
+  cp $mycert $tmpdir/pubkey.pem
 
-cd $tmpdir
-keytool -import -alias "PuppetDB CA" -keystore truststore.jks -storepass "$password" -trustcacerts -file ca.pem -noprompt
-cat privkey.pem pubkey.pem > temp.pem
-echo "$password" | openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name $fqdn -passout fd:0
-keytool -importkeystore -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias $fqdn -deststorepass "$password" -srcstorepass "$password"
+  cd $tmpdir
+  keytool -import -alias "PuppetDB CA" -keystore truststore.jks -storepass "$password" -trustcacerts -file ca.pem -noprompt
+  cat privkey.pem pubkey.pem > temp.pem
+  echo "$password" | openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name $fqdn -passout fd:0
+  keytool -importkeystore -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias $fqdn -deststorepass "$password" -srcstorepass "$password"
 
-rm -rf $puppetdb_confdir/ssl
-mkdir -p $puppetdb_confdir/ssl
-cp -pr *jks $puppetdb_confdir/ssl
-echo $password > ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
+  rm -rf $puppetdb_confdir/ssl
+  mkdir -p $puppetdb_confdir/ssl
+  cp -pr *jks $puppetdb_confdir/ssl
+  echo $password > ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
+fi
 
 jettyfile="${puppetdb_confdir}/conf.d/jetty.ini"
 if [ -f "$jettyfile" ] ; then

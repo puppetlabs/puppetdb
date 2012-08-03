@@ -6,9 +6,7 @@ export PATH=/opt/puppet/bin:$PATH
 
 # Setup the SSL stuff
 
-if [ ! -f "<%= @config_dir -%>/../ssl/puppetdb_keystore_pw.txt" ] ; then
-  <%= @sbin_dir -%>/puppetdb-ssl-setup
-fi
+<%= @sbin_dir -%>/puppetdb-ssl-setup
 
 <%= ERB.new(File.read("ext/templates/directory_perms.erb")).result %>
 
