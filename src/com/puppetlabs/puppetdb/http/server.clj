@@ -7,13 +7,14 @@
   (:use [com.puppetlabs.puppetdb.http.command :only (command-app)]
         [com.puppetlabs.puppetdb.http.facts :only (facts-app)]
         [com.puppetlabs.puppetdb.http.metrics :only (metrics-app)]
+        [com.puppetlabs.puppetdb.http.version :only (version-app)]
         [com.puppetlabs.puppetdb.http.resources :only (resources-app)]
         [com.puppetlabs.puppetdb.http.node :only (node-app)]
         [com.puppetlabs.puppetdb.http.status :only (status-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
-        [com.puppetlabs.http :only (uri-segments)]
+        [com.puppetlabs.http :only (uri-segments json-response)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]
@@ -42,6 +43,9 @@
 
    ["metrics" &]
    {:get metrics-app}
+
+   ["version"]
+   {:get version-app}
 
    [""]
    {:get (constantly (redirect "/dashboard/index.html"))}))

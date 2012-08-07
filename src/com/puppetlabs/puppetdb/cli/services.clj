@@ -61,7 +61,7 @@
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -71,7 +71,6 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def version (pl-utils/get-version-from-manifest))
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
@@ -246,8 +245,8 @@
 
 
 
-    (when version
-      (log/info (format "PuppetDB version %s" version)))
+    (when (version)
+      (log/info (format "PuppetDB version %s" (version))))
 
     ;; Add a shutdown hook where we can handle any required cleanup
     (pl-utils/add-shutdown-hook! on-shutdown)

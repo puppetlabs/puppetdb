@@ -7,6 +7,7 @@
 
 body {
   background-color: white;
+  font-family: 'Lato', sans-serif;
 }
 
 .x.axis line {
@@ -35,7 +36,6 @@ body {
 }
 
 .counterbox {
-  font-family: 'Lato', sans-serif;
   text-align: center;
 }
 
@@ -73,6 +73,12 @@ body {
   fill: none;
   stroke: #999;
 }
+
+#version {
+  font-size: 15px;
+  color: #666;
+  float: right;
+}
 </style>
 
 <script src="d3.v2.js"></script>
@@ -80,6 +86,10 @@ body {
 
 <table id="metrics">
 </table>
+
+<div id="version">
+v???
+</div>
 
 <script>(function() {
   // Formatting middleware that collapses small values to 0
@@ -101,6 +111,14 @@ body {
       }
     }
     return null;
+  };
+
+  function updateVersion() {
+    d3.json("/version", function (res) {
+      if (res != null && res.version != null) {
+        d3.select('#version').html('v' + res.version);
+      }
+    });
   };
 
   var nHistorical = getParameter("nHistorical") || 60;
@@ -303,5 +321,6 @@ body {
   .height(height)
   .call();
 
+  updateVersion();
 })()</script>
 

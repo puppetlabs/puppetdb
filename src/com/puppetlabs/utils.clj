@@ -503,3 +503,6 @@
         (let [props (java.util.Properties.)]
           (.load props rdr)
           (get props "version"))))))
+
+(def version
+  (memoize get-version-from-manifest))
