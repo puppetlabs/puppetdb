@@ -1,6 +1,7 @@
 %global   realname puppetdb
 
-%global ruby_sitelib     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+%global ruby_vendorlibdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+%global ruby_sitelibdir       %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
 
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib
@@ -199,8 +200,11 @@ fi
 %defattr(-, puppet, puppet)
 <% end -%>
 # There are not specs yet in our rpms
-%{ruby_sitelib}/puppet
-
+<% if @ruby_version == '1.8' -%>
+%{ruby_sitelibdir}/puppet
+<% else -%>
+%{ruby_vendorlibdir}/puppet
+<% end -%>
 
 %changelog
 <%
