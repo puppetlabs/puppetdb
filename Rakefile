@@ -9,15 +9,43 @@ end
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
 
-def version
+def get_version
   if File.exists?('version')
     File.read('version').chomp
   elsif File.exists?('.git')
-    # This ugly bit removes the gSHA1 portion of the describe as that causes failing tests
     %x{git describe}.chomp.gsub('-', '.').split('.')[0..3].join('.').gsub('v', '')
   else
-    %x{pwd}.strip!.split('.')[-1]
+    File.basename(pwd).split('-').last
   end
+end
+
+def get_debversion
+  if @pe then
+    return "#{(@version.include?("rc") ? @version.sub(/rc[0-9]+/, '-0.1\0') : @version + "-1")}puppet#{get_debrelease}"
+  else
+    return "#{(@version.include?("rc") ? @version.sub(/rc[0-9]+/, '-0.1\0') : @version + "-1")}puppetlabs#{get_debrelease}"
+  end
+end
+
+def get_origversion
+  @debversion.split('-')[0]
+end
+
+def get_rpmversion
+  @version.match(/^([0-9.]+)/)[1]
+end
+
+def get_debrelease
+  ENV['RELEASE'] || "1"
+end
+
+def get_rpmrelease
+  ENV['RELEASE'] ||
+    if @version.include?("rc")
+      "0.1" + @version.gsub('-', '_').match(/rc[0-9]+.*/)[0]
+    else
+      "1"
+    end
 end
 
 def cp_pr(src, dest, options={})
@@ -58,8 +86,6 @@ if PE_BUILD.downcase.strip == "true"
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @pe = true
-    @version = version
-    @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/opt/puppet/sbin"
 else
     @install_dir = "/usr/share/puppetdb"
@@ -71,10 +97,15 @@ else
     @link = "/usr/share/puppetdb"
     @name = "puppetdb"
     @pe = false
-    @version = version
-    @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/usr/sbin"
 end
+
+@version      ||= get_version
+@debversion   ||= get_debversion
+@origversion  ||= get_origversion
+@rpmversion   ||= get_rpmversion
+@rpmrelease   ||= get_rpmrelease
+
 
 desc "Create a source install of PuppetDB"
 task :sourceinstall do
@@ -122,6 +153,10 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   FileList[ "ext", "*.md", JAR_FILE, "spec", "Rakefile" ].each do |f|
     cp_pr f, workdir
   end
+  # Lay down version file for later reading
+  File.open(File.join(workdir,'version'), File::CREAT|File::TRUNC|File::RDWR, 0644) do |f|
+    f.puts @version
+  end
   mv "#{workdir}/ext/files/debian", workdir
   cp_pr "puppet", "#{workdir}/ext/master"
   mkdir_p "pkg"
@@ -149,7 +184,7 @@ task :clobber => [ :clean ] do
 end
 
 task :version do
-  puts version
+  puts @version
 end
 
 file "ext/files/config.ini" => [ :template, JAR_FILE ]   do
@@ -314,11 +349,12 @@ task :deb  => [ :package ] do
   temp = `mktemp -d -t tmpXXXXXX`.strip
   mkdir_p temp
   cp_p "pkg/puppetdb-#{@version}.tar.gz", "#{temp}"
-  sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{version}.tar.gz"
-  mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@version}.orig.tar.gz"
-  sh "cd #{temp}/puppetdb-#{@version}; debuild --no-lintian  -uc -us"
+  sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{@version}.tar.gz"
+  mv "#{temp}/puppetdb-#{@version}", "#{temp}/puppetdb-#{@debversion}"
+  mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@origversion}.orig.tar.gz"
+  sh "cd #{temp}/puppetdb-#{@debversion}; debuild --no-lintian  -uc -us"
   mkdir_p "pkg/deb"
-  rm_rf "#{temp}/puppetdb-#{@version}"
+  rm_rf "#{temp}/puppetdb-#{@debversion}"
   mv FileList["#{temp}/*"], "pkg/deb"
   rm_rf temp
   puts

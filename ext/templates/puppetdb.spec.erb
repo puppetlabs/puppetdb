@@ -1,4 +1,6 @@
 %global   realname puppetdb
+%global realversion <%= @version %>
+%global rpmversion <%= @rpmversion %>
 
 %global ruby_sitelib     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
 
@@ -22,14 +24,14 @@ Name:           pe-puppetdb
 <% else -%>
 Name:           puppetdb
 <% end -%>
-Version:        <%= @version %>
-Release:        1%{?dist}
+Version:        <%= @rpmversion %>
+Release:        <%= @rpmrelease %>%{?dist}
 BuildRoot:      %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Summary:        Puppet Centralized Storage Daemon
 License:       ASL 2.0
 URL:           http://github.com/puppetlabs/puppetdb
-Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{version}.tar.gz
+Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{realversion}.tar.gz
 Group:         System Environment/Daemons
 
 <% if @pe -%>
@@ -72,7 +74,7 @@ Requires: puppet >= 2.7.12
 Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 
 %prep
-%setup -q -n %{realname}-%{version}
+%setup -q -n %{realname}-%{realversion}
 
 %build
 
@@ -207,7 +209,7 @@ fi
 hostname = `hostname --fqdn`
 dt=`date +"%a %b %d %Y"`
 -%>
-* <%= dt.strip -%> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname.strip -%>> - <%= version %>
+* <%= dt.strip -%> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname.strip -%>> - <%= @rpmversion %>-<%= @rpmrelease -%>
 - Autobuild from Rake task
 
 * Mon Apr 02 2012 Michael Stahnke <stahnma@puppetlabs.com> - 0.1.0-1
