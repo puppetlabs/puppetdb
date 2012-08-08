@@ -1,4 +1,4 @@
-1.0.0 RC1
+0.10.0
 =========
 
 Many thanks to the following people who contributed patches to this
