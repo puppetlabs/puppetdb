@@ -1,11 +1,21 @@
 require 'rake'
 require 'erb'
+require 'facter'
 
-PE_BUILD = ENV['PE_BUILD'] || ''
-
-if PE_BUILD.downcase == 'true'
+if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
+  @pe = TRUE
   ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
+else
+  @pe = FALSE
 end
+
+# We only need the ruby major, minor versions
+@ruby_version = (ENV['RUBY_VER'] || Facter.value(:rubyversion))[0..2]
+unless @ruby_version == '1.8' or @ruby_version == '1.9'
+  STDERR.puts "RUBY_VER needs to be 1.8 or 1.9"
+  exit 1
+end
+
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
 
@@ -34,22 +44,18 @@ def ln_sfT(src, dest)
   `ln -sfT "#{src}" "#{dest}"`
 end
 
-require 'facter'
 @osfamily = Facter.value(:osfamily).downcase
-if @osfamily =~ /debian/    and PE_BUILD == ''
-  @plibdir = '/usr/lib/ruby/1.8'
-elsif @osfamily =~ /debian/ and PE_BUILD.downcase == "true"
-  @plibdir = '/opt/puppet/lib/ruby/1.8'
-elsif @osfamily =~ /redhat/ and PE_BUILD == ''
-  @plibdir = '/usr/lib/ruby/site_ruby/1.8'
-elsif @osfamily =~ /redhat/ and PE_BUILD.downcase == "true"
-  @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
-elsif @osfamily =~ /suse/ and PE_BUILD.downcase == "true"
-  @plibdir = '/opt/puppet/lib/ruby/site_ruby/1.8'
+
+case @osfamily
+  when /debian/
+    @plibdir = @pe ? '/opt/puppet/lib/ruby/1.8' : ( @ruby_version == '1.8' ?  '/usr/lib/ruby/1.8' : '/usr/lib/ruby/vendor_ruby/1.9.1' )
+  when /redhat/
+    @plibdir = @pe ? '/opt/puppet/lib/ruby/site_ruby/1.8' : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
+  when /suse/
+    @plibdir = @pe ? '/opt/puppet/lib/ruby/site_ruby/1.8' : nil
 end
 
-
-if PE_BUILD.downcase.strip == "true"
+if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
     @etc_dir = "/etc/puppetlabs/puppetdb"
     @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
@@ -57,7 +63,6 @@ if PE_BUILD.downcase.strip == "true"
     @log_dir = "/var/log/pe-puppetdb"
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
-    @pe = true
     @version = version
     @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/opt/puppet/sbin"
@@ -70,7 +75,6 @@ else
     @lib_dir = "/var/lib/puppetdb"
     @link = "/usr/share/puppetdb"
     @name = "puppetdb"
-    @pe = false
     @version = version
     @release = ENV['RELEASE'] ||= "1"
     @sbin_dir = "/usr/sbin"
@@ -222,7 +226,7 @@ task :install => [  JAR_FILE  ] do
   ln_sfT @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
   ln_sfT @log_dir, "#{DESTDIR}/#{@install_dir}/log"
 
-  if PE_BUILD == false or PE_BUILD == nil or PE_BUILD == ''
+  unless @pe
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
