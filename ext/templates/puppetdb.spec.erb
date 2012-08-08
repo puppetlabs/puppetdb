@@ -1,16 +1,28 @@
-%global   realname puppetdb
+%global realname puppetdb
 %global realversion <%= @version %>
 %global rpmversion <%= @rpmversion %>
 
-# Fedora 17 ships with openjdk 1.7.0 and ruby 1.9, which
-# uses vendorlibdir instead of sitelibdir.
+# Fedora 17 ships with openjdk 1.7.0
 %if 0%{?fedora} >= 17
-%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
 %global open_jdk          java-1.7.0-openjdk
 %else
-%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
 %global open_jdk          java-1.6.0-openjdk
 %endif
+
+# ruby 1.9 uses vendorlibdir instead of sitelibdir
+<% if @ruby_version == '1.9' -%>
+  <% if @pe -%>
+%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+  <% else -%>
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+  <% end -%>
+<% else -%>
+  <% if @pe -%>
+%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+  <% else -%>
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+  <% end -%>
+<% end -%>
 
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib

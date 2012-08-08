@@ -1,7 +1,1 @@
-<% if @pe  -%>
-opt/puppet/lib/ruby/1.8/puppet
-<% elsif @ruby_version == '1.8' -%>
-usr/lib/ruby/1.8/puppet
-<% else -%>
-usr/lib/ruby/vendor_ruby/1.9.1/puppet
-<% end -%>
+<%= @plibdir -%>/puppet
