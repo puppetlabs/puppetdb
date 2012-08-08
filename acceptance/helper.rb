@@ -98,10 +98,10 @@ module PuppetDBExtensions
         case os
           when :debian
             result = on host, "dpkg-query --showformat \"\\${Version}\" --show puppetdb"
-            result.stdout.strip.gsub(/-.*$/, "")
-          when :redhat
-            result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}\""
             result.stdout.strip
+          when :redhat
+            result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}-%{RELEASE}\""
+            result.stdout.strip.split('.')[0...-1].join('.')
           else
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
