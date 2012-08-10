@@ -197,22 +197,29 @@
   (def configuration config)
   config)
 
-(defn parse-config
+(defn parse-config!
   "Parses the given config file/directory and configures its various
-  subcomponents."
-  [path]
-  {:pre [(string? path)]}
-  (let [file (file path)]
-    (when-not (.canRead file)
-      (throw (IllegalArgumentException.
-              (format "Configuration path '%s' must exist and must be readable." path)))))
+  subcomponents.
 
-  (-> (inis-to-map path)
-      (configure-logging!)
-      (configure-commandproc-threads)
-      (configure-web-server)
-      (configure-database)
-      (set-global-configuration!)))
+  Also accepts an optional map argument 'initial-config'; if
+  provided, any initial values in this map will be included
+  in the resulting config map."
+  ([path]
+    (parse-config! path {}))
+  ([path initial-config]
+    {:pre [(string? path)
+           (map? initial-config)]}
+    (let [file (file path)]
+      (when-not (.canRead file)
+        (throw (IllegalArgumentException.
+                (format "Configuration path '%s' must exist and must be readable." path)))))
+
+    (-> (merge initial-config (inis-to-map path))
+        (configure-logging!)
+        (configure-commandproc-threads)
+        (configure-web-server)
+        (configure-database)
+        (set-global-configuration!))))
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
@@ -224,7 +231,7 @@
   [& args]
   (let [[options _]                                (cli! args)
         initial-config                             {:debug (:debug options)}
-        {:keys [jetty database global] :as config} (merge initial-config (parse-config (:config options)))
+        {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)

@@ -6,7 +6,7 @@
 JAVA_BIN="<%= @java_bin || "/usr/bin/java"  -%>"
 
 # Modify this if you'd like to change the memory allocation, enable JMX, etc
-JAVA_ARGS="<%= @java_args || "-Xmx192m " -%>"
+JAVA_ARGS="<%= @java_args || @default_java_args -%>"
 
 # These normally shouldn't need to be edited if using OS packages
 USER="<%= @name -%>"
