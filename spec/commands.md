@@ -73,3 +73,8 @@ The payload is expected to be a Puppet catalog conforming to the
 
 The payload is expected to be a Puppet catalog conforming to the
 [fact wire format](fact-wire-format.md).
+
+## "deactivate node", version 1
+
+The payload is expected to be the name of a node, which will be deactivated
+effective as of the time the command is *processed*.

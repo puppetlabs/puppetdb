@@ -77,7 +77,8 @@ include:
 
 * `global`: Aggregate stats for _all_ commands
 * `replace catalog.1`: Stats for catalog replacement
-* `replace facts.1`: Stats for catalog replacement
+* `replace facts.1`: Stats for facts replacement
+* `deactivate node.1`: Stats for node deactivation
 
 Other than `global`, all command specifiers are of the form
 `<command>.<version>`. As we version commands, you'll be able to get
