@@ -100,6 +100,9 @@ else
     @sbin_dir = "/usr/sbin"
 end
 
+
+@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@log_dir}/puppetdb-oom.hprof "
+
 @version      ||= get_version
 @debversion   ||= get_debversion
 @origversion  ||= get_origversion
