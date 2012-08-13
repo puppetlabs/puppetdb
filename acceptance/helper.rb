@@ -51,29 +51,15 @@ module PuppetDBExtensions
   end
 
 
-  def self.to_symbol(val)
-    case val
-    when Symbol
-      val
-    when String
-      val.intern
-    else
-      raise "Unsupported value: '#{val.inspect}'"
-    end
-  end
-
   def self.get_option_value(value, legal_values, description,
       env_var_name = nil, default_value = nil)
 
     # we give precedence to any value explicitly specified in an options file,
     #  but we also allow environment variables to be used for
     #  puppetdb-specific settings
+    value = (value || (env_var_name && ENV[env_var_name]) || default_value)
     if value
-      value = to_symbol(value)
-    elsif (env_var_name and ENV[env_var_name])
-      value = to_symbol(ENV[env_var_name])
-    elsif default_value
-      value = to_symbol(default_value)
+      value = value.to_sym
     end
 
     unless legal_values.nil? or legal_values.include?(value)
