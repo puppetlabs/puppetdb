@@ -52,13 +52,10 @@ module PuppetDBExtensions
 
 
   def self.to_symbol(val)
-    puts "val.class: '#{val.class}'"
     case val
     when Symbol
-      puts "It's a symobl, returning it."
       val
     when String
-      puts "It's a String, interning it."
       val.intern
     else
       raise "Unsupported value: '#{val.inspect}'"
@@ -80,7 +77,7 @@ module PuppetDBExtensions
     end
 
     unless legal_values.nil? or legal_values.include?(value)
-      raise ArgumentError, "Unsupported #{description} 'value'"
+      raise ArgumentError, "Unsupported #{description} '#{value}'"
     end
 
     value
