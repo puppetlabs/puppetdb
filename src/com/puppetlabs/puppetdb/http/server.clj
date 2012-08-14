@@ -44,7 +44,7 @@
    ["metrics" &]
    {:get metrics-app}
 
-   ["version"]
+   ["version" &]
    {:get version-app}
 
    [""]

@@ -16,6 +16,8 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
+            [cheshire.core :as json]
+            [clj-http.client :as client]
             [digest]
             [fs.core :as fs])
   (:use [clojure.core.incubator :only (-?> -?>>)]
@@ -506,3 +508,13 @@
 
 (def version
   (memoize get-version-from-manifest))
+
+(defn upgrade-info
+  []
+  (let [current-version        (version)
+        url                    (str "http://www.puppetlabs.com/check-for-updates?product=puppetdb&version=" current-version)
+        {:keys [status body]}  (client/get url {:throw-exceptions     false
+                                                :ignore-unknown-host? true
+                                                :accept               :json})]
+    (if (= status 200)
+      (json/parse-string body true))))
