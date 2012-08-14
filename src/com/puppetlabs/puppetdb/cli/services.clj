@@ -61,7 +61,7 @@
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version upgrade-info)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -119,6 +119,16 @@
             (send-command! "deactivate node" 1 node)))))
 
      (sleep))))
+
+(defn check-for-updates
+  "This will fetch the latest version number of PuppetDB and log if the system
+  is out of date."
+  []
+  (let [upgrade        (upgrade-info)
+        latest-version (:version upgrade)
+        out-of-date?   (:newer upgrade)]
+    (when out-of-date?
+      (log/info (format "Newer version %s is available!" latest-version)))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -267,6 +277,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
+          updater       (future (check-for-updates))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))
@@ -293,6 +304,7 @@
       (let [exception (deref error)]
         (doseq [cp command-procs]
           (future-cancel cp))
+        (future-cancel updater)
         (future-cancel web-app)
         (future-cancel db-gc)
         ;; Stop the mq the old-fashioned way
