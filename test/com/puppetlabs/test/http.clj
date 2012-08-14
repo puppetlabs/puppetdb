@@ -1,6 +1,6 @@
 (ns com.puppetlabs.test.http
   (:use [com.puppetlabs.http]
-        [clojure.test])
+        [clojure.test]))
 
 (deftest conneg
   (testing "content negotiation"
@@ -36,3 +36,18 @@
 
     (testing "should remove empty segments"
       (is (= ["foo" "bar"] (uri-segments "/foo//bar"))))))
+
+(deftest content-type-checking
+  (let [test-app (must-accept-type (constantly 10) "foo")]
+    (testing "ensuring a given content-type is accepted"
+      (testing "should call the wrapped function if the right content-type is accepted"
+        (let [headers {"accept" "foo"}
+              request {:headers headers}
+              response (test-app request)]
+          (is (= response 10))))
+      (testing "should respond with a failure if the content-type is not accepted"
+        (let [headers {"accept" "bar"}
+              request {:headers headers}
+              response (test-app request)]
+          (is (= (:status response) 406))
+          (is (= (:body response) "must accept foo")))))))
