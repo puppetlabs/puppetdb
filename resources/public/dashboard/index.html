@@ -74,10 +74,18 @@ body {
   stroke: #999;
 }
 
-#version {
+.hidden {
+  display: none;
+}
+
+#version-info {
   font-size: 15px;
   color: #666;
   float: right;
+}
+
+#update-available {
+  color: blue;
 }
 </style>
 
@@ -87,8 +95,9 @@ body {
 <table id="metrics">
 </table>
 
-<div id="version">
-v???
+<div id="version-info">
+  <span id="version">v???</span>
+  <span id="update-available" class="hidden">(<span id="latest-version"></span> is available!)</span>
 </div>
 
 <script>(function() {
@@ -113,10 +122,19 @@ v???
     return null;
   };
 
-  function updateVersion() {
+  function setVersion() {
     d3.json("/version", function (res) {
       if (res != null && res.version != null) {
         d3.select('#version').html('v' + res.version);
+      }
+    });
+  };
+
+  function checkForUpdates() {
+    d3.json("/version/latest", function (res) {
+      if (res != null && res.newer) {
+        d3.select('#latest-version').html('v' + res.version);
+        d3.select('#update-available').classed('hidden', false);
       }
     });
   };
@@ -321,6 +339,7 @@ v???
   .height(height)
   .call();
 
-  updateVersion();
+  setVersion();
+  checkForUpdates();
 })()</script>
 
