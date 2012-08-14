@@ -1,8 +1,28 @@
-%global   realname puppetdb
+%global realname puppetdb
 %global realversion <%= @version %>
 %global rpmversion <%= @rpmversion %>
 
-%global ruby_sitelib     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+# Fedora 17 ships with openjdk 1.7.0
+%if 0%{?fedora} >= 17
+%global open_jdk          java-1.7.0-openjdk
+%else
+%global open_jdk          java-1.6.0-openjdk
+%endif
+
+# ruby 1.9 uses vendorlibdir instead of sitelibdir
+<% if @ruby_version == '1.9' -%>
+  <% if @pe -%>
+%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+  <% else -%>
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+  <% end -%>
+<% else -%>
+  <% if @pe -%>
+%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+  <% else -%>
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+  <% end -%>
+<% end -%>
 
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib
@@ -54,7 +74,7 @@ BuildRequires: sles-release
 Requires:      java-1_6_0-ibm
 <% else %>
 BuildRequires: /usr/sbin/useradd
-Requires:      java-1.6.0-openjdk
+Requires:      %{open_jdk}
 <% end %>
 Requires:      chkconfig
 
@@ -201,8 +221,7 @@ fi
 %defattr(-, puppet, puppet)
 <% end -%>
 # There are not specs yet in our rpms
-%{ruby_sitelib}/puppet
-
+%{puppet_libdir}/puppet
 
 %changelog
 <%
