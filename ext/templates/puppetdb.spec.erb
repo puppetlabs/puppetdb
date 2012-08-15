@@ -170,11 +170,8 @@ if [ "$1" = "0" ] ; then
 fi
 
 %postun
-# Remove PuppetDB user if this is an uninstall (as opposed to
-#  an upgrade)...
+# Remove the rundir if this is an uninstall (as opposed to an upgrade)...
 if [ "$1" = "0" ]; then
-    getent passwd %{name} > /dev/null && userdel %{name}
-    getent group %{name} > /dev/null && groupdel %{name}
     rm -rf %{_rundir}/%{name} || :
 fi
 
