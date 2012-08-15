@@ -58,6 +58,10 @@ class tag_query {
 class tag_inverse_query {
   File <<| tag != 'here' |>>
 }
+
+class tag_uppercase_query {
+  File <<| tag == 'HERE' |>>
+}
 MANIFEST
 
   tmpdir = master.tmpdir('storeconfigs')
@@ -107,6 +111,10 @@ MANIFEST
 
     step "'not' tag queries should work" do
       test_collection.call collectors, "tag_inverse_query", %w[file-c]
+    end
+
+    step "uppercase tag queries should work" do
+      test_collection.call collectors, "tag_query", %w[file-a file-b]
     end
   end
 end
