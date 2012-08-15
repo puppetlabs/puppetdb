@@ -60,7 +60,7 @@ describe Puppet::Resource::Puppetdb do
 
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
           path, query_string = uri.split('?query=')
-          path == '/resources' and PSON.load(query_string) == query
+          path == '/resources' and PSON.load(CGI.unescape(query_string)) == query
         end.returns response
       end
 
