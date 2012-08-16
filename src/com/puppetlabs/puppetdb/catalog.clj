@@ -152,13 +152,22 @@
 
 ;; ## Misc normalization routines
 
-(defn setify-tags-and-classes
-  "Turns the catalog's list of tags and classes into proper sets"
-  [{:keys [classes tags] :as catalog}]
-  {:pre [classes tags]}
-  (assoc catalog
-    :classes (set classes)
-    :tags (set tags)))
+(defn munge-tags
+  "Turns an object's (either catalog or resource) list of tags into a set of
+  strings."
+  [{:keys [tags] :as o}]
+  {:pre [tags
+         (every? string? tags)]
+   :post [(set? (:tags %))]}
+  (update-in o [:tags] set))
+
+(defn munge-classes
+  "Turns the catalog's list of classes into a set of strings."
+  [{:keys [classes] :as catalog}]
+  {:pre [classes
+         (every? string? classes)]
+   :post [(set? (:classes %))]}
+  (update-in catalog [:classes] set))
 
 ;; ## Integrity checking
 ;;
@@ -219,10 +228,11 @@
   (-> o
       (collapse)
       (munge-metadata)
+      (munge-tags)
+      (munge-classes)
       (keywordify-relationships)
       (setify-resource-tags)
       (mapify-resources)
-      (setify-tags-and-classes)
       (check-edge-integrity)))
 
 (defn parse-from-json-string
