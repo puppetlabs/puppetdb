@@ -4,39 +4,69 @@ require 'cgi'
 
 module PuppetDBExtensions
 
+
   def self.initialize_test_config(options, os_families, db_module_path)
     install_type =
-        case options[:type]
-          when 'git'
-            :git
-          when 'manual':
-            :package
-          else
-            raise ArgumentError, "Unsupported install type '#{options[:type]}'"
-        end
+        get_option_value(options[:type], [:git, :manual], "install type")
+
+    install_mode =
+        get_option_value(options[:puppetdb_install_mode],
+                         [:install, :upgrade], "install mode",
+                         "PUPPETDB_INSTALL_MODE", :install)
 
     database =
-        case options[:puppetdb_database]
-          when 'postgres'
-            :postgres
-          when 'embedded'
-            :embedded
-          else
-            raise ArgumentError, "Unsupported database '#{options[:puppetdb_database]}'"
-        end
+        get_option_value(options[:puppetdb_database],
+            [:postgres, :embedded], "database", "PUPPETDB_DATABASE", :postgres)
+
+    validate_package_version =
+        get_option_value(options[:puppetdb_validate_package_version],
+            [:true, :false], "'validate package version'",
+            "PUPPETDB_VALIDATE_PACKAGE_VERSION", :true)
+
+    expected_package_version =
+        get_option_value(options[:puppetdb_expected_package_version],
+            nil, "'expected package version'",
+            "PUPPETDB_EXPECTED_PACKAGE_VERSION", nil)
+
+    use_proxies =
+        get_option_value(options[:puppetdb_use_proxies],
+          [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
+
 
     @config = {
-        :install_type => install_type,
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
-        :os_families => os_families,
         :db_module_path => db_module_path,
+        :os_families => os_families,
+        :install_type => install_type == :manual ? :package : install_type,
+        :install_mode => install_mode,
         :database => database,
-        :install_mode => options[:puppetdb_install_mode],
+        :validate_package_version => validate_package_version == :true,
+        :expected_package_version => expected_package_version,
+        :use_proxies => use_proxies == :true
     }
   end
 
   class << self
     attr_reader :config
+  end
+
+
+  def self.get_option_value(value, legal_values, description,
+      env_var_name = nil, default_value = nil)
+
+    # we give precedence to any value explicitly specified in an options file,
+    #  but we also allow environment variables to be used for
+    #  puppetdb-specific settings
+    value = (value || (env_var_name && ENV[env_var_name]) || default_value)
+    if value
+      value = value.to_sym
+    end
+
+    unless legal_values.nil? or legal_values.include?(value)
+      raise ArgumentError, "Unsupported #{description} '#{value}'"
+    end
+
+    value
   end
 
   def get_os_family(host)

@@ -10,11 +10,13 @@ step "Install development build of PuppetDB on the PuppetDB server" do
     install_puppetdb_termini_via_rake(master)
     configure_termini(master, database)
   when :package
-    Log.notify("Installing puppetdb from package; install mode: '#{options[:puppetdb_install_mode].inspect}'")
+    Log.notify("Installing puppetdb from package; install mode: '#{test_config[:install_mode].inspect}'")
 
     install_puppetdb(database)
 
-    validate_package_version(database)
+    if test_config[:validate_package_version]
+      validate_package_version(database)
+    end
 
     install_puppetdb_termini(master)
     configure_termini(master, database)

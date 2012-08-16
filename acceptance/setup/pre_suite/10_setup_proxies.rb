@@ -52,22 +52,27 @@ def setup_maven_proxy()
 end
 
 
+if (test_config[:use_proxies])
 
-step "Configure package manager to use local http proxy" do
-  # TODO: this should probably run on every host, not just on the database host,
-  #  and it should probably be moved into the main acceptance framework instead
-  #  of being used only for our project.
-  case test_config[:os_families][database.name]
-  when :debian
-    setup_apt_proxy()
-  when :redhat
-    setup_yum_proxy()
-  else
-    raise ArgumentError, "Unsupported OS family: '#{config[:os_families][database.name]}'"
+  step "Configure package manager to use local http proxy" do
+    # TODO: this should probably run on every host, not just on the database host,
+    #  and it should probably be moved into the main acceptance framework instead
+    #  of being used only for our project.
+    case test_config[:os_families][database.name]
+    when :debian
+      setup_apt_proxy()
+    when :redhat
+      setup_yum_proxy()
+    else
+      raise ArgumentError, "Unsupported OS family: '#{config[:os_families][database.name]}'"
+    end
   end
-end
 
 
-step "Configure maven to use local http proxy" do
-  setup_maven_proxy
+  step "Configure maven to use local http proxy" do
+    setup_maven_proxy
+  end
+
+else
+  PuppetAcceptance::Log.notify "Skipping proxy setup ; test run configured not to use proxies via :puppetdb_use_proxies setting."
 end
