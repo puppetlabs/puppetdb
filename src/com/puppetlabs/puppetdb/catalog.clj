@@ -91,6 +91,7 @@
 ;;
 (ns com.puppetlabs.puppetdb.catalog
   (:require [clojure.tools.logging :as log]
+            [clojure.set :as set]
             [cheshire.core :as json]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
@@ -178,23 +179,33 @@
 
 ;; ## High-level parsing routines
 
-(defn restructure-catalog
-  "Given a wire-format catalog, restructure it to conform to puppetdb format.
+(defn collapse
+  "Combines the `data` and `metadata` section of the given `catalog` into a
+  single map."
+  [{:keys [metadata data] :as catalog}]
+  {:pre [(map? metadata)
+         (map? data)
+         (empty? (set/intersection (pl-utils/keyset metadata) (pl-utils/keyset data)))]}
+  (merge metadata data))
 
-  This primarily consists of hoisting certain catalog attributes from
-  nested structures to instead be 'top-level'."
-  [wire-catalog]
-  {:pre  [(map? wire-catalog)]
-   :post [(map? %)
+(defn munge-metadata
+  "Standardizes the metadata in the given `catalog`. In particular:
+    * Stringifies the `version`
+    * Adds a `puppetdb-version` with the current catalog format version
+    * Renames `api_version` to `api-version`
+    * Renames `name` to `certname`"
+  [catalog]
+  {:pre [(map? catalog)]
+   :post [(string? (:version %))
+          (= (:puppetdb-version %) CATALOG-VERSION)
           (:certname %)
-          (number? (:api-version %))
-          (:version %)]}
-  (-> (wire-catalog :data)
-      (dissoc :name)
-      (assoc :puppetdb-version CATALOG-VERSION)
-      (assoc :api-version (get-in wire-catalog [:metadata :api_version]))
-      (assoc :certname (get-in wire-catalog [:data :name]))
-      (assoc :version (str (get-in wire-catalog [:data :version])))))
+          (= (:certname %) (:name catalog))
+          (= (:api-version %) (:api_version catalog))
+          (number? (:api-version %))]}
+  (-> catalog
+    (update-in [:version] str)
+    (assoc :puppetdb-version CATALOG-VERSION)
+    (set/rename-keys {:name :certname :api_version :api-version})))
 
 ;; ## Deserialization
 ;;
@@ -206,7 +217,8 @@
   [o]
   {:post [(map? %)]}
   (-> o
-      (restructure-catalog)
+      (collapse)
+      (munge-metadata)
       (keywordify-relationships)
       (setify-resource-tags)
       (mapify-resources)
