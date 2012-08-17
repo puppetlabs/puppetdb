@@ -21,10 +21,10 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     filter_expr = build_expression(filter)
     expr << filter_expr if filter_expr
 
-    query_string = "query=#{expr.to_pson}"
+    query_param = CGI.escape(expr.to_pson)
 
     begin
-      response = http_get(request, "/resources?#{query_string}", headers)
+      response = http_get(request, "/resources?query=#{query_param}", headers)
 
       unless response.is_a? Net::HTTPSuccess
         # Newline characters cause an HTTP error, so strip them

@@ -47,6 +47,10 @@ class title_query_no_match {
   File <<| title == 'file' |>>
 }
 
+class title_query_bad_characters {
+  File <<| title != 'a string with spaces and & and ? in it' |>>
+}
+
 class tag_query {
   File <<| tag == 'here' |>>
 }
@@ -91,6 +95,10 @@ MANIFEST
 
     step "title queries should work when nothing matches" do
       test_collection.call collectors, "title_query_no_match", %w[]
+    end
+
+    step "title queries should work even if they contain URI-invalid characters" do
+      test_collection.call collectors, "title_query_bad_characters", %w[file-a file-b file-c]
     end
 
     step "tag queries should work" do
