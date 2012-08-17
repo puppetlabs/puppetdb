@@ -44,6 +44,8 @@
                  [fs "1.1.2"]
                  ;; Configuration file parsing
                  [org.ini4j/ini4j "0.5.2"]
+                 ;; Version information
+                 [trptcolin/versioneer "0.1.0"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.1"]
                  [digest "1.3.0"]
