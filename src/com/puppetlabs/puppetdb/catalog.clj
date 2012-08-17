@@ -230,39 +230,29 @@
     (assoc :puppetdb-version CATALOG-VERSION)
     (set/rename-keys {:name :certname :api_version :api-version})))
 
-(defn transform
+(def transform
   "Applies every transformation to the catalog, converting it from wire format
   to our internal structure."
-  [catalog]
-  {:pre [(map? catalog)]
-   :post [(map? %)]}
-  (-> catalog
-    (collapse)
-    (transform-metadata)
-    (transform-tags)
-    (transform-classes)
-    (transform-resources)
-    (transform-edges)))
+  (comp
+    transform-edges
+    transform-resources
+    transform-classes
+    transform-tags
+    transform-metadata
+    collapse))
 
-(defn validate!
+(def validate!
   "Applies every validation step to the catalog."
-  [catalog]
-  {:pre [(map? catalog)]
-   :post [(= % catalog)]}
-  (validate-edges! catalog))
+  validate-edges!)
 
 ;; ## Deserialization
 ;;
 ;; _TODO: we should change these to multimethods_
 
-(defn parse-from-json-obj
+(def parse-from-json-obj
   "Parse a wire-format JSON catalog object contained in `o`, returning a
   puppetdb-suitable representation."
-  [o]
-  {:post [(map? %)]}
-  (-> o
-    (transform)
-    (validate!)))
+  (comp validate! transform))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
