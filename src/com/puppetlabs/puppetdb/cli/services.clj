@@ -126,9 +126,14 @@
   []
   (let [upgrade        (upgrade-info)
         latest-version (:version upgrade)
-        out-of-date?   (:newer upgrade)]
+        out-of-date?   (:newer upgrade)
+        link           (:link upgrade)
+        link-str       (if link
+                         (format "Visit %s for details." link)
+                         "")
+        upgrade-msg    (format "Newer version %s is available! %s" latest-version link-str)]
     (when out-of-date?
-      (log/info (format "Newer version %s is available!" latest-version)))))
+      (log/info upgrade-msg))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
