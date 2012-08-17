@@ -101,6 +101,9 @@
   catalog format"}
   (Integer. 1))
 
+(def valid-relationships
+  #{:contains :required-by :notifies :before :subscription-of})
+
 ;; ## Utiltity functions
 
 (defn resource-spec-to-map
@@ -179,17 +182,21 @@
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
 
-(defn check-edge-integrity
+(defn validate-edges!
   "Ensure that all edges have valid sources and targets, and that the
   relationship types are acceptable."
   [{:keys [edges resources] :as catalog}]
   {:pre [(set? edges)
-         (map? resources)]}
+         (map? resources)]
+   :post [(= % catalog)]}
   (doseq [{:keys [source target relationship] :as edge} edges
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
-              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource)))))
+               (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
+    (when-not (valid-relationships relationship)
+      (throw (IllegalArgumentException.
+               (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
   catalog)
 
 ;; ## High-level parsing routines
@@ -239,7 +246,7 @@
       (munge-classes)
       (munge-resources)
       (munge-edges)
-      (check-edge-integrity)))
+      (validate-edges!)))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a

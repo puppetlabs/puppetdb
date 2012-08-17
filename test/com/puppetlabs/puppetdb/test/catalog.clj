@@ -64,11 +64,28 @@
 
 
 (deftest integrity-checking
-  (testing "Catalog integrity checking"
-    (testing "should fail when edges mention missing resources"
-      (is (thrown? IllegalArgumentException
-                   (check-edge-integrity {:edges #{{:source "a" :target "b" :relationship :before}}
-                                          :resources {}}))))))
+  (testing "Catalog validation"
+    (testing "edge validation"
+      (let [source {:type "Type" :title "source"}
+            target {:type "Type" :title "target"}]
+        (testing "should fail when edges mention missing resources"
+          (is (thrown? IllegalArgumentException
+                       (validate-edges! {:edges #{{:source source :target target :relationship :before}}
+                                         :resources {}}))))
+
+        (testing "should fail when edges have an invalid relationship"
+          (is (thrown? IllegalArgumentException
+                       (validate-edges! {:edges #{{:source source :target target :relationship :madly-in-love-with}}
+                                         :resources {source source
+                                                     target target}}))))
+
+        (testing "should accept all valid relationship types"
+          (let [edges (set (for [rel #{:contains :required-by :notifies :before :subscription-of}]
+                             {:source source :target target :relationship rel}))
+                catalog {:edges edges
+                         :resources {source source
+                                     target target}}]
+            (is (= catalog (validate-edges! catalog)))))))))
 
 (deftest resource-normalization
   (let [; Synthesize some fake resources
