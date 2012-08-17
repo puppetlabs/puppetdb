@@ -125,31 +125,7 @@
   (let [new-edges (for [{:keys [relationship] :as edge} edges]
                     (merge edge {:relationship (keyword relationship)}))]
     (assoc catalog :edges (set new-edges))))
-
-;; ## Resource normalization
-
-(defn setify-resource-tags
-  "Returns a catalog whose resources' lists of tags have been turned
-  into sets."
-  [{:keys [resources] :as catalog}]
-  {:pre [(coll? resources)
-         (not (map? resources))]}
-  (let [new-resources (for [resource resources]
-                        (assoc resource :tags (set (:tags resource))))]
-    (assoc catalog :resources new-resources)))
-
-(defn mapify-resources
-  "Turns the list of resources into a mapping of
-  `{resource-spec resource, resource-spec resource, ...}`"
-  [{:keys [resources] :as catalog}]
-  {:pre  [(coll? resources)
-          (not (map? resources))]
-   :post [(map? (:resources %))
-          (= (count resources) (count (:resources %)))]}
-  (let [new-resources (into {} (for [{:keys [type title tags] :as resource} resources]
-                                 [{:type type :title title} resource]))]
-    (assoc catalog :resources new-resources)))
-
+;;
 ;; ## Misc normalization routines
 
 (defn munge-tags
@@ -168,6 +144,30 @@
          (every? string? classes)]
    :post [(set? (:classes %))]}
   (update-in catalog [:classes] set))
+
+;; ## Resource normalization
+
+(defn munge-resource*
+  "Normalizes the structure of a single `resource`. Right now this just means
+  setifying the tags."
+  [resource]
+  {:pre [(map? resource)]
+   :post [(set? (:tags %))]}
+  (munge-tags resource))
+
+(defn munge-resources
+  "Turns the list of resources into a mapping of
+  `{resource-spec resource, ...}`, as well as munging each resource."
+  [{:keys [resources] :as catalog}]
+  {:pre  [(coll? resources)
+          (not (map? resources))]
+   :post [(map? (:resources %))
+          (= (count resources) (count (:resources %)))]}
+  (let [new-resources (into {} (for [{:keys [type title] :as resource} resources
+                                     :let [resource-ref    {:type type :title title}
+                                           munged-resource (munge-resource* resource)]]
+                                 [resource-ref munged-resource]))]
+    (assoc catalog :resources new-resources)))
 
 ;; ## Integrity checking
 ;;
@@ -194,7 +194,8 @@
   [{:keys [metadata data] :as catalog}]
   {:pre [(map? metadata)
          (map? data)
-         (empty? (set/intersection (pl-utils/keyset metadata) (pl-utils/keyset data)))]}
+         (empty? (set/intersection (pl-utils/keyset metadata) (pl-utils/keyset data)))]
+   :post [(map? %)]}
   (merge metadata data))
 
 (defn munge-metadata
@@ -230,9 +231,8 @@
       (munge-metadata)
       (munge-tags)
       (munge-classes)
+      (munge-resources)
       (keywordify-relationships)
-      (setify-resource-tags)
-      (mapify-resources)
       (check-edge-integrity)))
 
 (defn parse-from-json-string

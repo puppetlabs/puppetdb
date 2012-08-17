@@ -82,52 +82,33 @@
                                            :user   "root"
                                            :group  "root"
                                            :source "puppet:///foobar/foo/bar"}}]}]
-
-    (testing "Resource tags to sets"
-         (is (= (-> catalog
-                    (setify-resource-tags))
-                {:resources [{:type       "File"
-                              :title      "/etc/foobar"
-                              :exported   false
-                              :line       1234
-                              :file       "/tmp/foobar.pp"
-                              :tags       #{"class" "foobar"}
-                              :parameters {:ensure "present"
-                                           :user   "root"
-                                           :group  "root"
-                                           :source "puppet:///foobar/foo/bar"}}]})))
-
-    (testing "Resource key extraction"
-         (is (= (-> catalog
-                    (mapify-resources))
-                {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
-                                                                  :title      "/etc/foobar"
-                                                                  :exported   false
-                                                                  :line       1234
-                                                                  :file       "/tmp/foobar.pp"
-                                                                  :tags       ["class" "foobar"]
-                                                                  :parameters {:ensure "present"
-                                                                               :user   "root"
-                                                                               :group  "root"
-                                                                               :source "puppet:///foobar/foo/bar"}}}})))
+    (is (= (-> catalog
+             (munge-resources))
+           {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
+                                                             :title      "/etc/foobar"
+                                                             :exported   false
+                                                             :line       1234
+                                                             :file       "/tmp/foobar.pp"
+                                                             :tags       #{"class" "foobar"}
+                                                             :parameters {:ensure "present"
+                                                                          :user   "root"
+                                                                          :group  "root"
+                                                                          :source "puppet:///foobar/foo/bar"}}}}))
 
   (let [resources (:resources catalog)
         new-resources (conj resources (first resources))
         catalog (assoc catalog :resources new-resources)]
     (testing "Duplicate resources should throw error"
       (is (thrown? AssertionError
-                   (-> catalog
-                       (mapify-resources))))))
+                   (munge-resources catalog)))))
 
-  (let [normalize #(-> %
-                       (mapify-resources))]
     (testing "Resource normalization edge case handling"
       ; nil resources aren't allowed
-      (is (thrown? AssertionError (normalize {:resources nil})))
+      (is (thrown? AssertionError (munge-resources {:resources nil})))
       ; missing resources aren't allowed
-      (is (thrown? AssertionError (normalize {})))
+      (is (thrown? AssertionError (munge-resources {})))
       ; pre-created resource maps aren't allow
-      (is (thrown? AssertionError (normalize {:resources {}})))))))
+      (is (thrown? AssertionError (munge-resources {:resources {}}))))))
 
 
 (deftest complete-transformation
