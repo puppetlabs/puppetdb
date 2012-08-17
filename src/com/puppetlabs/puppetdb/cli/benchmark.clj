@@ -42,6 +42,7 @@
             [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [com.puppetlabs.puppetdb.command :as command]
+            [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
