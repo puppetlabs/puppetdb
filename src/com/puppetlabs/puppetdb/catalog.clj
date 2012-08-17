@@ -116,15 +116,21 @@
 
 ;; ## Edge normalization
 
-(defn keywordify-relationships
-  "Take each edge in the the supplied catalog, and make their :relationship
-  value a proper keyword"
+(defn munge-edge*
+  "Converts the `relationship` value of `edge` into a
+  keyword."
+  [edge]
+  {:pre [(:relationship edge)]
+   :post [(keyword? (:relationship %))]}
+  (update-in edge [:relationship] keyword))
+
+(defn munge-edges
+  "Munges every edge of the given `catalog` and converts the edges into a set."
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)]
-   :post [(every? keyword? (map :relationship (% :edges)))]}
-  (let [new-edges (for [{:keys [relationship] :as edge} edges]
-                    (merge edge {:relationship (keyword relationship)}))]
-    (assoc catalog :edges (set new-edges))))
+   :post [(set? (:edges %))
+          (every? keyword? (map :relationship (:edges %)))]}
+  (assoc catalog :edges (set (map munge-edge* edges))))
 ;;
 ;; ## Misc normalization routines
 
@@ -232,7 +238,7 @@
       (munge-tags)
       (munge-classes)
       (munge-resources)
-      (keywordify-relationships)
+      (munge-edges)
       (check-edge-integrity)))
 
 (defn parse-from-json-string
