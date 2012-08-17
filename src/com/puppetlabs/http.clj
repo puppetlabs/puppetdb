@@ -62,6 +62,18 @@
       (or (types wildcard)
           (types candidate)))))
 
+(defn must-accept-type
+  "Ring middleware that ensures that only requests with a given
+  'Accept' header are let through. If no matching header is found,
+  we return an HTTP 406."
+  [f content-type]
+  (fn [{:keys [headers] :as req}]
+    (if (acceptable-content-type content-type (headers "accept"))
+      (f req)
+      (-> (format "must accept %s" content-type)
+          (rr/response)
+          (rr/status status-not-acceptable)))))
+
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
