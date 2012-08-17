@@ -127,6 +127,9 @@ body {
       if (res != null && res.version != null) {
         d3.select('#version').html('v' + res.version);
       }
+      else {
+        d3.select('#version').html('(unknown version)');
+      }
     });
   };
 
@@ -139,6 +142,9 @@ body {
         if (res.link) {
           d3.select('#update-link').property('href', res.link);
         }
+      }
+      else {
+        d3.select('#update-link').classed('hidden', true);
       }
     });
   };
@@ -343,7 +349,10 @@ body {
   .height(height)
   .call();
 
+  // Check the current version and for updates now, and then every 5 minutes
   setVersion();
   checkForUpdates();
+  setInterval(setVersion, 5*60*1000);
+  setInterval(checkForUpdates, 5*60*1000);
 })()</script>
 
