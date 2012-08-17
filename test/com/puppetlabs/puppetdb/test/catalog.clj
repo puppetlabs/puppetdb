@@ -39,28 +39,28 @@
              {:type "Notify" :title "Foo\nbar"})))))
 
 (deftest catalog-restructuring
-  (testing "Restructuring and munging catalog metadata"
-    (let [munge-fn (comp munge-metadata collapse)]
+  (testing "Transforming catalog metadata"
+    (let [transform-fn (comp transform-metadata collapse)]
       (testing "should work on well-formed input"
         (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar"}
                         :metadata {:api_version 1}}]
-          (is (= (munge-fn catalog)
+          (is (= (transform-fn catalog)
                  {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version CATALOG-VERSION}))))
 
       (testing "should error on malformed input"
-        (is (thrown? AssertionError (munge-fn {})))
-        (is (thrown? AssertionError (munge-fn nil)))
-        (is (thrown? AssertionError (munge-fn [])))
+        (is (thrown? AssertionError (transform-fn {})))
+        (is (thrown? AssertionError (transform-fn nil)))
+        (is (thrown? AssertionError (transform-fn [])))
 
         (testing "like non-numeric api versions"
           (let [catalog  {:data {:name "myhost" :version "12345"}
                           :metadata {:api_version "123"}}]
-            (is (thrown? AssertionError (munge-fn catalog)))))
+            (is (thrown? AssertionError (transform-fn catalog)))))
 
         (testing "like a missing 'data' section"
           (let [catalog  {:name "myhost" :version "12345"
                           :metadata {:api_version 123}}]
-            (is (thrown? AssertionError (munge-fn catalog)))))))))
+            (is (thrown? AssertionError (transform-fn catalog)))))))))
 
 
 (deftest integrity-checking
@@ -100,7 +100,7 @@
                                            :group  "root"
                                            :source "puppet:///foobar/foo/bar"}}]}]
     (is (= (-> catalog
-             (munge-resources))
+             (transform-resources))
            {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
                                                              :title      "/etc/foobar"
                                                              :exported   false
@@ -117,15 +117,15 @@
         catalog (assoc catalog :resources new-resources)]
     (testing "Duplicate resources should throw error"
       (is (thrown? AssertionError
-                   (munge-resources catalog)))))
+                   (transform-resources catalog)))))
 
     (testing "Resource normalization edge case handling"
       ; nil resources aren't allowed
-      (is (thrown? AssertionError (munge-resources {:resources nil})))
+      (is (thrown? AssertionError (transform-resources {:resources nil})))
       ; missing resources aren't allowed
-      (is (thrown? AssertionError (munge-resources {})))
+      (is (thrown? AssertionError (transform-resources {})))
       ; pre-created resource maps aren't allow
-      (is (thrown? AssertionError (munge-resources {:resources {}}))))))
+      (is (thrown? AssertionError (transform-resources {:resources {}}))))))
 
 
 (deftest complete-transformation

@@ -119,7 +119,7 @@
 
 ;; ## Edge normalization
 
-(defn munge-edge*
+(defn transform-edge*
   "Converts the `relationship` value of `edge` into a
   keyword."
   [edge]
@@ -127,17 +127,17 @@
    :post [(keyword? (:relationship %))]}
   (update-in edge [:relationship] keyword))
 
-(defn munge-edges
-  "Munges every edge of the given `catalog` and converts the edges into a set."
+(defn transform-edges
+  "Transforms every edge of the given `catalog` and converts the edges into a set."
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)]
    :post [(set? (:edges %))
           (every? keyword? (map :relationship (:edges %)))]}
-  (assoc catalog :edges (set (map munge-edge* edges))))
+  (assoc catalog :edges (set (map transform-edge* edges))))
 ;;
 ;; ## Misc normalization routines
 
-(defn munge-tags
+(defn transform-tags
   "Turns an object's (either catalog or resource) list of tags into a set of
   strings."
   [{:keys [tags] :as o}]
@@ -146,7 +146,7 @@
    :post [(set? (:tags %))]}
   (update-in o [:tags] set))
 
-(defn munge-classes
+(defn transform-classes
   "Turns the catalog's list of classes into a set of strings."
   [{:keys [classes] :as catalog}]
   {:pre [classes
@@ -156,17 +156,17 @@
 
 ;; ## Resource normalization
 
-(defn munge-resource*
+(defn transform-resource*
   "Normalizes the structure of a single `resource`. Right now this just means
   setifying the tags."
   [resource]
   {:pre [(map? resource)]
    :post [(set? (:tags %))]}
-  (munge-tags resource))
+  (transform-tags resource))
 
-(defn munge-resources
+(defn transform-resources
   "Turns the list of resources into a mapping of
-  `{resource-spec resource, ...}`, as well as munging each resource."
+  `{resource-spec resource, ...}`, as well as transforming each resource."
   [{:keys [resources] :as catalog}]
   {:pre  [(coll? resources)
           (not (map? resources))]
@@ -174,8 +174,8 @@
           (= (count resources) (count (:resources %)))]}
   (let [new-resources (into {} (for [{:keys [type title] :as resource} resources
                                      :let [resource-ref    {:type type :title title}
-                                           munged-resource (munge-resource* resource)]]
-                                 [resource-ref munged-resource]))]
+                                           new-resource (transform-resource* resource)]]
+                                 [resource-ref new-resource]))]
     (assoc catalog :resources new-resources)))
 
 ;; ## Integrity checking
@@ -211,7 +211,7 @@
    :post [(map? %)]}
   (merge metadata data))
 
-(defn munge-metadata
+(defn transform-metadata
   "Standardizes the metadata in the given `catalog`. In particular:
     * Stringifies the `version`
     * Adds a `puppetdb-version` with the current catalog format version
@@ -230,6 +230,27 @@
     (assoc :puppetdb-version CATALOG-VERSION)
     (set/rename-keys {:name :certname :api_version :api-version})))
 
+(defn transform
+  "Applies every transformation to the catalog, converting it from wire format
+  to our internal structure."
+  [catalog]
+  {:pre [(map? catalog)]
+   :post [(map? %)]}
+  (-> catalog
+    (collapse)
+    (transform-metadata)
+    (transform-tags)
+    (transform-classes)
+    (transform-resources)
+    (transform-edges)))
+
+(defn validate!
+  "Applies every validation step to the catalog."
+  [catalog]
+  {:pre [(map? catalog)]
+   :post [(= % catalog)]}
+  (validate-edges! catalog))
+
 ;; ## Deserialization
 ;;
 ;; _TODO: we should change these to multimethods_
@@ -240,13 +261,8 @@
   [o]
   {:post [(map? %)]}
   (-> o
-      (collapse)
-      (munge-metadata)
-      (munge-tags)
-      (munge-classes)
-      (munge-resources)
-      (munge-edges)
-      (validate-edges!)))
+    (transform)
+    (validate!)))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
