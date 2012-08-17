@@ -61,7 +61,7 @@
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version upgrade-info)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version update-info)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -123,17 +123,17 @@
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
   is out of date."
-  []
-  (let [upgrade        (upgrade-info)
-        latest-version (:version upgrade)
-        out-of-date?   (:newer upgrade)
-        link           (:link upgrade)
-        link-str       (if link
-                         (format "Visit %s for details." link)
-                         "")
-        upgrade-msg    (format "Newer version %s is available! %s" latest-version link-str)]
-    (when out-of-date?
-      (log/info upgrade-msg))))
+  [update-server]
+  (let [{:keys [version newer link]} (try
+                                       (update-info update-server)
+                                       (catch Throwable e
+                                         (log/debug e "Could not retrieve update information")))
+        link-str                     (if link
+                                       (format "Visit %s for details." link)
+                                       "")
+        update-msg                   (format "Newer version %s is available! %s" version link-str)]
+    (when newer
+      (log/info update-msg))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -247,6 +247,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
+        update-server                              (:update-server global "http://www.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
@@ -256,7 +257,8 @@
         globals                                    {:scf-db               db
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
-                                                    :resource-query-limit resource-query-limit}]
+                                                    :resource-query-limit resource-query-limit
+                                                    :update-server        update-server}]
 
 
 
@@ -282,7 +284,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          updater       (future (check-for-updates))
+          updater       (future (check-for-updates update-server))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))

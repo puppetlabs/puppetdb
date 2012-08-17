@@ -509,12 +509,11 @@
 (def version
   (memoize get-version-from-manifest))
 
-(defn upgrade-info
-  []
+(defn update-info
+  [update-server]
   (let [current-version        (version)
-        url                    (str "http://www.puppetlabs.com/check-for-updates?product=puppetdb&version=" current-version)
-        {:keys [status body]}  (client/get url {:throw-exceptions     false
-                                                :ignore-unknown-host? true
-                                                :accept               :json})]
+        url                    (format "%s?product=puppetdb&version=%s" update-server current-version)
+        {:keys [status body]}  (client/get url {:throw-exceptions false
+                                                :accept           :json})]
     (if (= status 200)
       (json/parse-string body true))))
