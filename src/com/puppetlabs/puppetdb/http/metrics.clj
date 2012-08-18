@@ -88,18 +88,6 @@
    ["mbean" name]
    {:get (fn [req] (get-mbean name))}))
 
-(defn must-accept-type
-  "Ring middleware that ensures that only requests with a given
-  'Accept' header are let through. If no matching header is found,
-  we return an HTTP 406."
-  [f content-type]
-  (fn [{:keys [headers] :as req}]
-    (if (pl-http/acceptable-content-type content-type (headers "accept"))
-      (f req)
-      (-> (format "must accept %s" content-type)
-          (rr/response)
-          (rr/status pl-http/status-not-acceptable)))))
-
 (def metrics-app
   (-> routes
-      (must-accept-type "application/json")))
+      (pl-http/must-accept-type "application/json")))

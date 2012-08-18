@@ -7,6 +7,7 @@
 
 body {
   background-color: white;
+  font-family: 'Lato', sans-serif;
 }
 
 .x.axis line {
@@ -35,7 +36,6 @@ body {
 }
 
 .counterbox {
-  font-family: 'Lato', sans-serif;
   text-align: center;
 }
 
@@ -73,10 +73,29 @@ body {
   fill: none;
   stroke: #999;
 }
+
+.hidden {
+  display: none;
+}
+
+#version-info {
+  font-size: 15px;
+  color: #666;
+  float: right;
+}
+
+#update-link {
+  color: blue;
+}
 </style>
 
 <script src="d3.v2.js"></script>
 <script src="charts.js"></script>
+
+<div id="version-info">
+  PuppetDB <span id="version">(unknown version)</span>
+  <a id="update-link" href="#" class="hidden">(<span id="latest-version"></span> is available!)</a>
+</div>
 
 <table id="metrics">
 </table>
@@ -101,6 +120,33 @@ body {
       }
     }
     return null;
+  };
+
+  function setVersion() {
+    d3.json("/version", function (res) {
+      if (res != null && res.version != null) {
+        d3.select('#version').html('v' + res.version);
+      }
+      else {
+        d3.select('#version').html('(unknown version)');
+      }
+    });
+  };
+
+  function checkForUpdates() {
+    d3.json("/version/latest", function (res) {
+      console.log(res);
+      if (res != null && res.newer) {
+        d3.select('#latest-version').html('v' + res.version);
+        d3.select('#update-link').classed('hidden', false);
+        if (res.link) {
+          d3.select('#update-link').property('href', res.link);
+        }
+      }
+      else {
+        d3.select('#update-link').classed('hidden', true);
+      }
+    });
   };
 
   var nHistorical = getParameter("nHistorical") || 60;
@@ -303,5 +349,10 @@ body {
   .height(height)
   .call();
 
+  // Check the current version and for updates now, and then every 5 minutes
+  setVersion();
+  checkForUpdates();
+  setInterval(setVersion, 5*60*1000);
+  setInterval(checkForUpdates, 5*60*1000);
 })()</script>
 

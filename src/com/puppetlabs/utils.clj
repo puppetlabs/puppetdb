@@ -16,8 +16,11 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
+            [cheshire.core :as json]
+            [clj-http.client :as client]
             [digest]
-            [fs.core :as fs])
+            [fs.core :as fs]
+            [trptcolin.versioneer.core :as version])
   (:use [clojure.core.incubator :only (-?> -?>>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
@@ -483,23 +486,18 @@
   {:post [(pos? %)]}
   (.availableProcessors (Runtime/getRuntime)))
 
-;; ## META-INF parsing
-
-(defn get-version-from-manifest
-  "Returns the PuppetDB version number as indicated by a maven POM
-  file embedded in the current JAR. If we aren't running from within a
-  a JAR, or if we can't locate a maven artifact on the CLASSPATH, we
-  return nil.
-
-  Yes, this code is kind of inscrutable and impossible to unit test
-  (usefully) without building actual artifacts. :("
+(defn version*
   []
-  (let [props-path (->> ["META-INF" "maven" "puppetdb" "puppetdb" "pom.properties"]
-                        (apply clojure.java.io/file)
-                        (.getPath))
-        props-file (clojure.java.io/resource props-path)]
-    (when props-file
-      (with-open [rdr (clojure.java.io/reader props-file)]
-        (let [props (java.util.Properties.)]
-          (.load props rdr)
-          (get props "version"))))))
+  (version/get-version "puppetdb" "puppetdb"))
+
+(def version
+  (memoize version*))
+
+(defn update-info
+  [update-server]
+  (let [current-version        (version)
+        url                    (format "%s?product=puppetdb&version=%s" update-server current-version)
+        {:keys [status body]}  (client/get url {:throw-exceptions false
+                                                :accept           :json})]
+    (if (= status 200)
+      (json/parse-string body true))))

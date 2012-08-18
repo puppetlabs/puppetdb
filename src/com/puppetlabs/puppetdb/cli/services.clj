@@ -61,7 +61,7 @@
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version update-info)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -71,7 +71,6 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def version (pl-utils/get-version-from-manifest))
 (def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
@@ -120,6 +119,21 @@
             (send-command! "deactivate node" 1 node)))))
 
      (sleep))))
+
+(defn check-for-updates
+  "This will fetch the latest version number of PuppetDB and log if the system
+  is out of date."
+  [update-server]
+  (let [{:keys [version newer link]} (try
+                                       (update-info update-server)
+                                       (catch Throwable e
+                                         (log/debug e "Could not retrieve update information")))
+        link-str                     (if link
+                                       (format "Visit %s for details." link)
+                                       "")
+        update-msg                   (format "Newer version %s is available! %s" version link-str)]
+    (when newer
+      (log/info update-msg))))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -233,6 +247,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
+        update-server                              (:update-server global "http://www.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
@@ -242,12 +257,13 @@
         globals                                    {:scf-db               db
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
-                                                    :resource-query-limit resource-query-limit}]
+                                                    :resource-query-limit resource-query-limit
+                                                    :update-server        update-server}]
 
 
 
-    (when version
-      (log/info (format "PuppetDB version %s" version)))
+    (when (version)
+      (log/info (format "PuppetDB version %s" (version))))
 
     ;; Add a shutdown hook where we can handle any required cleanup
     (pl-utils/add-shutdown-hook! on-shutdown)
@@ -268,6 +284,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
+          updater       (future (check-for-updates update-server))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))
@@ -294,6 +311,7 @@
       (let [exception (deref error)]
         (doseq [cp command-procs]
           (future-cancel cp))
+        (future-cancel updater)
         (future-cancel web-app)
         (future-cancel db-gc)
         ;; Stop the mq the old-fashioned way
