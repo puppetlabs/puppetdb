@@ -91,6 +91,7 @@
 ;;
 (ns com.puppetlabs.puppetdb.catalog
   (:require [clojure.tools.logging :as log]
+            [clojure.set :as set]
             [cheshire.core :as json]
             [digest]
             [com.puppetlabs.utils :as pl-utils]))
@@ -99,6 +100,9 @@
   ^{:doc "Constant representing the version number of the PuppetDB
   catalog format"}
   (Integer. 1))
+
+(def valid-relationships
+  #{:contains :required-by :notifies :before :subscription-of})
 
 ;; ## Utiltity functions
 
@@ -115,103 +119,140 @@
 
 ;; ## Edge normalization
 
-(defn keywordify-relationships
-  "Take each edge in the the supplied catalog, and make their :relationship
-  value a proper keyword"
+(defn transform-edge*
+  "Converts the `relationship` value of `edge` into a
+  keyword."
+  [edge]
+  {:pre [(:relationship edge)]
+   :post [(keyword? (:relationship %))]}
+  (update-in edge [:relationship] keyword))
+
+(defn transform-edges
+  "Transforms every edge of the given `catalog` and converts the edges into a set."
   [{:keys [edges] :as catalog}]
   {:pre  [(coll? edges)]
-   :post [(every? keyword? (map :relationship (% :edges)))]}
-  (let [new-edges (for [{:keys [relationship] :as edge} edges]
-                    (merge edge {:relationship (keyword relationship)}))]
-    (assoc catalog :edges (set new-edges))))
+   :post [(set? (:edges %))
+          (every? keyword? (map :relationship (:edges %)))]}
+  (assoc catalog :edges (set (map transform-edge* edges))))
+;;
+;; ## Misc normalization routines
+
+(defn transform-tags
+  "Turns an object's (either catalog or resource) list of tags into a set of
+  strings."
+  [{:keys [tags] :as o}]
+  {:pre [tags
+         (every? string? tags)]
+   :post [(set? (:tags %))]}
+  (update-in o [:tags] set))
+
+(defn transform-classes
+  "Turns the catalog's list of classes into a set of strings."
+  [{:keys [classes] :as catalog}]
+  {:pre [classes
+         (every? string? classes)]
+   :post [(set? (:classes %))]}
+  (update-in catalog [:classes] set))
 
 ;; ## Resource normalization
 
-(defn setify-resource-tags
-  "Returns a catalog whose resources' lists of tags have been turned
-  into sets."
-  [{:keys [resources] :as catalog}]
-  {:pre [(coll? resources)
-         (not (map? resources))]}
-  (let [new-resources (for [resource resources]
-                        (assoc resource :tags (set (:tags resource))))]
-    (assoc catalog :resources new-resources)))
+(defn transform-resource*
+  "Normalizes the structure of a single `resource`. Right now this just means
+  setifying the tags."
+  [resource]
+  {:pre [(map? resource)]
+   :post [(set? (:tags %))]}
+  (transform-tags resource))
 
-(defn mapify-resources
+(defn transform-resources
   "Turns the list of resources into a mapping of
-  `{resource-spec resource, resource-spec resource, ...}`"
+  `{resource-spec resource, ...}`, as well as transforming each resource."
   [{:keys [resources] :as catalog}]
   {:pre  [(coll? resources)
           (not (map? resources))]
    :post [(map? (:resources %))
           (= (count resources) (count (:resources %)))]}
-  (let [new-resources (into {} (for [{:keys [type title tags] :as resource} resources]
-                                 [{:type type :title title} resource]))]
+  (let [new-resources (into {} (for [{:keys [type title] :as resource} resources
+                                     :let [resource-ref    {:type type :title title}
+                                           new-resource (transform-resource* resource)]]
+                                 [resource-ref new-resource]))]
     (assoc catalog :resources new-resources)))
-
-;; ## Misc normalization routines
-
-(defn setify-tags-and-classes
-  "Turns the catalog's list of tags and classes into proper sets"
-  [{:keys [classes tags] :as catalog}]
-  {:pre [classes tags]}
-  (assoc catalog
-    :classes (set classes)
-    :tags (set tags)))
 
 ;; ## Integrity checking
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
 
-(defn check-edge-integrity
+(defn validate-edges
   "Ensure that all edges have valid sources and targets, and that the
   relationship types are acceptable."
   [{:keys [edges resources] :as catalog}]
   {:pre [(set? edges)
-         (map? resources)]}
+         (map? resources)]
+   :post [(= % catalog)]}
   (doseq [{:keys [source target relationship] :as edge} edges
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
-              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource)))))
+               (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
+    (when-not (valid-relationships relationship)
+      (throw (IllegalArgumentException.
+               (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
   catalog)
 
 ;; ## High-level parsing routines
 
-(defn restructure-catalog
-  "Given a wire-format catalog, restructure it to conform to puppetdb format.
+(defn collapse
+  "Combines the `data` and `metadata` section of the given `catalog` into a
+  single map."
+  [{:keys [metadata data] :as catalog}]
+  {:pre [(map? metadata)
+         (map? data)
+         (empty? (set/intersection (pl-utils/keyset metadata) (pl-utils/keyset data)))]
+   :post [(map? %)]}
+  (merge metadata data))
 
-  This primarily consists of hoisting certain catalog attributes from
-  nested structures to instead be 'top-level'."
-  [wire-catalog]
-  {:pre  [(map? wire-catalog)]
-   :post [(map? %)
+(defn transform-metadata
+  "Standardizes the metadata in the given `catalog`. In particular:
+    * Stringifies the `version`
+    * Adds a `puppetdb-version` with the current catalog format version
+    * Renames `api_version` to `api-version`
+    * Renames `name` to `certname`"
+  [catalog]
+  {:pre [(map? catalog)]
+   :post [(string? (:version %))
+          (= (:puppetdb-version %) CATALOG-VERSION)
           (:certname %)
-          (number? (:api-version %))
-          (:version %)]}
-  (-> (wire-catalog :data)
-      (dissoc :name)
-      (assoc :puppetdb-version CATALOG-VERSION)
-      (assoc :api-version (get-in wire-catalog [:metadata :api_version]))
-      (assoc :certname (get-in wire-catalog [:data :name]))
-      (assoc :version (str (get-in wire-catalog [:data :version])))))
+          (= (:certname %) (:name catalog))
+          (= (:api-version %) (:api_version catalog))
+          (number? (:api-version %))]}
+  (-> catalog
+    (update-in [:version] str)
+    (assoc :puppetdb-version CATALOG-VERSION)
+    (set/rename-keys {:name :certname :api_version :api-version})))
+
+(def transform
+  "Applies every transformation to the catalog, converting it from wire format
+  to our internal structure."
+  (comp
+    transform-edges
+    transform-resources
+    transform-classes
+    transform-tags
+    transform-metadata
+    collapse))
+
+(def validate
+  "Applies every validation step to the catalog."
+  validate-edges)
 
 ;; ## Deserialization
 ;;
 ;; _TODO: we should change these to multimethods_
 
-(defn parse-from-json-obj
+(def parse-from-json-obj
   "Parse a wire-format JSON catalog object contained in `o`, returning a
   puppetdb-suitable representation."
-  [o]
-  {:post [(map? %)]}
-  (-> o
-      (restructure-catalog)
-      (keywordify-relationships)
-      (setify-resource-tags)
-      (mapify-resources)
-      (setify-tags-and-classes)
-      (check-edge-integrity)))
+  (comp validate transform))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
