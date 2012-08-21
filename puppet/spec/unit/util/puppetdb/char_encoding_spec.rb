@@ -34,16 +34,33 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       test_utf8_clean(in_bytes, expected_bytes)
     end
 
-    it "should replace invalid single-byte characters with the unicode replacement character" do
+    it "should replace invalid characters with the unicode replacement character" do
       # This is related to ticket #14873; our utf8_string code for 1.9 is being
       #  much more aggressive about replacing bytes with the unicode replacement char;
-      #  it appears to be more correct, as the way that 1.8 was handling it was
-      #  causing certain strings to decode differently in clojure, thus causing
-      #  checksum errors.
+      #  it appears to be more correct, as the way that the 1.8/IConv approach
+      #  was handling it was causing certain strings to decode differently in
+      #  clojure, thus causing checksum errors.
       in_bytes = [0x21, 0x7F, 0xFD, 0x80, 0xBD, 0xBB, 0xB6, 0xA1]
       expected_bytes = [0x21, 0x7F, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF,
                   0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD]
       test_utf8_clean(in_bytes, expected_bytes)
+    end
+
+    # A multi-byte sequence beginning with any of the following bytes is
+    # illegal.  For more info, see http://en.wikipedia.org/wiki/UTF-8
+    [[[0xC0, 0xC1], 2],
+     [[0xF5, 0xF6, 0xF7], 4],
+     [[0xF8, 0xF9, 0xFA, 0xFB], 5],
+     [[0xFC, 0xFD, 0xFE, 0xFF], 6]].each do |bytes, num_bytes|
+      bytes.each do |first_byte|
+        it "should replace invalid #{num_bytes}-byte character starting with 0x#{first_byte.to_s(16)}" do
+          in_bytes = [first_byte]
+          (num_bytes - 1).times { in_bytes << 0x80 }
+          expected_bytes = []
+          num_bytes.times { expected_bytes.concat [0xEF, 0xBF, 0xBD ] }
+          test_utf8_clean(in_bytes, expected_bytes)
+        end
+      end
     end
   end
 
