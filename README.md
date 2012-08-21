@@ -886,4 +886,19 @@ they don't persist between restarts. As such, this is really meant to
 be used as a development aid, or as a way of introspecting a running
 system for troubleshooting purposes.
 
+# Special thanks to
+
+## YourKit
+
+YourKit has given us an open source license for their profiler, greatly
+simplifying the profiling of PuppetDB's performance.
+
+YourKit is kindly supporting open source projects with its full-featured Java
+Profiler. YourKit, LLC is the creator of innovative and intelligent tools for
+profiling Java and .NET applications. Take a look at YourKit's leading software
+products:
+
+* [YourKit Java Profiler](http://www.yourkit.com/java/profiler/index.jsp)
+* [YourKit .NET Profiler](http://www.yourkit.com/.net/profiler/index.jsp)
+
 [leiningen]: https://github.com/technomancy/leiningen
