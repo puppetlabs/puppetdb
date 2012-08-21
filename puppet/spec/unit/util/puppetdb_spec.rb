@@ -39,6 +39,19 @@ describe Puppet::Util::Puppetdb do
         File.open(conf, 'w') { |file| file.print(content) }
       end
 
+      it "should not explode if there are comments in the config file" do
+        write_config <<CONF
+#this is a comment
+ ; so is this
+[main]
+server = main_server
+   # yet another comment
+port = 1234
+CONF
+        expect { described_class.load_puppetdb_config }.to_not raise_error
+      end
+
+
       it "should use the config value if specified" do
         write_config <<CONF
 [main]

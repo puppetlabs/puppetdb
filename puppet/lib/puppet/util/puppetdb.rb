@@ -92,6 +92,8 @@ module Puppet::Util::Puppetdb
       when /^\s*(\w+)\s*=\s*(\S+)\s*$/
         raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config}:#{number}" unless section
         result[section][$1] = $2
+      when /^\s*[#;]/
+        # Skip comments
       when /^\s*$/
         # Skip blank lines
       else
