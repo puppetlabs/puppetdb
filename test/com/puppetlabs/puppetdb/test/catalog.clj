@@ -70,12 +70,12 @@
             target {:type "Type" :title "target"}]
         (testing "should fail when edges mention missing resources"
           (is (thrown? IllegalArgumentException
-                       (validate-edges! {:edges #{{:source source :target target :relationship :before}}
+                       (validate-edges {:edges #{{:source source :target target :relationship :before}}
                                          :resources {}}))))
 
         (testing "should fail when edges have an invalid relationship"
           (is (thrown? IllegalArgumentException
-                       (validate-edges! {:edges #{{:source source :target target :relationship :madly-in-love-with}}
+                       (validate-edges {:edges #{{:source source :target target :relationship :madly-in-love-with}}
                                          :resources {source source
                                                      target target}}))))
 
@@ -85,7 +85,7 @@
                 catalog {:edges edges
                          :resources {source source
                                      target target}}]
-            (is (= catalog (validate-edges! catalog)))))))))
+            (is (= catalog (validate-edges catalog)))))))))
 
 (deftest resource-normalization
   (let [; Synthesize some fake resources

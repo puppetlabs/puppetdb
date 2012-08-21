@@ -182,7 +182,7 @@
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
 
-(defn validate-edges!
+(defn validate-edges
   "Ensure that all edges have valid sources and targets, and that the
   relationship types are acceptable."
   [{:keys [edges resources] :as catalog}]
@@ -241,9 +241,9 @@
     transform-metadata
     collapse))
 
-(def validate!
+(def validate
   "Applies every validation step to the catalog."
-  validate-edges!)
+  validate-edges)
 
 ;; ## Deserialization
 ;;
@@ -252,7 +252,7 @@
 (def parse-from-json-obj
   "Parse a wire-format JSON catalog object contained in `o`, returning a
   puppetdb-suitable representation."
-  (comp validate! transform))
+  (comp validate transform))
 
 (defn parse-from-json-string
   "Parse a wire-format JSON catalog string contained in `s`, returning a
