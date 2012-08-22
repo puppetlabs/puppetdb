@@ -157,6 +157,8 @@
                   ["=" ["parameter" "ensure"] "file"] [foo1 bar1]
                   ["=" ["node" "name"] "subset.local"] [bar1 bar3 bar5]
                   ["=" "tag" "vivid"] [foo4]
+                  ;; case-insensitive tags
+                  ["=" "tag" "VIVID"] [foo4]
                   ;; array parameter matching
                   ["=" ["parameter" "multi"] ["one" "two" "three"]] [foo6]
                   ["=" ["parameter" "multi"] ["one" "three" "two"]] []

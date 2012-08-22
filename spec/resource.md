@@ -27,7 +27,7 @@ The `query` parameter is described by the following grammar:
 `field` may be any of:
 
 `tag`
-: a tag on the resource
+: a case-insensitive tag on the resource
 
 `[node name]`
 : the name of the node associated with the resource

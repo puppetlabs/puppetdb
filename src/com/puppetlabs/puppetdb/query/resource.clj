@@ -108,10 +108,11 @@
       (throw (IllegalArgumentException.
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (match [path]
-         ;; tag join.
+         ;; tag join. Tags are case-insensitive but always lowercase, so
+         ;; lowercase the query value.
          ["tag"]
          {:where  (sql-array-query-string "tags")
-          :params [value]}
+          :params [(string/lower-case value)]}
 
          ;; node join.
          [["node" "name"]]
