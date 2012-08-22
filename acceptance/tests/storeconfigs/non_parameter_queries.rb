@@ -113,8 +113,8 @@ MANIFEST
       test_collection.call collectors, "tag_inverse_query", %w[file-c]
     end
 
-    step "uppercase tag queries should work" do
-      test_collection.call collectors, "tag_query", %w[file-a file-b]
+    step "tag queries should be case-insensitive" do
+      test_collection.call collectors, "tag_uppercase_query", %w[file-a file-b]
     end
   end
 end
