@@ -114,7 +114,7 @@ module CharEncoding
          result << byte
        when 2..4
          ruby18_handle_multibyte_char(result, byte, str, i,  char_len)
-         i += char_len
+         i += char_len - 1
        else
          raise Puppet::DevError, "Unhandled UTF8 char length: '#{char_len}'"
        end
@@ -143,7 +143,7 @@ module CharEncoding
       char_additional_bytes << str[i + x]
     end
 
-    if (is_valid_multibyte_suffix(char_additional_bytes))
+    if (is_valid_multibyte_suffix(byte, char_additional_bytes))
       result_str << byte
       result_str.concat(char_additional_bytes.pack("c*"))
     else
@@ -151,8 +151,18 @@ module CharEncoding
     end
   end
 
-  def self.is_valid_multibyte_suffix(bytes)
-    bytes.all? { |b| ((b & 0xC0) == 0x80) }
+  def self.is_valid_multibyte_suffix(byte, additional_bytes)
+    # This is heinous, but the UTF-8 spec says that codepoints greater than
+    #  0x10FFFF are illegal.  The first character that is over that limit is
+    #  0xF490bfbf, so if the first byte is F4 then we have to check for
+    #  that condition.
+    if byte == 0xF4
+      val = additional_bytes.reduce(0) { |result, b | (result << 8) + b}
+      if val >= 0x90bfbf
+        return false
+      end
+    end
+    additional_bytes.all? { |b| ((b & 0xC0) == 0x80) }
   end
 
 end
