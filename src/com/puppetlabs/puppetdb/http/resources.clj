@@ -8,7 +8,7 @@
 ;;
 ;; #### =
 ;;
-;; Resources tagged with "foo" (irrespective of other tags):
+;; Resources tagged with "foo" (case-insensitive, and irrespective of other tags):
 ;;
 ;;     ["=", "tag", "foo"]
 ;;
