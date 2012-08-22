@@ -65,6 +65,18 @@
 
 (deftest integrity-checking
   (testing "Catalog validation"
+    (testing "resource validation"
+      (testing "should fail when a resource has non-lower-case tags"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "BAR"]}}
+              catalog {:resources resources}]
+          (is (thrown? IllegalArgumentException
+                       (validate-resources catalog)))))
+
+      (testing "should not fail when a resource has only lower-case tags"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "bar"]}}
+              catalog {:resources resources}]
+          (is (= catalog (validate-resources catalog))))))
+
     (testing "edge validation"
       (let [source {:type "Type" :title "source"}
             target {:type "Type" :title "target"}]
