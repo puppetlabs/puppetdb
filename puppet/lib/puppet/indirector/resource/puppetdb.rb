@@ -62,16 +62,17 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
   def build_predicate(op, field, value)
     # Title and tag aren't parameters, so we have to special-case them.
-    path = case field
-           when "tag", "title"
-             field
+    expr = case field
+           when "tag"
+             # Tag queries are case-insensitive, so downcase them
+             ["=", "tag", value.downcase]
+           when "title"
+             ["=", "title", value]
            else
-             ['parameter', field]
+             ["=", ['parameter', field], value]
            end
 
-    equal_expr = ['=', path, value]
-
-    op == '!=' ? ['not', equal_expr] : equal_expr
+    op == '!=' ? ['not', expr] : expr
   end
 
   def build_join(op, lhs, rhs)

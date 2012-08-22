@@ -104,8 +104,16 @@ describe Puppet::Resource::Puppetdb do
       subject.build_expression(['title','==','value']).should == ['=', 'title', 'value']
     end
 
+    it "should preserve the case of title queries" do
+      subject.build_expression(['title','==','VALUE']).should == ['=', 'title', 'VALUE']
+    end
+
     it "should handle tag correctly" do
       subject.build_expression(['tag','==','value']).should == ['=', 'tag', 'value']
+    end
+
+    it "should generate lowercase tag queries for case-insensitivity" do
+      subject.build_expression(['tag','==','VALUE']).should == ['=', 'tag', 'value']
     end
 
     it "should conjoin 'and' queries with 'and'" do

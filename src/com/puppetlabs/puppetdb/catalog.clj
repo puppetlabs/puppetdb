@@ -90,7 +90,8 @@
 ;;                     ...)}
 ;;
 (ns com.puppetlabs.puppetdb.catalog
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [clojure.set :as set]
             [cheshire.core :as json]
             [digest]
@@ -173,14 +174,40 @@
    :post [(map? (:resources %))
           (= (count resources) (count (:resources %)))]}
   (let [new-resources (into {} (for [{:keys [type title] :as resource} resources
-                                     :let [resource-ref    {:type type :title title}
-                                           new-resource (transform-resource* resource)]]
-                                 [resource-ref new-resource]))]
+                                     :let [resource-spec    {:type type :title title}
+                                           new-resource     (transform-resource* resource)]]
+                                 [resource-spec new-resource]))]
     (assoc catalog :resources new-resources)))
 
 ;; ## Integrity checking
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
+
+(def ^:const tag-pattern
+  #"\A[a-z0-9_][a-z0-9_:]*\Z")
+
+(defn validate-tags
+  "Ensure that all catalog tags conform to the allowed tag pattern."
+  [{:keys [tags] :as catalog}]
+  {:pre [(set? tags)]
+   :post [(= % catalog)]}
+  (when-let [invalid-tag (first
+                           (remove #(re-find tag-pattern %) tags))]
+    (throw (IllegalArgumentException.
+             (format "Catalog contains an invalid tag '%s'. Tags must match the pattern /%s/." invalid-tag tag-pattern))))
+  catalog)
+
+(defn validate-resources
+  "Ensure that all resource tags conform to the allowed tag pattern."
+  [{:keys [resources] :as catalog}]
+  {:pre [(map? resources)]
+   :post [(= % catalog)]}
+  (doseq [[resource-spec resource] resources]
+    (when-let [invalid-tag (first
+                             (remove #(re-find tag-pattern %) (:tags resource)))]
+      (throw (IllegalArgumentException.
+               (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
+  catalog)
 
 (defn validate-edges
   "Ensure that all edges have valid sources and targets, and that the
@@ -243,7 +270,7 @@
 
 (def validate
   "Applies every validation step to the catalog."
-  validate-edges)
+  (comp validate-edges validate-resources validate-tags))
 
 ;; ## Deserialization
 ;;

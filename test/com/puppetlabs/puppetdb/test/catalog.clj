@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.catalog
   (:use [com.puppetlabs.puppetdb.catalog]
         [com.puppetlabs.puppetdb.catalog.utils]
+        [com.puppetlabs.puppetdb.examples]
         [clojure.test]))
 
 (defn catalog-before-and-after
@@ -65,6 +66,46 @@
 
 (deftest integrity-checking
   (testing "Catalog validation"
+    (testing "should return the catalog unchanged"
+      (let [catalog (:basic catalogs)]
+        (is (= catalog (validate catalog)))))
+
+    (testing "tag validation"
+      (testing "should reject capitalized tags"
+        (let [tags #{"foo" "baR"}
+              catalog {:tags tags}]
+          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'baR'"
+                       (validate-tags catalog)))))
+
+      (testing "should reject tags with bad characters"
+        (let [tags #{"foo" "bar" "b@d"}
+              catalog {:tags tags}]
+          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'b@d'"
+                       (validate-tags catalog)))))
+
+      (testing "should accept correct tags"
+        (let [tags #{"good" "better" "best"}
+              catalog {:tags tags}]
+              (is (= catalog (validate-tags catalog))))))
+
+    (testing "resource validation"
+      (testing "should fail when a resource has non-lower-case tags"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "BAR"]}}
+              catalog {:resources resources}]
+          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'BAR'"
+                       (validate-resources catalog)))))
+
+      (testing "should fail when a resource has tags with bad characters"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "b@r"]}}
+              catalog {:resources resources}]
+          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'b@r'"
+                       (validate-resources catalog)))))
+
+      (testing "should not fail when a resource has only lower-case tags"
+        (let [resources {{:type "Type" :title "foo"} {:tags ["foo" "bar"]}}
+              catalog {:resources resources}]
+          (is (= catalog (validate-resources catalog))))))
+
     (testing "edge validation"
       (let [source {:type "Type" :title "source"}
             target {:type "Type" :title "target"}]
