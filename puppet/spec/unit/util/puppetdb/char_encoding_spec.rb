@@ -22,28 +22,55 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       test_utf8_clean(in_bytes, expected_bytes)
     end
 
+    Utf8ReplacementChar = [0xEF, 0xBF, 0xBD]
     it "should replace invalid multi-byte characters with the unicode replacement character" do
       in_bytes = [0xE2, 0xCB, 0x87]
-      expected_bytes = [0xEF, 0xBF, 0xBD]
-      test_utf8_clean(in_bytes, expected_bytes)
+      test_utf8_clean(in_bytes, Utf8ReplacementChar)
     end
 
     it "should replace an incomplete multi-byte character with the unicode replacement character" do
       in_bytes = [0xE2, 0x9B]
-      expected_bytes = [0xEF, 0xBF, 0xBD]
+      test_utf8_clean(in_bytes, Utf8ReplacementChar)
+    end
+
+    it "should replace invalid characters with the unicode replacement character" do
+      # This is related to ticket #14873; our utf8_string code for 1.9 is being
+      #  much more aggressive about replacing bytes with the unicode replacement char;
+      #  it appears to be more correct, as the way that the 1.8/IConv approach
+      #  was handling it was causing certain strings to decode differently in
+      #  clojure, thus causing checksum errors.
+      in_bytes = [0x21, 0x7F, 0xFD, 0x80, 0xBD, 0xBB, 0xB6, 0xA1]
+      expected_bytes = [0x21, 0x7F]
+      expected_bytes.concat(Utf8ReplacementChar * 6)
       test_utf8_clean(in_bytes, expected_bytes)
     end
 
-    it "should replace invalid single-byte characters with the unicode replacement character" do
-      # This is related to ticket #14873; our utf8_string code for 1.9 is being
-      #  much more aggressive about replacing bytes with the unicode replacement char;
-      #  it appears to be more correct, as the way that 1.8 was handling it was
-      #  causing certain strings to decode differently in clojure, thus causing
-      #  checksum errors.
-      in_bytes = [0x21, 0x7F, 0xFD, 0x80, 0xBD, 0xBB, 0xB6, 0xA1]
-      expected_bytes = [0x21, 0x7F, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF,
-                  0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD, 0xEF, 0xBF, 0xBD]
-      test_utf8_clean(in_bytes, expected_bytes)
+    # A multi-byte sequence beginning with any of the following bytes is
+    # illegal.  For more info, see http://en.wikipedia.org/wiki/UTF-8
+    [[[0xC0, 0xC1], 2],
+     [[0xF5, 0xF6, 0xF7], 4],
+     [[0xF8, 0xF9, 0xFA, 0xFB], 5],
+     [[0xFC, 0xFD, 0xFE, 0xFF], 6]].each do |bytes, num_bytes|
+      bytes.each do |first_byte|
+        it "should replace invalid #{num_bytes}-byte character starting with 0x#{first_byte.to_s(16)}" do
+          in_bytes = [first_byte]
+          (num_bytes - 1).times { in_bytes << 0x80 }
+          test_utf8_clean(in_bytes, Utf8ReplacementChar * num_bytes)
+        end
+      end
+    end
+
+    context "when dealing with multi-byte sequences beginning with 0xF4" do
+      it "should accept characters that are below the 0x10FFFF limit of Unicode" do
+        in_bytes = [0xF4, 0x8f, 0xbf, 0xbf]
+        expected_bytes = [0xF4, 0x8f, 0xbf, 0xbf]
+        test_utf8_clean(in_bytes, expected_bytes)
+      end
+
+      it "should reject characters that are above the 0x10FFFF limit of Unicode" do
+        in_bytes = [0xF4, 0x90, 0xbf, 0xbf]
+        test_utf8_clean(in_bytes, Utf8ReplacementChar)
+      end
     end
   end
 
