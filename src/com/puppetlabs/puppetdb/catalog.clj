@@ -183,7 +183,7 @@
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
 
-(def tag-pattern
+(def ^:const tag-pattern
   #"\A[a-z0-9_][a-z0-9_:]*\Z")
 
 (defn validate-tags
