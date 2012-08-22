@@ -183,16 +183,30 @@
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
 
+(def tag-pattern
+  #"\A[a-z0-9_][a-z0-9_:]*\Z")
+
+(defn validate-tags
+  "Ensure that all catalog tags conform to the allowed tag pattern."
+  [{:keys [tags] :as catalog}]
+  {:pre [(set? tags)]
+   :post [(= % catalog)]}
+  (when-let [invalid-tag (first
+                           (remove #(re-find tag-pattern %) tags))]
+    (throw (IllegalArgumentException.
+             (format "Catalog contains an invalid tag '%s'. Tags must match the pattern /%s/." invalid-tag tag-pattern))))
+  catalog)
+
 (defn validate-resources
-  "Ensure that all resource tags are lowercase."
+  "Ensure that all resource tags conform to the allowed tag pattern."
   [{:keys [resources] :as catalog}]
   {:pre [(map? resources)]
    :post [(= % catalog)]}
   (doseq [[resource-spec resource] resources]
     (when-let [invalid-tag (first
-                             (remove #(= % (string/lower-case %)) (:tags resource)))]
+                             (remove #(re-find tag-pattern %) (:tags resource)))]
       (throw (IllegalArgumentException.
-               (format "Resource '%s' has a non-lower-case tag: %s" resource-spec invalid-tag)))))
+               (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
   catalog)
 
 (defn validate-edges
@@ -256,7 +270,7 @@
 
 (def validate
   "Applies every validation step to the catalog."
-  (comp validate-edges validate-resources))
+  (comp validate-edges validate-resources validate-tags))
 
 ;; ## Deserialization
 ;;
