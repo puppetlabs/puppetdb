@@ -78,13 +78,17 @@
                        (validate-tags catalog)))))
 
       (testing "should reject tags with bad characters"
-        (let [tags #{"foo" "bar" "b@d"}
-              catalog {:tags tags}]
-          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'b@d'"
-                       (validate-tags catalog)))))
+        (doseq [invalid-tag #{"a!" "b@" "c#" "d$" "e%"
+                              "f^" "g&" "h*" "i(" "j)"
+                              "k=" "l+" "m\\" "n<" "o>"
+                              "p," "q/" "r?" "s`" "t~"}]
+          (let [tags #{invalid-tag}
+                catalog {:tags tags}]
+            (is (thrown-with-msg? IllegalArgumentException #"invalid tag"
+                                  (validate-tags catalog))))))
 
       (testing "should accept correct tags"
-        (let [tags #{"good" "better" "best"}
+        (let [tags #{"_good" "bet-ter" "best." "0bester"}
               catalog {:tags tags}]
               (is (= catalog (validate-tags catalog))))))
 
