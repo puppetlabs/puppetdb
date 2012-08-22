@@ -157,7 +157,7 @@ module CharEncoding
     #  0xF490bfbf, so if the first byte is F4 then we have to check for
     #  that condition.
     if byte == 0xF4
-      val = additional_bytes.reduce(0) { |result, b | (result << 8) + b}
+      val = additional_bytes.inject(0) { |result, b | (result << 8) + b}
       if val >= 0x90bfbf
         return false
       end
