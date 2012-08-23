@@ -1,9 +1,13 @@
 #!/usr/bin/env ruby
 
 require 'cgi'
+require 'lib/puppet_acceptance/dsl/install_utils'
 
 module PuppetDBExtensions
 
+  GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
+
+  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
   def self.initialize_test_config(options, os_families, db_module_path)
     install_type =
@@ -119,6 +123,30 @@ module PuppetDBExtensions
     else
       raise ArgumentError, "Unsupported OS family: '#{os}'"
     end
+  end
+
+  def install_puppetdb_via_rake(host)
+    os = PuppetDBExtensions.config[:os_families][host.name]
+    case os
+    when :debian
+      preinst = "debian/puppetdb.preinst install"
+      postinst = "debian/puppetdb.postinst"
+    when :redhat
+      preinst = "dev/redhat/redhat_dev_preinst install"
+      postinst = "dev/redhat/redhat_dev_postinst install"
+    else
+      raise ArgumentError, "Unsupported OS family: '#{os}'"
+    end
+
+    on host, "rm -rf /etc/puppetdb/ssl"
+    on host, "#{LeinCommandPrefix} rake template"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
+    on host, "#{LeinCommandPrefix} rake install"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+  end
+
+  def install_puppetdb_termini_via_rake(host)
+    on host, "#{LeinCommandPrefix} rake sourceterminus"
   end
 
   def validate_package_version(host)
