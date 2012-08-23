@@ -15,7 +15,7 @@ step "Install other dependencies" do
     when :git
       case os
       when :debian
-        on database, "apt-get install -y openjdk-6-jre-headless"
+        on database, "apt-get install -y --force-yes openjdk-6-jre-headless"
       when :redhat
         on database, "yum install -y java-1.6.0-openjdk rubygem-rake"
       else

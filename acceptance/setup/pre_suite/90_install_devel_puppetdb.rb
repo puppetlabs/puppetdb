@@ -4,7 +4,7 @@ os = test_config[:os_families][database.name]
 step "Install development build of PuppetDB on the PuppetDB server" do
   case test_config[:install_type]
   when :git
-    install_puppetdb_via_rake()
+    install_puppetdb_via_rake(database)
     configure_puppetdb(database)
     start_puppetdb(database)
     install_puppetdb_termini_via_rake(master)
