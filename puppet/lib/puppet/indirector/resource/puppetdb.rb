@@ -35,13 +35,16 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     end
 
     resources = PSON.load(response.body)
+
     resources.map do |res|
       params = res['parameters'] || {}
       params = params.map do |name,value|
         Puppet::Parser::Resource::Param.new(:name => name, :value => value)
       end
       attrs = {:parameters => params, :scope => scope}
-      Puppet::Parser::Resource.new(res['type'], res['title'], attrs)
+      result = Puppet::Parser::Resource.new(res['type'], res['title'], attrs)
+      result.collector_id = "#{res['certname']}|#{res['type']}|#{res['title']}"
+      result
     end
   end
 

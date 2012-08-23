@@ -33,10 +33,20 @@ describe Puppet::Resource::Puppetdb do
     end
 
     describe "with a matching resource" do
-      def make_resource_hash(name, exported=true)
+
+      let (:query) {
+          ['and',
+           ['=', 'type', 'File'],
+           ['=', 'exported', true],
+           ['=', ['node', 'active'], true],
+           ['not', ['=', ['node', 'name'], host]]]
+      }
+
+      def make_resource_hash(name, certname="localhost", exported=true)
         metadata = { :sourcefile => '/etc/puppet/manifests/site.pp',
                      :sourceline => 10,
                      :exported   => exported,
+                     :certname   => certname,
                      :hash       => 'foobarbaz', }
 
         res = Puppet::Type.type(:file).new(:title => File.expand_path(name),
@@ -47,13 +57,8 @@ describe Puppet::Resource::Puppetdb do
         res_hash.merge(:parameters => params)
       end
 
-      before :each do
-        body = [make_resource_hash('foo'), make_resource_hash('bar')].to_pson
-        query = ['and',
-                  ['=', 'type', 'File'],
-                  ['=', 'exported', true],
-                  ['=', ['node', 'active'], true],
-                  ['not', ['=', ['node', 'name'], host]]]
+      def stub_response(resource_hashes)
+        body = resource_hashes.to_pson
 
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
@@ -64,20 +69,42 @@ describe Puppet::Resource::Puppetdb do
         end.returns response
       end
 
-      it "should return a list of parser resources if any resources are found" do
-        found = search('File')
-        found.length.should == 2
-        found.each do |item|
-          item.should be_a(Puppet::Parser::Resource)
-          item.type.should == 'File'
-          item[:ensure].should == 'present'
-          item[:mode].should == '777'
+      context "with resources from a single host" do
+        before :each do
+          stub_response([make_resource_hash('foo'), make_resource_hash('bar')])
+        end
+
+
+        it "should return a list of parser resources if any resources are found" do
+          found = search('File')
+          found.length.should == 2
+          found.each do |item|
+            item.should be_a(Puppet::Parser::Resource)
+            item.type.should == 'File'
+            item[:ensure].should == 'present'
+            item[:mode].should == '777'
+          end
+        end
+
+
+        it "should not filter resources that have been found before" do
+          search('File').should == search('File')
         end
       end
 
-      it "should not filter resources that have been found before" do
-        search('File').should == search('File')
+      context "with resources from multiple hosts" do
+        before :each do
+          stub_response([make_resource_hash('foo', 'localhost'), make_resource_hash('foo', 'remotehost')])
+        end
+
+        it "should supply unique collector_id vals for resources collected from different hosts" do
+          found = search('File')
+          found.length.should == 2
+          found[0].collector_id.should_not == found[1].collector_id
+        end
       end
+
+
     end
   end
 
