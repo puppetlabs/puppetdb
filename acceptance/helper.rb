@@ -1,10 +1,13 @@
 #!/usr/bin/env ruby
 
 require 'cgi'
+require 'lib/puppet_acceptance/dsl/install_utils'
 
 module PuppetDBExtensions
 
-  LeinCommandPrefix = "cd /opt/puppet-git-repos/puppetdb; LEIN_ROOT=true"
+  GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
+
+  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
   def self.initialize_test_config(options, os_families, db_module_path)
     install_type =
@@ -137,9 +140,9 @@ module PuppetDBExtensions
 
     on host, "rm -rf /etc/puppetdb/ssl"
     on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{preinst}"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
     on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh /opt/puppet-git-repos/puppetdb/ext/files/#{postinst}"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
   end
 
   def install_puppetdb_termini_via_rake(host)
