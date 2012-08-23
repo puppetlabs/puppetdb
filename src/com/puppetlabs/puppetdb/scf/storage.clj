@@ -269,17 +269,6 @@ must be supplied as the value to be matched."
                                 :api_version     api-version
                                 :catalog_version catalog-version}))
 
-(defn update-catalog-metadata!
-  "Given some catalog metadata, update the db"
-  [hash api-version catalog-version]
-  {:pre [(string? hash)
-         (number? api-version)
-         (string? catalog-version)]}
-  (sql/update-values :catalogs
-                     ["hash=?" hash]
-                     {:api_version     api-version
-                      :catalog_version catalog-version}))
-
 (defn catalog-exists?
   "Returns a boolean indicating whether or not the given catalog exists in the db"
   [hash]
@@ -479,7 +468,6 @@ must be supplied as the value to be matched."
   ;; explicit about the exact attributes of a catalog that we care
   ;; about when we think about "uniqueness".
   (-> (sorted-map)
-      (assoc :certname certname)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
       (assoc :resources (sort (for [[ref resource] resources]
@@ -507,8 +495,7 @@ must be supplied as the value to be matched."
             (let [exists? (catalog-exists? hash)]
 
               (when exists?
-                (inc! (:duplicate-catalog metrics))
-                (update-catalog-metadata! hash api-version version))
+                (inc! (:duplicate-catalog metrics)))
 
               (when-not exists?
                 (inc! (:new-catalog metrics))
@@ -599,16 +586,15 @@ must be supplied as the value to be matched."
 
 ;; ## High-level entity manipulation
 
-(defn replace-catalog!
+(defn store-catalog-for-certname!
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
   [{:keys [certname] :as catalog} timestamp]
   {:pre [(utils/datetime? timestamp)]}
   (time! (:replace-catalog metrics)
          (sql/transaction
-          (let [catalog-hash (add-catalog! catalog)]
-            (dissociate-all-catalogs-for-certname! certname)
-            (associate-catalog-with-certname! catalog-hash certname timestamp)))))
+           (let [catalog-hash (add-catalog! catalog)]
+             (associate-catalog-with-certname! catalog-hash certname timestamp)))))
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those

@@ -157,6 +157,33 @@
     (sql/do-commands
       "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
 
+(defn allow-historical-catalogs
+  "This relaxes the uniqueness constraints on `certname_catalogs`, allowing a
+  single node to have multiple catalogs. The new primary key for
+  `certname_catalogs` is (certname,catalog,timestamp) with an additional index
+  on (certname,catalog)."
+  []
+  ;; Find the existing primary key and remove it
+  (let [[result & _] (query-to-vec
+                       (str "SELECT constraint_name FROM information_schema.table_constraints "
+                            "WHERE LOWER(table_name) = 'certname_catalogs' AND LOWER(constraint_type) = 'primary key'"))
+        constraint   (:constraint_name result)]
+    (sql/do-commands
+      (str "ALTER TABLE certname_catalogs DROP CONSTRAINT " constraint)))
+
+  ;; Also remove those darn uniqueness constraints
+  (let [results (query-to-vec
+                  (str "SELECT constraint_name FROM information_schema.table_constraints "
+                       "WHERE LOWER(table_name) = 'certname_catalogs' AND LOWER(CONSTRAINT_TYPE) = 'unique';"))
+        constraints (map :constraint_name results)]
+    (doseq [constraint constraints]
+      (sql/do-commands
+        (str "ALTER TABLE certname_catalogs DROP CONSTRAINT " constraint))))
+
+  (sql/do-commands
+    (str "ALTER TABLE certname_catalogs ADD PRIMARY KEY (certname,catalog,timestamp)")
+    (str "CREATE INDEX idx_certname_catalogs_certname_catalog ON certname_catalogs(certname,catalog)")))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -164,7 +191,8 @@
    2 allow-node-deactivation
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
-   5 add-missing-indexes})
+   5 add-missing-indexes
+   6 allow-historical-catalogs})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
@@ -196,7 +224,7 @@ along with the time at which the migration was performed."
           (<= (count %) (count migrations))]}
   (let [current-version (schema-version)]
     (into (sorted-map)
-          (filter #(> (key %) current-version) migrations)) ))
+          (filter #(> (key %) current-version) migrations))))
 
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if database is
