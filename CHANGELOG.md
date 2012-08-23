@@ -1,3 +1,93 @@
+0.11.0
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Deepak Giridharagopal
+* Nick Lewis
+* Moses Mendoza
+* Chris Price
+
+Notable features:
+
+* Automatic generate heap snapshots on OutOfMemoryError
+
+  In the unfortunate situation where PuppetDB runs out of memory, a
+  heap snapshot is automatically generated and saved in the log
+  directory. This helps us work with users to much more precisely
+  triangulate what's taking up the majority of the available heap
+  without having to work to reproduce the problem on a completely
+  different system (a often-times difficult proposition).  This helps
+  keep PuppetDB lean for everyone.
+
+* Preliminary packaging support for Fedora 17 and Ruby 1.9
+
+  This hasn't been fully tested, nor integrated into our CI systems,
+  and therefore should be considered experimental. This fix adds
+  support for packaging for ruby 1.9 by modifying the @plibdir path
+  based on the ruby version. `RUBY_VER` can be passed in as an
+  environment variable, and if none is passed, `RUBY_VER` defaults to
+  the ruby on the local host as reported by facter. As is currently
+  the case, we use the sitelibdir in ruby 1.8, and with this commit
+  use vendorlibdir for 1.9. Fedora 17 ships with 1.9, so we use this
+  to test for 1.9 in the spec file. Fedora 17 also ships with open-jdk
+  1.7, so this commit updates the Requires to 1.7 for fedora 17.
+
+* Resource tags semantics now match those of Puppet proper
+
+  In Puppet, tags lower-case only. We now fail incoming catalogs that
+  contain mixed case tags, and we treat tags in queries as
+  case-insensitive comparisons.
+
+Notable fixes:
+
+* Properly escape resource query strings in our terminus
+
+  This fixes failures caused by storeconfigs queries that involve, for
+  example, resource titles whose names contain spaces.
+
+* (#15947) Allow comments in puppetdb.conf
+
+  We now support whole-line comments in puppetdb.conf.
+
+* (#15903) Detect invalid UTF-8 multi-byte sequences
+
+  Prior to this fix, certain sequences of bytes used on certain
+  versions of Puppet with certain versions of Ruby would cause our
+  terminii to send malformed data to PuppetDB (which the daemon then
+  properly rejects with a checksum error, so no data corruption would
+  have taken place).
+
+* Don't remove puppetdb user during RPM package uninstall
+
+  We never did this on Debian systems, and most other packages seem
+  not to as well. Also, removing the user and not all files owned by
+  it can cause problems if another service later usurps the user id.
+
+* Compatibility with legacy storeconfigs behavior for duplicate
+  resources
+
+  Prior to this commit, the puppetdb resource terminus was not setting
+  a value for "collector_id" on collected resources.  This field is
+  used by puppet to detect duplicate resources (exported by multiple
+  nodes) and cause a run to fail. Hence, the semantics around
+  duplicate resources were ill-specified and could cause
+  problems. This fix adds code to set the collector id based on node
+  name + resource title + resource type, and adds tests to verify that
+  a puppet run will fail if it collects duplicate instances of the
+  same resource from different exporters.
+
+* Internal benchmarking suite fully functional again
+
+  Previous changes had broken the benchmark tool; functionality has
+  been restored.
+
+* Better version display
+
+  We now display latest version info during daemon startup, and on the
+  web dashboard.
+
 0.10.0
 =========
 
