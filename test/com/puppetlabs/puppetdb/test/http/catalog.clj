@@ -42,8 +42,8 @@ to the result of the form supplied to this method."
         empty-catalog (:empty catalogs)]
     (scf-store/add-certname! (:certname basic-catalog))
     (scf-store/add-certname! (:certname empty-catalog))
-    (scf-store/replace-catalog! basic-catalog (now))
-    (scf-store/replace-catalog! empty-catalog (now))
+    (scf-store/store-catalog-for-certname! basic-catalog (now))
+    (scf-store/store-catalog-for-certname! empty-catalog (now))
 
     (testing "should return the catalog if it's present"
       (is-response-equal (get-response (:certname empty-catalog))

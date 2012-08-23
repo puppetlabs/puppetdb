@@ -5,6 +5,8 @@
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -56,8 +58,8 @@ to the result of the form supplied to this method."
      {:hash "bar" :api_version 1 :catalog_version "14"})
     (sql/insert-records
      :certname_catalogs
-     {:certname "one.local" :catalog "foo"}
-     {:certname "two.local" :catalog "bar"})
+     {:certname "one.local" :catalog "foo" :timestamp (to-timestamp (now))}
+     {:certname "two.local" :catalog "bar" :timestamp (to-timestamp (now))})
     (sql/insert-records :catalog_resources
                         {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}

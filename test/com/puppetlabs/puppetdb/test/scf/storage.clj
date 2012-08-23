@@ -220,7 +220,7 @@
           (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
-            (replace-catalog! catalog (now))
+            (store-catalog-for-certname! catalog (now))
 
             (is (= (query-to-vec ["SELECT name FROM certnames"])
                    [{:name certname}]))
@@ -237,12 +237,12 @@
                 prev-new-num  (.count (:new-catalog metrics))]
 
             ;; Do an initial replacement with the same catalog
-            (replace-catalog! catalog (now))
+            (store-catalog-for-certname! catalog (now))
             (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
             ;; Store a second catalog, with the same content save the version
-            (replace-catalog! (assoc catalog :version "abc123") (now))
+            (store-catalog-for-certname! (assoc catalog :version "abc123") (now))
             (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
             (is (= 0 (- (.count (:new-catalog metrics)) prev-new-num)))
 
@@ -250,7 +250,8 @@
                    [{:name certname}]))
 
             (is (= (query-to-vec ["SELECT certname FROM certname_catalogs"])
-                   [{:certname certname}]))
+                   [{:certname certname}
+                    {:certname certname}]))
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
@@ -300,48 +301,50 @@
           (is (= (query-to-vec ["SELECT name FROM certnames"])
                  [{:name certname}]))))
 
-      (testing "when deleted, should leave other hosts' resources alone"
+      (testing "when deleted, should leave other catalogs' resources alone"
         (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
           (add-certname! "myhost2.mydomain.com")
           (let [hash1 (add-catalog! catalog)
-                ;; Store the same catalog for a different host
-                hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
+                ;; Store a similar catalog for a different host
+                hash2 (add-catalog! (-> catalog
+                                      (assoc :certname "myhost2.mydomain.com")
+                                      (update-in [:tags] conj "other_catalog")))]
             (associate-catalog-with-certname! hash1 certname (now))
             (associate-catalog-with-certname! hash2 "myhost2.mydomain.com" (now))
-            (delete-catalog! hash1))
+            (delete-catalog! hash1)
 
-          ;; myhost should still be present in the database
-          (is (= (query-to-vec ["SELECT name FROM certnames ORDER BY name"])
-                 [{:name certname} {:name "myhost2.mydomain.com"}]))
+            ;; myhost should still be present in the database
+            (is (= (query-to-vec ["SELECT name FROM certnames ORDER BY name"])
+                   [{:name certname} {:name "myhost2.mydomain.com"}]))
 
-          ;; myhost1 should not have any catalogs associated with it
-          ;; anymore
-          (is (= (query-to-vec ["SELECT certname FROM certname_catalogs ORDER BY certname"])
-                 [{:certname "myhost2.mydomain.com"}]))
+            ;; myhost1 should not have any catalogs associated with it
+            ;; anymore
+            (is (= (query-to-vec ["SELECT certname, catalog FROM certname_catalogs"])
+                   [{:certname "myhost2.mydomain.com" :catalog hash2}]))
 
-          ;; no tags for myhost
-          (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
-                                     "WHERE t.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
-                 []))
+            ;; no tags for myhost
+            (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
+                                       "WHERE t.catalog=cc.catalog AND cc.certname=?")
+                                  certname])
+                   []))
 
-          ;; no classes for myhost
-          (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
-                                     "WHERE c.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
-                 []))
+            ;; no classes for myhost
+            (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
+                                       "WHERE c.catalog=cc.catalog AND cc.certname=?")
+                                  certname])
+                   []))
 
-          ;; no edges for myhost
-          (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
-                                     "WHERE e.catalog=cc.catalog AND cc.certname=?")
-                                     certname])
-                 [{:c 0}]))
+            ;; no edges for myhost
+            (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
+                                       "WHERE e.catalog=cc.catalog AND cc.certname=?")
+                                  certname])
+                   [{:c 0}]))
 
-          ;; All the other resources should still be there
-          (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
-                 [{:c 3}]))))
+            ;; All the other resources should still be there
+            (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
+                   [{:c 3}])))))
 
       (testing "when deleted without GC, should leave params"
         (with-transacted-connection db
@@ -481,11 +484,11 @@
           (let [catalog (:empty catalogs)
                 certname (:certname catalog)]
             (add-certname! certname)
-            (replace-catalog! catalog (now))
+            (store-catalog-for-certname! catalog (now))
               (is (= (stale-nodes (ago (days 1))) [])))))
 
       (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
-        (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
+        (let [mutators [#(store-catalog-for-certname! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
                         #(replace-facts! {"name" "node1" "values" {"foo" "bar"}} (ago (days 2)))]]
           (doseq [func-set (subsets mutators)]
             (with-transacted-connection db
@@ -500,7 +503,7 @@
           (let [catalog (:empty catalogs)]
             (add-certname! "node1")
             (add-certname! "node2")
-            (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
-            (replace-catalog! (assoc catalog :certname "node2") (now))
+            (store-catalog-for-certname! (assoc catalog :certname "node1") (ago (days 2)))
+            (store-catalog-for-certname! (assoc catalog :certname "node2") (now))
 
             (is (= (set (stale-nodes (ago (days 1)))) #{"node1"}))))))))

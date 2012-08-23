@@ -1,10 +1,15 @@
 (ns com.puppetlabs.puppetdb.test.query.resource
   (:require [com.puppetlabs.puppetdb.query.resource :as s]
             [clojure.java.jdbc :as sql]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
   (:use clojure.test
         ring.mock.request
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.utils :only [mapkeys mapvals]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)
@@ -33,8 +38,8 @@
     {:hash "bar" :api_version 1 :catalog_version "14"})
   (sql/insert-records
     :certname_catalogs
-    {:certname "example.local" :catalog "foo"}
-    {:certname "subset.local" :catalog "bar"})
+    {:certname "example.local" :catalog "foo" :timestamp (to-timestamp (now))}
+    {:certname "subset.local" :catalog "bar" :timestamp (to-timestamp (now)) })
   (sql/insert-records :catalog_resources
     {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
     {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}
@@ -221,3 +226,37 @@
               #"is not a valid query term"
               (s/query-resources (s/query->sql input))))))))
 
+
+(deftest query-resources-multiple-catalogs
+  (testing "should only query against the most recent catalog"
+    (let [add-tag-to-resources (fn [resources tag]
+                                 (mapvals #(update-in % [:tags] conj tag) resources))
+          one-day  (* 24 60 60 1000)
+          tomorrow (to-timestamp (+ (System/currentTimeMillis) one-day))
+          catalog1 (-> (:basic catalogs)
+                     (update-in [:resources] add-tag-to-resources "from-catalog1"))
+          catalog2 (-> (:basic catalogs)
+                     (update-in [:resources] add-tag-to-resources "from-catalog2"))]
+      (scf-store/add-certname! (:certname catalog1))
+      (scf-store/store-catalog-for-certname! catalog1 (to-timestamp (now)))
+      (scf-store/store-catalog-for-certname! catalog2 tomorrow))
+
+    (let [result (s/query-resources (s/query->sql ["=" "type" "File"]))
+          munged-result (for [resource result]
+                          (-> resource
+                            (select-keys [:type :title :tags :parameters])
+                            (update-in [:tags] sort)))
+          expected [{:type       "File"
+                     :title      "/etc/foobar"
+                     :tags       ["class" "file" "foobar" "from-catalog2"]
+                     :parameters {"ensure" "directory"
+                                  "group"  "root"
+                                  "user"   "root"}}
+                    {:type       "File"
+                     :title      "/etc/foobar/baz"
+                     :tags       ["class" "file" "foobar" "from-catalog2"]
+                     :parameters {"ensure"  "directory"
+                                  "group"   "root"
+                                  "user"    "root"
+                                  "require" "File[/etc/foobar]"}}]]
+      (is (= munged-result expected)))))

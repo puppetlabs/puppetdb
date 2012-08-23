@@ -2,6 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.population :as pop]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node! to-jdbc-varchar-array]]
         [com.puppetlabs.puppetdb.fixtures]))
 
@@ -25,7 +27,7 @@
       ;; The catalog "c2" isn't associated with a node
       (sql/insert-records
        :certname_catalogs
-       {:certname "h1" :catalog "c1"})
+       {:certname "h1" :catalog "c1" :timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :catalog_resources
@@ -76,8 +78,8 @@
 
       (sql/insert-records
        :certname_catalogs
-       {:certname "h1" :catalog "c1"}
-       {:certname "h2" :catalog "c2"})
+       {:certname "h1" :catalog "c1" :timestamp (to-timestamp (now))}
+       {:certname "h2" :catalog "c2" :timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :catalog_resources
