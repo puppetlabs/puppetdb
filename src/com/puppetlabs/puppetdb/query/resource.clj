@@ -77,7 +77,8 @@
   (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
                                    "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
                                    "FROM catalog_resources "
-                                   "JOIN certname_catalogs USING(catalog) "
+                                   "JOIN certname_catalogs ON certname_catalogs.catalog = catalog_resources.catalog AND "
+                                   "(certname_catalogs.certname, certname_catalogs.timestamp) IN (SELECT certname, MAX(timestamp) FROM certname_catalogs GROUP BY certname) "
                                    "LEFT OUTER JOIN resource_params rp "
                                    "USING(resource) %s")
                               sql)
