@@ -4,15 +4,15 @@
             [cheshire.core :as json])
   (:use [com.puppetlabs.puppetdb.examples]
         [com.puppetlabs.puppetdb.scf.storage]
-        [com.puppetlabs.puppetdb.scf.migrate :only  [migrate!]]
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations subsets)]
         [clj-time.core :only [ago from-now now days]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.puppetdb.testutils :only [test-db]]))
+        [com.puppetlabs.puppetdb.fixtures]))
 
-(def db (test-db))
+(use-fixtures :each with-test-db)
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
@@ -125,8 +125,6 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (with-transacted-connection db
-        (migrate!)
         (add-certname! certname)
         (add-facts! certname facts (now))
         (testing "should have entries for each fact"
@@ -152,15 +150,15 @@
                       {:fact "fqdn" :value "myhost.mynewdomain.com"}
                       {:fact "hostname" :value "myhost"}
                       {:fact "kernel" :value "Linux"}
-                      {:fact "uptime_seconds" :value "3600"}])))))))))
+                      {:fact "uptime_seconds" :value "3600"}]))))))))
+
+
+(let [catalog  (:basic catalogs)
+      certname (:certname catalog)]
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
-    (let [catalog  (:basic catalogs)
-          certname (:certname catalog)]
 
-      (with-transacted-connection db
-        (migrate!)
         (add-certname! certname)
         (let [hash (add-catalog! catalog)]
           (associate-catalog-with-certname! hash certname (now)))
@@ -213,11 +211,10 @@
               (is (= (map #(assoc % :tags (sort (:tags %))) result)
                      [{:type "Class" :title "foobar" :tags [] :exported false :sourcefile nil :sourceline nil}
                       {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/foo" :sourceline 10}
-                      {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}]))))))
+                      {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}])))))))
 
+  (deftest catalog-replacement
       (testing "should noop if replaced by themselves"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
             (replace-catalog! catalog (now))
@@ -227,10 +224,9 @@
 
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
-
+;
+  (deftest catalog-duplicates
       (testing "should share structure when duplicate catalogs are detected for the same host"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)
                 prev-dupe-num (.count (:duplicate-catalog metrics))
@@ -255,14 +251,12 @@
             (is (= (query-to-vec ["SELECT hash FROM catalogs"])
                    [{:hash hash}])))))
 
+  (deftest catalog-empty
       (testing "should not fail when inserting an 'empty' catalog"
-        (with-transacted-connection db
-          (migrate!)
           (add-catalog! (:empty catalogs))))
 
+  (deftest catalog-manual-deletion
       (testing "should noop if replaced by themselves after using manual deletion"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (add-catalog! catalog)
           (delete-catalog! certname)
@@ -271,9 +265,8 @@
           (is (= (query-to-vec ["SELECT name FROM certnames"])
                  [{:name certname}]))))
 
+  (deftest catalog-deletion-verify
       (testing "should be removed when deleted"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash (add-catalog! catalog)]
             (delete-catalog! hash))
@@ -290,9 +283,8 @@
           (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
                  []))))
 
+  (deftest catalog-deletion-certnames
       (testing "when deleted, should leave certnames alone"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (add-catalog! catalog)
           (delete-catalog! certname)
@@ -300,9 +292,8 @@
           (is (= (query-to-vec ["SELECT name FROM certnames"])
                  [{:name certname}]))))
 
+  (deftest catalog-deletion-otherhosts
       (testing "when deleted, should leave other hosts' resources alone"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (add-certname! "myhost2.mydomain.com")
           (let [hash1 (add-catalog! catalog)
@@ -343,9 +334,8 @@
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
                  [{:c 3}]))))
 
+  (deftest catalog-delete-without-gc
       (testing "when deleted without GC, should leave params"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 certname (now))
@@ -355,9 +345,8 @@
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
                  [{:c 7}]))))
 
+  (deftest catalog-delete-with-gc
       (testing "when deleted and GC'ed, should leave no dangling params or edges"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 certname (now))
@@ -369,9 +358,8 @@
           (is (= (query-to-vec ["SELECT * FROM edges"])
                  []))))
 
+  (deftest catalog-dissociation-without-gc
       (testing "when dissociated and not GC'ed, should still exist"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 certname (now))
@@ -383,9 +371,8 @@
           (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalogs"])
                  [{:c 1}]))))
 
+  (deftest catalog-dissociation-with-gc
       (testing "when dissociated and GC'ed, should no longer exist"
-        (with-transacted-connection db
-          (migrate!)
           (add-certname! certname)
           (let [hash1 (add-catalog! catalog)]
             (associate-catalog-with-certname! hash1 certname (now))
@@ -398,31 +385,26 @@
           (is (= (query-to-vec ["SELECT * FROM catalogs"])
                  [])))))
 
-    (testing "should noop"
+(deftest catalog-bad-input
+  (testing "should noop"
+    (testing "on bad input"
+        (is (thrown? AssertionError (add-catalog! {})))
 
-      (testing "on bad input"
-        (with-transacted-connection db
-          (migrate!)
+        ; Nothing should have been persisted for this catalog
+        (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
+               [{:nrows 0}])))))
+
+(deftest catalog-referential-integrity-violation
+    (testing "on input that violates referential integrity"
+      ; This catalog has an edge that points to a non-existant resource
+      (let [catalog (:invalid catalogs)]
           (is (thrown? AssertionError (add-catalog! {})))
 
           ; Nothing should have been persisted for this catalog
           (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-                 [{:nrows 0}]))))
-
-      (testing "on input that violates referential integrity"
-        ; This catalog has an edge that points to a non-existant resource
-        (let [catalog (:invalid catalogs)]
-          (with-transacted-connection db
-            (migrate!)
-            (is (thrown? AssertionError (add-catalog! {})))
-
-            ; Nothing should have been persisted for this catalog
-            (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-                   [{:nrows 0}]))))))))
+                 [{:nrows 0}])))))
 
 (deftest node-deactivation
-  (with-transacted-connection db
-    (migrate!)
     (let [certname        "foo.example.com"
           query-certnames #(query-to-vec ["select name, deactivated from certnames"])
           deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
@@ -468,39 +450,35 @@
           (testing "should do nothing if the node is already active"
             (activate-node! certname)
             (is (= true (maybe-activate-node! certname (now))))
-            (is (= (query-certnames) [{:name certname :deactivated nil}]))))))))
+            (is (= (query-certnames) [{:name certname :deactivated nil}])))))))
 
-(deftest node-staleness
+(deftest node-staleness-age
   (testing "retrieving stale nodes based on age"
     (let [query-certnames #(query-to-vec ["select name, deactivated from certnames order by name"])
           deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
 
       (testing "should return nothing if all nodes are more recent than max age"
-        (with-transacted-connection db
-          (migrate!)
           (let [catalog (:empty catalogs)
                 certname (:certname catalog)]
             (add-certname! certname)
             (replace-catalog! catalog (now))
-              (is (= (stale-nodes (ago (days 1))) [])))))
+              (is (= (stale-nodes (ago (days 1))) [])))))))
 
+(deftest node-stale-catalogs-facts
       (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
         (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
                         #(replace-facts! {"name" "node1" "values" {"foo" "bar"}} (ago (days 2)))]]
+          (add-certname! "node1")
           (doseq [func-set (subsets mutators)]
-            (with-transacted-connection db
-              (migrate!)
-              (add-certname! "node1")
               (dorun (map #(%) func-set))
               (is (= (stale-nodes (ago (days 1))) ["node1"]))))))
 
+(deftest node-max-age
       (testing "should only return nodes older than max age, and leave others alone"
-        (with-transacted-connection db
-          (migrate!)
           (let [catalog (:empty catalogs)]
             (add-certname! "node1")
             (add-certname! "node2")
             (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
             (replace-catalog! (assoc catalog :certname "node2") (now))
 
-            (is (= (set (stale-nodes (ago (days 1)))) #{"node1"}))))))))
+            (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))

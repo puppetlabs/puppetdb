@@ -163,6 +163,15 @@
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
+
+;; A list of all of the table names that are present in the most recent version
+;; of the schema.  This is most useful for debugging / testing  purposes (to allow
+;; introspection on the database.  (Some of our unit tests rely on this.)
+(def table-names
+  ["catalog_resources" "catalogs" "certname_catalogs" "certname_facts"
+   "certname_facts_metadata" "certnames" "classes" "edges" "resource_params"
+   "schema_migrations" "tags"])
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
