@@ -365,7 +365,7 @@ foo::bar { bar: }
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash)
-        }.to raise_error(/Can't find resource Notify\[non-existent\] for relationship/)
+        }.to raise_error("Can't synthesize edge: Notify\[anyone\] -required-by- Notify\[non-existent\] (param require)")
       end
     end
 
