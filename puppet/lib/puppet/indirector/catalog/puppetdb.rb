@@ -160,7 +160,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # and try that
             other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
 
-            raise "Can't find resource #{other_ref} for relationship" unless other_resource
+            raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param})" unless other_resource
 
             if other_resource['exported']
               raise "Can't create an edge between #{resource_hash_to_ref(resource_hash)} and exported resource #{other_ref}"
