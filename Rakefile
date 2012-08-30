@@ -105,7 +105,8 @@ else
 end
 
 
-@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@log_dir}/puppetdb-oom.hprof "
+@heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
+@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@heap_dump_path} "
 
 @version      ||= get_version
 @debversion   ||= get_debversion
