@@ -184,6 +184,29 @@
     (str "ALTER TABLE certname_catalogs ADD PRIMARY KEY (certname,catalog,timestamp)")
     (str "CREATE INDEX idx_certname_catalogs_certname_catalog ON certname_catalogs(certname,catalog)")))
 
+;; TODO: Migrate the data, too.
+(defn dedup-resource-metadata
+  []
+  (sql/do-commands
+    "ALTER TABLE catalog_resources RENAME TO resource_metadata "
+    "ALTER TABLE resource_metadata ADD hash VARCHAR(40) NOT NULL UNIQUE"
+    "ALTER TABLE resource_metadata DROP COLUMN catalog"
+    "ALTER TABLE resource_metadata DROP COLUMN tags")
+
+  (sql/create-table :catalog_resources
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
+                    ["resource_metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
+                    ["PRIMARY KEY (catalog, resource_metadata)"])
+
+  (sql/create-table :resource_tags
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
+                    ["resource_metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
+                    ["tags" (sql-array-type-string "TEXT") "NOT NULL"]
+                    ["PRIMARY KEY (catalog, resource_metadata)"])
+
+  (when (= (sql-current-connection-database-name) "PostgreSQL") (sql/do-commands
+    "CREATE INDEX idx_resource_tags_tags_gin ON resource_tags USING gin(tags)")))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -192,7 +215,8 @@
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
-   6 allow-historical-catalogs})
+   6 allow-historical-catalogs
+   7 dedup-resource-metadata})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

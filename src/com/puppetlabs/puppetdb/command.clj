@@ -57,7 +57,8 @@
 ;;
 
 (ns com.puppetlabs.puppetdb.command
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
