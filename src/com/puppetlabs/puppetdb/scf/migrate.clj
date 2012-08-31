@@ -191,10 +191,12 @@
     "ALTER TABLE catalog_resources RENAME TO resource_metadata "
     "ALTER TABLE resource_metadata ADD hash VARCHAR(40) NOT NULL UNIQUE"
     "ALTER TABLE resource_metadata DROP COLUMN catalog"
+    "ALTER TABLE resource_metadata DROP COLUMN resource"
     "ALTER TABLE resource_metadata DROP COLUMN tags")
 
   (sql/create-table :catalog_resources
                     ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
+                    ["resource" "VARCHAR(40)"]
                     ["resource_metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
                     ["PRIMARY KEY (catalog, resource_metadata)"])
 

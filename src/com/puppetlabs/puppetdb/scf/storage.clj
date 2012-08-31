@@ -411,9 +411,9 @@ must be supplied as the value to be matched."
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash metadata-hash persisted? metadata-persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:metadata :tags :parameters :catalog_resources})]}
-  (let [catalog-resource-cols [[catalog-hash metadata-hash]]
+  (let [catalog-resource-cols [[catalog-hash resource-hash metadata-hash]]
         tag-cols [[catalog-hash metadata-hash (to-jdbc-varchar-array tags)]]
-        metadata-cols [[metadata-hash resource-hash type title exported file line]]
+        metadata-cols [[metadata-hash type title exported file line]]
         parameter-cols (for [[key value] parameters]
                          [resource-hash (name key) (db-serialize value)])]
 
@@ -451,9 +451,9 @@ must be supplied as the value to be matched."
                               :let [hash (refs-to-hashes ref)
                                     metadata-hash (refs-to-metadata-hashes ref)]]
                           (resource->values catalog-hash resource hash metadata-hash (persisted? hash) (metadata-persisted? metadata-hash)))
-        lookup-table    [[:metadata "INSERT INTO resource_metadata (hash,resource,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?)"]
+        lookup-table    [[:metadata "INSERT INTO resource_metadata (hash,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?)"]
                          [:tags "INSERT INTO resource_tags (catalog,resource_metadata,tags) VALUES (?,?,?)"]
-                         [:catalog_resources "INSERT INTO catalog_resources (catalog,resource_metadata) VALUES (?,?)"]
+                         [:catalog_resources "INSERT INTO catalog_resources (catalog,resource,resource_metadata) VALUES (?,?,?)"]
                          [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table
@@ -489,14 +489,14 @@ must be supplied as the value to be matched."
 
   For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
   then we'll lookup a resource with that key and use its hash."
-  [catalog-hash edges refs-to-hashes]
+  [catalog-hash edges refs-to-metadata-hashes]
   {:pre [(string? catalog-hash)
          (coll? edges)
-         (map? refs-to-hashes)]}
+         (map? refs-to-metadata-hashes)]}
   (let [the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
         rows    (for [{:keys [source target relationship]} edges
-                      :let [source-hash (refs-to-hashes source)
-                            target-hash (refs-to-hashes target)
+                      :let [source-hash (refs-to-metadata-hashes source)
+                            target-hash (refs-to-metadata-hashes target)
                             type        (name relationship)]]
                   [catalog-hash source-hash target-hash type])]
     (apply sql/do-prepared the-sql rows)))
@@ -564,7 +564,7 @@ must be supplied as the value to be matched."
                   (time! (:add-resources metrics)
                          (add-resources! hash resources refs-to-hashes refs-to-metadata-hashes))
                   (time! (:add-edges metrics)
-                         (add-edges! hash edges refs-to-hashes))))))
+                         (add-edges! hash edges refs-to-metadata-hashes))))))
 
            hash)))
 
@@ -630,7 +630,7 @@ must be supplied as the value to be matched."
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
-         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM resource_metadata rm WHERE rm.resource=resource_params.resource)"])))
+         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
