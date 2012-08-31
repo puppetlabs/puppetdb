@@ -41,7 +41,7 @@ JARFILE="puppetdb.jar"
 JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
 lockfile=/var/lock/subsys/$prog
-EXEC="$JAVA_BIN $JAVA_ARGS"
+EXEC="$JAVA_BIN -XX:OnOutOfMemoryError=\"kill -9 %p\" $JAVA_ARGS"
 PIDFILE="/var/run/$prog/$prog"
 
 if `which runuser &> /dev/null` ; then
