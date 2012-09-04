@@ -27,6 +27,7 @@
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago days now]]
+        [clojure.set :only [map-invert]]
         [clojure.core.memoize :only [memo-lru]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
@@ -296,9 +297,9 @@ must be supplied as the value to be matched."
         tags        (map #(assoc default-row :name %) tags)]
     (apply sql/insert-records :tags tags)))
 
-(defn resources-exist?
-  "Given a collection of resource-hashes, return the subset that
-  already exist in the database."
+(defn resource-params-exist?
+  "Given a collection of param hashes, return the subset that already exist in
+  the database."
   [resource-hashes]
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
@@ -311,8 +312,8 @@ must be supplied as the value to be matched."
       (set (map :resource result-set)))))
 
 (defn resource-metadata-exist?
-  "Given a collection of resource-metadata-hashes, return the subset that
-  already exist in the database."
+  "Given a collection of tag hashes, return the subset that already exist in
+  the database."
   [resource-metadata-hashes]
   {:pre  [(coll? resource-metadata-hashes)
           (every? string? resource-metadata-hashes)]
@@ -324,49 +325,19 @@ must be supplied as the value to be matched."
       sql-params
       (set (map :hash result-set)))))
 
-(defn resource-identity-hash*
-  "Compute a hash for a given resource that will uniquely identify it
-  _for storage deduplication only_.
-
-  A resource is represented by a map that itself contains maps and
-  sets in addition to scalar values. We want two resources with the
-  same attributes to be equal for the purpose of deduping, therefore
-  we need to make sure that when generating a hash for a resource we
-  look at a stably-sorted view of the resource. Thus, we need to sort
-  both the resource as a whole as well as any nested collections it
-  contains.
-
-  This differs from `catalog-resource-identity-string` in that it
-  doesn't consider resource metadata. This function is used to
-  determine whether a resource needs to be stored or is already
-  present in the database.
-
-  See `resource-identity-hash`. This variant takes specific attribute
-  of the resource as parameters, whereas `resource-identity-hash`
-  takes a full resource as a parameter. By taking only the minimum
-  required parameters, this function becomes amenable to more efficient
-  memoization."
-  [type title parameters]
-  {:post [(string? %)]}
-  (-> [type title (sort parameters)]
-      (pr-str)
-      (utils/utf8-string->sha1)))
-
-;; Size of the cache is based on the number of unique resources in a
-;; "medium" site persona
-(def resource-identity-hash* (memo-lru resource-identity-hash* 40000))
-
-(defn resource-identity-hash
-  "Compute a hash for a given resource that will uniquely identify it
-  _for storage deduplication only_.
-
-  See `resource-identity-hash*`. This variant takes a full resource as
-  a parameter, whereas `resource-identity-hash*` takes specific
-  attribute of the resource as parameters."
-  [{:keys [type title parameters] :as resource}]
-  {:pre  [(map? resource)]
-   :post [(string? %)]}
-  (resource-identity-hash* type title parameters))
+(defn resource-tags-exist?
+  "Given a collection of tag hashes, return the subset that already exist in
+  the database."
+  [resource-tag-hashes]
+  {:pre [(coll? resource-tag-hashes)
+         (every? string? resource-tag-hashes)]
+   :post [(set? %)]}
+  (let [qmarks     (apply str (interpose "," (repeat (count resource-tag-hashes) "?")))
+        query      (format "SELECT DISTINCT hash FROM resource_tags WHERE hash IN (%s)" qmarks)
+        sql-params (vec (cons query resource-tag-hashes))]
+    (sql/with-query-results result-set
+      sql-params
+      (set (map :hash result-set)))))
 
 (defn catalog-resource-identity-string
   "Compute a stably-sorted, string representation of the given
@@ -379,15 +350,45 @@ must be supplied as the value to be matched."
    :post [(string? %)]}
   (pr-str [type title (sort tags) exported file line (sort parameters)]))
 
-(defn resource-metadata-hash*
-  "Compute the sha1 hash for the given resource's metadata. This is used for
+;; Size of the cache is based on the number of unique resources in a
+;; "medium" site persona
+(def resource-hash* (memo-lru utils/sha1 120000))
+
+(defn resource-params-hash
+  "Compute a hash for a given resource that will uniquely identify its set of
+  parameters. This hash is used for deduplicating entries in the
+  resource_params table, as referenced by the catalog_resources table."
+  [{:keys [parameters] :as resource}]
+  {:pre  [(map? resource)]
+   :post [(string? %)]}
+  (resource-hash* (sort parameters)))
+
+(defn resource-metadata-hash
+  "Compute a hash for the given resource's metadata. This is used for
   deduplication of resource metadata (excluding tags)."
   [{:keys [type title exported file line] :as resource}]
   {:pre [(map? resource)]
    :post [(string? %)]}
-  (utils/utf8-string->sha1 (pr-str [type title exported file line])))
+  (resource-hash* type title exported file line))
 
-(def resource-metadata-hash (memo-lru resource-metadata-hash* 40000))
+(defn resource-tags-hash
+  "Compute a hash for the given resource's tag, used for tag deduplication."
+  [{:keys [tags] :as resource}]
+  {:pre [(map? resource)]
+   :post [(string? %)]}
+  (resource-hash* (sort tags)))
+
+(defn compute-resource-hashes
+  "Compute the set of hashes for a resource. This includes the params hash,
+  metadata hash, and tags hash. The hashes are returned as a map."
+  [resource]
+  {:pre [(map? resource)]
+   :post [(map? %)
+          (= (utils/keyset %) #{:params-hash :metadata-hash :tags-hash})
+          (every? string? (vals %))]}
+  {:params-hash (resource-params-hash resource)
+   :metadata-hash (resource-metadata-hash resource)
+   :tags-hash (resource-tags-hash resource)})
 
 (defn- resource->values
   "Given a catalog-hash, a resource, and a truthy value indicating
@@ -408,58 +409,75 @@ must be supplied as the value to be matched."
   1. Each key corresponds to a table, and each value is a list of rows
   2. The mapping of keys and values to table names and columns is done
      by `add-resources!`"
-  [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash metadata-hash persisted? metadata-persisted?]
-  {:pre  [(every? string? #{catalog-hash type title})]
+  [catalog-hash {:keys [type title exported parameters tags file line] :as resource} {:keys [params-hash metadata-hash tags-hash]} params-persisted? metadata-persisted? tags-persisted?]
+  {:pre  [(every? string? [catalog-hash type title params-hash metadata-hash tags-hash])]
    :post [(= (set (keys %)) #{:metadata :tags :parameters :catalog_resources})]}
-  (let [catalog-resource-cols [[catalog-hash resource-hash metadata-hash]]
-        tag-cols [[catalog-hash metadata-hash (to-jdbc-varchar-array tags)]]
-        metadata-cols [[metadata-hash type title exported file line]]
-        parameter-cols (for [[key value] parameters]
-                         [resource-hash (name key) (db-serialize value)])]
+  (let [catalog-resource-cols [[catalog-hash params-hash metadata-hash tags-hash]]
+        tag-cols              (if-not tags-persisted?
+                                [[tags-hash (to-jdbc-varchar-array tags)]])
+        metadata-cols         (if-not metadata-persisted?
+                                [[metadata-hash type title exported file line]])
+        param-cols            (if-not params-persisted?
+                                (for [[key value] parameters]
+                                  [params-hash (name key) (db-serialize value)]))]
+    {:catalog_resources catalog-resource-cols
+     :tags tag-cols
+     :metadata metadata-cols
+     :parameters param-cols}))
 
-    (cond
-      (and persisted? metadata-persisted?)
-      {:catalog_resources catalog-resource-cols
-       :tags tag-cols
-       :metadata []
-       :parameters []}
+(defn add-resource-metadata!
+  [resources-to-hashes]
+  (let [sql "INSERT INTO resource_metadata (hash,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?)"
+        metadata-persisted? (resource-metadata-exist? (map :metadata-hash (vals resources-to-hashes)))
+        rows (set (for [[{:keys [type title exported sourcefile sourceline]} {:keys [metadata-hash]}] resources-to-hashes
+                        :when (not (metadata-persisted? metadata-hash))]
+                    [metadata-hash type title exported sourcefile sourceline]))]
+    (when (seq rows)
+      (apply sql/do-prepared sql rows))))
 
-      (and persisted? (not metadata-persisted?))
-      {:catalog_resources catalog-resource-cols
-       :tags tag-cols
-       :metadata metadata-cols
-       :parameters []}
+(defn add-resource-params!
+  [resources-to-hashes]
+  (let [sql "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"
+        params-persisted? (resource-params-exist? (map :params-hash (vals resources-to-hashes)))
+        rows (set
+               (apply concat (for [[{:keys [parameters]} {:keys [params-hash]}] resources-to-hashes
+                                   :when (not (params-persisted? params-hash))]
+                               (for [[key value] parameters]
+                                 [params-hash (name key) (db-serialize value)]))))]
+    (when (seq rows)
+      (apply sql/do-prepared sql rows))))
 
-      (and (not persisted?) (not metadata-persisted?))
-      {:catalog_resources catalog-resource-cols
-       :tags tag-cols
-       :metadata metadata-cols
-       :parameters parameter-cols}
+(defn add-resource-tags!
+  [resources-to-hashes]
+  (let [sql "INSERT INTO resource_tags (hash,tags) VALUES (?,?)"
+        tags-persisted? (resource-tags-exist? (map :tags-hash (vals resources-to-hashes)))
+        ;; We need the two-step process here because jdbc array objects don't
+        ;; properly unique-ify in sets. So first we make the elemtns unique,
+        ;; then turn them into jdbc arrays.
+        rows (set (for [[{:keys [tags]} {:keys [tags-hash]}] resources-to-hashes
+                        :when (not (tags-persisted? tags-hash))]
+                    [tags-hash tags]))
+        rows (for [[tags-hash tags] rows]
+               [tags-hash (to-jdbc-varchar-array tags)])]
+    (when (seq rows)
+      (apply sql/do-prepared sql rows))))
 
-      (and (not persisted?) metadata-persisted?)
-      {:catalog_resources catalog-resource-cols
-       :tags tag-cols
-       :metadata []
-       :parameters parameter-cols})))
+(defn add-catalog-resources!
+  [catalog-hash resources-to-hashes]
+  (let [sql "INSERT INTO catalog_resources (catalog,params,metadata,tags) VALUES (?,?,?,?)"
+        rows (set (for [[{:keys [tags]} {:keys [metadata-hash params-hash tags-hash]}] resources-to-hashes]
+                    [catalog-hash params-hash metadata-hash tags-hash]))]
+    (when (seq rows)
+      (apply sql/do-prepared sql rows))))
 
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
-  [catalog-hash refs-to-resources refs-to-hashes refs-to-metadata-hashes]
-  (let [persisted?      (resources-exist? (utils/valset refs-to-hashes))
-        metadata-persisted? (resource-metadata-exist? (utils/valset refs-to-metadata-hashes))
-        resource-values (for [[ref resource] refs-to-resources
-                              :let [hash (refs-to-hashes ref)
-                                    metadata-hash (refs-to-metadata-hashes ref)]]
-                          (resource->values catalog-hash resource hash metadata-hash (persisted? hash) (metadata-persisted? metadata-hash)))
-        lookup-table    [[:metadata "INSERT INTO resource_metadata (hash,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?)"]
-                         [:tags "INSERT INTO resource_tags (catalog,resource_metadata,tags) VALUES (?,?,?)"]
-                         [:catalog_resources "INSERT INTO catalog_resources (catalog,resource,resource_metadata) VALUES (?,?,?)"]
-                         [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
-    (sql/transaction
-     (doseq [[lookup the-sql] lookup-table
-             :let [param-sets (remove empty? (mapcat lookup resource-values))]
-             :when (not (empty? param-sets))]
-       (apply sql/do-prepared the-sql param-sets)))))
+  [catalog-hash resources-to-hashes]
+  (sql/transaction
+    (add-resource-metadata! resources-to-hashes)
+    (add-resource-params! resources-to-hashes)
+    (add-resource-tags! resources-to-hashes)
+    (add-catalog-resources! catalog-hash resources-to-hashes)))
 
 (defn edge-identity-string
   "Compute a stably-sorted string for the given edge that will
@@ -489,14 +507,15 @@ must be supplied as the value to be matched."
 
   For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
   then we'll lookup a resource with that key and use its hash."
-  [catalog-hash edges refs-to-metadata-hashes]
+  [catalog-hash edges refs-to-resources resources-to-hashes]
   {:pre [(string? catalog-hash)
          (coll? edges)
-         (map? refs-to-metadata-hashes)]}
-  (let [the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
+         (map? resources-to-hashes)]}
+  (let [resource-metadata (comp :metadata-hash resources-to-hashes refs-to-resources)
+        the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
         rows    (for [{:keys [source target relationship]} edges
-                      :let [source-hash (refs-to-metadata-hashes source)
-                            target-hash (refs-to-metadata-hashes target)
+                      :let [source-hash (resource-metadata source)
+                            target-hash (resource-metadata target)
                             type        (name relationship)]]
                   [catalog-hash source-hash target-hash type])]
     (apply sql/do-prepared the-sql rows)))
@@ -513,7 +532,7 @@ must be supplied as the value to be matched."
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname classes tags resources edges] :as catalog}]
+  [{:keys [certname classes tags resources edges] :as catalog} resources-to-hashes]
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
   ;; but I figure that for safety's sake, it's better to be very
@@ -522,11 +541,9 @@ must be supplied as the value to be matched."
   (-> (sorted-map)
       (assoc :classes (sort classes))
       (assoc :tags (sort tags))
-      (assoc :resources (sort (for [[ref resource] resources]
-                                (catalog-resource-identity-string resource))))
+      (assoc :resources (sort (flatten (for [[resource hashes] resources-to-hashes] (vals hashes)))))
       (assoc :edges (sort (map edge-identity-string edges)))
-      (pr-str)
-      (utils/utf8-string->sha1)))
+      (utils/sha1)))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
@@ -537,36 +554,31 @@ must be supplied as the value to be matched."
          (map? resources)]}
 
   (time! (:add-catalog metrics)
-         (let [resource-hashes (time! (:resource-hashes metrics)
-                                      (doall
-                                       (map resource-identity-hash (vals resources))))
-               metadata-hashes (time! (:resource-metadata-hashes metrics)
-                                               (doall
-                                                 (map resource-metadata-hash (vals resources))))
-               hash            (time! (:catalog-hash metrics)
-                                      (catalog-similarity-hash catalog))]
+         (let [resources-to-hashes (time! (:resource-hashes metrics)
+                                          (into {} (for [resource (vals resources)]
+                                                     [resource (compute-resource-hashes resource)])))
+               catalog-hash            (time! (:catalog-hash metrics)
+                                              (catalog-similarity-hash catalog resources-to-hashes))]
 
            (sql/transaction
-            (let [exists? (catalog-exists? hash)]
+             (let [exists? (catalog-exists? catalog-hash)]
 
-              (when exists?
-                (inc! (:duplicate-catalog metrics)))
+               (when exists?
+                 (inc! (:duplicate-catalog metrics)))
 
-              (when-not exists?
-                (inc! (:new-catalog metrics))
-                (add-catalog-metadata! hash api-version version)
-                (time! (:add-classes metrics)
-                       (add-classes! hash classes))
-                (time! (:add-tags metrics)
-                       (add-tags! hash tags))
-                (let [refs-to-hashes (zipmap (keys resources) resource-hashes)
-                      refs-to-metadata-hashes (zipmap (keys resources) metadata-hashes)]
-                  (time! (:add-resources metrics)
-                         (add-resources! hash resources refs-to-hashes refs-to-metadata-hashes))
-                  (time! (:add-edges metrics)
-                         (add-edges! hash edges refs-to-metadata-hashes))))))
+               (when-not exists?
+                 (inc! (:new-catalog metrics))
+                 (add-catalog-metadata! catalog-hash api-version version)
+                 (time! (:add-classes metrics)
+                        (add-classes! catalog-hash classes))
+                 (time! (:add-tags metrics)
+                        (add-tags! catalog-hash tags))
+                 (time! (:add-resources metrics)
+                        (add-resources! catalog-hash resources-to-hashes))
+                 (time! (:add-edges metrics)
+                        (add-edges! catalog-hash edges resources resources-to-hashes)))))
 
-           hash)))
+           catalog-hash)))
 
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
@@ -630,7 +642,7 @@ must be supplied as the value to be matched."
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
-         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
+         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.params=resource_params.resource)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"

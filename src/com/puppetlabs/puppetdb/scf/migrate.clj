@@ -194,17 +194,16 @@
     "ALTER TABLE resource_metadata DROP COLUMN resource"
     "ALTER TABLE resource_metadata DROP COLUMN tags")
 
+  (sql/create-table :resource_tags
+                    ["hash" "VARCHAR(40)" "NOT NULL" "UNIQUE"]
+                    ["tags" (sql-array-type-string "TEXT") "NOT NULL" "PRIMARY KEY"])
+
   (sql/create-table :catalog_resources
                     ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
-                    ["resource" "VARCHAR(40)"]
-                    ["resource_metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
-                    ["PRIMARY KEY (catalog, resource_metadata)"])
-
-  (sql/create-table :resource_tags
-                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
-                    ["resource_metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
-                    ["tags" (sql-array-type-string "TEXT") "NOT NULL"]
-                    ["PRIMARY KEY (catalog, resource_metadata)"])
+                    ["metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
+                    ["params" "VARCHAR(40)"]
+                    ["tags" "VARCHAR(40)" "REFERENCES resource_tags(hash)" "ON DELETE CASCADE"]
+                    ["PRIMARY KEY (catalog, metadata, params, tags)"])
 
   (when (= (sql-current-connection-database-name) "PostgreSQL") (sql/do-commands
     "CREATE INDEX idx_resource_tags_tags_gin ON resource_tags USING gin(tags)")))
@@ -218,7 +217,8 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
    6 allow-historical-catalogs
-   7 dedup-resource-metadata})
+   7 dedup-resource-metadata
+   })
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
