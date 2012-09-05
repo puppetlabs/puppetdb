@@ -17,7 +17,7 @@
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string]]))
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string sql-current-connection-database-name]]))
 
 (defn initialize-store
   "Create the initial database schema."
@@ -143,13 +143,28 @@
    (str "ALTER TABLE certname_facts "
         "ADD FOREIGN KEY (certname) REFERENCES certname_facts_metadata(certname) ON DELETE CASCADE")))
 
+(defn add-missing-indexes
+  "Add several new indexes:
+    * catalog_resources USING (catalog)
+    * catalog_resources USING (type,title)
+    * catalog_resources USING gin(tags) [only when using postgres]"
+  []
+  (sql/do-commands
+    "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
+    "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
+
+  (when (= (sql-current-connection-database-name) "PostgreSQL")
+    (sql/do-commands
+      "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
   {1 initialize-store
    2 allow-node-deactivation
    3 add-catalog-timestamps
-   4 add-certname-facts-metadata-table})
+   4 add-certname-facts-metadata-table
+   5 add-missing-indexes})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

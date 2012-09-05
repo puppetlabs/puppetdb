@@ -78,7 +78,7 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
-  (format "? = ANY(%s)" column))
+  (format "ARRAY[?::text] <@ %s" column))
 
 (defmethod sql-array-type-string "HSQL Database Engine"
   [basetype]

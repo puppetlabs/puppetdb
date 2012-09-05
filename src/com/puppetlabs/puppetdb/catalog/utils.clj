@@ -4,7 +4,8 @@
 ;; randomly modifying an existing catalog (wire format or parsed).
 
 (ns com.puppetlabs.puppetdb.catalog.utils
-  (:require [com.puppetlabs.puppetdb.catalog :as cat])
+  (:require [clojure.string :as string]
+            [com.puppetlabs.puppetdb.catalog :as cat])
   (:use [clojure.walk :only [keywordize-keys]]))
 
 (defn random-string
@@ -37,7 +38,7 @@
                          "exported"   (random-bool)
                          "file"       (random-string)
                          "line"       (rand-int 1000)
-                         "tags"       (set (repeatedly (rand-int 10) #(random-string)))
+                         "tags"       (set (repeatedly (inc (rand-int 10)) #(string/lower-case (random-string))))
                          "parameters" (merge (random-parameters) extra-params)}]
        (merge r overrides))))
 
