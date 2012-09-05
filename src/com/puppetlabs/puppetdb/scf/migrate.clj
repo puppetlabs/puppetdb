@@ -13,7 +13,8 @@
 
 (ns com.puppetlabs.puppetdb.scf.migrate
   (:require [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.string :as string])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
@@ -155,10 +156,11 @@
     "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
-  (when (and (= (sql-current-connection-database-name) "PostgreSQL")
-             (pos? (compare (sql-current-connection-database-version) [8 1])))
-    (sql/do-commands
-      "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
+  (when (= (sql-current-connection-database-name) "PostgreSQL")
+    (if (pos? (compare (sql-current-connection-database-version) [8 1]))
+      (sql/do-commands
+        "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
+      (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
 ;; The available migrations, as a map from migration version to migration
 ;; function.
