@@ -87,7 +87,9 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
-  (format "ARRAY[?::text] <@ %s" column))
+  (if (pos? (compare (sql-current-connection-database-version) [8 1]))
+    (format "ARRAY[?::text] <@ %s" column)
+    (format "? = ANY(%s)" column)))
 
 (defmethod sql-array-type-string "HSQL Database Engine"
   [basetype]
