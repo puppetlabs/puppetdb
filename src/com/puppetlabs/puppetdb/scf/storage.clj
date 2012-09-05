@@ -350,9 +350,18 @@ must be supplied as the value to be matched."
    :post [(string? %)]}
   (pr-str [type title (sort tags) exported file line (sort parameters)]))
 
+(def hash-cache
+  (atom {}))
+
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona
-(def resource-hash* (memo-lru utils/sha1 120000))
+(defn resource-hash*
+  [& things]
+  (if-let [result (@hash-cache things)]
+    result
+    (let [result (apply utils/sha1 things)]
+      (swap! hash-cache assoc things result)
+      result)))
 
 (defn resource-params-hash
   "Compute a hash for a given resource that will uniquely identify its set of
