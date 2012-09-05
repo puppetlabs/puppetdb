@@ -41,6 +41,15 @@
       (getMetaData)
       (getDatabaseProductName)))
 
+(defn sql-current-connection-database-version
+  "Return the version of the database product currently in use."
+  []
+  (let [db-metadata (.. (sql/find-connection)
+                      (getMetaData))
+        major (.getDatabaseMajorVersion db-metadata)
+        minor (.getDatabaseMinorVersion db-metadata)]
+    [major minor]))
+
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
