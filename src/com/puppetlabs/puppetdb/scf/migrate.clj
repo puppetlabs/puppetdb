@@ -152,6 +152,7 @@
     * catalog_resources USING (type,title)
     * catalog_resources USING gin(tags) [only when using postgres]"
   []
+  (log/warn "Adding additional indexes; this may take several minutes, depending on the size of your database. Trust us, it will all be worth it in the end.")
   (sql/do-commands
     "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
