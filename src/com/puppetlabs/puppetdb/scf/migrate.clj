@@ -17,7 +17,9 @@
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string sql-current-connection-database-name]]))
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
+                                                    sql-current-connection-database-name
+                                                    sql-current-connection-database-version]]))
 
 (defn initialize-store
   "Create the initial database schema."
@@ -153,7 +155,8 @@
     "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
-  (when (= (sql-current-connection-database-name) "PostgreSQL")
+  (when (and (= (sql-current-connection-database-name) "PostgreSQL")
+             (pos? (compare (sql-current-connection-database-version) [8 1])))
     (sql/do-commands
       "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
 
