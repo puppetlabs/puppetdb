@@ -23,6 +23,7 @@
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
@@ -322,7 +323,7 @@ must be supplied as the value to be matched."
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
    :post [(set? resource-hashes)]}
-  (let [qmarks     (apply str (interpose "," (repeat (count resource-hashes) "?")))
+  (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
         query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
         sql-params (vec (cons query resource-hashes))]
     (sql/with-query-results result-set
