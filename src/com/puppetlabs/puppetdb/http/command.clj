@@ -27,12 +27,11 @@
    (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
-   (-> (rr/response "must accept application/json")
-       (rr/status pl-http/status-not-acceptable))
+   (rr/status (rr/response "must accept application/json")
+              pl-http/status-not-acceptable)
 
    :else
    (let [uuid (command/enqueue-raw-command! (get-in globals [:command-mq :connection-string])
                                             (get-in globals [:command-mq :endpoint])
                                             (params "payload"))]
-     (-> {:uuid uuid}
-         (pl-http/json-response)))))
+     (pl-http/json-response {:uuid uuid}))))
