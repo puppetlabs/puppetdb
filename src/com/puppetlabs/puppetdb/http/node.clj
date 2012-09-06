@@ -58,7 +58,8 @@
    (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
-   (-> (rr/response "must accept application/json")
-       (rr/status pl-http/status-not-acceptable))
+   (rr/status (rr/response "must accept application/json")
+              pl-http/status-not-acceptable)
+
    :else
    (search-nodes (params "query") (:scf-db globals))))
