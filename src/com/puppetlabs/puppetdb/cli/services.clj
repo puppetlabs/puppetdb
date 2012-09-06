@@ -247,7 +247,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
-        update-server                              (:update-server global "http://www.puppetlabs.com/check-for-updates")
+        update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
