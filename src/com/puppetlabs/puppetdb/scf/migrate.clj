@@ -19,6 +19,31 @@
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string sql-current-connection-database-name]]))
 
+(defn- drop-constraints
+  "Drop the constraint of given `constraint-type` on `table`."
+  [table constraint-type]
+  (let [results     (query-to-vec
+                      (str "SELECT constraint_name FROM information_schema.table_constraints "
+                           "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
+                      table constraint-type)
+        constraints (map :constraint_name results)]
+    (if (seq constraints)
+      (apply sql/do-commands
+             (for [constraint constraints]
+               (format "ALTER TABLE %s DROP CONSTRAINT %s" table constraint)))
+      (throw (IllegalArgumentException. (format "No %s constraint exists on the table '%s'" constraint-type table))))))
+
+(defn- drop-primary-key
+  "Drop the primary key on the given `table`."
+  [table]
+  (drop-constraints table "primary key"))
+
+(defn- drop-foreign-keys
+  "Drop all foreign keys on the given `table`. Does not currently support
+  selecting a single key to drop."
+  [table]
+  (drop-constraints table "foreign key"))
+
 (defn initialize-store
   "Create the initial database schema."
   []
@@ -131,12 +156,7 @@
    [(to-timestamp (now))])
 
   ;; First we get rid of the existing foreign key to certnames
-  (let [[result & _] (query-to-vec
-                      (str "SELECT constraint_name FROM information_schema.table_constraints "
-                           "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
-        constraint   (:constraint_name result)]
-    (sql/do-commands
-     (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
+  (drop-foreign-keys "certname_facts")
 
   ;; Then we replace it with a foreign key to certname_facts_metadata
   (sql/do-commands
@@ -164,21 +184,10 @@
   on (certname,catalog)."
   []
   ;; Find the existing primary key and remove it
-  (let [[result & _] (query-to-vec
-                       (str "SELECT constraint_name FROM information_schema.table_constraints "
-                            "WHERE LOWER(table_name) = 'certname_catalogs' AND LOWER(constraint_type) = 'primary key'"))
-        constraint   (:constraint_name result)]
-    (sql/do-commands
-      (str "ALTER TABLE certname_catalogs DROP CONSTRAINT " constraint)))
+  (drop-primary-key "certname_catalogs")
 
   ;; Also remove those darn uniqueness constraints
-  (let [results (query-to-vec
-                  (str "SELECT constraint_name FROM information_schema.table_constraints "
-                       "WHERE LOWER(table_name) = 'certname_catalogs' AND LOWER(CONSTRAINT_TYPE) = 'unique';"))
-        constraints (map :constraint_name results)]
-    (doseq [constraint constraints]
-      (sql/do-commands
-        (str "ALTER TABLE certname_catalogs DROP CONSTRAINT " constraint))))
+  (drop-constraints "certname_catalogs" "unique")
 
   (sql/do-commands
     (str "ALTER TABLE certname_catalogs ADD PRIMARY KEY (certname,catalog,timestamp)")
