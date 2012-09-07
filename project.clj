@@ -1,5 +1,6 @@
 (require '[clojure.string :as s])
 (use '[clojure.java.shell :only (sh)])
+(use '[clojure.java.io :only (file)])
 
 (def version-string
   (memoize
@@ -34,6 +35,7 @@
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
+                 [org.clojure/tools.namespace "0.1.3"]
                  [org.clojure/tools.nrepl "0.2.0-beta2"]
                  [swank-clojure "1.4.0"]
                  [clj-stacktrace "0.2.4"]
@@ -69,13 +71,20 @@
                  [ring/ring-core "1.1.1"]
                  [ring/ring-jetty-adapter "1.1.1"]]
 
-  :dev-dependencies [[lein-marginalia "0.7.0"]
-                     ;; WebAPI support libraries.
-                     [ring-mock "0.1.1"]]
-
   :jar-exclusions [#"leiningen/"]
   :manifest {"Build-Version" ~(version-string)}
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core
+
+  :profiles {
+      :dev {
+          :dependencies [
+                     [lein-marginalia "0.7.0"]
+                     ;; WebAPI support libraries.
+                     [ring-mock "0.1.1"]]
+      }
+  }
+      
+
 )
