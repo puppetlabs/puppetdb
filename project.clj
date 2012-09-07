@@ -1,5 +1,6 @@
 (require '[clojure.string :as s])
-(use '[clojure.java.shell :only (sh)])
+(use '[clojure.java.shell :only (sh)]
+     '[clojure.java.io :only (file)])
 
 (def version-string
   (memoize
@@ -35,6 +36,7 @@
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
                  [org.clojure/tools.nrepl "0.2.0-beta2"]
+                 [org.clojure/tools.namespace "0.1.3"]
                  [swank-clojure "1.4.0"]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
@@ -72,6 +74,9 @@
   :dev-dependencies [[lein-marginalia "0.7.0"]
                      ;; WebAPI support libraries.
                      [ring-mock "0.1.1"]]
+
+  :profiles {:dev {:resource-paths ["test-resources"],
+                   :dependencies [[ring-mock "0.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
   :manifest {"Build-Version" ~(version-string)}
