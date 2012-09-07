@@ -302,11 +302,14 @@
         (when (= "true" enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (cond
-           (= type "nrepl")
-           (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
+            (= type "nrepl")
+            (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
 
-           (= type "swank")
-           (swank/start-server :host host :port port))))
+            (= type "vimclojure")
+            (vimclojure.nailgun.NGServer/main (into-array String [(str host ":" port)]))
+
+            (= type "swank")
+            (swank/start-server :host host :port port))))
 
       (let [exception (deref error)]
         (doseq [cp command-procs]
