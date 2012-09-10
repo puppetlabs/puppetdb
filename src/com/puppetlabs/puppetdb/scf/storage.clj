@@ -351,17 +351,6 @@ must be supplied as the value to be matched."
       sql-params
       (set (map :hash result-set)))))
 
-(defn catalog-resource-identity-string
-  "Compute a stably-sorted, string representation of the given
-  resource that will uniquely identify it with respect to a
-  catalog. Unlike `resource-identity-hash`, this string will also
-  include the resource metadata. This function is used as part of
-  determining whether a catalog needs to be stored."
-  [{:keys [type title parameters tags exported file line] :as resource}]
-  {:pre  [(map? resource)]
-   :post [(string? %)]}
-  (pr-str [type title (sort tags) exported file line (sort parameters)]))
-
 (def hash-cache
   (atom {}))
 
@@ -450,9 +439,9 @@ must be supplied as the value to be matched."
   [resources-to-hashes]
   (let [sql "INSERT INTO resource_metadata (hash,type,title,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?)"
         metadata-persisted? (resource-metadata-exist? (map :metadata-hash (vals resources-to-hashes)))
-        rows (set (for [[{:keys [type title exported sourcefile sourceline]} {:keys [metadata-hash]}] resources-to-hashes
+        rows (set (for [[{:keys [type title exported file line]} {:keys [metadata-hash]}] resources-to-hashes
                         :when (not (metadata-persisted? metadata-hash))]
-                    [metadata-hash type title exported sourcefile sourceline]))]
+                    [metadata-hash type title exported file line]))]
     (when (seq rows)
       (apply sql/do-prepared sql rows))))
 
@@ -511,14 +500,6 @@ must be supplied as the value to be matched."
       (assoc :target (into (sorted-map) (:target edge)))
       (pr-str)))
 
-(defn edge-identity-hash
-  "Compute a hash for a given edge that will uniquely identify it
-  within a population."
-  [edge]
-  {:pre  [(map? edge)]
-   :post [(string? %)]}
-  (utils/utf8-string->sha1 (edge-identity-string edge)))
-
 (defn add-edges!
   "Persist the given edges in the database
 
@@ -553,18 +534,22 @@ must be supplied as the value to be matched."
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname classes tags resources edges] :as catalog} resources-to-hashes]
-  ;; deepak: This could probably be coded more compactly by just
-  ;; dissociating the keys we don't want involved in the computation,
-  ;; but I figure that for safety's sake, it's better to be very
-  ;; explicit about the exact attributes of a catalog that we care
-  ;; about when we think about "uniqueness".
-  (-> (sorted-map)
-      (assoc :classes (sort classes))
-      (assoc :tags (sort tags))
-      (assoc :resources (sort (flatten (for [[resource hashes] resources-to-hashes] (vals hashes)))))
-      (assoc :edges (sort (map edge-identity-string edges)))
-      (utils/sha1)))
+  ([{:keys [certname classes tags resources edges] :as catalog}]
+   (let [resources (vals resources)
+         resources-to-hashes (zipmap resources (map compute-resource-hashes resources))]
+     (catalog-similarity-hash catalog resources-to-hashes)))
+  ([{:keys [certname classes tags resources edges] :as catalog} resources-to-hashes]
+   ;; deepak: This could probably be coded more compactly by just
+   ;; dissociating the keys we don't want involved in the computation,
+   ;; but I figure that for safety's sake, it's better to be very
+   ;; explicit about the exact attributes of a catalog that we care
+   ;; about when we think about "uniqueness".
+   (-> (sorted-map)
+     (assoc :classes (sort classes))
+     (assoc :tags (sort tags))
+     (assoc :resources (sort (flatten (for [[resource hashes] resources-to-hashes] (vals hashes)))))
+     (assoc :edges (sort (map edge-identity-string edges)))
+     (utils/sha1))))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
@@ -576,8 +561,8 @@ must be supplied as the value to be matched."
 
   (time! (:add-catalog metrics)
          (let [resources-to-hashes (time! (:resource-hashes metrics)
-                                          (into {} (for [resource (vals resources)]
-                                                     [resource (compute-resource-hashes resource)])))
+                                          (let [resources (vals resources)]
+                                            (zipmap resources (map compute-resource-hashes resources))))
                catalog-hash            (time! (:catalog-hash metrics)
                                               (catalog-similarity-hash catalog resources-to-hashes))]
 

@@ -202,10 +202,16 @@
 ;; TODO: Migrate the data, too.
 (defn dedup-resource-metadata
   []
+  ;; HSQL won't let us drop the catalog column unless the (catalog,resource)
+  ;; primary key AND the catalog foreign key are removed first. Booooooooo
+  ;; HSQL.
+  (drop-primary-key "catalog_resources")
+  (drop-foreign-keys "catalog_resources")
+
   (sql/do-commands
-    "ALTER TABLE catalog_resources RENAME TO resource_metadata "
+    "ALTER TABLE catalog_resources DROP COLUMN catalog"
+    "ALTER TABLE catalog_resources RENAME TO resource_metadata"
     "ALTER TABLE resource_metadata ADD hash VARCHAR(40) NOT NULL UNIQUE"
-    "ALTER TABLE resource_metadata DROP COLUMN catalog"
     "ALTER TABLE resource_metadata DROP COLUMN resource"
     "ALTER TABLE resource_metadata DROP COLUMN tags")
 
@@ -232,8 +238,7 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
    6 allow-historical-catalogs
-   7 dedup-resource-metadata
-   })
+   7 dedup-resource-metadata})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

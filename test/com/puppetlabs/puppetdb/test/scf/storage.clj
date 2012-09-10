@@ -33,36 +33,42 @@
 (deftest hash-computation
   (testing "Hashes for resources"
 
-    (testing "should error on bad input"
-      (is (thrown? AssertionError (resource-identity-hash nil)))
-      (is (thrown? AssertionError (resource-identity-hash []))))
+    (doseq [[hash-name hash-func] {"params" resource-params-hash
+                                   "metadata" resource-metadata-hash
+                                   "tags" resource-tags-hash}]
 
-    (testing "should be equal for the base case"
-      (is (= (resource-identity-hash {})
-             (resource-identity-hash {}))))
+      (testing (format "the %s hash" hash-name)
 
-    (testing "shouldn't change for identical input"
-      (doseq [i (range 10)
-              :let [r (catutils/random-kw-resource)]]
-        (is (= (resource-identity-hash r)
-               (resource-identity-hash r)))))
+        (testing "should error on bad input"
+          (is (thrown? AssertionError (hash-func nil)))
+          (is (thrown? AssertionError (hash-func []))))
 
-    (testing "shouldn't change for equivalent input"
-      (is (= (resource-identity-hash {:foo 1 :bar 2})
-             (resource-identity-hash {:bar 2 :foo 1})))
-      (is (= (resource-identity-hash {:tags #{1 2 3}})
-             (resource-identity-hash {:tags #{3 2 1}}))))
+        (testing "should be equal for the base case"
+          (is (= (hash-func {})
+                 (hash-func {}))))
 
-    (testing "should be different for non-equivalent resources"
-      ; Take a population of 5 resource, put them into a set to make
-      ; sure we only care about a population of unique resources, take
-      ; any 2 elements from that set, and those 2 resources should
-      ; have different hashes.
-      (let [candidates (set (repeatedly 5 catutils/random-kw-resource))
-            pairs      (combinations candidates 2)]
-        (doseq [[r1 r2] pairs]
-          (is (not= (resource-identity-hash r1)
-                    (resource-identity-hash r2))))))))
+        (testing "shouldn't change for identical input"
+          (doseq [i (range 10)
+                  :let [r (catutils/random-kw-resource)]]
+            (is (= (hash-func r)
+                   (hash-func r)))))
+
+        (testing "shouldn't change for equivalent input"
+          (is (= (hash-func {:foo 1 :bar 2})
+                 (hash-func {:bar 2 :foo 1})))
+          (is (= (hash-func {:tags #{1 2 3}})
+                 (hash-func {:tags #{3 2 1}}))))
+
+        (testing "should be different for non-equivalent resources"
+          ; Take a population of 5 resource, put them into a set to make
+          ; sure we only care about a population of unique resources, take
+          ; any 2 elements from that set, and those 2 resources should
+          ; have different hashes.
+          (let [candidates (set (repeatedly 5 catutils/random-kw-resource))
+                pairs      (combinations candidates 2)]
+            (doseq [[r1 r2] pairs]
+              (is (not= (hash-func r1)
+                        (hash-func r2))))))))))
 
 (deftest catalog-dedupe
   (testing "Catalogs with the same metadata but different content should have different hashes"
@@ -166,8 +172,8 @@
           (associate-catalog-with-certname! hash certname (now)))
 
         (testing "should contain proper catalog metadata"
-          (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
-                 [{:certname certname :api_version 1 :catalog_version "123456789"}])))
+          (is (= (query-to-vec ["SELECT cr.certname, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
+                 [{:certname certname :catalog_version "123456789"}])))
 
         (testing "should contain a complete tags list"
           (is (= (query-to-vec ["SELECT name FROM tags ORDER BY name"])
@@ -179,27 +185,27 @@
 
         (testing "should contain a complete edges list"
           (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
-                                     "FROM edges e, catalog_resources r1, catalog_resources r2 "
-                                     "WHERE e.source=r1.resource AND e.target=r2.resource "
+                                     "FROM edges e, resource_metadata r1, resource_metadata r2 "
+                                     "WHERE e.source=r1.hash AND e.target=r2.hash "
                                      "ORDER BY r1.type, r1.title, r2.type, r2.title, e.type")])
                  [{:stype "Class" :stitle "foobar" :ttype "File" :ttitle "/etc/foobar" :etype "contains"}
                   {:stype "Class" :stitle "foobar" :ttype "File" :ttitle "/etc/foobar/baz" :etype "contains"}
                   {:stype "File" :stitle "/etc/foobar" :ttype "File" :ttitle "/etc/foobar/baz" :etype "required-by"}])))
 
         (testing "should contain a complete resources list"
-          (is (= (query-to-vec ["SELECT type, title FROM catalog_resources ORDER BY type, title"])
+          (is (= (query-to-vec ["SELECT type, title FROM resource_metadata ORDER BY type, title"])
                  [{:type "Class" :title "foobar"}
                   {:type "File" :title "/etc/foobar"}
                   {:type "File" :title "/etc/foobar/baz"}]))
 
           (testing "properly associated with the host"
-            (is (= (query-to-vec ["SELECT cc.certname, cr.type, cr.title FROM catalog_resources cr, certname_catalogs cc WHERE cc.catalog=cr.catalog ORDER BY cr.type, cr.title"])
+            (is (= (query-to-vec ["SELECT cc.certname, rm.type, rm.title FROM certname_catalogs cc, catalog_resources cr, resource_metadata rm WHERE cc.catalog=cr.catalog AND cr.metadata=rm.hash ORDER BY rm.type, rm.title"])
                    [{:certname certname :type "Class" :title "foobar"}
                     {:certname certname :type "File"  :title "/etc/foobar"}
                     {:certname certname :type "File"  :title "/etc/foobar/baz"}])))
 
           (testing "with all parameters"
-            (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
+            (is (= (query-to-vec ["SELECT rm.type, rm.title, rp.name, rp.value FROM catalog_resources cr, resource_metadata rm, resource_params rp WHERE cr.metadata=rm.hash AND cr.params=rp.resource ORDER BY rm.type, rm.title, rp.name"])
                    [{:type "File" :title "/etc/foobar" :name "ensure" :value (db-serialize "directory")}
                     {:type "File" :title "/etc/foobar" :name "group" :value (db-serialize "root")}
                     {:type "File" :title "/etc/foobar" :name "user" :value (db-serialize "root")}
@@ -209,24 +215,42 @@
                     {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
 
           (testing "with all metadata"
-            (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.sourcefile, cr.sourceline FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
-              (is (= (map #(assoc % :tags (sort (:tags %))) result)
-                     [{:type "Class" :title "foobar" :tags [] :exported false :sourcefile nil :sourceline nil}
-                      {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/foo" :sourceline 10}
-                      {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}]))))))
+            (is (= (query-to-vec ["SELECT rm.type, rm.title, rm.exported, rm.sourcefile, rm.sourceline FROM resource_metadata rm ORDER BY rm.type, rm.title"])
+                   [{:type "Class" :title "foobar" :exported false :sourcefile nil :sourceline nil}
+                    {:type "File" :title "/etc/foobar" :exported false :sourcefile "/tmp/foo" :sourceline 10}
+                    {:type "File" :title "/etc/foobar/baz" :exported false :sourcefile "/tmp/bar" :sourceline 20}])))
 
-      (testing "should noop if replaced by themselves"
+          (testing "with all tags"
+            (let [result (query-to-vec ["SELECT rm.type, rm.title, rt.tags FROM resource_tags rt, resource_metadata rm, catalog_resources cr WHERE cr.metadata=rm.hash AND cr.tags=rt.hash ORDER BY rm.type, rm.title"])]
+              (is (= (map #(update-in % [:tags] sort) result)
+                     [{:type "Class" :title "foobar" :tags []}
+                      {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"]}
+                      {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"]}]))))))
+
+      (testing "should not duplicate any rows if the same catalog is stored twice"
         (with-transacted-connection db
           (migrate!)
           (add-certname! certname)
-          (let [hash (add-catalog! catalog)]
-            (store-catalog-for-certname! catalog (now))
+          (let [hash (add-catalog! catalog)
+                today (now)
+                tomorrow (from-now (days 1))]
+            (store-catalog-for-certname! catalog today)
+            (let [resource-metadata (query-to-vec ["SELECT type, title, hash FROM resource_metadata"])
+                  resource-params (query-to-vec ["SELECT name, value, resource FROM resource_params"])
+                  resource-tags (query-to-vec ["SELECT hash, tags FROM resource_tags"])
+                  catalog-resources (query-to-vec ["SELECT catalog, metadata, params, tags FROM catalog_resources"])]
 
-            (is (= (query-to-vec ["SELECT name FROM certnames"])
-                   [{:name certname}]))
+                  (store-catalog-for-certname! catalog tomorrow)
 
-            (is (= (query-to-vec ["SELECT hash FROM catalogs"])
-                   [{:hash hash}])))))
+                  (is (= (query-to-vec ["SELECT name FROM certnames"])
+                         [{:name certname}]))
+
+                  (is (= (query-to-vec ["SELECT hash FROM catalogs"])
+                         [{:hash hash}]))
+
+                  (is (= (query-to-vec ["SELECT certname, catalog FROM certname_catalogs"])
+                         [{:certname certname :catalog hash}
+                          {:certname certname :catalog hash}]))))))
 
       (testing "should share structure when duplicate catalogs are detected for the same host"
         (with-transacted-connection db
