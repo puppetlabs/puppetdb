@@ -23,6 +23,7 @@
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
@@ -41,6 +42,15 @@
   (.. (sql/find-connection)
       (getMetaData)
       (getDatabaseProductName)))
+
+(defn sql-current-connection-database-version
+  "Return the version of the database product currently in use."
+  []
+  (let [db-metadata (.. (sql/find-connection)
+                      (getMetaData))
+        major (.getDatabaseMajorVersion db-metadata)
+        minor (.getDatabaseMinorVersion db-metadata)]
+    [major minor]))
 
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
@@ -79,7 +89,9 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
-  (format "ARRAY[?::text] = %s" column))
+  (if (pos? (compare (sql-current-connection-database-version) [8 1]))
+    (format "ARRAY[?::text] <@ %s" column)
+    (format "? = ANY(%s)" column)))
 
 (defmethod sql-array-type-string "HSQL Database Engine"
   [basetype]
@@ -304,7 +316,7 @@ must be supplied as the value to be matched."
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (apply str (interpose "," (repeat (count resource-hashes) "?")))
+  (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
         query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
         sql-params (vec (cons query resource-hashes))]
     (sql/with-query-results result-set
@@ -318,7 +330,7 @@ must be supplied as the value to be matched."
   {:pre  [(coll? resource-metadata-hashes)
           (every? string? resource-metadata-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (apply str (interpose "," (repeat (count resource-metadata-hashes) "?")))
+  (let [qmarks     (str/join "," (repeat (count resource-metadata-hashes) "?"))
         query      (format "SELECT DISTINCT hash FROM resource_metadata WHERE hash IN (%s)" qmarks)
         sql-params (vec (cons query resource-metadata-hashes))]
     (sql/with-query-results result-set
@@ -332,7 +344,7 @@ must be supplied as the value to be matched."
   {:pre [(coll? resource-tag-hashes)
          (every? string? resource-tag-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (apply str (interpose "," (repeat (count resource-tag-hashes) "?")))
+  (let [qmarks     (str/join "," (repeat (count resource-tag-hashes) "?"))
         query      (format "SELECT DISTINCT hash FROM resource_tags WHERE hash IN (%s)" qmarks)
         sql-params (vec (cons query resource-tag-hashes))]
     (sql/with-query-results result-set

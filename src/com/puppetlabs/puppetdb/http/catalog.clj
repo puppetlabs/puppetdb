@@ -20,13 +20,13 @@
   (let [node (params "node")]
     (cond
      (empty? node)
-     (-> (rr/response "missing node")
-         (rr/status pl-http/status-bad-request))
+     (rr/status (rr/response "missing node")
+                pl-http/status-bad-request)
 
      (not (pl-http/acceptable-content-type
            "application/json"
            (headers "accept")))
-     (-> (rr/response "must accept application/json"))
+     (rr/response "must accept application/json")
 
      :else
      (produce-body node (:scf-db globals)))))

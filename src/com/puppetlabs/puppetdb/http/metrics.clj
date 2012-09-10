@@ -76,9 +76,8 @@
     (-> (jmx/mbean name)
         (filter-mbean)
         (pl-http/json-response))
-    (-> "No such mbean"
-        (rr/response)
-        (rr/status pl-http/status-not-found))))
+    (rr/status (rr/response "No such mbean")
+               pl-http/status-not-found)))
 
 (def routes
   (app
@@ -89,5 +88,4 @@
    {:get (fn [req] (get-mbean name))}))
 
 (def metrics-app
-  (-> routes
-      (pl-http/must-accept-type "application/json")))
+  (pl-http/must-accept-type routes "application/json"))

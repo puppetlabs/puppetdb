@@ -9,7 +9,7 @@ step "Install the puppetdb/postgres modules and dependencies" do
   #  puppetdb module gets cleaned up
   install_from_git(database, "puppetlabs-puppetdb",
                    "git://github.com/cprice-puppet/puppetlabs-puppetdb.git",
-                   "master")
+                   "7c4b54a7f0ad13e1f8bc1e2b253abe8fda1cc01f")
 
   # TODO: change this to install from a less stupid place once the
   #  postgres module gets cleaned up

@@ -92,6 +92,8 @@ if @pe
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
+    @cows = 'lenny', 'lucid', 'squeeze', 'precise'
+    @pe_version = '2.5'
 else
     @install_dir = "/usr/share/puppetdb"
     @etc_dir = "/etc/puppetdb"
@@ -105,7 +107,8 @@ else
 end
 
 
-@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@log_dir}/puppetdb-oom.hprof "
+@heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
+@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@heap_dump_path} "
 
 @version      ||= get_version
 @debversion   ||= get_debversion
@@ -359,8 +362,24 @@ task :deb  => [ :package ] do
   sh "cd #{temp}; tar  -z -x -f #{temp}/puppetdb-#{@version}.tar.gz"
   mv "#{temp}/puppetdb-#{@version}", "#{temp}/puppetdb-#{@debversion}"
   mv "#{temp}/puppetdb-#{@version}.tar.gz", "#{temp}/#{@name}_#{@origversion}.orig.tar.gz"
-  sh "cd #{temp}/puppetdb-#{@debversion}; debuild --no-lintian  -uc -us"
-  mkdir_p "pkg/deb"
+  cd "#{temp}/puppetdb-#{@debversion}" do
+    if @pe
+      @cows.each do |cow|
+        mkdir "#{temp}/#{cow}"
+        ENV['DIST'] = cow
+        ENV['ARCH'] = 'i386'
+        ENV['PE_VER'] ||= @pe_version
+        sh "pdebuild --buildresult #{temp}/#{cow} \
+        --pbuilder cowbuilder -- \
+        --override-config \
+        --othermirror=\"deb http://freight.puppetlabs.lan #{ENV['PE_VER']} #{cow}\" \
+        --basepath /var/cache/pbuilder/base-#{cow}-i386.cow/"
+      end
+    else
+      sh 'debuild --no-lintian  -uc -us'
+    end
+  end
+  mkdir_p 'pkg/deb'
   rm_rf "#{temp}/puppetdb-#{@debversion}"
   mv FileList["#{temp}/*"], "pkg/deb"
   rm_rf temp

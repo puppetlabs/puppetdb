@@ -51,7 +51,7 @@
                              (query-params->str log-statements? params))
                         query-execution-limit
                         (/ time-elapsed 1000000000.0)
-                        stmt)))))
+                        sql)))))
 
 (defn limit-exception
   "Helper method; simply throws an exception with a message explaining

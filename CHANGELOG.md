@@ -4,12 +4,20 @@
 Many thanks to the following people who contributed patches to this
 release:
 
+* Kushal Pisavadia
 * Deepak Giridharagopal
 * Nick Lewis
 * Moses Mendoza
 * Chris Price
 
 Notable features:
+
+* Additional database indexes for improved performance
+
+  Queries involving resource (type,title) or tags without much
+  additional filtering criteria are now much faster. Note that tag
+  queries cannot be sped up on PostgreSQL 8.1, as it doesn't have
+  support for GIN indexes on array columns.
 
 * Automatic generate heap snapshots on OutOfMemoryError
 

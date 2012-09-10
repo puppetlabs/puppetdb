@@ -32,14 +32,14 @@
   [{:keys [params headers globals] :as request}]
   (cond
    (not (params "node"))
-   (-> (rr/response "missing node")
-       (rr/status pl-http/status-bad-request))
+   (rr/status (rr/response "missing node")
+              pl-http/status-bad-request)
 
    (not (pl-http/acceptable-content-type
          "application/json"
          (headers "accept")))
-   (-> (rr/response "must accept application/json")
-       (rr/status pl-http/status-not-acceptable))
+   (rr/status (rr/response "must accept application/json")
+              pl-http/status-not-acceptable)
 
    :else
    (produce-body (params "node") (:scf-db globals))))
