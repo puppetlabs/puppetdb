@@ -54,14 +54,12 @@
             [clj-time.core :as time]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [clojure.tools.nrepl.server :as nrepl]
-            [swank.swank :as swank]
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
-        [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version update-info)]
+        [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -301,12 +299,7 @@
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
         (when (= "true" enabled)
           (log/warn (format "Starting %s server on port %d" type port))
-          (cond
-           (= type "nrepl")
-           (nrepl/start-server :port port :transport-fn tty :greeting-fn tty-greeting)
-
-           (= type "swank")
-           (swank/start-server :host host :port port))))
+          (start-repl type host port)))
 
       (let [exception (deref error)]
         (doseq [cp command-procs]

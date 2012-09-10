@@ -38,6 +38,7 @@
                  [org.clojure/tools.nrepl "0.2.0-beta2"]
                  [org.clojure/tools.namespace "0.1.3"]
                  [swank-clojure "1.4.0"]
+                 [vimclojure/server "2.3.6"]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.3.7"]
