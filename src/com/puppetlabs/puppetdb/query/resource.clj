@@ -86,12 +86,17 @@
                               sql)
         limited-query (add-limit-clause limit query)
         results       (limited-query-to-vec limit (apply vector limited-query params))
-        metadata_cols [:certname :params :type :title :tags :exported :sourcefile :sourceline]
-        metadata      (apply juxt metadata_cols)]
-    (vec (for [[resource params] (group-by metadata results)]
-           (assoc (zipmap metadata_cols resource) :parameters
-                  (into {} (for [param params :when (:name param)]
-                             [(:name param) (json/parse-string (:value param))])))))))
+        metadata-cols [:certname :params :type :title :tags :exported :sourcefile :sourceline]
+        metadata      (apply juxt metadata-cols)
+        resources     (for [[resource params] (group-by metadata results)
+                            :let [resource-metadata (zipmap metadata-cols resource)
+                                  parameters (->> params
+                                               (map (juxt :name :value))
+                                               (into {})
+                                               (filter val)
+                                               (utils/mapvals json/parse-string))]]
+                        (assoc resource-metadata :parameters parameters))]
+    (sort-by (juxt :type :title) resources)))
 
 (defn query-resources
   "Take a query and its parameters, and return a vector of resources
@@ -114,7 +119,7 @@
          ;; tag join. Tags are case-insensitive but always lowercase, so
          ;; lowercase the query value.
          ["tag"]
-         {:where  (sql-array-query-string "tags")
+         {:where  (sql-array-query-string "resource_tags.tags")
           :params [(string/lower-case value)]}
 
          ;; node join.

@@ -60,13 +60,21 @@ to the result of the form supplied to this method."
      :certname_catalogs
      {:certname "one.local" :catalog "foo" :timestamp (to-timestamp (now))}
      {:certname "two.local" :catalog "bar" :timestamp (to-timestamp (now))})
+    (sql/insert-records
+      :resource_tags
+      {:hash "1" :tags (to-jdbc-varchar-array ["one" "two"])}
+      {:hash "2" :tags (to-jdbc-varchar-array [])})
+    (sql/insert-records
+      :resource_metadata
+      {:hash "1" :type "File" :title "/etc/passwd" :exported true}
+      {:hash "2" :type "Notify" :title "hello" :exported true})
     (sql/insert-records :catalog_resources
-                        {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
+                        {:catalog "foo" :params "1" :metadata "1" :tags "1"}
+                        {:catalog "bar" :params "1" :metadata "1" :tags "1" }
+                        {:catalog "bar" :params "2" :metadata "2" :tags "2"}))
 
     (let [foo1 {:certname   "one.local"
-                :resource   "1"
+                :params   "1"
                 :type       "File"
                 :title      "/etc/passwd"
                 :tags       ["one" "two"]
@@ -78,7 +86,7 @@ to the result of the form supplied to this method."
                              :group  "root"
                              :acl    ["john:rwx" "fred:rwx"]}}
           bar1 {:certname   "two.local"
-                :resource   "1"
+                :params   "1"
                 :type       "File"
                 :title      "/etc/passwd"
                 :tags       ["one" "two"]
@@ -90,7 +98,7 @@ to the result of the form supplied to this method."
                              :group  "root"
                              :acl    ["john:rwx" "fred:rwx"]}}
           bar2 {:certname   "two.local"
-                :resource   "2"
+                :params   "2"
                 :type       "Notify"
                 :title      "hello"
                 :tags       []
