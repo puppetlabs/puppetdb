@@ -28,7 +28,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     stringify_titles(data)
     sort_unordered_metaparams(data)
     munge_edges(data)
-    synthesize_edges(data)
+    synthesize_edges(data, catalog)
 
     hash
   end
@@ -141,11 +141,24 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     resources.find {|res| res['type'] == resource_hash['type'] and res['title'].to_s == resource_hash['title'].to_s}
   end
 
-  def synthesize_edges(hash)
+  def synthesize_edges(hash, catalog)
     aliases = map_aliases_to_title(hash)
 
     hash['resources'].each do |resource|
-      next if resource['exported']
+      # Standard virtual resources don't appear in the catalog. However,
+      # exported resources which haven't been also collected will appears as
+      # exported and virtual (collected ones will only be exported). They will
+      # eventually be removed from the catalog, so we can't add edges involving
+      # them. Puppet::Resource#to_pson_data_hash omits 'virtual', so we have to
+      # look it up in the catalog to find that information. This isn't done in
+      # a separate step because we don't actually want to send the field (it
+      # will always be false).
+      #
+      # The outer conditional is here because Class[main] can't properly
+      # be looked up using catalog.resource and will return nil. Yay.
+      if real_resource = catalog.resource(resource['type'], resource['title'])
+        next if real_resource.virtual?
+      end
 
       Relationships.each do |param,relation|
         if value = resource['parameters'][param]
@@ -160,10 +173,14 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # and try that
             other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
 
-            raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param})" unless other_resource
+            raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} doesn't seem to be in the catalog" unless other_resource
 
-            if other_resource['exported']
-              raise "Can't create an edge between #{resource_hash_to_ref(resource_hash)} and exported resource #{other_ref}"
+            # As above, virtual exported resources will be removed, so if a
+            # real resource refers to one, it's wrong.
+            if other_real_resource = catalog.resource(other_resource['type'], other_resource['title'])
+              if other_real_resource.virtual?
+                raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} is exported but not collected"
+              end
             end
 
             # If the ref was an alias, it will have a different title, so use
