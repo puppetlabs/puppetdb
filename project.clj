@@ -28,7 +28,7 @@
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.4.0"]
-                 [cheshire "4.0.0"]
+                 [cheshire "4.0.2"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
                  [org.clojure/core.memoize "0.5.1"]
@@ -38,7 +38,7 @@
                  [org.clojure/tools.nrepl "0.2.0-beta2"]
                  [org.clojure/tools.namespace "0.1.3"]
                  [swank-clojure "1.4.0"]
-                 [vimclojure/server "2.3.6"]
+                 [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.3.7"]
@@ -50,7 +50,7 @@
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
                  ;; Nicer exception handling with try+/throw+
-                 [slingshot "0.10.1"]
+                 [slingshot "0.10.3"]
                  [digest "1.3.0"]
                  [log4j "1.2.16" :exclusions [javax.mail/mail
                                               javax.jms/jms
@@ -65,10 +65,10 @@
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
                  [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-core "5.5.1" :exclusions [org.slf4j/slf4j-api]]
+                 [org.apache.activemq/activemq-core "5.6.0" :exclusions [org.slf4j/slf4j-api]]
                  ;; WebAPI support libraries.
-                 [net.cgrand/moustache "1.1.0"]
-                 [clj-http "0.3.1"]
+                 [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
+                 [clj-http "0.5.3"]
                  [ring/ring-core "1.1.1"]
                  [ring/ring-jetty-adapter "1.1.1"]]
 
