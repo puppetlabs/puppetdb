@@ -155,10 +155,10 @@
 
     ;; Create an agent for each host
     (def hosts
-      (vec (map #(agent {:host    %,
-                         :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
-                         :catalog (associate-catalog-with-host % (rand-nth catalogs))})
-                hostnames)))
+      (mapv #(agent {:host    %,
+                     :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
+                     :catalog (associate-catalog-with-host % (rand-nth catalogs))})
+            hostnames))
 
     ;; Loop forever
     (world-loop)))
