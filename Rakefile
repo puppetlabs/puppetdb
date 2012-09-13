@@ -148,7 +148,7 @@ desc "Build the uberjar"
 task :uberjar => [  ] do
   if `which lein`
     sh "lein uberjar"
-    mv JAR_FILE_V, JAR_FILE
+    mv "target/#{JAR_FILE_V}", JAR_FILE
   else
     puts "You need lein on your system"
     exit 1
