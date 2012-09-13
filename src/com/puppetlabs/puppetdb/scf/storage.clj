@@ -563,7 +563,7 @@ must be supplied as the value to be matched."
   [certname]
   (sql/with-query-results result-set
     ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
-    (vec (map :catalog result-set))))
+    (mapv :catalog result-set)))
 
 (defn catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
