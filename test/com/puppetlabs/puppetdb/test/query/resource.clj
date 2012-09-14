@@ -1,10 +1,15 @@
 (ns com.puppetlabs.puppetdb.test.query.resource
   (:require [com.puppetlabs.puppetdb.query.resource :as s]
             [clojure.java.jdbc :as sql]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
   (:use clojure.test
         ring.mock.request
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.utils :only [mapkeys mapvals]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)
@@ -33,22 +38,35 @@
     {:hash "bar" :api_version 1 :catalog_version "14"})
   (sql/insert-records
     :certname_catalogs
-    {:certname "example.local" :catalog "foo"}
-    {:certname "subset.local" :catalog "bar"})
+    {:certname "example.local" :catalog "foo" :timestamp (to-timestamp (now))}
+    {:certname "subset.local" :catalog "bar" :timestamp (to-timestamp (now)) })
+  (sql/insert-records
+    :resource_metadata
+    {:hash "1" :type "File" :title "/etc/passwd" :exported true}
+    {:hash "4" :type "File" :title "/etc/Makefile" :exported false}
+    {:hash "2" :type "Notify" :title "hello" :exported true}
+    {:hash "3" :type "Notify" :title "no-params" :exported true}
+    {:hash "9" :type "Notify" :title "no-params" :exported false}
+    {:hash "5" :type "Notify" :title "booyah" :exported false}
+    {:hash "6" :type "Mval" :title "multivalue" :exported false}
+    {:hash "7" :type "Hval" :title "hashvalue" :exported false})
+  (sql/insert-records
+    :resource_tags
+    {:hash "1" :tags (to-jdbc-varchar-array [])}
+    {:hash "2" :tags (to-jdbc-varchar-array ["vivid"])})
   (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"])}
-    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])})
-  ;; structure the results, eh.
+    {:catalog "foo" :params "1" :metadata "1" :tags "1"}
+    {:catalog "foo" :params "2" :metadata "2" :tags "1"}
+    {:catalog "foo" :params "3" :metadata "3" :tags "1"}
+    {:catalog "foo" :params "4" :metadata "4" :tags "2"}
+    {:catalog "foo" :params "5" :metadata "5" :tags "1"}
+    {:catalog "foo" :params "6" :metadata "6" :tags "1"}
+    {:catalog "foo" :params "7" :metadata "7" :tags "1"}
+    {:catalog "bar" :params "1" :metadata "1" :tags "1"}
+    {:catalog "bar" :params "3" :metadata "9" :tags "1"}
+    {:catalog "bar" :params "5" :metadata "5" :tags "1"})
   (let [foo1 {:certname   "example.local"
-              :resource   "1"
+              :params     "1"
               :type       "File"
               :title      "/etc/passwd"
               :tags       []
@@ -59,7 +77,7 @@
                            "owner"  "root"
                            "group"  "root"}}
         bar1 {:certname   "subset.local"
-              :resource   "1"
+              :params     "1"
               :type       "File"
               :title      "/etc/passwd"
               :tags       []
@@ -70,7 +88,7 @@
                            "owner"  "root"
                            "group"  "root"}}
         foo2 {:certname   "example.local"
-              :resource   "2"
+              :params     "2"
               :type       "Notify"
               :title      "hello"
               :tags       []
@@ -79,7 +97,7 @@
               :sourceline nil
               :parameters {"random" "true"}}
         foo3 {:certname   "example.local"
-              :resource   "3"
+              :params     "3"
               :type       "Notify"
               :title      "no-params"
               :tags       []
@@ -88,7 +106,7 @@
               :sourceline nil
               :parameters {}}
         bar3 {:certname   "subset.local"
-              :resource   "3"
+              :params     "3"
               :type       "Notify"
               :title      "no-params"
               :tags       []
@@ -97,7 +115,7 @@
               :sourceline nil
               :parameters {}}
         foo4 {:certname   "example.local"
-              :resource   "4"
+              :params     "4"
               :type       "File"
               :title      "/etc/Makefile"
               :tags       ["vivid"]
@@ -107,7 +125,7 @@
               :parameters {"ensure"  "present"
                            "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
         foo5 {:certname   "example.local"
-              :resource   "5"
+              :params     "5"
               :type       "Notify"
               :title      "booyah"
               :tags       []
@@ -116,7 +134,7 @@
               :sourceline nil
               :parameters {"random" "false"}}
         bar5 {:certname   "subset.local"
-              :resource   "5"
+              :params     "5"
               :type       "Notify"
               :title      "booyah"
               :tags       []
@@ -125,7 +143,7 @@
               :sourceline nil
               :parameters {"random" "false"}}
         foo6 {:certname   "example.local"
-              :resource   "6"
+              :params     "6"
               :type       "Mval"
               :title      "multivalue"
               :tags       []
@@ -134,7 +152,7 @@
               :sourceline nil
               :parameters {"multi" ["one" "two" "three"]}}
         foo7 {:certname   "example.local"
-              :resource   "7"
+              :params     "7"
               :type       "Hval"
               :title      "hashvalue"
               :tags       []
@@ -221,3 +239,37 @@
               #"is not a valid query term"
               (s/query-resources (s/query->sql input))))))))
 
+
+(deftest query-resources-multiple-catalogs
+  (testing "should only query against the most recent catalog"
+    (let [add-tag-to-resources (fn [resources tag]
+                                 (mapvals #(update-in % [:tags] conj tag) resources))
+          one-day  (* 24 60 60 1000)
+          tomorrow (to-timestamp (+ (System/currentTimeMillis) one-day))
+          catalog1 (-> (:basic catalogs)
+                     (update-in [:resources] add-tag-to-resources "from-catalog1"))
+          catalog2 (-> (:basic catalogs)
+                     (update-in [:resources] add-tag-to-resources "from-catalog2"))]
+      (scf-store/add-certname! (:certname catalog1))
+      (scf-store/store-catalog-for-certname! catalog1 (to-timestamp (now)))
+      (scf-store/store-catalog-for-certname! catalog2 tomorrow))
+
+    (let [result (s/query-resources (s/query->sql ["=" "type" "File"]))
+          munged-result (for [resource result]
+                          (-> resource
+                            (select-keys [:type :title :tags :parameters])
+                            (update-in [:tags] sort)))
+          expected [{:type       "File"
+                     :title      "/etc/foobar"
+                     :tags       ["class" "file" "foobar" "from-catalog2"]
+                     :parameters {"ensure" "directory"
+                                  "group"  "root"
+                                  "user"   "root"}}
+                    {:type       "File"
+                     :title      "/etc/foobar/baz"
+                     :tags       ["class" "file" "foobar" "from-catalog2"]
+                     :parameters {"ensure"  "directory"
+                                  "group"   "root"
+                                  "user"    "root"
+                                  "require" "File[/etc/foobar]"}}]]
+      (is (= munged-result expected)))))

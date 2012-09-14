@@ -29,7 +29,7 @@
         certname  (:certname catalog)
         timestamp (now)]
     (scf-store/add-certname! certname)
-    (scf-store/replace-catalog! catalog timestamp)
+    (scf-store/store-catalog-for-certname! catalog timestamp)
     (scf-store/add-facts! certname {} timestamp)
 
     (testing "should be active, and have catalog and facts timestamp if active with catalog+facts"

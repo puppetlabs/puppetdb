@@ -316,12 +316,13 @@
   (deftest replace-catalog-existing-catalog
     (sql/insert-record :certnames {:name certname})
     (sql/insert-record :catalogs {:hash "some_catalog_hash" :api_version 1 :catalog_version "foo"})
-    (sql/insert-record :certname_catalogs {:certname certname :catalog "some_catalog_hash"})
+    (sql/insert-record :certname_catalogs {:certname certname :catalog "some_catalog_hash" :timestamp yesterday})
 
-    (testing "should replace the catalog"
+    (testing "should add the new catalog"
       (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
-               [{:certname certname :catalog catalog-hash}]))
+        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs ORDER BY timestamp")
+               [{:certname certname :catalog "some_catalog_hash"}
+                {:certname certname :catalog catalog-hash}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
@@ -340,10 +341,11 @@
     (sql/insert-record :catalogs {:hash "some_catalog_hash" :api_version 1 :catalog_version "foo"})
     (sql/insert-record :certname_catalogs {:certname certname :catalog "some_catalog_hash" :timestamp tomorrow})
 
-    (testing "should ignore the message"
+    (testing "should add the catalog anyway"
       (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
-               [{:certname certname :catalog "some_catalog_hash"}]))
+        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs ORDER BY timestamp")
+               [{:certname certname :catalog catalog-hash}
+                {:certname certname :catalog "some_catalog_hash"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
@@ -359,13 +361,14 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))
 
-    (testing "should ignore the message if the node was deactivated after the message"
+    (testing "should store the catalog but not reactivate the node if it node was deactivated after the message"
       (scf-store/delete-certname! certname)
       (sql/insert-record :certnames {:name certname :deactivated tomorrow})
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                [{:name certname :deactivated tomorrow}]))
-        (is (empty? (query-to-vec "SELECT * FROM certname_catalogs")))
+        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
+               [{:certname certname :catalog catalog-hash}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 

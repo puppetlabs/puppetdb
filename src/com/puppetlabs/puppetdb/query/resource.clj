@@ -74,21 +74,29 @@
   [limit [sql & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
-                                   "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
+  (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.params, resource_metadata.type, resource_metadata.title,"
+                                   "resource_tags.tags, resource_metadata.exported, resource_metadata.sourcefile, resource_metadata.sourceline, rp.name, rp.value "
                                    "FROM catalog_resources "
-                                   "JOIN certname_catalogs USING(catalog) "
-                                   "LEFT OUTER JOIN resource_params rp "
-                                   "USING(resource) %s")
+                                   "JOIN certname_catalogs ON certname_catalogs.catalog = catalog_resources.catalog AND "
+                                   "(certname_catalogs.certname, certname_catalogs.timestamp) IN (SELECT certname, MAX(timestamp) FROM certname_catalogs GROUP BY certname) "
+                                   "JOIN resource_metadata ON catalog_resources.metadata = resource_metadata.hash "
+                                   "LEFT OUTER JOIN resource_tags ON catalog_resources.tags = resource_tags.hash "
+                                   "LEFT OUTER JOIN resource_params rp ON catalog_resources.params = rp.resource "
+                                   "%s")
                               sql)
         limited-query (add-limit-clause limit query)
         results       (limited-query-to-vec limit (apply vector limited-query params))
-        metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
-        metadata      (apply juxt metadata_cols)]
-    (vec (for [[resource params] (group-by metadata results)]
-           (assoc (zipmap metadata_cols resource) :parameters
-                  (into {} (for [param params :when (:name param)]
-                             [(:name param) (json/parse-string (:value param))])))))))
+        metadata-cols [:certname :params :type :title :tags :exported :sourcefile :sourceline]
+        metadata      (apply juxt metadata-cols)
+        resources     (for [[resource params] (group-by metadata results)
+                            :let [resource-metadata (zipmap metadata-cols resource)
+                                  parameters (->> params
+                                               (map (juxt :name :value))
+                                               (into {})
+                                               (filter val)
+                                               (utils/mapvals json/parse-string))]]
+                        (assoc resource-metadata :parameters parameters))]
+    (sort-by (juxt :type :title) resources)))
 
 (defn query-resources
   "Take a query and its parameters, and return a vector of resources
@@ -111,7 +119,7 @@
          ;; tag join. Tags are case-insensitive but always lowercase, so
          ;; lowercase the query value.
          ["tag"]
-         {:where  (sql-array-query-string "tags")
+         {:where  (sql-array-query-string "resource_tags.tags")
           :params [(string/lower-case value)]}
 
          ;; node join.
@@ -126,13 +134,13 @@
 
          ;; param joins.
          [["parameter" (name :when string?)]]
-         {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
+         {:where  "catalog_resources.params IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
           :params [name (db-serialize value)]}
 
          ;; metadata match.
          [(metadata :when string?)]
          (if (re-matches #"(?i)[a-z_][a-z0-9_]*" metadata)
-           {:where  (format "catalog_resources.%s = ?" metadata)
+           {:where  (format "resource_metadata.%s = ?" metadata)
             :params [value]}
            (throw (IllegalArgumentException. "illegal metadata column name %s" metadata)))
 

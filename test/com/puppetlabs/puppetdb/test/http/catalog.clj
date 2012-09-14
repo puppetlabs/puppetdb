@@ -42,8 +42,8 @@ to the result of the form supplied to this method."
         empty-catalog (:empty catalogs)]
     (scf-store/add-certname! (:certname basic-catalog))
     (scf-store/add-certname! (:certname empty-catalog))
-    (scf-store/replace-catalog! basic-catalog (now))
-    (scf-store/replace-catalog! empty-catalog (now))
+    (scf-store/store-catalog-for-certname! basic-catalog (now))
+    (scf-store/store-catalog-for-certname! empty-catalog (now))
 
     (testing "should return the catalog if it's present"
       (is-response-equal (get-response (:certname empty-catalog))
@@ -51,39 +51,36 @@ to the result of the form supplied to this method."
          "resources" {"Class[Main]" {"certname"   (:certname empty-catalog)
                                      "type"       "Class"
                                      "title"      "Main"
-                                     "resource"   "fc22ffa0a8128d5676e1c1d55e04c6f55529f04c"
                                      "exported"   false
                                      "sourcefile" nil
                                      "sourceline" nil
                                      "count"      1
                                      "tags"       ["class" "main"]
                                      "parameters" {"name" "main"}}
-                     "Class[Settings]" {"certname"   (:certname empty-catalog)
-                                        "type"       "Class"
-                                        "title"      "Settings"
-                                        "resource"   "cc1869f0f075fc3c3e5828de9e92d65a0bf8d9ff"
-                                        "exported"   false
-                                        "sourcefile" nil
-                                        "sourceline" nil
-                                        "count"      1
-                                        "tags"       ["class" "settings"]
-                                        "parameters" {}}
-                     "Stage[main]" {"certname"   (:certname empty-catalog)
-                                    "type"       "Stage"
-                                    "title"      "main"
-                                    "resource"   "124522a30c56cb9e4bbc66bae4c2515cda6ec889"
-                                    "exported"   false
-                                    "sourcefile" nil
-                                    "sourceline" nil
-                                    "count"      1
-                                    "tags"       ["main" "stage"]
-                                    "parameters" {}}}
+                      "Class[Settings]" {"certname"   (:certname empty-catalog)
+                                         "type"       "Class"
+                                         "title"      "Settings"
+                                         "exported"   false
+                                         "sourcefile" nil
+                                         "sourceline" nil
+                                         "count"      1
+                                         "tags"       ["class" "settings"]
+                                         "parameters" {}}
+                      "Stage[main]" {"certname"   (:certname empty-catalog)
+                                     "type"       "Stage"
+                                     "title"      "main"
+                                     "exported"   false
+                                     "sourcefile" nil
+                                     "sourceline" nil
+                                     "count"      1
+                                     "tags"       ["main" "stage"]
+                                     "parameters" {}}}
          "edges" #{{"source" {"type" "Stage" "title" "main"}
-                   "target" {"type" "Class" "title" "Settings"}
-                   "relationship" "contains"}
-                  {"source" {"type" "Stage" "title" "main"}
-                   "target" {"type" "Class" "title" "Main"}
-                   "relationship" "contains"}}}))
+                    "target" {"type" "Class" "title" "Settings"}
+                    "relationship" "contains"}
+                   {"source" {"type" "Stage" "title" "main"}
+                    "target" {"type" "Class" "title" "Main"}
+                    "relationship" "contains"}}}))
 
     (testing "should return status-not-found if the catalog isn't found"
       (let [response (get-response "non-existent-node")]

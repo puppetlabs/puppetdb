@@ -12,12 +12,15 @@
   to correlate the nodes exporting and collecting resources."
   []
   ;; TODO: This needs to only return results for active nodes
-  (query-to-vec (str "SELECT DISTINCT exporters.type, exporters.title, "
+  (query-to-vec (str "SELECT DISTINCT rm_exporters.type, rm_exporters.title, "
                      "(SELECT certname FROM certname_catalogs WHERE catalog=exporters.catalog) AS exporter, "
                      "(SELECT certname FROM certname_catalogs WHERE catalog=collectors.catalog) AS collector "
                      "FROM catalog_resources exporters, catalog_resources collectors "
-                     "WHERE exporters.resource=collectors.resource AND exporters.exported=true AND collectors.exported=false "
-                     "ORDER BY exporters.type, exporters.title, exporter, collector ASC")))
+                     "INNER JOIN resource_metadata rm_exporters ON exporters.metadata = rm_exporters.hash "
+                     "INNER JOIN resource_metadata rm_collectors ON collectors.metadata = rm_collectors.hash "
+                     "WHERE exporters.params=collectors.params AND rm_exporters.exported=true AND rm_collectors.exported=false "
+                     "AND rm_exporters.type=rm_collectors.type AND rm_exporters.title=rm_collectors.title "
+                     "ORDER BY rm_exporters.type, rm_exporters.title, exporter, collector ASC")))
 
 (defn num-resources
   "The number of resources in the population"
@@ -25,7 +28,8 @@
   {:post [(number? %)]}
   (-> (str "SELECT COUNT(*) AS c "
            "FROM certname_catalogs cc, catalog_resources cr, certnames c "
-           "WHERE cc.catalog=cr.catalog AND c.name=cc.certname AND c.deactivated IS NULL")
+           "WHERE cc.catalog=cr.catalog AND c.name=cc.certname AND c.deactivated IS NULL "
+           "AND (cc.certname,cc.timestamp) IN (SELECT certname, MAX(timestamp) FROM certname_catalogs GROUP BY certname)")
       (query-to-vec)
       (first)
       :c))
@@ -51,7 +55,8 @@
   {:post [(number? %)]}
   (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
                                           "(SELECT DISTINCT resource FROM catalog_resources cr, certname_catalogs cc, certnames c "
-                                          " WHERE cr.catalog=cc.catalog AND cc.certname=c.name AND c.deactivated IS NULL) r"))
+                                          " WHERE cr.catalog=cc.catalog AND cc.certname=c.name AND c.deactivated IS NULL "
+                                          "AND (cc.certname,cc.timestamp) IN (SELECT certname, MAX(timestamp) FROM certname_catalogs GROUP BY certname)) r"))
                        (first)
                        (:c))
         num-total  (num-resources)]

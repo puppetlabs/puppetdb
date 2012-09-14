@@ -42,8 +42,8 @@ to the result of the form supplied to this method."
                                                         [spec (assoc resource :exported true)]))))]
     (scf-store/add-certname! "collector")
     (scf-store/add-certname! "exporter")
-    (scf-store/replace-catalog! collector-catalog (now))
-    (scf-store/replace-catalog! exporter-catalog (now))
+    (scf-store/store-catalog-for-certname! collector-catalog (now))
+    (scf-store/store-catalog-for-certname! exporter-catalog (now))
 
     (testing "should return a list of resources and who exports/collects them"
       (is-response-equal (get-response "exported-resources")

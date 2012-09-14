@@ -22,6 +22,31 @@
                                                     sql-current-connection-database-name
                                                     sql-current-connection-database-version]]))
 
+(defn- drop-constraints
+  "Drop the constraint of given `constraint-type` on `table`."
+  [table constraint-type]
+  (let [results     (query-to-vec
+                      (str "SELECT constraint_name FROM information_schema.table_constraints "
+                           "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
+                      table constraint-type)
+        constraints (map :constraint_name results)]
+    (if (seq constraints)
+      (apply sql/do-commands
+             (for [constraint constraints]
+               (format "ALTER TABLE %s DROP CONSTRAINT %s" table constraint)))
+      (throw (IllegalArgumentException. (format "No %s constraint exists on the table '%s'" constraint-type table))))))
+
+(defn- drop-primary-key
+  "Drop the primary key on the given `table`."
+  [table]
+  (drop-constraints table "primary key"))
+
+(defn- drop-foreign-keys
+  "Drop all foreign keys on the given `table`. Does not currently support
+  selecting a single key to drop."
+  [table]
+  (drop-constraints table "foreign key"))
+
 (defn initialize-store
   "Create the initial database schema."
   []
@@ -134,12 +159,7 @@
    [(to-timestamp (now))])
 
   ;; First we get rid of the existing foreign key to certnames
-  (let [[result & _] (query-to-vec
-                      (str "SELECT constraint_name FROM information_schema.table_constraints "
-                           "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
-        constraint   (:constraint_name result)]
-    (sql/do-commands
-     (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
+  (drop-foreign-keys "certname_facts")
 
   ;; Then we replace it with a foreign key to certname_facts_metadata
   (sql/do-commands
@@ -163,6 +183,52 @@
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
+(defn allow-historical-catalogs
+  "This relaxes the uniqueness constraints on `certname_catalogs`, allowing a
+  single node to have multiple catalogs. The new primary key for
+  `certname_catalogs` is (certname,catalog,timestamp) with an additional index
+  on (certname,catalog)."
+  []
+  ;; Find the existing primary key and remove it
+  (drop-primary-key "certname_catalogs")
+
+  ;; Also remove those darn uniqueness constraints
+  (drop-constraints "certname_catalogs" "unique")
+
+  (sql/do-commands
+    (str "ALTER TABLE certname_catalogs ADD PRIMARY KEY (certname,catalog,timestamp)")
+    (str "CREATE INDEX idx_certname_catalogs_certname_catalog ON certname_catalogs(certname,catalog)")))
+
+;; TODO: Migrate the data, too.
+(defn dedup-resource-metadata
+  []
+  ;; HSQL won't let us drop the catalog column unless the (catalog,resource)
+  ;; primary key AND the catalog foreign key are removed first. Booooooooo
+  ;; HSQL.
+  (drop-primary-key "catalog_resources")
+  (drop-foreign-keys "catalog_resources")
+
+  (sql/do-commands
+    "ALTER TABLE catalog_resources DROP COLUMN catalog"
+    "ALTER TABLE catalog_resources RENAME TO resource_metadata"
+    "ALTER TABLE resource_metadata ADD hash VARCHAR(40) NOT NULL UNIQUE"
+    "ALTER TABLE resource_metadata DROP COLUMN resource"
+    "ALTER TABLE resource_metadata DROP COLUMN tags")
+
+  (sql/create-table :resource_tags
+                    ["hash" "VARCHAR(40)" "NOT NULL" "UNIQUE"]
+                    ["tags" (sql-array-type-string "TEXT") "NOT NULL" "PRIMARY KEY"])
+
+  (sql/create-table :catalog_resources
+                    ["catalog" "VARCHAR(40)" "REFERENCES catalogs(hash)" "ON DELETE CASCADE"]
+                    ["metadata" "VARCHAR(40)" "REFERENCES resource_metadata(hash)" "ON DELETE CASCADE"]
+                    ["params" "VARCHAR(40)"]
+                    ["tags" "VARCHAR(40)" "REFERENCES resource_tags(hash)" "ON DELETE CASCADE"]
+                    ["PRIMARY KEY (catalog, metadata, params, tags)"])
+
+  (when (= (sql-current-connection-database-name) "PostgreSQL") (sql/do-commands
+    "CREATE INDEX idx_resource_tags_tags_gin ON resource_tags USING gin(tags)")))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -170,7 +236,9 @@
    2 allow-node-deactivation
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
-   5 add-missing-indexes})
+   5 add-missing-indexes
+   6 allow-historical-catalogs
+   7 dedup-resource-metadata})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
@@ -202,7 +270,7 @@ along with the time at which the migration was performed."
           (<= (count %) (count migrations))]}
   (let [current-version (schema-version)]
     (into (sorted-map)
-          (filter #(> (key %) current-version) migrations)) ))
+          (filter #(> (key %) current-version) migrations))))
 
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if database is

@@ -471,6 +471,14 @@
     (let [bytes (.getBytes s "UTF-8")]
       (digest-func "sha-1" [bytes]))))
 
+(defn sha1
+  "Compute SHA-1 hash based on `args`. The args are stringified, converted to
+  UTF-8, and the SHA-1 computed from that."
+  [& args]
+  {:post [(string? %)]}
+  (-> (pr-str args)
+      (utf8-string->sha1)))
+
 ;; ## UUID handling
 
 (defn uuid

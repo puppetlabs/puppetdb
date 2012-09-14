@@ -57,7 +57,8 @@
 ;;
 
 (ns com.puppetlabs.puppetdb.command
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalog :as cat]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
@@ -310,10 +311,10 @@
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (if (scf-storage/maybe-activate-node! certname timestamp)
-        ;; Only store a catalog if it's newer than the current catalog
-        (if-not (scf-storage/catalog-newer-than? certname timestamp)
-          (scf-storage/replace-catalog! catalog timestamp))))
+      ;; If this catalog was received after the node was deactivated,
+      ;; reactivate it.
+      (scf-storage/maybe-activate-node! certname timestamp)
+      (scf-storage/store-catalog-for-certname! catalog timestamp))
     (log/info (format "[%s] [replace catalog] %s" id certname))))
 
 ;; Fact replacement
