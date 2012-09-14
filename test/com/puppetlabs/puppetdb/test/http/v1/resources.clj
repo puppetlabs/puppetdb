@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.resources
+(ns com.puppetlabs.puppetdb.test.http.v1.resources
   (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.http :as pl-http]

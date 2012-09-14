@@ -1,8 +1,8 @@
-(ns com.puppetlabs.puppetdb.test.http.metrics
+(ns com.puppetlabs.puppetdb.test.http.v1.metrics
   (:import (java.util.concurrent TimeUnit))
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http])
-  (:use com.puppetlabs.puppetdb.http.metrics
+  (:use com.puppetlabs.puppetdb.http.v1.metrics
         com.puppetlabs.puppetdb.fixtures
         clojure.test
         ring.mock.request

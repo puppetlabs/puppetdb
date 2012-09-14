@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.population
+(ns com.puppetlabs.puppetdb.test.http.experimental.population
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]

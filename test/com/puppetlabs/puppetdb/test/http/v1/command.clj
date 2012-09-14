@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.command
+(ns com.puppetlabs.puppetdb.test.http.v1.command
   (:require [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]

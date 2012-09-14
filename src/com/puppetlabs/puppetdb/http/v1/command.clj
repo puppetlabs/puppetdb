@@ -6,7 +6,7 @@
 ;; If the command is intact and standards-compliant, we immediately
 ;; relay the command to the internal MQ for asynchronous processing.
 ;;
-(ns com.puppetlabs.puppetdb.http.command
+(ns com.puppetlabs.puppetdb.http.v1.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]

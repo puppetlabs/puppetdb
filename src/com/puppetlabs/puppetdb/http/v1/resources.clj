@@ -65,7 +65,7 @@
 ;;                     "parameter": "value",
 ;;                     ...}}
 
-(ns com.puppetlabs.puppetdb.http.resources
+(ns com.puppetlabs.puppetdb.http.v1.resources
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json]

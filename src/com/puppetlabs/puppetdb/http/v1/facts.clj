@@ -11,7 +11,7 @@
 ;;
 ;; If no facts are known for the node, the response is a 404 with an error message.
 
-(ns com.puppetlabs.puppetdb.http.facts
+(ns com.puppetlabs.puppetdb.http.v1.facts
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.facts :as f]

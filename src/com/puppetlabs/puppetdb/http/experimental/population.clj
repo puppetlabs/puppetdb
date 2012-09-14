@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.population
+(ns com.puppetlabs.puppetdb.http.experimental.population
   (:require [com.puppetlabs.puppetdb.query.population :as p]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])

@@ -28,7 +28,7 @@
 ;;
 ;; `["foo.example.com", "bar.example.com", "baz.example.com"]`
 ;;
-(ns com.puppetlabs.puppetdb.http.node
+(ns com.puppetlabs.puppetdb.http.v1.node
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.node :as node]
