@@ -5,7 +5,8 @@
 (ns com.puppetlabs.puppetdb.http.v1.status
   (:require [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
-  (:use [com.puppetlabs.puppetdb.query.status]
+  (:use com.puppetlabs.puppetdb.query.status
+        com.puppetlabs.middleware
         [net.cgrand.moustache :only (app)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
@@ -17,25 +18,12 @@
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 
-(defn node-status-app
-  "Ring app for retrieving node status"
-  [{:keys [params headers globals] :as request}]
-  (let [node (params "node")]
-    (cond
-     (empty? node)
-     (rr/status (rr/response "missing node")
-                pl-http/status-bad-request)
-
-     (not (pl-http/acceptable-content-type
-           "application/json"
-           (headers "accept")))
-     (rr/response "must accept application/json")
-
-     :else
-     (produce-node-status node (:scf-db globals)))))
+(def routes
+  (app
+    ["nodes" node]
+    {:get (fn [{:keys [globals]}]
+            (produce-node-status node (:scf-db globals)))}))
 
 (def status-app
-  (app
-   ["nodes" node]
-   {:get (fn [req]
-           (node-status-app (assoc-in req [:params "node"] node)))}))
+  "Moustache app for retrieving status information"
+  (verify-accepts-json routes))
