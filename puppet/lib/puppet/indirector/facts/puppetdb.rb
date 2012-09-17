@@ -16,6 +16,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     begin
       response = http_get(request, "/v1/facts/#{request.key}", headers)
+      log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
@@ -67,6 +68,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
     begin
       response = http_get(request, "/v1/nodes?query=#{query_param}", headers)
+      log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
         PSON.parse(response.body)

@@ -25,6 +25,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
     begin
       response = http_get(request, "/v1/resources?query=#{query_param}", headers)
+      log_x_deprecation_header(response)
 
       unless response.is_a? Net::HTTPSuccess
         # Newline characters cause an HTTP error, so strip them

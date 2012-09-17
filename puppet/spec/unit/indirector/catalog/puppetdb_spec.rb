@@ -42,6 +42,18 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
       CGI.unescape(@sent_payload).should == payload
     end
+
+    it "should log a deprecation warning if one is returned from PuppetDB" do
+      response['x-deprecation'] = 'A horrible deprecation warning!'
+
+      Puppet.expects(:deprecation_warning).with do |msg|
+        msg =~ /A horrible deprecation warning!/
+      end
+
+      subject.stubs(:http_post).returns response
+
+      save
+    end
   end
 
   describe "catalog transformation methods" do

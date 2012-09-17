@@ -36,5 +36,18 @@ describe Puppet::Node::Puppetdb do
 
       CGI.unescape(@sent_payload).should == payload
     end
+
+    it "should log a deprecation warning if one is returned from PuppetDB" do
+      response['x-deprecation'] = 'A horrible deprecation warning!'
+      response.stubs(:body).returns '{"uuid": "a UUID"}'
+
+      Puppet.expects(:deprecation_warning).with do |msg|
+        msg =~ /A horrible deprecation warning!/
+      end
+
+      subject.stubs(:http_post).returns response
+
+      destroy
+    end
   end
 end

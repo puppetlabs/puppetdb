@@ -113,6 +113,24 @@ describe Puppet::Node::Facts::Puppetdb do
         find_facts
       }.to raise_error Puppet::Error, /Everything is terrible!/
     end
+
+    it "should log a deprecation warning if one is returned from PuppetDB" do
+      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response['x-deprecation'] = "This is deprecated!"
+
+      body = {:name => 'some_node',
+              :facts => {}}.to_pson
+
+      response.stubs(:body).returns body
+
+      subject.stubs(:http_get).returns response
+
+      Puppet.expects(:deprecation_warning).with do |msg|
+        msg =~ /This is deprecated!/
+      end
+
+      find_facts
+    end
   end
 
   describe "#search" do
@@ -246,6 +264,19 @@ describe Puppet::Node::Facts::Puppetdb do
       expect do
         search_facts(nil)
       end.to raise_error(Puppet::Error, /Could not perform inventory search from PuppetDB at localhost:0: \[400 Bad Request\] Something bad happened!/)
+    end
+
+    it "should log a deprecation warning if one is returned from PuppetDB" do
+      response['x-deprecation'] = "This is deprecated!"
+      response.stubs(:body).returns '[]'
+
+      subject.stubs(:http_get).returns response
+
+      Puppet.expects(:deprecation_warning).with do |msg|
+        msg =~ /This is deprecated!/
+      end
+
+      search_facts(nil)
     end
   end
 end
