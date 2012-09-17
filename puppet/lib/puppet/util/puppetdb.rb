@@ -37,7 +37,7 @@ module Puppet::Util::Puppetdb
     for_whom = " for #{request.key}" if request.key
 
     begin
-      response = http_post(request, "/commands", "checksum=#{checksum}&payload=#{payload}", headers)
+      response = http_post(request, "/v1/commands", "checksum=#{checksum}&payload=#{payload}", headers)
 
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
