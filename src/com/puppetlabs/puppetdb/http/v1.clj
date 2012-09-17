@@ -16,7 +16,7 @@
     ["facts" &]
     {:get facts-app}
 
-    ["nodes"]
+    ["nodes" &]
     {:get node-app}
 
     ["resources"]
