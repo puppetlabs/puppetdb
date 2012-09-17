@@ -13,9 +13,8 @@
     ["commands" &]
     {:post command-app}
 
-    ["facts" node]
-    {:get (fn [req]
-            (facts-app (assoc-in req [:params "node"] node)))}
+    ["facts" &]
+    {:get facts-app}
 
     ["nodes"]
     {:get node-app}
