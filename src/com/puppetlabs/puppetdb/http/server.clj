@@ -4,6 +4,7 @@
 ;; application.
 
 (ns com.puppetlabs.puppetdb.http.server
+  (:require [clojure.tools.logging :as log])
   (:use [com.puppetlabs.puppetdb.http.v1 :only (v1-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
@@ -12,7 +13,14 @@
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]
-        [ring.util.response :only (redirect)]))
+        [ring.util.response :only (redirect header)]))
+
+(defn backward-compatible-v1-app
+  [request]
+  (let [result (v1-app request)
+        warning (format "Use of unversioned APIs is deprecated; please use /v1%s" (:uri request))]
+    (log/warn warning)
+    (header result "X-Deprecation" warning)))
 
 (def routes
   (app
@@ -24,7 +32,7 @@
 
     ;; Mount the v1 app at / for backward compatibility with unversioned API
     [&]
-    {:any v1-app}))
+    {:any backward-compatible-v1-app}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests
