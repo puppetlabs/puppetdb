@@ -27,7 +27,8 @@
             [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
-  (:use [clj-http.util :only (url-encode)]
+  (:use com.puppetlabs.middleware
+        [clj-http.util :only (url-encode)]
         [cheshire.custom :only (JSONable)]
         [net.cgrand.moustache :only (app)]))
 
@@ -88,4 +89,4 @@
    {:get (fn [req] (get-mbean name))}))
 
 (def metrics-app
-  (pl-http/must-accept-type routes "application/json"))
+  (verify-accepts-json routes))
