@@ -43,6 +43,37 @@
     (let [new-req (assoc req :globals globals)]
       (app new-req))))
 
+(defn verify-accepts-content-type
+  [app content-type]
+  (fn [{:keys [headers] :as req}]
+    (if (pl-http/acceptable-content-type
+          content-type
+          (headers "accept"))
+      (app req)
+      (rr/status (rr/response (str "must accept " content-type))
+                 pl-http/status-not-acceptable))))
+
+(defn verify-param-exists
+  [app param]
+  (fn [{:keys [params] :as req}]
+    (if (params param)
+      (app req)
+      (pl-http/error-response (str "missing " param)))))
+
+(def verify-accepts-json
+  (fn [app]
+   (verify-accepts-content-type app "application/json")))
+
+(defn verify-checksum
+  [app]
+  (fn [{:keys [params] :as req}]
+    (let [expected-checksum (params "checksum")
+          payload           (params "payload")]
+      (if (and expected-checksum
+               (not= expected-checksum (utils/utf8-string->sha1 payload)))
+        (pl-http/error-response "checksums don't match")
+        (app req)))))
+
 (defn wrap-with-metrics*
   "Ring middleware that will tack performance counters for each
   URL. Arguments are the same as for `wrap-with-metrics`, except:

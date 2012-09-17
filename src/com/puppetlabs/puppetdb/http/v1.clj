@@ -10,7 +10,7 @@
 
 (def v1-app
   (app
-    ["commands"]
+    ["commands" &]
     {:post command-app}
 
     ["facts" node]
