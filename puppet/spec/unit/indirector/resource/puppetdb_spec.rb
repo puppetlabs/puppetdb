@@ -28,6 +28,21 @@ describe Puppet::Resource::Puppetdb do
       search("exec").should == []
     end
 
+    it "should log a deprecation warning if one is returned from PuppetDB" do
+      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response['x-deprecation'] = "Deprecated, yo."
+
+      response.stubs(:body).returns '[]'
+
+      subject.stubs(:http_get).returns response
+
+      Puppet.expects(:deprecation_warning).with do |msg|
+        msg =~ /Deprecated, yo\./
+      end
+
+      search("exec")
+    end
+
     it "should fail it can't connect to the PuppetDB server" do
       expect { search("user") }.to raise_error(Puppet::Error, /Could not retrieve resources/)
     end
@@ -65,7 +80,7 @@ describe Puppet::Resource::Puppetdb do
 
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
           path, query_string = uri.split('?query=')
-          path == '/resources' and PSON.load(CGI.unescape(query_string)) == query
+          path == '/v1/resources' and PSON.load(CGI.unescape(query_string)) == query
         end.returns response
       end
 

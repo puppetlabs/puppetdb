@@ -4,13 +4,8 @@
 ;; application.
 
 (ns com.puppetlabs.puppetdb.http.server
-  (:use [com.puppetlabs.puppetdb.http.command :only (command-app)]
-        [com.puppetlabs.puppetdb.http.facts :only (facts-app)]
-        [com.puppetlabs.puppetdb.http.metrics :only (metrics-app)]
-        [com.puppetlabs.puppetdb.http.version :only (version-app)]
-        [com.puppetlabs.puppetdb.http.resources :only (resources-app)]
-        [com.puppetlabs.puppetdb.http.node :only (node-app)]
-        [com.puppetlabs.puppetdb.http.status :only (status-app)]
+  (:require [clojure.tools.logging :as log])
+  (:use [com.puppetlabs.puppetdb.http.v1 :only (v1-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
@@ -18,37 +13,26 @@
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]
-        [ring.util.response :only (redirect)]))
+        [ring.util.response :only (redirect header)]))
+
+(defn backward-compatible-v1-app
+  [request]
+  (let [result (v1-app request)
+        warning (format "Use of unversioned APIs is deprecated; please use /v1%s" (:uri request))]
+    (log/warn warning)
+    (header result "X-Deprecation" warning)))
 
 (def routes
   (app
-   ["facts" node]
-   {:get (fn [req]
-           (facts-app (assoc-in req [:params "node"] node)))}
+    ["v1" &]
+    {:any v1-app}
 
-   ["nodes"]
-   {:get node-app}
+    ["experimental" &]
+    {:any experimental-app}
 
-   ["resources"]
-   {:get resources-app}
-
-   ["experimental" &]
-   {:get experimental-app}
-
-   ["commands"]
-   {:post command-app}
-
-   ["status" &]
-   {:get status-app}
-
-   ["metrics" &]
-   {:get metrics-app}
-
-   ["version" &]
-   {:get version-app}
-
-   [""]
-   {:get (constantly (redirect "/dashboard/index.html"))}))
+    ;; Mount the v1 app at / for backward compatibility with unversioned API
+    [&]
+    {:any backward-compatible-v1-app}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests

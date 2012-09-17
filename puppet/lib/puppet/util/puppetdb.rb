@@ -37,7 +37,9 @@ module Puppet::Util::Puppetdb
     for_whom = " for #{request.key}" if request.key
 
     begin
-      response = http_post(request, "/commands", "checksum=#{checksum}&payload=#{payload}", headers)
+      response = http_post(request, "/v1/commands", "checksum=#{checksum}&payload=#{payload}", headers)
+
+      log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
@@ -61,8 +63,6 @@ module Puppet::Util::Puppetdb
 
     CharEncoding.utf8_string(message)
   end
-
-
 
   private
 
@@ -117,5 +117,11 @@ module Puppet::Util::Puppetdb
       "Accept" => "application/json",
       "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
     }
+  end
+
+  def log_x_deprecation_header(response)
+    if warning = response['x-deprecation']
+      Puppet.deprecation_warning "Deprecation from PuppetDB: #{warning}"
+    end
   end
 end

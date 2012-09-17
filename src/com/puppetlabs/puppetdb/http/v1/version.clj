@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.version
+(ns com.puppetlabs.puppetdb.http.v1.version
   (:require [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.utils :only [version update-info]]
