@@ -19,7 +19,7 @@
     ["nodes" &]
     {:get node-app}
 
-    ["resources"]
+    ["resources" &]
     {:get resources-app}
 
     ["status" &]
