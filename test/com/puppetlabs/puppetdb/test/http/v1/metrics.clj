@@ -35,7 +35,7 @@
   metrics app."
   ([path] (make-request path {}))
   ([path {keys [:content-type] :or {:content-type c-t} :as params}]
-     (let [request (request :get (format "/metrics/%s" path))
+     (let [request (request :get (format "/v1/metrics/%s" path))
            headers (:headers request)]
        (assoc request :headers (assoc headers "accept" (:content-type params))))))
 

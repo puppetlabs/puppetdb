@@ -26,7 +26,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/resources" query))))
+  ([query] (*app* (get-request "/v1/resources" query))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

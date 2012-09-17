@@ -22,7 +22,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([node] (*app* (get-request (str "/status/nodes/" node)))))
+  ([node] (*app* (get-request (str "/v1/status/nodes/" node)))))
 
 (deftest node-status
   (let [catalog   (:basic catalogs)

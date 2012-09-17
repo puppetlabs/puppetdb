@@ -14,7 +14,7 @@
 
 (defn make-request
   [post-body]
-  (let [request (request :post "/commands")]
+  (let [request (request :post "/v1/commands")]
     (-> request
         (assoc-in [:headers "accept"] "application/json")
         (body post-body))))
