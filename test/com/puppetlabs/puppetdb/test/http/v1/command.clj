@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.command
+(ns com.puppetlabs.puppetdb.test.http.v1.command
   (:require [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
@@ -14,7 +14,7 @@
 
 (defn make-request
   [post-body]
-  (let [request (request :post "/commands")]
+  (let [request (request :post "/v1/commands")]
     (-> request
         (assoc-in [:headers "accept"] "application/json")
         (body post-body))))
