@@ -93,5 +93,5 @@ to the result of the form supplied to this method."
 
     (testing "should fail if no node is specified"
       (let [response (get-response)]
-        (is (= pl-http/status-bad-request (:status response)))
+        (is (= pl-http/status-not-found (:status response)))
         (is (= "missing node") (:body response))))))

@@ -5,9 +5,8 @@
 
 (def experimental-app
   (app
-   ["catalog" node]
-   {:get (fn [req]
-           (catalog-app (assoc-in req [:params "node"] node)))}
+   ["catalog" &]
+   {:get catalog-app}
 
    ["population" &]
    {:get population-app}))
