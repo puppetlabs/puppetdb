@@ -6,7 +6,7 @@
 (def experimental-app
   (app
    ["catalog" &]
-   {:get catalog-app}
+   {:any catalog-app}
 
    ["population" &]
-   {:get population-app}))
+   {:any population-app}))

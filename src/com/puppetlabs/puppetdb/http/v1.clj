@@ -11,22 +11,22 @@
 (def v1-app
   (app
     ["commands" &]
-    {:post command-app}
+    {:any command-app}
 
     ["facts" &]
-    {:get facts-app}
+    {:any facts-app}
 
     ["nodes" &]
-    {:get node-app}
+    {:any node-app}
 
     ["resources" &]
-    {:get resources-app}
+    {:any resources-app}
 
     ["status" &]
-    {:get status-app}
+    {:any status-app}
 
     ["metrics" &]
-    {:get metrics-app}
+    {:any metrics-app}
 
     ["version" &]
-    {:get version-app}))
+    {:any version-app}))
