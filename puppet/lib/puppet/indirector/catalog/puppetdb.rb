@@ -175,8 +175,12 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
             raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} doesn't seem to be in the catalog" unless other_resource
 
-            # As above, virtual exported resources will be removed, so if a
-            # real resource refers to one, it's wrong.
+            # As above, virtual exported resources will eventually be removed,
+            # so if a real resource refers to one, it's wrong. Non-virtual
+            # exported resources are exported resources that were also
+            # collected in this catalog, so they're okay. Virtual non-exported
+            # resources can't appear in the catalog in the first place, so it
+            # suffices to check for virtual.
             if other_real_resource = catalog.resource(other_resource['type'], other_resource['title'])
               if other_real_resource.virtual?
                 raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} is exported but not collected"
