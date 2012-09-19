@@ -152,10 +152,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       # them. Puppet::Resource#to_pson_data_hash omits 'virtual', so we have to
       # look it up in the catalog to find that information. This isn't done in
       # a separate step because we don't actually want to send the field (it
-      # will always be false).
+      # will always be false). See ticket #16472.
       #
-      # The outer conditional is here because Class[main] can't properly
-      # be looked up using catalog.resource and will return nil. Yay.
+      # The outer conditional is here because Class[main] can't properly be
+      # looked up using catalog.resource and will return nil. See ticket
+      # #16473. Yay.
       if real_resource = catalog.resource(resource['type'], resource['title'])
         next if real_resource.virtual?
       end
