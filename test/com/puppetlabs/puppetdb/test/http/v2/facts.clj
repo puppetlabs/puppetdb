@@ -122,6 +122,19 @@
                                  {:node "foo3" :fact "kernel" :value "Darwin"}
                                  {:node "foo3" :fact "operatingsystem" :value "Darwin"}]
 
+                                ["and" ["=" ["fact" "name"] "uptime_seconds"]
+                                 [">" ["fact" "value"] "5000"]]
+                                [{:node "foo2" :fact "uptime_seconds" :value "6000"}]
+
+                                ["and" ["=" ["fact" "name"] "uptime_seconds"]
+                                 [">=" ["fact" "value"] "4000"]
+                                 ["<" ["fact" "value"] "6000.0"]]
+                                [{:node "foo1" :fact "uptime_seconds" :value "4000"}]
+
+                                ["and" ["=" ["fact" "name"] "domain"]
+                                 [">" ["fact" "value"] "5000"]]
+                                []
+
                                 ["or" ["=" ["fact" "name"] "kernel"]
                                  ["=" ["fact" "name"] "operatingsystem"]]
                                 [{:node "foo1" :fact "kernel" :value "Linux"}

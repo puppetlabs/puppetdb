@@ -4,7 +4,9 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [clojure.core.match :only [match]]
+  (:use [com.puppetlabs.utils :only [parse-number]]
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-as-numeric]]
+        [clojure.core.match :only [match]]
         clojureql.core))
 
 (defn facts-for-node
@@ -39,6 +41,7 @@
                (format "%s is not well-formed; queries must contain at least one operator" term))))
     (let [operator (string/lower-case op)]
       (cond
+        (#{">" "<" ">=" "<="} operator) :numeric-comparison
         (#{"and" "or"} operator) :connective
         :else operator))))
 
@@ -60,6 +63,26 @@
          [["node" "name"]]
          {:where "certname_facts.certname = ?"
           :params [value]}))
+
+(defmethod compile-term :numeric-comparison
+  [[op path value :as term]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (let [count (count term)]
+    (if (not= 3 count)
+      (throw (IllegalArgumentException.
+              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+  (if-let [number (parse-number (str value))]
+    (match [path]
+           [["fact" "value"]]
+           ;; This is like convert_to_numeric(certname_facts.value) > 0.3
+           {:where  (format "%s %s ?" (sql-as-numeric "certname_facts.value") op)
+            :params [number]}
+
+           :else (throw (IllegalArgumentException.
+                         (str term " is not a valid query term"))))
+    (throw (IllegalArgumentException.
+            (format "Value %s must be a number for %s comparison." value op)))))
 
 (defmethod compile-term "not"
   [[op & terms]]
