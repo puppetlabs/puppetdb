@@ -10,24 +10,23 @@
 
 (def v2-app
   (app
-    ["commands"]
-    {:post command-app}
+    ["commands" &]
+    {:any command-app}
 
-    ["facts" node]
-    {:get (fn [req]
-            (facts-app (assoc-in req [:params "node"] node)))}
+    ["facts" &]
+    {:any facts-app}
 
-    ["nodes"]
-    {:get node-app}
+    ["nodes" &]
+    {:any node-app}
 
-    ["resources"]
-    {:get resources-app}
+    ["resources" &]
+    {:any resources-app}
 
     ["status" &]
-    {:get status-app}
+    {:any status-app}
 
     ["metrics" &]
-    {:get metrics-app}
+    {:any metrics-app}
 
     ["version" &]
-    {:get version-app}))
+    {:any version-app}))
