@@ -3,37 +3,112 @@
 Querying facts is accomplished by making an HTTP request to the
 `/facts` REST endpoint.
 
-# Query format
+## v2
 
-Facts are queried by making a request to a URL of the following form:
+### Routes
 
-The HTTP request must conform to the following format:
+#### `GET /facts`
 
-* The URL requested is `/facts/<node>`
+This will return all facts matching the given query. If no query is supplied, all facts will be returned.
 
-* A `GET` is used.
+##### Parameters
 
-* There is an `Accept` header containing `application/json`.
+  `query`: A JSON array containing the query in prefix notation.
 
-The supplied `<node>` path component indicaates the certname for which
-facts should be retrieved.
+##### Query paths
 
-# Response format
+  `["fact", "name"]`: matches facts of the given name  
+  `["fact", "value"]`: matches facts with the given value  
+  `["node", "name"]`: matches facts for the given node  
 
-    {"name": "<node>",
-     "facts": {
-         "<fact name>": "<fact value>",
-         "<fact name>": "<fact value>",
-         ...
-        }
+##### Operators
+
+    = > < >= <= and or not
+
+##### Examples
+
+  Get the operatingsystem fact for all nodes:
+
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["fact", "name"], "operatingsystem"]'
+
+    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
+     {"node": "b.example.com", "fact": "operatingsystem", "value": "RedHat"},
+     {"node": "c.example.com", "fact": "operatingsystem", "value": "Darwin"},
+
+  Get all facts for a single node:
+
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["node", "name"], "a.example.com"]'
+
+    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
+     {"node": "a.example.com", "fact": "ipaddress", "value": "192.168.1.105"},
+     {"node": "a.example.com", "fact": "uptime_days", "value": "26 days"}]
+
+#### `GET /facts/:node`
+
+This will return all facts for the given node.
+
+##### Examples
+
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts/a.example.com
+
+    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
+     {"node": "a.example.com", "fact": "ipaddress", "value": "192.168.1.105"},
+     {"node": "a.example.com", "fact": "uptime_days", "value": "26 days"}]
+
+### Request
+
+All requests must accept `application/json`.
+
+### Response Format
+
+Successful responses will be in `application/json`. Errors will be returned as
+non-JSON strings.
+
+The result will be a JSON array, with one entry per fact. Each entry is of the form:
+
+    {
+      "node": <node name>,
+      "fact": <fact name>,
+      "value": <fact value>
     }
 
-If no facts are known for the supplied node, an HTTP 404 is returned.
 
-# Example
+## v1
 
-[You can use `curl`](curl.md) to grab facts like so:
+### Routes
 
-    curl -H "Accept: application/json" 'http://localhost:8080/facts/<node>'
+#### `GET /facts/:node`
 
-where <node> is the certname of the host you wish to view the facts for.
+This will return all facts for the given node.
+
+##### Examples
+
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts/a.example.com
+
+    {"name": "a.example.com",
+      "facts": {
+         "operatingsystem": "Debian",
+         "ipaddress": "192.168.1.105",
+         "uptime_days": "26 days",
+      }
+    }
+
+### Request
+
+All requests must accept `application/json`.
+
+### Response Format
+
+Successful responses will be in `application/json`. Errors will be returned as
+non-JSON strings.
+
+The result is a JSON object containing two keys, "name" and "facts". The
+"facts" entry is itself an object mapping fact names to values:
+
+    {"name": "<node>",
+      "facts": {
+        "<fact name>": "<fact value>",
+        "<fact name>": "<fact value>",
+        ...
+      }
+    }
