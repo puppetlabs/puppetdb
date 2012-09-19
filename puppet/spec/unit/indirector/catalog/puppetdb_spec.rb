@@ -284,7 +284,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         hash = catalog.to_pson_data_hash['data']
         subject.add_parameters_if_missing(hash)
-        result = subject.synthesize_edges(hash)
+        result = subject.synthesize_edges(hash, catalog)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'anyone'},
                 'target' => {'type' => 'Notify', 'title' => 'noone'},
@@ -293,26 +293,198 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['edges'].should include(edge)
       end
 
-      it "should properly add edges for defined types" do
-        Puppet[:code] = <<-CODE
-define foo::bar() {
-  notify { $name: }
-}
-foo::bar { foo:
-  require => Foo::Bar[bar],
-}
-foo::bar { bar: }
-        CODE
+      it "should add edges from relationship arrows" do
+        other_resource = Puppet::Resource.new(:notify, 'noone')
+        Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+        Puppet[:code] << "Notify[anyone] -> Notify[noone]"
 
         hash = catalog.to_pson_data_hash['data']
         subject.add_parameters_if_missing(hash)
-        result = subject.synthesize_edges(hash)
+        result = subject.synthesize_edges(hash, catalog)
 
-        edge = {'source' => {'type' => 'Foo::Bar', 'title' => 'bar'},
-                'target' => {'type' => 'Foo::Bar', 'title' => 'foo'},
-                'relationship' => 'required-by'}
+        edge = {'source' => {'type' => 'Notify', 'title' => 'anyone'},
+                'target' => {'type' => 'Notify', 'title' => 'noone'},
+                'relationship' => 'before'}
 
         result['edges'].should include(edge)
+      end
+
+      describe "exported resources" do
+        before :each do
+          Puppet[:storeconfigs] = true
+          Puppet[:storeconfigs_backend] = 'puppetdb'
+          Puppet::Resource.indirection.stubs(:search).returns []
+        end
+
+        let(:edge) do
+          {
+            'source' => {'type' => 'Notify', 'title' => 'source'},
+            'target' => {'type' => 'Notify', 'title' => 'target'},
+            'relationship' => 'before'
+          }
+        end
+
+        it "should add edges which refer to collected exported resources" do
+          Puppet[:code] = <<-MANIFEST
+          notify { source:
+            before => Notify[target],
+          }
+
+          @@notify { target: }
+
+          Notify <<| |>>
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should add edges defined on collected exported resources" do
+          Puppet[:code] = <<-MANIFEST
+          @@notify { source:
+            before => Notify[target],
+          }
+
+          notify { target: }
+
+          Notify <<| |>>
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should fail if an edge refers to an uncollected exported resource" do
+          Puppet[:code] = <<-MANIFEST
+          notify { source:
+            before => Notify[target],
+          }
+
+          @@notify { target: }
+          MANIFEST
+
+          expect do
+            subject.munge_catalog(catalog)
+          end.to raise_error("Can't synthesize edge: Notify[source] -before- Notify[target] (param before) because Notify[target] is exported but not collected")
+        end
+
+        it "should not add edges defined on an uncollected exported resource" do
+          Puppet[:code] = <<-MANIFEST
+          @@notify { source:
+            before => Notify[target],
+          }
+
+          notify { target: }
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should_not include(edge)
+        end
+      end
+
+      describe "virtual resources" do
+        let(:edge) do
+          {
+            'source' => {'type' => 'Notify', 'title' => 'source'},
+            'target' => {'type' => 'Notify', 'title' => 'target'},
+            'relationship' => 'before'
+          }
+        end
+
+        it "should add edges which refer to collected virtual resources" do
+          Puppet[:code] = <<-MANIFEST
+          notify { source:
+            before => Notify[target],
+          }
+
+          @notify { target: }
+
+          Notify <| |>
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should add edges defined on collected virtual resources" do
+          Puppet[:code] = <<-MANIFEST
+          @notify { source:
+            before => Notify[target],
+          }
+
+          notify { target: }
+
+          Notify <| |>
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should add edges which refer to realized virtual resources" do
+          Puppet[:code] = <<-MANIFEST
+          notify { source:
+            before => Notify[target],
+          }
+
+          @notify { target: }
+
+          realize Notify[target]
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should add edges defined on realized virtual resources" do
+          Puppet[:code] = <<-MANIFEST
+          @notify { source:
+            before => Notify[target],
+          }
+
+          notify { target: }
+
+          realize Notify[source]
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should fail if an edge refers to an uncollected virtual resource" do
+          Puppet[:code] = <<-MANIFEST
+          notify { source:
+            before => Notify[target],
+          }
+
+          @notify { target: }
+          MANIFEST
+
+          expect do
+            subject.munge_catalog(catalog)
+          end.to raise_error("Can't synthesize edge: Notify[source] -before- Notify[target] (param before) because Notify[target] doesn't seem to be in the catalog")
+        end
+
+        it "should not add edges defined on an uncollected virtual resource" do
+          Puppet[:code] = <<-MANIFEST
+          @notify { source:
+            before => Notify[target],
+          }
+
+          notify { target: }
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+
+          result['data']['edges'].should_not include(edge)
+        end
       end
 
       it "should add edges even if the other end is an alias" do
@@ -323,7 +495,7 @@ foo::bar { bar: }
         hash = catalog.to_pson_data_hash['data']
         subject.add_parameters_if_missing(hash)
         subject.add_namevar_aliases(hash, catalog)
-        result = subject.synthesize_edges(hash)
+        result = subject.synthesize_edges(hash, catalog)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
@@ -332,40 +504,12 @@ foo::bar { bar: }
         result['edges'].should include(edge)
       end
 
-      it "should not add edges from exported resources" do
-        other_resource = Puppet::Resource.new(:notify, 'noone')
-        resource[:require] = 'Notify[noone]'
-        Puppet[:code] = "@@#{resource.to_manifest}\n#{other_resource.to_manifest}"
-
-        hash = catalog.to_pson_data_hash['data']
-        subject.add_parameters_if_missing(hash)
-        result = subject.synthesize_edges(hash)
-
-        edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
-                'target' => {'type' => 'Notify', 'title' => 'anyone'},
-                'relationship' => 'required-by'}
-
-        result['edges'].should_not include(edge)
-      end
-
-      it "should complain if a non-exported resource has a relationship with an exported resource" do
-        other_resource = Puppet::Resource.new(:notify, 'noone')
-        other_resource[:before] = "Notify[anyone]"
-        Puppet[:code] = "@@#{resource.to_manifest}\n#{other_resource.to_manifest}"
-
-        hash = catalog.to_pson_data_hash['data']
-        subject.add_parameters_if_missing(hash)
-        expect {
-          subject.synthesize_edges(hash)
-        }.to raise_error(/Can't create an edge between Notify\[noone\] and exported resource Notify\[anyone\]/)
-      end
-
       it "should complain if a resource has a relationship with a non-existent resource" do
         resource[:require] = 'Notify[non-existent]'
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
-          subject.synthesize_edges(hash)
-        }.to raise_error("Can't synthesize edge: Notify\[anyone\] -required-by- Notify\[non-existent\] (param require)")
+          subject.synthesize_edges(hash, catalog)
+        }.to raise_error("Can't synthesize edge: Notify[anyone] -required-by- Notify[non-existent] (param require) because Notify[non-existent] doesn't seem to be in the catalog")
       end
     end
 
@@ -382,6 +526,18 @@ foo::bar { bar: }
                 'relationship' => 'required-by'}
 
         result['data']['edges'].should include(edge)
+      end
+
+      it "should not include virtual resources" do
+        Puppet[:code] = <<-MANIFEST
+        @notify { something: }
+        MANIFEST
+
+        result = subject.munge_catalog(catalog)
+
+        result['data']['resources'].each do |res|
+          [res['type'], res['title']].should_not == ['Notify', 'something']
+        end
       end
     end
   end
