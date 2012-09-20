@@ -15,12 +15,15 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def find(request)
     begin
-      response = http_get(request, "/v1/facts/#{request.key}", headers)
+      response = http_get(request, "/v2/facts/#{request.key}", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
-        Puppet::Node::Facts.new(result['name'], result['facts'])
+        facts = result.inject({}) do |a,h|
+          a.merge(h['fact'] => h['value'])
+        end
+        Puppet::Node::Facts.new(request.key, facts)
       elsif response.is_a? Net::HTTPNotFound
         nil
       else

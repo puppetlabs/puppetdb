@@ -67,14 +67,12 @@ describe Puppet::Node::Facts::Puppetdb do
 
   describe "#find" do
     def find_facts()
-      Puppet::Node::Facts.indirection.find('facts')
+      Puppet::Node::Facts.indirection.find('some_node')
     end
 
     it "should return the facts if they're found" do
-      facts = {'a' => '1',
-                'b' => '2'}
-      body = {:name => 'some_node',
-              :facts => facts}.to_pson
+      body = [{:node => 'some_node', :fact => 'a', :value => '1'},
+              {:node => 'some_node', :fact => 'b', :value => '2'}].to_pson
 
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
@@ -84,7 +82,7 @@ describe Puppet::Node::Facts::Puppetdb do
       result = find_facts
       result.should be_a(Puppet::Node::Facts)
       result.name.should == 'some_node'
-      result.values.should include(facts)
+      result.values.should include('a' => '1', 'b' => '2')
     end
 
     it "should return nil if no facts are found" do
@@ -118,8 +116,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response['x-deprecation'] = "This is deprecated!"
 
-      body = {:name => 'some_node',
-              :facts => {}}.to_pson
+      body = [].to_pson
 
       response.stubs(:body).returns body
 
