@@ -10,7 +10,7 @@ module PuppetDBExtensions
 
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
-  def self.initialize_test_config(options, os_families, db_module_path)
+  def self.initialize_test_config(options, os_families)
     install_type =
         get_option_value(options[:type], [:git, :manual], "install type")
 
@@ -47,7 +47,6 @@ module PuppetDBExtensions
 
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
-        :db_module_path => db_module_path,
         :os_families => os_families,
         :install_type => install_type == :manual ? :package : install_type,
         :install_mode => install_mode,
@@ -126,41 +125,18 @@ module PuppetDBExtensions
   end
 
 
-  def install_puppetdb(host)
-    os = PuppetDBExtensions.config[:os_families][host.name]
-    case os
-    when :debian
-      on host, "yes | apt-get install -y --force-yes puppetdb"
-    when :redhat
-      on host, "yum install -y puppetdb"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
+  def install_puppetdb(host, db)
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    manifest_content = <<-EOS
+    class { 'puppetdb':
+      database => '#{db}',
+    }
+    EOS
+    create_remote_file(host, manifest_path, manifest_content)
+    on host, puppet_apply("#{manifest_path}")
+    print_ini_files(host)
   end
 
-  def install_puppetdb_via_rake(host)
-    os = PuppetDBExtensions.config[:os_families][host.name]
-    case os
-    when :debian
-      preinst = "debian/puppetdb.preinst install"
-      postinst = "debian/puppetdb.postinst"
-    when :redhat
-      preinst = "dev/redhat/redhat_dev_preinst install"
-      postinst = "dev/redhat/redhat_dev_postinst install"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
-
-    on host, "rm -rf /etc/puppetdb/ssl"
-    on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
-    on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
-  end
-
-  def install_puppetdb_termini_via_rake(host)
-    on host, "#{LeinCommandPrefix} rake sourceterminus"
-  end
 
   def validate_package_version(host)
     step "Verifying package version" do
@@ -177,85 +153,96 @@ module PuppetDBExtensions
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
       PuppetAcceptance::Log.notify "Expecting package version: '#{ENV['PUPPETDB_EXPECTED_VERSION']}', actual version: '#{installed_version}'"
-      assert_equal(installed_version, ENV['PUPPETDB_EXPECTED_VERSION'])
+      if installed_version != ENV['PUPPETDB_EXPECTED_VERSION']
+        raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{ENV['PUPPETDB_EXPECTED_VERSION']}'"
+      end
     end
   end
 
-  def configure_puppetdb(host)
-    step "Configure database.ini file" do
-      manifest_path = host.tmpfile("puppetdb_manifest.pp")
-      # TODO: use more stuff from the puppetdb module once it is robust enough
-      #  to handle what we need.
-      manifest_content = <<-EOS
-  $database = '#{PuppetDBExtensions.config[:database]}'
-  $database_host = 'localhost'
 
-  file { 'puppetdb: database.ini':
-      ensure      => file,
-      path        => "/etc/puppetdb/conf.d/database.ini",
-      content     => template('puppetdb/server/database.ini.erb')
-  }
-      EOS
+  def install_puppetdb_termini(host, database)
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    manifest_content = <<-EOS
+    class { 'puppetdb::master::config':
+      puppetdb_server => '#{database.node_name}',
+    }
+    EOS
+    create_remote_file(host, manifest_path, manifest_content)
+    on host, puppet_apply("#{manifest_path}")
+  end
 
-      create_remote_file(host, manifest_path, manifest_content)
-      on host, puppet_apply("--modulepath #{PuppetDBExtensions.config[:db_module_path]} #{manifest_path}")
-    end
 
+  def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
       on host, "cat /etc/puppetdb/conf.d/jetty.ini"
     end
     step "Print out database.ini for posterity" do
       on host, "cat /etc/puppetdb/conf.d/database.ini"
     end
-
   end
 
-  def install_puppetdb_termini(host)
+  ############################################################################
+  # NOTE: the following methods should only be called during run-from-source
+  #  acceptance test runs.
+  ############################################################################
+
+  def install_postgres(host)
+    PuppetAcceptance::Log.notify "Installing postgres on #{host}"
+
+    on host, puppet_apply("-e 'include puppetdb::database::postgresql'")
+  end
+
+  def install_puppetdb_via_rake(host)
     os = PuppetDBExtensions.config[:os_families][host.name]
     case os
-    when :debian
-      on host, "apt-get install -y --force-yes puppetdb-terminus"
-    when :redhat
-      on host, "yum install -y puppetdb-terminus"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
+      when :debian
+        preinst = "debian/puppetdb.preinst install"
+        postinst = "debian/puppetdb.postinst"
+      when :redhat
+        preinst = "dev/redhat/redhat_dev_preinst install"
+        postinst = "dev/redhat/redhat_dev_postinst install"
+      else
+        raise ArgumentError, "Unsupported OS family: '#{os}'"
     end
+
+    on host, "rm -rf /etc/puppetdb/ssl"
+    on host, "#{LeinCommandPrefix} rake template"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
+    on host, "#{LeinCommandPrefix} rake install"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+
+    step "Configure database.ini file" do
+      manifest_path = host.tmpfile("puppetdb_manifest.pp")
+      manifest_content = <<-EOS
+  $database = '#{PuppetDBExtensions.config[:database]}'
+
+  class { 'puppetdb::server::database_ini':
+      database      => $database,
+  }
+      EOS
+
+      create_remote_file(host, manifest_path, manifest_content)
+      on host, puppet_apply("#{manifest_path}")
+    end
+
+    print_ini_files(host)
   end
 
-  def configure_termini(master, database)
-    step "Configure routes.yaml to talk to the PuppetDB server" do
-      routes = <<-ROUTES
-  master:
-    catalog:
-      terminus: compiler
-      cache: puppetdb
-    facts:
-      terminus: puppetdb
-      cache: yaml
-      ROUTES
-
-      routes_file = File.join(master['puppetpath'], 'routes.yaml')
-
-      create_remote_file(master, routes_file, routes)
-
-      on master, "chmod +r #{routes_file}"
-    end
-
-    step "Configure puppetdb.conf to point to the PuppetDB server" do
-      puppetdb_conf = <<-CONF
-[main]
-server = #{database.name}
-port = 8081
-      CONF
-
-      puppetdb_conf_file = File.join(master['puppetpath'], 'puppetdb.conf')
-
-      create_remote_file(master, puppetdb_conf_file, puppetdb_conf)
-
-      on master, "chmod +r #{puppetdb_conf_file}"
-    end
+  def install_puppetdb_termini_via_rake(host, database)
+    on host, "#{LeinCommandPrefix} rake sourceterminus"
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    manifest_content = <<-EOS
+    include puppetdb::master::storeconfigs
+    class { 'puppetdb::master::puppetdb_conf':
+      server => '#{database.node_name}',
+    }
+    include puppetdb::master::routes
+    EOS
+    create_remote_file(host, manifest_path, manifest_content)
+    on host, puppet_apply("#{manifest_path}")
   end
 
+  ###########################################################################
 
 
   def stop_puppetdb(host)
