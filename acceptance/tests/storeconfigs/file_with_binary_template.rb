@@ -40,7 +40,7 @@ file { "/tmp/myfile":
   on master, "chmod -R +rX #{tmpdir}"
   on master, "chmod -R +rX #{moduledir}"
 
-  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --autosign true --manifest #{manifest_file} --modulepath #{moduledir}", :preserve_ssl => true do
+  with_master_running_on master, "--autosign true --manifest #{manifest_file} --modulepath #{moduledir}", :preserve_ssl => true do
 
     step "Run agent to submit catalog" do
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2]

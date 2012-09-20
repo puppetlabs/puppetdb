@@ -21,7 +21,7 @@ node "#{name}" {
 
   on master, "chmod -R +rX #{tmpdir}"
 
-  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --autosign true --manifest #{manifest_file}", :preserve_ssl => true do
+  with_master_running_on master, "--autosign true --manifest #{manifest_file}", :preserve_ssl => true do
 
     step "Run agent once to populate database" do
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2]

@@ -28,7 +28,7 @@ MANIFEST
 
   on master, "chmod -R +rX #{tmpdir}"
 
-  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --autosign true --manifest #{manifest_file}", :preserve_ssl => true do
+  with_master_running_on master, "--autosign true --manifest #{manifest_file}", :preserve_ssl => true do
 
     step "Run exporters to populate the database" do
       run_agent_on exporter1, "--test --server #{master}", :acceptable_exit_codes => [0,2]
