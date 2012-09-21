@@ -1,5 +1,4 @@
 os_families = {}
-module_path = nil
 
 step "Determine host OS's" do
   os_families = hosts.inject({}) do |result, host|
@@ -8,10 +7,6 @@ step "Determine host OS's" do
   end
 end
 
-step "Determine module path on database node" do
-  module_path = database.tmpfile("puppetdb_modulepath")
-end
-
 PuppetDBExtensions.initialize_test_config(options,
-            os_families, module_path)
+            os_families)
 
