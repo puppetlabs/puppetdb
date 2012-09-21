@@ -116,7 +116,8 @@ module PuppetDBExtensions
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     manifest_content = <<-EOS
     class { 'puppetdb':
-      database => '#{db}',
+      database               => '#{db}',
+      manage_redhat_firewall => false,
     }
     EOS
     create_remote_file(host, manifest_path, manifest_content)
@@ -176,7 +177,14 @@ module PuppetDBExtensions
   def install_postgres(host)
     PuppetAcceptance::Log.notify "Installing postgres on #{host}"
 
-    on host, puppet_apply("-e 'include puppetdb::database::postgresql'")
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    manifest_content = <<-EOS
+    class { 'puppetdb::database::postgresql':
+      manage_redhat_firewall => false,
+    }
+    EOS
+    create_remote_file(host, manifest_path, manifest_content)
+    on host, puppet_apply("#{manifest_path}")
   end
 
   def install_puppetdb_via_rake(host)
