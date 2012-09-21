@@ -1,3 +1,8 @@
+1.0.0
+=========
+The 1.0.0 release contains no changes from 0.11.0 with the exception
+of a minor packaging change.
+
 0.11.0
 =========
 
