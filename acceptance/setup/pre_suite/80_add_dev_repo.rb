@@ -4,7 +4,9 @@ os = test_config[:os_families][database.name]
 step "Add development repository on PuppetDB server" do
   case os
   when :debian
+    # TODO: this could be (maybe?) ported over to use the puppetlabs-apt module.
     on database, "echo deb http://apt-dev.puppetlabs.lan $(lsb_release -sc) main >> /etc/apt/sources.list"
+    on database, "curl http://apt-dev.puppetlabs.lan/pubkey.gpg |apt-key add -"
     on database, "apt-get update"
   when :redhat
     create_remote_file database, '/etc/yum.repos.d/puppetlabs-prerelease.repo', <<-REPO.gsub(' '*6, '')
