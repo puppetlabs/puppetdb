@@ -118,6 +118,7 @@ module PuppetDBExtensions
     class { 'puppetdb':
       database               => '#{db}',
       manage_redhat_firewall => false,
+      puppetdb_version       => 'latest',
     }
     EOS
     create_remote_file(host, manifest_path, manifest_content)
@@ -152,7 +153,8 @@ module PuppetDBExtensions
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     manifest_content = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server => '#{database.node_name}',
+      puppetdb_server   => '#{database.node_name}',
+      puppetdb_version  => 'latest',
     }
     EOS
     create_remote_file(host, manifest_path, manifest_content)
