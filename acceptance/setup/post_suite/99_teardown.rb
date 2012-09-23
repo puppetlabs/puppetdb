@@ -19,13 +19,14 @@ step "Stop puppetdb" do
   stop_puppetdb(database)
 end
 
-
-if (test_config[:install_type] == :package)
-  step "Uninstall packages" do
-    uninstall_package(database, test_config[:os_families], "puppetdb")
-    uninstall_package(master, test_config[:os_families], "puppetdb-terminus")
-    hosts.each do |host|
-      uninstall_package(host, test_config[:os_families], "puppet")
+if (test_config[:purge_after_run])
+  if (test_config[:install_type] == :package)
+    step "Uninstall packages" do
+      uninstall_package(database, test_config[:os_families], "puppetdb")
+      uninstall_package(master, test_config[:os_families], "puppetdb-terminus")
+      hosts.each do |host|
+        uninstall_package(host, test_config[:os_families], "puppet")
+      end
     end
   end
 end

@@ -36,6 +36,11 @@ module PuppetDBExtensions
         get_option_value(options[:puppetdb_use_proxies],
           [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
 
+    purge_after_run =
+        get_option_value(options[:puppetdb_purge_after_run],
+          [:true, :false],
+          "'purge packages and perform exhaustive cleanup after run'",
+          "PUPPETDB_PURGE_AFTER_RUN", :false)
 
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
@@ -45,7 +50,8 @@ module PuppetDBExtensions
         :database => database,
         :validate_package_version => validate_package_version == :true,
         :expected_package_version => expected_package_version,
-        :use_proxies => use_proxies == :true
+        :use_proxies => use_proxies == :true,
+        :purge_after_run => purge_after_run == :true,
     }
   end
 
