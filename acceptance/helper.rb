@@ -154,6 +154,7 @@ module PuppetDBExtensions
     end
   end
 
+
   def install_puppetdb_termini(host, database)
     manifest = <<-EOS
     class { 'puppetdb::master::config':
@@ -162,7 +163,6 @@ module PuppetDBExtensions
     }
     EOS
     apply_manifest_on(host, manifest)
-    stop_puppet_master_service(host)
   end
 
 
@@ -278,10 +278,6 @@ module PuppetDBExtensions
     rescue Timeout::Error => e
       raise "Queue took longer than allowed #{timeout} seconds to empty"
     end
-  end
-
-  def stop_puppet_master_service(host)
-    on host, "service puppetmaster stop"
   end
 
   def apply_manifest_on(host, manifest_content)
