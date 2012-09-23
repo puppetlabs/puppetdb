@@ -283,7 +283,7 @@ module PuppetDBExtensions
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     create_remote_file(host, manifest_path, manifest_content)
     PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
-    on host, puppet_apply("#{manifest_path}")
+    on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 end
 
