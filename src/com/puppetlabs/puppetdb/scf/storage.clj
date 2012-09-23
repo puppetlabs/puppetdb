@@ -102,8 +102,8 @@ must be supplied as the value to be matched."
 
 (defmethod sql-as-numeric "PostgreSQL"
   [column]
-  (format (str "CASE WHEN %s~'^\\d+$' THEN %s::integer "
-               "WHEN %s~'^\\d+\\.\\d+$' THEN %s::float "
+  (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::integer "
+               "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
                "ELSE NULL END")
           column column column column))
 
