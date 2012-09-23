@@ -32,15 +32,23 @@ end
 
 
 def install_puppet_on_host(host, os)
+  # We have to install the puppet master package even though we
+  # are always running the master from the command line rather
+  # than as a service, because the puppetdb module expects it
+  # to be available as a service that it can restart.
   case os
   when :debian
-    on host, "apt-get install -y puppet"
+    on host, "apt-get install -y puppet puppetmaster"
   when :redhat
-    on host, "yum install -y puppet"
+    on host, "yum install -y puppet puppet-server"
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end
+  # Now we need to stop the service because our tests expect to be able
+  # to start the master from the command line.
+  stop_puppet_master_service(host)
 end
+
 
 def install_puppet_from_package(os_families)
   step "Add Puppet Labs repositories" do
