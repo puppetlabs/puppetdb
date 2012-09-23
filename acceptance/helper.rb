@@ -156,10 +156,14 @@ module PuppetDBExtensions
 
 
   def install_puppetdb_termini(host, database)
+    # We pass 'restart_puppet' => false to prevent the module from trying to
+    # manage the puppet master service, which isn't actually installed on the
+    # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
     class { 'puppetdb::master::config':
       puppetdb_server   => '#{database.node_name}',
       puppetdb_version  => 'latest',
+      restart_puppet    => false,
     }
     EOS
     apply_manifest_on(host, manifest)
