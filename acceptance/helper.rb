@@ -129,6 +129,7 @@ module PuppetDBExtensions
     EOS
     apply_manifest_on(host, manifest)
     print_ini_files(host)
+    sleep_until_started(host)
   end
 
 
