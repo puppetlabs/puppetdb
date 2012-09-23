@@ -112,17 +112,16 @@ module PuppetDBExtensions
   end
 
 
+
   def install_puppetdb(host, db)
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+    manifest = <<-EOS
     class { 'puppetdb':
       database               => '#{db}',
       manage_redhat_firewall => false,
       puppetdb_version       => 'latest',
     }
     EOS
-    create_remote_file(host, manifest_path, manifest_content)
-    on host, puppet_apply("#{manifest_path}")
+    apply_manifest_on(host, manifest)
     print_ini_files(host)
   end
 
@@ -150,15 +149,13 @@ module PuppetDBExtensions
 
 
   def install_puppetdb_termini(host, database)
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+    manifest = <<-EOS
     class { 'puppetdb::master::config':
       puppetdb_server   => '#{database.node_name}',
       puppetdb_version  => 'latest',
     }
     EOS
-    create_remote_file(host, manifest_path, manifest_content)
-    on host, puppet_apply("#{manifest_path}")
+    apply_manifest_on(host, manifest)
   end
 
 
@@ -179,14 +176,12 @@ module PuppetDBExtensions
   def install_postgres(host)
     PuppetAcceptance::Log.notify "Installing postgres on #{host}"
 
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+    manifest = <<-EOS
     class { 'puppetdb::database::postgresql':
       manage_redhat_firewall => false,
     }
     EOS
-    create_remote_file(host, manifest_path, manifest_content)
-    on host, puppet_apply("#{manifest_path}")
+    apply_manifest_on(host, manifest)
   end
 
   def install_puppetdb_via_rake(host)
@@ -209,8 +204,7 @@ module PuppetDBExtensions
     on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
 
     step "Configure database.ini file" do
-      manifest_path = host.tmpfile("puppetdb_manifest.pp")
-      manifest_content = <<-EOS
+      manifest = <<-EOS
   $database = '#{PuppetDBExtensions.config[:database]}'
 
   class { 'puppetdb::server::database_ini':
@@ -218,8 +212,7 @@ module PuppetDBExtensions
   }
       EOS
 
-      create_remote_file(host, manifest_path, manifest_content)
-      on host, puppet_apply("#{manifest_path}")
+      apply_manifest_on(host, manifest)
     end
 
     print_ini_files(host)
@@ -227,16 +220,15 @@ module PuppetDBExtensions
 
   def install_puppetdb_termini_via_rake(host, database)
     on host, "#{LeinCommandPrefix} rake sourceterminus"
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+
+    manifest = <<-EOS
     include puppetdb::master::storeconfigs
     class { 'puppetdb::master::puppetdb_conf':
       server => '#{database.node_name}',
     }
     include puppetdb::master::routes
     EOS
-    create_remote_file(host, manifest_path, manifest_content)
-    on host, puppet_apply("#{manifest_path}")
+    apply_manifest_on(host, manifest)
   end
 
   ###########################################################################
@@ -279,6 +271,13 @@ module PuppetDBExtensions
     rescue Timeout::Error => e
       raise "Queue took longer than allowed #{timeout} seconds to empty"
     end
+  end
+
+  def apply_manifest_on(host, manifest_content)
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    create_remote_file(host, manifest_path, manifest_content)
+    PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
+    on host, puppet_apply("#{manifest_path}")
   end
 end
 
