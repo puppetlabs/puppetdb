@@ -33,12 +33,14 @@
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
-  [response body]
+  [response expected]
   (is (= pl-http/status-ok   (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
-  (is (= body (if (:body response)
-                (set (json/parse-string (:body response) true))
-                nil)) (str response)))
+  (let [actual (if (:body response)
+                   (set (json/parse-string (:body response) true))
+                   nil)]
+    (is (= actual expected)
+        (str response))))
 
 (deftest test-node-handler
   (let [names     #{"node_a" "node_b" "node_c" "node_d" "node_e"}
@@ -88,7 +90,7 @@ to the result of the form supplied to this method."
                     or-result  (apply set/union results)
                     not-expr   (cons "not" exprs)
                     not-result (apply set/difference names results)]]
-        (testing (str exprs " => " results)
+        (testing (str (vec exprs) " => " (vec results))
           (is-response-equal (get-response and-expr) and-result)
           (is-response-equal (get-response or-expr) or-result)
           (is-response-equal (get-response not-expr) not-result))))
