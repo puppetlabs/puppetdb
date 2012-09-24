@@ -3,8 +3,8 @@
   (:require [com.puppetlabs.mq :as mq]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
-            [com.puppetlabs.puppetdb.scf.migrate :as scf]
-            [fs.core :as fs]))
+            [fs.core :as fs])
+  (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]))
 
 (defn test-db-config
   "This is a placeholder function; it is supposed to return a map containing
@@ -60,7 +60,7 @@
   that exist within it.  Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
   []
-  (doseq [table-name (cons "test" scf/table-names)] (drop-table! table-name)))
+  (doseq [table-name (cons "test" (sql-current-connection-table-names))] (drop-table! table-name)))
 
 (defmacro with-test-broker
   "Constructs and starts an embedded MQ, and evaluates `body` inside a

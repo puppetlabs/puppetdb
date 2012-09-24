@@ -33,7 +33,8 @@
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
         [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]))
+        [metrics.timers :only (timer time!)]
+        [com.puppetlabs.jdbc :only [query-to-vec]]))
 
 (defn sql-current-connection-database-name
   "Return the database product name currently in use."
@@ -51,6 +52,15 @@
         minor (.getDatabaseMinorVersion db-metadata)]
     [major minor]))
 
+(defn sql-current-connection-table-names
+  "Return all of the table names that are present in the database based on the
+  current connection.  This is most useful for debugging / testing  purposes
+  to allow introspection on the database.  (Some of our unit tests rely on this.)"
+  []
+  (let [query   "SELECT table_name FROM information_schema.tables WHERE LOWER(table_schema) = 'public'"
+        results (sql/transaction (query-to-vec query))]
+    (map :table_name results)))
+
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
@@ -63,7 +73,7 @@
 (defmulti sql-array-type-string
   "Returns a string representing the correct way to declare an array
   of the supplied base database type."
-  ;; Dispatch based on databsae from the metadata of DB connection at the time
+  ;; Dispatch based on database from the metadata of DB connection at the time
   ;; of call; this copes gracefully with multiple connection types.
   (fn [_] (sql-current-connection-database-name)))
 
