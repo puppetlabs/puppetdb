@@ -26,9 +26,41 @@
         [clojure.set :only (difference union)]
         [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
-        [clj-time.coerce :only [ICoerce]]
+        [clj-time.coerce :only [ICoerce to-date-time]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
+
+;; ## Type checking
+
+(def string-or-nil? (some-fn string? nil?))
+
+(defn array?
+  "Returns true if `x` is an array"
+  [x]
+  (-?> x
+    (class)
+    (.isArray)))
+
+(defn datetime?
+  "Predicate returning whether or not the supplied object is
+  convertible to a Joda DateTime"
+  [x]
+  (and
+    (satisfies? ICoerce x)
+    (not (nil? (to-date-time x)))))
+
+;; TODO: no one besides us is ever going to use this, but I'm not sure where
+;; else to put it.  Seems goofy to create a "utils.internal" namespace?
+(defn keywords-fn-pair?
+  "Predicate that expects to be passed a two-element list; the first element
+  should be a list of keywords, and the second element should be a function.
+  This is the data structure required by some of our map utility functions, so
+  this is mostly used to validate input to those functions via preconditions."
+  [[ks fn]]
+  (and
+    (coll? ks)
+    (every? keyword? ks)
+    (fn? fn)))
 
 ;; ## I/O
 
@@ -102,10 +134,14 @@
        (constructor item))))
 
 (defn mapvals
-  "Return map `m`, with each value transformed by function `f`"
-  [f m]
-  (into {} (concat (for [[k v] m]
-                     [k (f v)]))))
+  "Return map `m`, with each value transformed by function `f`.
+
+  You may also provide an optional list of keys `ks`; if provided, only the
+  specified keys will be modified."
+  ([f m]
+    (mapvals f m (keys m)))
+  ([f m ks]
+    (reduce (fn [m k] (update-in m [k] f)) m ks)))
 
 (defn mapkeys
   "Return map `m`, with each key transformed by function `f`"
@@ -113,12 +149,46 @@
   (into {} (concat (for [[k v] m]
                      [(f k) v]))))
 
-(defn array?
-  "Returns true if `x` is an array"
-  [x]
-  (-?> x
-       (class)
-       (.isArray)))
+(defn maptrans
+  "Return map `m`, with values transformed according to the key-to-function
+  mappings specified in `keys-fns`.  `keys-fns` should be a map whose keys
+  are lists of keys from `m`, and whose values are functions to apply to those
+  keys.
+
+  Example: `(maptrans {[:a, :b] inc [:c] dec} {:a 1 :b 1 :c 1})` yields `{:a 2, :c 0, :b 2}`"
+  [keys-fns m]
+  {:pre [(map? keys-fns)
+         (every? keywords-fn-pair? keys-fns)
+         (map? m)]}
+  (let [ks (keys keys-fns)]
+    (reduce (fn [m k] (mapvals (keys-fns k) m k)) m ks)))
+
+(defn validate-map
+  "A utility function for validating the contents of a map.  Throws
+  `IllegalArgumentException` if the contents of the map are not valid.
+
+  Requires three arguments:
+
+  * `desc`: A description of the object/map that you are validating; this will
+    be used to create a descriptive error message in the event that the map is
+    not valid.
+  * `m`: The map to validate.
+  * `key-defs`: The definitions of the keys should exist in the map, and how they
+    should be validated.  This argument should be a list of triples.  Each triple
+    should consist of:
+      * the key to validate
+      * a predicate function to apply to the value of that key in the map to test
+        its validity, and
+      * a string describing the expected type of the value, used to create an
+        more useful error message explaining why the validation failed if it does."
+  [desc m key-defs]
+  (doseq [[required-key validate-fn type-desc] key-defs]
+    (when-not (contains? m required-key)
+      (throw (IllegalArgumentException. (format "%s is missing required key %s" desc required-key))))
+    (when-not (validate-fn (required-key m))
+      (throw (IllegalArgumentException.
+                (format "%s data is invalid for key %s; expected type '%s', got '%s'"
+                  desc required-key type-desc (required-key m)))))))
 
 (defn keyset
   "Retuns the set of keys from the supplied map"
@@ -135,12 +205,6 @@
   (set (vals m)))
 
 ;; ## Date and Time
-
-(defn datetime?
-  "Predicate returning whether or not the supplied object is
-  convertible to a Joda DateTime"
-  [x]
-  (satisfies? ICoerce x))
 
 (defn timestamp
   "Returns a timestamp string for the given `time`, or the current time if none

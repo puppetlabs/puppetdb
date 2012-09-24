@@ -163,6 +163,62 @@
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
+(defn add-events-tables
+  "Add a resource_events and event_groups tables."
+  []
+  ;; TODO: add additional fields for data source, puppet version, report version?
+  (sql/create-table :event_groups
+    ;; TODO: what should the max length be for this field?  It's a PK so it'd be
+    ;; nice to keep it reasonably short, but since we're asking users to generate it...
+    ;; Right now I have it nice and long so that I can send up tons of info in
+    ;; it (pupppet version, report version, etc.)
+    ["group_id" "VARCHAR(120)" "NOT NULL" "PRIMARY KEY"]
+    ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ;; TODO: eventually we'll probably want to make this one allow nulls so that
+    ;;  we can stream events.  Also, might be better to store duration instead
+    ;;  of end_time?
+    ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
+
+  (sql/create-table :resource_events
+    ;; TODO: what should the max length be for this field?  See notes on :event_groups table
+    ["event_group_id" "VARCHAR(120)" "NOT NULL" "REFERENCES event_groups(group_id)" "ON DELETE CASCADE"]
+    ;; TODO: this will probably need to reference the certnames table.
+    ["certname" "TEXT" "NOT NULL"]
+    ;; TODO: this one is probably an enumeration, but we could just enforce that in the code?
+    ["status" "VARCHAR(40)" "NOT NULL"]
+    ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ["resource_type" "TEXT" "NOT NULL"]
+    ["resource_title" "TEXT" "NOT NULL"]
+    ;; TODO: I wish these next two could be "NOT NULL", but for now we are
+    ;; fabricating skipped resources as events, and in those cases we don't
+    ;; have any legitimate values to put into these fields.
+    ["property_name" "VARCHAR(40)"]
+    ["property_value" "TEXT"]
+    ["previous_value" "TEXT"]
+    ["message" "TEXT"])
+
+  ;; probably should revisit this list of indexes
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_event_group_id ON resource_events(event_group_id)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_certname ON resource_events(certname)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)"))
+
+;; A list of all of the table names that are present in the most recent version
+;; of the schema.  This is most useful for debugging / testing  purposes (to allow
+;; introspection on the database.  (Some of our unit tests rely on this.)
+(def table-names
+  ["catalog_resources" "catalogs" "certname_catalogs" "certname_facts"
+   "certname_facts_metadata" "certnames" "classes" "edges" "resource_params"
+   "schema_migrations" "tags" "resource_events" "event_groups"])
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -170,7 +226,8 @@
    2 allow-node-deactivation
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
-   5 add-missing-indexes})
+   5 add-missing-indexes
+   6 add-events-tables})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
