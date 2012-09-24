@@ -20,6 +20,7 @@
 
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.event :as event]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -624,7 +625,7 @@ must be supplied as the value to be matched."
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
-facts associated with the certname."
+  facts associated with the certname."
   [certname facts timestamp]
   {:pre [(utils/datetime? timestamp)]}
   (let [default-row {:certname certname}
@@ -649,3 +650,20 @@ facts associated with the certname."
          (sql/transaction
           (delete-facts! name)
           (add-facts! name values timestamp))))
+
+(defn add-event-group!
+  "Add an event group and all of the associated events."
+  [event-group timestamp]
+  {:pre [(map? event-group)
+         (utils/datetime? timestamp)]}
+  (let [group-id (:group-id event-group)
+        resource-event-rows (map #(event/resource-event-to-sql % group-id)
+                                  (:resource-events event-group))]
+    ;; TODO: metrics?
+    (sql/transaction
+      (sql/insert-record :event_groups
+        { :group_id (:group-id event-group)
+          :start_time (to-timestamp (:start-time event-group))
+          :end_time (to-timestamp (:end-time event-group))
+          :receive_time (to-timestamp timestamp)})
+      (apply sql/insert-records :resource_events resource-event-rows))))

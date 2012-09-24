@@ -6,6 +6,7 @@
 (ns com.puppetlabs.puppetdb.http.server
   (:require [clojure.tools.logging :as log])
   (:use [com.puppetlabs.puppetdb.http.v1 :only (v1-app)]
+        [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
@@ -26,6 +27,9 @@
   (app
     ["v1" &]
     {:any v1-app}
+
+    ["v2" &]
+    {:any v2-app}
 
     ["experimental" &]
     {:any experimental-app}

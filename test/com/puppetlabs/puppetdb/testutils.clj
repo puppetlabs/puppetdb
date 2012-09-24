@@ -1,9 +1,12 @@
 (ns com.puppetlabs.puppetdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
+            [com.puppetlabs.http :as pl-http]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
-            [fs.core :as fs]))
+            [cheshire.core :as json]
+            [fs.core :as fs])
+  (:use clojure.test))
 
 (defn test-db
   "Return a map of connection attrs for an in-memory database"
@@ -83,3 +86,21 @@
         (enabled? [_ level] true)
         (write! [_ lvl ex msg]
           (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
+
+(def content-type-json "application/json")
+
+;; TODO: change order of arguments (expected, actual)
+(defn response-equal?
+  "Test if the HTTP request is a success, and if the result is equal
+to the result of the form supplied to this method."
+  ([response expected]
+    (response-equal? response expected identity))
+  ([response expected body-munge-fn]
+    (is (= pl-http/status-ok   (:status response)))
+    (is (= content-type-json (get-in response [:headers "Content-Type"])))
+    (let [actual  (if (:body response)
+      (set (body-munge-fn (json/parse-string (:body response) true)))
+      nil)]
+      (is (= expected actual)
+        (str response)))))
+
