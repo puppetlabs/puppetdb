@@ -53,9 +53,11 @@ Puppet::Reports.register_report(:puppetdb) do
 
   def run_duration
     # TODO: this is wrong in puppet.  I am consistently seeing reports where
-    #  start-time + this value is less than the timestamp on the individual
-    #  resource events.  Not sure what the best short-term fix is yet; the long
-    #  term fix is obviously to make the correct data available in puppet.
+    # start-time + this value is less than the timestamp on the individual
+    # resource events.  Not sure what the best short-term fix is yet; the long
+    # term fix is obviously to make the correct data available in puppet.
+    # I've filed a ticket against puppet here:
+    #  http://projects.puppetlabs.com/issues/16480
     metrics["time"]["total"]
   end
 
