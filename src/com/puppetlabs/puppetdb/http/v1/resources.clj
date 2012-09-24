@@ -82,19 +82,13 @@
   If the query would return more than `limit` results, `status-internal-error` is returned."
   [limit query db]
   {:pre [(and (integer? limit) (>= limit 0))]}
-  (try
+  (pl-http/with-http-error-handling
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
           (r/query->sql)
           ((partial r/limited-query-resources limit))
-          (pl-http/json-response)))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (pl-http/error-response e))
-    (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+          (pl-http/json-response)))))
 
 (defn resources-app
   "Ring app for querying resources"

@@ -101,6 +101,21 @@
            (rr/response)
            (rr/status code)))))
 
+(defmacro with-http-error-handling
+  "Provides error handling and generates HTTP error responses for ring apps.
+  Returns an HTTP Bad Request response (with the exception message) for
+  JsonParseExceptions and IllegalArgumentExceptions, and an HTTP Internal Error
+  response for IllegalStateExceptions."
+  [& body]
+  `(try
+    ~@body
+    (catch com.fasterxml.jackson.core.JsonParseException e#
+      (error-response e#))
+    (catch IllegalArgumentException e#
+      (error-response e#))
+    (catch IllegalStateException e#
+      (error-response e# status-internal-error))))
+
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments
   (from a `//`, for example) are elided from the result"

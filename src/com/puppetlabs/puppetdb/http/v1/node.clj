@@ -39,16 +39,12 @@
   "Produce a response body for a request to search for nodes based on
   `query`. If no `query` is supplied, all nodes will be returned."
   [query db]
-  (try
+  (pl-http/with-http-error-handling
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
             sql   (node/query->sql query)
             nodes (node/search sql)]
-        (pl-http/json-response nodes)))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (pl-http/error-response e))
-    (catch IllegalArgumentException e
-      (pl-http/error-response e))))
+        (pl-http/json-response nodes)))))
 
 ;; TODO: Add an API to specify whether to include facts
 (defn node-app
