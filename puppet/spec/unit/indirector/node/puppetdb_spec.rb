@@ -5,6 +5,9 @@ require 'spec_helper'
 require 'puppet/indirector/node/puppetdb'
 
 describe Puppet::Node::Puppetdb do
+
+  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandDeactivateNode
+
   before :each do
     Puppet::Node.indirection.stubs(:terminus).returns(subject)
   end
@@ -18,11 +21,11 @@ describe Puppet::Node::Puppetdb do
   describe "#destroy" do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
 
-    it "should POST a 'deactivate node' command as a URL-encoded PSON string" do
+    it "should POST a '#{CommandDeactivateNode}' command as a URL-encoded PSON string" do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
 
       payload = {
-        :command => "deactivate node",
+        :command => CommandDeactivateNode,
         :version => 1,
         :payload => node.to_pson,
       }.to_pson

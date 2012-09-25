@@ -8,7 +8,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     catalog = munge_catalog(request.instance)
 
-    submit_command(request, catalog, 'replace catalog', 1)
+    submit_command(request, catalog, CommandReplaceCatalog, 1)
   end
 
   def find(request)
