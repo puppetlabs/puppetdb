@@ -3,6 +3,13 @@ require 'puppet/util/puppetdb/char_encoding'
 require 'digest'
 
 module Puppet::Util::Puppetdb
+
+  CommandsUrl = "/v1/commands"
+
+  CommandReplaceCatalog = "replace catalog"
+  CommandReplaceFacts = "replace facts"
+  CommandDeactivateNode = "deactivate node"
+
   def self.server
     @server, @port = load_puppetdb_config unless @server
     @server
@@ -37,7 +44,7 @@ module Puppet::Util::Puppetdb
     for_whom = " for #{request.key}" if request.key
 
     begin
-      response = http_post(request, "/v1/commands", "checksum=#{checksum}&payload=#{payload}", headers)
+      response = http_post(request, CommandsUrl, "checksum=#{checksum}&payload=#{payload}", headers)
 
       log_x_deprecation_header(response)
 
