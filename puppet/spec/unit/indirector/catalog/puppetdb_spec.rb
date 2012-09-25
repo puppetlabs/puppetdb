@@ -6,7 +6,8 @@ require 'puppet/indirector/catalog/puppetdb'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
-    Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
+    Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
+    Puppet::Util::Puppetdb.stubs(:port).returns 0
   end
 
   describe "#save" do
