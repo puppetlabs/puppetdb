@@ -105,7 +105,8 @@ module PuppetDBExtensions
 
   def sleep_until_started(host)
     curl_with_retries("start puppetdb", host, "http://localhost:8080", 0)
-    curl_with_retries("start puppetdb (ssl)", host, "https://#{host.node_name}:8081", 60)
+    curl_with_retries("start puppetdb (ssl)",
+                      host, "https://#{host.node_name}:8081", [35, 60])
   end
 
 
