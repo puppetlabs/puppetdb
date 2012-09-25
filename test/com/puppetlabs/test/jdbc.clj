@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql])
   (:use [clojure.test]
-        [com.puppetlabs.puppetdb.testutils :only (test-db)]))
+        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]))
 
 (def test-data {"absence"    "presence"
                 "abundant"   "scarce"
@@ -23,6 +23,8 @@
 
 (defn with-test-database
   [function]
+  (sql/with-connection (test-db)
+    (clear-db-for-testing!))
   (subject/with-transacted-connection (test-db)
     (sql/create-table :test
                       [:key   "VARCHAR(256)" "PRIMARY KEY"]
@@ -35,8 +37,8 @@
 
 (deftest query-to-vec
   (testing "query string only"
-    (is (= (subject/query-to-vec "SELECT key FROM test WHERE key LIKE 'ab%'")
-           (map #(hash-map :key %) ["absence" "abundant"]))))
+    (is (= (set (subject/query-to-vec "SELECT key FROM test WHERE key LIKE 'ab%'"))
+           (set (map #(hash-map :key %) ["absence" "abundant"])))))
   (testing "query with params"
     (doseq [[key value] test-data]
       (let [query  ["SELECT key, value FROM test WHERE key = ?" key]
@@ -48,8 +50,8 @@
 
 (deftest limited-query-to-vec
   (testing "query does not exceed limit"
-    (is (= (subject/limited-query-to-vec 100 "SELECT key FROM test WHERE key LIKE 'ab%'")
-          (map #(hash-map :key %) ["absence" "abundant"]))))
+    (is (= (set (subject/limited-query-to-vec 100 "SELECT key FROM test WHERE key LIKE 'ab%'"))
+           (set (map #(hash-map :key %) ["absence" "abundant"])))))
   (testing "query exceeds limit"
     (is (thrown-with-msg? IllegalStateException #"more than the maximum number of results"
           (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
