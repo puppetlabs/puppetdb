@@ -10,6 +10,8 @@ module Puppet::Util::Puppetdb
   CommandReplaceFacts = "replace facts"
   CommandDeactivateNode = "deactivate node"
 
+  # TODO: we should get rid of these; it's global state and it can make our
+  #  tests fail based on the order that they are run in.
   def self.server
     @server, @port = load_puppetdb_config unless @server
     @server
