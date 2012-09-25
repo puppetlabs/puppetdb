@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server])
-  (:use [com.puppetlabs.puppetdb.testutils :only [test-db with-test-broker]]
+  (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
@@ -14,6 +14,7 @@
   [f]
   (binding [*db* (test-db)]
     (sql/with-connection *db*
+      (clear-db-for-testing!)
       (migrate!)
       (f))))
 
