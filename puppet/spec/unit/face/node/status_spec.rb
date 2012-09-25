@@ -4,13 +4,8 @@ require 'spec_helper'
 require 'puppet'
 require 'puppet/face'
 
-#Puppet.initialize_settings
-
-#describe Puppet::Face[:node, :current] do
 describe "node face: status" do
-  let(:subject) do
-    Puppet::Face[:node, :current]
-  end
+  let(:subject) { Puppet::Face[:node, :current] }
   let(:headers) do
     {
       "Accept" => "application/json",
