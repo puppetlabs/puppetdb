@@ -105,7 +105,8 @@
   "Create a new database connection pool"
   [{:keys [classname subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
-           stats log-statements log-slow-statements]
+           stats log-statements log-slow-statements
+           conn-max-age conn-keep-alive]
     :or   {partition-conn-min  1
            partition-conn-max  10
            partition-count     5
@@ -113,7 +114,9 @@
            ;; setting this to a String value, because that's what it would
            ;;  be in the config file and we're manually converting it to a boolean
            log-statements      "true"
-           log-slow-statements 10}
+           log-slow-statements 10
+           conn-max-age        60
+           conn-keep-alive     240}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
@@ -125,6 +128,8 @@
                           (.setMaxConnectionsPerPartition partition-conn-max)
                           (.setPartitionCount partition-count)
                           (.setStatisticsEnabled stats)
+                          (.setIdleMaxAgeInMinutes conn-max-age)
+                          (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
                           (.setConnectionHook (connection-hook log-statements? log-slow-statements)))]
