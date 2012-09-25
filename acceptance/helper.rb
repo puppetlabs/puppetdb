@@ -104,17 +104,8 @@ module PuppetDBExtensions
   end
 
   def sleep_until_started(host)
-    # Omit 127 because it means "command not found".
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-    num_retries = 0
-    until exit_code == 0
-      sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-      num_retries += 1
-      if (num_retries > 60)
-        fail("Unable to start puppetdb")
-      end
-    end
+    curl_with_retries("start puppetdb", host, "http://localhost:8080", 0)
+    curl_with_retries("start puppetdb (ssl)", host, "https://localhost:8081", 60)
   end
 
 
@@ -251,16 +242,7 @@ module PuppetDBExtensions
   end
 
   def sleep_until_stopped(host)
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-    num_retries = 0
-    until exit_code == 7
-      sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-      num_retries += 1
-      if (num_retries > 60)
-        fail("Unable to stop puppetdb")
-      end
-    end
+    curl_with_retries("stop puppetdb", host, "http://localhost:8080", 7)
   end
 
   def restart_puppetdb(host)
@@ -290,6 +272,21 @@ module PuppetDBExtensions
     PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
+
+  def curl_with_retries(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
+    desired_exit_codes = [desired_exit_codes].flatten
+    on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+    num_retries = 0
+    until desired_exit_codes.include?(exit_code)
+      sleep retry_interval
+      on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+      num_retries += 1
+      if (num_retries > max_retries)
+        fail("Unable to #{desc}")
+      end
+    end
+  end
+
 end
 
 PuppetAcceptance::TestCase.send(:include, PuppetDBExtensions)
