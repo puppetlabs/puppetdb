@@ -12,12 +12,12 @@ if (test_config[:install_type] == :package)
       on database, "curl http://apt-dev.puppetlabs.lan/pubkey.gpg |apt-key add -"
       on database, "apt-get update"
     when :redhat
-      create_remote_file database, '/etc/yum.repos.d/puppetlabs-prerelease.repo', <<-REPO.gsub(' '*6, '')
-  [puppetlabs-development]
-  name=Puppet Labs Development - $basearch
-  baseurl=http://neptune.puppetlabs.lan/dev/el/$releasever/products/$basearch
-  enabled=1
-  gpgcheck=0
+      create_remote_file database, '/etc/yum.repos.d/puppetlabs-prerelease.repo', <<-REPO
+[puppetlabs-development]
+name=Puppet Labs Development - $basearch
+baseurl=http://neptune.puppetlabs.lan/dev/el/$releasever/products/$basearch
+enabled=1
+gpgcheck=0
       REPO
     else
       raise ArgumentError, "Unsupported OS '#{os}'"
