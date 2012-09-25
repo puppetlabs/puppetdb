@@ -10,7 +10,8 @@
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.utils :only [parse-number]]))
+        [com.puppetlabs.utils :only [parse-number]]
+        [com.puppetlabs.puppetdb.query.utils :only [valid-query-format?]]))
 
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of
@@ -34,9 +35,7 @@
   return nodes matching the `query`."
   [query]
   {:pre  [((some-fn nil? sequential?) query)]
-   :post [(vector? %)
-          (string? (first %))
-          (every? (complement coll?) (rest %))]}
+   :post [(valid-query-format? %)]}
   (if query
     (let [{:keys [where joins params]} (compile-term query)
           join-expr                    (->> joins
@@ -48,8 +47,7 @@
 (defn search
   "Search for nodes satisfying the given SQL filter."
   [[sql & params :as filter-expr]]
-  {:pre  [(string? sql)
-          (every? (complement coll?) params)]
+  {:pre  [(valid-query-format? filter-expr)]
    :post [(vector? %)
           (every? string? %)]}
   (let [query (format "SELECT name AS certname FROM certnames %s" sql)
