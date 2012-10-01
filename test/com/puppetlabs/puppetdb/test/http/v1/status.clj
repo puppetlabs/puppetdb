@@ -13,12 +13,10 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t "application/json")
-
 (defn get-request
   [path]
   (let [request (request :get path)]
-    (update-in request [:headers] assoc "Accept" c-t)))
+    (update-in request [:headers] assoc "Accept" pl-http/content-type-json)))
 
 (defn get-response
   ([]      (get-response nil))

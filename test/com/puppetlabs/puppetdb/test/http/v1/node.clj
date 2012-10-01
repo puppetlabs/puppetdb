@@ -14,8 +14,6 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t "application/json")
-
 (defn get-request
   ([path] (get-request path nil))
   ([path query]
@@ -24,7 +22,7 @@
                               {"query" (if (string? query) query (json/generate-string query))})
                      (request :get path))
            headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" c-t)))))
+       (assoc request :headers (assoc headers "Accept" pl-http/content-type-json)))))
 
 (defn get-response
   ([]      (get-response nil))
@@ -35,7 +33,7 @@
 to the result of the form supplied to this method."
   [response expected]
   (is (= pl-http/status-ok   (:status response)))
-  (is (= c-t (get-in response [:headers "Content-Type"])))
+  (is (= pl-http/content-type-json (get-in response [:headers "Content-Type"])))
   (let [actual (if (:body response)
                    (set (json/parse-string (:body response) true))
                    nil)]
