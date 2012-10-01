@@ -17,6 +17,20 @@
       (doseq [x ['() [] {} "foo" 123 456.789 1/3]]
         (is (false? (array? x)))))))
 
+(deftest datetime?-test
+  (testing "should return false for non-coercible types"
+    (is (not (datetime? 2.0))))
+  (testing "should return false for nil"
+    (is (not (datetime? nil))))
+  (testing "should return true for a valid string"
+    (is (datetime? "2011-01-01T12:00:00-03:00")))
+  (testing "should return false for an invalid string"
+    (is (not (datetime? "foobar"))))
+  (testing "should return true for a valid integer"
+    (is (datetime? 20)))
+  (testing "should return false for an invalid integer")
+    (is (not (datetime? -9999999999999999999999999999999))))
+
 (deftest quotient-test
   (testing "quotient"
 

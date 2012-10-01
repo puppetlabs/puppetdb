@@ -47,7 +47,7 @@
   [x]
   (and
     (satisfies? ICoerce x)
-    (not (nil? (to-date-time x)))))
+    (to-date-time x)))
 
 ;; TODO: no one besides us is ever going to use this, but I'm not sure where
 ;; else to put it.  Seems goofy to create a "utils.internal" namespace?
