@@ -10,7 +10,8 @@
         clojureql.core))
 
 (defn facts-for-node
-  "Fetch the facts for the given node, as a map of `{fact value}`"
+  "Fetch the facts for the given node, as a map of `{fact value}`. This is used
+  for the deprecated v1 facts API."
   [node]
   {:pre  [(string? node)]
    :post [(map? %)]}
