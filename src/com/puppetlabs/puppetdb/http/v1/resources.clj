@@ -70,7 +70,9 @@
             [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json]
             [ring.util.response :as rr])
-  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+  (:use [net.cgrand.moustache :only [app]]
+        com.puppetlabs.middleware
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
   "Given a `limit`, a query, and database connection, return a Ring
@@ -96,17 +98,14 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(defn resources-app
-  "Ring app for querying resources"
-  [{:keys [params headers globals] :as request}]
-  (cond
-   (not (params "query"))
-   (pl-http/error-response "missing query")
+(def routes
+  (app
+    [""]
+    {:get (fn [{:keys [params globals]}]
+            (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals)))}))
 
-   (not (pl-http/acceptable-content-type
-         "application/json"
-         (headers "accept")))
-   (-> (rr/response "must accept application/json")
-       (rr/status pl-http/status-not-acceptable))
-   :else
-   (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals))))
+(def resources-app
+  "Ring app for querying resources"
+  (-> routes
+    verify-accepts-json
+    (verify-param-exists "query")))

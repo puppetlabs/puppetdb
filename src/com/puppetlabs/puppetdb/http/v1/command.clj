@@ -11,27 +11,22 @@
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr]))
+            [ring.util.response :as rr])
+  (:use [com.puppetlabs.middleware]
+        [net.cgrand.moustache :only [app]]))
 
-(defn command-app
+(defn enqueue-command
+  [{:keys [params globals] :as request}]
+  (let [uuid (command/enqueue-raw-command! (get-in globals [:command-mq :connection-string])
+                                           (get-in globals [:command-mq :endpoint])
+                                           (params "payload"))]
+     (pl-http/json-response {:uuid uuid})))
+
+(def command-app
   "Ring app for processing commands"
-  [{:keys [params headers globals] :as request}]
-  (cond
-   (not (params "payload"))
-   (pl-http/error-response "missing payload")
-
-   (and (params "checksum")
-        (not= (params "checksum") (pl-utils/utf8-string->sha1 (params "payload"))))
-   (pl-http/error-response "checksums don't match")
-
-   (not (pl-http/acceptable-content-type
-         "application/json"
-         (headers "accept")))
-   (rr/status (rr/response "must accept application/json")
-              pl-http/status-not-acceptable)
-
-   :else
-   (let [uuid (command/enqueue-raw-command! (get-in globals [:command-mq :connection-string])
-                                            (get-in globals [:command-mq :endpoint])
-                                            (params "payload"))]
-     (pl-http/json-response {:uuid uuid}))))
+  (app
+    [""]
+    (-> enqueue-command
+      verify-accepts-json
+      verify-checksum
+      (verify-param-exists "payload"))))

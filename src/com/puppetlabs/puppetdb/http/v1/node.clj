@@ -33,7 +33,9 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.node :as node]
             [ring.util.response :as rr])
-  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+  (:use [net.cgrand.moustache :only [app]]
+        com.puppetlabs.middleware
+        [com.puppetlabs.jdbc :only (with-transacted-connection)] ))
 
 (defn search-nodes
   "Produce a response body for a request to search for nodes based on
@@ -51,15 +53,12 @@
       (pl-http/error-response e))))
 
 ;; TODO: Add an API to specify whether to include facts
-(defn node-app
-  "Ring app for querying nodes."
-  [{:keys [params headers globals] :as request}]
-  (cond
-   (not (pl-http/acceptable-content-type
-         "application/json"
-         (headers "accept")))
-   (rr/status (rr/response "must accept application/json")
-              pl-http/status-not-acceptable)
+(def routes
+  (app
+    [""]
+    {:get (fn [{:keys [params globals]}]
+            (search-nodes (params "query") (:scf-db globals)))}))
 
-   :else
-   (search-nodes (params "query") (:scf-db globals))))
+(def node-app
+  "Ring app for querying nodes."
+  (verify-accepts-json routes))

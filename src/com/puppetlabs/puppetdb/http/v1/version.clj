@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.utils :only [version update-info]]
+        com.puppetlabs.middleware
         [net.cgrand.moustache :only [app]]))
 
 (defn current-version-response
@@ -23,11 +24,14 @@
       (pl-http/json-response update)
       (pl-http/error-response "Could not find version" 404))))
 
-(def version-app
-  (-> (app
-        [""]
-        {:get current-version-response}
+(def routes
+  (app
+    [""]
+    {:get current-version-response}
 
-        ["latest"]
-        {:get latest-version-response})
-    (pl-http/must-accept-type "application/json")))
+    ["latest"]
+    {:get latest-version-response}))
+
+(def version-app
+  "A moustache app for retrieving current and latest version information."
+  (verify-accepts-json routes))
