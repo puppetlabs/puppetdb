@@ -27,6 +27,6 @@
   (app
     [""]
     (-> enqueue-command
-      verify-accepts-json
-      verify-checksum
-      (verify-param-exists "payload"))))
+        verify-accepts-json
+        verify-checksum
+        (verify-param-exists "payload"))))

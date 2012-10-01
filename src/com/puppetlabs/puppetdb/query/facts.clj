@@ -28,9 +28,9 @@
      {:node <node> :fact <fact> :value <value>}]"
   [node]
   (-> (table :certname_facts)
-    (project [[:certname :as :node] :fact :value])
-    (select (where (= :certname node)))
-    (deref)))
+      (project [[:certname :as :node] :fact :value])
+      (select (where (= :certname node)))
+      (deref)))
 
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of
@@ -133,8 +133,8 @@
   (if query
     (let [{:keys [where joins params]} (compile-term query)
           join-expr                   (->> joins
-                                        (map build-join-expr)
-                                        (string/join " "))]
+                                           (map build-join-expr)
+                                           (string/join " "))]
       (apply vector (format "%s WHERE %s" join-expr where) params))
     [""]))
 
