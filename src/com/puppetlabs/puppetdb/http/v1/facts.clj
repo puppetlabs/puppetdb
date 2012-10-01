@@ -16,9 +16,11 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.facts :as f]
             [ring.util.response :as rr])
-  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+  (:use [net.cgrand.moustache :only [app]]
+        com.puppetlabs.middleware
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
-(defn produce-body
+(defn retrieve-facts-for-node
   "Produce a response body for a request to lookup facts for `node`."
   [node db]
   (let [facts (with-transacted-connection db
@@ -27,19 +29,13 @@
       (pl-http/json-response {:error (str "Could not find facts for " node)} pl-http/status-not-found)
       (pl-http/json-response {:name node :facts facts}))))
 
-(defn facts-app
+
+(def routes
   "Ring app for querying facts"
-  [{:keys [params headers globals] :as request}]
-  (cond
-   (not (params "node"))
-   (rr/status (rr/response "missing node")
-              pl-http/status-bad-request)
+  (app
+    [node &]
+    (fn [{:keys [globals]}]
+      (retrieve-facts-for-node node (:scf-db globals)))))
 
-   (not (pl-http/acceptable-content-type
-         "application/json"
-         (headers "accept")))
-   (rr/status (rr/response "must accept application/json")
-              pl-http/status-not-acceptable)
-
-   :else
-   (produce-body (params "node") (:scf-db globals))))
+(def facts-app
+  (verify-accepts-json routes))
