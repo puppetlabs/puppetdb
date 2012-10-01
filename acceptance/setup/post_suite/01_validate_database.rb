@@ -22,8 +22,12 @@ step "Verify we've been talking to the correct database" do
     #  somewhat arbitrarily.)
 
     step "Validate database schema version" do
-      db_migration_version = on(database, "PGPASSWORD=puppet psql -h localhost -U postgres -d puppetdb --tuples-only -c \"SELECT max(version) from schema_migrations\" |tr -d \" \" |grep -v \"^\s*$\"").stdout.strip
+      db_migration_version = on(database, "PGPASSWORD=puppetdb psql -h localhost -U puppetdb -d puppetdb --tuples-only -c \"SELECT max(version) from schema_migrations\" |tr -d \" \" |grep -v \"^\s*$\"").stdout.strip
 
+      # This is terrible; it's dependent on the order of some function definitions
+      # in the code, and it's just generally moronic.  We should provide a lein task
+      # or some way of interrogating the latest expected schema version from
+      # the command line so that we can get rid of this crap.
       source_migration_version = on(database, "unzip -p /usr/share/puppetdb/puppetdb.jar com/puppetlabs/puppetdb/scf/migrate.clj | sed '/defn schema.version/,$d' |sed '1,/def migrations/d' |grep -v \"^\s*$\" |tail -n 1 |awk '{print $1}'").stdout.strip
 
       assert_equal(db_migration_version, source_migration_version,
@@ -33,7 +37,7 @@ step "Verify we've been talking to the correct database" do
 
 
     step "Validate the contents of the certname table" do
-      db_hostnames_str = on(database, "PGPASSWORD=puppet psql -h localhost -U postgres -d puppetdb --tuples-only -c \"SELECT name from certnames\" |grep -v \"^\s*$\"").stdout.strip
+      db_hostnames_str = on(database, "PGPASSWORD=puppetdb psql -h localhost -U puppetdb -d puppetdb --tuples-only -c \"SELECT name from certnames\" |grep -v \"^\s*$\"").stdout.strip
       db_hostnames = Set.new(db_hostnames_str.split.map { |x| x.strip })
       acceptance_hostnames = Set.new(hosts.map { |host| host.node_name })
       assert_equal(acceptance_hostnames, db_hostnames, "Expected hostnames from certnames table to match the ones known to the acceptance harness")

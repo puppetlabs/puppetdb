@@ -4,8 +4,12 @@ require 'spec_helper'
 require 'puppet/indirector/facts/puppetdb'
 
 describe Puppet::Node::Facts::Puppetdb do
+
+  CommandReplaceFacts = Puppet::Util::Puppetdb::CommandReplaceFacts
+
   before :each do
-    Puppet::Util::Puppetdb.stubs(:load_puppetdb_config).returns ['localhost', 0]
+    Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
+    Puppet::Util::Puppetdb.stubs(:port).returns 0
     Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
   end
 
@@ -25,7 +29,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
     it "should POST the facts command as a URL-encoded PSON string" do
       payload = {
-        :command => "replace facts",
+        :command => CommandReplaceFacts,
         :version => 1,
         :payload => facts.to_pson,
       }.to_pson
@@ -44,7 +48,7 @@ describe Puppet::Node::Facts::Puppetdb do
       facts.values['something'] = 100
 
       payload = {
-        :command => "replace facts",
+        :command => CommandReplaceFacts,
         :version => 1,
         :payload => facts.to_pson,
       }.to_pson

@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
 
 require 'spec_helper'
+require 'puppet'
 require 'puppet/face'
 
-describe Puppet::Face[:node, :current] do
+describe "node face: status" do
+  let(:subject) { Puppet::Face[:node, :current] }
   let(:headers) do
     {
       "Accept" => "application/json",

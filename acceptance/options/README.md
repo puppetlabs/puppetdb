@@ -39,3 +39,8 @@ in your hash; the environment variable names are the same but uppercased
   our internal proxy server.  This can provide a big speedup for CI, but is
   not desirable for remote employees during development.  Legal values are `:true`
   and `:false`.
+
+* `:puppetdb_purge_after_run` (`PUPPETDB_PURGE_AFTER_RUN`) : This determines
+  whether or not the post-suite cleanup phase will remove packages and perform
+  exhaustive cleanup after the run.  This is useful if you would like to avoid
+  resetting VMs between every run of the acceptance tests.  Defaults to `:true`.

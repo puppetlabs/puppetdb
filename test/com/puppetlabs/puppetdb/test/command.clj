@@ -73,7 +73,7 @@
       (let [on-fatal       (call-counter)
             on-retry       (call-counter)
             on-msg         (fn [msg]
-                             (throw+ (fatality! :foo)))
+                             (throw+ (fatality :foo)))
             processor      (wrap-with-exception-handling on-msg on-retry on-fatal)
             prev-seen      (global-count :seen)
             prev-processed (global-count :processed)
@@ -238,7 +238,7 @@
               (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command! (fn [cmd opt] (throw+ (fatality! (Exception. "fatal error"))))]
+          (with-redefs [process-command! (fn [cmd opt] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
               (is (= 1 (count (fs/list-dir discard-dir)))))))

@@ -4,7 +4,9 @@ require 'spec_helper'
 require 'puppet/face'
 require 'puppet/indirector/node/puppetdb'
 
-describe Puppet::Face[:node, :current] do
+describe "node face: deactivate" do
+  let(:subject) { Puppet::Face[:node, :current] }
+
   it "should fail if no node is given" do
     expect { subject.deactivate }.to raise_error ArgumentError, /provide at least one node/
   end

@@ -679,11 +679,22 @@ A password to use when connecting.
 
 `log-slow-statements`
 
-The number of seconds that any individual SQL query may run before it is considered
-"slow" and is logged as a warning.  Note that this does not actually interrupt
-the query in any way; it simply checks queries after they complete and logs them
-if their duration exceeded this setting.  The default value is 10 seconds.  You
-may set this setting to zero to disable this feature.
+The number of seconds that any individual SQL query may run before it
+is considered "slow" and is logged as a warning.  Note that this does
+not actually interrupt the query in any way; it simply checks queries
+after they complete and logs them if their duration exceeded this
+setting.  The default value is 10 seconds.  You may set this setting
+to zero to disable this feature.
+
+`conn-max-age`
+
+How many minutes a database connection can be idle before we terminate
+the connection. We default to 60 minutes.
+
+`conn-keep-alive`
+
+How often, in minutes, should we send a keep-alive query to the
+database. We default to every 240 minutes.
 
 **[command-processing]**
 

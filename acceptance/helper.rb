@@ -9,7 +9,7 @@ module PuppetDBExtensions
 
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
-  def self.initialize_test_config(options, os_families, db_module_path)
+  def self.initialize_test_config(options, os_families)
     install_type =
         get_option_value(options[:type], [:git, :manual], "install type")
 
@@ -36,17 +36,22 @@ module PuppetDBExtensions
         get_option_value(options[:puppetdb_use_proxies],
           [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
 
+    purge_after_run =
+        get_option_value(options[:puppetdb_purge_after_run],
+          [:true, :false],
+          "'purge packages and perform exhaustive cleanup after run'",
+          "PUPPETDB_PURGE_AFTER_RUN", :false)
 
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
-        :db_module_path => db_module_path,
         :os_families => os_families,
         :install_type => install_type == :manual ? :package : install_type,
         :install_mode => install_mode,
         :database => database,
         :validate_package_version => validate_package_version == :true,
         :expected_package_version => expected_package_version,
-        :use_proxies => use_proxies == :true
+        :use_proxies => use_proxies == :true,
+        :purge_after_run => purge_after_run == :true,
     }
   end
 
@@ -99,55 +104,26 @@ module PuppetDBExtensions
   end
 
   def sleep_until_started(host)
-    # Omit 127 because it means "command not found".
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-    num_retries = 0
-    until exit_code == 0
-      sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-      num_retries += 1
-      if (num_retries > 60)
-        fail("Unable to start puppetdb")
-      end
-    end
+    curl_with_retries("start puppetdb", host, "http://localhost:8080", 0)
+    curl_with_retries("start puppetdb (ssl)",
+                      host, "https://#{host.node_name}:8081", [35, 60])
   end
 
 
-  def install_puppetdb(host)
-    os = PuppetDBExtensions.config[:os_families][host.name]
-    case os
-    when :debian
-      on host, "yes | apt-get install -y --force-yes puppetdb"
-    when :redhat
-      on host, "yum install -y puppetdb"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
+
+  def install_puppetdb(host, db)
+    manifest = <<-EOS
+    class { 'puppetdb':
+      database               => '#{db}',
+      manage_redhat_firewall => false,
+      puppetdb_version       => 'latest',
+    }
+    EOS
+    apply_manifest_on(host, manifest)
+    print_ini_files(host)
+    sleep_until_started(host)
   end
 
-  def install_puppetdb_via_rake(host)
-    os = PuppetDBExtensions.config[:os_families][host.name]
-    case os
-    when :debian
-      preinst = "debian/puppetdb.preinst install"
-      postinst = "debian/puppetdb.postinst"
-    when :redhat
-      preinst = "dev/redhat/redhat_dev_preinst install"
-      postinst = "dev/redhat/redhat_dev_postinst install"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
-
-    on host, "rm -rf /etc/puppetdb/ssl"
-    on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
-    on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
-  end
-
-  def install_puppetdb_termini_via_rake(host)
-    on host, "#{LeinCommandPrefix} rake sourceterminus"
-  end
 
   def validate_package_version(host)
     step "Verifying package version" do
@@ -164,85 +140,101 @@ module PuppetDBExtensions
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
       PuppetAcceptance::Log.notify "Expecting package version: '#{ENV['PUPPETDB_EXPECTED_VERSION']}', actual version: '#{installed_version}'"
-      assert_equal(installed_version, ENV['PUPPETDB_EXPECTED_VERSION'])
+      if installed_version != ENV['PUPPETDB_EXPECTED_VERSION']
+        raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{ENV['PUPPETDB_EXPECTED_VERSION']}'"
+      end
     end
   end
 
-  def configure_puppetdb(host)
-    step "Configure database.ini file" do
-      manifest_path = host.tmpfile("puppetdb_manifest.pp")
-      # TODO: use more stuff from the puppetdb module once it is robust enough
-      #  to handle what we need.
-      manifest_content = <<-EOS
-  $database = '#{PuppetDBExtensions.config[:database]}'
-  $database_host = 'localhost'
 
-  file { 'puppetdb: database.ini':
-      ensure      => file,
-      path        => "/etc/puppetdb/conf.d/database.ini",
-      content     => template('puppetdb/server/database.ini.erb')
-  }
-      EOS
+  def install_puppetdb_termini(host, database)
+    # We pass 'restart_puppet' => false to prevent the module from trying to
+    # manage the puppet master service, which isn't actually installed on the
+    # acceptance nodes (they run puppet master from the CLI).
+    manifest = <<-EOS
+    class { 'puppetdb::master::config':
+      puppetdb_server   => '#{database.node_name}',
+      puppetdb_version  => 'latest',
+      restart_puppet    => false,
+    }
+    EOS
+    apply_manifest_on(host, manifest)
+  end
 
-      create_remote_file(host, manifest_path, manifest_content)
-      on host, puppet_apply("--modulepath #{PuppetDBExtensions.config[:db_module_path]} #{manifest_path}")
-    end
 
+  def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
       on host, "cat /etc/puppetdb/conf.d/jetty.ini"
     end
     step "Print out database.ini for posterity" do
       on host, "cat /etc/puppetdb/conf.d/database.ini"
     end
-
   end
 
-  def install_puppetdb_termini(host)
+  ############################################################################
+  # NOTE: the following methods should only be called during run-from-source
+  #  acceptance test runs.
+  ############################################################################
+
+  def install_postgres(host)
+    PuppetAcceptance::Log.notify "Installing postgres on #{host}"
+
+    manifest = <<-EOS
+    class { 'puppetdb::database::postgresql':
+      manage_redhat_firewall => false,
+    }
+    EOS
+    apply_manifest_on(host, manifest)
+  end
+
+  def install_puppetdb_via_rake(host)
     os = PuppetDBExtensions.config[:os_families][host.name]
     case os
-    when :debian
-      on host, "apt-get install -y --force-yes puppetdb-terminus"
-    when :redhat
-      on host, "yum install -y puppetdb-terminus"
-    else
-      raise ArgumentError, "Unsupported OS family: '#{os}'"
+      when :debian
+        preinst = "debian/puppetdb.preinst install"
+        postinst = "debian/puppetdb.postinst"
+      when :redhat
+        preinst = "dev/redhat/redhat_dev_preinst install"
+        postinst = "dev/redhat/redhat_dev_postinst install"
+      else
+        raise ArgumentError, "Unsupported OS family: '#{os}'"
     end
+
+    on host, "rm -rf /etc/puppetdb/ssl"
+    on host, "#{LeinCommandPrefix} rake template"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
+    on host, "#{LeinCommandPrefix} rake install"
+    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+
+    step "Configure database.ini file" do
+      manifest = <<-EOS
+  $database = '#{PuppetDBExtensions.config[:database]}'
+
+  class { 'puppetdb::server::database_ini':
+      database      => $database,
+  }
+      EOS
+
+      apply_manifest_on(host, manifest)
+    end
+
+    print_ini_files(host)
   end
 
-  def configure_termini(master, database)
-    step "Configure routes.yaml to talk to the PuppetDB server" do
-      routes = <<-ROUTES
-  master:
-    catalog:
-      terminus: compiler
-      cache: puppetdb
-    facts:
-      terminus: puppetdb
-      cache: yaml
-      ROUTES
+  def install_puppetdb_termini_via_rake(host, database)
+    on host, "#{LeinCommandPrefix} rake sourceterminus"
 
-      routes_file = File.join(master['puppetpath'], 'routes.yaml')
-
-      create_remote_file(master, routes_file, routes)
-
-      on master, "chmod +r #{routes_file}"
-    end
-
-    step "Configure puppetdb.conf to point to the PuppetDB server" do
-      puppetdb_conf = <<-CONF
-[main]
-server = #{database.name}
-port = 8081
-      CONF
-
-      puppetdb_conf_file = File.join(master['puppetpath'], 'puppetdb.conf')
-
-      create_remote_file(master, puppetdb_conf_file, puppetdb_conf)
-
-      on master, "chmod +r #{puppetdb_conf_file}"
-    end
+    manifest = <<-EOS
+    include puppetdb::master::storeconfigs
+    class { 'puppetdb::master::puppetdb_conf':
+      server => '#{database.node_name}',
+    }
+    include puppetdb::master::routes
+    EOS
+    apply_manifest_on(host, manifest)
   end
 
+  ###########################################################################
 
 
   def stop_puppetdb(host)
@@ -251,16 +243,7 @@ port = 8081
   end
 
   def sleep_until_stopped(host)
-    on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-    num_retries = 0
-    until exit_code == 7
-      sleep 1
-      on host, "curl http://localhost:8080", :acceptable_exit_codes => (0...127)
-      num_retries += 1
-      if (num_retries > 60)
-        fail("Unable to stop puppetdb")
-      end
-    end
+    curl_with_retries("stop puppetdb", host, "http://localhost:8080", 7)
   end
 
   def restart_puppetdb(host)
@@ -283,6 +266,28 @@ port = 8081
       raise "Queue took longer than allowed #{timeout} seconds to empty"
     end
   end
+
+  def apply_manifest_on(host, manifest_content)
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    create_remote_file(host, manifest_path, manifest_content)
+    PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
+    on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
+  end
+
+  def curl_with_retries(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
+    desired_exit_codes = [desired_exit_codes].flatten
+    on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+    num_retries = 0
+    until desired_exit_codes.include?(exit_code)
+      sleep retry_interval
+      on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+      num_retries += 1
+      if (num_retries > max_retries)
+        fail("Unable to #{desc}")
+      end
+    end
+  end
+
 end
 
 PuppetAcceptance::TestCase.send(:include, PuppetDBExtensions)

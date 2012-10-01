@@ -8,3 +8,4 @@ pom.xml
 .lein-deps-sum
 *#
 /pkg/
+test-resources/config/local.clj

@@ -273,7 +273,7 @@
 
 ;; ## Command processing exception classes
 
-(defn fatality!
+(defn fatality
   "Create an object representing a fatal command-processing exception
 
   cause - object representing the cause of the failure
@@ -286,6 +286,13 @@
   exception or not."
   [exception]
   (:fatal exception))
+
+(defmacro upon-error-throw-fatality
+  [& body]
+  `(try+
+     ~@body
+     (catch Throwable e#
+       (throw+ (fatality e#)))))
 
 ;; ## Command processors
 
@@ -300,10 +307,7 @@
 (defmethod process-command! ["replace catalog" 1]
   [{:keys [payload annotations]} {:keys [db]}]
   ;; Parsing a catalog either works, or it generates a fatal exception
-  (let [catalog   (try+
-                   (cat/parse-from-json-string payload)
-                   (catch Throwable e
-                     (throw+ (fatality! e))))
+  (let [catalog   (upon-error-throw-fatality (cat/parse-from-json-string payload))
         certname  (:certname catalog)
         id        (:id annotations)
         timestamp (:received annotations)]
@@ -320,10 +324,7 @@
 
 (defmethod process-command! ["replace facts" 1]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:strs [name] :as facts} (try+
-                                  (json/parse-string payload)
-                                  (catch Throwable e
-                                    (throw+ (fatality! e))))
+  (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
         id                       (:id annotations)
         timestamp                (:received annotations)]
     (with-transacted-connection db
@@ -338,10 +339,7 @@
 
 (defmethod process-command! ["deactivate node" 1]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [certname (try+
-                  (json/parse-string payload)
-                  (catch Throwable e
-                    (throw+ (fatality! e))))
+  (let [certname (upon-error-throw-fatality (json/parse-string payload))
         id       (:id annotations)]
     (with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
