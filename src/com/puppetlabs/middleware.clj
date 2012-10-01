@@ -44,7 +44,12 @@
       (app new-req))))
 
 (defn verify-accepts-content-type
+  "Ring middleware that requires a request for the wrapped `app` to accept the
+  provided `content-type`. If the content type isn't acceptable, a 406 Not
+  Acceptable status is returned, with a message informing the client it must
+  accept the content type."
   [app content-type]
+  {:pre (string? content-type)}
   (fn [{:keys [headers] :as req}]
     (if (pl-http/acceptable-content-type
           content-type
@@ -54,17 +59,29 @@
                  pl-http/status-not-acceptable))))
 
 (defn verify-param-exists
+  "Ring middleware that checks the existence of the given `param` in the
+  request. If the param isn't specified, a 400 Not Found error is returned,
+  explaining that the param is missing."
   [app param]
+  {:pre (string? param)}
   (fn [{:keys [params] :as req}]
     (if (params param)
       (app req)
       (pl-http/error-response (str "missing " param)))))
 
 (def verify-accepts-json
+  "Ring middleware which requires a request for `app` to accept
+  application/json as a content type. If the request doesn't accept
+  application/json, a 406 Not Acceptable status is returned with an error
+  message indicating the problem."
   (fn [app]
    (verify-accepts-content-type app "application/json")))
 
 (defn verify-checksum
+  "Ring middleware which will verify that the content of the `payload` param
+  has the checksum specified in the `checksum` parameter. If no checksum is
+  provided, this check will be skipped. If the checksum doesn't match, a 400
+  Bad Request error is returned."
   [app]
   (fn [{:keys [params] :as req}]
     (let [expected-checksum (params "checksum")
