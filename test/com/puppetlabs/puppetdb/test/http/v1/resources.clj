@@ -22,7 +22,7 @@
                               {"query" (if (string? query) query (json/generate-string query))})
                      (request :get path))
            headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" c-t)))))
+       (assoc request :headers (assoc headers "Accept" pl-http/content-type-json)))))
 
 (defn get-response
   ([]      (get-response nil))

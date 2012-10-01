@@ -44,6 +44,7 @@
                 (.get nil))]
     (intern *ns* key val)))
 
+(def content-type-json "application/json")
 
 ;; ## HTTP/Ring utility functions
 
@@ -83,7 +84,7 @@
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
          (rr/response)
-         (rr/header "Content-Type" "application/json")
+         (rr/header "Content-Type" content-type-json)
          (rr/status code))))
 
 (defn error-response

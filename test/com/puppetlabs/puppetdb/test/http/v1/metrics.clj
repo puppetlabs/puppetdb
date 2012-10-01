@@ -28,13 +28,11 @@
         (is (= (filter-mbean {:key {:key TimeUnit/SECONDS}})
                {:key {:key "SECONDS"}}))))))
 
-(def c-t "application/json")
-
 (defn make-request
   "Return a GET request against path, suitable as an argument to the
   metrics app."
   ([path] (make-request path {}))
-  ([path {keys [:content-type] :or {:content-type c-t} :as params}]
+  ([path {keys [:content-type] :or {:content-type pl-http/content-type-json} :as params}]
      (let [request (request :get (format "/v1/metrics/%s" path))
            headers (:headers request)]
        (assoc request :headers (assoc headers "accept" (:content-type params))))))
@@ -55,7 +53,7 @@
       (let [request (make-request "mbean/java.lang:type=Memory")
             response (*app* request)]
         (is (= (:status response) pl-http/status-ok))
-        (is (= (get-in response [:headers "Content-Type"]) c-t))
+        (is (= (get-in response [:headers "Content-Type"]) pl-http/content-type-json))
         (is (= (map? (json/parse-string (:body response) true))
                true))))
 
@@ -63,7 +61,7 @@
       (let [request (make-request "mbeans")
             response (*app* request)]
         (is (= (:status response) pl-http/status-ok))
-        (is (= (get-in response [:headers "Content-Type"]) c-t))
+        (is (= (get-in response [:headers "Content-Type"]) pl-http/content-type-json))
 
         ;; Retrieving all the resulting mbeans should work
         (let [mbeans (json/parse-string (:body response))]
@@ -71,4 +69,4 @@
           (doseq [[name uri] mbeans
                   :let [request (make-request uri)]]
             (is (= (:status response pl-http/status-ok)))
-            (is (= (get-in response [:headers "Content-Type"]) c-t))))))))
+            (is (= (get-in response [:headers "Content-Type"]) pl-http/content-type-json))))))))

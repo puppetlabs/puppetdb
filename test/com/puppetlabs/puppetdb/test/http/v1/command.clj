@@ -16,7 +16,7 @@
   [post-body]
   (let [request (request :post "/v1/commands")]
     (-> request
-        (assoc-in [:headers "accept"] "application/json")
+        (assoc-in [:headers "accept"] pl-http/content-type-json)
         (body post-body))))
 
 (deftest command-endpoint
@@ -28,7 +28,7 @@
             req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
         (is (= (:status resp) pl-http/status-ok))
-        (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
+        (is (= (get-in resp [:headers "Content-Type"]) pl-http/content-type-json))
         (is (= (instance? java.util.UUID
                           (-> (:body resp)
                               (json/parse-string true)
