@@ -62,7 +62,11 @@
 
          [["node" "name"]]
          {:where "certname_facts.certname = ?"
-          :params [value]}))
+          :params [value]}
+
+         [["node" "active"]]
+         {:joins [:certnames]
+          :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}))
 
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
@@ -112,10 +116,12 @@
 
 (defn build-join-expr
   "Builds an inner join expression between certname_facts and the given
-  `table`. There aren't any actual possibilities for this currently, but the
-  function is left here to aid in possible unification of various query paths."
+  `table`. The only acceptable value for now is `certnames`, which will just
+  join directly between `certname_facts` and `certnames`."
   [table]
-  (condp = table))
+  (condp = table
+    :certnames
+    "INNER JOIN certnames ON certname_facts.certname = certnames.name"))
 
 (defn query->sql
   "Compile a query into an SQL expression."

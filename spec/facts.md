@@ -20,6 +20,7 @@ This will return all facts matching the given query. If no query is supplied, al
   `["fact", "name"]`: matches facts of the given name  
   `["fact", "value"]`: matches facts with the given value  
   `["node", "name"]`: matches facts for the given node  
+  `["node", "active"]`: matches facts for nodes which are or aren't active  
 
 ##### Operators
 

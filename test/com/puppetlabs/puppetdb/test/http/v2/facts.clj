@@ -80,7 +80,8 @@
       (scf-store/add-certname! "foo3")
       (scf-store/add-facts! "foo1" facts1 (now))
       (scf-store/add-facts! "foo2" facts2 (now))
-      (scf-store/add-facts! "foo3" facts3 (now)))
+      (scf-store/add-facts! "foo3" facts3 (now))
+      (scf-store/deactivate-node! "foo1"))
 
     (testing "fact queries"
       (testing "well-formed queries"
@@ -144,13 +145,34 @@
                                  {:node "foo3" :fact "kernel" :value "Darwin"}
                                  {:node "foo3" :fact "operatingsystem" :value "Darwin"}]
 
-
                                 ["=" ["node" "name"] "foo2"]
                                 [{:node "foo2" :fact "domain" :value "testing.com" }
                                  {:node "foo2" :fact "hostname" :value "foo2"}
                                  {:node "foo2" :fact "kernel" :value "Linux"}
                                  {:node "foo2" :fact "operatingsystem" :value "RedHat"}
-                                 {:node "foo2" :fact "uptime_seconds" :value "6000"}]}]
+                                 {:node "foo2" :fact "uptime_seconds" :value "6000"}]
+
+                                ["=" ["node" "active"] true]
+                                [{:node "foo2" :fact "domain" :value "testing.com"}
+                                 {:node "foo2" :fact "hostname" :value "foo2"}
+                                 {:node "foo2" :fact "kernel" :value "Linux"}
+                                 {:node "foo2" :fact "operatingsystem" :value "RedHat"}
+                                 {:node "foo2" :fact "uptime_seconds" :value "6000"}
+                                 {:node "foo3" :fact "domain" :value "testing.com"}
+                                 {:node "foo3" :fact "hostname" :value "foo3"}
+                                 {:node "foo3" :fact "kernel" :value "Darwin"}
+                                 {:node "foo3" :fact "operatingsystem" :value "Darwin"}]
+
+                                ["=" ["node" "active"] false]
+                                [{:node "foo1" :fact "domain" :value "testing.com"}
+                                 {:node "foo1" :fact "hostname" :value "foo1"}
+                                 {:node "foo1" :fact "kernel" :value "Linux"}
+                                 {:node "foo1" :fact "operatingsystem" :value "Debian"}
+                                 {:node "foo1" :fact "uptime_seconds" :value "4000"}]
+
+                                ["and" ["=" ["node" "name"] "foo1"]
+                                 ["=" ["node" "active"] true]]
+                                []}]
           (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
