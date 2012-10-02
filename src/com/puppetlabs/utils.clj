@@ -472,8 +472,8 @@
       (digest-func "sha-1" [bytes]))))
 
 (defn bounded-memoize
-  "Similar to memoize, but the cache will be reset if it exceeds the specified
-  `bound`."
+  "Similar to memoize, but the cache will be reset if the number of entries
+  exceeds the specified `bound`."
   [f bound]
   {:pre [(integer? bound)
          (pos? bound)]}
