@@ -471,6 +471,22 @@
     (let [bytes (.getBytes s "UTF-8")]
       (digest-func "sha-1" [bytes]))))
 
+(defn bounded-memoize
+  "Similar to memoize, but the cache will be reset if it exceeds the specified
+  `bound`."
+  [f bound]
+  {:pre [(integer? bound)
+         (pos? bound)]}
+  (let [cache (atom {})]
+    (fn [& args]
+      (if-let [e (find @cache args)]
+        (val e)
+        (let [v (apply f args)]
+          (when (> (count @cache) bound)
+            (reset! cache {}))
+          (swap! cache assoc args v)
+          v)))))
+
 ;; ## UUID handling
 
 (defn uuid
