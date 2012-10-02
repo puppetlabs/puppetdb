@@ -26,9 +26,28 @@
         [clojure.set :only (difference union)]
         [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
-        [clj-time.coerce :only [ICoerce]]
+        [clj-time.coerce :only [ICoerce to-date-time]]
         [clj-time.format :only [formatters unparse]]
         [slingshot.slingshot :only (try+ throw+)]))
+
+;; ## Type checking
+
+(def string-or-nil? (some-fn string? nil?))
+
+(defn array?
+  "Returns true if `x` is an array"
+  [x]
+  (-?> x
+    (class)
+    (.isArray)))
+
+(defn datetime?
+  "Predicate returning whether or not the supplied object is
+  convertible to a Joda DateTime"
+  [x]
+  (and
+    (satisfies? ICoerce x)
+    (to-date-time x)))
 
 ;; ## I/O
 
@@ -102,10 +121,18 @@
        (constructor item))))
 
 (defn mapvals
-  "Return map `m`, with each value transformed by function `f`"
-  [f m]
-  (into {} (concat (for [[k v] m]
-                     [k (f v)]))))
+  "Return map `m`, with each value transformed by function `f`.
+
+  You may also provide an optional list of keys `ks`; if provided, only the
+  specified keys will be modified."
+  ([f m]
+    (into {} (for [[k v] m] [k (f v)])))
+  ([f m ks]
+    ;; would prefer to share code between the two implementations here, but
+    ;; the `into` is much faster for the base case and the reduce is much
+    ;; faster for any case where we're operating on a subset of the keys.
+    ;; It seems like `select-keys` is fairly expensive.
+    (reduce (fn [m k] (update-in m [k] f)) m ks)))
 
 (defn mapkeys
   "Return map `m`, with each key transformed by function `f`"
@@ -113,12 +140,19 @@
   (into {} (concat (for [[k v] m]
                      [(f k) v]))))
 
-(defn array?
-  "Returns true if `x` is an array"
-  [x]
-  (-?> x
-       (class)
-       (.isArray)))
+(defn maptrans
+  "Return map `m`, with values transformed according to the key-to-function
+  mappings specified in `keys-fns`.  `keys-fns` should be a map whose keys
+  are lists of keys from `m`, and whose values are functions to apply to those
+  keys.
+
+  Example: `(maptrans {[:a, :b] inc [:c] dec} {:a 1 :b 1 :c 1})` yields `{:a 2, :c 0, :b 2}`"
+  [keys-fns m]
+  {:pre [(map? keys-fns)
+         (every? (fn [[ks fn]] (and (coll? ks) (ifn? fn))) keys-fns)
+         (map? m)]}
+  (let [ks (keys keys-fns)]
+    (reduce (fn [m k] (mapvals (keys-fns k) m k)) m ks)))
 
 (defn keyset
   "Retuns the set of keys from the supplied map"
@@ -135,12 +169,6 @@
   (set (vals m)))
 
 ;; ## Date and Time
-
-(defn datetime?
-  "Predicate returning whether or not the supplied object is
-  convertible to a Joda DateTime"
-  [x]
-  (satisfies? ICoerce x))
 
 (defn timestamp
   "Returns a timestamp string for the given `time`, or the current time if none
