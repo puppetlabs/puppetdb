@@ -49,19 +49,6 @@
     (satisfies? ICoerce x)
     (to-date-time x)))
 
-;; TODO: no one besides us is ever going to use this, but I'm not sure where
-;; else to put it.  Seems goofy to create a "utils.internal" namespace?
-(defn keywords-fn-pair?
-  "Predicate that expects to be passed a two-element list; the first element
-  should be a list of keywords, and the second element should be a function.
-  This is the data structure required by some of our map utility functions, so
-  this is mostly used to validate input to those functions via preconditions."
-  [[ks fn]]
-  (and
-    (coll? ks)
-    (every? keyword? ks)
-    (ifn? fn)))
-
 ;; ## I/O
 
 (defn lines
@@ -162,7 +149,7 @@
   Example: `(maptrans {[:a, :b] inc [:c] dec} {:a 1 :b 1 :c 1})` yields `{:a 2, :c 0, :b 2}`"
   [keys-fns m]
   {:pre [(map? keys-fns)
-         (every? keywords-fn-pair? keys-fns)
+         (every? (fn [[ks fn]] (and (coll? ks) (ifn? fn))) keys-fns)
          (map? m)]}
   (let [ks (keys keys-fns)]
     (reduce (fn [m k] (mapvals (keys-fns k) m k)) m ks)))
