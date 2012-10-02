@@ -1,6 +1,7 @@
 (ns com.puppetlabs.test.utils
   (:require [fs.core :as fs])
   (:use [com.puppetlabs.utils]
+        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]))
 
 (deftest array?-test
@@ -136,3 +137,44 @@
 
           (testing "should accept certs that appear in the whitelist"
             (is (authorized? {:scheme :https :ssl-client-cn "foo"}))))))))
+
+(deftest memoization
+  (testing "with an illegal bound"
+    (is (thrown? AssertionError (bounded-memoize identity -1)))
+    (is (thrown? AssertionError (bounded-memoize identity 0)))
+    (is (thrown? AssertionError (bounded-memoize identity 1.5)))
+    (is (thrown? AssertionError (bounded-memoize identity "five"))))
+
+  (testing "with a legal bound"
+    (let [f (call-counter)
+          memoized (bounded-memoize f 2)]
+      (testing "should only call the function once per argument"
+        (is (= (times-called f) 0))
+
+        (memoized 0)
+        (is (= (times-called f) 1))
+
+        (memoized 0)
+        (is (= (times-called f) 1))
+
+        (memoized 1)
+        (is (= (times-called f) 2)))
+
+      ;; We call it here for a hit, which we expect not to clear the cache,
+      ;; then call it again to verify the cache wasn't cleared and therefore f
+      ;; wasn't called
+      (testing "should not clear the cache at max size on a hit"
+        (memoized 1)
+        (is (= (times-called f) 2))
+
+        (memoized 1)
+        (is (= (times-called f) 2)))
+
+      ;; Now call it with a new argument to clear the cache, then with an old
+      ;; one to show f is called
+      (testing "should clear the cache at max size on a miss"
+        (memoized 2)
+        (is (= (times-called f) 3))
+
+        (memoized 3)
+        (is (= (times-called f) 4))))))
