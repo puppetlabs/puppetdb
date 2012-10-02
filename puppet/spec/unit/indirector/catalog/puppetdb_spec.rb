@@ -541,6 +541,38 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['data']['edges'].should include(edge)
       end
 
+      context "when dealing with file resources and trailing slashes in their titles" do
+
+        def test_file_require(resource_title, require_title)
+          other_resource = Puppet::Resource.new(:file, resource_title)
+          resource[:require] = "File[#{require_title}]"
+          Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+          result = subject.munge_catalog(catalog)
+
+          edge = {'source' => {'type' => 'File', 'title' => resource_title},
+                  'target' => {'type' => 'Notify', 'title' => 'anyone'},
+                  'relationship' => 'required-by'}
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should make an edge if the other end is a file resource with a missing trailing slash" do
+          test_file_require('/tmp/foo/', '/tmp/foo')
+        end
+
+        it "should make an edge if the other end is a file resource with an extra trailing slash" do
+          test_file_require('/tmp/foo', '/tmp/foo/')
+        end
+
+        it "should make an edge if the other end is a file resource with two missing trailing slashes" do
+          test_file_require('/tmp/foo//', '/tmp/foo')
+        end
+
+        it "should make an edge if the other end is a file resource with two extra trailing slashes" do
+          test_file_require('/tmp/foo', '/tmp/foo//')
+        end
+      end
+
       it "should make an edge if the other end is an exec referred to by an alias" do
         other_resource = Puppet::Resource.new(:exec, 'noone', :parameters => {:alias => 'completely_different', :path => '/anything'})
         resource[:require] = 'Exec[completely_different]'
@@ -553,7 +585,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                 'relationship' => 'required-by'}
 
         result['data']['edges'].should include(edge)
-      end
+      end      
 
       it "should not include virtual resources" do
         Puppet[:code] = <<-MANIFEST
