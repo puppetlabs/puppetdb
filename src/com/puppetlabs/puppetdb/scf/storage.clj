@@ -28,7 +28,6 @@
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago days now]]
-        [clojure.core.memoize :only [memo-lru]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -372,7 +371,7 @@ must be supplied as the value to be matched."
 
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona
-(def resource-identity-hash* (memo-lru resource-identity-hash* 40000))
+(def resource-identity-hash* (utils/bounded-memoize resource-identity-hash* 40000))
 
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
