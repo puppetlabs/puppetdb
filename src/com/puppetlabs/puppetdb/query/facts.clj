@@ -48,6 +48,8 @@
 
 (defmethod compile-term "="
   [[op path value :as term]]
+  {:post [(map? %)
+          (:where %)]}
   (let [count (count term)]
     (when (not= 3 count)
       (throw (IllegalArgumentException.
