@@ -93,18 +93,6 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
         end
       end
 
-      # This is pretty bad, but it's possible to have a resource like
-      # File[/tmp/foo] which is referred to as File[/tmp/foo/]. Because the
-      # relationship isn't evaluated until the agent, and is turned into an
-      # actual resource first, this will work, since /tmp/foo/ will be passed
-      # through title_patterns, removing the trailing slash. File is the only
-      # resource this occurs with, and the only munging is removing the
-      # slash. So we special-case file here and add an alias that has a
-      # trailing slash.
-      if resource['type'] == 'File' and name !~ /\/\Z/
-        aliases << name + '/'
-      end
-
       resource['parameters']['alias'] = aliases unless aliases.empty?
     end
 
@@ -180,6 +168,21 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
             resource_hash = {'type' => resource['type'], 'title' => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
+
+            # This is an unfortunate hack.  Puppet does some weird things w/rt
+            # munging off trailing slashes from file resources, and users may
+            # legally specify relationships using a different number of trailing
+            # slashes than the resource was originally declared with.
+            # We do know that for any file resource in the catalog, there should
+            # be a canonical entry for it that contains no trailing slashes.  So,
+            # here, in case someone has specified a relationship to a file resource
+            # and has used one or more trailing slashes when specifying the
+            # relationship, we will munge off the trailing slashes before
+            # we look up the resource in the catalog to create the edge.
+            if other_hash['type'] == 'File' and other_hash['title'] =~ /\/$/
+              other_hash['title'] = other_hash['title'].sub(/\/+$/, '')
+            end
+
             other_array = [other_hash['type'], other_hash['title']]
 
             # Try to find the resource by type/title or look it up as an alias
