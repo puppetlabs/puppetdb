@@ -93,6 +93,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
         end
       end
 
+      # This is pretty bad, but it's possible to have a resource like
+      # File[/tmp/foo] which is referred to as File[/tmp/foo/]. Because the
+      # relationship isn't evaluated until the agent, and is turned into an
+      # actual resource first, this will work, since /tmp/foo/ will be passed
+      # through title_patterns, removing the trailing slash. File is the only
+      # resource this occurs with, and the only munging is removing the
+      # slash. So we special-case file here and add an alias that has a
+      # trailing slash.
+      if resource['type'] == 'File' and name !~ /\/\Z/
+        aliases << name + '/'
+      end
+
       resource['parameters']['alias'] = aliases unless aliases.empty?
     end
 
