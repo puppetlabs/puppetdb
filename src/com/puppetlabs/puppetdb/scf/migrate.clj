@@ -22,6 +22,31 @@
                                                     sql-current-connection-database-name
                                                     sql-current-connection-database-version]]))
 
+(defn- drop-constraints
+  "Drop all constraints of given `constraint-type` on `table`."
+  [table constraint-type]
+  (let [results     (query-to-vec
+                      (str "SELECT constraint_name FROM information_schema.table_constraints "
+                           "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
+                      table constraint-type)
+        constraints (map :constraint_name results)]
+    (if (seq constraints)
+      (apply sql/do-commands
+             (for [constraint constraints]
+               (format "ALTER TABLE %s DROP CONSTRAINT %s" table constraint)))
+      (throw (IllegalArgumentException. (format "No %s constraint exists on the table '%s'" constraint-type table))))))
+
+(defn- drop-primary-key
+  "Drop the primary key on the given `table`."
+  [table]
+  (drop-constraints table "primary key"))
+
+(defn- drop-foreign-keys
+  "Drop all foreign keys on the given `table`. Does not currently support
+  selecting a single key to drop."
+  [table]
+  (drop-constraints table "foreign key"))
+
 (defn initialize-store
   "Create the initial database schema."
   []
@@ -134,12 +159,7 @@
    [(to-timestamp (now))])
 
   ;; First we get rid of the existing foreign key to certnames
-  (let [[result & _] (query-to-vec
-                      (str "SELECT constraint_name FROM information_schema.table_constraints "
-                           "WHERE LOWER(table_name) = 'certname_facts' AND LOWER(constraint_type) = 'foreign key'"))
-        constraint   (:constraint_name result)]
-    (sql/do-commands
-     (str "ALTER TABLE certname_facts DROP CONSTRAINT " constraint)))
+  (drop-foreign-keys "certname_facts")
 
   ;; Then we replace it with a foreign key to certname_facts_metadata
   (sql/do-commands
