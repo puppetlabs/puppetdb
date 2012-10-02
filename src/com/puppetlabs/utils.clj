@@ -60,7 +60,7 @@
   (and
     (coll? ks)
     (every? keyword? ks)
-    (fn? fn)))
+    (ifn? fn)))
 
 ;; ## I/O
 
@@ -139,8 +139,12 @@
   You may also provide an optional list of keys `ks`; if provided, only the
   specified keys will be modified."
   ([f m]
-    (mapvals f m (keys m)))
+    (into {} (for [[k v] m] [k (f v)])))
   ([f m ks]
+    ;; would prefer to share code between the two implementations here, but
+    ;; the `into` is much faster for the base case and the reduce is much
+    ;; faster for any case where we're operating on a subset of the keys.
+    ;; It seems like `select-keys` is fairly expensive.
     (reduce (fn [m k] (update-in m [k] f)) m ks)))
 
 (defn mapkeys

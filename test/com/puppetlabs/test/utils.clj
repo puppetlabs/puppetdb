@@ -41,6 +41,26 @@
       (is (= 0 (quotient 1 0)))
       (is (= 10 (quotient 1 0 10))))))
 
+(deftest mapvals-test
+  (testing "should default to applying a function to all of the keys"
+    (is (= {:a 2 :b 3} (mapvals inc {:a 1 :b 2}))))
+  (testing "should support applying a function to a subset of the keys"
+    (is (= {:a 2 :b 2} (mapvals inc {:a 1 :b 2} [:a]))))
+  (testing "should support keywords as the function to apply to all of the keys"
+    (is (= {:a 1 :b 2} (mapvals :foo {:a {:foo 1} :b {:foo 2}}))))
+  (testing "should support keywords as the function to apply to a subset of the keys"
+    (is (= {:a 1 :b {:foo 2}} (mapvals :foo {:a {:foo 1} :b {:foo 2}} [:a])))))
+
+(deftest maptrans-test
+  (testing "should fail if the keys-fns param isn't valid"
+    (is (thrown? AssertionError (maptrans "blah" {:a 1 :b 1}))))
+  (testing "should transform a map based on the given functions"
+    (is (= {:a 3 :b 3 :c 3 :d 3}
+          (maptrans {[:a :b] inc [:d] dec} {:a 2 :b 2 :c 3 :d 4}))))
+  (testing "should accept keywords as functions in the keys-fns param"
+    (is (= {:a 3 :b 3}
+          (maptrans {[:a :b] :foo} {:a {:foo 3} :b {:foo 3}})))))
+
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"
     (testing "should fail if not passed a string"
