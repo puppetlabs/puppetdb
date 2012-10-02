@@ -72,10 +72,6 @@
                  [ring/ring-core "1.1.1"]
                  [ring/ring-jetty-adapter "1.1.1"]]
 
-  :dev-dependencies [[lein-marginalia "0.7.0"]
-                     ;; WebAPI support libraries.
-                     [ring-mock "0.1.1"]]
-
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.1"]]}}
 
