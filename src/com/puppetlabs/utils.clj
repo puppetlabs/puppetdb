@@ -167,33 +167,6 @@
   (let [ks (keys keys-fns)]
     (reduce (fn [m k] (mapvals (keys-fns k) m k)) m ks)))
 
-(defn validate-map
-  "A utility function for validating the contents of a map.  Throws
-  `IllegalArgumentException` if the contents of the map are not valid.
-
-  Requires three arguments:
-
-  * `desc`: A description of the object/map that you are validating; this will
-    be used to create a descriptive error message in the event that the map is
-    not valid.
-  * `m`: The map to validate.
-  * `key-defs`: The definitions of the keys should exist in the map, and how they
-    should be validated.  This argument should be a list of triples.  Each triple
-    should consist of:
-      * the key to validate
-      * a predicate function to apply to the value of that key in the map to test
-        its validity, and
-      * a string describing the expected type of the value, used to create an
-        more useful error message explaining why the validation failed if it does."
-  [desc m key-defs]
-  (doseq [[required-key validate-fn type-desc] key-defs]
-    (when-not (contains? m required-key)
-      (throw (IllegalArgumentException. (format "%s is missing required key %s" desc required-key))))
-    (when-not (validate-fn (required-key m))
-      (throw (IllegalArgumentException.
-                (format "%s data is invalid for key %s; expected type '%s', got '%s'"
-                  desc required-key type-desc (required-key m)))))))
-
 (defn keyset
   "Retuns the set of keys from the supplied map"
   [m]
