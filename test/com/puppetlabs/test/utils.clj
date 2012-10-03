@@ -1,6 +1,7 @@
 (ns com.puppetlabs.test.utils
   (:require [fs.core :as fs])
   (:use [com.puppetlabs.utils]
+        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]))
 
 (deftest array?-test
@@ -17,6 +18,20 @@
       (doseq [x ['() [] {} "foo" 123 456.789 1/3]]
         (is (false? (array? x)))))))
 
+(deftest datetime?-test
+  (testing "should return false for non-coercible types"
+    (is (not (datetime? 2.0))))
+  (testing "should return false for nil"
+    (is (not (datetime? nil))))
+  (testing "should return true for a valid string"
+    (is (datetime? "2011-01-01T12:00:00-03:00")))
+  (testing "should return false for an invalid string"
+    (is (not (datetime? "foobar"))))
+  (testing "should return true for a valid integer"
+    (is (datetime? 20)))
+  (testing "should return false for an invalid integer")
+    (is (not (datetime? -9999999999999999999999999999999))))
+
 (deftest quotient-test
   (testing "quotient"
 
@@ -26,6 +41,26 @@
     (testing "should return default when divisor is zero"
       (is (= 0 (quotient 1 0)))
       (is (= 10 (quotient 1 0 10))))))
+
+(deftest mapvals-test
+  (testing "should default to applying a function to all of the keys"
+    (is (= {:a 2 :b 3} (mapvals inc {:a 1 :b 2}))))
+  (testing "should support applying a function to a subset of the keys"
+    (is (= {:a 2 :b 2} (mapvals inc {:a 1 :b 2} [:a]))))
+  (testing "should support keywords as the function to apply to all of the keys"
+    (is (= {:a 1 :b 2} (mapvals :foo {:a {:foo 1} :b {:foo 2}}))))
+  (testing "should support keywords as the function to apply to a subset of the keys"
+    (is (= {:a 1 :b {:foo 2}} (mapvals :foo {:a {:foo 1} :b {:foo 2}} [:a])))))
+
+(deftest maptrans-test
+  (testing "should fail if the keys-fns param isn't valid"
+    (is (thrown? AssertionError (maptrans "blah" {:a 1 :b 1}))))
+  (testing "should transform a map based on the given functions"
+    (is (= {:a 3 :b 3 :c 3 :d 3}
+          (maptrans {[:a :b] inc [:d] dec} {:a 2 :b 2 :c 3 :d 4}))))
+  (testing "should accept keywords as functions in the keys-fns param"
+    (is (= {:a 3 :b 3}
+          (maptrans {[:a :b] :foo} {:a {:foo 3} :b {:foo 3}})))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"
@@ -136,3 +171,44 @@
 
           (testing "should accept certs that appear in the whitelist"
             (is (authorized? {:scheme :https :ssl-client-cn "foo"}))))))))
+
+(deftest memoization
+  (testing "with an illegal bound"
+    (is (thrown? AssertionError (bounded-memoize identity -1)))
+    (is (thrown? AssertionError (bounded-memoize identity 0)))
+    (is (thrown? AssertionError (bounded-memoize identity 1.5)))
+    (is (thrown? AssertionError (bounded-memoize identity "five"))))
+
+  (testing "with a legal bound"
+    (let [f (call-counter)
+          memoized (bounded-memoize f 2)]
+      (testing "should only call the function once per argument"
+        (is (= (times-called f) 0))
+
+        (memoized 0)
+        (is (= (times-called f) 1))
+
+        (memoized 0)
+        (is (= (times-called f) 1))
+
+        (memoized 1)
+        (is (= (times-called f) 2)))
+
+      ;; We call it here for a hit, which we expect not to clear the cache,
+      ;; then call it again to verify the cache wasn't cleared and therefore f
+      ;; wasn't called
+      (testing "should not clear the cache at max size on a hit"
+        (memoized 1)
+        (is (= (times-called f) 2))
+
+        (memoized 1)
+        (is (= (times-called f) 2)))
+
+      ;; Now call it with a new argument to clear the cache, then with an old
+      ;; one to show f is called
+      (testing "should clear the cache at max size on a miss"
+        (memoized 2)
+        (is (= (times-called f) 3))
+
+        (memoized 3)
+        (is (= (times-called f) 4))))))

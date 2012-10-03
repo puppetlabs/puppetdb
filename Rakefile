@@ -116,22 +116,7 @@ end
 @rpmversion   ||= get_rpmversion
 @rpmrelease   ||= get_rpmrelease
 
-
-desc "Create a source install of PuppetDB"
-task :sourceinstall do
-  ENV['SOURCEINSTALL'] = 1
-  Rake::Task[:install].invoke
-end
-
 def erb(erbfile,  outfile)
-  if ENV['SOURCEINSTALL'] == 1
-    @install_dir = "#{DESTDIR}/@install_dir"
-    @config_dir = "#{DESTDIR}/@config_dir"
-    @initscriptname = "#{DESTDIR}/@initscript"
-    @log_dir = "#{DESTDIR}/@log_dir"
-    @lib_dir = "#{DESTDIR}/@lib_dir"
-    @link = "#{DESTDIR}/@link"
-  end
   template = File.read(erbfile)
   message = ERB.new(template, nil, "-")
   output = message.result(binding)

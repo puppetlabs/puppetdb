@@ -34,6 +34,9 @@
     ["experimental" &]
     {:any experimental-app}
 
+    [""]
+    {:get (constantly (redirect "/dashboard/index.html"))}
+
     ;; Mount the v1 app at / for backward compatibility with unversioned API
     [&]
     {:any backward-compatible-v1-app}))

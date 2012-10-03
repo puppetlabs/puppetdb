@@ -72,25 +72,25 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       # is both an optimization and a safeguard.
       next if real_resource.key_attributes.count > 1
 
+      aliases = [real_resource[:alias]].flatten.compact
+
       # Non-isomorphic resources aren't unique based on namevar, so we can't
       # use it as an alias
       type = real_resource.resource_type
-      next if type.respond_to?(:isomorphic?) and !type.isomorphic?
+      if !type.respond_to?(:isomorphic?) or type.isomorphic?
+        # This makes me a little sad.  It turns out that the "to_hash" method
+        #  of Puppet::Resource can have side effects.  In particular, if the
+        #  resource type specifies a title_pattern, calling "to_hash" will trigger
+        #  the title_pattern processing, which can have the side effect of
+        #  populating the namevar (potentially with a munged value).  Thus,
+        #  it is important that we search for namevar aliases in that hash
+        #  rather than in the resource itself.
+        real_resource_hash = real_resource.to_hash
 
-      aliases = [real_resource[:alias]].flatten.compact
-
-      # This makes me a little sad.  It turns out that the "to_hash" method
-      #  of Puppet::Resource can have side effects.  In particular, if the
-      #  resource type specifies a title_pattern, calling "to_hash" will trigger
-      #  the title_pattern processing, which can have the side effect of
-      #  populating the namevar (potentially with a munged value).  Thus,
-      #  it is important that we search for namevar aliases in that hash
-      #  rather than in the resource itself.
-      real_resource_hash = real_resource.to_hash
-
-      name = real_resource_hash[real_resource.send(:namevar)]
-      unless name.nil? or real_resource.title == name or aliases.include?(name)
-        aliases << name
+        name = real_resource_hash[real_resource.send(:namevar)]
+        unless name.nil? or real_resource.title == name or aliases.include?(name)
+          aliases << name
+        end
       end
 
       resource['parameters']['alias'] = aliases unless aliases.empty?
@@ -168,6 +168,21 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
             resource_hash = {'type' => resource['type'], 'title' => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
+
+            # This is an unfortunate hack.  Puppet does some weird things w/rt
+            # munging off trailing slashes from file resources, and users may
+            # legally specify relationships using a different number of trailing
+            # slashes than the resource was originally declared with.
+            # We do know that for any file resource in the catalog, there should
+            # be a canonical entry for it that contains no trailing slashes.  So,
+            # here, in case someone has specified a relationship to a file resource
+            # and has used one or more trailing slashes when specifying the
+            # relationship, we will munge off the trailing slashes before
+            # we look up the resource in the catalog to create the edge.
+            if other_hash['type'] == 'File' and other_hash['title'] =~ /\/$/
+              other_hash['title'] = other_hash['title'].sub(/\/+$/, '')
+            end
+
             other_array = [other_hash['type'], other_hash['title']]
 
             # Try to find the resource by type/title or look it up as an alias

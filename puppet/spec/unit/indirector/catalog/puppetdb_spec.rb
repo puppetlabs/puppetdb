@@ -201,10 +201,10 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
       describe "for non-isomorphic resources" do
         let(:resource) do
-          Puppet::Resource.new(:exec, 'an_exec', :parameters => {:command => '/bin/true'})
+          Puppet::Resource.new(:exec, 'an_exec', :parameters => {:command => '/bin/true', :alias => 'something awesome'})
         end
 
-        it "should not create aliases" do
+        it "should not add a namevar alias" do
           hash = subject.add_parameters_if_missing(catalog_data_hash)
           result = subject.add_namevar_aliases(hash, catalog)
 
@@ -213,7 +213,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
 
           resource.should_not be_nil
-          resource['parameters']['alias'].should be_nil
+          resource['parameters']['alias'].should == ['something awesome']
         end
       end
     end
@@ -540,6 +540,52 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         result['data']['edges'].should include(edge)
       end
+
+      context "when dealing with file resources and trailing slashes in their titles" do
+
+        def test_file_require(resource_title, require_title)
+          other_resource = Puppet::Resource.new(:file, resource_title)
+          resource[:require] = "File[#{require_title}]"
+          Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+          result = subject.munge_catalog(catalog)
+
+          edge = {'source' => {'type' => 'File', 'title' => resource_title},
+                  'target' => {'type' => 'Notify', 'title' => 'anyone'},
+                  'relationship' => 'required-by'}
+
+          result['data']['edges'].should include(edge)
+        end
+
+        it "should make an edge if the other end is a file resource with a missing trailing slash" do
+          test_file_require('/tmp/foo/', '/tmp/foo')
+        end
+
+        it "should make an edge if the other end is a file resource with an extra trailing slash" do
+          test_file_require('/tmp/foo', '/tmp/foo/')
+        end
+
+        it "should make an edge if the other end is a file resource with two missing trailing slashes" do
+          test_file_require('/tmp/foo//', '/tmp/foo')
+        end
+
+        it "should make an edge if the other end is a file resource with two extra trailing slashes" do
+          test_file_require('/tmp/foo', '/tmp/foo//')
+        end
+      end
+
+      it "should make an edge if the other end is an exec referred to by an alias" do
+        other_resource = Puppet::Resource.new(:exec, 'noone', :parameters => {:alias => 'completely_different', :path => '/anything'})
+        resource[:require] = 'Exec[completely_different]'
+        Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+
+        result = subject.munge_catalog(catalog)
+
+        edge = {'source' => {'type' => 'Exec', 'title' => 'noone'},
+                'target' => {'type' => 'Notify', 'title' => 'anyone'},
+                'relationship' => 'required-by'}
+
+        result['data']['edges'].should include(edge)
+      end      
 
       it "should not include virtual resources" do
         Puppet[:code] = <<-MANIFEST
