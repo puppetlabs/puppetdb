@@ -130,11 +130,9 @@
           :params [name (db-serialize value)]}
 
          ;; metadata match.
-         [(metadata :when string?)]
-         (if (re-matches #"(?i)[a-z_][a-z0-9_]*" metadata)
+         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
            {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
-           (throw (IllegalArgumentException. "illegal metadata column name %s" metadata)))
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
