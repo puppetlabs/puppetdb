@@ -9,5 +9,5 @@ step "Collect puppetdb log file" do
   # there is currently only an "scp_to" method on
   # that goes *out* to the hosts, no method that
   # scp's *from* the hosts.
-  `scp root@#{database}:/var/log/puppetdb/puppetdb.log ./artifacts`
+  PuppetAcceptance::Log.notify `scp root@#{database}:/var/log/puppetdb/puppetdb.log ./artifacts 2>&1`
 end
