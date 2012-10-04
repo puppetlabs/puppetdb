@@ -10,7 +10,8 @@ step "Collect puppetdb log file" do
   # that goes *out* to the hosts, no method that
   # scp's *from* the hosts.
 
-  scp_cmd = "scp root@#{database['ip']}:/var/log/puppetdb/puppetdb.log ./artifacts 2>&1"
+  ssh_host = database['ip'] || database.name
+  scp_cmd = "scp root@#{ssh_host}:/var/log/puppetdb/puppetdb.log ./artifacts 2>&1"
   PuppetAcceptance::Log.notify("Executing scp command:\n\n#{scp_cmd}\n\n")
   result = `#{scp_cmd}`
   status = $?
