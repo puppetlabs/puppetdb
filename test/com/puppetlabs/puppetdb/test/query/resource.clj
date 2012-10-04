@@ -36,25 +36,24 @@
     {:certname "example.local" :catalog "foo"}
     {:certname "subset.local" :catalog "bar"})
   (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"])}
-    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array [])}
-    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array [])})
-  ;; structure the results, eh.
+    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "a" :sourceline 1}
+    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "a" :sourceline 2}
+    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "c" :sourceline 1}
+    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :sourcefile "d" :sourceline 1}
+    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 2}
+    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "e" :sourceline 1}
+    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "f" :sourceline 1}
+    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "b" :sourceline 1}
+    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "c" :sourceline 2}
+    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 3})
   (let [foo1 {:certname   "example.local"
               :resource   "1"
               :type       "File"
               :title      "/etc/passwd"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "a"
+              :sourceline 1
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -64,8 +63,8 @@
               :title      "/etc/passwd"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "b"
+              :sourceline 1
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -75,8 +74,8 @@
               :title      "hello"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "a"
+              :sourceline 2
               :parameters {"random" "true"}}
         foo3 {:certname   "example.local"
               :resource   "3"
@@ -84,8 +83,8 @@
               :title      "no-params"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "c"
+              :sourceline 1
               :parameters {}}
         bar3 {:certname   "subset.local"
               :resource   "3"
@@ -93,8 +92,8 @@
               :title      "no-params"
               :tags       []
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "c"
+              :sourceline 2
               :parameters {}}
         foo4 {:certname   "example.local"
               :resource   "4"
@@ -102,8 +101,8 @@
               :title      "/etc/Makefile"
               :tags       ["vivid"]
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "d"
+              :sourceline 1
               :parameters {"ensure"  "present"
                            "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
         foo5 {:certname   "example.local"
@@ -112,8 +111,8 @@
               :title      "booyah"
               :tags       []
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "d"
+              :sourceline 2
               :parameters {"random" "false"}}
         bar5 {:certname   "subset.local"
               :resource   "5"
@@ -121,8 +120,8 @@
               :title      "booyah"
               :tags       []
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "d"
+              :sourceline 3
               :parameters {"random" "false"}}
         foo6 {:certname   "example.local"
               :resource   "6"
@@ -130,8 +129,8 @@
               :title      "multivalue"
               :tags       []
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "e"
+              :sourceline 1
               :parameters {"multi" ["one" "two" "three"]}}
         foo7 {:certname   "example.local"
               :resource   "7"
@@ -139,8 +138,8 @@
               :title      "hashvalue"
               :tags       []
               :exported   false
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "f"
+              :sourceline 1
               :parameters {"hash" {"foo" 5 "bar" 10}}}]
     ;; ...and, finally, ready for testing.
     (testing "queries against SQL data"
@@ -163,6 +162,10 @@
                   ["=" ["parameter" "multi"] ["one" "two" "three"]] [foo6]
                   ["=" ["parameter" "multi"] ["one" "three" "two"]] []
                   ["=" ["parameter" "multi"] "three"] []
+                  ;; metadata
+                  ["=" "sourcefile" "c"] [foo3 bar3]
+                  ["=" "sourceline" 3] [bar5]
+                  ["and" ["=" "sourcefile" "c"] ["=" "sourceline" 1]] [foo3]
                   ;; hash parameter matching
                   ["=" ["parameter" "hash"] {"foo" 5 "bar" 10}] [foo7]
                   ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [foo7]
@@ -202,16 +205,23 @@
             (s/query-resources (s/query->sql [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
             (s/query-resources (s/query->sql [op]))))))
+
   (testing "bad query operators"
     (doseq [in [["if"] ["-"] [{}] [["="]]]]
       (is (thrown-with-msg? IllegalArgumentException #"No method in multimethod"
             (s/query-resources (s/query->sql in))))))
+
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
             (re-pattern (str "= requires exactly two arguments, but we found "
                              (dec (count in))))
             (s/query-resources (s/query->sql in))))))
+
+  (testing "invalid columns"
+    (is (thrown-with-msg? IllegalArgumentException #"not a valid query term"
+          (s/query-resources (s/query->sql ["=" "foobar" "anything"])))))
+
   (testing "bad types in input"
     (doseq [path (list [] {} [{}] 12 true false 0.12)]
       (doseq [input (list ["=" path "foo"]
