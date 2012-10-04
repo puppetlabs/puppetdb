@@ -380,7 +380,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           expect do
             subject.munge_catalog(catalog)
-          end.to raise_error("Can't synthesize edge: Notify[source] -before- Notify[target] (param before) because Notify[target] is exported but not collected")
+          end.to raise_error("Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] is exported but not collected")
         end
 
         it "should not add edges defined on an uncollected exported resource" do
@@ -482,7 +482,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           expect do
             subject.munge_catalog(catalog)
-          end.to raise_error("Can't synthesize edge: Notify[source] -before- Notify[target] (param before) because Notify[target] doesn't seem to be in the catalog")
+          end.to raise_error("Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] doesn't seem to be in the catalog")
         end
 
         it "should not add edges defined on an uncollected virtual resource" do
@@ -517,12 +517,39 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['edges'].should include(edge)
       end
 
-      it "should complain if a resource has a relationship with a non-existent resource" do
+      it "should produce a reasonable error message for a missing 'before' relationship" do
+        resource[:before] = 'Notify[non-existent]'
+
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        expect {
+          subject.synthesize_edges(hash, catalog)
+        }.to raise_error("Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+      end
+
+      it "should produce a reasonable error message for a missing 'required-by' relationship" do
         resource[:require] = 'Notify[non-existent]'
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error("Can't synthesize edge: Notify[anyone] -required-by- Notify[non-existent] (param require) because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error("Invalid relationship: Notify[anyone] { require => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+      end
+
+      it "should produce a reasonable error message for a missing 'notifies' relationship" do
+        resource[:notify] = 'Notify[non-existent]'
+
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        expect {
+          subject.synthesize_edges(hash, catalog)
+        }.to raise_error("Invalid relationship: Notify[anyone] { notify => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+      end
+
+      it "should produce a reasonable error message for a missing 'subscription-of' relationship" do
+        resource[:subscribe] = 'Notify[non-existent]'
+
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        expect {
+          subject.synthesize_edges(hash, catalog)
+        }.to raise_error("Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
       end
     end
 
@@ -585,7 +612,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                 'relationship' => 'required-by'}
 
         result['data']['edges'].should include(edge)
-      end      
+      end
 
       it "should not include virtual resources" do
         Puppet[:code] = <<-MANIFEST
