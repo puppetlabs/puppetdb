@@ -189,7 +189,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # and try that
             other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
 
-            raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} doesn't seem to be in the catalog" unless other_resource
+            raise "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} doesn't seem to be in the catalog" unless other_resource
 
             # As above, virtual exported resources will eventually be removed,
             # so if a real resource refers to one, it's wrong. Non-virtual
@@ -199,7 +199,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # suffices to check for virtual.
             if other_real_resource = catalog.resource(other_resource['type'], other_resource['title'])
               if other_real_resource.virtual?
-                raise "Can't synthesize edge: #{resource_hash_to_ref(resource_hash)} -#{relation[:relationship]}- #{other_ref} (param #{param}) because #{other_ref} is exported but not collected"
+                raise "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} is exported but not collected"
               end
             end
 
@@ -230,5 +230,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
   def resource_hash_to_ref(hash)
     "#{hash['type']}[#{hash['title']}]"
+  end
+
+  def edge_to_s(specifier_resource, referred_resource, param)
+    "#{specifier_resource} { #{param} => #{referred_resource} }"
   end
 end
