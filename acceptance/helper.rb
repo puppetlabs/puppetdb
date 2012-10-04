@@ -37,6 +37,12 @@ module PuppetDBExtensions
           [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
 
 
+    use_s3_repos =
+        get_option_value(options[:puppetdb_use_s3_repos],
+          [:true, :false],
+          "'use s3 yum/apt repos instead of puppetlabs.lan'",
+          "PUPPETDB_USE_S3_REPOS", :false)
+
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
         :db_module_path => db_module_path,
@@ -46,7 +52,8 @@ module PuppetDBExtensions
         :database => database,
         :validate_package_version => validate_package_version == :true,
         :expected_package_version => expected_package_version,
-        :use_proxies => use_proxies == :true
+        :use_proxies => use_proxies == :true,
+        :use_s3_repos => use_s3_repos == :true,
     }
   end
 

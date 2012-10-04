@@ -39,3 +39,7 @@ in your hash; the environment variable names are the same but uppercased
   our internal proxy server.  This can provide a big speedup for CI, but is
   not desirable for remote employees during development.  Legal values are `:true`
   and `:false`.
+  
+* `:puppetdb_use_s3_repos` (`PUPPETDB_USE_S3_REPOS`) : By default, the test setup
+  will install puppetdb dev packages from puppetlabs.lan; however, if this option
+  is set to `true`, then it will try to use the apt/yum repos on S3 instead.
