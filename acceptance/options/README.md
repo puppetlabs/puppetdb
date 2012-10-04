@@ -44,3 +44,7 @@ in your hash; the environment variable names are the same but uppercased
   whether or not the post-suite cleanup phase will remove packages and perform
   exhaustive cleanup after the run.  This is useful if you would like to avoid
   resetting VMs between every run of the acceptance tests.  Defaults to `:true`.
+
+* `:puppetdb_use_s3_repos` (`PUPPETDB_USE_S3_REPOS`) : By default, the test setup
+  will install puppetdb dev packages from puppetlabs.lan; however, if this option
+  is set to `true`, then it will try to use the apt/yum repos on S3 instead.

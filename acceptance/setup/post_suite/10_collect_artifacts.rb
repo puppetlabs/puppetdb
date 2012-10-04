@@ -1,6 +1,8 @@
 
 step "Create artifacts directory" do
-  Dir.mkdir("artifacts")
+  unless File.directory?('artifacts')
+    Dir.mkdir("artifacts")
+  end
 end
 step "Collect puppetdb log file" do
   # Would like to do this through the harness, but

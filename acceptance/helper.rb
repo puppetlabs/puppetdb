@@ -42,6 +42,12 @@ module PuppetDBExtensions
           "'purge packages and perform exhaustive cleanup after run'",
           "PUPPETDB_PURGE_AFTER_RUN", :false)
 
+    use_s3_repos =
+        get_option_value(options[:puppetdb_use_s3_repos],
+          [:true, :false],
+          "'use s3 yum/apt repos instead of puppetlabs.lan'",
+          "PUPPETDB_USE_S3_REPOS", :false)
+
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
         :os_families => os_families,
@@ -52,6 +58,7 @@ module PuppetDBExtensions
         :expected_package_version => expected_package_version,
         :use_proxies => use_proxies == :true,
         :purge_after_run => purge_after_run == :true,
+        :use_s3_repos => use_s3_repos == :true,
     }
   end
 
