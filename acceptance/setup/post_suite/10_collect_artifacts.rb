@@ -9,5 +9,8 @@ step "Collect puppetdb log file" do
   # there is currently only an "scp_to" method on
   # that goes *out* to the hosts, no method that
   # scp's *from* the hosts.
-  PuppetAcceptance::Log.notify `scp root@#{database}:/var/log/puppetdb/puppetdb.log ./artifacts 2>&1`
+  result = `scp root@#{database['ip']}:/var/log/puppetdb/puppetdb.log ./artifacts 2>&1`
+  status = $?
+  PuppetAcceptance::Log.notify(result)
+  assert(status.success?, "Collecting puppetdb log file failed with exit code #{status.exitstatus}.")
 end
