@@ -7,8 +7,10 @@ if (test_config[:install_type] == :package)
   step "Add development repository on PuppetDB server" do
     case os
     when :debian
-      apt_url = "http://apt-dev.puppetlabs.lan"
+      # TODO: account for branches besides master!
+      apt_url = "http://neptune.puppetlabs.lan/dev/puppetdb/master"
       if (test_config[:use_s3_repos])
+        # TODO: account for branches
         apt_url = "http://puppetdb-apt-prerelease.s3.amazonaws.com/debian"
       end
 
@@ -17,8 +19,10 @@ if (test_config[:install_type] == :package)
       on database, "curl #{apt_url}/pubkey.gpg |apt-key add -"
       on database, "apt-get update"
     when :redhat
-      yum_url = "http://neptune.puppetlabs.lan/dev"
+      # TODO: account for branches besides master!
+      yum_url = "http://neptune.puppetlabs.lan/dev/puppetdb/master"
       if (test_config[:use_s3_repos])
+        # TODO: account for branches
         yum_url = "http://puppetdb-yum-prerelease.s3.amazonaws.com"
       end
 
