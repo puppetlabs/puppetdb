@@ -10,7 +10,6 @@ step "Verify we've been talking to the correct database" do
   #  all pass even if they were running against a different
   #  database than we'd intended.)
 
-  puts "DATABASE: '#{test_config[:database]}'"
   if (test_config[:database] == :postgres)
 
     # If we're running w/postgres, we're going to use some hacky raw SQL

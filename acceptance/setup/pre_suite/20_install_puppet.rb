@@ -58,8 +58,6 @@ end
 
 step "Install Puppet" do
 
-  puts "CONFIG: #{test_config.inspect}"
-
   case test_config[:install_type]
   when :package
     install_puppet_from_package(test_config[:os_families])
