@@ -2,6 +2,7 @@
 
 require 'cgi'
 require 'lib/puppet_acceptance/dsl/install_utils'
+require 'pp'
 
 module PuppetDBExtensions
 
@@ -55,6 +56,10 @@ module PuppetDBExtensions
         :use_proxies => use_proxies == :true,
         :use_s3_repos => use_s3_repos == :true,
     }
+
+    pp_config = PP.pp(@config, "")
+
+    PuppetAcceptance::Log.notify "PuppetDB Acceptance Configuration:\n\n#{pp_config}\n\n"
   end
 
   class << self
