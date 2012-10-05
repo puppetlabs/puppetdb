@@ -1,7 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.v2.fact-names
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
-            [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json])
+            [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
