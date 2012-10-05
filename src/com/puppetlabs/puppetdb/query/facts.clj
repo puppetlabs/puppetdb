@@ -33,6 +33,18 @@
       (select (where (= :certname node)))
       (deref)))
 
+(defn fact-names
+  "Returns the distinct list of known fact names, ordered alphabetically
+  ascending. This includes facts which are known only for deactivated nodes."
+  []
+  {:post [(coll? %)
+          (every? string? %)]}
+  (let [facts (-> (table :certname_facts)
+                  (project [:fact])
+                  (distinct)
+                  (order-by [:fact]))]
+    (map :fact @facts)))
+
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of
   the query."
