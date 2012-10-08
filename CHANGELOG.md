@@ -1,3 +1,57 @@
+1.0.1
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Deepak Giridharagopal
+* Nick Lewis
+* Matthaus Litteken
+* Chris Price
+
+Fixes:
+
+* (#16180) Properly handle edges between exported resources
+
+  This was previously failing when an edge referred to an exported
+  resource which was also collected, because it was incorrectly
+  assuming collected resources would always be marked as NOT
+  exported. However, in the case of a node collecting a resource which
+  it also exports, the resource is still marked exported. In that
+  case, it can be distinguished from a purely exported resource by
+  whether it's virtual. Purely virtual, non-exported resources never
+  appear in the catalog.
+
+  Virtual, exported resources are not collected, whereas non-virtual,
+  exported resources are. The former will eventually be removed from
+  the catalog before being sent to the agent, and thus aren't eligible
+  for participation in a relationship. We now check whether the
+  resource is virtual rather than exported, for correct behavior.
+
+* (#16535) Properly find edges that point at an exec by an alias
+
+  During namevar aliasing, we end up changing the :alias parameter to
+  'alias' and using that for the duration (to distinguish "our"
+  aliases form the "original" aliases). However, in the case of exec,
+  we were bailing out early because execs aren't isomorphic, and not
+  adding 'alias'. Now we will always change :alias to 'alias', and
+  just won't add the namevar alias for execs.
+
+* (#16407) Handle trailing slashes when creating edges for file
+  resources
+
+  We were failing to create relationships (edges) to File resources if
+  the relationship was specified with a different number of trailing
+  slashes in the title than the title of the original resource.
+
+* (#16652) Replace dir with specific files for terminus package
+
+  Previously, the files section claimed ownership of Puppet's libdir,
+  which confuses rpm when both packages are installed. This commit
+  breaks out all of the files and only owns one directory, which
+  clearly belongs to puppetdb. This will allow rpm to correctly
+  identify files which belong to puppet vs puppetdb-terminus.
+
 1.0.0
 =========
 The 1.0.0 release contains no changes from 0.11.0 with the exception
