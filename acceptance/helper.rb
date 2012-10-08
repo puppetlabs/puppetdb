@@ -2,6 +2,7 @@
 
 require 'cgi'
 require 'lib/puppet_acceptance/dsl/install_utils'
+require 'pp'
 
 module PuppetDBExtensions
 
@@ -37,6 +38,13 @@ module PuppetDBExtensions
           [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
 
 
+    package_repo_url =
+        get_option_value(options[:puppetdb_package_repo_url],
+          nil,
+          "'base URL for yum/apt repos'",
+          "PUPPETDB_PACKAGE_REPO_URL",
+          "http://neptune.puppetlabs.lan/dev/puppetdb/master")
+
     @config = {
         :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
         :db_module_path => db_module_path,
@@ -46,8 +54,13 @@ module PuppetDBExtensions
         :database => database,
         :validate_package_version => validate_package_version == :true,
         :expected_package_version => expected_package_version,
-        :use_proxies => use_proxies == :true
+        :use_proxies => use_proxies == :true,
+        :package_repo_url => package_repo_url,
     }
+
+    pp_config = PP.pp(@config, "")
+
+    PuppetAcceptance::Log.notify "PuppetDB Acceptance Configuration:\n\n#{pp_config}\n\n"
   end
 
   class << self

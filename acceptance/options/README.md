@@ -39,3 +39,8 @@ in your hash; the environment variable names are the same but uppercased
   our internal proxy server.  This can provide a big speedup for CI, but is
   not desirable for remote employees during development.  Legal values are `:true`
   and `:false`.
+
+* `:puppetdb_package_repo_url` (`PUPPETDB_PACKAGE_REPO_URL`) : By default,
+  the test setup will install the latest 'master' branch of puppetdb dev packages
+  from puppetlabs.lan; however, if this option is set, then it will try to use
+  the apt/yum repos from that url (appending 'debian', 'el', etc.) instead.
