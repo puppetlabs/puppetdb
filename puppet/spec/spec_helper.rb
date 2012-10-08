@@ -5,4 +5,4 @@ $LOAD_PATH.unshift File.join(dir, "../lib")
 $LOAD_PATH.push File.join(dir, "../../../puppetlabs_spec_helper")
 
 require 'rspec'
-require 'puppet_spec_helper'
+require 'puppetlabs_spec_helper/puppet_spec_helper'
