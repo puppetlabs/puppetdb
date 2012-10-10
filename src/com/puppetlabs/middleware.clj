@@ -35,6 +35,16 @@
           req (assoc req :ssl-client-cn cn)]
       (app req))))
 
+(defn wrap-with-default-body
+  "Ring middleware that will attach a default body based on the response code
+  if no other body is supplied."
+  [app]
+  (fn [req]
+    (let [{:keys [body] :as response} (app req)]
+      (if (empty? body)
+        (assoc response :body (pl-http/default-body req response))
+        response))))
+
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
   a map containing various global settings"

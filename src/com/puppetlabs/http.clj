@@ -4,6 +4,7 @@
 ;; functions.
 
 (ns com.puppetlabs.http
+  (:import [org.apache.http.impl EnglishReasonPhraseCatalog])
   (:require [ring.util.response :as rr]
             [cheshire.core :as json]
             [clojure.reflect :as r]
@@ -44,6 +45,25 @@
                 (.get nil))]
     (intern *ns* key val)))
 
+(defmulti default-body
+  "Provides a response body based on the status code of the resopnse.  The
+  default body is based on a direct mapping between HTTP code (for instance:
+  406) and a descriptive message for that status (for instance: Not
+  Acceptable), as given in RFC 2616 section 10."
+  (fn [request response] (:status response)))
+
+(defmethod default-body status-bad-method
+  [{:keys [request-method uri query-string]} response]
+  (let [method (s/upper-case (name request-method))
+        location (if query-string (format "%s?%s" uri query-string) uri)]
+    (format "The %s method is not allowed for %s" method location)))
+
+(defmethod default-body :default
+  [request {:keys [status] :as response}]
+  {:pre [status
+         (>= status 100)
+         (<= status 599)]}
+  (.getReason EnglishReasonPhraseCatalog/INSTANCE status nil))
 
 ;; ## HTTP/Ring utility functions
 
@@ -56,7 +76,7 @@
     true
     (let [[prefix suffix] (.split candidate "/")
           wildcard        (str prefix "/*")
-          types           (->> (clojure.string/split header #",")
+          types           (->> (s/split header #",")
                                (map #(.trim %))
                                (set))]
       (or (types wildcard)
