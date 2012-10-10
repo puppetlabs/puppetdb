@@ -9,7 +9,7 @@
         [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
-         (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics)]
+         (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
         [com.puppetlabs.http :only (uri-segments json-response)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
@@ -58,5 +58,6 @@
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
+        (wrap-with-default-body)
         (wrap-with-metrics (atom {}) #(first (uri-segments %)))
         (wrap-with-globals (opts :globals)))))

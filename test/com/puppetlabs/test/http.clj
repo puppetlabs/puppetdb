@@ -1,6 +1,7 @@
 (ns com.puppetlabs.test.http
   (:use [com.puppetlabs.http]
-        [clojure.test]))
+        [clojure.test]
+        [ring.mock.request]))
 
 (deftest conneg
   (testing "content negotiation"
@@ -51,3 +52,43 @@
               response (test-app request)]
           (is (= (:status response) 406))
           (is (= (:body response) "must accept foo")))))))
+
+(deftest default-error-messages
+  (testing "uses the standard description of the status by default"
+    (doseq [[code message] [[400 "Bad Request"]
+                            [401 "Unauthorized"]
+                            [402 "Payment Required"]
+                            [403 "Forbidden"]
+                            [404 "Not Found"]
+                            [406 "Not Acceptable"]
+                            [407 "Proxy Authentication Required"]
+                            [408 "Request Timeout"]
+                            [409 "Conflict"]
+                            [410 "Gone"]
+                            [411 "Length Required"]
+                            [412 "Precondition Failed"]
+                            [413 "Request Too Long"]
+                            [414 "Request-URI Too Long"]
+                            [415 "Unsupported Media Type"]
+                            [416 "Requested Range Not Satisfiable"]
+                            [417 "Expectation Failed"]
+                            [500 "Internal Server Error"]
+                            [501 "Not Implemented"]
+                            [502 "Bad Gateway"]
+                            [503 "Service Unavailable"]
+                            [504 "Gateway Timeout"]
+                            [505 "Http Version Not Supported"]]]
+      (let [request {}
+            response {:status code}]
+        (is (= (default-body request response) message)))))
+
+  (testing "provides a helpful message for 405 Method Not Allowed errors"
+    (let [request (request :post "/some/test/route")
+          response {:status status-bad-method}
+          message "The POST method is not allowed for /some/test/route"]
+      (is (= (default-body request response) message)))
+
+    (let [request (request :post "/some/test/route?foo=bar")
+          response {:status status-bad-method}
+          message "The POST method is not allowed for /some/test/route?foo=bar"]
+      (is (= (default-body request response) message)))))
