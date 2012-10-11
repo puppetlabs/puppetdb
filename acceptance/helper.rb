@@ -125,11 +125,13 @@ module PuppetDBExtensions
   end
 
 
-  def install_puppetdb(host, db)
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+
+  def install_puppetdb(host, db, version='latest')
+    manifest = <<-EOS
     class { 'puppetdb':
-      database => '#{db}',
+      database               => '#{db}',
+      manage_redhat_firewall => false,
+      puppetdb_version       => '#{version}',
     }
     EOS
     create_remote_file(host, manifest_path, manifest_content)
@@ -148,7 +150,7 @@ module PuppetDBExtensions
             result.stdout.strip
           when :redhat
             result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}-%{RELEASE}\""
-            result.stdout.strip.split('.')[0...-1].join('.')
+            result.stdout.strip
           else
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
@@ -160,11 +162,15 @@ module PuppetDBExtensions
   end
 
 
-  def install_puppetdb_termini(host, database)
-    manifest_path = host.tmpfile("puppetdb_manifest.pp")
-    manifest_content = <<-EOS
+  def install_puppetdb_termini(host, database, version='latest')
+    # We pass 'restart_puppet' => false to prevent the module from trying to
+    # manage the puppet master service, which isn't actually installed on the
+    # acceptance nodes (they run puppet master from the CLI).
+    manifest = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server => '#{database.node_name}',
+      puppetdb_server   => '#{database.node_name}',
+      puppetdb_version  => '#{version}',
+      restart_puppet    => false,
     }
     EOS
     create_remote_file(host, manifest_path, manifest_content)
