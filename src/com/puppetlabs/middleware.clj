@@ -41,9 +41,9 @@
   [app]
   (fn [req]
     (let [{:keys [body] :as response} (app req)]
-      (if (empty? body)
-        (assoc response :body (pl-http/default-body req response))
-        response))))
+      (if body
+        response
+        (assoc response :body (pl-http/default-body req response))))))
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
