@@ -266,8 +266,7 @@
           (number? version)]
    :post [(string? %)]}
   (with-open [conn (mq/connect! mq-spec)]
-    (let [command-map (-> (assemble-command command version payload)
-                          (annotate-command))]
+    (let [command-map (annotate-command (assemble-command command version payload))]
       (mq/publish-json! conn mq-endpoint command-map)
       (get-in command-map [:annotations :id]))))
 
