@@ -211,5 +211,5 @@
           {:keys [status body]} (*app* request)
           result (json/parse-string body true)]
       (is (= status pl-http/status-ok))
-      (is (= body [{:node "foo" :fact "ipaddress" :value "192.168.1.100"}
-                   {:node "bar" :fact "ipaddress" :value "192.168.1.101"}])))))
+      (is (= result [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                     {:node "foo" :fact "ipaddress" :value "192.168.1.100"}])))))

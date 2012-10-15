@@ -3,7 +3,8 @@
 (ns com.puppetlabs.puppetdb.query.facts
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
-            [com.puppetlabs.jdbc :as sql])
+            [com.puppetlabs.jdbc :as sql]
+            [com.puppetlabs.puppetdb.query.resource :as resource])
   (:use [com.puppetlabs.utils :only [parse-number]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-as-numeric]]
         [clojure.core.match :only [match]]
@@ -83,6 +84,19 @@
          {:joins [:certnames]
           :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}))
 
+(defmethod compile-term "subquery"
+  [[op path subquery :as term]]
+  (let [count (count term)]
+    (when (not= 3 count)
+      (throw (IllegalArgumentException.
+               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+  (match [path]
+         ["resource"]
+         (let [[subsql & params] (resource/query->sql subquery)]
+           {:joins [:catalog_resources]
+            :where (format "catalog_resources.resource IN (SELECT resource FROM (%s) r1)" subsql)
+            :params params})))
+
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
   {:post [(map? %)
@@ -136,7 +150,10 @@
   [table]
   (condp = table
     :certnames
-    "INNER JOIN certnames ON certname_facts.certname = certnames.name"))
+    "INNER JOIN certnames ON certname_facts.certname = certnames.name"
+
+    :catalog_resources
+    "INNER JOIN certname_catalogs USING(certname) LEFT OUTER JOIN catalog_resources USING(catalog)"))
 
 (defn query->sql
   "Compile a query into an SQL expression."
