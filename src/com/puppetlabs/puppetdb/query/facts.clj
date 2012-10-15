@@ -93,8 +93,7 @@
   (match [path]
          ["resource"]
          (let [[subsql & params] (resource/query->sql subquery)]
-           {:joins [:catalog_resources]
-            :where (format "catalog_resources.resource IN (SELECT resource FROM (%s) r1)" subsql)
+           {:where (format "certname_facts.certname IN (SELECT certname FROM (%s) r1)" subsql)
             :params params})))
 
 (defmethod compile-term :numeric-comparison
@@ -150,10 +149,7 @@
   [table]
   (condp = table
     :certnames
-    "INNER JOIN certnames ON certname_facts.certname = certnames.name"
-
-    :catalog_resources
-    "INNER JOIN certname_catalogs USING(certname) LEFT OUTER JOIN catalog_resources USING(catalog)"))
+    "INNER JOIN certnames ON certname_facts.certname = certnames.name"))
 
 (defn query->sql
   "Compile a query into an SQL expression."
