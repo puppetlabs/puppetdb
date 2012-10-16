@@ -72,7 +72,7 @@ def ln_sfT(src, dest)
   `ln -sfT "#{src}" "#{dest}"`
 end
 
-@osfamily = Facter.value(:osfamily).downcase
+@osfamily = (Facter.value(:osfamily) || "").downcase
 
 case @osfamily
   when /debian/
@@ -381,4 +381,17 @@ namespace :package do
 
   desc "Create debian package"
   task :deb => [ :deb ]
+end
+
+namespace :test do
+  desc "Build packages for testing"
+  task :package do
+    # TODO: I'm not proud of this.  The contents of the shell script(s) that
+    # we call here need to be reconciled with Moses' standardized packaging
+    # stuff, and a lot of the contents should probably be ported over to
+    # Ruby instead of just shipping the nasty scripts.  However, this first step
+    # at least gives us 1) VCS for this stuff, and 2) the ability to run
+    # the two packaging builds in parallel.
+    sh "sh ./ext/test/build_packages.sh"
+  end
 end
