@@ -187,29 +187,78 @@
           (is (= status pl-http/status-bad-request))
           (is (= body "[] is not well-formed; queries must contain at least one operator")))))))
 
-(deftest queries-by-resources
+(defn is-query-result
+  [query results]
+  (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+        {:keys [status body]} (*app* request)]
+    (is (= status pl-http/status-ok))
+    (is (= (json/parse-string body true) results))))
+
+(deftest fact-subqueries
   (testing "subqueries using a resource"
     (scf-store/add-certname! "foo")
     (scf-store/add-certname! "bar")
     (scf-store/add-certname! "baz")
-    (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100"} (now))
-    (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101"} (now))
-    (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102"} (now))
+    (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian"} (now))
+    (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu"} (now))
+    (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS"} (now))
+
     (let [catalog (:empty catalogs)
           apache-resource {:type "Class" :title "Apache"}
           apache-catalog (update-in catalog [:resources] conj {apache-resource (assoc apache-resource :exported false)})]
       (scf-store/replace-catalog! (assoc apache-catalog :certname "foo") (now))
       (scf-store/replace-catalog! (assoc apache-catalog :certname "bar") (now))
       (scf-store/replace-catalog! (assoc catalog :certname "baz") (now)))
-    (let [query ["and"
-                 ["=" ["fact" "name"] "ipaddress"]
-                 ["subquery" "resource"
-                  ["and"
-                   ["=" "type" "Class"]
-                   ["=" "title" "Apache"]]]]
-          request (make-request "/v2/facts" {"query" (json/generate-string query)})
-          {:keys [status body]} (*app* request)
-          result (json/parse-string body true)]
-      (is (= status pl-http/status-ok))
-      (is (= result [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
-                     {:node "foo" :fact "ipaddress" :value "192.168.1.100"}])))))
+
+    (testing "subqueries using a resource"
+      (doseq [[query results]  {["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["subquery" "resource"
+                                  ["and"
+                                   ["=" "type" "Class"]
+                                   ["=" "title" "Apache"]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Multiple matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["subquery" "resource"
+                                  ["=" "type" "Class"]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Multiple facts
+                                ["and"
+                                 ["or"
+                                  ["=" ["fact" "name"] "ipaddress"]
+                                  ["=" ["fact" "name"] "operatingsystem"]]
+                                 ["subquery" "resource"
+                                  ["and"
+                                   ["=" "type" "Class"]
+                                   ["=" "title" "Apache"]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "bar" :fact "operatingsystem" :value "Ubuntu"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}
+                                 {:node "foo" :fact "operatingsystem" :value "Debian"}]
+
+                                ;; No matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["subquery" "resource"
+                                  ["=" "type" "NotRealAtAll"]]]
+
+                                []
+
+                                ;; No matching facts
+                                ["and"
+                                 ["=" ["fact" "name"] "nosuchfact"]
+                                 ["subquery" "resource"
+                                  ["=" "type" "Class"]]]
+
+                                []}]
+        (is-query-result query results)))))
