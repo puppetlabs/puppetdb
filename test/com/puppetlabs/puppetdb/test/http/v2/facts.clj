@@ -264,10 +264,10 @@
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
                                  ["or"
-                                  ["subquery" "resource"
-                                   ["and"
-                                    ["=" "type" "Class"]
-                                    ["=" "title" "Apache"]]]
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Apache"]]]]]
                                   ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
                                                                                           ["and"
                                                                                            ["=" "type" "Class"]
