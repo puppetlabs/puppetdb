@@ -127,7 +127,8 @@ module PuppetDBExtensions
 
 
   def install_puppetdb(host, db, version='latest')
-    manifest = <<-EOS
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
+    manifest_content = <<-EOS
     class { 'puppetdb':
       database               => '#{db}',
       manage_redhat_firewall => false,
@@ -163,10 +164,11 @@ module PuppetDBExtensions
 
 
   def install_puppetdb_termini(host, database, version='latest')
+    manifest_path = host.tmpfile("puppetdb_manifest.pp")
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
-    manifest = <<-EOS
+    manifest_content = <<-EOS
     class { 'puppetdb::master::config':
       puppetdb_server   => '#{database.node_name}',
       puppetdb_version  => '#{version}',
