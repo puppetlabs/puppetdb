@@ -4,7 +4,7 @@ require 'digest'
 
 module Puppet::Util::Puppetdb
 
-  CommandsUrl = "/v1/commands"
+  CommandsUrl = "/v2/commands"
 
   CommandReplaceCatalog = "replace catalog"
   CommandReplaceFacts = "replace facts"
