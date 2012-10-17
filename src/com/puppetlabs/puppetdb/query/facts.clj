@@ -121,7 +121,7 @@
           (string? (:where %))]}
   (let [{:keys [where params] :as query} (compile-term subselect)]
     (when-not (fact-columns field)
-      (throw (IllegalArgumentException. (format "Can't match on unknown fact field '%s' for 'in-result'" field))))
+      (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in-result'" type field))))
     (assoc query :where (format "%s IN (%s)" field where))))
 
 (defmethod compile-term :numeric-comparison
