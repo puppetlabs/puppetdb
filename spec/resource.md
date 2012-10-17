@@ -62,21 +62,8 @@ for "example.local" the JSON query structure would be:
             ["=", "tag", "magical"],
             ["=", ["parameter", "ensure"], "enabled"]
 
-The conditional type behaviours are defined:
-
-`or`
-: If *any* condition is true the result is true.
-
-`and`
-: If *all* conditions are true the result is true.
-
-`not`
-: If *none* of the conditions are true the result is true.
-
-The match operator behaviours are defined:
-
-`=`
-: Exact string equality of the field and the value.
+The available operators are [defined in operators.md](operators.md). Note that
+resource queries *do not support* inequality or subqueries.
 
 # Response format
 

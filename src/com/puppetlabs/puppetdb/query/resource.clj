@@ -62,25 +62,25 @@
   (let [{:keys [where joins params]} (compile-term query)
         join-expr                    (->> joins
                                           (map build-join-expr)
-                                          (string/join " "))]
-    (apply vector (format "%s WHERE %s" join-expr where) params)))
+                                          (string/join " "))
+        sql (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
+                         "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
+                         "FROM catalog_resources "
+                         "JOIN certname_catalogs USING(catalog) "
+                         "LEFT OUTER JOIN resource_params rp "
+                         "USING(resource) %s WHERE %s")
+                    join-expr where)]
+    (apply vector sql params)))
 
 (defn limited-query-resources
   "Take a limit, a query, and its parameters, and return a vector of resources
    and their parameters which match.  Throws an exception if the query would
    return more than `limit` results.  (A value of `0` for `limit` means
    that the query should not be limited.)"
-  [limit [sql & params]]
+  [limit [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [query         (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
-                                   "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
-                                   "FROM catalog_resources "
-                                   "JOIN certname_catalogs USING(catalog) "
-                                   "LEFT OUTER JOIN resource_params rp "
-                                   "USING(resource) %s")
-                              sql)
-        limited-query (add-limit-clause limit query)
+  (let [limited-query (add-limit-clause limit query)
         results       (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)]

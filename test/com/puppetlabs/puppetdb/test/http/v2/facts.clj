@@ -6,6 +6,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.examples]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
@@ -18,8 +19,8 @@
   app. Params supported are content-type and query-string."
   ([path] (make-request path {}))
   ([path params]
-     (let [request (request :get path params)]
-       (update-in request [:headers] assoc "Accept" c-t))))
+   (let [request (request :get path params)]
+     (update-in request [:headers] assoc "Accept" c-t))))
 
 (deftest fact-set-handler
   (let [certname-with-facts "got_facts"
@@ -57,7 +58,7 @@
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (set (json/parse-string (:body response) true))
                (set (for [[fact value] facts]
-                 {:node certname-with-facts :fact fact :value value}))))))))
+                      {:node certname-with-facts :fact fact :value value}))))))))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -185,3 +186,162 @@
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "[] is not well-formed; queries must contain at least one operator")))))))
+
+(defn is-query-result
+  [query results]
+  (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+        {:keys [status body]} (*app* request)]
+    (is (= status pl-http/status-ok))
+    (is (= (try
+             (json/parse-string body true)
+             (catch Throwable e
+               body)) results) query)))
+
+(deftest fact-subqueries
+  (testing "subqueries using a resource"
+    (scf-store/add-certname! "foo")
+    (scf-store/add-certname! "bar")
+    (scf-store/add-certname! "baz")
+    (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000} (now))
+    (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12} (now))
+    (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000} (now))
+
+    (let [catalog (:empty catalogs)
+          apache-resource {:type "Class" :title "Apache"}
+          apache-catalog (update-in catalog [:resources] conj {apache-resource (assoc apache-resource :exported false)})]
+      (scf-store/replace-catalog! (assoc apache-catalog :certname "foo") (now))
+      (scf-store/replace-catalog! (assoc apache-catalog :certname "bar") (now))
+      (scf-store/replace-catalog! (assoc catalog :certname "baz") (now)))
+
+    (testing "subqueries using a resource"
+      (doseq [[query results]  {["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["and"
+                                                                                          ["=" "type" "Class"]
+                                                                                          ["=" "title" "Apache"]]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; "not" matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["not"
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Apache"]]]]]]]
+
+                                [{:node "baz" :fact "ipaddress" :value "192.168.1.102"}]
+
+                                ;; Multiple matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "Class"]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Multiple facts
+                                ["and"
+                                 ["or"
+                                  ["=" ["fact" "name"] "ipaddress"]
+                                  ["=" ["fact" "name"] "operatingsystem"]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["and"
+                                                                                          ["=" "type" "Class"]
+                                                                                          ["=" "title" "Apache"]]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "bar" :fact "operatingsystem" :value "Ubuntu"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}
+                                 {:node "foo" :fact "operatingsystem" :value "Debian"}]
+
+                                ;; Multiple subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["or"
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Apache"]]]]]
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Main"]]]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; No matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "NotRealAtAll"]]]]]
+
+                                []
+
+                                ;; No matching facts
+                                ["and"
+                                 ["=" ["fact" "name"] "nosuchfact"]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "Class"]]]]]
+
+                                []
+
+                                ;; Fact subquery
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Nested fact subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]
+                                                                                      ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                                                                          ["and"
+                                                                                                                                           ["=" ["fact" "name"] "uptime_seconds"]
+                                                                                                                                           [">" ["fact" "value"] 10000]]]]]]]]]]
+
+                                [{:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Multiple fact subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "uptime_seconds"]
+                                                                                      [">" ["fact" "value"] 10000]]]]]]
+
+                                [{:node "foo" :fact "ipaddress" :value "192.168.1.100"}]}]
+        (is-query-result query results))))
+
+  (testing "invalid queries"
+    (doseq [[query msg] {["in-result" ["fact" "certname"] ["project" "nothing" ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                         "Can't project unknown field 'nothing' for 'select-resources'"
+
+                         ["in-result" ["fact" "nothing"] ["project" "certname" ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                         "Can't match on unknown fact field 'nothing' for 'in-result'"}]
+      (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+            {:keys [status body] :as result} (*app* request)]
+        (is (= status pl-http/status-bad-request))
+        (is (= body msg))))))

@@ -82,6 +82,7 @@
      (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
      {:pre [((some-fn string? vector?) sql-query-and-params)]}
+   (prn sql-query-and-params)
      (limited-query-to-vec 0 sql-query-and-params)))
 
 (defn table-count
