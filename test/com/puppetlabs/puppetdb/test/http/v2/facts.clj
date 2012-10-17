@@ -221,6 +221,16 @@
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
                                  {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
 
+                                ;; "not" matching resources
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["not" ["subquery" "resource"
+                                         ["and"
+                                          ["=" "type" "Class"]
+                                          ["=" "title" "Apache"]]]]]
+
+                                [{:node "baz" :fact "ipaddress" :value "192.168.1.102"}]
+
                                 ;; Multiple matching resources
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
@@ -245,6 +255,23 @@
                                  {:node "bar" :fact "operatingsystem" :value "Ubuntu"}
                                  {:node "foo" :fact "ipaddress" :value "192.168.1.100"}
                                  {:node "foo" :fact "operatingsystem" :value "Debian"}]
+
+                                ;; Multiple subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["or"
+                                  ["subquery" "resource"
+                                   ["and"
+                                    ["=" "type" "Class"]
+                                    ["=" "title" "Apache"]]]
+                                  ["subquery" "resource"
+                                   ["and"
+                                    ["=" "type" "Class"]
+                                    ["=" "title" "Main"]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
 
                                 ;; No matching resources
                                 ["and"
