@@ -24,7 +24,7 @@ This will return all facts matching the given query. If no query is supplied, al
 
 ##### Operators
 
-    = > < >= <= and or not
+  [See operators.md](operators.md)
 
 ##### Examples
 
