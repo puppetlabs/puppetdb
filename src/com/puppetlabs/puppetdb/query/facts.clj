@@ -84,17 +84,38 @@
          {:joins [:certnames]
           :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}))
 
-(defmethod compile-term "subquery"
-  [[op path subquery :as term]]
-  (let [count (count term)]
-    (when (not= 3 count)
-      (throw (IllegalArgumentException.
-               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (match [path]
-         ["resource"]
-         (let [[subsql & params] (resource/query->sql subquery)]
-           {:where (format "certname_facts.certname IN (SELECT certname FROM (%s) r1)" subsql)
-            :params params})))
+(defmethod compile-term "select-resources"
+  [[_ subquery :as term]]
+  {:pre [(coll? subquery)]
+   :post [(string? (:where %))]}
+  (let [[subsql & params] (resource/query->sql subquery)]
+    {:where (format "(SELECT * FROM (%s) r1)" subsql)
+     :params params}))
+
+(def selectable-columns
+  {"select-resources" #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"}})
+
+(defmethod compile-term "project"
+  [[_ field subselect]]
+  {:pre [(string? field)
+         (coll? subselect)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [{:keys [where params] :as query} (compile-term subselect)
+        select-type (first subselect)
+        field-names (selectable-columns select-type)]
+    (when-not (field-names field)
+      (throw (IllegalArgumentException. (format "Can't project unknown field '%s' for '%s'" field select-type))))
+    (assoc query :where (format "SELECT %s FROM (%s) r1" field where))))
+
+(defmethod compile-term "in-result"
+  [[_ field subselect]]
+  {:pre [(string? field)
+         (coll? subselect)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [{:keys [where params] :as query} (compile-term subselect)]
+    (assoc query :where (format "%s IN (%s)" field where))))
 
 (defmethod compile-term :numeric-comparison
   [[op path value :as term]]
