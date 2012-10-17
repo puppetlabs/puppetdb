@@ -85,7 +85,7 @@
           :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}))
 
 (defmethod compile-term "select-resources"
-  [[_ subquery :as term]]
+  [[_ subquery]]
   {:pre [(coll? subquery)]
    :post [(string? (:where %))]}
   (let [[subsql & params] (resource/query->sql subquery)]
