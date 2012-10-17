@@ -46,6 +46,15 @@
                   (order-by [:fact]))]
     (map :fact @facts)))
 
+(defn build-join-expr
+  "Builds an inner join expression between certname_facts and the given
+  `table`. The only acceptable value for now is `certnames`, which will just
+  join directly between `certname_facts` and `certnames`."
+  [table]
+  (condp = table
+    :certnames
+    "INNER JOIN certnames ON certname_facts.certname = certnames.name"))
+
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of
   the query."
@@ -58,6 +67,27 @@
         (#{">" "<" ">=" "<="} operator) :numeric-comparison
         (#{"and" "or"} operator) :connective
         :else operator))))
+
+(defn query->sql
+  "Compile a query into an SQL expression."
+  [query]
+  {:pre [((some-fn nil? sequential?) query) ]
+   :post [(vector? %)
+          (string? (first %))
+          (every? (complement coll?) (rest %))]}
+  (if query
+    (let [{:keys [where joins params]} (compile-term query)
+          join-expr                   (->> joins
+                                           (map build-join-expr)
+                                           (string/join " "))
+          sql (format "SELECT certname AS node, fact, value FROM certname_facts %s WHERE %s ORDER BY node, certname_facts.fact, certname_facts.value" join-expr where)]
+      (apply vector sql params))
+    ["SELECT certname AS node, fact, value FROM certname_facts ORDER BY node, certname_facts.fact, certname_facts.value"]))
+
+(defn query-facts
+  [[sql & params]]
+  {:pre [(string? sql)]}
+  (apply sql/query-to-vec sql params))
 
 (defmethod compile-term "="
   [[op path value :as term]]
@@ -84,20 +114,33 @@
          {:joins [:certnames]
           :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}))
 
-(defmethod compile-term "select-resources"
-  [[_ subquery]]
+(defmethod compile-term "select-facts"
+  [[_ subquery & others]]
   {:pre [(coll? subquery)]
    :post [(string? (:where %))]}
-  (let [[subsql & params] (resource/query->sql subquery)]
-    {:where (format "(SELECT * FROM (%s) r1)" subsql)
+  (when-not (empty? others)
+    (throw (IllegalArgumentException. "Only one expression is accepted for 'select-facts'")))
+  (let [[subsql & params] (query->sql subquery)]
+    {:where (format "SELECT * FROM (%s) r1" subsql)
      :params params}))
 
-(def fact-columns #{"certname" "fact" "value"})
+(defmethod compile-term "select-resources"
+  [[_ subquery & others]]
+  {:pre [(coll? subquery)]
+   :post [(string? (:where %))]}
+  (when-not (empty? others)
+    (throw (IllegalArgumentException. "Only one expression is accepted for 'select-resources'")))
+  (let [[subsql & params] (resource/query->sql subquery)]
+    {:where (format "SELECT * FROM (%s) r1" subsql)
+     :params params}))
+
+(def fact-columns #{"certname" "node" "fact" "value"})
 
 (def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
 
 (def selectable-columns
-  {"select-resources" resource-columns})
+  {"select-resources" resource-columns
+   "select-facts" fact-columns})
 
 (defmethod compile-term "project"
   [[_ field subselect]]
@@ -110,7 +153,7 @@
         field-names (selectable-columns select-type)]
     (when-not (field-names field)
       (throw (IllegalArgumentException. (format "Can't project unknown field '%s' for '%s'" field select-type))))
-    (assoc query :where (format "SELECT %s FROM (%s) r1" field where))))
+    (assoc query :where (format "SELECT r1.%s FROM (%s) r1" field where))))
 
 (defmethod compile-term "in-result"
   [[_ [type field] subselect]]
@@ -169,33 +212,3 @@
     {:joins  joins
      :where  query
      :params params}))
-
-(defn build-join-expr
-  "Builds an inner join expression between certname_facts and the given
-  `table`. The only acceptable value for now is `certnames`, which will just
-  join directly between `certname_facts` and `certnames`."
-  [table]
-  (condp = table
-    :certnames
-    "INNER JOIN certnames ON certname_facts.certname = certnames.name"))
-
-(defn query->sql
-  "Compile a query into an SQL expression."
-  [query]
-  {:pre [((some-fn nil? sequential?) query) ]
-   :post [(vector? %)
-          (string? (first %))
-          (every? (complement coll?) (rest %))]}
-  (if query
-    (let [{:keys [where joins params]} (compile-term query)
-          join-expr                   (->> joins
-                                           (map build-join-expr)
-                                           (string/join " "))]
-      (apply vector (format "%s WHERE %s" join-expr where) params))
-    [""]))
-
-(defn query-facts
-  [[sql & params]]
-  {:pre [(string? sql)]}
-  (let [query (format "SELECT certname AS node, fact, value FROM certname_facts %s ORDER BY node, certname_facts.fact, certname_facts.value" sql)]
-    (apply sql/query-to-vec query params)))

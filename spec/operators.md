@@ -28,31 +28,51 @@ operation to the results of those expressions.
 Sometimes, a query needs to correlate data from multiple sources, or multiple
 rows. For instance, a query such as "fetch the IP addresses of all nodes with
 Class[Apache]". Because this query uses both facts and resources, it needs to
-include a subquery. The query expression used for this behavior is:
+include a subquery.
 
-["and"
-  ["=" ["fact" "name"] "ipaddress"]
-  ["in-result" ["fact" "certname"]
-    ["project" "certname"
-      ["select-resources"
-        ["and"
-          ["=" "type" "Class"]
-          ["=" "title" "Apache"]]]]]]
+Available subquery operators:
 
-While this expression is long, its behavior is fairly straightforward. Let's break it down:
+`in-result`: This operator returns true if the supplied field exists in the
+query results that follow.
 
-  `select-resources`: This operator is the meat of the subquery. It will
-  execute a [resource query](resources.md), returning the same results as
-  though the query were made against the `/resources` endpoint. In this case,
-  the resource query is `["and" ["=" "type" "Class"] ["=" "title" "Apache"]]`,
-  which returns resources matching Class[Apache].
+`project`: This operator is used to extract the field we care about from the
+resources, so that we can find the corresponding facts.
 
-  `project`: This operator is used to extract the field we care about from the
-  resources, so that we can find the corresponding facts. This query is
-  extracting the certname field, indicating it wants to find facts for nodes
-  which have the Class[Apache] resource.
+#### Examples
 
-  `in-result`: This operator returns true if the supplied field (in this case
-  `["fact" "certname"]`) exists in the query results that follow. This query
-  will return true for facts whose certnames appear in the list of certnames
-  which have the Class[Apache] resource.
+##### `select-resources`
+
+This query expression queries the `/facts` endpoint for the IP address fact for
+all nodes with Class[Apache]:
+
+    ["and"
+      ["=" ["fact" "name"] "ipaddress"]
+      ["in-result" ["fact" "certname"]
+        ["project" "certname"
+          ["select-resources"
+            ["and"
+              ["=" "type" "Class"]
+              ["=" "title" "Apache"]]]]]]
+
+This operator is the meat of a resource subquery. It will execute a [resource
+query](resources.md), returning the same results as though the query were
+made against the `/resources` endpoint. In this case, the resource query is
+`["and" ["=" "type" "Class"] ["=" "title" "Apache"]]`, which returns
+resources matching Class[Apache].
+
+##### `select-facts`
+
+This query expression queries the `/facts` endpoint for the IP address fact of
+all Debian nodes.
+
+    ["and"
+      ["=" ["fact" "name"] "ipaddress"]
+      ["in-result" ["fact" "certname"]
+        ["project" "node"
+          ["select-facts"
+            ["and"
+              ["=" ["fact" "name"] "operatingsystem"]
+              ["=" ["fact" "value"] "Debian"]]]]]]
+
+This operator is similar to `select-resources`, but will make a subquery
+[against facts](facts.md).

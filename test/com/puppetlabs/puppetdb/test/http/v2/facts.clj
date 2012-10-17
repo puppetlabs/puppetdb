@@ -202,9 +202,9 @@
     (scf-store/add-certname! "foo")
     (scf-store/add-certname! "bar")
     (scf-store/add-certname! "baz")
-    (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian"} (now))
-    (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu"} (now))
-    (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS"} (now))
+    (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000} (now))
+    (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12} (now))
+    (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000} (now))
 
     (let [catalog (:empty catalogs)
           apache-resource {:type "Class" :title "Apache"}
@@ -291,7 +291,46 @@
                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
                                                                                          ["=" "type" "Class"]]]]]
 
-                                []}]
+                                []
+
+                                ;; Fact subquery
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]]]]]]
+
+                                [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
+                                 {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Nested fact subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]
+                                                                                      ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                                                                          ["and"
+                                                                                                                                           ["=" ["fact" "name"] "uptime_seconds"]
+                                                                                                                                           [">" ["fact" "value"] 10000]]]]]]]]]]
+
+                                [{:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
+
+                                ;; Multiple fact subqueries
+                                ["and"
+                                 ["=" ["fact" "name"] "ipaddress"]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "osfamily"]
+                                                                                      ["=" ["fact" "value"] "Debian"]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                     ["and"
+                                                                                      ["=" ["fact" "name"] "uptime_seconds"]
+                                                                                      [">" ["fact" "value"] 10000]]]]]]
+
+                                [{:node "foo" :fact "ipaddress" :value "192.168.1.100"}]}]
         (is-query-result query results))))
 
   (testing "invalid queries"
