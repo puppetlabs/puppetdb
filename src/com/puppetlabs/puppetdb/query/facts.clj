@@ -92,8 +92,12 @@
     {:where (format "(SELECT * FROM (%s) r1)" subsql)
      :params params}))
 
+(def fact-columns #{"certname" "fact" "value"})
+
+(def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
+
 (def selectable-columns
-  {"select-resources" #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"}})
+  {"select-resources" resource-columns})
 
 (defmethod compile-term "project"
   [[_ field subselect]]
@@ -109,12 +113,15 @@
     (assoc query :where (format "SELECT %s FROM (%s) r1" field where))))
 
 (defmethod compile-term "in-result"
-  [[_ field subselect]]
-  {:pre [(string? field)
+  [[_ [type field] subselect]]
+  {:pre [(string? type)
+         (string? field)
          (coll? subselect)]
    :post [(map? %)
           (string? (:where %))]}
   (let [{:keys [where params] :as query} (compile-term subselect)]
+    (when-not (fact-columns field)
+      (throw (IllegalArgumentException. (format "Can't match on unknown fact field '%s' for 'in-result'" field))))
     (assoc query :where (format "%s IN (%s)" field where))))
 
 (defmethod compile-term :numeric-comparison

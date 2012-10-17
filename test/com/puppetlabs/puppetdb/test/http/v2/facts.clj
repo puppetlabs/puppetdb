@@ -19,8 +19,8 @@
   app. Params supported are content-type and query-string."
   ([path] (make-request path {}))
   ([path params]
-     (let [request (request :get path params)]
-       (update-in request [:headers] assoc "Accept" c-t))))
+   (let [request (request :get path params)]
+     (update-in request [:headers] assoc "Accept" c-t))))
 
 (deftest fact-set-handler
   (let [certname-with-facts "got_facts"
@@ -58,7 +58,7 @@
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (set (json/parse-string (:body response) true))
                (set (for [[fact value] facts]
-                 {:node certname-with-facts :fact fact :value value}))))))))
+                      {:node certname-with-facts :fact fact :value value}))))))))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -192,7 +192,10 @@
   (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
         {:keys [status body]} (*app* request)]
     (is (= status pl-http/status-ok))
-    (is (= (json/parse-string body true) results) query)))
+    (is (= (try
+             (json/parse-string body true)
+             (catch Throwable e
+               body)) results) query)))
 
 (deftest fact-subqueries
   (testing "subqueries using a resource"
@@ -213,10 +216,10 @@
     (testing "subqueries using a resource"
       (doseq [[query results]  {["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                ["and"
-                                                                                 ["=" "type" "Class"]
-                                                                                 ["=" "title" "Apache"]]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["and"
+                                                                                          ["=" "type" "Class"]
+                                                                                          ["=" "title" "Apache"]]]]]]
 
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
                                  {:node "foo" :fact "ipaddress" :value "192.168.1.100"}]
@@ -225,18 +228,18 @@
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
                                  ["not"
-                                  ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                 ["and"
-                                                                                  ["=" "type" "Class"]
-                                                                                  ["=" "title" "Apache"]]]]]]]
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Apache"]]]]]]]
 
                                 [{:node "baz" :fact "ipaddress" :value "192.168.1.102"}]
 
                                 ;; Multiple matching resources
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                ["=" "type" "Class"]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "Class"]]]]]
 
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
                                  {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
@@ -247,10 +250,10 @@
                                  ["or"
                                   ["=" ["fact" "name"] "ipaddress"]
                                   ["=" ["fact" "name"] "operatingsystem"]]
-                                 ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                ["and"
-                                                                                 ["=" "type" "Class"]
-                                                                                 ["=" "title" "Apache"]]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["and"
+                                                                                          ["=" "type" "Class"]
+                                                                                          ["=" "title" "Apache"]]]]]]
 
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
                                  {:node "bar" :fact "operatingsystem" :value "Ubuntu"}
@@ -265,10 +268,10 @@
                                    ["and"
                                     ["=" "type" "Class"]
                                     ["=" "title" "Apache"]]]
-                                  ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                 ["and"
-                                                                                  ["=" "type" "Class"]
-                                                                                  ["=" "title" "Main"]]]]]]]
+                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                          ["and"
+                                                                                           ["=" "type" "Class"]
+                                                                                           ["=" "title" "Main"]]]]]]]
 
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
                                  {:node "baz" :fact "ipaddress" :value "192.168.1.102"}
@@ -277,16 +280,29 @@
                                 ;; No matching resources
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                ["=" "type" "NotRealAtAll"]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "NotRealAtAll"]]]]]
 
                                 []
 
                                 ;; No matching facts
                                 ["and"
                                  ["=" ["fact" "name"] "nosuchfact"]
-                                 ["in-result" "certname" ["project" "certname" ["select-resources"
-                                                                                ["=" "type" "Class"]]]]]
+                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                                                                         ["=" "type" "Class"]]]]]
 
                                 []}]
-        (is-query-result query results)))))
+        (is-query-result query results))))
+
+  (testing "invalid queries"
+    (doseq [[query msg] {["in-result" ["fact" "certname"] ["project" "nothing" ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                         "Can't project unknown field 'nothing' for 'select-resources'"
+
+                         ["in-result" ["fact" "nothing"] ["project" "certname" ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                         "Can't match on unknown fact field 'nothing' for 'in-result'"}]
+      (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+            {:keys [status body] :as result} (*app* request)]
+        (is (= status pl-http/status-bad-request))
+        (is (= body msg))))))
