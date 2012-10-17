@@ -11,10 +11,10 @@
 
 (deftest method-not-allowed
   (testing "provides a useful error message"
-    (let [request (header (request :post "/v1/nodes") "Accept" c-t)
+    (let [request (header (request :post "/v2/nodes") "Accept" c-t)
           {:keys [status body]} (*app* request)]
       (is (= status pl-http/status-bad-method))
-      (is (= body "The POST method is not allowed for /v1/nodes")))))
+      (is (= body "The POST method is not allowed for /v2/nodes")))))
 
 (deftest resource-requests
   (testing "/ redirects to the dashboard"

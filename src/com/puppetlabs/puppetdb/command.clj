@@ -223,7 +223,7 @@
            body    (format "checksum=%s&payload=%s"
                            (pl-utils/utf8-string->sha1 message)
                            (url-encode message))
-           url     (format "http://%s:%s/v1/commands" host port)]
+           url     (format "http://%s:%s/v2/commands" host port)]
        (client/post url {:body               body
                          :throw-exceptions   false
                          :content-type       :x-www-form-urlencoded
