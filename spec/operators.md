@@ -19,9 +19,9 @@ The list of binary operators is:
 Each of these operators accepts a list of expressions, and applies a logical
 operation to the results of those expressions.
 
-`and`: True if every expression returns true
-`or`: True if any expression returns true
-`not`: True if no expression returns true
+`and`: True if every expression returns true  
+`or`: True if any expression returns true  
+`not`: True if no expression returns true  
 
 ### Subqueries
 
