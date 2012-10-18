@@ -717,6 +717,30 @@ actually _increase_ throughput.
 
 This setting defaults to half the number of cores in your system.
 
+`store-usage`
+
+The maximum amount of disk space (in MB) to allow for ActiveMQ permanent message
+storage.  This corresponds to the `SystemUsage` / `StoreUsage` setting in
+ActiveMQ (for reference, see: http://activemq.apache.org/producer-flow-control.html).
+
+ActiveMQ's default value for this setting is 102400 (100GB).  Assuming that you
+have plenty of disk space available, you shouldn't need to modify this setting
+(and PuppetDB typically won't use anywhere near that much disk space); however,
+if you are getting warnings about available disk space you can lower this value
+to get rid of them.
+
+`temp-usage`
+
+The maximum amount of disk space (in MB) to allow for ActiveMQ temporary message
+storage.  This corresponds to the `SystemUsage` / `TempUsage` setting in
+ActiveMQ (for reference, see: http://activemq.apache.org/producer-flow-control.html).
+
+ActiveMQ's default value for this setting is 51200 (50GB).  Assuming that you
+have plenty of disk space available, you shouldn't need to modify this setting
+(and PuppetDB typically won't use anywhere near that much disk space); however,
+if you are getting warnings about available disk space you can lower this value
+to get rid of them.
+
 **[jetty]**
 
 HTTP configuration options.
