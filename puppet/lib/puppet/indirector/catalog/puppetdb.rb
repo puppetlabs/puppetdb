@@ -8,7 +8,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     catalog = munge_catalog(request.instance)
 
-    submit_command(request, catalog, CommandReplaceCatalog, 1)
+    submit_command(request, catalog, CommandReplaceCatalog, 2)
   end
 
   def find(request)
@@ -29,6 +29,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     sort_unordered_metaparams(data)
     munge_edges(data)
     synthesize_edges(data, catalog)
+    remove_classes(data)
+    remove_tags(data)
 
     hash
   end
@@ -221,6 +223,14 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash['edges'].uniq!
 
     hash
+  end
+
+  def remove_classes(hash)
+    hash.delete('classes')
+  end
+
+  def remove_tags(hash)
+    hash.delete('tags')
   end
 
   def resource_ref_to_hash(ref)

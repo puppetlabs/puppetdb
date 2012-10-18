@@ -30,7 +30,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       payload_str = subject.munge_catalog(catalog).to_pson
       payload = {
         :command => Puppet::Util::Puppetdb::CommandReplaceCatalog,
-        :version => 1,
+        :version => 2,
         :payload => payload_str,
       }.to_pson
 
@@ -624,6 +624,18 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['data']['resources'].each do |res|
           [res['type'], res['title']].should_not == ['Notify', 'something']
         end
+      end
+
+      it "should not include classes" do
+        result = subject.munge_catalog(catalog)
+
+        result['data']['classes'].should be_nil
+      end
+
+      it "should not include tags" do
+        result = subject.munge_catalog(catalog)
+
+        result['data']['tags'].should be_nil
       end
     end
   end
