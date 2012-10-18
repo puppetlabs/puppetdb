@@ -2,14 +2,42 @@
 ;;
 (ns com.puppetlabs.mq
   (:import [org.apache.activemq.broker BrokerService]
-           [org.apache.activemq ScheduledMessage])
+           [org.apache.activemq ScheduledMessage]
+           [org.apache.activemq.usage SystemUsage])
   (:require [cheshire.core :as json]
             [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
             [clamq.protocol.seqable :as mq-seq]
-            [clamq.protocol.producer :as mq-producer])
+            [clamq.protocol.producer :as mq-producer]
+            [clojure.tools.logging :as log])
   (:use [cheshire.custom :only (JSONable)]))
+
+(defn- init-broker-system-usage!
+  "Configures the `SystemUsage` for an instance of `BrokerService`.
+
+  `broker` - the `BrokerService` to configure
+
+  `config` - a map containing the configuration values.  Currently supported
+  options are:
+
+      :store-usage  - sets the limit of disk storage (in megabytes) for persistent messages
+      :temp-usage   - sets the limit of disk storage in the broker's temp dir
+                      (in megabytes) for temporary messages"
+  [broker config]
+  {:pre  [(instance? BrokerService broker)
+          (map? config)]}
+  (let [system-usage (.getSystemUsage broker)]
+    (when-let [store-usage (:store-usage config)]
+      (log/info "Setting ActiveMQ StoreUsage limit to " store-usage " MB")
+      (-> system-usage
+        (.getStoreUsage)
+        (.setLimit (* store-usage 1024 1024))))
+    (when-let [temp-usage (:temp-usage config)]
+      (log/info "Setting ActiveMQ TempUsage limit to " temp-usage " MB")
+      (-> system-usage
+        (.getTempUsage)
+        (.setLimit (* temp-usage 1024 1024))))))
 
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
@@ -20,7 +48,14 @@
   establishing connections to the broker.
 
   `dir` - What directory in which to store the broker's data files. It
-  will be created if it doesn't exist."
+  will be created if it doesn't exist.
+
+  `config` - an optional map containing configuration values for initializing
+  the broker.  Currently supported options:
+
+      :store-usage  - sets the limit of disk storage (in megabytes) for persistent messages
+      :temp-usage   - sets the limit of disk storage in the broker's temp dir
+                      (in megabytes) for temporary messages"
   ([dir]
      {:pre  [(string? dir)]
       :post [(instance? BrokerService %)]}
@@ -29,11 +64,18 @@
      {:pre  [(string? name)
              (string? dir)]
       :post [(instance? BrokerService %)]}
-     (doto (BrokerService.)
+     (build-embedded-broker name dir {}))
+  ([name dir config]
+    {:pre   [(string? name)
+             (string? dir)
+             (map? config)]
+     :post  [(instance? BrokerService %)]}
+    (doto (BrokerService.)
        (.setBrokerName name)
        (.setDataDirectory dir)
        (.setSchedulerSupport true)
-       (.setPersistent true))))
+       (.setPersistent true)
+       (init-broker-system-usage! config))))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept

@@ -1,5 +1,6 @@
 (ns com.puppetlabs.test.mq
-  (:import [org.apache.activemq ScheduledMessage])
+  (:import [org.apache.activemq ScheduledMessage]
+           [org.apache.activemq.broker BrokerService])
   (:require [clamq.jms :as jms])
   (:use [com.puppetlabs.mq]
         [com.puppetlabs.puppetdb.testutils]
@@ -32,6 +33,24 @@
           (Thread/sleep 1000)
           ;; After another 1s, we should see the message
           (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))))
+
+(deftest test-build-broker
+  (testing "build-embedded-broker"
+    (let [broker (build-embedded-broker "somedir")]
+      (is (instance? BrokerService broker)))
+    (let [broker (build-embedded-broker "localhost" "somedir")]
+      (is (instance? BrokerService broker)))
+    (let [broker (build-embedded-broker "localhost" "somedir" {})]
+      (is (instance? BrokerService broker)))
+    (let [size-megs 50
+          size-bytes (* size-megs 1024 1024)
+
+          broker (build-embedded-broker "localhost" "somedir"
+                      {:store-usage size-megs
+                       :temp-usage  size-megs})]
+      (is (instance? BrokerService broker))
+      (is (= size-bytes (-> broker (.getSystemUsage) (.getStoreUsage) (.getLimit))))
+      (is (= size-bytes (-> broker (.getSystemUsage) (.getTempUsage) (.getLimit)))))))
 
 (deftest json-publish
   (testing "publish-json!"
