@@ -108,8 +108,8 @@
            stats log-statements log-slow-statements
            conn-max-age conn-keep-alive]
     :or   {partition-conn-min  1
-           partition-conn-max  10
-           partition-count     5
+           partition-conn-max  50
+           partition-count     1
            stats               true
            ;; setting this to a String value, because that's what it would
            ;;  be in the config file and we're manually converting it to a boolean
