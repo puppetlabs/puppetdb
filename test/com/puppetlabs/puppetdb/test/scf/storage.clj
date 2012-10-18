@@ -167,14 +167,6 @@
         (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
               [{:certname certname :api_version 1 :catalog_version "123456789"}])))
 
-      (testing "should contain a complete tags list"
-        (is (= (query-to-vec ["SELECT name FROM tags ORDER BY name"])
-              [{:name "class"} {:name "foobar"}])))
-
-      (testing "should contain a complete classes list"
-        (is (= (query-to-vec ["SELECT name FROM classes ORDER BY name"])
-              [{:name "baz"} {:name "foobar"}])))
-
       (testing "should contain a complete edges list"
         (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
                                 "FROM edges e, catalog_resources r1, catalog_resources r2 "
@@ -271,12 +263,6 @@
       (let [hash (add-catalog! catalog)]
         (delete-catalog! hash))
 
-      (is (= (query-to-vec ["SELECT * FROM tags"])
-            []))
-
-      (is (= (query-to-vec ["SELECT * FROM classes"])
-            []))
-
       (is (= (query-to-vec ["SELECT * FROM edges"])
             []))
 
@@ -311,18 +297,6 @@
       ;; anymore
       (is (= (query-to-vec ["SELECT certname FROM certname_catalogs ORDER BY certname"])
             [{:certname "myhost2.mydomain.com"}]))
-
-      ;; no tags for myhost
-      (is (= (query-to-vec [(str "SELECT t.name FROM tags t, certname_catalogs cc "
-                              "WHERE t.catalog=cc.catalog AND cc.certname=?")
-                            certname])
-            []))
-
-      ;; no classes for myhost
-      (is (= (query-to-vec [(str "SELECT c.name FROM classes c, certname_catalogs cc "
-                              "WHERE c.catalog=cc.catalog AND cc.certname=?")
-                            certname])
-            []))
 
       ;; no edges for myhost
       (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
