@@ -176,8 +176,7 @@
 (deftest complete-transformation
   (catalog-before-and-after
     {:data
-     {:classes ["settings"],
-      :edges [{:relationship "contains",
+     {:edges [{:relationship "contains",
                :source {:title "main", :type "Class"},
                :target {:title "/tmp/foo", :type "File"}}
               {:relationship "contains",
@@ -254,7 +253,6 @@
                    :tags ["file" "class"],
                    :title "/tmp/quux",
                    :type "File"}],
-      :tags ["settings"],
       :version 1330995750},
      :document_type "Catalog",
      :metadata {:api_version 1}}
@@ -262,7 +260,6 @@
     {:certname "nick-lewis.puppetlabs.lan",
      :api-version 1,
      :puppetdb-version 1,
-     :classes #{"settings"},
      :edges #{{:source {:title "/tmp/baz", :type "File"},
                :target {:title "/tmp/bar", :type "File"},
                :relationship :required-by}
@@ -346,5 +343,4 @@
                   :tags #{"class" "file"},
                   :title "/tmp/quux",
                   :type "File"}},
-     :tags #{"settings"},
      :version "1330995750"}))

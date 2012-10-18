@@ -16,8 +16,8 @@
 ;;    `Class[Foobar]`, as opposed to something like
 ;;    `{"type" "Class" "title" "Foobar"}`
 ;;
-;; 2. Tags and classes are represented as lists (and may contain
-;;    duplicates) instead of sets
+;; 2. Tags are represented as lists (and may contain duplicates)
+;;    instead of sets
 ;;
 ;; 3. Resources are represented as a list instead of a map, making
 ;;    operations that need to correlate against specific resources
@@ -80,8 +80,6 @@
 ;;     {:certname    "..."
 ;;      :api-version "..."
 ;;      :version     "..."
-;;      :classes     #("class1", "class2", ...)
-;;      :tags        #("tag1", "tag2", ...)
 ;;      :resources   {<resource-spec> <resource>
 ;;                    <resource-spec> <resource>
 ;;                    ...}
@@ -139,21 +137,12 @@
 ;; ## Misc normalization routines
 
 (defn transform-tags
-  "Turns an object's (either catalog or resource) list of tags into a set of
-  strings."
+  "Turns a resource's list of tags into a set of strings."
   [{:keys [tags] :as o}]
   {:pre [tags
          (every? string? tags)]
    :post [(set? (:tags %))]}
   (update-in o [:tags] set))
-
-(defn transform-classes
-  "Turns the catalog's list of classes into a set of strings."
-  [{:keys [classes] :as catalog}]
-  {:pre [classes
-         (every? string? classes)]
-   :post [(set? (:classes %))]}
-  (update-in catalog [:classes] set))
 
 ;; ## Resource normalization
 
@@ -263,14 +252,12 @@
   (comp
     transform-edges
     transform-resources
-    transform-classes
-    transform-tags
     transform-metadata
     collapse))
 
 (def validate
   "Applies every validation step to the catalog."
-  (comp validate-edges validate-resources validate-tags))
+  (comp validate-edges validate-resources))
 
 ;; ## Deserialization
 ;;
