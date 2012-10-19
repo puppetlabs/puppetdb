@@ -183,6 +183,13 @@
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
+(defn drop-classes-and-tags
+  "Removes the `classes` and `tags` tables, as this information can be derived
+  from resources."
+  []
+  (sql/drop-table :classes)
+  (sql/drop-table :tags))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -190,7 +197,8 @@
    2 allow-node-deactivation
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
-   5 add-missing-indexes})
+   5 add-missing-indexes
+   6 drop-classes-and-tags})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

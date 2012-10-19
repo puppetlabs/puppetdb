@@ -8,7 +8,7 @@
 ;; database, yet not be associated with a catalog. This is done as a
 ;; performance optimization.
 ;;
-;; * edges, tags, and classes are associated with a single catalog
+;; * edges are associated with a single catalog
 ;;
 ;; * catalogs are associated with a single certname
 ;;
@@ -134,11 +134,6 @@ must be supplied as the value to be matched."
 ;;
 ;; * `:add-catalog`: the time it takes to persist a catalog
 ;;
-;; * `:add-classes`: the time it takes to persist just a catalog's
-;;   classes
-;;
-;; * `:add-tags`: the time it takes to persist just a catalog's tags
-;;
 ;; * `:add-resources`: the time it takes to persist just a catalog's
 ;;   resources
 ;;
@@ -174,8 +169,6 @@ must be supplied as the value to be matched."
 ;;
 (def metrics
   {
-   :add-classes       (timer [ns-str "default" "add-classes"])
-   :add-tags          (timer [ns-str "default" "add-tags"])
    :add-resources     (timer [ns-str "default" "add-resources"])
    :add-edges         (timer [ns-str "default" "add-edges"])
 
@@ -309,24 +302,6 @@ must be supplied as the value to be matched."
     ["SELECT 1 FROM catalogs WHERE hash=? LIMIT 1" hash]
     (pos? (count result-set))))
 
-(defn add-classes!
-  "Given a catalog-hash and a list of classes, persist them in the db"
-  [catalog-hash classes]
-  {:pre [(string? catalog-hash)
-         (coll? classes)]}
-  (let [default-row {:catalog catalog-hash}
-        classes     (map #(assoc default-row :name %) classes)]
-    (apply sql/insert-records :classes classes)))
-
-(defn add-tags!
-  "Given a catalog-hash and a list of tags, persist them in the db"
-  [catalog-hash tags]
-  {:pre [(string? catalog-hash)
-         (coll? tags)]}
-  (let [default-row {:catalog catalog-hash}
-        tags        (map #(assoc default-row :name %) tags)]
-    (apply sql/insert-records :tags tags)))
-
 (defn resources-exist?
   "Given a collection of resource-hashes, return the subset that
   already exist in the database."
@@ -391,10 +366,10 @@ must be supplied as the value to be matched."
   catalog. Unlike `resource-identity-hash`, this string will also
   include the resource metadata. This function is used as part of
   determining whether a catalog needs to be stored."
-  [{:keys [type title parameters tags exported file line] :as resource}]
+  [{:keys [type title parameters exported file line] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (pr-str [type title (sort tags) exported file line (sort parameters)]))
+  (pr-str [type title exported file line (sort parameters)]))
 
 (defn- resource->values
   "Given a catalog-hash, a resource, and a truthy value indicating
@@ -486,14 +461,14 @@ must be supplied as the value to be matched."
 
   This hash is useful for situations where you'd like to determine
   whether or not two catalogs contain the same things (edges,
-  resources, tags, classes, etc).
+  resources, etc).
 
   Note that this hash *cannot* be used to uniquely identify a catalog
   within a population! This is because we're only examing a subset of
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname classes tags resources edges] :as catalog}]
+  [{:keys [certname resources edges] :as catalog}]
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
   ;; but I figure that for safety's sake, it's better to be very
@@ -501,8 +476,6 @@ must be supplied as the value to be matched."
   ;; about when we think about "uniqueness".
   (-> (sorted-map)
       (assoc :certname certname)
-      (assoc :classes (sort classes))
-      (assoc :tags (sort tags))
       (assoc :resources (sort (for [[ref resource] resources]
                                 (catalog-resource-identity-string resource))))
       (assoc :edges (sort (map edge-identity-string edges)))
@@ -512,9 +485,9 @@ must be supplied as the value to be matched."
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
   similarity hash"
-  [{:keys [api-version version resources classes edges tags] :as catalog}]
+  [{:keys [api-version version resources edges] :as catalog}]
   {:pre [(number? api-version)
-         (every? coll? [classes tags edges])
+         (coll? edges)
          (map? resources)]}
 
   (time! (:add-catalog metrics)
@@ -534,10 +507,6 @@ must be supplied as the value to be matched."
               (when-not exists?
                 (inc! (:new-catalog metrics))
                 (add-catalog-metadata! hash api-version version)
-                (time! (:add-classes metrics)
-                       (add-classes! hash classes))
-                (time! (:add-tags metrics)
-                       (add-tags! hash tags))
                 (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
                   (time! (:add-resources metrics)
                          (add-resources! hash resources refs-to-hashes))
