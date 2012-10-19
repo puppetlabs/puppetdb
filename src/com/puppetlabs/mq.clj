@@ -13,35 +13,50 @@
             [clojure.tools.logging :as log])
   (:use [cheshire.custom :only (JSONable)]))
 
+(defn- set-usage!*
+  "Internal helper function for setting `SystemUsage` values on a `BrokerService`
+  instance.
+
+  `broker`    - the `BrokerService` instance
+  `megabytes` - the value to set as the limit for the desired `SystemUsage` setting
+  `usage-fn`  - a function that accepts a `SystemUsage` instance and returns
+                the child object whose limit we are configuring.
+  `desc`      - description of the setting we're configuring, to be used in a log message
+  "
+  [broker megabytes usage-fn desc]
+  {:pre  [(instance? BrokerService broker)
+          ((some-fn nil? integer?) megabytes)
+          (fn? usage-fn)
+          (string? desc)]}
+  (when megabytes
+    (log/info "Setting ActiveMQ " desc " limit to " megabytes " MB")
+    (-> broker
+      (.getSystemUsage)
+      (usage-fn)
+      (.setLimit (* megabytes 1024 1024))))
+  broker)
+
 (defn- set-store-usage!
    "Configures the `StoreUsage` setting for an instance of `BrokerService`.
 
    `broker`     - the `BrokerService` to configure
-   `megabytes ` - the maximum amount of disk usage to allow for persistent messages"
+   `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
+                  or `nil` to use the default value of 100GB.
+
+   Returns the (potentially modified) `broker` object."
   [broker megabytes]
-  {:pre  [(instance? BrokerService broker)
-          ((some-fn nil? integer?) megabytes)]}
-  (when megabytes
-    (log/info "Setting ActiveMQ StoreUsage limit to " megabytes " MB")
-    (-> broker
-      (.getSystemUsage)
-      (.getStoreUsage)
-      (.setLimit (* megabytes 1024 1024)))))
+  (set-usage!* broker megabytes #(.getStoreUsage %) "StoreUsage"))
 
 (defn- set-temp-usage!
   "Configures the `TempUsage` setting for an instance of `BrokerService`.
 
   `broker`     - the `BrokerService` to configure
-  `megabytes ` - the maximum amount of disk usage to allow for temporary messages"
+  `megabytes ` - the maximum amount of disk usage to allow for temporary messages,
+                 or `nil` to use the default value of 50GB.
+
+  Returns the (potentially modified) `broker` object."
   [broker megabytes]
-  {:pre  [(instance? BrokerService broker)
-          ((some-fn nil? integer?) megabytes)]}
-  (when megabytes
-    (log/info "Setting ActiveMQ TempUsage limit to " megabytes " MB")
-    (-> broker
-      (.getSystemUsage)
-      (.getTempUsage)
-      (.setLimit (* megabytes 1024 1024)))))
+  (set-usage!* broker megabytes #(.getTempUsage %) "TempUsage"))
 
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
