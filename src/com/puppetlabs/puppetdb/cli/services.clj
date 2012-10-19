@@ -243,7 +243,8 @@
   [& args]
   (let [[options _]                                (cli! args)
         initial-config                             {:debug (:debug options)}
-        {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
+        {:keys [jetty database global command-processing]
+            :as config}                            (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
@@ -276,8 +277,10 @@
     (let [error         (promise)
           broker        (do
                           (log/info "Starting broker")
-                          (mq/start-broker! (mq/build-embedded-broker mq-dir)))
-          command-procs (let [nthreads (get-in config [:command-processing :threads])]
+                          (mq/start-broker!
+                            (mq/build-embedded-broker
+                              "localhost" mq-dir command-processing)))
+          command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error

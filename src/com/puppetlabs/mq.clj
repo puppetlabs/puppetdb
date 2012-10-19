@@ -2,14 +2,61 @@
 ;;
 (ns com.puppetlabs.mq
   (:import [org.apache.activemq.broker BrokerService]
-           [org.apache.activemq ScheduledMessage])
+           [org.apache.activemq ScheduledMessage]
+           [org.apache.activemq.usage SystemUsage])
   (:require [cheshire.core :as json]
             [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
             [clamq.protocol.seqable :as mq-seq]
-            [clamq.protocol.producer :as mq-producer])
+            [clamq.protocol.producer :as mq-producer]
+            [clojure.tools.logging :as log])
   (:use [cheshire.custom :only (JSONable)]))
+
+(defn- set-usage!*
+  "Internal helper function for setting `SystemUsage` values on a `BrokerService`
+  instance.
+
+  `broker`    - the `BrokerService` instance
+  `megabytes` - the value to set as the limit for the desired `SystemUsage` setting
+  `usage-fn`  - a function that accepts a `SystemUsage` instance and returns
+                the child object whose limit we are configuring.
+  `desc`      - description of the setting we're configuring, to be used in a log message
+  "
+  [broker megabytes usage-fn desc]
+  {:pre  [(instance? BrokerService broker)
+          ((some-fn nil? integer?) megabytes)
+          (fn? usage-fn)
+          (string? desc)]}
+  (when megabytes
+    (log/info "Setting ActiveMQ " desc " limit to " megabytes " MB")
+    (-> broker
+      (.getSystemUsage)
+      (usage-fn)
+      (.setLimit (* megabytes 1024 1024))))
+  broker)
+
+(defn- set-store-usage!
+   "Configures the `StoreUsage` setting for an instance of `BrokerService`.
+
+   `broker`     - the `BrokerService` to configure
+   `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
+                  or `nil` to use the default value of 100GB.
+
+   Returns the (potentially modified) `broker` object."
+  [broker megabytes]
+  (set-usage!* broker megabytes #(.getStoreUsage %) "StoreUsage"))
+
+(defn- set-temp-usage!
+  "Configures the `TempUsage` setting for an instance of `BrokerService`.
+
+  `broker`     - the `BrokerService` to configure
+  `megabytes ` - the maximum amount of disk usage to allow for temporary messages,
+                 or `nil` to use the default value of 50GB.
+
+  Returns the (potentially modified) `broker` object."
+  [broker megabytes]
+  (set-usage!* broker megabytes #(.getTempUsage %) "TempUsage"))
 
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
@@ -20,7 +67,14 @@
   establishing connections to the broker.
 
   `dir` - What directory in which to store the broker's data files. It
-  will be created if it doesn't exist."
+  will be created if it doesn't exist.
+
+  `config` - an optional map containing configuration values for initializing
+  the broker.  Currently supported options:
+
+      :store-usage  - sets the limit of disk storage (in megabytes) for persistent messages
+      :temp-usage   - sets the limit of disk storage in the broker's temp dir
+                      (in megabytes) for temporary messages"
   ([dir]
      {:pre  [(string? dir)]
       :post [(instance? BrokerService %)]}
@@ -29,11 +83,19 @@
      {:pre  [(string? name)
              (string? dir)]
       :post [(instance? BrokerService %)]}
-     (doto (BrokerService.)
+     (build-embedded-broker name dir {}))
+  ([name dir config]
+    {:pre   [(string? name)
+             (string? dir)
+             (map? config)]
+     :post  [(instance? BrokerService %)]}
+    (doto (BrokerService.)
        (.setBrokerName name)
        (.setDataDirectory dir)
        (.setSchedulerSupport true)
-       (.setPersistent true))))
+       (.setPersistent true)
+       (set-store-usage! (:store-usage config))
+       (set-temp-usage!  (:temp-usage config)))))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept
