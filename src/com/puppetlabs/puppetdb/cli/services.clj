@@ -252,8 +252,6 @@
         db-gc-minutes                              (get database :gc-interval 60)
         node-ttl-days                              (get database :node-ttl-days)
         mq-dir                                     (str (file vardir "mq"))
-        mq-store-usage                             (get command-processing :store-usage)
-        mq-temp-usage                              (get command-processing :temp-usage)
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db               db
                                                     :command-mq           {:connection-string mq-addr
@@ -281,10 +279,7 @@
                           (log/info "Starting broker")
                           (mq/start-broker!
                             (mq/build-embedded-broker
-                              "localhost"
-                              mq-dir
-                              {:store-usage mq-store-usage
-                               :temp-usage  mq-temp-usage})))
+                              "localhost" mq-dir command-processing)))
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
