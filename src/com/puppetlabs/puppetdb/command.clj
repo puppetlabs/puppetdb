@@ -60,6 +60,7 @@
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.event :as event]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
@@ -303,6 +304,7 @@
 
 ;; Catalog replacement
 
+
 (defmethod process-command! ["replace catalog" 1]
   [{:keys [payload annotations]} {:keys [db]}]
   ;; Parsing a catalog either works, or it generates a fatal exception
@@ -345,6 +347,26 @@
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
     (log/info (format "[%s] [deactivate node] %s" id certname))))
+
+;; Event group submission
+
+(defmethod process-command! ["submit event group" 1]
+  [{:keys [payload annotations]} {:keys [db]}]
+;; TODO: macro for this try+
+  (let [event-group (try+
+                      (event/parse-from-json-string payload)
+                      (catch Throwable e
+                        (throw+ (fatality e))))
+        id          (:id annotations)
+        timestamp   (:received annotations)]
+    (with-transacted-connection db
+      (scf-storage/add-event-group! event-group timestamp))
+    ;; TODO: replace this ":group-id" bit in the log message with something better;
+    ;;  the real group ids are likely to be completely useless for this purpose,
+    ;;  but we can't necessarily use something like a certname because there is
+    ;;  no guarantee that all of the events in a group will be from the same
+    ;;  node?  need like a 'group desc' or something.
+    (log/info (format "[%s] [submit event group] %s" id (:group-id event-group)))))
 
 ;; ## MQ I/O
 ;;
