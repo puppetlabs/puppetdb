@@ -175,17 +175,6 @@
 (def ^:const tag-pattern
   #"\A[a-z0-9_][a-z0-9_:\-.]*\Z")
 
-(defn validate-tags
-  "Ensure that all catalog tags conform to the allowed tag pattern."
-  [{:keys [tags] :as catalog}]
-  {:pre [(set? tags)]
-   :post [(= % catalog)]}
-  (when-let [invalid-tag (first
-                           (remove #(re-find tag-pattern %) tags))]
-    (throw (IllegalArgumentException.
-             (format "Catalog contains an invalid tag '%s'. Tags must match the pattern /%s/." invalid-tag tag-pattern))))
-  catalog)
-
 (defn validate-resources
   "Ensure that all resource tags conform to the allowed tag pattern."
   [{:keys [resources] :as catalog}]

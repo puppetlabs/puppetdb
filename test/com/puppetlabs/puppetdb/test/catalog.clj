@@ -63,34 +63,11 @@
                           :metadata {:api_version 123}}]
             (is (thrown? AssertionError (transform-fn catalog)))))))))
 
-
 (deftest integrity-checking
   (testing "Catalog validation"
     (testing "should return the catalog unchanged"
       (let [catalog (:basic catalogs)]
         (is (= catalog (validate catalog)))))
-
-    (testing "tag validation"
-      (testing "should reject capitalized tags"
-        (let [tags #{"foo" "baR"}
-              catalog {:tags tags}]
-          (is (thrown-with-msg? IllegalArgumentException #"invalid tag 'baR'"
-                       (validate-tags catalog)))))
-
-      (testing "should reject tags with bad characters"
-        (doseq [invalid-tag #{"a!" "b@" "c#" "d$" "e%"
-                              "f^" "g&" "h*" "i(" "j)"
-                              "k=" "l+" "m\\" "n<" "o>"
-                              "p," "q/" "r?" "s`" "t~"}]
-          (let [tags #{invalid-tag}
-                catalog {:tags tags}]
-            (is (thrown-with-msg? IllegalArgumentException #"invalid tag"
-                                  (validate-tags catalog))))))
-
-      (testing "should accept correct tags"
-        (let [tags #{"_good" "bet-ter" "best." "0bester"}
-              catalog {:tags tags}]
-              (is (= catalog (validate-tags catalog))))))
 
     (testing "resource validation"
       (testing "should fail when a resource has non-lower-case tags"
