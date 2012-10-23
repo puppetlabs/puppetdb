@@ -93,15 +93,19 @@
             [clojure.set :as set]
             [cheshire.core :as json]
             [digest]
-            [com.puppetlabs.utils :as pl-utils]))
+            [com.puppetlabs.utils :as pl-utils])
+  (:use [clojure.core.match :only [match]]))
 
-(def CATALOG-VERSION
+(def ^:const catalog-version
   ^{:doc "Constant representing the version number of the PuppetDB
   catalog format"}
-  (Integer. 1))
+  (Integer. 2))
 
-(def valid-relationships
+(def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
+
+(def ^:const catalog-attributes
+  #{:certname :puppetdb-version :api-version :version :edges :resources})
 
 ;; ## Utiltity functions
 
@@ -204,6 +208,23 @@
                (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
   catalog)
 
+(defn validate-keys
+  "Ensure that the set of keys in the catalog is exactly the set specified in `catalog-attributes`."
+  [catalog]
+  {:pre [(map? catalog)]
+   :post [(= % catalog)]}
+  (let [present-keys (pl-utils/keyset catalog)
+        extra-keys (set/difference present-keys catalog-attributes)
+        missing-keys (set/difference catalog-attributes present-keys)]
+    (when-not (empty? extra-keys)
+      (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
+    (when-not (empty? missing-keys)
+      (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
+  catalog)
+
+(def validate
+  (comp validate-edges validate-resources validate-keys))
+
 ;; ## High-level parsing routines
 
 (defn collapse
@@ -225,14 +246,14 @@
   [catalog]
   {:pre [(map? catalog)]
    :post [(string? (:version %))
-          (= (:puppetdb-version %) CATALOG-VERSION)
+          (= (:puppetdb-version %) catalog-version)
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
           (number? (:api-version %))]}
   (-> catalog
     (update-in [:version] str)
-    (assoc :puppetdb-version CATALOG-VERSION)
+    (assoc :puppetdb-version catalog-version)
     (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform
@@ -244,29 +265,51 @@
     transform-metadata
     collapse))
 
-(def validate
-  "Applies every validation step to the catalog."
-  (comp validate-edges validate-resources))
-
 ;; ## Deserialization
-;;
-;; _TODO: we should change these to multimethods_
 
-(def parse-from-json-obj
-  "Parse a wire-format JSON catalog object contained in `o`, returning a
-  puppetdb-suitable representation."
-  (comp validate transform))
+(defmulti parse-catalog
+  "Parse a wire-format `catalog` object or string of the specified `version`,
+  returning a PuppetDB-suitable representation."
+  (fn [catalog version]
+    (match [catalog version]
+           [(_ :when string?) _]
+           String
 
-(defn parse-from-json-string
-  "Parse a wire-format JSON catalog string contained in `s`, returning a
-  puppetdb-suitable representation."
-  [s]
-  {:pre  [(string? s)]
+           [(_ :when map?) (_ :when number?)]
+           version
+
+           [(_ :when map?) (_ :when (complement number?))]
+           (throw (IllegalArgumentException. (format "Catalog version '%s' is not a legal version number" version)))
+
+           ;; At this point, catalog can't be a string or a map (regardless of
+           ;; what version is), so there's our problem!
+           :else
+           (throw (IllegalArgumentException. (format "Catalog must be specified as a string or a map, not '%s'" (class catalog)))))))
+
+(defmethod parse-catalog String
+  [catalog version]
+  {:pre [(string? catalog)]
    :post [(map? %)]}
-  (parse-from-json-obj (json/parse-string s true)))
+  (parse-catalog (json/parse-string catalog true) version))
 
-(defn parse-from-json-file
-  "Parse a wire-format JSON catalog located at `filename`, returning a
-  puppetdb-suitable representation."
-  [filename]
-  (parse-from-json-string (slurp filename)))
+;; v1 is the same as v2, except with classes and tags. So remove those, and be
+;; on our merry way.
+(defmethod parse-catalog 1
+  [catalog version]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (-> catalog
+      (update-in [:data] dissoc :classes :tags)
+      (parse-catalog (inc version))))
+
+(defmethod parse-catalog 2
+  [catalog version]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (validate (transform catalog)))
+
+(defmethod parse-catalog :default
+  [catalog version]
+  (throw (IllegalArgumentException. (format "Unknown catalog version '%s'" version))))
