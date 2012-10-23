@@ -222,7 +222,10 @@
          (handle-message# msg#))
        (let [~publish-var publish#
              ~discard-var discard-dir#]
-         ~@body)
+         ~@body
+         ; Uncommenting this line can be very useful for debugging
+;         (println @log-output#)
+         )
        (finally
          (fs/delete-dir discard-dir#)))))
 

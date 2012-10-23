@@ -2,6 +2,7 @@
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
             [com.puppetlabs.http :as pl-http]
+            [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
             [cheshire.core :as json]
@@ -125,6 +126,12 @@
   [f]
   (deref (:args (meta f))))
 
+(defn format-stacktrace
+  "Given a `Throwable`, returns a String containing the message and stack trace.
+  If passed `nil`, returns `nil`."
+  [ex]
+  (if ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
+
 (defn atom-logger [output-atom]
   "A logger factory that logs output to the supplied atom"
   (reify impl/LoggerFactory
@@ -133,7 +140,7 @@
       (reify impl/Logger
         (enabled? [_ level] true)
         (write! [_ lvl ex msg]
-          (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
+          (swap! output-atom conj [(str log-ns) lvl (format-stacktrace ex) msg]))))))
 
 ; TODO: change order of expected/actual?
 ; TODO: docs
