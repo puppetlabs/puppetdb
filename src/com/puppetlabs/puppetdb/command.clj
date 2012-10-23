@@ -352,12 +352,9 @@
 
 (defmethod process-command! ["submit event group" 1]
   [{:keys [payload annotations]} {:keys [db]}]
-;; TODO: macro for this try+
-  (let [event-group (try+
-                      (event/parse-from-json-string payload)
-                      (catch Throwable e
-                        (throw+ (fatality e))))
-        id          (:id annotations)
+  (let [id          (:id annotations)
+        event-group (upon-error-throw-fatality
+                      (event/parse-from-json-string payload id))
         timestamp   (:received annotations)]
     (with-transacted-connection db
       (scf-storage/add-event-group! event-group timestamp))

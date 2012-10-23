@@ -58,7 +58,7 @@
   (map #(dissoc % :receive-time) event-groups))
 
 (deftest query-by-event-group
-  (let [basic (:basic resource-event-groups)]
+  (let [basic (assoc-in (:basic resource-event-groups) [:group-id] (utils/uuid))]
     (event/validate basic)
     (scf-store/add-event-group! basic (now))
 

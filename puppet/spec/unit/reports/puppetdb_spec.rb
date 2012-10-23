@@ -9,7 +9,11 @@ processor = Puppet::Reports.report(:puppetdb)
 
 describe processor do
 
-  subject { Puppet::Transaction::Report.new("foo").extend(processor) }
+  subject {
+    s = Puppet::Transaction::Report.new("foo").extend(processor)
+    s.configuration_version = "123456789"
+    s
+  }
 
   context "#process" do
 
@@ -46,6 +50,7 @@ describe processor do
       resource.stubs(:line).returns("foo")
       resource.stubs(:tags).returns([])
       resource.stubs(:title).returns("foo")
+      resource.stubs(:type).returns("foo")
       resource
     }
 
@@ -81,18 +86,35 @@ describe processor do
       context "resource without events" do
         it "should not include the resource" do
           result = subject.send(:report_to_hash)
+          result.has_key?("group-id").should be_false
+          result["certname"].should == subject.host
+          # TODO: change these two to use accessors as soon as we get up to puppet 3.0
+          result["puppet-version"].should == subject.instance_variable_get(:@puppet_version)
+          result["report-format"].should == subject.instance_variable_get(:@report_format)
+          result["configuration-version"].should == subject.configuration_version
           result["resource-events"].should == []
+          result["description"].should be_nil
         end
       end
 
       context "resource with events" do
         it "should include the resource" do
           event = Puppet::Transaction::Event.new()
+          event.property = "fooprop"
+          event.desired_value = "fooval"
+          event.previous_value = "oldfooval"
+          event.message = "foomessage"
           status.add_event(event)
           result = subject.send(:report_to_hash)
           result["resource-events"].length.should == 1
-          event = result["resource-events"][0]
-          event["resource-title"].should == "foo"
+          res_event = result["resource-events"][0]
+          res_event["resource-type"].should == "Foo"
+          res_event["resource-title"].should == "foo"
+          res_event["property"].should == "fooprop"
+          res_event["new-value"].should == "fooval"
+          res_event["old-value"].should == "oldfooval"
+          res_event["message"].should == "foomessage"
+
         end
       end
 
@@ -104,6 +126,9 @@ describe processor do
           event = result["resource-events"][0]
           event["resource-title"].should == "foo"
           event["status"].should == "skipped"
+          event["property"].should be_nil
+          event["new-val"].should be_nil
+          event["old-val"].should be_nil
         end
       end
     end

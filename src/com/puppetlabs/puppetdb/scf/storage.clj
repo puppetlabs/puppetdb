@@ -635,13 +635,21 @@ must be supplied as the value to be matched."
   {:pre [(map? event-group)
          (utils/datetime? timestamp)]}
   (let [group-id (:group-id event-group)
+        ;; TODO: either need to do some validation here, or need to document that we expect everything
+        ;; to be validated before we are called (in which case we need to validate for extraneous keys
+        ;; in the validation functions).
         resource-event-rows (map #(event/resource-event-to-sql % group-id)
                                   (:resource-events event-group))]
     ;; TODO: metrics?
     (sql/transaction
       (sql/insert-record :event_groups
         { :group_id (:group-id event-group)
+          :puppet_version (:puppet-version event-group)
+          :certname (:certname event-group)
+          :report_format (:report-format event-group)
+          :configuration_version (:configuration-version event-group)
           :start_time (to-timestamp (:start-time event-group))
           :end_time (to-timestamp (:end-time event-group))
-          :receive_time (to-timestamp timestamp)})
+          :receive_time (to-timestamp timestamp)
+          :description (:description event-group)})
       (apply sql/insert-records :resource_events resource-event-rows))))

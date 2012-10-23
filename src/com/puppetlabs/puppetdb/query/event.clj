@@ -23,9 +23,14 @@
   {:pre [(string? sql)]}
   ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
   (let [query   (format (str "SELECT group_id,
+                                      certname,
+                                      puppet_version,
+                                      report_format,
+                                      configuration_version,
                                       start_time,
                                       end_time,
-                                      receive_time
+                                      receive_time,
+                                      description
                                   FROM event_groups %s ORDER BY start_time DESC")
     sql)
         results   (map sql-to-wire (query-to-vec (apply vector query params)))]
@@ -52,14 +57,13 @@
   {:pre [(string? sql)]}
   ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
   (let [query   (format (str "SELECT event_group_id,
-                                      certname,
                                       status,
                                       timestamp,
-                                      property_name,
-                                      property_value,
-                                      previous_value,
                                       resource_type,
                                       resource_title,
+                                      property,
+                                      new_value,
+                                      old_value,
                                       message
                                   FROM resource_events %s")
                         sql)

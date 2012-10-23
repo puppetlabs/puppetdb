@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.event
   (:require [com.puppetlabs.puppetdb.event :as event]
+            [com.puppetlabs.utils :as utils]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json])
   (:use clojure.test
@@ -48,8 +49,8 @@
 
 
 (deftest query-by-event-group
-  (let [basic (:basic resource-event-groups)
-        group-id (:group-id basic)]
+  (let [group-id (utils/uuid)
+        basic (assoc-in (:basic resource-event-groups) [:group-id] group-id)]
     (event/validate basic)
     (scf-store/add-event-group! basic (now))
 

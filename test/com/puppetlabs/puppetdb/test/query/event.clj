@@ -61,8 +61,8 @@
 ;; Begin tests
 
 (deftest resource-events-retrieval
-  (let [basic     (:basic resource-event-groups)
-        group-id  (:group-id basic)]
+  (let [group-id  (utils/uuid)
+        basic     (assoc-in (:basic resource-event-groups) [:group-id] group-id)]
     (event/validate basic)
     (scf-store/add-event-group! basic (now))
 

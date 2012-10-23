@@ -32,10 +32,16 @@ Puppet::Reports.register_report(:puppetdb) do
     # the accessors until version 3.x of puppet is our oldest supported version.
 
     # Choosing a somewhat arbitrary string for group-id for the time being.
-    { "group-id" => "#{host}|puppet-#{@puppet_version}|#{@report_format}|#{configuration_version}|#{time}",
-      "start-time" => Puppet::Util::Puppetdb.to_wire_time(time),
-      "end-time" => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-      "resource-events" =>
+    {
+      "certname"                => host,
+      "puppet-version"          => @puppet_version,
+      "report-format"           => @report_format,
+      "configuration-version"   => configuration_version,
+      "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
+      "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
+      # TODO: should probably get rid of this
+      "description"             => nil,
+      "resource-events"         =>
           resource_statuses.inject([]) do |events, status_entry|
             resource, status = *status_entry
             if ! (status.events.empty?)
@@ -65,14 +71,13 @@ Puppet::Reports.register_report(:puppetdb) do
   ## suitable for sending over the wire to PuppetDB
   def event_to_hash(resource_type, resource_title, event)
     result = {}
-    result["certname"]          = host
     result["status"]            = event.status
     result["timestamp"]         = Puppet::Util::Puppetdb.to_wire_time(event.time)
     result["resource-type"]     = resource_type
     result["resource-title"]    = resource_title
-    result["property-name"]     = event.property
-    result["property-value"]    = event.desired_value
-    result["previous-value"]    = event.previous_value
+    result["property"]          = event.property
+    result["new-value"]         = event.desired_value
+    result["old-value"]         = event.previous_value
     result["message"]           = event.message
 
     result
@@ -84,14 +89,13 @@ Puppet::Reports.register_report(:puppetdb) do
   ## event object representing the skipped resource.
   def resource_status_to_skipped_event_hash(resource_status)
     result = {}
-    result["certname"]          = host
     result["status"]            = "skipped"
     result["timestamp"]         = Puppet::Util::Puppetdb.to_wire_time(resource_status.time)
     result["resource-type"]     = resource_status.resource_type
     result["resource-title"]    = resource_status.title
-    result["property-name"]     = nil
-    result["property-value"]    = nil
-    result["previous-value"]    = nil
+    result["property"]          = nil
+    result["new-value"]         = nil
+    result["old-value"]         = nil
     result["message"]           = nil
 
     result

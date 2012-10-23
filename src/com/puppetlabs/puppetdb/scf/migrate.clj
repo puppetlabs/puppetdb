@@ -193,26 +193,20 @@
 (defn add-events-tables
   "Add a resource_events and event_groups tables."
   []
-  ;; TODO: add additional fields for data source, puppet version, report version?
   (sql/create-table :event_groups
-    ;; TODO: what should the max length be for this field?  It's a PK so it'd be
-    ;; nice to keep it reasonably short, but since we're asking users to generate it...
-    ;; Right now I have it nice and long so that I can send up tons of info in
-    ;; it (pupppet version, report version, etc.)
-    ["group_id" "VARCHAR(120)" "NOT NULL" "PRIMARY KEY"]
+    ["group_id" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+    ["certname" "TEXT" "NOT NULL"]
+    ["puppet_version" "VARCHAR(40)" "NOT NULL"]
+    ["report_format" "SMALLINT" "NOT NULL"]
+    ["configuration_version" "VARCHAR(255)" "NOT NULL"]
     ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ;; TODO: eventually we'll probably want to make this one allow nulls so that
-    ;;  we can stream events.  Also, might be better to store duration instead
-    ;;  of end_time?
     ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
+    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ;; Not sure if this buys us anything.
+    ["description" "TEXT"])
 
   (sql/create-table :resource_events
-    ;; TODO: what should the max length be for this field?  See notes on :event_groups table
-    ["event_group_id" "VARCHAR(120)" "NOT NULL" "REFERENCES event_groups(group_id)" "ON DELETE CASCADE"]
-    ;; TODO: this will probably need to reference the certnames table.
-    ["certname" "TEXT" "NOT NULL"]
-    ;; TODO: this one is probably an enumeration, but we could just enforce that in the code?
+    ["event_group_id" "VARCHAR(40)" "NOT NULL" "REFERENCES event_groups(group_id)" "ON DELETE CASCADE"]
     ["status" "VARCHAR(40)" "NOT NULL"]
     ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
     ["resource_type" "TEXT" "NOT NULL"]
@@ -220,17 +214,26 @@
     ;; TODO: I wish these next two could be "NOT NULL", but for now we are
     ;; fabricating skipped resources as events, and in those cases we don't
     ;; have any legitimate values to put into these fields.
-    ["property_name" "VARCHAR(40)"]
-    ["property_value" "TEXT"]
-    ["previous_value" "TEXT"]
-    ["message" "TEXT"])
+    ["property" "VARCHAR(40)"]
+    ["new_value" "TEXT"]
+    ["old_value" "TEXT"]
+    ["message" "TEXT"]
+    ;; TODO: we can't set the "correct" primary key because property is nullable (because of skips).
+    ;; We probably should do something about this; only realistic options seem to be splitting
+    ;; this out into two tables (which means two SELECTS and some in-code sorting would be necessary
+    ;; in order to build up the complete data for a report), or (cough) use a sentinel value
+    ;; for "property" for skips, and make that field NOT NULL.  Both options seem pretty sucky.
+;    ["PRIMARY KEY (event_group_id, resource_type, resource_title, property)"]
+     )
 
-  ;; probably should revisit this list of indexes
+  (sql/do-commands
+    "CREATE INDEX idx_event_groups_group_id ON event_groups(group_id)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_event_groups_certname ON event_groups(certname)")
+
   (sql/do-commands
     "CREATE INDEX idx_resource_events_event_group_id ON resource_events(event_group_id)")
-
-  (sql/do-commands
-    "CREATE INDEX idx_resource_events_certname ON resource_events(certname)")
 
   (sql/do-commands
     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")

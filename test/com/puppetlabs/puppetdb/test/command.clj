@@ -2,7 +2,8 @@
   (:require [fs.core :as fs]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.catalog :as catalog])
+            [com.puppetlabs.puppetdb.catalog :as catalog]
+            [com.puppetlabs.puppetdb.examples.event :as event-examples])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
@@ -506,3 +507,15 @@
           (is (instance? java.sql.Timestamp (:deactivated result)))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
+
+(let [event-group  (:basic event-examples/resource-event-groups)
+      command      {:command "submit event group"
+                    :version 1
+                    :payload (json/generate-string event-group)}]
+  (deftest submit-event-group
+    (testing "should store the event-group"
+      (test-msg-handler command publish discard-dir
+        (is (= (query-to-vec "SELECT certname,configuration_version FROM event_groups")
+              [{:certname (:certname event-group) :configuration_version (:configuration-version event-group)}]))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))

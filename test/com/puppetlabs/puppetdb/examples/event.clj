@@ -3,26 +3,28 @@
 
 (def resource-event-groups
   {:basic
-   {:group-id         "basic-resource-event-group"
-    :start-time       "2011-01-01T12:00:00-03:00"
-    :end-time         "2011-01-01T12:10:00-03:00"
+   {:certname               "foo.local"
+    :puppet-version         "3.0.1"
+    :report-format          3
+    :configuration-version  "123456789"
+    :start-time             "2011-01-01T12:00:00-03:00"
+    :end-time               "2011-01-01T12:10:00-03:00"
+    :description            "My description here"
     :resource-events
-        [{:certname         "foo.local"
-          :status           "success"
+        [{:status           "success"
           :timestamp        "2011-01-01T12:00:01-03:00"
           :resource-type    "Notify"
           :resource-title   "notify, yo"
-          :property-name    "message"
-          :property-value   "notify, yo"
-          :previous-value   "absent"
+          :property         "message"
+          :new-value        "notify, yo"
+          :old-value        "absent"
           :message          "defined 'message' as 'notify, yo'"}
-         {:certname         "foo.local"
-          :status           "skipped"
+         {:status           "skipped"
           :timestamp        "2011-01-01T12:00:02-03:00"
           :resource-type    "Notify"
           :resource-title   "hi"
-          :property-name    nil
-          :property-value   nil
-          :previous-value   nil
+          :property         nil
+          :new-value        nil
+          :old-value        nil
           :message          nil}]
           }})
