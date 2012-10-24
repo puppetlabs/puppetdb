@@ -27,11 +27,11 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a URL-encoded PSON string" do
-      payload_str = subject.munge_catalog(catalog).to_pson
+      command_payload = subject.munge_catalog(catalog)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandReplaceCatalog,
         :version => 2,
-        :payload => payload_str,
+        :payload => command_payload,
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|

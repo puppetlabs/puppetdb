@@ -67,7 +67,7 @@ module Puppet::Util::Puppetdb
     message = {
       :command => command,
       :version => version,
-      :payload => payload.to_pson,
+      :payload => payload,
     }.to_pson
 
     CharEncoding.utf8_string(message)
