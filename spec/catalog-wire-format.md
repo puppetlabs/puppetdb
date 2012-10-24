@@ -45,10 +45,6 @@ otherwise noted, null is not allowed anywhere in the catalog.
      "data": {
         "name": <string>,
         "version": <string>,
-        "classes":
-            [<string>, <string>, ...],
-        "tags":
-            [<string>, <string>, ...],
         "edges":
             [<edge>, <edge>, ...],
         "resources":

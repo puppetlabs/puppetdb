@@ -70,6 +70,12 @@ The payload is expected to be a Puppet catalog, as a JSON string, including the
 fields of the [catalog wire format](catalog-wire-format.md). Extra fields are
 ignored.
 
+## "replace catalog", version 2
+
+The payload is expected to be a Puppet catalog, as either a JSON string or an
+object, conforming exactly to the [catalog wire
+format](catalog-wire-format.md). Extra or missing fields are an error.
+
 ## "replace facts", version 1
 
 The payload is expected to be a set of facts, as a JSON string, conforming to
