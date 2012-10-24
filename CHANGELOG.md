@@ -1,3 +1,22 @@
+1.0.2
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Matthaus Owens
+
+Fixes:
+
+* (#17178) Update rubylib on debian/ubuntu installs
+
+  Previously the terminus would be installed to the 1.8 sitelibdir for ruby1.8 or
+  the 1.9.1 vendorlibdir on ruby1.9. The ruby1.9 code path was never used, so
+  platforms with ruby1.9 as the default (such as quantal and wheezy) would not be
+  able to load the terminus. Modern debian packages put version agnostic ruby
+  code in vendordir (/usr/lib/ruby/vendor_ruby), so this commit moves the
+  terminus install dir to be vendordir.
+
 1.0.1
 =========
 
