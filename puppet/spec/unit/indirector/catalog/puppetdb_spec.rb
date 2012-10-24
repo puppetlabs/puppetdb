@@ -626,16 +626,12 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
       end
 
-      it "should not include classes" do
+      it "should have the correct set of keys" do
         result = subject.munge_catalog(catalog)
 
-        result['data']['classes'].should be_nil
-      end
-
-      it "should not include tags" do
-        result = subject.munge_catalog(catalog)
-
-        result['data']['tags'].should be_nil
+        result.keys.should =~ ['metadata', 'data']
+        result['metadata'].keys.should =~ ['api_version']
+        result['data'].keys.should =~ ['name', 'version', 'edges', 'resources']
       end
     end
   end

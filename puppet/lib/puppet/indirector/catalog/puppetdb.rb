@@ -29,8 +29,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     sort_unordered_metaparams(data)
     munge_edges(data)
     synthesize_edges(data, catalog)
-    remove_classes(data)
-    remove_tags(data)
+    filter_keys(hash)
 
     hash
   end
@@ -225,12 +224,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash
   end
 
-  def remove_classes(hash)
-    hash.delete('classes')
-  end
+  def filter_keys(hash)
+    hash['metadata'].delete_if do |k,v|
+      k != 'api_version'
+    end
 
-  def remove_tags(hash)
-    hash.delete('tags')
+    hash['data'].delete_if do |k,v|
+      ! ['name', 'version', 'edges', 'resources'].include?(k)
+    end
+
+    hash.delete_if do |k,v|
+      ! ['metadata', 'data'].include?(k)
+    end
   end
 
   def resource_ref_to_hash(ref)
