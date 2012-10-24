@@ -76,7 +76,7 @@ end
 
 case @osfamily
   when /debian/
-    @plibdir = @pe ? '/opt/puppet/lib/ruby/1.8' : ( @ruby_version == '1.8' ?  '/usr/lib/ruby/1.8' : '/usr/lib/ruby/vendor_ruby/1.9.1' )
+    @plibdir = @pe ? '/opt/puppet/lib/ruby/1.8' : '/usr/lib/ruby/vendor_ruby'
   when /redhat/
     @plibdir = @pe ? '/opt/puppet/lib/ruby/site_ruby/1.8' : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
   when /suse/
