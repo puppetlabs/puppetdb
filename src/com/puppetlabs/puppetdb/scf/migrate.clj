@@ -218,13 +218,11 @@
     ["new_value" "TEXT"]
     ["old_value" "TEXT"]
     ["message" "TEXT"]
-    ;; TODO: we can't set the "correct" primary key because property is nullable (because of skips).
-    ;; We probably should do something about this; only realistic options seem to be splitting
-    ;; this out into two tables (which means two SELECTS and some in-code sorting would be necessary
-    ;; in order to build up the complete data for a report), or (cough) use a sentinel value
-    ;; for "property" for skips, and make that field NOT NULL.  Both options seem pretty sucky.
-;    ["PRIMARY KEY (report_id, resource_type, resource_title, property)"]
-     )
+    ; TODO: we can't set the "correct" primary key because `property` is nullable
+    ; (because of skipped resources).
+    ; We decided to just use a UNIQUE constraint for now, but another option
+    ; would be to split this out into two tables.
+    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"])
 
   (sql/do-commands
     "CREATE INDEX idx_reports_certname ON reports(certname)")
