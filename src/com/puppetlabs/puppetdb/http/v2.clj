@@ -5,7 +5,7 @@
         [com.puppetlabs.puppetdb.http.v2.node :only (node-app)]
         [com.puppetlabs.puppetdb.http.v2.resources :only (resources-app)]
         [com.puppetlabs.puppetdb.http.v2.event :only (events-app)]
-        [com.puppetlabs.puppetdb.http.v2.event-group :only (event-groups-app)]
+        [com.puppetlabs.puppetdb.http.v2.report :only (reports-app)]
         [com.puppetlabs.puppetdb.http.v2.status :only (status-app)]
         [com.puppetlabs.puppetdb.http.v2.metrics :only (metrics-app)]
         [com.puppetlabs.puppetdb.http.v2.version :only (version-app)]
@@ -31,8 +31,8 @@
     ["events"]
     {:get events-app}
 
-    ["event-groups"]
-    {:get event-groups-app}
+    ["reports"]
+    {:get reports-app}
 
     ["status" &]
     {:any status-app}

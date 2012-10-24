@@ -25,7 +25,7 @@ describe processor do
       subject.stubs(:run_duration).returns(10)
 
       payload = {
-          :command => Puppet::Util::Puppetdb::CommandSubmitReport,
+          :command => Puppet::Util::Puppetdb::CommandStoreReport,
           :version => 1,
           :payload => subject.send(:report_to_hash).to_pson
       }.to_pson
@@ -86,7 +86,9 @@ describe processor do
       context "resource without events" do
         it "should not include the resource" do
           result = subject.send(:report_to_hash)
-          result.has_key?("group-id").should be_false
+          # the server will populate the report id, so we validate that the
+          # client doesn't include one
+          result.has_key?("report-id").should be_false
           result["certname"].should == subject.host
           # TODO: change these two to use accessors as soon as we get up to puppet 3.0
           result["puppet-version"].should == subject.instance_variable_get(:@puppet_version)

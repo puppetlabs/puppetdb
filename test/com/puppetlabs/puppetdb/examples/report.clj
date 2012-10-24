@@ -1,7 +1,7 @@
-(ns com.puppetlabs.puppetdb.examples.event
+(ns com.puppetlabs.puppetdb.examples.report
   (:require [clj-time.coerce :as coerce]))
 
-(def resource-event-groups
+(def reports
   {:basic
    {:certname               "foo.local"
     :puppet-version         "3.0.1"

@@ -1,28 +1,28 @@
 ;; ## SQL/query-related functions for events
 
-(ns com.puppetlabs.puppetdb.query.event
+(ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.query.utils :only [valid-query-format? sql-to-wire]]))
 
 
-(defn event-group-query->sql
-  "Given the set of inputs for an event group query, build up the corresponding
+(defn report-query->sql
+  "Given the set of inputs for a report query, build up the corresponding
   SQL expression."
-  [query group-id]
+  [query report-id]
   ;; TODO: real precondition for the query argument.  Not supported yet.
   {:pre [(nil? query)]
    :post [(valid-query-format? %)]}
-  (if group-id
-    (vector " WHERE event_groups.group_id = ?" group-id)
+  (if report-id
+    (vector " WHERE reports.id = ?" report-id)
     (vector "")))
 
-(defn query-event-groups
-  "Take a query and its parameters, and return a vector of matching event groups."
+(defn query-reports
+  "Take a query and its parameters, and return a vector of matching reports."
   [[sql & params]]
   {:pre [(string? sql)]}
   ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
-  (let [query   (format (str "SELECT group_id,
+  (let [query   (format (str "SELECT id,
                                       certname,
                                       puppet_version,
                                       report_format,
@@ -31,7 +31,7 @@
                                       end_time,
                                       receive_time,
                                       description
-                                  FROM event_groups %s ORDER BY start_time DESC")
+                                  FROM reports %s ORDER BY start_time DESC")
     sql)
         results   (map sql-to-wire (query-to-vec (apply vector query params)))]
     results))
@@ -41,13 +41,13 @@
 (defn resource-event-query->sql
   "Given the set of inputs for a resource event query, build up the corresponding
   SQL expression."
-  [query event-group-id]
+  [query report-id]
   ;; TODO: real precondition for the query argument.  Not supported yet.
   {:pre [(nil? query)
-         ((some-fn nil? string?) event-group-id)]
+         ((some-fn nil? string?) report-id)]
    :post [(valid-query-format? %)]}
-  (if event-group-id
-    (vector " WHERE resource_events.event_group_id = ?" event-group-id)
+  (if report-id
+    (vector " WHERE resource_events.report_id = ?" report-id)
     (vector "")))
 
 (defn query-resource-events
@@ -56,7 +56,7 @@
   [[sql & params]]
   {:pre [(string? sql)]}
   ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
-  (let [query   (format (str "SELECT event_group_id,
+  (let [query   (format (str "SELECT report_id,
                                       status,
                                       timestamp,
                                       resource_type,

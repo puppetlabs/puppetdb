@@ -20,7 +20,7 @@
 
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog :as cat]
-            [com.puppetlabs.puppetdb.event :as event]
+            [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -629,27 +629,27 @@ must be supplied as the value to be matched."
           (delete-facts! name)
           (add-facts! name values timestamp))))
 
-(defn add-event-group!
-  "Add an event group and all of the associated events."
-  [event-group timestamp]
-  {:pre [(map? event-group)
+(defn add-report!
+  "Add a report and all of the associated events."
+  [report timestamp]
+  {:pre [(map? report)
          (utils/datetime? timestamp)]}
-  (let [group-id (:group-id event-group)
+  (let [report-id (:id report)
         ;; TODO: either need to do some validation here, or need to document that we expect everything
         ;; to be validated before we are called (in which case we need to validate for extraneous keys
         ;; in the validation functions).
-        resource-event-rows (map #(event/resource-event-to-sql % group-id)
-                                  (:resource-events event-group))]
+        resource-event-rows (map #(report/resource-event-to-sql % report-id)
+                                  (:resource-events report))]
     ;; TODO: metrics?
     (sql/transaction
-      (sql/insert-record :event_groups
-        { :group_id (:group-id event-group)
-          :puppet_version (:puppet-version event-group)
-          :certname (:certname event-group)
-          :report_format (:report-format event-group)
-          :configuration_version (:configuration-version event-group)
-          :start_time (to-timestamp (:start-time event-group))
-          :end_time (to-timestamp (:end-time event-group))
+      (sql/insert-record :reports
+        { :id (:id report)
+          :puppet_version (:puppet-version report)
+          :certname (:certname report)
+          :report_format (:report-format report)
+          :configuration_version (:configuration-version report)
+          :start_time (to-timestamp (:start-time report))
+          :end_time (to-timestamp (:end-time report))
           :receive_time (to-timestamp timestamp)
-          :description (:description event-group)})
+          :description (:description report)})
       (apply sql/insert-records :resource_events resource-event-rows))))

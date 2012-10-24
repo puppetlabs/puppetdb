@@ -190,11 +190,11 @@
   (sql/drop-table :classes)
   (sql/drop-table :tags))
 
-(defn add-events-tables
-  "Add a resource_events and event_groups tables."
+(defn add-reports-tables
+  "Add a resource_events and reports tables."
   []
-  (sql/create-table :event_groups
-    ["group_id" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+  (sql/create-table :reports
+    ["id" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
     ["certname" "TEXT" "NOT NULL"]
     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
     ["report_format" "SMALLINT" "NOT NULL"]
@@ -206,7 +206,7 @@
     ["description" "TEXT"])
 
   (sql/create-table :resource_events
-    ["event_group_id" "VARCHAR(40)" "NOT NULL" "REFERENCES event_groups(group_id)" "ON DELETE CASCADE"]
+    ["report_id" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"]
     ["status" "VARCHAR(40)" "NOT NULL"]
     ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
     ["resource_type" "TEXT" "NOT NULL"]
@@ -223,17 +223,14 @@
     ;; this out into two tables (which means two SELECTS and some in-code sorting would be necessary
     ;; in order to build up the complete data for a report), or (cough) use a sentinel value
     ;; for "property" for skips, and make that field NOT NULL.  Both options seem pretty sucky.
-;    ["PRIMARY KEY (event_group_id, resource_type, resource_title, property)"]
+;    ["PRIMARY KEY (report_id, resource_type, resource_title, property)"]
      )
 
   (sql/do-commands
-    "CREATE INDEX idx_event_groups_group_id ON event_groups(group_id)")
+    "CREATE INDEX idx_reports_certname ON reports(certname)")
 
   (sql/do-commands
-    "CREATE INDEX idx_event_groups_certname ON event_groups(certname)")
-
-  (sql/do-commands
-    "CREATE INDEX idx_resource_events_event_group_id ON resource_events(event_group_id)")
+    "CREATE INDEX idx_resource_events_report_id ON resource_events(report_id)")
 
   (sql/do-commands
     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
@@ -251,7 +248,7 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
    6 drop-classes-and-tags
-   7 add-events-tables})
+   7 add-reports-tables})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

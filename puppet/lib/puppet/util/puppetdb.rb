@@ -15,10 +15,10 @@ module Puppet::Util::Puppetdb
 
   CommandsUrl = "/v2/commands"
 
-  CommandReplaceCatalog = "replace catalog"
-  CommandReplaceFacts = "replace facts"
-  CommandDeactivateNode = "deactivate node"
-  CommandSubmitReport = "submit event group"
+  CommandReplaceCatalog   = "replace catalog"
+  CommandReplaceFacts     = "replace facts"
+  CommandDeactivateNode   = "deactivate node"
+  CommandStoreReport      = "store report"
 
   # TODO: we should get rid of these; it's global state and it can make our
   #  tests fail based on the order that they are run in.

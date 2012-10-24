@@ -3,24 +3,24 @@
 
 (ns com.puppetlabs.puppetdb.http.v2.event
   (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.event :as query]
+            [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given an optional `query`, an optional `group-id` (the id of the event group),
+  "Given an optional `query`, an optional `report-id` (the id of the report),
   and a database connection, return a Ring response with the query results.  The
   result format conforms to that documented above.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query group-id db]
+  [query report-id db]
   ;; TODO: implement query
   (if query
     (throw (UnsupportedOperationException. "query is not yet implemented")))
 
   (try
     (with-transacted-connection db
-      (-> (query/resource-event-query->sql query group-id)
+      (-> (query/resource-event-query->sql query report-id)
           (query/query-resource-events)
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -36,8 +36,8 @@
   [{:keys [params headers globals] :as request}]
   (cond
     (not (or (params "query")
-             (params "group-id")))
-    (pl-http/error-response "must provide at least one of 'query', 'group-id'")
+             (params "report-id")))
+    (pl-http/error-response "must provide at least one of 'query', 'report-id'")
 
     ;; TODO: this is copied and pasted from resources-app, should be able to
     ;;  be refactored
@@ -48,4 +48,4 @@
       (rr/status pl-http/status-not-acceptable))
 
     :else
-    (produce-body (params "query") (params "group-id") (:scf-db globals))))
+    (produce-body (params "query") (params "report-id") (:scf-db globals))))

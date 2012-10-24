@@ -5,18 +5,18 @@ require 'puppet/util/puppetdb/report_helper'
 
 Puppet::Reports.register_report(:puppetdb) do
 
-  CommandSubmitReport = Puppet::Util::Puppetdb::CommandSubmitReport
+  CommandStoreReport = Puppet::Util::Puppetdb::CommandStoreReport
 
   desc <<-DESC
   Send report information to PuppetDB via the REST API.  Reports are serialized to
-  JSON format, and then submitted to puppetdb using the '#{CommandSubmitReport}'
+  JSON format, and then submitted to puppetdb using the '#{CommandStoreReport}'
   command.
   DESC
 
 
   def process
     helper = Puppet::Util::Puppetdb::ReportHelper.new
-    helper.submit_command(self.host, report_to_hash, CommandSubmitReport, 1)
+    helper.submit_command(self.host, report_to_hash, CommandStoreReport, 1)
   end
 
   private
@@ -30,8 +30,6 @@ Puppet::Reports.register_report(:puppetdb) do
     # seems more consistent and safer for the long-term.  However, for reasons
     # relating to backwards compatibility we won't be able to switch over to
     # the accessors until version 3.x of puppet is our oldest supported version.
-
-    # Choosing a somewhat arbitrary string for group-id for the time being.
     {
       "certname"                => host,
       "puppet-version"          => @puppet_version,
