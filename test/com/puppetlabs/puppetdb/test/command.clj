@@ -22,7 +22,7 @@
     (is (= (assemble-command "my command" 1 [1 2 3 4 5])
            {:command "my command"
             :version 1
-            :payload "[1,2,3,4,5]"}))))
+            :payload [1 2 3 4 5]}))))
 
 (deftest command-parsing
   (testing "Command parsing"

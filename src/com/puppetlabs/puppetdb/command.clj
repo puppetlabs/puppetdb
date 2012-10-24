@@ -187,10 +187,10 @@
           (number? version)
           (satisfies? JSONable payload)]
    :post [(map? %)
-          (string? (:payload %))]}
+          (:payload %)]}
   {:command command
    :version version
-   :payload (json/generate-string payload)})
+   :payload payload})
 
 (defn annotate-command
   "Annotate a command-map with a timestamp and UUID"
@@ -317,8 +317,10 @@
           (scf-storage/replace-catalog! catalog timestamp))))))
 
 (defmethod process-command! ["replace catalog" 1]
-  [{:keys [version] :as command} options]
+  [{:keys [version payload] :as command} options]
   {:pre [(= version 1)]}
+  (when-not (string? payload)
+    (throw (IllegalArgumentException. "Payload for a 'replace catalog' v1 command must be a JSON string.")))
   (replace-catalog* command options))
 
 (defmethod process-command! ["replace catalog" 2]
