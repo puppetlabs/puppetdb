@@ -2,9 +2,11 @@
   (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.puppetdb.examples]
+  (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
+        [com.puppetlabs.puppetdb.examples.report :only [reports]]
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.utils :only [uuid]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations subsets)]
         [clj-time.core :only [ago from-now now days]]
@@ -456,3 +458,19 @@
       (replace-catalog! (assoc catalog :certname "node2") (now))
 
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
+
+
+(let [id          (uuid)
+      timestamp   (now)
+      report      (assoc-in (:basic reports) [:id] id)
+      certname    (:certname report)]
+  (deftest catalog-replacement
+    (testing "should store reports"
+      (add-certname! certname)
+      (add-report! report timestamp)
+
+      (is (= (query-to-vec ["SELECT certname FROM reports"])
+            [{:certname (:certname report)}]))
+
+      (is (= (query-to-vec ["SELECT id FROM reports"])
+            [{:id id}])))))
