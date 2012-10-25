@@ -60,6 +60,7 @@
 (deftest query-by-report
   (let [basic (assoc-in (:basic reports) [:id] (utils/uuid))]
     (report/validate basic)
+    (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 
     ;; TODO: test invalid requests

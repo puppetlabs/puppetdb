@@ -355,9 +355,13 @@
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
                       (report/parse-from-json-string payload id))
+        name        (:certname report)
         timestamp   (:received annotations)]
     (with-transacted-connection db
-      (scf-storage/add-report! report timestamp))
+      (when-not (scf-storage/certname-exists? name)
+        (scf-storage/add-certname! name))
+      (if (scf-storage/maybe-activate-node! name timestamp)
+        (scf-storage/add-report! report timestamp)))
     ;; TODO: replace this ":report-id" bit in the log message with something better;
     ;;  the real report ids are likely to be completely useless for this purpose,
     ;;  but we can't necessarily use something like a certname because there is

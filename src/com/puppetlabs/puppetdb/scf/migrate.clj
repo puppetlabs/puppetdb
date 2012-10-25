@@ -195,7 +195,7 @@
   []
   (sql/create-table :reports
     ["id" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
-    ["certname" "TEXT" "NOT NULL"]
+    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
     ["report_format" "SMALLINT" "NOT NULL"]
     ["configuration_version" "VARCHAR(255)" "NOT NULL"]
