@@ -14,7 +14,11 @@
   "Produce a response body for a request to retrieve the status of `node`."
   [node db]
   (if-let [status (with-transacted-connection db
-                    (node-status node))]
+                    ; this is a little silly, but in v2 we added the report_timestamp field.
+                    ; other than that, the code is exactly the same, so here we
+                    ; are basically just calling the new v2 logic and then
+                    ; removing the report timestamp.
+                    (dissoc (node-status node) :report_timestamp))]
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 

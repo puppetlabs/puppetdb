@@ -227,6 +227,11 @@
   (sql/do-commands
     "CREATE INDEX idx_reports_certname ON reports(certname)")
 
+  ; I presume we'll be doing a decent number of queries sorted by a timestamp,
+  ; and this seems like the most likely candidate out of the timestamp fields
+  (sql/do-commands
+    "CREATE INDEX idx_reports_end_time ON reports(end_time)")
+
   (sql/do-commands
     "CREATE INDEX idx_resource_events_report_id ON resource_events(report_id)")
 
@@ -234,7 +239,10 @@
     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)"))
+    "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
 
 ;; The available migrations, as a map from migration version to migration

@@ -15,15 +15,24 @@
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.utils :only [keyset]]))
 
+(def node-status-sql
+  "SELECT certnames.name,
+          certnames.deactivated,
+          c.timestamp AS catalog_timestamp,
+          f.timestamp AS facts_timestamp,
+          (SELECT end_time FROM reports
+            WHERE certname = ?
+            ORDER BY end_time DESC LIMIT 1) AS report_timestamp
+          FROM certnames
+            LEFT OUTER JOIN certname_catalogs c ON certnames.name = c.certname
+            LEFT OUTER JOIN certname_facts_metadata f ON certnames.name = f.certname
+          WHERE certnames.name = ?")
+
 (defn node-status
   "Return the current status of a node, including whether it's active, and the
   timestamp of its most recent catalog and facts."
   [node]
   {:post [(or (nil? %)
-              (= #{:name :deactivated :catalog_timestamp :facts_timestamp} (keyset %)))]}
-  (let [results (query-to-vec (str "SELECT certnames.name, certnames.deactivated, c.timestamp AS catalog_timestamp, f.timestamp AS facts_timestamp "
-                                   "FROM certnames LEFT OUTER JOIN certname_catalogs c ON certnames.name = c.certname "
-                                   "LEFT OUTER JOIN certname_facts_metadata f ON certnames.name = f.certname "
-                                   "WHERE certnames.name = ?")
-                              node)]
+              (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)))]}
+  (let [results (query-to-vec node-status-sql node node)]
     (first results)))
