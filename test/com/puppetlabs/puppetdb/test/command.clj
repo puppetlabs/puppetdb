@@ -359,13 +359,14 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))
 
-    (testing "should ignore the message if the node was deactivated after the message"
+    (testing "should store the catalog if the node was deactivated after the message"
       (scf-store/delete-certname! certname)
       (sql/insert-record :certnames {:name certname :deactivated tomorrow})
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                [{:name certname :deactivated tomorrow}]))
-        (is (empty? (query-to-vec "SELECT * FROM certname_catalogs")))
+        (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
+              [{:certname certname :catalog catalog-hash}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 
@@ -459,13 +460,16 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))
 
-    (testing "should ignore the message if the node was deactivated after the message"
+    (testing "should store the facts if the node was deactivated after the message"
       (scf-store/delete-certname! certname)
       (sql/insert-record :certnames {:name certname :deactivated tomorrow})
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                [{:name certname :deactivated tomorrow}]))
-        (is (empty? (query-to-vec "SELECT * FROM certname_facts")))
+        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
+              [{:certname certname :fact "a" :value "1"}
+               {:certname certname :fact "b" :value "2"}
+               {:certname certname :fact "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 

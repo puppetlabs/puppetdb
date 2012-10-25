@@ -273,6 +273,12 @@ must be supplied as the value to be matched."
                                      {:deactivated nil})]
     (pos? (first replaced))))
 
+(defn maybe-add-certname-and-activate!
+  [certname timestamp]
+  (when-not (certname-exists? certname)
+    (add-certname! certname))
+  (maybe-activate-node! certname timestamp))
+
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
   [hash api-version catalog-version]
