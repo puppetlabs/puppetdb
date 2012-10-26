@@ -190,6 +190,8 @@ must be supplied as the value to be matched."
                                (float (utils/quotient dupes (+ dupes new)))))
 
    :replace-facts     (timer [ns-str "default" "replace-facts-time"])
+
+   :store-report      (timer [ns-str "default" "store-report-time"])
    })
 
 (defn db-serialize
@@ -647,15 +649,15 @@ must be supplied as the value to be matched."
         ;; in the validation functions).
         resource-event-rows (map #(report/resource-event-to-sql % report-id)
                                   (:resource-events report))]
-    ;; TODO: metrics?
-    (sql/transaction
-      (sql/insert-record :reports
-        { :id (:id report)
-          :puppet_version (:puppet-version report)
-          :certname (:certname report)
-          :report_format (:report-format report)
-          :configuration_version (:configuration-version report)
-          :start_time (to-timestamp (:start-time report))
-          :end_time (to-timestamp (:end-time report))
-          :receive_time (to-timestamp timestamp)})
-      (apply sql/insert-records :resource_events resource-event-rows))))
+    (time! (:store-report metrics)
+      (sql/transaction
+        (sql/insert-record :reports
+          { :id (:id report)
+            :puppet_version (:puppet-version report)
+            :certname (:certname report)
+            :report_format (:report-format report)
+            :configuration_version (:configuration-version report)
+            :start_time (to-timestamp (:start-time report))
+            :end_time (to-timestamp (:end-time report))
+            :receive_time (to-timestamp timestamp)})
+        (apply sql/insert-records :resource_events resource-event-rows)))))
