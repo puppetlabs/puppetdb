@@ -49,8 +49,7 @@
        [:report-format            integer?        "integer"]
        [:configuration-version    datetime?       "datetime"]
        [:start-time               datetime?       "datetime"]
-       [:end-time                 datetime?       "datetime"]
-       [:description              string-or-nil?  "string"]])
+       [:end-time                 datetime?       "datetime"]])
     report)
 
 (defn validate-resource-event

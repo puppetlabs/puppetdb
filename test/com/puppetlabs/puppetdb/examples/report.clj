@@ -9,7 +9,6 @@
     :configuration-version  "123456789"
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"
-    :description            "My description here"
     :resource-events
         [{:status           "success"
           :timestamp        "2011-01-01T12:00:01-03:00"

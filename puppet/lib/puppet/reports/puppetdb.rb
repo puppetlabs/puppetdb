@@ -37,8 +37,6 @@ Puppet::Reports.register_report(:puppetdb) do
       "configuration-version"   => configuration_version,
       "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
       "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-      # TODO: should probably get rid of this
-      "description"             => nil,
       "resource-events"         =>
           resource_statuses.inject([]) do |events, status_entry|
             resource, status = *status_entry

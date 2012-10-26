@@ -201,9 +201,7 @@
     ["configuration_version" "VARCHAR(255)" "NOT NULL"]
     ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
     ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ;; Not sure if this buys us anything.
-    ["description" "TEXT"])
+    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
 
   (sql/create-table :resource_events
     ["report_id" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"]

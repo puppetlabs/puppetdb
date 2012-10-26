@@ -657,6 +657,5 @@ must be supplied as the value to be matched."
           :configuration_version (:configuration-version report)
           :start_time (to-timestamp (:start-time report))
           :end_time (to-timestamp (:end-time report))
-          :receive_time (to-timestamp timestamp)
-          :description (:description report)})
+          :receive_time (to-timestamp timestamp)})
       (apply sql/insert-records :resource_events resource-event-rows))))

@@ -29,8 +29,7 @@
                                       configuration_version,
                                       start_time,
                                       end_time,
-                                      receive_time,
-                                      description
+                                      receive_time
                                   FROM reports %s ORDER BY start_time DESC")
     sql)
         results   (map sql-to-wire (query-to-vec (apply vector query params)))]

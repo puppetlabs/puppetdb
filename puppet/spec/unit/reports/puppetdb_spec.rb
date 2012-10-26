@@ -95,7 +95,6 @@ describe processor do
           result["report-format"].should == subject.instance_variable_get(:@report_format)
           result["configuration-version"].should == subject.configuration_version
           result["resource-events"].should == []
-          result["description"].should be_nil
         end
       end
 
