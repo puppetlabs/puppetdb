@@ -255,29 +255,30 @@ must be supplied as the value to be matched."
     (:deactivated (first result-set))))
 
 (defn activate-node!
-  "Reactivate the given host"
+  "Reactivate the given host.  Adds the host to the database if it was not
+  already present."
   [certname]
   {:pre [(string? certname)]}
+  (when-not (certname-exists? certname)
+    (add-certname! certname))
   (sql/update-values :certnames
                      ["name=?" certname]
                      {:deactivated nil}))
 
 (defn maybe-activate-node!
   "Reactivate the given host, only if it was deactivated before `time`.
-  Returns true if the node is activated, or if it was already active."
+  Returns true if the node is activated, or if it was already active.
+
+  Adds the host to the database if it was not already present."
   [certname time]
   {:pre [(string? certname)]}
+  (when-not (certname-exists? certname)
+    (add-certname! certname))
   (let [timestamp (to-timestamp time)
         replaced  (sql/update-values :certnames
                                      ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
                                      {:deactivated nil})]
     (pos? (first replaced))))
-
-(defn maybe-add-certname-and-activate!
-  [certname timestamp]
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (maybe-activate-node! certname timestamp))
 
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"

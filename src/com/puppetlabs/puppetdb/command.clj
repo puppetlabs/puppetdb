@@ -311,7 +311,7 @@
         id        (:id annotations)
         timestamp (:received annotations)]
     (with-transacted-connection db
-      (scf-storage/maybe-add-certname-and-activate! certname timestamp)
+      (scf-storage/maybe-activate-node! certname timestamp)
       ;; Only store a catalog if it's newer than the current catalog
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
         (scf-storage/replace-catalog! catalog timestamp)))
@@ -325,7 +325,7 @@
         id                       (:id annotations)
         timestamp                (:received annotations)]
     (with-transacted-connection db
-      (scf-storage/maybe-add-certname-and-activate! name timestamp)
+      (scf-storage/maybe-activate-node! name timestamp)
       (if-not (scf-storage/facts-newer-than? name timestamp)
         (scf-storage/replace-facts! facts timestamp)))
     (log/info (format "[%s] [replace facts] %s" id name))))
