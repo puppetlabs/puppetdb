@@ -81,7 +81,7 @@
      (json-response body status-ok))
   ([body code]
      (-> body
-         (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
+         (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)
          (rr/header "Content-Type" "application/json")
          (rr/status code))))
