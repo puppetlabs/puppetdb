@@ -49,6 +49,8 @@
                       {:store-usage size-megs
                        :temp-usage  size-megs})]
       (is (instance? BrokerService broker))
+      (is (-> broker (.getPersistenceAdapter) (.isCheckForCorruptJournalFiles)))
+      (is (-> broker (.getPersistenceAdapter) (.isChecksumJournalFiles)))
       (is (= size-bytes (-> broker (.getSystemUsage) (.getStoreUsage) (.getLimit))))
       (is (= size-bytes (-> broker (.getSystemUsage) (.getTempUsage) (.getLimit)))))))
 

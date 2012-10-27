@@ -89,13 +89,17 @@
              (string? dir)
              (map? config)]
      :post  [(instance? BrokerService %)]}
-    (doto (BrokerService.)
-       (.setBrokerName name)
-       (.setDataDirectory dir)
-       (.setSchedulerSupport true)
-       (.setPersistent true)
-       (set-store-usage! (:store-usage config))
-       (set-temp-usage!  (:temp-usage config)))))
+    (let [mq (doto (BrokerService.)
+               (.setBrokerName name)
+               (.setDataDirectory dir)
+               (.setSchedulerSupport true)
+               (.setPersistent true)
+               (set-store-usage! (:store-usage config))
+               (set-temp-usage!  (:temp-usage config)))
+          db (doto (.getPersistenceAdapter mq)
+               (.setCheckForCorruptJournalFiles true)
+               (.setChecksumJournalFiles true))]
+      mq)))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept
