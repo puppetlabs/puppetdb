@@ -91,19 +91,29 @@ must be supplied as the value to be matched."
   number, or to NULL if it is not numeric."
   (fn [_] (sql-current-connection-database-name)))
 
+(defmulti sql-regexp-match
+  "Returns db-specific code for performing a regexp match"
+  (fn [_] (sql-current-connection-database-name)))
+
+(defmulti sql-regexp-array-match
+  "Returns db-specific code for performing a regexp match against the
+  contents of an array. If any of the array's items match the supplied
+  regexp, then that satisfies the match."
+  (fn [_ _] (sql-current-connection-database-name)))
+
 (defmethod sql-array-type-string "PostgreSQL"
   [basetype]
   (format "%s ARRAY[1]" basetype))
+
+(defmethod sql-array-type-string "HSQL Database Engine"
+  [basetype]
+  (format "%s ARRAY[%d]" basetype 65535))
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
   (if (pos? (compare (sql-current-connection-database-version) [8 1]))
     (format "ARRAY[?::text] <@ %s" column)
     (format "? = ANY(%s)" column)))
-
-(defmethod sql-array-type-string "HSQL Database Engine"
-  [basetype]
-  (format "%s ARRAY[%d]" basetype 65535))
 
 (defmethod sql-array-query-string "HSQL Database Engine"
   [column]
@@ -122,6 +132,30 @@ must be supplied as the value to be matched."
                "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
                "ELSE NULL END")
           column column column column))
+
+(defmethod sql-regexp-match "PostgreSQL"
+  [column]
+  (format "%s ~ ?" column))
+
+(defmethod sql-regexp-match "HSQL Database Engine"
+  [column]
+  (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
+
+(defmethod sql-regexp-array-match "PostgreSQL"
+  [table column]
+  (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" column))
+
+(defmethod sql-regexp-array-match "HSQL Database Engine"
+  [table column]
+  ;; What evil have I wrought upon the land? Good gravy.
+  ;;
+  ;; This is entirely due to the fact that HSQLDB doesn't support the
+  ;; UNNEST operator referencing a column from an outer table. UNNEST
+  ;; *has* to come after the parent table in the FROM clause of a
+  ;; separate SQL statement.
+  (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
+               "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
+          table table column table column table column))
 
 (def ns-str (str *ns*))
 

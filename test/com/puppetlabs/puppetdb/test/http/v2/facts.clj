@@ -128,6 +128,25 @@
                                  [">" ["fact" "value"] "5000"]]
                                 [{:node "foo2" :fact "uptime_seconds" :value "6000"}]
 
+                                ["and" ["=" ["fact" "name"] "kernel"]
+                                 ["~" ["fact" "value"] "i.u[xX]"]]
+                                [{:node "foo1" :fact "kernel" :value "Linux"}
+                                 {:node "foo2" :fact "kernel" :value "Linux"}]
+
+                                ["~" ["fact" "name"] "^host.*e$["]
+                                [{:node "foo1" :fact "hostname" :value "foo1"}
+                                 {:node "foo2" :fact "hostname" :value "foo2"}
+                                 {:node "foo3" :fact "hostname" :value "foo3"}]
+
+                                ["and" ["=" ["fact" "name"] "hostname"]
+                                 ["~" ["node" "name"] "^foo[12]$"]]
+                                [{:node "foo1" :fact "hostname" :value "foo1"}
+                                 {:node "foo2" :fact "hostname" :value "foo2"}]
+
+                                ["and" ["=" ["fact" "name"] "hostname"]
+                                 ["not" ["~" ["node" "name"] "^foo[12]$"]]]
+                                [{:node "foo3" :fact "hostname" :value "foo3"}]
+
                                 ["and" ["=" ["fact" "name"] "uptime_seconds"]
                                  [">=" ["fact" "value"] "4000"]
                                  ["<" ["fact" "value"] "6000.0"]]

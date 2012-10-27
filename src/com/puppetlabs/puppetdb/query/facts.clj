@@ -6,7 +6,7 @@
             [com.puppetlabs.jdbc :as sql]
             [com.puppetlabs.puppetdb.query.resource :as resource])
   (:use [com.puppetlabs.utils :only [parse-number]]
-        [com.puppetlabs.puppetdb.scf.storage :only [sql-as-numeric]]
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-as-numeric sql-regexp-match]]
         [clojure.core.match :only [match]]
         clojureql.core))
 
@@ -65,6 +65,7 @@
     (let [operator (string/lower-case op)]
       (cond
         (#{">" "<" ">=" "<="} operator) :numeric-comparison
+        (#{"~"} operator) :regexp-comparison
         (#{"and" "or"} operator) :connective
         :else operator))))
 
@@ -186,6 +187,28 @@
                          (str term " is not a valid query term"))))
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
+
+(defmethod compile-term :regexp-comparison
+  [[op path pattern :as term]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (let [count (count term)]
+    (if (not= 3 count)
+      (throw (IllegalArgumentException.
+              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+    (match [path]
+           [["node" "name"]]
+           (query "certname_facts.certname")
+
+           [["fact" "name"]]
+           (query "certname_facts.fact")
+
+           [["fact" "value"]]
+           (query "certname_facts.value")
+
+           :else (throw (IllegalArgumentException.
+                         (str path " is not a valid operand for regexp comparison"))))))
 
 (defmethod compile-term "not"
   [[op & terms]]

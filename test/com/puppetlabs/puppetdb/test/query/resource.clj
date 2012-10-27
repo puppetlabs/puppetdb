@@ -4,6 +4,7 @@
             [clojure.string :as string])
   (:use clojure.test
         ring.mock.request
+        [com.puppetlabs.jdbc]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
 
@@ -180,6 +181,14 @@
                   [foo1 bar1 foo4]
                   ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
                   [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5]
+                  ;; regexp
+                  ["~" ["node" "name"] "ubs.*ca.$"] [bar1 bar3 bar5]
+                  ["~" "title" "^[bB]o..a[Hh]$"] [foo5 bar5]
+                  ["~" "tag" "^[vV]..id$"] [foo4]
+                  ["or"
+                   ["~" "tag" "^[vV]..id$"]
+                   ["~" "tag" "^..vi.$"]]
+                  [foo4]
                   ;; nesting queries
                   ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
                    ["=" ["node" "name"] "subset.local"]
