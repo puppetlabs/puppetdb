@@ -209,14 +209,14 @@
     ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
     ["resource_type" "TEXT" "NOT NULL"]
     ["resource_title" "TEXT" "NOT NULL"]
-    ;; TODO: I wish these next two could be "NOT NULL", but for now we are
+    ;; I wish these next two could be "NOT NULL", but for now we are
     ;; fabricating skipped resources as events, and in those cases we don't
     ;; have any legitimate values to put into these fields.
     ["property" "VARCHAR(40)"]
     ["new_value" "TEXT"]
     ["old_value" "TEXT"]
     ["message" "TEXT"]
-    ; TODO: we can't set the "correct" primary key because `property` is nullable
+    ; we can't set the "correct" primary key because `property` is nullable
     ; (because of skipped resources).
     ; We decided to just use a UNIQUE constraint for now, but another option
     ; would be to split this out into two tables.

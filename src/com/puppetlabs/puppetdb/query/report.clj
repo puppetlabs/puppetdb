@@ -21,7 +21,6 @@
   "Take a query and its parameters, and return a vector of matching reports."
   [[sql & params]]
   {:pre [(string? sql)]}
-  ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
   (let [query   (format (str "SELECT id,
                                       certname,
                                       puppet_version,
@@ -54,7 +53,6 @@
   events."
   [[sql & params]]
   {:pre [(string? sql)]}
-  ;; TODO: do we need LIMIT stuff here, like we're doing with resource queries?
   (let [query   (format (str "SELECT report_id,
                                       status,
                                       timestamp,

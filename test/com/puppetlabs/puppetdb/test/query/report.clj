@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.query.event
+(ns com.puppetlabs.puppetdb.test.query.report
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.puppetdb.query.report :as query]
@@ -76,9 +76,6 @@
       (let [expected  (expected-reports [basic])
             actual    (reports-query-result nil report-id)]
         (is (= expected actual))))
-
-
-    ;; TODO: break this up into events and reports in separate files?
 
     (testing "should return the list of resource events for a given report id"
       (let [expected  (expected-resource-events (:resource-events basic) report-id)

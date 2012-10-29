@@ -16,13 +16,18 @@
 
 (def content-type-json "application/json")
 
+(defn query-as-string
+  [query]
+  (if (string? query)
+    query
+    (json/generate-string query)))
+
 ;; TODO: this might be able to be abstracted out and consolidated with the similar
 ;; versions that currently reside in test.http.resource and test.http.event
 (defn get-request
   [path query report-id]
-  ;; TODO: clean this up... gotta be a better way :)
   (let [query-arg     (if query
-                        {"query" (if (string? query) query (json/generate-string query))}
+                        {"query" (query-as-string query)}
                         {})
         report-id-arg  (if report-id
                         {"report-id" report-id}

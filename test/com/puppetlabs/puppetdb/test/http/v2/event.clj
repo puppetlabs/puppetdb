@@ -15,13 +15,19 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
+
+(defn query-as-string
+  [query]
+  (if (string? query)
+    query
+    (json/generate-string query)))
+
 ;; TODO: these might be able to be abstracted out and consolidated with the similar version
 ;; that currently resides in test.http.resource
 (defn get-request
   [path query report-id]
-    ;; TODO: clean this up... gotta be a better way :)
     (let [query-arg     (if query
-                          {"query" (if (string? query) query (json/generate-string query))}
+                          {"query" (query-as-string query)}
                           {})
           report-id-arg  (if report-id
                           {"report-id" report-id}
