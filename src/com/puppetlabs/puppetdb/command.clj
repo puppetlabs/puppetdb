@@ -356,12 +356,8 @@
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! name timestamp)
       (scf-storage/add-report! report timestamp))
-    ;; TODO: replace this ":report-id" bit in the log message with something better;
-    ;;  the real report ids are likely to be completely useless for this purpose,
-    ;;  but we can't necessarily use something like a certname because there is
-    ;;  no guarantee that all of the events in a group will be from the same
-    ;;  node?  need like a 'group desc' or something.
-    (log/info (format "[%s] [store report] %s" id (:id report)))))
+    (log/info (format "[%s] [store report] puppet v%s - %s"
+                id (:puppet-version report) (:certname report)))))
 
 ;; ## MQ I/O
 ;;
