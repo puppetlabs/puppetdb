@@ -63,85 +63,94 @@ to the result of the form supplied to this method."
                         {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
 
-    (let [foo1 {:certname   "one.local"
-                :resource   "1"
-                :type       "File"
-                :title      "/etc/passwd"
-                :tags       ["one" "two"]
-                :exported   true
-                :sourcefile nil
-                :sourceline nil
-                :parameters {:ensure "file"
-                             :owner  "root"
-                             :group  "root"
-                             :acl    ["john:rwx" "fred:rwx"]}}
-          bar1 {:certname   "two.local"
-                :resource   "1"
-                :type       "File"
-                :title      "/etc/passwd"
-                :tags       ["one" "two"]
-                :exported   true
-                :sourcefile nil
-                :sourceline nil
-                :parameters {:ensure "file"
-                             :owner  "root"
-                             :group  "root"
-                             :acl    ["john:rwx" "fred:rwx"]}}
-          bar2 {:certname   "two.local"
-                :resource   "2"
-                :type       "Notify"
-                :title      "hello"
-                :tags       []
-                :exported   true
-                :sourcefile nil
-                :sourceline nil
-                :parameters {}}]
+  (let [foo1 {:certname   "one.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       ["one" "two"]
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {:ensure "file"
+                           :owner  "root"
+                           :group  "root"
+                           :acl    ["john:rwx" "fred:rwx"]}}
+        bar1 {:certname   "two.local"
+              :resource   "1"
+              :type       "File"
+              :title      "/etc/passwd"
+              :tags       ["one" "two"]
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {:ensure "file"
+                           :owner  "root"
+                           :group  "root"
+                           :acl    ["john:rwx" "fred:rwx"]}}
+        bar2 {:certname   "two.local"
+              :resource   "2"
+              :type       "Notify"
+              :title      "hello"
+              :tags       []
+              :exported   true
+              :sourcefile nil
+              :sourceline nil
+              :parameters {}}]
 
-      (testing "query without filter"
-        (let [response (get-response)
-              body     (get response :body "null")]
-          (is (= (:status response) pl-http/status-bad-request))
-          (is (re-find #"missing query" body))))
+    (testing "query without filter"
+      (let [response (get-response)
+            body     (get response :body "null")]
+        (is (= (:status response) pl-http/status-bad-request))
+        (is (re-find #"missing query" body))))
 
-      (testing "query with filter"
-        (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
-                                [["=" "tag" "one"] #{foo1 bar1}]
-                                [["=" "tag" "two"] #{foo1 bar1}]
-                                [["and"
-                                  ["=" ["node" "name"] "one.local"]
-                                  ["=" "type" "File"]]
-                                 #{foo1}]
-                                [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
-                                [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
-                                [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+    (testing "query with filter"
+      (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
+                              [["=" "tag" "one"] #{foo1 bar1}]
+                              [["=" "tag" "two"] #{foo1 bar1}]
+                              [["and"
+                                ["=" ["node" "name"] "one.local"]
+                                ["=" "type" "File"]]
+                               #{foo1}]
+                              [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
+                              [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
+                              [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query exceeding resource-query-limit"
+      (with-http-app {:resource-query-limit 1}
+        (fn []
+          (let [response (get-response ["=" "type" "File"])
+                body     (get response :body "null")]
+            (is (= (:status response) pl-http/status-internal-error))
+            (is (re-find #"more than the maximum number of results" body))))))
+
+    (testing "querying against inactive nodes"
+      (deactivate-node! "one.local")
+
+      (testing "should exclude inactive nodes when requested"
+        (let [query ["=" ["node" "active"] true]
+              result #{bar1 bar2}]
           (is-response-equal (get-response query) result)))
 
-      (testing "query exceeding resource-query-limit"
-        (with-http-app {:resource-query-limit 1}
-          (fn []
-            (let [response (get-response ["=" "type" "File"])
-                  body     (get response :body "null")]
-              (is (= (:status response) pl-http/status-internal-error))
-              (is (re-find #"more than the maximum number of results" body))))))
+      (testing "should exclude active nodes when requested"
+        (let [query ["=" ["node" "active"] false]
+              result #{foo1}]
+          (is-response-equal (get-response query) result)))
 
-      (testing "querying against inactive nodes"
-        (deactivate-node! "one.local")
+      (testing "should include all nodes otherwise"
+        (let [query ["=" "type" "File"]
+              result #{foo1 bar1}]
+          (is-response-equal (get-response query) result))))
 
-        (testing "should exclude inactive nodes when requested"
-          (let [query ["=" ["node" "active"] true]
-                result #{bar1 bar2}]
-            (is-response-equal (get-response query) result)))
-
-        (testing "should exclude active nodes when requested"
-          (let [query ["=" ["node" "active"] false]
-                result #{foo1}]
-            (is-response-equal (get-response query) result)))
-
-        (testing "should include all nodes otherwise"
-          (let [query ["=" "type" "File"]
-                result #{foo1 bar1}]
-            (is-response-equal (get-response query) result)))))
-
+    (testing "fact subqueries are unsupported"
+      (let [{:keys [body status]} (get-response ["and"
+                                                 ["=" "type" "File"]
+                                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                                     ["and"
+                                                                                                      ["=" ["fact" "name"] "operatingsystem"]
+                                                                                                      ["=" ["fact" "value"] "Debian"]]]]]])]
+        (is (= status pl-http/status-bad-request))
+        (is (re-find #"subqueries are not supported in API v1" body)))))
     (testing "error handling"
       (let [response (get-response ["="])
             body     (get response :body "null")]
