@@ -5,7 +5,9 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr])
-  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+  (:use [net.cgrand.moustache :only [app]]
+        com.puppetlabs.middleware
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 
 (defn produce-body
@@ -30,24 +32,29 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
+(def routes
+  (app
+    [""]
+    {:get (fn [{:keys [params globals]}]
+            (produce-body
+              (params "query")
+              (params "report-id")
+              (:scf-db globals)))}))
 
-
-(defn reports-app
-  "Ring app for querying reports"
-  [{:keys [params headers globals] :as request}]
-  (cond
+(defn verify-params
+  "Ring middleware that checks the parameters for a `reports` request"
+  [app]
+  (fn [{:keys [params] :as req}]
     ;; TODO: decide what params are required (if any)
-;    (not (or (params "query")
-;           (params "report-id")))
-;    (pl-http/error-response "must provide at least one of 'query', 'report-id'")
+    ;;  (if-not (or (params "query")
+    ;;           (params "report-id")))
+    ;;    (pl-http/error-response "must provide at least one of 'query', 'report-id'")
+    (app req)
+    ))
 
-    ;; TODO: this is copied and pasted from resources-app, should be able to
-    ;;  be refactored
-    (not (pl-http/acceptable-content-type
-           "application/json"
-           (headers "accept")))
-    (-> (rr/response "must accept application/json")
-      (rr/status pl-http/status-not-acceptable))
 
-    :else
-    (produce-body (params "query") (params "report-id") (:scf-db globals))))
+(def reports-app
+  "Ring app for querying reports"
+  (-> routes
+    verify-accepts-json
+    verify-params))

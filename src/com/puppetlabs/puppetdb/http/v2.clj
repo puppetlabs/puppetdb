@@ -28,11 +28,11 @@
     ["resources" &]
     {:any resources-app}
 
-    ["events"]
-    {:get events-app}
+    ["events" &]
+    {:any events-app}
 
-    ["reports"]
-    {:get reports-app}
+    ["reports" &]
+    {:any reports-app}
 
     ["status" &]
     {:any status-app}
