@@ -71,8 +71,9 @@ to the result of the form supplied to this method."
                  "message" "hello"}
                 (now))
     (sql/insert-records :catalog_resources
-                        {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
+                        {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
+                        {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
+                        {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
 
   (let [foo1 {:certname   "one.local"
@@ -80,19 +81,28 @@ to the result of the form supplied to this method."
               :type       "File"
               :title      "/etc/passwd"
               :tags       ["one" "two"]
-              :exported   true
+              :exported   false
               :sourcefile nil
               :sourceline nil
               :parameters {:ensure "file"
                            :owner  "root"
                            :group  "root"
                            :acl    ["john:rwx" "fred:rwx"]}}
+        foo2 {:certname   "one.local"
+              :resource   "2"
+              :type       "Notify"
+              :title      "hello"
+              :tags       []
+              :exported   false
+              :sourcefile nil
+              :sourceline nil
+              :parameters {}}
         bar1 {:certname   "two.local"
               :resource   "1"
               :type       "File"
               :title      "/etc/passwd"
               :tags       ["one" "two"]
-              :exported   true
+              :exported   false
               :sourcefile nil
               :sourceline nil
               :parameters {:ensure "file"
@@ -146,7 +156,7 @@ to the result of the form supplied to this method."
 
       (testing "should exclude active nodes when requested"
         (let [query ["=" ["node" "active"] false]
-              result #{foo1}]
+              result #{foo1 foo2}]
           (is-response-equal (get-response query) result)))
 
       (testing "should include all nodes otherwise"
@@ -168,10 +178,21 @@ to the result of the form supplied to this method."
       (let [{:keys [body status]} (get-response ["in-result" ["resource" "title"] ["project" "value" ["select-facts"
                                                                                                       ["=" ["fact" "name"] "message"]]]])]
         (is (= status pl-http/status-ok))
-        (is (= (set (json/parse-string body true)) #{bar2})))))
+        (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
+
+  (testing "resource subqueries are supported"
+    ;; Fetch exported resources and their corresponding collected versions
+    (let [{:keys [body status]} (get-response ["or"
+                                               ["=" "exported" true]
+                                               ["and"
+                                                ["=" "exported" false]
+                                                ["in-result" ["resource" "title"] ["project" "title" ["select-resources"
+                                                                                                      ["=" "exported" true]]]]]])]
+      (is (= status pl-http/status-ok))
+      (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
 
   (testing "error handling"
     (let [response (get-response ["="])
           body     (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
-      (is (re-find #"= requires exactly two arguments" body)))))
+      (is (re-find #"= requires exactly two arguments" body))))))

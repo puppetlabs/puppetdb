@@ -148,6 +148,16 @@
     {:where (format "SELECT * FROM (%s) r1" subsql)
      :params params}))
 
+(defmethod compile-term "select-resources"
+  [[_ subquery & others]]
+  {:pre [(coll? subquery)]
+   :post [(string? (:where %))]}
+  (when-not (empty? others)
+    (throw (IllegalArgumentException. "Only one expression is accepted for 'select-resources'")))
+  (let [[subsql & params] (query->sql subquery)]
+    {:where (format "SELECT * FROM (%s) r1" subsql)
+     :params params}))
+
 (def fact-columns #{"certname" "node" "fact" "value"})
 
 (def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
