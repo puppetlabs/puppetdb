@@ -20,7 +20,8 @@
 ;; JOINs and WHERE clause to the query which fetches the desired columns.
 ;;
 (ns com.puppetlabs.puppetdb.query.resource
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [com.puppetlabs.puppetdb.query.facts :as facts]
+            [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
@@ -136,6 +137,49 @@
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
                        (str term " is not a valid query term")))))
+
+(defmethod compile-term "select-facts"
+  [[_ subquery & others]]
+  {:pre [(coll? subquery)]
+   :post [(string? (:where %))]}
+  (when-not (empty? others)
+    (throw (IllegalArgumentException. "Only one expression is accepted for 'select-facts'")))
+  (let [[subsql & params] (facts/query->sql subquery)]
+    {:where (format "SELECT * FROM (%s) r1" subsql)
+     :params params}))
+
+(def fact-columns #{"certname" "node" "fact" "value"})
+
+(def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
+
+(def selectable-columns
+  {"select-resources" resource-columns
+   "select-facts" fact-columns})
+
+(defmethod compile-term "project"
+  [[_ field subselect]]
+  {:pre [(string? field)
+         (coll? subselect)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [{:keys [where params] :as query} (compile-term subselect)
+        select-type (first subselect)
+        field-names (selectable-columns select-type)]
+    (when-not (field-names field)
+      (throw (IllegalArgumentException. (format "Can't project unknown field '%s' for '%s'" field select-type))))
+    (assoc query :where (format "SELECT r1.%s FROM (%s) r1" field where))))
+
+(defmethod compile-term "in-result"
+  [[_ [type field] subselect]]
+  {:pre [(string? type)
+         (string? field)
+         (coll? subselect)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [{:keys [where params] :as query} (compile-term subselect)]
+    (when-not (resource-columns field)
+      (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in-result'" type field))))
+    (assoc query :where (format "%s IN (%s)" field where))))
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
