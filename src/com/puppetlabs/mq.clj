@@ -97,6 +97,8 @@
                (set-store-usage! (:store-usage config))
                (set-temp-usage!  (:temp-usage config)))
           db (doto (.getPersistenceAdapter mq)
+               (.setIgnoreMissingJournalfiles true)
+               (.setArchiveCorruptedIndex true)
                (.setCheckForCorruptJournalFiles true)
                (.setChecksumJournalFiles true))]
       mq)))

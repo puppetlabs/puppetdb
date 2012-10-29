@@ -49,10 +49,12 @@
                       {:store-usage size-megs
                        :temp-usage  size-megs})]
       (is (instance? BrokerService broker))
-      (is (-> broker (.getPersistenceAdapter) (.isCheckForCorruptJournalFiles)))
-      (is (-> broker (.getPersistenceAdapter) (.isChecksumJournalFiles)))
-      (is (= size-bytes (-> broker (.getSystemUsage) (.getStoreUsage) (.getLimit))))
-      (is (= size-bytes (-> broker (.getSystemUsage) (.getTempUsage) (.getLimit)))))))
+      (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
+      (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))
+      (is (.. broker (getPersistenceAdapter) (isCheckForCorruptJournalFiles)))
+      (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
+      (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
+      (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))))
 
 (deftest json-publish
   (testing "publish-json!"
