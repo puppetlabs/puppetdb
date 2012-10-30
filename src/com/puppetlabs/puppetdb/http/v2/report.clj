@@ -1,5 +1,50 @@
 ;; ## Request Format
-;; TODO: fill this in once it stabilizes
+;;
+;; The single available route is '/reports?query=<query>'.
+;; The `query` parameter is a JSON array of query predicates in
+;  prefix form.
+;;
+;; The most common use for this query will probably be as a means of building up
+;; a UI for "most recent reports".  The report ids can then be used as input for
+;; the `events` query endpoint.
+;;
+;; ### Predicates
+;;
+;; #### =
+;;
+;; Reports for node with certname `foo.local`:
+;;
+;;    ["=", "certname", "foo.local"]
+;;
+;;
+;; ## Response Format
+;;
+;; The response is a JSON array of report summaries for all reports
+;; that matched the input parameters.  The summaries are sorted by
+;; the completion time of the report, in descending order:
+;;
+;;`[
+;;  {
+;;    "end-time": "2012-10-29T18:38:01.000Z",
+;;    "puppet-version": "3.0.1",
+;;    "receive-time": "2012-10-29T18:38:04.238Z",
+;;    "configuration-version": "1351535883",
+;;    "start-time": "2012-10-29T18:38:00.000Z",
+;;    "id": "d4bcb35a-fb7b-45da-84e0-fceb7a1df713",
+;;    "certname": "foo.local",
+;;    "report-format": 3
+;;    },
+;;  {
+;;    "end-time": "2012-10-26T22:39:32.000Z",
+;;    "puppet-version": "3.0.1",
+;;    "receive-time": "2012-10-26T22:39:35.305Z",
+;;    "configuration-version": "1351291174",
+;;    "start-time": "2012-10-26T22:39:31.000Z",
+;;    "id": "5ec13ff5-c6fd-43fb-b5b1-59a00ec8e1f1",
+;;    "certname": "foo.local",
+;;    "report-format": 3
+;;    }
+;;]`
 
 (ns com.puppetlabs.puppetdb.http.v2.report
   (:require [com.puppetlabs.http :as pl-http]
