@@ -38,22 +38,18 @@ may not even be written by us) can handle this data.
 A catalog is represented as JSON (this implies UTF-8 encoding). Unless
 otherwise noted, null is not allowed anywhere in the catalog.
 
-    {"metadata": {
-        "type": "catalog",
-        "version": 1
-        }
-     "data": {
+    {
+      "metadata": {
+        "api_version": 1
+      },
+      "data": {
         "name": <string>,
         "version": <string>,
-        "classes":
-            [<string>, <string>, ...],
-        "tags":
-            [<string>, <string>, ...],
         "edges":
             [<edge>, <edge>, ...],
         "resources":
             [<resource>, <resources>, ...]
-        }
+      }
     }
 
 All keys are mandatory, though values that are lists may be empty

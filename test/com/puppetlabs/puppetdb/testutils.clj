@@ -4,7 +4,8 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
             [fs.core :as fs])
-  (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]))
+  (:use [clojure.test :only [join-fixtures]]
+        [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]))
 
 (defn test-db-config
   "This is a placeholder function; it is supposed to return a map containing
@@ -131,3 +132,9 @@
         (enabled? [_ level] true)
         (write! [_ lvl ex msg]
           (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
+
+(defmacro with-fixtures
+  "Evaluates `body` wrapped by the `each` fixtures of the current namespace."
+  [& body]
+  `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
+     (fixture-fn# (fn [] ~@body))))
