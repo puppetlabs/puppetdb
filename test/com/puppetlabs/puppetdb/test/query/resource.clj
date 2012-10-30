@@ -44,6 +44,7 @@
     {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 2}
     {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "e" :sourceline 1}
     {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "f" :sourceline 1}
+    {:catalog "foo" :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :sourcefile "f" :sourceline 1}
     {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "b" :sourceline 1}
     {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "c" :sourceline 2}
     {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 3})
@@ -141,7 +142,17 @@
               :exported   false
               :sourcefile "f"
               :sourceline 1
-              :parameters {"hash" {"foo" 5 "bar" 10}}}]
+              :parameters {"hash" {"foo" 5 "bar" 10}}}
+        foo8 {:certname   "example.local"
+              :resource   "8"
+              :type       "Notify"
+              :title      "semver"
+              :tags       ["1.3.7+build.11.e0f985a"]
+              :exported   false
+              :sourcefile "f"
+              :sourceline 1
+              :parameters {}}
+        ]
     ;; ...and, finally, ready for testing.
     (testing "queries against SQL data"
       (doseq [[input expect]
@@ -172,7 +183,7 @@
                   ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [foo7]
                   ["=" ["parameter" "hash"] {"bar" 10}] []
                   ;; testing not operations
-                  ["not" ["=" "type" "File"]] [foo2 foo3 bar3 foo5 bar5 foo6 foo7]
+                  ["not" ["=" "type" "File"]] [foo2 foo3 bar3 foo5 bar5 foo6 foo7 foo8]
                   ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [foo6 foo7]
                   ;; and, or
                   ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [foo1 bar1]
@@ -180,7 +191,7 @@
                   ["or" ["=" "type" "File"] ["=" "title" "/etc/passwd"]]
                   [foo1 bar1 foo4]
                   ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
-                  [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5]
+                  [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5 foo8]
                   ;; regexp
                   ["~" ["node" "name"] "ubs.*ca.$"] [bar1 bar3 bar5]
                   ["~" "title" "^[bB]o..a[Hh]$"] [foo5 bar5]
@@ -189,6 +200,9 @@
                    ["~" "tag" "^[vV]..id$"]
                    ["~" "tag" "^..vi.$"]]
                   [foo4]
+                  ;; heinous regular expression to detect semvers
+                  ["~" "tag" "^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"]
+                  [foo8]
                   ;; nesting queries
                   ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
                    ["=" ["node" "name"] "subset.local"]
