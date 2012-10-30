@@ -31,8 +31,8 @@
   (map expected-report example-reports))
 
 (defn reports-query-result
-  [query report-id]
-  (vec (->> (query/report-query->sql query report-id)
+  [query]
+  (vec (->> (query/report-query->sql query)
             (query/query-reports)
             ;; the example reports don't have a receive time (because this is
             ;; calculated by the server), so we remove this field from the response
@@ -67,14 +67,9 @@
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 
-    (testing "should return all reports if no params are passed"
+    (testing "should return reports based on certname"
       (let [expected  (expected-reports [basic])
-            actual    (reports-query-result nil nil)]
-        (is (= expected actual))))
-
-    (testing "should return a report based on id"
-      (let [expected  (expected-reports [basic])
-            actual    (reports-query-result nil report-id)]
+            actual    (reports-query-result ["=" "certname" (:certname basic)])]
         (is (= expected actual))))
 
     (testing "should return the list of resource events for a given report id"

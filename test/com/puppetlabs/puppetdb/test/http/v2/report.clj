@@ -16,28 +16,17 @@
 
 (def content-type-json "application/json")
 
-(defn query-as-string
-  [query]
-  (if (string? query)
-    query
-    (json/generate-string query)))
-
 ;; TODO: this might be able to be abstracted out and consolidated with the similar
 ;; versions that currently reside in test.http.resource and test.http.event
 (defn get-request
-  [path query report-id]
-  (let [query-arg     (if query
-                        {"query" (query-as-string query)}
-                        {})
-        report-id-arg  (if report-id
-                        {"report-id" report-id}
-                        {})
-        request (request :get path (merge query-arg report-id-arg))
+  [path query]
+  (let [request (request :get path
+                     {"query" (if (string? query) query (json/generate-string query))})
         headers (:headers request)]
     (assoc request :headers (assoc headers "Accept" content-type-json))))
 
 (defn get-response
-  [query report-id] (*app* (get-request "/v2/reports" query report-id)))
+  [query] (*app* (get-request "/v2/reports" query)))
 
 (defn report-response
   [report]
@@ -70,8 +59,8 @@
 
     ;; TODO: test invalid requests
 
-    (testing "should return all reports if no params are passed"
+    (testing "should return all reports for a certname"
       (response-equal?
-        (get-response nil (:id basic))
+        (get-response ["=" "certname" (:certname basic)])
         (reports-response [basic])
         remove-receive-times))))
