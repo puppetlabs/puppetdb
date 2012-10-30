@@ -65,7 +65,6 @@
     (let [operator (string/lower-case op)]
       (cond
         (#{">" "<" ">=" "<="} operator) :numeric-comparison
-        (#{"~"} operator) :regexp-comparison
         (#{"and" "or"} operator) :connective
         :else operator))))
 
@@ -188,7 +187,7 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
-(defmethod compile-term :regexp-comparison
+(defmethod compile-term "~"
   [[op path pattern :as term]]
   {:post [(map? %)
           (string? (:where %))]}
