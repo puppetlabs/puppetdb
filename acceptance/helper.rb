@@ -166,9 +166,10 @@ module PuppetDBExtensions
     # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server   => '#{database.node_name}',
-      puppetdb_version  => '#{version}',
-      restart_puppet    => false,
+      puppetdb_server           => '#{database.node_name}',
+      puppetdb_version          => '#{version}',
+      puppetdb_startup_timeout  => 120,
+      restart_puppet            => false,
     }
     EOS
     apply_manifest_on(host, manifest)

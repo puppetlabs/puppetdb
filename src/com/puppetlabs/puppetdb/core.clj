@@ -14,8 +14,7 @@
 (ns com.puppetlabs.puppetdb.core
   (:require [com.puppetlabs.utils :as utils]
             [clojure.tools.namespace :as ns])
-  (:use [clojure.string :only (split)]
-        [clojure.stacktrace :only [print-stack-trace]])
+  (:use [clojure.string :only (split)])
   (:gen-class))
 
 (def ns-prefix "com.puppetlabs.puppetdb.cli.")

@@ -310,13 +310,11 @@
         id (:id annotations)
         timestamp (:received annotations)]
     (with-transacted-connection db
-      (when-not (scf-storage/certname-exists? certname)
-        (scf-storage/add-certname! certname))
-      (if (scf-storage/maybe-activate-node! certname timestamp)
-        ;; Only store a catalog if it's newer than the current catalog
-        (if-not (scf-storage/catalog-newer-than? certname timestamp)
-          (scf-storage/replace-catalog! catalog timestamp))))
-  (log/info (format "[%s] [replace catalog] %s" id certname))))
+      (scf-storage/maybe-activate-node! certname timestamp)
+      ;; Only store a catalog if it's newer than the current catalog
+      (if-not (scf-storage/catalog-newer-than? certname timestamp)
+        (scf-storage/replace-catalog! catalog timestamp)))
+    (log/info (format "[%s] [replace catalog] %s" id certname))))
 
 (defmethod process-command! ["replace catalog" 1]
   [{:keys [version payload] :as command} options]
@@ -338,11 +336,9 @@
         id                       (:id annotations)
         timestamp                (:received annotations)]
     (with-transacted-connection db
-      (when-not (scf-storage/certname-exists? name)
-        (scf-storage/add-certname! name))
-      (if (scf-storage/maybe-activate-node! name timestamp)
-        (if-not (scf-storage/facts-newer-than? name timestamp)
-          (scf-storage/replace-facts! facts timestamp))))
+      (scf-storage/maybe-activate-node! name timestamp)
+      (if-not (scf-storage/facts-newer-than? name timestamp)
+        (scf-storage/replace-facts! facts timestamp)))
     (log/info (format "[%s] [replace facts] %s" id name))))
 
 ;; Node deactivation
