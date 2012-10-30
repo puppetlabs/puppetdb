@@ -4,25 +4,23 @@
 (ns com.puppetlabs.puppetdb.http.v2.event
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.report :as query]
+            [cheshire.core :as json]
             [ring.util.response :as rr])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given an optional `query`, an optional `report-id` (the id of the report),
-  and a database connection, return a Ring response with the query results.  The
-  result format conforms to that documented above.
+  "Given a query and a database connection, return a Ring response with the
+  query results.  The result format conforms to that documented above.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query report-id db]
-  ;; TODO: implement query
-  (if query
-    (throw (UnsupportedOperationException. "query is not yet implemented")))
-
+  [query db]
   (try
     (with-transacted-connection db
-      (-> (query/resource-event-query->sql query report-id)
+      (-> query
+          (json/parse-string true)
+          (query/resource-event-query->sql)
           (query/query-resource-events)
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -38,20 +36,10 @@
     {:get (fn [{:keys [params globals]}]
           (produce-body
             (params "query")
-            (params "report-id")
             (:scf-db globals)))}))
-
-(defn verify-params
-  "Ring middleware that checks the parameters for an `events` request"
-  [app]
-  (fn [{:keys [params] :as req}]
-    (if (or (params "query")
-            (params "report-id"))
-      (app req)
-      (pl-http/error-response "must provide at least one of 'query', 'report-id'"))))
 
 (def events-app
   "Ring app for querying events"
   (-> routes
     verify-accepts-json
-    verify-params))
+    (verify-param-exists "query")))

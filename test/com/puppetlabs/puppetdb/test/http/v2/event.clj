@@ -15,48 +15,36 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-
-(defn query-as-string
-  [query]
-  (if (string? query)
-    query
-    (json/generate-string query)))
-
 ;; TODO: these might be able to be abstracted out and consolidated with the similar version
 ;; that currently resides in test.http.resource
 (defn get-request
-  [path query report-id]
-    (let [query-arg     (if query
-                          {"query" (query-as-string query)}
-                          {})
-          report-id-arg  (if report-id
-                          {"report-id" report-id}
-                          {})
-          request (request :get path (merge query-arg report-id-arg))
+  [path query]
+    (let [request (request :get path
+                      {"query" (if (string? query) query (json/generate-string query))})
           headers (:headers request)]
       (assoc request :headers (assoc headers "Accept" content-type-json))))
 
 (defn get-response
-  [query report-id] (*app* (get-request "/v2/events" query report-id)))
+  [query] (*app* (get-request "/v2/events" query)))
 
 
-(defn resource-event-response
+(defn expected-resource-event-response
   [resource-event report-id]
   (-> resource-event
+    ;; the examples don't include the report-id, so we munge it into place
     (assoc-in [:report-id] report-id)
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.
     (update-in [:timestamp] to-string)))
 
-(defn resource-events-response
+(defn expected-resource-events-response
   [resource-events report-id]
-  (set (map #(resource-event-response % report-id) resource-events)))
-
+  (set (map #(expected-resource-event-response % report-id) resource-events)))
 
 (deftest query-by-report
   (let [report-id (utils/uuid)
-        basic (assoc-in (:basic reports) [:id] report-id)]
+        basic     (assoc-in (:basic reports) [:id] report-id)]
     (report/validate basic)
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
@@ -64,6 +52,8 @@
     ;; TODO: test invalid requests
 
     (testing "should return the list of resource events for a given report id"
-      (response-equal?
-        (get-response nil (:id basic))
-        (resource-events-response (:resource-events basic) report-id)))))
+      (let [response (get-response ["=" "report-id" (:id basic)])
+            expected (expected-resource-events-response
+                        (:resource-events basic)
+                        (:id basic))]
+        (response-equal? response expected)))))

@@ -54,15 +54,15 @@
   (set (map #(expected-resource-event % report-id) example-resource-events)))
 
 (defn resource-events-query-result
-  [query report-id]
-  (set (->> (query/resource-event-query->sql query report-id)
+  [query]
+  (set (->> (query/resource-event-query->sql query)
             (query/query-resource-events))))
 
 ;; Begin tests
 
 (deftest resource-events-retrieval
   (let [report-id  (utils/uuid)
-        basic     (assoc-in (:basic reports) [:id] report-id)]
+        basic      (assoc-in (:basic reports) [:id] report-id)]
     (report/validate basic)
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
@@ -74,7 +74,7 @@
 
     (testing "should return the list of resource events for a given report id"
       (let [expected  (expected-resource-events (:resource-events basic) report-id)
-            actual    (resource-events-query-result nil (:report-id basic))]
+            actual    (resource-events-query-result ["=" "report-id" (:id basic)])]
         (is (= expected actual))))))
 
 

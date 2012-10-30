@@ -51,7 +51,7 @@
   ;; for test comparison
   (map #(dissoc % :receive-time) reports))
 
-(deftest query-by-report
+(deftest query-by-certname
   (let [basic (assoc-in (:basic reports) [:id] (utils/uuid))]
     (report/validate basic)
     (scf-store/add-certname! (:certname basic))
