@@ -65,6 +65,7 @@
                 "hostname" "foo1"
                 "kernel" "Linux"
                 "operatingsystem" "Debian"
+                "some_version" "1.3.7+build.11.e0f985a"
                 "uptime_seconds" "4000"}
         facts2 {"domain" "testing.com"
                 "hostname" "foo2"
@@ -91,6 +92,7 @@
                                  {:node "foo1" :fact "hostname" :value "foo1"}
                                  {:node "foo1" :fact "kernel" :value "Linux"}
                                  {:node "foo1" :fact "operatingsystem" :value "Debian"}
+                                 {:node "foo1" :fact "some_version" :value "1.3.7+build.11.e0f985a"}
                                  {:node "foo1" :fact "uptime_seconds" :value "4000"}
                                  {:node "foo2" :fact "domain" :value "testing.com"}
                                  {:node "foo2" :fact "hostname" :value "foo2"}
@@ -115,6 +117,7 @@
                                 [{:node "foo1" :fact "hostname" :value "foo1"}
                                  {:node "foo1" :fact "kernel" :value "Linux"}
                                  {:node "foo1" :fact "operatingsystem" :value "Debian"}
+                                 {:node "foo1" :fact "some_version" :value "1.3.7+build.11.e0f985a"}
                                  {:node "foo1" :fact "uptime_seconds" :value "4000"}
                                  {:node "foo2" :fact "hostname" :value "foo2"}
                                  {:node "foo2" :fact "kernel" :value "Linux"}
@@ -127,6 +130,29 @@
                                 ["and" ["=" ["fact" "name"] "uptime_seconds"]
                                  [">" ["fact" "value"] "5000"]]
                                 [{:node "foo2" :fact "uptime_seconds" :value "6000"}]
+
+                                ["and" ["=" ["fact" "name"] "kernel"]
+                                 ["~" ["fact" "value"] "i.u[xX]"]]
+                                [{:node "foo1" :fact "kernel" :value "Linux"}
+                                 {:node "foo2" :fact "kernel" :value "Linux"}]
+
+                                ["~" ["fact" "name"] "^ho\\wt.*e$"]
+                                [{:node "foo1" :fact "hostname" :value "foo1"}
+                                 {:node "foo2" :fact "hostname" :value "foo2"}
+                                 {:node "foo3" :fact "hostname" :value "foo3"}]
+
+                                ;; heinous regular expression to detect semvers
+                                ["~" ["fact" "value"] "^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"]
+                                [{:node "foo1" :fact "some_version" :value "1.3.7+build.11.e0f985a"}]
+
+                                ["and" ["=" ["fact" "name"] "hostname"]
+                                 ["~" ["node" "name"] "^foo[12]$"]]
+                                [{:node "foo1" :fact "hostname" :value "foo1"}
+                                 {:node "foo2" :fact "hostname" :value "foo2"}]
+
+                                ["and" ["=" ["fact" "name"] "hostname"]
+                                 ["not" ["~" ["node" "name"] "^foo[12]$"]]]
+                                [{:node "foo3" :fact "hostname" :value "foo3"}]
 
                                 ["and" ["=" ["fact" "name"] "uptime_seconds"]
                                  [">=" ["fact" "value"] "4000"]
@@ -169,6 +195,7 @@
                                  {:node "foo1" :fact "hostname" :value "foo1"}
                                  {:node "foo1" :fact "kernel" :value "Linux"}
                                  {:node "foo1" :fact "operatingsystem" :value "Debian"}
+                                 {:node "foo1" :fact "some_version" :value "1.3.7+build.11.e0f985a"}
                                  {:node "foo1" :fact "uptime_seconds" :value "4000"}]
 
                                 ["and" ["=" ["node" "name"] "foo1"]

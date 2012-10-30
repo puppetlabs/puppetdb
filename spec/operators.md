@@ -4,24 +4,33 @@
 
 ### Binary operators
 
-Each of these operators accepts two arguments: a field, and a value. The
-allowed fields for each endpoint are documented in the spec for that endpoint.
-The numeric operators (every operator except `=`) will try to coerce their
-arguments to float or integer. If they can't be coerced, the operator will
-return false. `=` is pure string equality ("0" is not = to "0.0").
+Each of these operators accepts two arguments: a field, and a
+value. The allowed fields for each endpoint are documented in the spec
+for that endpoint.  The numeric operators (every operator except `=`
+and `~`) will try to coerce their arguments to float or integer. If
+they can't be coerced, the operator will return false. `=` is pure
+string equality ("0" is not = to "0.0").
 
 The list of binary operators is:
 
-`= > < >= <=`
+`= > < >= <= ~`
+
+#### Regular expressions
+
+The `~` operator can be used for regexp matching. The rules the
+supplied regexp must follow are backend-dependent:
+
+* [rules for embedded database users](http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html)
+* [rules for PostgreSQL users](http://www.postgresql.org/docs/9.1/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 
 ### Boolean operators
 
 Each of these operators accepts a list of expressions, and applies a logical
 operation to the results of those expressions.
 
-`and`: True if every expression returns true  
-`or`: True if any expression returns true  
-`not`: True if no expression returns true  
+`and`: True if every expression returns true
+`or`: True if any expression returns true
+`not`: True if no expression returns true
 
 ### Subqueries
 
