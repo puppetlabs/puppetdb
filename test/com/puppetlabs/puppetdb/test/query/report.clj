@@ -63,7 +63,7 @@
 (deftest resource-events-retrieval
   (let [report-id  (utils/uuid)
         basic      (assoc-in (:basic reports) [:id] report-id)]
-    (report/validate basic)
+    (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 

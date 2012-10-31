@@ -53,9 +53,12 @@
                                (format "%s is missing keys: %s" model-name (string/join ", " (sort missing-keys))))
         unknown-keys-message (if (seq unknown-keys)
                                (format "%s has unknown keys: %s" model-name (string/join ", " (sort unknown-keys))))
-        type-fns {:string string?
-                  :integer integer?
-                  :number number?}
+        ;; TODO: these should probably be dynamic
+        type-fns {:string   string?
+                  :integer  integer?
+                  :number   number?
+                  :datetime pl-utils/datetime?
+                  :coll     coll? }
         type-errors (for [[field {:keys [optional? type]}] fields
                           :let [value (field obj)
                                 type-fn (type-fns type)]]

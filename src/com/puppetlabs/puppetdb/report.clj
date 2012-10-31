@@ -5,82 +5,45 @@
 
 (ns com.puppetlabs.puppetdb.report
   (:use [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.utils :only [datetime? string-or-nil?]]
+        [com.puppetlabs.validation :only [defmodel validate-against-model!]]
         [com.puppetlabs.puppetdb.query.utils :only [wire-to-sql]])
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
             [clojure.string :as s]))
 
-; TODO: would really like to find a more general way to handle this
-(defn- validate-map
-  "A utility function for validating the contents of a map.  Throws
-  `IllegalArgumentException` if the contents of the map are not valid.
+(defmodel Report
+  {:id                       :string
+   :certname                 :string
+   :puppet-version           :string
+   :report-format            :integer
+   :configuration-version    :datetime
+   :start-time               :datetime
+   :end-time                 :datetime
+   :resource-events          :coll})
 
-  Requires three arguments:
+(defmodel ResourceEvent
+  {:status             :string
+   :timestamp          :datetime
+   :resource-type      :string
+   :resource-title     :string
+   :property           { :optional? true
+                         :type      :string}
+   :new-value          { :optional? true
+                         :type      :string}
+   :old-value          { :optional? true
+                         :type      :string}
+   :message            { :optional? true
+                         :type      :string}})
 
-  * `desc`: A description of the object/map that you are validating; this will
-    be used to create a descriptive error message in the event that the map is
-    not valid.
-  * `m`: The map to validate.
-  * `key-defs`: The definitions of the keys should exist in the map, and how they
-    should be validated.  This argument should be a list of triples.  Each triple
-    should consist of:
-      * the key to validate
-      * a predicate function to apply to the value of that key in the map to test
-        its validity, and
-      * a string describing the expected type of the value, used to create an
-        more useful error message explaining why the validation failed if it does."
-  [desc m key-defs]
-  (doseq [[required-key validate-fn type-desc] key-defs]
-    (when-not (contains? m required-key)
-      (throw (IllegalArgumentException. (format "%s is missing required key %s" desc required-key))))
-    (when-not (validate-fn (required-key m))
-      (throw (IllegalArgumentException.
-               (format "%s data is invalid for key %s; expected type '%s', got '%s'"
-                 desc required-key type-desc (required-key m)))))))
-
-(defn validate-meta
-  "Validate that the report data structure contains all of the required metadata."
-  [report]
-  (validate-map "Report"          report
-      [[:id                       string?         "string"]
-       [:certname                 string?         "string"]
-       [:puppet-version           string?         "string"]
-       [:report-format            integer?        "integer"]
-       [:configuration-version    datetime?       "datetime"]
-       [:start-time               datetime?       "datetime"]
-       [:end-time                 datetime?       "datetime"]])
-    report)
-
-(defn validate-resource-event
-  "Validate a resource event data structure."
-  [resource-event]
-  (validate-map "Resource event" resource-event
-      [[:status             string?                 "string"]
-       [:timestamp          datetime?               "datetime"]
-       [:resource-type      string?                 "string"]
-       [:resource-title     string?                 "string"]
-       [:property           string-or-nil?          "string"]
-       [:new-value          string-or-nil?          "string"]
-       [:old-value          string-or-nil?          "string"]
-       [:message            string-or-nil?          "string"]])
-    resource-event)
-
-(defn validate-resource-events
-  "Verify that any resource events contained in the report data structure
-  are valid."
-  [report]
-  (doseq [resource-event (:resource-events report)]
-    (validate-resource-event resource-event))
-  report)
-
-(defn validate
+(defn validate!
   "Validate a report data structure.  Throws IllegalArgumentException if
   the report is invalid."
   [report]
-  (-> report
-      validate-meta
-      validate-resource-events))
+  (validate-against-model! Report report)
+  (doseq [resource-event (:resource-events report)]
+    (validate-against-model! ResourceEvent resource-event))
+  report)
+
 
 (defn parse-from-json-string
   "Parse a report from a json string.  Validates the resulting data structure
@@ -98,7 +61,7 @@
     (when-not (map? json-obj)
       (throw (IllegalArgumentException.
                (format "Invalid JSON string for report; expected a JSON 'Object', got '%s'" s))))
-    (validate (assoc-in json-obj [:id] report-id))))
+    (validate! (assoc-in json-obj [:id] report-id))))
 
 (defn resource-event-to-sql
   "Given a resource event object in its puppetdb wire format, convert the data
