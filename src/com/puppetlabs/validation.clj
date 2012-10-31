@@ -4,6 +4,26 @@
             [clojure.set :as set]))
 
 (defmacro defmodel
+  "Defines a 'model' which can be used for validating maps of data.  Here's an
+  example of what the usage looks like:
+
+      (defmodel Foo
+        {:a {:optional? true
+             :type :string}
+         :b :integer
+         :c :number})
+
+  This would create a 'model' for a type called `Foo`, which describes a map
+  that must contain keys `:b` and `:c` (whose values must be an integer and
+  number, respectively), and may optionally contain a key `:a` (whose value
+  must be a string).  Then, given a map instance named `mymap` which should
+  conform to the `Foo` model, you can call:
+
+      (validate-against-model! Foo mymap)
+
+  This will validate that the map conforms to the model, and throw an exception
+  with a descriptive error message if it does not.
+  "
   [model-name fields]
   `(def ~model-name
      {:name (str '~model-name)
@@ -13,26 +33,10 @@
                                     {:optional? false
                                      :type v#})) ~fields)}))
 
-(defn valid-keys?
-  "Returns true if the set of keys in `obj` is exactly the set specified in
-  `attrs`, otherwise false."
-  [obj attrs]
-  {:pre [(map? obj)]
-   :post [(= % obj)]}
-  (let [present-keys (pl-utils/keyset obj)
-        extra-keys (set/difference present-keys attrs)
-        missing-keys (set/difference attrs present-keys)]
-    (and (empty? extra-keys) (empty? missing-keys))))
-
-(comment (defn validate-key*
-  [model obj k]
-  {:pre [(map? obj)
-         (map? (:fields model))
-         (string? (:name model))]
-   :post [((some-fn string? nil?) %)]}
-  (let [value (obj k)])))
-
-(defn validate-against-model
+(defn validate-against-model!
+  "Validates a map against a model (see `defmodel` for more information about
+  defining a model).  Throws an `IllegalArgumentException` with a descriptive
+  error message if the map is not valid according to the model."
   [model obj]
   {:pre [(map? obj)
          (map? (:fields model))
