@@ -57,11 +57,22 @@
                   :integer integer?
                   :number number?}
         type-errors (for [[field {:keys [optional? type]}] fields
-                          :let [value (field obj)]
-                          :when (and (contains? obj field)
-                                     (not (and optional? (nil? value)))
-                                     (not ((type-fns type) value)))]
-                      (format "%s key %s should be %s, got %s" model-name field (string/capitalize (name type)) value))
+                          :let [value (field obj)
+                                type-fn (type-fns type)]]
+                      (cond
+                        ;; if there is no type function, we can go ahead and error
+                        (not type-fn)
+                          (format "%s specifies unrecognized type %s for key %s"
+                              model-name type field)
+                        ;; if there is a type function, then we need to validate
+                        ;; the type--assuming that the field is either required,
+                        ;; or is optional but provided and non-nil.
+                        (and (contains? obj field)
+                             (not (and optional? (nil? value)))
+                             (not (type-fn value)))
+                          (format "%s key %s should be %s, got %s"
+                              model-name field (string/capitalize (name type)) value)))
+
         error-message (string/join "\n" (remove nil? (concat [missing-keys-message unknown-keys-message] type-errors)))]
     (when-not (empty? error-message)
       (throw (IllegalArgumentException. error-message))))
