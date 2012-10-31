@@ -66,7 +66,8 @@
 (defn resource-event-to-sql
   "Given a resource event object in its puppetdb wire format, convert the data
   structure into a format suitable for handing off to JDBC function such as
-  `insert-records`.
+  `insert-records`.  This mostly entails housekeeping work like converting
+  datetime fields to timestamps, translating hyphens to underscores, etc.
 
   Also requires a 'report-id' argument, which should contain the report id of the
   report that this event is associated with."
