@@ -88,7 +88,7 @@
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
-          (r/query->sql)
+          (r/v1-query->sql)
           ((partial r/limited-query-resources limit))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e

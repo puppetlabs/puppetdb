@@ -145,12 +145,12 @@ to the result of the form supplied to this method."
     (testing "fact subqueries are unsupported"
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
-                                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
-                                                                                                     ["and"
-                                                                                                      ["=" ["fact" "name"] "operatingsystem"]
-                                                                                                      ["=" ["fact" "value"] "Debian"]]]]]])]
+                                                 ["in-result" "certname" ["project" "certname" ["select-facts"
+                                                                                                ["and"
+                                                                                                 ["=" ["fact" "name"] "operatingsystem"]
+                                                                                                 ["=" ["fact" "value"] "Debian"]]]]]])]
         (is (= status pl-http/status-bad-request))
-        (is (re-find #"subqueries are not supported in API v1" body)))))
+        (is (re-find #"Operator .* is not available in v1 resource queries" body)))))
     (testing "error handling"
       (let [response (get-response ["="])
             body     (get response :body "null")]

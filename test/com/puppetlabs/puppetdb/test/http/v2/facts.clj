@@ -185,7 +185,7 @@
         (let [request (make-request "/v2/facts" {"query" (json/generate-string [])})
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
-          (is (= body "[] is not well-formed; queries must contain at least one operator")))))))
+          (is (= body "[] is not well-formed: queries must contain at least one operator")))))))
 
 (defn is-query-result
   [query results]
@@ -216,7 +216,7 @@
     (testing "subqueries using a resource"
       (doseq [[query results]  {["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                 ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                          ["and"
                                                                                           ["=" "type" "Class"]
                                                                                           ["=" "title" "Apache"]]]]]]
@@ -228,7 +228,7 @@
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
                                  ["not"
-                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                  ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                           ["and"
                                                                                            ["=" "type" "Class"]
                                                                                            ["=" "title" "Apache"]]]]]]]
@@ -238,7 +238,7 @@
                                 ;; Multiple matching resources
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                 ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                          ["=" "type" "Class"]]]]]
 
                                 [{:node "bar" :fact "ipaddress" :value "192.168.1.101"}
@@ -250,7 +250,7 @@
                                  ["or"
                                   ["=" ["fact" "name"] "ipaddress"]
                                   ["=" ["fact" "name"] "operatingsystem"]]
-                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                 ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                          ["and"
                                                                                           ["=" "type" "Class"]
                                                                                           ["=" "title" "Apache"]]]]]]
@@ -264,11 +264,11 @@
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
                                  ["or"
-                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                  ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                           ["and"
                                                                                            ["=" "type" "Class"]
                                                                                            ["=" "title" "Apache"]]]]]
-                                  ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                  ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                           ["and"
                                                                                            ["=" "type" "Class"]
                                                                                            ["=" "title" "Main"]]]]]]]
@@ -280,7 +280,7 @@
                                 ;; No matching resources
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                 ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                          ["=" "type" "NotRealAtAll"]]]]]
 
                                 []
@@ -288,7 +288,7 @@
                                 ;; No matching facts
                                 ["and"
                                  ["=" ["fact" "name"] "nosuchfact"]
-                                 ["in-result" ["fact" "certname"] ["project" "certname" ["select-resources"
+                                 ["in-result" "certname" ["project" "certname" ["select-resources"
                                                                                          ["=" "type" "Class"]]]]]
 
                                 []
@@ -296,7 +296,7 @@
                                 ;; Fact subquery
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                 ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                      ["and"
                                                                                       ["=" ["fact" "name"] "osfamily"]
                                                                                       ["=" ["fact" "value"] "Debian"]]]]]]
@@ -307,11 +307,11 @@
                                 ;; Nested fact subqueries
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                 ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                      ["and"
                                                                                       ["=" ["fact" "name"] "osfamily"]
                                                                                       ["=" ["fact" "value"] "Debian"]
-                                                                                      ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                                                                      ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                                                                           ["and"
                                                                                                                                            ["=" ["fact" "name"] "uptime_seconds"]
                                                                                                                                            [">" ["fact" "value"] 10000]]]]]]]]]]
@@ -321,11 +321,11 @@
                                 ;; Multiple fact subqueries
                                 ["and"
                                  ["=" ["fact" "name"] "ipaddress"]
-                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                 ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                      ["and"
                                                                                       ["=" ["fact" "name"] "osfamily"]
                                                                                       ["=" ["fact" "value"] "Debian"]]]]]
-                                 ["in-result" ["fact" "certname"] ["project" "node" ["select-facts"
+                                 ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                      ["and"
                                                                                       ["=" ["fact" "name"] "uptime_seconds"]
                                                                                       [">" ["fact" "value"] 10000]]]]]]
@@ -334,11 +334,11 @@
         (is-query-result query results))))
 
   (testing "invalid queries"
-    (doseq [[query msg] {["in-result" ["fact" "certname"] ["project" "nothing" ["select-resources"
+    (doseq [[query msg] {["in-result" "certname" ["project" "nothing" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]
-                         "Can't project unknown field 'nothing' for 'select-resources'"
+                         "Can't project unknown resource field 'nothing'"
 
-                         ["in-result" ["fact" "nothing"] ["project" "certname" ["select-resources"
+                         ["in-result" "nothing" ["project" "certname" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]
                          "Can't match on unknown fact field 'nothing' for 'in-result'"}]
       (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
