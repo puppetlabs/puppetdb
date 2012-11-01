@@ -188,10 +188,10 @@
           (number? version)
           (satisfies? JSONable payload)]
    :post [(map? %)
-          (string? (:payload %))]}
+          (:payload %)]}
   {:command command
    :version version
-   :payload (json/generate-string payload)})
+   :payload payload})
 
 (defn annotate-command
   "Annotate a command-map with a timestamp and UUID"
@@ -304,13 +304,11 @@
 
 ;; Catalog replacement
 
-
-(defmethod process-command! ["replace catalog" 1]
-  [{:keys [payload annotations]} {:keys [db]}]
-  ;; Parsing a catalog either works, or it generates a fatal exception
-  (let [catalog   (upon-error-throw-fatality (cat/parse-from-json-string payload))
-        certname  (:certname catalog)
-        id        (:id annotations)
+(defn replace-catalog*
+  [{:keys [payload annotations version]} {:keys [db]}]
+  (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
+        certname (:certname catalog)
+        id (:id annotations)
         timestamp (:received annotations)]
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
@@ -318,6 +316,18 @@
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
         (scf-storage/replace-catalog! catalog timestamp)))
     (log/info (format "[%s] [replace catalog] %s" id certname))))
+
+(defmethod process-command! ["replace catalog" 1]
+  [{:keys [version payload] :as command} options]
+  {:pre [(= version 1)]}
+  (when-not (string? payload)
+    (throw (IllegalArgumentException. "Payload for a 'replace catalog' v1 command must be a JSON string.")))
+  (replace-catalog* command options))
+
+(defmethod process-command! ["replace catalog" 2]
+  [{:keys [version] :as  command} options]
+  {:pre [(= version 2)]}
+  (replace-catalog* command options))
 
 ;; Fact replacement
 

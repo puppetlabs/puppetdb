@@ -27,11 +27,11 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a URL-encoded PSON string" do
-      payload_str = subject.munge_catalog(catalog).to_pson
+      command_payload = subject.munge_catalog(catalog)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandReplaceCatalog,
-        :version => 1,
-        :payload => payload_str,
+        :version => 2,
+        :payload => command_payload,
       }.to_pson
 
       subject.expects(:http_post).with do |request,uri,body,headers|
@@ -624,6 +624,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['data']['resources'].each do |res|
           [res['type'], res['title']].should_not == ['Notify', 'something']
         end
+      end
+
+      it "should have the correct set of keys" do
+        result = subject.munge_catalog(catalog)
+
+        result.keys.should =~ ['metadata', 'data']
+        result['metadata'].keys.should =~ ['api_version']
+        result['data'].keys.should =~ ['name', 'version', 'edges', 'resources']
       end
     end
   end

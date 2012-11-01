@@ -140,7 +140,13 @@
       (reify impl/Logger
         (enabled? [_ level] true)
         (write! [_ lvl ex msg]
-          (swap! output-atom conj [(str log-ns) lvl (format-stacktrace ex) msg]))))))
+          (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
+
+(defmacro with-fixtures
+  "Evaluates `body` wrapped by the `each` fixtures of the current namespace."
+  [& body]
+  `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
+     (fixture-fn# (fn [] ~@body))))
 
 ; TODO: change order of expected/actual?
 ; TODO: docs

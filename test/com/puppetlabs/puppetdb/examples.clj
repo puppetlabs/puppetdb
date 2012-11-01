@@ -1,14 +1,12 @@
 (ns com.puppetlabs.puppetdb.examples
-  (:use [com.puppetlabs.puppetdb.catalog :only [CATALOG-VERSION]]))
+  (:use [com.puppetlabs.puppetdb.catalog :only [catalog-version]]))
 
 (def catalogs
   {:empty
    {:certname         "empty.catalogs.com"
-    :puppetdb-version CATALOG-VERSION
+    :puppetdb-version catalog-version
     :api-version      1
     :version          "1330463884"
-    :tags             #{"settings"}
-    :classes          #{"settings"}
     :edges            #{{:source       {:type "Stage" :title "main"}
                          :target       {:type "Class" :title "Settings"}
                          :relationship :contains}
@@ -27,16 +25,13 @@
                        {:type "Stage" :title "main"}     {:exported false
                                                           :title    "main"
                                                           :tags     #{"main" "stage"}
-                                                          :type     "Stage"}}
-    :aliases          {}}
+                                                          :type     "Stage"}}}
 
    :basic
    {:certname         "basic.catalogs.com"
-    :puppetdb-version CATALOG-VERSION
+    :puppetdb-version catalog-version
     :api-version      1
     :version          "123456789"
-    :tags             #{"class" "foobar"}
-    :classes          #{"foobar" "baz"}
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
                          :relationship :contains}
@@ -69,11 +64,9 @@
 
    :invalid
    {:certname         "invalid.catalogs.com"
-    :puppetdb-version CATALOG-VERSION
+    :puppetdb-version catalog-version
     :api-version      1
     :version          123456789
-    :tags             #{"class" "foobar"}
-    :classes          #{"foobar"}
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "does not exist"}
                          :relationship :contains}}
@@ -87,44 +80,80 @@
                                                                          "user"   "root"}}}}})
 
 (def wire-catalogs
-  {:empty
-   {:metadata      {:api_version 1}
-    :document_type "Catalog"
-    :data
-    {:edges
-     [{:relationship "contains"
-       :target       {:title "Settings" :type "Class"}
-       :source       {:title "main" :type "Stage"}}
-      {:relationship "contains"
-       :target       {:title "main" :type "Class"}
-       :source       {:title "main" :type "Stage"}}
-      {:relationship "contains"
-       :target       {:title "default" :type "Node"}
-       :source       {:title "main" :type "Class"}}]
-     :name        "empty.wire-catalogs.com"
-     :resources
-     [{:exported   false
-       :title      "Settings"
-       :parameters {}
-       :tags       ["class" "settings"]
-       :type       "Class"}
-      {:exported   false
-       :title      "main"
-       :parameters {:name "main"}
-       :tags       ["class"]
-       :type       "Class"}
-      {:exported   false
-       :title      "main"
-       :parameters {:name "main"}
-       :tags       ["stage"]
-       :type       "Stage"}
-      {:exported   false
-       :title      "default"
-       :parameters {}
-       :tags       ["node" "default" "class"]
-       :type       "Node"}]
-     :tags        ["settings" "default" "node"]
-     :classes     ["settings" "default"]
-     :version     1332533763
-     :environment "production"}
-    }})
+  {1 {:empty
+      {:metadata      {:api_version 1}
+       :document_type "Catalog"
+       :data
+       {:edges
+        [{:relationship "contains"
+          :target       {:title "Settings" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "main" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "default" :type "Node"}
+          :source       {:title "main" :type "Class"}}]
+        :name        "empty.wire-catalogs.com"
+        :resources
+        [{:exported   false
+          :title      "Settings"
+          :parameters {}
+          :tags       ["class" "settings"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["class"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["stage"]
+          :type       "Stage"}
+         {:exported   false
+          :title      "default"
+          :parameters {}
+          :tags       ["node" "default" "class"]
+          :type       "Node"}]
+        :tags        ["settings" "default" "node"]
+        :classes     ["settings" "default"]
+        :version     1332533763}}}
+
+   2 {:empty
+      {:metadata      {:api_version 1}
+       :document_type "Catalog"
+       :data
+       {:edges
+        [{:relationship "contains"
+          :target       {:title "Settings" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "main" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "default" :type "Node"}
+          :source       {:title "main" :type "Class"}}]
+        :name        "empty.wire-catalogs.com"
+        :resources
+        [{:exported   false
+          :title      "Settings"
+          :parameters {}
+          :tags       ["class" "settings"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["class"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["stage"]
+          :type       "Stage"}
+         {:exported   false
+          :title      "default"
+          :parameters {}
+          :tags       ["node" "default" "class"]
+          :type       "Node"}]
+        :version     1332533763}}}})

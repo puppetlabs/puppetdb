@@ -27,7 +27,7 @@
                                     convert-result-arrays
                                     with-transacted-connection
                                     add-limit-clause]]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string]]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-regexp-array-match sql-regexp-match]]
         [clojure.core.match :only [match]]
         [com.puppetlabs.puppetdb.query.utils :only [valid-query-format?]]))
 
@@ -129,13 +129,41 @@
           :params [name (db-serialize value)]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
+         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
            {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
                        (str term " is not a valid query term")))))
+
+;; Compile an '~' predicate, which does regexp matching. This is done
+;; by leveraging the correct database-specific regexp syntax to return
+;; only rows where the supplied `path` match the given `pattern`.
+(defmethod compile-term "~"
+  [[op path pattern :as term]]
+  (let [count (count term)]
+    (if (not= 3 count)
+      (throw (IllegalArgumentException.
+              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
+  (match [path]
+         ["tag"]
+         {:where (sql-regexp-array-match "catalog_resources" "tags")
+          :params [pattern]}
+
+         ;; node join.
+         [["node" "name"]]
+         {:where  (sql-regexp-match "certname_catalogs.certname")
+          :params [pattern]}
+
+         ;; metadata match.
+         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
+           {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
+            :params [pattern]}
+
+         ;; ...else, failure
+         :else (throw (IllegalArgumentException.
+                       (str path " cannot be the target of a regexp match")))))
 
 ;; Join a set of predicates together with an 'and' relationship,
 ;; performing an intersection (via natural join).
