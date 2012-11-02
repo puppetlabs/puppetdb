@@ -1,5 +1,7 @@
 test_name "submit a catalog that contains a file built from a binary template" do
 
+  test_config = PuppetDBExtensions.config
+
 # This test came about as a result of ticket #14873 .  The issue was that
 # if a node had a file whose contents were provided by a template, and if
 # the template produced certain kinds of binary data, we were not
@@ -17,25 +19,19 @@ file { "/tmp/myfile":
   group => "root",
   mode => 755,
 
-  content => template("mymod/mytemplate.erb"),
+  content => template("foomodule/mytemplate.erb"),
 }
   EOF
-
-  template_bytes = [ 0x21, 0x7F, 0xFD, 0x80, 0xBD, 0xBB, 0xB6, 0xA1 ]
-  template = template_bytes.pack("c*")
-  if RUBY_VERSION !~ /^1.8/
-    template.force_encoding('binary')
-  end
 
   tmpdir = master.tmpdir('storeconfigs')
   moduledir = master.tmpdir('storeconfigs-moduledir')
 
+  test_module = File.join(test_config[:acceptance_data_dir], "storeconfigs", "file_with_binary_template", "modules", "foomodule")
+
+  scp_to(master, test_module, moduledir)
+
   manifest_file = File.join(tmpdir, 'site.pp')
   create_remote_file(master, manifest_file, manifest)
-
-  template_file = File.join(moduledir, 'mymod/templates/mytemplate.erb')
-  on master, "mkdir -p #{File.dirname(template_file)}"
-  create_remote_file(master, template_file, template)
 
   on master, "chmod -R +rX #{tmpdir}"
   on master, "chmod -R +rX #{moduledir}"
