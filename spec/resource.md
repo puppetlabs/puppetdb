@@ -63,7 +63,7 @@ for "example.local" the JSON query structure would be:
             ["=", ["parameter", "ensure"], "enabled"]
 
 The available operators are [defined in operators.md](operators.md). Note that
-resource queries *do not support* inequality or subqueries.
+resource queries *do not support* inequality.
 
 # Response format
 

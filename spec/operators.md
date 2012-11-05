@@ -47,7 +47,7 @@ all nodes with Class[Apache]:
 
     ["and"
       ["=" ["fact" "name"] "ipaddress"]
-      ["in-result" ["fact" "certname"]
+      ["in-result" "certname"
         ["project" "certname"
           ["select-resources"
             ["and"
@@ -67,8 +67,8 @@ all Debian nodes.
 
     ["and"
       ["=" ["fact" "name"] "ipaddress"]
-      ["in-result" ["fact" "certname"]
-        ["project" "node"
+      ["in-result" "certname"]
+        ["project" "certname"
           ["select-facts"
             ["and"
               ["=" ["fact" "name"] "operatingsystem"]
