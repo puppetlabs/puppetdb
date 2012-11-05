@@ -22,7 +22,7 @@ The `query` parameter is described by the following grammar:
     field:  string | [ string+ ]
     value:  string
     type:   "or" | "and" | "not"
-    match:  "="
+    match:  "=" | "~"
 
 `field` may be any of:
 
@@ -63,7 +63,8 @@ for "example.local" the JSON query structure would be:
             ["=", ["parameter", "ensure"], "enabled"]
 
 The available operators are [defined in operators.md](operators.md). Note that
-resource queries *do not support* inequality.
+resource queries *do not support* inequality, and regexp matching *is not
+supported* against node status or parameter values.
 
 # Response format
 

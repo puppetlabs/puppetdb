@@ -125,7 +125,7 @@
   (let [{:keys [version newer link]} (try
                                        (update-info update-server)
                                        (catch Throwable e
-                                         (log/debug e "Could not retrieve update information")))
+                                         (log/debug e (format "Could not retrieve update information (%s)" update-server))))
         link-str                     (if link
                                        (format "Visit %s for details." link)
                                        "")

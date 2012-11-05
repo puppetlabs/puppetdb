@@ -5,7 +5,7 @@
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.utils :only [parse-number]]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string]]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [clojure.core.match :only [match]]))
 
 (declare compile-term)
@@ -157,6 +157,30 @@
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (compile-resource-equality* path value))
 
+(defn compile-resource-regexp
+  "Compile an '~' predicate, which does regexp matching. This is done by
+  leveraging the correct database-specific regexp syntax to return only rows
+  where the supplied `path` match the given `pattern`."
+  [path pattern]
+  (match [path]
+         ["tag"]
+         {:where (sql-regexp-array-match "catalog_resources" "tags")
+          :params [pattern]}
+
+         ;; node join.
+         [["node" "name"]]
+         {:where  (sql-regexp-match "certname_catalogs.certname")
+          :params [pattern]}
+
+         ;; metadata match.
+         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
+         {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
+          :params [pattern]}
+
+         ;; ...else, failure
+         :else (throw (IllegalArgumentException.
+                        (str path " cannot be the target of a regexp match")))))
+
 (defn compile-fact-equality
   [path value]
   {:pre [(sequential? path)]
@@ -182,6 +206,23 @@
          :else
          (throw (IllegalArgumentException. (str path " is not a queryable object for facts")))))
 
+(defn compile-fact-regexp
+  [path pattern]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+    (match [path]
+           [["node" "name"]]
+           (query "certname_facts.certname")
+
+           [["fact" "name"]]
+           (query "certname_facts.fact")
+
+           [["fact" "value"]]
+           (query "certname_facts.value")
+
+           :else (throw (IllegalArgumentException.
+                          (str path " is not a valid operand for regexp comparison"))))))
 (defn compile-fact-inequality
   [op path value]
   {:pre [(sequential? path)]
@@ -226,6 +267,7 @@
   [op]
   (condp = (string/lower-case op)
     "=" compile-resource-equality
+    "~" compile-resource-regexp
     "and" (partial compile-and resource-operators-v2)
     "or" (partial compile-or resource-operators-v2)
     "not" (partial compile-not resource-operators-v2)
@@ -245,6 +287,7 @@
       (partial compile-fact-inequality op)
 
       (= op "=") compile-fact-equality
+      (= op "~") compile-fact-regexp
       ;; We pass this function along so the recursive calls know which set of
       ;; operators/functions to use, depending on the API version.
       (= op "and") (partial compile-and fact-operators-v2)
