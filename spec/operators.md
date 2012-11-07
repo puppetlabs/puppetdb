@@ -76,7 +76,7 @@ all Debian nodes.
 
     ["and"
       ["=" ["fact" "name"] "ipaddress"]
-      ["in-result" "certname"]
+      ["in-result" "certname"
         ["project" "certname"
           ["select-facts"
             ["and"
