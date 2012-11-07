@@ -363,11 +363,11 @@
   (testing "invalid queries"
     (doseq [[query msg] {["in-result" "certname" ["project" "nothing" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]
-                         "Can't project unknown resource field 'nothing'"
+                         "Can't project unknown resource field 'nothing'. Acceptable fields are: catalog, certname, exported, resource, sourcefile, sourceline, tags, title, type"
 
                          ["in-result" "nothing" ["project" "certname" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]
-                         "Can't match on unknown fact field 'nothing' for 'in-result'"}]
+                         "Can't match on unknown fact field 'nothing' for 'in-result'. Acceptable fields are: certname, fact, value"}]
       (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
             {:keys [status body] :as result} (*app* request)]
         (is (= status pl-http/status-bad-request))

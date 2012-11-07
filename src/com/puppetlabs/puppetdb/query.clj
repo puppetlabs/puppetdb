@@ -1,6 +1,71 @@
-;; ## Query
+;; ## SQL query compiler
 ;;
-;; This implements generic query operators used for each query endpoint.
+;; The query compile operates in a multi-step process. Compilation begins with
+;; one of the `foo-query->sql` functions. The job of these functions is
+;; basically to call `compile-term` on the first term of the query to get back
+;; the "compiled" form of the query, and then to turn that into a complete SQL
+;; query.
+;;
+;; The compiled form of a query consists of a map with three keys: `where`,
+;; `joins`, and `params`. The `where` key contains SQL for querying that
+;; particular predicate, written in such a way as to be suitable for placement
+;; after a `WHERE` clause in the database. `params` contains, naturally, the
+;; parameters associated with that SQL expression. For instance, a resource
+;; query for `["=" ["node" "name"] "foo.example.com"]` will compile to:
+;;
+;;     {:where "certname_catalogs.certname = ?"
+;;      :params ["foo.example.com"]}
+;;
+;; The `joins` key contains a list of additional tables that need to be
+;; included in the query in order for the `where` clause to work properly. Note
+;; that for resources, the `certname_catalogs` and `catalog_resources` tables
+;; are always included, and for facts the `certname_facts` table is always
+;; included.
+;;
+;; The tables referenced in the `joins` key of the final compiled query are
+;; turned into proper `JOIN` clauses by the `build-join-expr` function. The
+;; `joins` and `where` keys are then inserted into a template query to return
+;; the final result as a string of SQL code.
+;;
+;; The compiled query components can be combined by operators such as `AND` or
+;; `OR`, which return the same sort of structure. Operators which accept other
+;; terms as their arguments are responsible for compiling their arguments
+;; themselves. To facilitate this, those functions accept as their first
+;; argument a map from operator to compile function. This allows us to have a
+;; different set of operators for resources and facts, or v1 and v2 resource
+;; queries, while still sharing the implementation of the operators themselves.
+;;
+;; Other operators include the subquery operators, `in-result`, `project`, and
+;; `select-resources` or `select-facts`. The `select-foo` operators implement
+;; subqueries, and are simply implemented by calling their corresponding
+;; `foo-query->sql` function, which means they return a complete SQL query
+;; rather than the compiled query map. The `project` function knows how to
+;; handle that, and is the only place those queries are allowed as arguments.
+;; `project` is used to select a particular column from the subquery. The
+;; sibling operator to `project` is `in-result`, which checks that the value of
+;; a certain column from the table being queried is in the result set returned
+;; by `project`. Composed, these three operators provide a complete subquery
+;; facility. For example, consider this fact query:
+;;
+;;     ["and"
+;;      ["=" ["fact" "name"] "ipaddress"]
+;;      ["in-result" "certname"
+;;       ["project" "certname"
+;;        ["select-resources" ["and"
+;;                             ["=" "type" "Class"]
+;;                             ["=" "title" "apache"]]]]]]
+;;
+;; This will perform a query (via `select-resources`) for resources matching
+;; `Class[apache]`. It will then pick out the `certname` from each of those,
+;; and match against the `certname` of fact rows, returning those facts which
+;; have a corresponding entry in the results of `select-resources` and which
+;; are named `ipaddress`. Effectively, the semantics of this query are "find
+;; the ipaddress of every node with Class[apache]".
+;;
+;; Because additional tables may or may not be joined into the query, the
+;; resulting SQL is written with `SELECT *`. Thus consumers of those functions
+;; may need to wrap that query with another `SELECT` to pull out the desired
+;; columns. Similarly for applying ordering constraints.
 ;;
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string])
@@ -11,6 +76,10 @@
 (declare compile-term)
 
 (defn compile-boolean-operator*
+  "Compile a term for the boolean operator `op` (AND or OR) applied to
+  `terms`. This is accomplished by compiling each of the `terms` and then just
+  joining their `where` terms with the operator. The params are just
+  concatenated."
   [op ops & terms]
   {:pre  [(every? coll? terms)]
    :post [(string? (:where %))]}
@@ -33,6 +102,9 @@
   (partial compile-boolean-operator* "or"))
 
 (defn compile-not
+  "Compile a NOT operator, applied to `terms`. This term is true if *every*
+  argument term is false. The compilation is effectively to apply an OR
+  operation to the terms, and then NOT that result."
   [ops & terms]
   {:pre  [(every? vector? terms)
           (every? coll? terms)]
@@ -56,6 +128,8 @@
    "select-facts" :fact})
 
 (defn compile-project
+  "Compile a `project` operator, selecting the given `field` from the compiled
+  result of `subquery`, which must be a kind of `select` operator."
   [ops field subquery]
   {:pre [(string? field)
          (coll? subquery)]
@@ -64,20 +138,25 @@
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
-      (throw (IllegalArgumentException. (format "The argument to project must be a select operator, not %s" (first subquery)))))
+      (throw (IllegalArgumentException. (format "The argument to project must be a select operator, not '%s'" (first subquery)))))
     (when-not (get-in selectable-columns [subquery-type field])
-      (throw (IllegalArgumentException. (format "Can't project unknown %s field '%s'" (name subquery-type) field))))
+      (throw (IllegalArgumentException. (format "Can't project unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (selectable-columns subquery-type)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
 (defn compile-in-result
+  "Compile an `in-result` operator, selecting rows for which the value of
+  `field` appears in the result given by `subquery`, which must be a `project`
+  composed with a `select`."
   [kind ops field subquery]
   {:pre [(string? field)
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
   (when-not (get-in selectable-columns [kind field])
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in-result'" (name kind) field))))
+    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in-result'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (selectable-columns kind)))))))
+  (when-not (= (first subquery) "project")
+    (throw (IllegalArgumentException. (format "The subquery argument of 'in-result' must be a 'project', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
     (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
 
@@ -85,6 +164,9 @@
   "Constructs the appropriate join statement to `table` for a query of the
   specified `kind`."
   [kind table]
+  {:pre [(keyword? kind)
+         (keyword? table)]
+   :post [(string? %)]}
   (condp = [kind table]
         [:fact :certnames]
         "INNER JOIN certnames ON certname_facts.certname = certnames.name"
@@ -96,11 +178,17 @@
   "Constructs the entire join statement from `lhs` to each table specified in
   `joins`."
   [lhs joins]
+  {:pre [(keyword? lhs)
+         (or (nil? joins)
+             (sequential? joins))]
+   :post [(string? %)]}
   (->> joins
        (map #(join-tables lhs %))
        (string/join " ")))
 
 (defn resource-query->sql
+  "Compile a resource query, returning a vector containing the SQL and
+  parameters for the query. All columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
@@ -110,6 +198,8 @@
     (apply vector sql params)))
 
 (defn fact-query->sql
+  "Compile a fact query, returning a vector containing the SQL and parameters
+  for the query. All columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
@@ -119,6 +209,8 @@
     (apply vector sql params)))
 
 (defn compile-resource-equality*
+  "Compile an = operator for a resource query. `path` represents the field to
+  query against, and `value` is the value."
   [path value]
   (match [path]
          ;; tag join. Tags are case-insensitive but always lowercase, so
@@ -152,15 +244,17 @@
                        (str path " is not a queryable object")))))
 
 (defn compile-resource-equality
+  "Wraps `compile-resource-equality*` to do our own arity checking, so we can
+  give a better error message."
   [& [path value :as args]]
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (compile-resource-equality* path value))
 
 (defn compile-resource-regexp
-  "Compile an '~' predicate, which does regexp matching. This is done by
-  leveraging the correct database-specific regexp syntax to return only rows
-  where the supplied `path` match the given `pattern`."
+  "Compile an '~' predicate for a resource query, which does regexp matching.
+  This is done by leveraging the correct database-specific regexp syntax to
+  return only rows where the supplied `path` match the given `pattern`."
   [path pattern]
   (match [path]
          ["tag"]
@@ -182,6 +276,8 @@
                         (str path " cannot be the target of a regexp match")))))
 
 (defn compile-fact-equality
+  "Compile an = predicate for a fact query. `path` represents the field to
+  query against, and `value` is the value."
   [path value]
   {:pre [(sequential? path)]
    :post [(map? %)
@@ -207,6 +303,9 @@
          (throw (IllegalArgumentException. (str path " is not a queryable object for facts")))))
 
 (defn compile-fact-regexp
+  "Compile an '~' predicate for a fact query, which does regexp matching.  This
+  is done by leveraging the correct database-specific regexp syntax to return
+  only rows where the supplied `path` match the given `pattern`."
   [path pattern]
   {:post [(map? %)
           (string? (:where %))]}
@@ -224,6 +323,10 @@
            :else (throw (IllegalArgumentException.
                           (str path " is not a valid operand for regexp comparison"))))))
 (defn compile-fact-inequality
+  "Compile a numeric inequality for a fact query (> < >= <=). The `value` for
+  comparison must be either a number or the string representation of a number.
+  The value in the database will be cast to a float or an int for comparison,
+  or will be NULL if it is neither."
   [op path value]
   {:pre [(sequential? path)]
    :post [(map? %)
@@ -300,6 +403,9 @@
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
 
 (defn compile-term
+  "Compile a single query term, using `ops` as the set of legal operators. This
+  function basically just checks that the operator is known, and then
+  dispatches to the function implementing it."
   [ops [op & args :as term]]
   (when-not (sequential? term)
     (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
