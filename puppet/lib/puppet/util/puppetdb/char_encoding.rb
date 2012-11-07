@@ -1,3 +1,5 @@
+require 'puppet'
+
 module Puppet
 module Util
 module Puppetdb
@@ -98,12 +100,20 @@ module CharEncoding
    #  to differences in how the [] operator works on strings in ruby 1.8 vs.
    #  ruby 1.9, this method will NOT work with ruby 1.9.
    def self.ruby18_manually_clean_utf8(str)
+
+     # This is a hack to allow this code to work with either ruby 1.8 or 1.9,
+     # which is useful for debugging and benchmarking.  For more info see the
+     # comments in the #get_byte method below.
+     @has_get_byte = str.respond_to?(:getbyte)
+
+
      i = 0
      len = str.length
      result = ""
 
      while i < len
-       byte = str[i]
+       byte = get_byte(str, i)
+
        i += 1
 
        char_len = get_char_len(byte)
@@ -140,7 +150,7 @@ module CharEncoding
     #  from 0 to (n-2); e.g. if it's a 2-byte char, we will have a range
     #  from 0 to 0 which will result in reading 1 more byte
     (0..char_len - 2).each do |x|
-      char_additional_bytes << str[i + x]
+      char_additional_bytes << get_byte(str, i + x)
     end
 
     if (is_valid_multibyte_suffix(byte, char_additional_bytes))
@@ -163,6 +173,18 @@ module CharEncoding
       end
     end
     additional_bytes.all? { |b| ((b & 0xC0) == 0x80) }
+  end
+
+  def self.get_byte(str, index)
+    # This method is a hack to allow this code to work with either ruby 1.8
+    #  or 1.9.  In production this code path should never be exercised by
+    #  1.9 because it has a much more sane way to accomplish our goal, but
+    #  for testing, it is useful to be able to run the 1.8 codepath in 1.9.
+    if @has_get_byte
+      str.getbyte(index)
+    else
+      str[index]
+    end
   end
 
 end
