@@ -17,9 +17,9 @@ This will return all facts matching the given query. If no query is supplied, al
 
 ##### Query paths
 
-  `["fact", "name"]`: matches facts of the given name  
-  `["fact", "value"]`: matches facts with the given value  
-  `["node", "name"]`: matches facts for the given node  
+  `"name"`: matches facts of the given name  
+  `"value"`: matches facts with the given value  
+  `"certname"`: matches facts for the given node  
   `["node", "active"]`: matches facts for nodes which are or aren't active  
 
 ##### Operators
@@ -30,7 +30,7 @@ This will return all facts matching the given query. If no query is supplied, al
 
   Get the operatingsystem fact for all nodes:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["fact", "name"], "operatingsystem"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
     [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
      {"node": "b.example.com", "fact": "operatingsystem", "value": "RedHat"},
@@ -38,7 +38,7 @@ This will return all facts matching the given query. If no query is supplied, al
 
   Get all facts for a single node:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["node", "name"], "a.example.com"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
      {"node": "a.example.com", "fact": "ipaddress", "value": "192.168.1.105"},
