@@ -14,20 +14,20 @@
   {:pre  [(string? node)]
    :post [(map? %)]}
   (let [facts (-> (table :certname_facts)
-                  (project [:fact, :value])
+                  (project [:name, :value])
                   (select (where (= :certname node))))]
     (into {} (for [fact @facts]
-               [(:fact fact) (:value fact)]))))
+               [(:name fact) (:value fact)]))))
 
 (defn flat-facts-by-node
   "Similar to `facts-for-node`, but returns facts in the form:
 
-    [{:node <node> :fact <fact> :value <value>}
+    [{:node <node> :name <fact> :value <value>}
      ...
-     {:node <node> :fact <fact> :value <value>}]"
+     {:node <node> :name <fact> :value <value>}]"
   [node]
   (-> (table :certname_facts)
-      (project [[:certname :as :node] :fact :value])
+      (project [[:certname :as :node] :name :value])
       (select (where (= :certname node)))
       (deref)))
 
@@ -38,10 +38,10 @@
   {:post [(coll? %)
           (every? string? %)]}
   (let [facts (-> (table :certname_facts)
-                  (project [:fact])
+                  (project [:name])
                   (distinct)
-                  (order-by [:fact]))]
-    (map :fact @facts)))
+                  (order-by [:name]))]
+    (map :name @facts)))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -52,9 +52,9 @@
           (every? (complement coll?) (rest %))]}
   (if query
     (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
-          sql (format "SELECT certname AS node, fact, value FROM (%s) subquery1 ORDER BY node, fact, value" subselect)]
+          sql (format "SELECT facts.certname AS node, facts.name, facts.value FROM (%s) facts ORDER BY node, facts.name, facts.value" subselect)]
       (apply vector sql params))
-    ["SELECT certname AS node, fact, value FROM certname_facts ORDER BY node, certname_facts.fact, certname_facts.value"]))
+    ["SELECT certname AS node, name, value FROM certname_facts ORDER BY node, name, value"]))
 
 (defn query-facts
   [[sql & params]]

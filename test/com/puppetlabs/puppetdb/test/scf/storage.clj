@@ -128,12 +128,12 @@
       (add-certname! certname)
       (add-facts! certname facts (now))
       (testing "should have entries for each fact"
-        (is (= (query-to-vec "SELECT certname, fact, value FROM certname_facts ORDER BY fact")
-              [{:certname certname :fact "domain" :value "mydomain.com"}
-               {:certname certname :fact "fqdn" :value "myhost.mydomain.com"}
-               {:certname certname :fact "hostname" :value "myhost"}
-               {:certname certname :fact "kernel" :value "Linux"}
-               {:certname certname :fact "operatingsystem" :value "Debian"}])))
+        (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
+              [{:certname certname :name "domain" :value "mydomain.com"}
+               {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
+               {:certname certname :name "hostname" :value "myhost"}
+               {:certname certname :name "kernel" :value "Linux"}
+               {:certname certname :name "operatingsystem" :value "Debian"}])))
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
               [{:name certname}])))
@@ -145,12 +145,12 @@
                          "uptime_seconds" "3600"}]
           (replace-facts! {"name"  certname "values" new-facts} (now))
           (testing "should have only the new facts"
-            (is (= (query-to-vec "SELECT fact, value FROM certname_facts ORDER BY fact")
-                  [{:fact "domain" :value "mynewdomain.com"}
-                   {:fact "fqdn" :value "myhost.mynewdomain.com"}
-                   {:fact "hostname" :value "myhost"}
-                   {:fact "kernel" :value "Linux"}
-                   {:fact "uptime_seconds" :value "3600"}]))))))))
+            (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
+                  [{:name "domain" :value "mynewdomain.com"}
+                   {:name "fqdn" :value "myhost.mynewdomain.com"}
+                   {:name "hostname" :value "myhost"}
+                   {:name "kernel" :value "Linux"}
+                   {:name "uptime_seconds" :value "3600"}]))))))))
 
 
 (let [catalog  (:basic catalogs)

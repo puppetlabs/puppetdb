@@ -62,10 +62,10 @@
 ;; are named `ipaddress`. Effectively, the semantics of this query are "find
 ;; the ipaddress of every node with Class[apache]".
 ;;
-;; Because additional tables may or may not be joined into the query, the
-;; resulting SQL is written with `SELECT *`. Thus consumers of those functions
-;; may need to wrap that query with another `SELECT` to pull out the desired
-;; columns. Similarly for applying ordering constraints.
+;; The resulting SQL from the `foo-query->sql` functions selects all the
+;; columns. Thus consumers of those functions may need to wrap that query with
+;; another `SELECT` to pull out only the desired columns. Similarly for
+;; applying ordering constraints.
 ;;
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string])
@@ -115,7 +115,7 @@
         query (format "NOT (%s)" (:where term))]
     (assoc term :where query)))
 
-(def fact-columns #{"certname" "fact" "value"})
+(def fact-columns #{"certname" "name" "value"})
 
 (def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
 
@@ -188,24 +188,24 @@
 
 (defn resource-query->sql
   "Compile a resource query, returning a vector containing the SQL and
-  parameters for the query. All columns are selected, and no order is applied."
+  parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :resource joins)
-        sql (format "SELECT * FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" join-stmt where)]
+        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
   "Compile a fact query, returning a vector containing the SQL and parameters
-  for the query. All columns are selected, and no order is applied."
+  for the query. All fact columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :fact joins)
-        sql (format "SELECT * FROM certname_facts %s WHERE %s" join-stmt where)]
+        sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]
     (apply vector sql params)))
 
 (defn compile-resource-equality-v2
@@ -299,7 +299,7 @@
           (:where %)]}
   (match [path]
          ["name"]
-         {:where "certname_facts.fact = ?"
+         {:where "certname_facts.name = ?"
           :params [value]}
 
          ["value"]
@@ -332,7 +332,7 @@
            (query "certname_facts.certname")
 
            ["name"]
-           (query "certname_facts.fact")
+           (query "certname_facts.name")
 
            ["value"]
            (query "certname_facts.value")
