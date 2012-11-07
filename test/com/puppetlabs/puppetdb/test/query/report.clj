@@ -21,10 +21,10 @@
   (utils/mapvals
     ;; we need to map the datetime fields to timestamp objects for comparison
     to-timestamp
+    [:start-time :end-time]
     ;; the response won't include individual events, so we need to pluck those
     ;; out of the example report object before comparison
-    (dissoc example-report :resource-events)
-    [:start-time :end-time]))
+    (dissoc example-report :resource-events)))
 
 (defn expected-reports
   [example-reports]

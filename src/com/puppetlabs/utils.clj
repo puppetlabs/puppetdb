@@ -127,7 +127,7 @@
   specified keys will be modified."
   ([f m]
     (into {} (for [[k v] m] [k (f v)])))
-  ([f m ks]
+  ([f ks m]
     ;; would prefer to share code between the two implementations here, but
     ;; the `into` is much faster for the base case and the reduce is much
     ;; faster for any case where we're operating on a subset of the keys.
@@ -152,7 +152,7 @@
          (every? (fn [[ks fn]] (and (coll? ks) (ifn? fn))) keys-fns)
          (map? m)]}
   (let [ks (keys keys-fns)]
-    (reduce (fn [m k] (mapvals (keys-fns k) m k)) m ks)))
+    (reduce (fn [m k] (mapvals (keys-fns k) k m)) m ks)))
 
 (defn keyset
   "Retuns the set of keys from the supplied map"

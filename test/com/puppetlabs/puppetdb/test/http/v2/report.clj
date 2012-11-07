@@ -35,10 +35,10 @@
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.
     to-string
+    [:start-time :end-time]
     ;; the response won't include individual events, so we need to pluck those
     ;; out of the example report object before comparison
-    (dissoc report :resource-events)
-    [:start-time :end-time]))
+    (dissoc report :resource-events)))
 
 (defn reports-response
   [reports]

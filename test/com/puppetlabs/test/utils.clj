@@ -46,11 +46,11 @@
   (testing "should default to applying a function to all of the keys"
     (is (= {:a 2 :b 3} (mapvals inc {:a 1 :b 2}))))
   (testing "should support applying a function to a subset of the keys"
-    (is (= {:a 2 :b 2} (mapvals inc {:a 1 :b 2} [:a]))))
+    (is (= {:a 2 :b 2} (mapvals inc [:a] {:a 1 :b 2}))))
   (testing "should support keywords as the function to apply to all of the keys"
     (is (= {:a 1 :b 2} (mapvals :foo {:a {:foo 1} :b {:foo 2}}))))
   (testing "should support keywords as the function to apply to a subset of the keys"
-    (is (= {:a 1 :b {:foo 2}} (mapvals :foo {:a {:foo 1} :b {:foo 2}} [:a])))))
+    (is (= {:a 1 :b {:foo 2}} (mapvals :foo [:a] {:a {:foo 1} :b {:foo 2}})))))
 
 (deftest maptrans-test
   (testing "should fail if the keys-fns param isn't valid"
