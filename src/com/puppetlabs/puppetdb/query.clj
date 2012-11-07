@@ -62,10 +62,10 @@
 ;; are named `ipaddress`. Effectively, the semantics of this query are "find
 ;; the ipaddress of every node with Class[apache]".
 ;;
-;; Because additional tables may or may not be joined into the query, the
-;; resulting SQL is written with `SELECT *`. Thus consumers of those functions
-;; may need to wrap that query with another `SELECT` to pull out the desired
-;; columns. Similarly for applying ordering constraints.
+;; The resulting SQL from the `foo-query->sql` functions selects all the
+;; columns. Thus consumers of those functions may need to wrap that query with
+;; another `SELECT` to pull out only the desired columns. Similarly for
+;; applying ordering constraints.
 ;;
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string])
@@ -115,7 +115,7 @@
         query (format "NOT (%s)" (:where term))]
     (assoc term :where query)))
 
-(def fact-columns #{"certname" "fact" "value"})
+(def fact-columns #{"certname" "name" "value"})
 
 (def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
 
@@ -188,30 +188,34 @@
 
 (defn resource-query->sql
   "Compile a resource query, returning a vector containing the SQL and
-  parameters for the query. All columns are selected, and no order is applied."
+  parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :resource joins)
-        sql (format "SELECT * FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" join-stmt where)]
+        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
   "Compile a fact query, returning a vector containing the SQL and parameters
-  for the query. All columns are selected, and no order is applied."
+  for the query. All fact columns are selected, and no order is applied."
   [ops query]
   {:post [(string? (first %))
           (every? (complement coll?) (rest %))]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :fact joins)
-        sql (format "SELECT * FROM certname_facts %s WHERE %s" join-stmt where)]
+        sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]
     (apply vector sql params)))
 
-(defn compile-resource-equality*
-  "Compile an = operator for a resource query. `path` represents the field to
-  query against, and `value` is the value."
-  [path value]
+(defn compile-resource-equality-v2
+  "Compile an = operator for a v2 resource query. `path` represents the field
+  to query against, and `value` is the value."
+  [& [path value :as args]]
+  {:post [(map? %)
+          (:where %)]}
+  (when-not (= (count args) 2)
+    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (match [path]
          ;; tag join. Tags are case-insensitive but always lowercase, so
          ;; lowercase the query value.
@@ -220,7 +224,7 @@
           :params [(string/lower-case value)]}
 
          ;; node join.
-         [["node" "name"]]
+         ["certname"]
          {:where  "certname_catalogs.certname = ?"
           :params [value]}
 
@@ -243,26 +247,38 @@
          :else (throw (IllegalArgumentException.
                        (str path " is not a queryable object")))))
 
-(defn compile-resource-equality
-  "Wraps `compile-resource-equality*` to do our own arity checking, so we can
-  give a better error message."
+(defn compile-resource-equality-v1
+  "Compile an = operator for a v1 resource query. `path` represents the field
+  to query against, and `value` is the value. This mostly just defers to
+  `compile-resource-equality-v2`, with a little bit of logic to handle the one
+  term that differs."
   [& [path value :as args]]
+  {:post [(map? %)
+          (:where %)]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (compile-resource-equality* path value))
+  ;; We call it "certname" in v2, and ["node" "name"] in v1. If they specify
+  ;; ["node" "name"], rewrite it as "certname". But if they specify "certname",
+  ;; fail because this is v1.
+  (when (= path "certname")
+    (throw (IllegalArgumentException. "certname is not a queryable object")))
+  (let [path (if (= path ["node" "name"]) "certname" path)]
+    (compile-resource-equality-v2 path value)))
 
 (defn compile-resource-regexp
   "Compile an '~' predicate for a resource query, which does regexp matching.
   This is done by leveraging the correct database-specific regexp syntax to
   return only rows where the supplied `path` match the given `pattern`."
   [path pattern]
+  {:post [(map? %)
+          (:where %)]}
   (match [path]
          ["tag"]
          {:where (sql-regexp-array-match "catalog_resources" "tags")
           :params [pattern]}
 
          ;; node join.
-         [["node" "name"]]
+         ["certname"]
          {:where  (sql-regexp-match "certname_catalogs.certname")
           :params [pattern]}
 
@@ -279,19 +295,18 @@
   "Compile an = predicate for a fact query. `path` represents the field to
   query against, and `value` is the value."
   [path value]
-  {:pre [(sequential? path)]
-   :post [(map? %)
+  {:post [(map? %)
           (:where %)]}
   (match [path]
-         [["fact" "name"]]
-         {:where "certname_facts.fact = ?"
+         ["name"]
+         {:where "certname_facts.name = ?"
           :params [value]}
 
-         [["fact" "value"]]
+         ["value"]
          {:where "certname_facts.value = ?"
           :params [(str value)]}
 
-         [["node" "name"]]
+         ["certname"]
          {:where "certname_facts.certname = ?"
           :params [value]}
 
@@ -307,17 +322,19 @@
   is done by leveraging the correct database-specific regexp syntax to return
   only rows where the supplied `path` match the given `pattern`."
   [path pattern]
-  {:post [(map? %)
+  {:pre [(string? path)
+         (string? pattern)]
+   :post [(map? %)
           (string? (:where %))]}
   (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
     (match [path]
-           [["node" "name"]]
+           ["certname"]
            (query "certname_facts.certname")
 
-           [["fact" "name"]]
-           (query "certname_facts.fact")
+           ["name"]
+           (query "certname_facts.name")
 
-           [["fact" "value"]]
+           ["value"]
            (query "certname_facts.value")
 
            :else (throw (IllegalArgumentException.
@@ -328,12 +345,12 @@
   The value in the database will be cast to a float or an int for comparison,
   or will be NULL if it is neither."
   [op path value]
-  {:pre [(sequential? path)]
+  {:pre [(string? path)]
    :post [(map? %)
           (string? (:where %))]}
   (if-let [number (parse-number (str value))]
     (match [path]
-           [["fact" "value"]]
+           ["value"]
            ;; This is like convert_to_numeric(certname_facts.value) > 0.3
            {:where  (format "%s %s ?" (sql-as-numeric "certname_facts.value") op)
             :params [number]}
@@ -352,7 +369,7 @@
   (let [unsupported (fn [& args]
                       (throw (IllegalArgumentException. (format "Operator %s is not available in v1 resource queries" op))))]
     (condp = (string/lower-case op)
-      "=" compile-resource-equality
+      "=" compile-resource-equality-v1
       "and" (partial compile-and resource-operators-v1)
       "or" (partial compile-or resource-operators-v1)
       "not" (partial compile-not resource-operators-v1)
@@ -369,7 +386,7 @@
   if the operator isn't known."
   [op]
   (condp = (string/lower-case op)
-    "=" compile-resource-equality
+    "=" compile-resource-equality-v2
     "~" compile-resource-regexp
     "and" (partial compile-and resource-operators-v2)
     "or" (partial compile-or resource-operators-v2)

@@ -648,7 +648,7 @@ facts associated with the certname."
   {:pre [(utils/datetime? timestamp)]}
   (let [default-row {:certname certname}
         rows        (for [[fact value] facts]
-                      (assoc default-row :fact fact :value value))]
+                      (assoc default-row :name fact :value value))]
     (sql/insert-record :certname_facts_metadata
                        {:certname certname :timestamp (to-timestamp timestamp)})
     (apply sql/insert-records :certname_facts rows)))

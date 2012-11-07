@@ -130,7 +130,7 @@ to the result of the form supplied to this method."
                               [["=" "tag" "one"] #{foo1 bar1}]
                               [["=" "tag" "two"] #{foo1 bar1}]
                               [["and"
-                                ["=" ["node" "name"] "one.local"]
+                                ["=" "certname" "one.local"]
                                 ["=" "type" "File"]]
                                #{foo1}]
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
@@ -168,15 +168,15 @@ to the result of the form supplied to this method."
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
                                                  ["in-result" "certname" ["project" "certname" ["select-facts"
-                                                                                                     ["and"
-                                                                                                      ["=" ["fact" "name"] "operatingsystem"]
-                                                                                                      ["=" ["fact" "value"] "Debian"]]]]]])]
+                                                                                                ["and"
+                                                                                                 ["=" "name" "operatingsystem"]
+                                                                                                 ["=" "value" "Debian"]]]]]])]
         (is (= status pl-http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo1})))
 
       ;; Using the value of a fact as the title of a resource
       (let [{:keys [body status]} (get-response ["in-result" "title" ["project" "value" ["select-facts"
-                                                                                                      ["=" ["fact" "name"] "message"]]]])]
+                                                                                         ["=" "name" "message"]]]])]
         (is (= status pl-http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
 

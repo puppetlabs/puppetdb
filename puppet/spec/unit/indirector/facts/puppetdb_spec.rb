@@ -75,8 +75,8 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return the facts if they're found" do
-      body = [{:node => 'some_node', :fact => 'a', :value => '1'},
-              {:node => 'some_node', :fact => 'b', :value => '2'}].to_pson
+      body = [{:node => 'some_node', :name => 'a', :value => '1'},
+              {:node => 'some_node', :name => 'b', :value => '2'}].to_pson
 
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body

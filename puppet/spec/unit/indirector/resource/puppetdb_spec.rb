@@ -55,7 +55,7 @@ describe Puppet::Resource::Puppetdb do
            ['=', 'type', 'File'],
            ['=', 'exported', true],
            ['=', ['node', 'active'], true],
-           ['not', ['=', ['node', 'name'], host]]]
+           ['not', ['=', 'certname', host]]]
       }
 
       def make_resource_hash(name, certname="localhost", exported=true)
@@ -140,7 +140,7 @@ describe Puppet::Resource::Puppetdb do
     end
 
     it "should return a not-equal query if the operator is '!='" do
-      subject.build_expression(['param','!=','value']).should == ['not', ['=',['parameter','param'],'value']]
+      subject.build_expression(['param','!=','value']).should == ['not', ['=', ['parameter','param'],'value']]
     end
 
     it "should handle title correctly" do

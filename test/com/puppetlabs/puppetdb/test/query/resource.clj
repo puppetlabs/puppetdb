@@ -161,12 +161,12 @@
                   ["=" "type" "Banana"]            []
                   ["=" "tag"  "exotic"]            []
                   ["=" ["parameter" "foo"] "bar"]  []
-                  ["=" ["node" "name"] "bar"]  []
+                  ["=" "certname" "bar"]  []
                   ;; ...and with an actual match.
                   ["=" "type" "File"]              [foo1 bar1 foo4]
                   ["=" "exported" true]            [foo1 bar1 foo2 foo3]
                   ["=" ["parameter" "ensure"] "file"] [foo1 bar1]
-                  ["=" ["node" "name"] "subset.local"] [bar1 bar3 bar5]
+                  ["=" "certname" "subset.local"] [bar1 bar3 bar5]
                   ["=" "tag" "vivid"] [foo4]
                   ;; case-insensitive tags
                   ["=" "tag" "VIVID"] [foo4]
@@ -193,7 +193,7 @@
                   ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
                   [foo1 bar1 foo2 foo3 bar3 foo4 foo5 bar5 foo8]
                   ;; regexp
-                  ["~" ["node" "name"] "ubs.*ca.$"] [bar1 bar3 bar5]
+                  ["~" "certname" "ubs.*ca.$"] [bar1 bar3 bar5]
                   ["~" "title" "^[bB]o..a[Hh]$"] [foo5 bar5]
                   ["~" "tag" "^[vV]..id$"] [foo4]
                   ["or"
@@ -205,14 +205,14 @@
                   [foo8]
                   ;; nesting queries
                   ["and" ["or" ["=" "type" "File"] ["=" "type" "Notify"]]
-                   ["=" ["node" "name"] "subset.local"]
+                   ["=" "certname" "subset.local"]
                    ["and" ["=" "exported" true]]]
                   [bar1]
                   ;; real world query (approximately; real world exported is
                   ;; true, but for convenience around other tests we use
                   ;; false here. :)
                   ["and" ["=" "exported" false]
-                   ["not" ["=" ["node" "name"] "subset.local"]]
+                   ["not" ["=" "certname" "subset.local"]]
                    ["=" "type" "File"]
                    ["=" "tag" "vivid"]]
                   [foo4]

@@ -21,7 +21,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
         facts = result.inject({}) do |a,h|
-          a.merge(h['fact'] => h['value'])
+          a.merge(h['name'] => h['value'])
         end
         Puppet::Node::Facts.new(request.key, facts)
       elsif response.is_a? Net::HTTPNotFound

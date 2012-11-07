@@ -17,9 +17,9 @@ This will return all facts matching the given query. If no query is supplied, al
 
 ##### Query paths
 
-  `["fact", "name"]`: matches facts of the given name  
-  `["fact", "value"]`: matches facts with the given value  
-  `["node", "name"]`: matches facts for the given node  
+  `"name"`: matches facts of the given name  
+  `"value"`: matches facts with the given value  
+  `"certname"`: matches facts for the given node  
   `["node", "active"]`: matches facts for nodes which are or aren't active  
 
 ##### Operators
@@ -30,19 +30,19 @@ This will return all facts matching the given query. If no query is supplied, al
 
   Get the operatingsystem fact for all nodes:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["fact", "name"], "operatingsystem"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
-    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
-     {"node": "b.example.com", "fact": "operatingsystem", "value": "RedHat"},
-     {"node": "c.example.com", "fact": "operatingsystem", "value": "Darwin"},
+    [{"node": "a.example.com", "name": "operatingsystem", "value": "Debian"},
+     {"node": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
+     {"node": "c.example.com", "name": "operatingsystem", "value": "Darwin"},
 
   Get all facts for a single node:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", ["node", "name"], "a.example.com"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
-    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
-     {"node": "a.example.com", "fact": "ipaddress", "value": "192.168.1.105"},
-     {"node": "a.example.com", "fact": "uptime_days", "value": "26 days"}]
+    [{"node": "a.example.com", "name": "operatingsystem", "value": "Debian"},
+     {"node": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
+     {"node": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
 #### `GET /facts/:node`
 
@@ -52,9 +52,9 @@ This will return all facts for the given node.
 
     curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts/a.example.com
 
-    [{"node": "a.example.com", "fact": "operatingsystem", "value": "Debian"},
-     {"node": "a.example.com", "fact": "ipaddress", "value": "192.168.1.105"},
-     {"node": "a.example.com", "fact": "uptime_days", "value": "26 days"}]
+    [{"node": "a.example.com", "name": "operatingsystem", "value": "Debian"},
+     {"node": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
+     {"node": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
 ### Request
 
@@ -69,7 +69,7 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
 
     {
       "node": <node name>,
-      "fact": <fact name>,
+      "name": <fact name>,
       "value": <fact value>
     }
 
