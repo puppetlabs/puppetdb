@@ -674,23 +674,27 @@ must be supplied as the value to be matched."
 
 (defn add-report!
   "Add a report and all of the associated events to the database."
-  [report report-id timestamp]
+  [{:keys [puppet-version certname report-format configuration-version
+           start-time end-time resource-events]
+    :as report}
+   report-id
+   timestamp]
   {:pre [(map? report)
          (string? report-id)
          (utils/datetime? timestamp)]}
   (let [resource-event-rows
           (map #(report/resource-event-to-jdbc
                   (assoc % :report-id report-id))
-               (:resource-events report))]
+               resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
         (sql/insert-record :reports
-          { :id report-id
-            :puppet_version (:puppet-version report)
-            :certname (:certname report)
-            :report_format (:report-format report)
-            :configuration_version (:configuration-version report)
-            :start_time (to-timestamp (:start-time report))
-            :end_time (to-timestamp (:end-time report))
-            :receive_time (to-timestamp timestamp)})
+          { :id                     report-id
+            :puppet_version         puppet-version
+            :certname               certname
+            :report_format          report-format
+            :configuration_version  configuration-version
+            :start_time             (to-timestamp start-time)
+            :end_time               (to-timestamp end-time)
+            :receive_time           (to-timestamp timestamp)})
         (apply sql/insert-records :resource_events resource-event-rows)))))
