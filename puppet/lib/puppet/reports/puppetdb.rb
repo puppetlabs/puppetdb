@@ -66,17 +66,16 @@ Puppet::Reports.register_report(:puppetdb) do
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
   def event_to_hash(resource_type, resource_title, event)
-    result = {}
-    result["status"]            = event.status
-    result["timestamp"]         = Puppet::Util::Puppetdb.to_wire_time(event.time)
-    result["resource-type"]     = resource_type
-    result["resource-title"]    = resource_title
-    result["property"]          = event.property
-    result["new-value"]         = event.desired_value
-    result["old-value"]         = event.previous_value
-    result["message"]           = event.message
-
-    result
+    {
+      "status"            => event.status,
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
+      "resource-type"     => resource_type,
+      "resource-title"    => resource_title,
+      "property"          => event.property,
+      "new-value"         => event.desired_value,
+      "old-value"         => event.previous_value,
+      "message"           => event.message,
+    }
   end
 
 
@@ -84,17 +83,16 @@ Puppet::Reports.register_report(:puppetdb) do
   ## a status of 'skipped', this method fabricates a PuppetDB
   ## event object representing the skipped resource.
   def resource_status_to_skipped_event_hash(resource_status)
-    result = {}
-    result["status"]            = "skipped"
-    result["timestamp"]         = Puppet::Util::Puppetdb.to_wire_time(resource_status.time)
-    result["resource-type"]     = resource_status.resource_type
-    result["resource-title"]    = resource_status.title
-    result["property"]          = nil
-    result["new-value"]         = nil
-    result["old-value"]         = nil
-    result["message"]           = nil
-
-    result
+    {
+      "status"            => "skipped",
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+      "resource-type"     => resource_status.resource_type,
+      "resource-title"    => resource_status.title,
+      "property"          => nil,
+      "new-value"         => nil,
+      "old-value"         => nil,
+      "message"           => nil,
+    }
   end
   
 end
