@@ -28,8 +28,7 @@
                                     with-transacted-connection
                                     add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-regexp-array-match sql-regexp-match]]
-        [clojure.core.match :only [match]]
-        [com.puppetlabs.puppetdb.query.utils :only [valid-query-format?]]))
+        [clojure.core.match :only [match]]))
 
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of
@@ -58,7 +57,7 @@
   "Compile a query into an SQL expression."
   [query]
   {:pre  [(vector? query)]
-   :post [(valid-query-format? %)]}
+   :post [(utils/valid-query-format? %)]}
   (let [{:keys [where joins params]} (compile-term query)
         join-expr                    (->> joins
                                           (map build-join-expr)

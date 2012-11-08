@@ -10,8 +10,7 @@
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.utils :only [parse-number]]
-        [com.puppetlabs.puppetdb.query.utils :only [valid-query-format?]]))
+        [com.puppetlabs.utils :only [parse-number valid-query-format?]]))
 
 (defmulti compile-term
   "Recursively compile a query into a structured map reflecting the terms of

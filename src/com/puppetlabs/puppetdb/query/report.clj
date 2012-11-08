@@ -3,8 +3,7 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.puppetdb.query.utils :only [valid-query-format? sql-to-wire]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec]]))
 
 
 
@@ -26,7 +25,7 @@
   "Compile a report query into an SQL expression."
   [query]
   {:pre [(vector? query)]
-   :post [(valid-query-format? %)]}
+   :post [(utils/valid-query-format? %)]}
   (let [{:keys [where params]} (compile-report-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
@@ -43,8 +42,10 @@
                                       end_time,
                                       receive_time
                                   FROM reports %s ORDER BY start_time DESC")
-    sql)
-        results   (map sql-to-wire (query-to-vec (apply vector query params)))]
+                    sql)
+        results   (map
+                    #(utils/mapkeys utils/underscores->dashes %)
+                    (query-to-vec (apply vector query params)))]
     results))
 
 
@@ -80,7 +81,7 @@
   "Compile a resource event query into an SQL expression."
   [query]
   {:pre [(vector? query)]
-   :post [(valid-query-format? %)]}
+   :post [(utils/valid-query-format? %)]}
   (let [{:keys [where params]} (compile-resource-event-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
@@ -100,7 +101,9 @@
                                       message
                                   FROM resource_events %s")
                         sql)
-        results   (map sql-to-wire (query-to-vec (apply vector query params)))]
+        results   (map
+                    #(utils/mapkeys utils/underscores->dashes %)
+                    (query-to-vec (apply vector query params)))]
     results))
 
 (defmethod compile-resource-event-term :equality

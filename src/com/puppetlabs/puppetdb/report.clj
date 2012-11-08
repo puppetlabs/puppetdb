@@ -5,8 +5,7 @@
 
 (ns com.puppetlabs.puppetdb.report
   (:use [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.validation :only [defmodel validate-against-model!]]
-        [com.puppetlabs.puppetdb.query.utils :only [wire-to-sql]])
+        [com.puppetlabs.validation :only [defmodel validate-against-model!]])
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
             [clojure.string :as s]))
@@ -54,4 +53,4 @@
   (let [timestamp (to-timestamp (:timestamp resource-event))]
     (-> resource-event
       (assoc :timestamp timestamp)
-      (wire-to-sql))))
+      (#(utils/mapkeys utils/dashes->underscores %)))))
