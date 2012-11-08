@@ -59,8 +59,8 @@
   (case path
     "certname" {:where "reports.certname = ?"
                 :params [value] }
-    :else (throw (IllegalArgumentException.
-                   (str term " is not a valid query term")))))
+    (throw (IllegalArgumentException.
+                 (str term " is not a valid query term")))))
 
 ;; ## Resource Event query functions
 ;;
@@ -114,5 +114,5 @@
   (case path
     "report-id" {:where "resource_events.report_id = ?"
                  :params [value] }
-    :else (throw (IllegalArgumentException.
-                   (str term " is not a valid query term")))))
+    (throw (IllegalArgumentException.
+                 (str term " is not a valid query term")))))

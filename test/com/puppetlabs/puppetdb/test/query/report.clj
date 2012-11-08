@@ -60,6 +60,26 @@
 
 ;; Begin tests
 
+(deftest test-compile-report-term
+  (testing "should successfully compile a valid equality query"
+    (is (= (query/compile-report-term ["=" "certname" "foo.local"])
+           {:where   "reports.certname = ?"
+            :params  ["foo.local"]})))
+  (testing "should fail with an invalid equality query"
+    (is (thrown-with-msg?
+          IllegalArgumentException #"is not a valid query term"
+          (query/compile-report-term ["=" "foo" "foo"])))))
+
+(deftest test-compile-resource-event-term
+  (testing "should succesfully compile a valid equality query"
+    (is (= (query/compile-resource-event-term ["=" "report-id" "blah"])
+           {:where   "resource_events.report_id = ?"
+            :params  ["blah"]})))
+  (testing "should fail with an invalid equality query"
+    (is (thrown-with-msg?
+          IllegalArgumentException #"is not a valid query term"
+          (query/compile-resource-event-term ["=" "foo" "foo"])))))
+
 (deftest resource-events-retrieval
   (let [report-id  (utils/uuid)
         basic      (:basic reports)]
