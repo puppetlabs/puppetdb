@@ -1,75 +1,37 @@
-;; ## SQL query compiler
+;; ## Resource querying
 ;;
-;; The query compiler operates in effectively a three-step process. Because the
-;; query is compiled depth-first, however, the first two steps may be
-;; intermingled.
-;;
-;; The first step is compilation of = predicates into where clauses, params,
-;; and any necessary join tables. The where clauses are formulated such that
-;; they can be combined using AND/OR without requiring any extra joins or
-;; logic.
-;;
-;; The second step is compilation of and/or/not predicates. The first two of
-;; these are compiled fairly trivially by joining their child WHERE clauses
-;; with AND/OR, and concatenating the joins and params lists. "not" predicates
-;; are first compiled as an OR predicate, whose WHERE clause is then prepended
-;; with NOT.
-;;
-;; The final step is building the ultimate query which will be executed. This
-;; means building JOIN expressions for any necessary tables, and appending the
-;; JOINs and WHERE clause to the query which fetches the desired columns.
+;; This implements resource querying, using the query compiler in
+;; `com.puppetlabs.puppetdb.query`, basically by munging the results into the
+;; right format and picking out the desired columns.
 ;;
 (ns com.puppetlabs.puppetdb.query.resource
-  (:require [com.puppetlabs.utils :as utils]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection
                                     add-limit-clause]]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-regexp-array-match sql-regexp-match]]
-        [clojure.core.match :only [match]]))
-
-(defmulti compile-term
-  "Recursively compile a query into a structured map reflecting the terms of
-  the query."
-  (fn [query]
-    (let [operator (string/lower-case (first query))]
-      (cond
-       (#{"and" "or"} operator) :connective
-       :else operator))))
-
-(defn build-join-expr
-  "Builds an inner join expression between catalog_resources and the given
-  `table`. The only currently acceptable table is `certnames`,
-  which *must* have rows corresponding to the `catalog_resources`
-  table, ensuring the INNER JOIN won't lose any rows."
-  [table]
-  (condp = table
-    ;; We will always also join to certname_catalogs if we're joining to
-    ;; certnames, but handle it separately, because we could ONLY join to
-    ;; certname_catalogs, and don't want duplicate joins. I wish this were more
-    ;; generic.
-    :certnames
-    "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"))
+        [com.puppetlabs.puppetdb.query :only [resource-query->sql resource-operators-v1 resource-operators-v2]]
+        [com.puppetlabs.utils :only [valid-query-format?]]))
 
 (defn query->sql
-  "Compile a query into an SQL expression."
-  [query]
+  "Compile a resource `query` into an SQL expression using the specified set of
+  `operators`."
+  [operators query]
   {:pre  [(vector? query)]
-   :post [(utils/valid-query-format? %)]}
-  (let [{:keys [where joins params]} (compile-term query)
-        join-expr                    (->> joins
-                                          (map build-join-expr)
-                                          (string/join " "))
-        sql (format (str "SELECT certname_catalogs.certname, catalog_resources.resource, catalog_resources.type, catalog_resources.title,"
-                         "catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline, rp.name, rp.value "
-                         "FROM catalog_resources "
-                         "JOIN certname_catalogs USING(catalog) "
-                         "LEFT OUTER JOIN resource_params rp "
-                         "USING(resource) %s WHERE %s")
-                    join-expr where)]
+   :post [(valid-query-format? %)]}
+  (let [[subselect & params] (resource-query->sql operators query)
+        sql (format (str "SELECT certname, resource, type, title, tags, exported, sourcefile, sourceline, rp.name, rp.value "
+                         "FROM (%s) subquery1 "
+                         "LEFT OUTER JOIN resource_params rp USING(resource)")
+                    subselect)]
     (apply vector sql params)))
+
+(def v1-query->sql
+  (partial query->sql resource-operators-v1))
+
+(def v2-query->sql
+  (partial query->sql resource-operators-v2))
 
 (defn limited-query-resources
   "Take a limit, a query, and its parameters, and return a vector of resources
@@ -94,103 +56,3 @@
   [[sql & params]]
   {:pre [(string? sql)]}
   (limited-query-resources 0 (apply vector sql params)))
-
-;; Compile an '=' predicate, the basic atom of a resource query. This
-;; will produce a query that selects a set of hashes matching the
-;; predicate, which can then be combined with connectives to build
-;; complex queries.
-(defmethod compile-term "="
-  [[op path value :as term]]
-  (let [count (count term)]
-    (if (not= 3 count)
-      (throw (IllegalArgumentException.
-              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (match [path]
-         ;; tag join. Tags are case-insensitive but always lowercase, so
-         ;; lowercase the query value.
-         ["tag"]
-         {:where  (sql-array-query-string "tags")
-          :params [(string/lower-case value)]}
-
-         ;; node join.
-         [["node" "name"]]
-         {:where  "certname_catalogs.certname = ?"
-          :params [value]}
-
-         ;; {in,}active nodes.
-         [["node" "active"]]
-         {:joins [:certnames]
-          :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
-
-         ;; param joins.
-         [["parameter" (name :when string?)]]
-         {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
-          :params [name (db-serialize value)]}
-
-         ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
-           {:where  (format "catalog_resources.%s = ?" metadata)
-            :params [value]}
-
-         ;; ...else, failure
-         :else (throw (IllegalArgumentException.
-                       (str term " is not a valid query term")))))
-
-;; Compile an '~' predicate, which does regexp matching. This is done
-;; by leveraging the correct database-specific regexp syntax to return
-;; only rows where the supplied `path` match the given `pattern`.
-(defmethod compile-term "~"
-  [[op path pattern :as term]]
-  (let [count (count term)]
-    (if (not= 3 count)
-      (throw (IllegalArgumentException.
-              (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (match [path]
-         ["tag"]
-         {:where (sql-regexp-array-match "catalog_resources" "tags")
-          :params [pattern]}
-
-         ;; node join.
-         [["node" "name"]]
-         {:where  (sql-regexp-match "certname_catalogs.certname")
-          :params [pattern]}
-
-         ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
-           {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
-            :params [pattern]}
-
-         ;; ...else, failure
-         :else (throw (IllegalArgumentException.
-                       (str path " cannot be the target of a regexp match")))))
-
-;; Join a set of predicates together with an 'and' relationship,
-;; performing an intersection (via natural join).
-(defmethod compile-term :connective
-  [[op & terms]]
-  {:pre  [(every? vector? terms)]
-   :post [(string? (:where %))]}
-  (when (empty? terms)
-    (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [terms  (map compile-term terms)
-        joins  (distinct (mapcat :joins terms))
-        params (mapcat :params terms)
-        query  (->> (map :where terms)
-                    (map #(format "(%s)" %))
-                    (string/join (format " %s " (string/upper-case op))))]
-    {:joins  joins
-     :where  query
-     :params params}))
-
-;; Join a set of predicates together with a 'not' relationship,
-;; performing a set difference. This will reject resources matching
-;; _any_ child predicate.
-(defmethod compile-term "not"
-  [[op & terms]]
-  {:pre  [(every? vector? terms)]
-   :post [(string? (:where %))]}
-  (when (empty? terms)
-    (throw (IllegalArgumentException. (str op " requires at least one term"))))
-  (let [term  (compile-term (cons "or" terms))
-        query (format "NOT (%s)" (:where term))]
-    (assoc term :where query)))

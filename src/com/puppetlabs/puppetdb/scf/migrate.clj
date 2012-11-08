@@ -190,6 +190,15 @@
   (sql/drop-table :classes)
   (sql/drop-table :tags))
 
+(defn rename-fact-column
+  "Renames the `fact` column on `certname_facts` to `name`, for consistency."
+  []
+  (sql/do-commands
+    (if (= (sql-current-connection-database-name) "PostgreSQL")
+      "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
+      "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
+    "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
+
 (defn add-reports-tables
   "Add a resource_events and reports tables."
   []
@@ -252,7 +261,8 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
    6 drop-classes-and-tags
-   7 add-reports-tables})
+   7 rename-fact-column
+   8 add-reports-tables})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

@@ -55,11 +55,11 @@ to the result of the form supplied to this method."
 
       (sql/insert-records
        :certname_facts
-       {:certname "node_a" :fact "kernel" :value "Linux"}
-       {:certname "node_b" :fact "kernel" :value "Linux"}
-       {:certname "node_b" :fact "uptime_seconds" :value "4000"}
-       {:certname "node_c" :fact "kernel" :value "Darwin"}
-       {:certname "node_d" :fact "uptime_seconds" :value "10000"}))
+       {:certname "node_a" :name "kernel" :value "Linux"}
+       {:certname "node_b" :name "kernel" :value "Linux"}
+       {:certname "node_b" :name "uptime_seconds" :value "4000"}
+       {:certname "node_c" :name "kernel" :value "Darwin"}
+       {:certname "node_d" :name "uptime_seconds" :value "10000"}))
 
     (testing "empty query should return all nodes"
       (is-response-equal (get-response) names))

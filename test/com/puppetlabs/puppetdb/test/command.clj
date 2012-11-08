@@ -393,10 +393,10 @@
   (deftest replace-facts-no-facts
     (testing "should store the facts"
       (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
-               [{:certname certname :fact "a" :value "1"}
-                {:certname certname :fact "b" :value "2"}
-                {:certname certname :fact "c" :value "3"}]))
+        (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+               [{:certname certname :name "a" :value "1"}
+                {:certname certname :name "b" :value "2"}
+                {:certname certname :name "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
@@ -405,9 +405,9 @@
     (sql/insert-record :certname_facts_metadata
       {:certname certname :timestamp yesterday})
     (sql/insert-records :certname_facts
-      {:certname certname :fact "x" :value "24"}
-      {:certname certname :fact "y" :value "25"}
-      {:certname certname :fact "z" :value "26"})
+      {:certname certname :name "x" :value "24"}
+      {:certname certname :name "y" :value "25"}
+      {:certname certname :name "z" :value "26"})
 
     (testing "should replace the facts"
       (test-msg-handler command publish discard-dir
@@ -417,10 +417,10 @@
           (is (not= (:timestamp result)
                     yesterday)))
 
-        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
-               [{:certname certname :fact "a" :value "1"}
-                {:certname certname :fact "b" :value "2"}
-                {:certname certname :fact "c" :value "3"}]))
+        (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+               [{:certname certname :name "a" :value "1"}
+                {:certname certname :name "b" :value "2"}
+                {:certname certname :name "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
@@ -439,18 +439,18 @@
     (sql/insert-record :certname_facts_metadata
       {:certname certname :timestamp tomorrow})
     (sql/insert-records :certname_facts
-      {:certname certname :fact "x" :value "24"}
-      {:certname certname :fact "y" :value "25"}
-      {:certname certname :fact "z" :value "26"})
+      {:certname certname :name "x" :value "24"}
+      {:certname certname :name "y" :value "25"}
+      {:certname certname :name "z" :value "26"})
 
     (testing "should ignore the message"
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT certname,timestamp FROM certname_facts_metadata")
                [{:certname certname :timestamp tomorrow}]))
-        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
-               [{:certname certname :fact "x" :value "24"}
-                {:certname certname :fact "y" :value "25"}
-                {:certname certname :fact "z" :value "26"}]))
+        (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+               [{:certname certname :name "x" :value "24"}
+                {:certname certname :name "y" :value "25"}
+                {:certname certname :name "z" :value "26"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir))))))
 
@@ -461,10 +461,10 @@
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                [{:name certname :deactivated nil}]))
-        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
-               [{:certname certname :fact "a" :value "1"}
-                {:certname certname :fact "b" :value "2"}
-                {:certname certname :fact "c" :value "3"}]))
+        (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+               [{:certname certname :name "a" :value "1"}
+                {:certname certname :name "b" :value "2"}
+                {:certname certname :name "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))
 
@@ -474,10 +474,10 @@
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                [{:name certname :deactivated tomorrow}]))
-        (is (= (query-to-vec "SELECT certname,fact,value FROM certname_facts ORDER BY fact ASC")
-              [{:certname certname :fact "a" :value "1"}
-               {:certname certname :fact "b" :value "2"}
-               {:certname certname :fact "c" :value "3"}]))
+        (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+              [{:certname certname :name "a" :value "1"}
+               {:certname certname :name "b" :value "2"}
+               {:certname certname :name "c" :value "3"}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 

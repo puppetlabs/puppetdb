@@ -16,7 +16,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
              ['=', 'exported', true],
              ['=', ['node', 'active'], true],
              ['not',
-               ['=', ['node', 'name'], host]]]
+               ['=', 'certname', host]]]
 
     filter_expr = build_expression(filter)
     expr << filter_expr if filter_expr

@@ -134,8 +134,8 @@
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
                           (.setConnectionHook (connection-hook log-statements? log-slow-statements)))]
     ;; configurable without default
-    (when username (.setUsername config username))
-    (when password (.setPassword config password))
+    (when username (.setUsername config (str username)))
+    (when password (.setPassword config (str password)))
     (when log-statements? (.setLogStatementsEnabled config log-statements?))
     (when log-slow-statements
       (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))

@@ -55,8 +55,8 @@ This query expression queries the `/facts` endpoint for the IP address fact for
 all nodes with Class[Apache]:
 
     ["and"
-      ["=" ["fact" "name"] "ipaddress"]
-      ["in-result" ["fact" "certname"]
+      ["=" "name" "ipaddress"]
+      ["in-result" "certname"
         ["project" "certname"
           ["select-resources"
             ["and"
@@ -75,13 +75,13 @@ This query expression queries the `/facts` endpoint for the IP address fact of
 all Debian nodes.
 
     ["and"
-      ["=" ["fact" "name"] "ipaddress"]
-      ["in-result" ["fact" "certname"]
-        ["project" "node"
+      ["=" "name" "ipaddress"]
+      ["in-result" "certname"
+        ["project" "certname"
           ["select-facts"
             ["and"
-              ["=" ["fact" "name"] "operatingsystem"]
-              ["=" ["fact" "value"] "Debian"]]]]]]
+              ["=" "name" "operatingsystem"]
+              ["=" "value" "Debian"]]]]]]
 
 This operator is similar to `select-resources`, but will make a subquery
 [against facts](facts.md).

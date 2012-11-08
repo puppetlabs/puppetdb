@@ -34,6 +34,12 @@
 
 (use-fixtures :each with-test-database)
 
+(deftest pool-construction
+  (testing "can construct pool with numeric usernames and passwords"
+    (let [pool (-> (test-db)
+                   (assoc :username 1234 :password 1234)
+                   (subject/pooled-datasource))]
+      (.close (:datasource pool)))))
 
 (deftest query-to-vec
   (testing "query string only"

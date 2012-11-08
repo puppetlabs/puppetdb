@@ -29,7 +29,7 @@ The `query` parameter is described by the following grammar:
 `tag`
 : a case-insensitive tag on the resource
 
-`[node name]`
+`certname`
 : the name of the node associated with the resource
 
 `[node active]`
@@ -56,15 +56,14 @@ The `query` parameter is described by the following grammar:
 For example, for file resources, tagged "magical", on any active host except
 for "example.local" the JSON query structure would be:
 
-    ["and", ["not", ["=", ["node", "name"], "example.local"]],
+    ["and", ["not", ["=", "certname", "example.local"]],
             ["=", ["node", "active"], true],
             ["=", "type", "File"],
             ["=", "tag", "magical"],
             ["=", ["parameter", "ensure"], "enabled"]
 
-The available operators are [defined in
-operators.md](operators.md). Note that resource queries *do not
-support* inequality or subqueries, and regexp matching *is not
+The available operators are [defined in operators.md](operators.md). Note that
+resource queries *do not support* inequality, and regexp matching *is not
 supported* against node status or parameter values.
 
 # Response format
