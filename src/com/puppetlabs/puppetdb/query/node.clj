@@ -71,7 +71,7 @@
               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (match [path]
          [["fact" (name :when string?)]]
-         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND cf.value = ?)"
+         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
           :params [name (str value)]}
          [["node" "active"]]
          {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
@@ -90,7 +90,7 @@
   (if-let [number (parse-number (str value))]
     (match [path]
            [["fact" (name :when string?)]]
-           {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.fact = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+           {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
             :params [name number]}
 
            :else (throw (IllegalArgumentException.

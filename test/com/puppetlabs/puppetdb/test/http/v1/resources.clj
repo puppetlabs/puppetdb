@@ -147,8 +147,8 @@ to the result of the form supplied to this method."
                                                  ["=" "type" "File"]
                                                  ["in-result" "certname" ["project" "certname" ["select-facts"
                                                                                                 ["and"
-                                                                                                 ["=" ["fact" "name"] "operatingsystem"]
-                                                                                                 ["=" ["fact" "value"] "Debian"]]]]]])]
+                                                                                                 ["=" "name" "operatingsystem"]
+                                                                                                 ["=" "value" "Debian"]]]]]])]
         (is (= status pl-http/status-bad-request))
         (is (re-find #"Operator .* is not available in v1 resource queries" body)))))
     (testing "error handling"
