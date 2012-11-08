@@ -47,7 +47,7 @@
 
 (ns com.puppetlabs.puppetdb.http.v2.event
   (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.report :as query]
+            [com.puppetlabs.puppetdb.query.event :as query]
             [cheshire.core :as json]
             [ring.util.response :as rr])
   (:use [net.cgrand.moustache :only [app]]

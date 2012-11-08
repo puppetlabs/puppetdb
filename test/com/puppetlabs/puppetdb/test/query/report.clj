@@ -39,25 +39,6 @@
             ;; for test comparison
             (map #(dissoc % :receive-time)))))
 
-(defn expected-resource-event
-  [example-resource-event report-id]
-  (-> example-resource-event
-    ;; the examples don't have the report-id, but the results from the
-    ;; database do... so we need to munge that in.
-    (assoc-in [:report-id] report-id)
-    ;; we need to convert the datetime fields from the examples to timestamp objects
-    ;; in order to compare them.
-    (update-in [:timestamp] to-timestamp)))
-
-(defn expected-resource-events
-  [example-resource-events report-id]
-  (set (map #(expected-resource-event % report-id) example-resource-events)))
-
-(defn resource-events-query-result
-  [query]
-  (set (->> (query/resource-event-query->sql query)
-            (query/query-resource-events))))
-
 ;; Begin tests
 
 (deftest test-compile-report-term
@@ -70,17 +51,7 @@
           IllegalArgumentException #"is not a valid query term"
           (query/compile-report-term ["=" "foo" "foo"])))))
 
-(deftest test-compile-resource-event-term
-  (testing "should succesfully compile a valid equality query"
-    (is (= (query/compile-resource-event-term ["=" "report-id" "blah"])
-           {:where   "resource_events.report_id = ?"
-            :params  ["blah"]})))
-  (testing "should fail with an invalid equality query"
-    (is (thrown-with-msg?
-          IllegalArgumentException #"is not a valid query term"
-          (query/compile-resource-event-term ["=" "foo" "foo"])))))
-
-(deftest resource-events-retrieval
+(deftest reports-retrieval
   (let [report-id  (utils/uuid)
         basic      (:basic reports)]
     (report/validate! basic)
@@ -90,11 +61,7 @@
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :id report-id)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]
-        (is (= expected actual))))
-
-    (testing "should return the list of resource events for a given report id"
-      (let [expected  (expected-resource-events (:resource-events basic) report-id)
-            actual    (resource-events-query-result ["=" "report-id" report-id])]
         (is (= expected actual))))))
+
 
 
