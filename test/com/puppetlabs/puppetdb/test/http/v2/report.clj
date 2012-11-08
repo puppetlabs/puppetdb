@@ -52,15 +52,16 @@
   (map #(dissoc % :receive-time) reports))
 
 (deftest query-by-certname
-  (let [basic (assoc-in (:basic reports) [:id] (utils/uuid))]
+  (let [report-id (utils/uuid)
+        basic     (:basic reports)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic (now))
+    (scf-store/add-report! basic report-id (now))
 
     ;; TODO: test invalid requests
 
     (testing "should return all reports for a certname"
       (response-equal?
         (get-response ["=" "certname" (:certname basic)])
-        (reports-response [basic])
+        (reports-response [(assoc basic :id report-id)])
         remove-receive-times))))

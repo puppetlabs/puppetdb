@@ -62,19 +62,19 @@
 
 (deftest resource-events-retrieval
   (let [report-id  (utils/uuid)
-        basic      (assoc-in (:basic reports) [:id] report-id)]
+        basic      (:basic reports)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic (now))
+    (scf-store/add-report! basic report-id (now))
 
     (testing "should return reports based on certname"
-      (let [expected  (expected-reports [basic])
+      (let [expected  (expected-reports [(assoc basic :id report-id)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]
         (is (= expected actual))))
 
     (testing "should return the list of resource events for a given report id"
       (let [expected  (expected-resource-events (:resource-events basic) report-id)
-            actual    (resource-events-query-result ["=" "report-id" (:id basic)])]
+            actual    (resource-events-query-result ["=" "report-id" report-id])]
         (is (= expected actual))))))
 
 

@@ -224,7 +224,7 @@
              ~discard-var discard-dir#]
          ~@body
          ; Uncommenting this line can be very useful for debugging
-         ;(println @log-output#)
+;         (println @log-output#)
          )
        (finally
          (fs/delete-dir discard-dir#)))))

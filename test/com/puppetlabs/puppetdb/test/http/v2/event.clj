@@ -44,16 +44,16 @@
 
 (deftest query-by-report
   (let [report-id (utils/uuid)
-        basic     (assoc-in (:basic reports) [:id] report-id)]
+        basic     (:basic reports)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic (now))
+    (scf-store/add-report! basic report-id (now))
 
     ;; TODO: test invalid requests
 
     (testing "should return the list of resource events for a given report id"
-      (let [response (get-response ["=" "report-id" (:id basic)])
+      (let [response (get-response ["=" "report-id" report-id])
             expected (expected-resource-events-response
                         (:resource-events basic)
-                        (:id basic))]
+                        report-id)]
         (response-equal? response expected)))))

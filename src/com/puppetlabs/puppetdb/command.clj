@@ -360,12 +360,12 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
-                      (report/parse-from-json-string payload id))
+                      (report/parse-from-json-string payload))
         name        (:certname report)
         timestamp   (:received annotations)]
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! name timestamp)
-      (scf-storage/add-report! report timestamp))
+      (scf-storage/add-report! report id timestamp))
     (log/info (format "[%s] [store report] puppet v%s - %s"
                 id (:puppet-version report) (:certname report)))))
 

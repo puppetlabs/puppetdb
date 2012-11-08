@@ -22,11 +22,11 @@
 
 (deftest report-status
   (let [id        (uuid)
-        report    (assoc-in (:basic examples/reports) [:id] id)
+        report    (:basic examples/reports)
         certname  (:certname report)
         timestamp (now)]
     (scf-store/add-certname! certname)
-    (scf-store/add-report! report timestamp)
+    (scf-store/add-report! report id timestamp)
 
     (testing "should have a last report time"
       (let [response (v1/get-response v2-url certname)

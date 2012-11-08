@@ -462,12 +462,12 @@
 
 (let [id          (uuid)
       timestamp   (now)
-      report      (assoc-in (:basic reports) [:id] id)
+      report      (:basic reports)
       certname    (:certname report)]
   (deftest catalog-replacement
     (testing "should store reports"
       (add-certname! certname)
-      (add-report! report timestamp)
+      (add-report! report id timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
             [{:certname (:certname report)}]))

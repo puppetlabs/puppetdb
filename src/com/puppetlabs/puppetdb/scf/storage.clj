@@ -673,20 +673,19 @@ must be supplied as the value to be matched."
           (add-facts! name values timestamp))))
 
 (defn add-report!
-  "Add a report and all of the associated events."
-  [report timestamp]
+  "Add a report and all of the associated events to the database."
+  [report report-id timestamp]
   {:pre [(map? report)
+         (string? report-id)
          (utils/datetime? timestamp)]}
-  (let [report-id (:id report)
-        ;; TODO: either need to do some validation here, or need to document that we expect everything
-        ;; to be validated before we are called (in which case we need to validate for extraneous keys
-        ;; in the validation functions).
-        resource-event-rows (map #(report/resource-event-to-sql % report-id)
-                                  (:resource-events report))]
+  (let [resource-event-rows
+          (map #(report/resource-event-to-jdbc
+                  (assoc % :report-id report-id))
+               (:resource-events report))]
     (time! (:store-report metrics)
       (sql/transaction
         (sql/insert-record :reports
-          { :id (:id report)
+          { :id report-id
             :puppet_version (:puppet-version report)
             :certname (:certname report)
             :report_format (:report-format report)
