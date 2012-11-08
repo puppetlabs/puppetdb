@@ -15,7 +15,7 @@
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.utils :only [keyset]]))
 
-(def node-status-sql
+(def ^:const node-status-sql
   "SELECT certnames.name,
           certnames.deactivated,
           c.timestamp AS catalog_timestamp,
@@ -29,10 +29,12 @@
           WHERE certnames.name = ?")
 
 (defn node-status
-  "Return the current status of a node, including whether it's active, and the
-  timestamp of its most recent catalog and facts."
+  "Given a node's name, return the current status of the node.  Results
+  include whether it's active and the timestamp of its most recent catalog, facts,
+  and report."
   [node]
-  {:post [(or (nil? %)
+  { :pre  [string? node]
+    :post [(or (nil? %)
               (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)))]}
   (let [results (query-to-vec node-status-sql node node)]
     (first results)))

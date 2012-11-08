@@ -522,7 +522,8 @@
 (let [report       (:basic report-examples/reports)
       command      {:command "store report"
                     :version 1
-                    :payload (json/generate-string report)}]
+;                    :payload (json/generate-string report)}]
+                    :payload report}]
   (deftest store-report
     (testing "should store the report"
       (test-msg-handler command publish discard-dir

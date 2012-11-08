@@ -23,22 +23,6 @@
             IllegalArgumentException #":timestamp should be Datetime"
             (validate! (assoc-in report [:resource-events 0 :timestamp] "foo"))))))
 
-  (deftest test-parse-from-json-string
-    (testing "should parse a valid report"
-      (is (= report (parse-from-json-string
-                      (json/generate-string (dissoc report :id))))))
-
-    (testing "should fail on an invalid JSON obj"
-      (is (thrown-with-msg?
-            IllegalArgumentException #"Invalid JSON string for report"
-            (parse-from-json-string (json/generate-string [1 2 3])))))
-
-    (testing "should fail on a report that is missing a key"
-      (is (thrown-with-msg?
-            IllegalArgumentException #"Report is missing keys: :certname$"
-            (parse-from-json-string
-              (json/generate-string (dissoc report :certname)))))))
-
   (deftest test-resource-event-to-jdbc
     (testing "should convert a resource event to a format suitable for storing in the db"
       (let [event (get-in report [:resource-events 0])

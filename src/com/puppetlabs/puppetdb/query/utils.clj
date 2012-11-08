@@ -32,8 +32,10 @@
   ([obj]
     (sql-to-wire obj {}))
   ([obj keys-fns]
-    {:pre [(map? keys-fns)
-           (map? obj)]}
+    {:pre   [(map? keys-fns)
+             (map? obj)]
+     :post  [(map? %)
+             (= (count %) (count obj))]}
     (let [updated-obj (utils/maptrans keys-fns obj)]
       (utils/mapkeys #(keyword (string/replace (name %) \_ \-)) updated-obj))))
 

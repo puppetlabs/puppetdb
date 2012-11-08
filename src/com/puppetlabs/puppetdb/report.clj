@@ -43,22 +43,6 @@
     (validate-against-model! ResourceEvent resource-event))
   report)
 
-
-(defn parse-from-json-string
-  "Parse a report from a json string.  Validates the resulting data structure
-  and ensures that it conforms to the puppetdb wire format; throws
-  IllegalArgumentException if the data is not valid.
-
-  `s` - the JSON string to parse."
-  [s]
-  {:pre  [(string? s)]
-   :post [(map? %)]}
-  (let [json-obj (json/parse-string s true)]
-    (when-not (map? json-obj)
-      (throw (IllegalArgumentException.
-               (format "Invalid JSON string for report; expected a JSON 'Object', got '%s'" s))))
-    (validate! json-obj)))
-
 (defn resource-event-to-jdbc
   "Given a resource event object in its puppetdb wire format, convert the data
   structure into a format suitable for handing off to JDBC function such as

@@ -288,8 +288,8 @@
 
 (defmethod parse-catalog String
   [catalog version]
-  {:pre [(string? catalog)]
-   :post [(map? %)]}
+  {:pre   [(string? catalog)]
+   :post  [(map? %)]}
   (parse-catalog (json/parse-string catalog true) version))
 
 ;; v1 is the same as v2, except with classes and tags. So remove those, and be
