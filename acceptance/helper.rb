@@ -11,6 +11,9 @@ module PuppetDBExtensions
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
   def self.initialize_test_config(options, os_families)
+
+    base_dir = File.join(File.dirname(__FILE__), '..')
+
     install_type =
         get_option_value(options[:type], [:git, :manual], "install type")
 
@@ -50,8 +53,10 @@ module PuppetDBExtensions
           "PUPPETDB_PACKAGE_REPO_URL",
           "http://neptune.puppetlabs.lan/dev/puppetdb/master")
 
+
     @config = {
-        :pkg_dir => File.join(File.dirname(__FILE__), '..', '..', '..', 'pkg'),
+        :base_dir => base_dir,
+        :acceptance_data_dir => File.join(base_dir, "acceptance", "data"),
         :os_families => os_families,
         :install_type => install_type == :manual ? :package : install_type,
         :install_mode => install_mode,
