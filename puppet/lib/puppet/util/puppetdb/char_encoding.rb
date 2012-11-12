@@ -78,7 +78,18 @@ module CharEncoding
 
    def self.ruby18_clean_utf8(str)
      #iconv_to_utf8(str)
-     ruby18_manually_clean_utf8(str)
+     #ruby18_manually_clean_utf8(str)
+
+     # So, we've tried doing this UTF8 cleaning for ruby 1.8 a few different
+     # ways.  Doing it via IConv, we don't do a good job of handling characters
+     # whose codepoints would exceed the legal maximum for UTF-8.  Doing it via
+     # our manual scrubbing process is slower and doesn't catch overlong
+     # encodings.  Since this code really shouldn't even exist in the first place
+     # we've decided to simply compose the two scrubbing methods for now, rather
+     # than trying to add detection of overlong encodings.  It'd be a non-trivial
+     # chunk of code, and it'd have to do a lot of bitwise arithmetic (which Ruby
+     # is not blazingly fast at).
+     ruby18_manually_clean_utf8(iconv_to_utf8(str))
    end
 
 
