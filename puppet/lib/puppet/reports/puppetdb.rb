@@ -30,6 +30,8 @@ Puppet::Reports.register_report(:puppetdb) do
     # seems more consistent and safer for the long-term.  However, for reasons
     # relating to backwards compatibility we won't be able to switch over to
     # the accessors until version 3.x of puppet is our oldest supported version.
+    #
+    # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
     {
       "certname"                => host,
       "puppet-version"          => @puppet_version,

@@ -3,7 +3,8 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
+        [com.puppetlabs.puppetdb.query :only [valid-query-format?]]))
 
 ;; ## Report query functions
 ;;
@@ -23,7 +24,7 @@
   "Compile a report query into an SQL expression."
   [query]
   {:pre [(vector? query)]
-   :post [(utils/valid-query-format? %)]}
+   :post [(valid-query-format? %)]}
   (let [{:keys [where params]} (compile-report-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
@@ -42,7 +43,7 @@
                                   FROM reports %s ORDER BY start_time DESC")
                     sql)
         results   (map
-                    #(utils/mapkeys utils/underscores->dashes %)
+                    #(utils/mapkeys underscores->dashes %)
                     (query-to-vec (apply vector query params)))]
     results))
 

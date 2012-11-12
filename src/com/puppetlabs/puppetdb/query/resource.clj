@@ -11,8 +11,7 @@
                                     convert-result-arrays
                                     with-transacted-connection
                                     add-limit-clause]]
-        [com.puppetlabs.puppetdb.query :only [resource-query->sql resource-operators-v1 resource-operators-v2]]
-        [com.puppetlabs.utils :only [valid-query-format?]]))
+        [com.puppetlabs.puppetdb.query :only [resource-query->sql resource-operators-v1 resource-operators-v2 valid-query-format?]]))
 
 (defn query->sql
   "Compile a resource `query` into an SQL expression using the specified set of

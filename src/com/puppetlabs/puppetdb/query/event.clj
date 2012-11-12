@@ -3,7 +3,8 @@
 (ns com.puppetlabs.puppetdb.query.event
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
+        [com.puppetlabs.puppetdb.query :only [valid-query-format?]]))
 
 ;; ## Resource Event query functions
 ;;
@@ -23,7 +24,7 @@
   "Compile a resource event query into an SQL expression."
   [query]
   {:pre [(vector? query)]
-   :post [(utils/valid-query-format? %)]}
+   :post [(valid-query-format? %)]}
   (let [{:keys [where params]} (compile-resource-event-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
@@ -44,7 +45,7 @@
                                   FROM resource_events %s")
                         sql)
         results   (map
-                    #(utils/mapkeys utils/underscores->dashes %)
+                    #(utils/mapkeys underscores->dashes %)
                     (query-to-vec (apply vector query params)))]
     results))
 

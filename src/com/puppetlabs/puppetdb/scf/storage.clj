@@ -34,7 +34,7 @@
         [metrics.gauges :only (gauge)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]
-        [com.puppetlabs.jdbc :only [query-to-vec]]))
+        [com.puppetlabs.jdbc :only [query-to-vec dashes->underscores]]))
 
 (defn sql-current-connection-database-name
   "Return the database product name currently in use."
@@ -682,10 +682,11 @@ must be supplied as the value to be matched."
   {:pre [(map? report)
          (string? report-id)
          (utils/datetime? timestamp)]}
-  (let [resource-event-rows
-          (map #(report/resource-event-to-jdbc
-                  (assoc % :report-id report-id))
-               resource-events)]
+  (let [resource-event-rows (map #(-> %
+                                     (assoc :timestamp (to-timestamp (:timestamp %)))
+                                     (assoc :report-id report-id)
+                                     ((partial utils/mapkeys dashes->underscores)))
+                                  resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
         (sql/insert-record :reports

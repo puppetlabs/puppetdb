@@ -41,16 +41,3 @@
   (doseq [resource-event (:resource-events report)]
     (validate-against-model! ResourceEvent resource-event))
   report)
-
-(defn resource-event-to-jdbc
-  "Given a resource event object in its puppetdb wire format, convert the data
-  structure into a format suitable for handing off to JDBC function such as
-  `insert-records`.  This mostly entails housekeeping work like converting
-  datetime fields to timestamps, translating hyphens to underscores, etc."
-  [resource-event]
-  {:pre     [(map? resource-event)]
-   :post    [(map? %)]}
-  (let [timestamp (to-timestamp (:timestamp resource-event))]
-    (-> resource-event
-      (assoc :timestamp timestamp)
-      (#(utils/mapkeys utils/dashes->underscores %)))))

@@ -360,7 +360,6 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
-;                      (report/parse-from-json-string payload))
                       (report/validate! payload))
         name        (:certname report)
         timestamp   (:received annotations)]
