@@ -32,7 +32,7 @@
   "Take a query and its parameters, and return a vector of matching reports."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (let [query   (format (str "SELECT id,
+  (let [query   (format (str "SELECT hash,
                                       certname,
                                       puppet_version,
                                       report_format,
@@ -42,7 +42,7 @@
                                       receive_time
                                   FROM reports %s ORDER BY start_time DESC")
                     sql)
-        results   (map
+        results (map
                     #(utils/mapkeys underscores->dashes %)
                     (query-to-vec (apply vector query params)))]
     results))

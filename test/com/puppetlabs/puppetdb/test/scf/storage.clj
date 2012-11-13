@@ -463,16 +463,17 @@
 
 
 
-(let [timestamp   (now)
-      report      (:basic reports)
-      id          (report-identity-string report)
-      certname    (:certname report)]
+(let [timestamp     (now)
+      report        (:basic reports)
+      report-hash   (report-identity-string report)
+      certname      (:certname report)]
 
   (deftest report-dedupe
     (testing "Reports with the same metadata but different events should have different hashes"
-      (is (not= hash (report-identity-string (reputils/add-random-event-to-report report))))
-      (is (not= hash (report-identity-string (reputils/mod-event-in-report report))))
-      (is (not= hash (report-identity-string (reputils/remove-random-event-from-report report)))))
+      (is (= report-hash (report-identity-string report)))
+      (is (not= report-hash (report-identity-string (reputils/add-random-event-to-report report))))
+      (is (not= report-hash (report-identity-string (reputils/mod-event-in-report report))))
+      (is (not= report-hash (report-identity-string (reputils/remove-random-event-from-report report)))))
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
@@ -482,7 +483,7 @@
                             #(assoc % :start-time (str (:start-time %) "foo"))
                             #(assoc % :end-time (str (:start-time %) "foo"))]]
         (doseq [mod-report-fn mod-report-fns]
-          (is (not= hash (report-identity-string (mod-report-fn report))))))))
+          (is (not= report-hash (report-identity-string (mod-report-fn report))))))))
 
   (deftest report-storage
     (testing "should store reports"
@@ -492,5 +493,5 @@
       (is (= (query-to-vec ["SELECT certname FROM reports"])
             [{:certname (:certname report)}]))
 
-      (is (= (query-to-vec ["SELECT id FROM reports"])
-            [{:id id}])))))
+      (is (= (query-to-vec ["SELECT hash FROM reports"])
+            [{:hash report-hash}])))))

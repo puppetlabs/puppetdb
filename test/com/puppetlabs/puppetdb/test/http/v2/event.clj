@@ -29,31 +29,31 @@
 
 
 (defn expected-resource-event-response
-  [resource-event report-id]
+  [resource-event report-hash]
   (-> resource-event
-    ;; the examples don't include the report-id, so we munge it into place
-    (assoc-in [:report-id] report-id)
+    ;; the examples don't include the report hash, so we munge it into place
+    (assoc-in [:report] report-hash)
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.
     (update-in [:timestamp] to-string)))
 
 (defn expected-resource-events-response
-  [resource-events report-id]
-  (set (map #(expected-resource-event-response % report-id) resource-events)))
+  [resource-events report-hash]
+  (set (map #(expected-resource-event-response % report-hash) resource-events)))
 
 (deftest query-by-report
-  (let [basic     (:basic reports)
-        report-id (scf-store/report-identity-string basic)]
+  (let [basic       (:basic reports)
+        report-hash (scf-store/report-identity-string basic)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 
     ;; TODO: test invalid requests
 
-    (testing "should return the list of resource events for a given report id"
-      (let [response (get-response ["=" "report-id" report-id])
+    (testing "should return the list of resource events for a given report hash"
+      (let [response (get-response ["=" "report" report-hash])
             expected (expected-resource-events-response
                         (:resource-events basic)
-                        report-id)]
+                        report-hash)]
         (response-equal? response expected)))))

@@ -10,9 +10,9 @@
 ;;
 ;; #### =
 ;;
-;; Events for report with report-id `74c355d0-18ac-4b69-9505-ec9ed675f556`:
+;; Events for report with report `38ff2aef3ffb7800fe85b322280ade2b867c8d27`:
 ;;
-;;    ["=", "report-id", "74c355d0-18ac-4b69-9505-ec9ed675f556"]
+;;    ["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]
 ;;
 ;;
 ;; ## Response Format
@@ -29,7 +29,7 @@
 ;;      "resource-title": "/tmp/reportingfoo",
 ;;      "new-value": "file",
 ;;      "message": "defined content as '{md5}49f68a5c8493ec2c0bf489821c21fc3b'",
-;;      "report-id": "74c355d0-18ac-4b69-9505-ec9ed675f556",
+;;      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
 ;;      "status": "success"
 ;;    },
 ;;    {
@@ -40,7 +40,7 @@
 ;;      "resource-title": "notify, yo",
 ;;      "new-value": "notify, yo",
 ;;      "message": "defined 'message' as 'notify, yo'",
-;;      "report-id": "74c355d0-18ac-4b69-9505-ec9ed675f556",
+;;      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
 ;;      "status": "success"
 ;;    }
 ;;  ]`

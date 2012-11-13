@@ -722,10 +722,10 @@ must be supplied as the value to be matched."
    timestamp]
   {:pre [(map? report)
          (utils/datetime? timestamp)]}
-  (let [report-id           (report-identity-string report)
+  (let [report-hash         (report-identity-string report)
         resource-event-rows (map #(-> %
                                      (assoc :timestamp (to-timestamp (:timestamp %)))
-                                     (assoc :report-id report-id)
+                                     (assoc :report report-hash)
                                      ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]
     (time! (:store-report metrics)
@@ -733,7 +733,7 @@ must be supplied as the value to be matched."
         ;; TODO: should probably do some checking / error-handling around
         ;; whether or not the report id already exists
         (sql/insert-record :reports
-          { :id                     report-id
+          { :hash                   report-hash
             :puppet_version         puppet-version
             :certname               certname
             :report_format          report-format

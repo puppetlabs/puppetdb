@@ -21,10 +21,9 @@
   (v1/test-v1-node-status v2-url))
 
 (deftest report-status
-  (let [report    (:basic examples/reports)
-        id        (scf-store/report-identity-string report)
-        certname  (:certname report)
-        timestamp (now)]
+  (let [report      (:basic examples/reports)
+        certname    (:certname report)
+        timestamp   (now)]
     (scf-store/add-certname! certname)
     (scf-store/add-report! report timestamp)
 

@@ -52,14 +52,14 @@
           (query/compile-report-term ["=" "foo" "foo"])))))
 
 (deftest reports-retrieval
-  (let [basic      (:basic reports)
-        report-id  (scf-store/report-identity-string basic)]
+  (let [basic         (:basic reports)
+        report-hash   (scf-store/report-identity-string basic)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 
     (testing "should return reports based on certname"
-      (let [expected  (expected-reports [(assoc basic :id report-id)])
+      (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]
         (is (= expected actual))))))
 

@@ -33,7 +33,7 @@
   events."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (let [query   (format (str "SELECT report_id,
+  (let [query   (format (str "SELECT report,
                                       status,
                                       timestamp,
                                       resource_type,
@@ -58,7 +58,7 @@
       (throw (IllegalArgumentException.
                (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
   (case path
-    "report-id" {:where "resource_events.report_id = ?"
-                 :params [value] }
+    "report" {:where "resource_events.report = ?"
+              :params [value] }
     (throw (IllegalArgumentException.
                  (str term " is not a valid query term")))))

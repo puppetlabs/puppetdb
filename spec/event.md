@@ -20,13 +20,14 @@ The `query` parameter is described by the following grammar:
 
 `field` may be any of:
 
-`report-id`: the unique id of the report; these can be acquired in the response
-    to a `store report` command, or via the [`/reports`](report.md) query endpoint.
+`report`: the unique id of the report; this is a hash built up from the contents
+    of the report which allow us to distinguish it from other reports.  These ids
+    can be acquired via the [`/reports`](report.md) query endpoint.
 
 For example, for all events in the report with id
-'74c355d0-18ac-4b69-9505-ec9ed675f556', the JSON query structure would be:
+'38ff2aef3ffb7800fe85b322280ade2b867c8d27', the JSON query structure would be:
 
-    ["=", "report-id", "74c355d0-18ac-4b69-9505-ec9ed675f556"]
+    ["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]
 
 # Response format
 
@@ -42,7 +43,7 @@ For example, for all events in the report with id
       "resource-title": "/tmp/reportingfoo",
       "new-value": "file",
       "message": "defined content as '{md5}49f68a5c8493ec2c0bf489821c21fc3b'",
-      "report-id": "74c355d0-18ac-4b69-9505-ec9ed675f556",
+      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
       "status": "success"
     },
     {
@@ -53,7 +54,7 @@ For example, for all events in the report with id
       "resource-title": "notify, yo",
       "new-value": "notify, yo",
       "message": "defined 'message' as 'notify, yo'",
-      "report-id": "74c355d0-18ac-4b69-9505-ec9ed675f556",
+      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
       "status": "success"
     }
   ]`
@@ -61,6 +62,6 @@ For example, for all events in the report with id
 
 # Example
 
-[You can use `curl`](curl.md) to query information about reports like so:
+[You can use `curl`](curl.md) to query information about events like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/events' --data-urlencode 'query=["=", "report-id", "74c355d0-18ac-4b69-9505-ec9ed675f556"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]'

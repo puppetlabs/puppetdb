@@ -6,8 +6,7 @@
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]))
 
-(let [report-id (utils/uuid)
-      report (:basic reports)]
+(let [report (:basic reports)]
 
   (deftest test-validate!
     (testing "should accept a valid report"

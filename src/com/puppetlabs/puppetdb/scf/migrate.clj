@@ -203,7 +203,7 @@
   "Add a resource_events and reports tables."
   []
   (sql/create-table :reports
-    ["id" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
     ["report_format" "SMALLINT" "NOT NULL"]
@@ -213,7 +213,7 @@
     ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
 
   (sql/create-table :resource_events
-    ["report_id" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"]
+    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"]
     ["status" "VARCHAR(40)" "NOT NULL"]
     ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
     ["resource_type" "TEXT" "NOT NULL"]
@@ -229,7 +229,7 @@
     ; (because of skipped resources).
     ; We decided to just use a UNIQUE constraint for now, but another option
     ; would be to split this out into two tables.
-    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"])
+    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report, resource_type, resource_title, property)"])
 
   (sql/do-commands
     "CREATE INDEX idx_reports_certname ON reports(certname)")
@@ -240,7 +240,7 @@
     "CREATE INDEX idx_reports_end_time ON reports(end_time)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_report_id ON resource_events(report_id)")
+    "CREATE INDEX idx_resource_events_report ON resource_events(report)")
 
   (sql/do-commands
     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
