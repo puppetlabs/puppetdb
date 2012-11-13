@@ -106,11 +106,12 @@ module CharEncoding
      Utf8CharLens[byte]
    end
 
-   # Manually cleans a string by replacing any byte sequences that are not
-   #  valid UTF-8 characters with the unicode replacement character.  Due
-   #  to differences in how the [] operator works on strings in ruby 1.8 vs.
-   #  ruby 1.9, this method will NOT work with ruby 1.9.
-   def self.ruby18_manually_clean_utf8(str)
+   # Manually cleans a string by stripping any byte sequences that are
+   # not valid UTF-8 characters.  If you'd prefer for the invalid bytes to be
+   # replaced with the unicode replacement character rather than being stripped,
+   # you may pass `false` for the optional second parameter (`strip`, which
+   # defaults to `true`).
+   def self.ruby18_manually_clean_utf8(str, strip = true)
 
      # This is a hack to allow this code to work with either ruby 1.8 or 1.9,
      # which is useful for debugging and benchmarking.  For more info see the
@@ -130,11 +131,11 @@ module CharEncoding
        char_len = get_char_len(byte)
        case char_len
        when 0
-         result.concat(Utf8ReplacementChar)
+         result.concat(Utf8ReplacementChar) unless strip
        when 1
          result << byte
        when 2..4
-         ruby18_handle_multibyte_char(result, byte, str, i,  char_len)
+         ruby18_handle_multibyte_char(result, byte, str, i,  char_len, strip)
          i += char_len - 1
        else
          raise Puppet::DevError, "Unhandled UTF8 char length: '#{char_len}'"
@@ -145,7 +146,7 @@ module CharEncoding
      result
    end
 
-  def self.ruby18_handle_multibyte_char(result_str, byte, str, i, char_len)
+  def self.ruby18_handle_multibyte_char(result_str, byte, str, i, char_len, strip = true)
     # keeping an array of bytes for now because we need to do some
     #  bitwise math on them.
     char_additional_bytes = []
@@ -153,7 +154,7 @@ module CharEncoding
     # If we don't have enough bytes left to read the full character, we
     #  put on a replacement character and bail.
     if i + (char_len - 1) > str.length
-      result_str.concat(Utf8ReplacementChar)
+      result_str.concat(Utf8ReplacementChar) unless strip
       return
     end
 
@@ -168,7 +169,7 @@ module CharEncoding
       result_str << byte
       result_str.concat(char_additional_bytes.pack("c*"))
     else
-      result_str.concat(Utf8ReplacementChar)
+      result_str.concat(Utf8ReplacementChar) unless strip
     end
   end
 
