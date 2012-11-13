@@ -11,7 +11,6 @@ describe Puppet::Util::Puppetdb::CharEncoding do
     def test_utf8_clean(in_bytes, expected_bytes)
       instr = in_bytes.pack('c*')
       out = described_class.ruby18_clean_utf8(instr)
-      #pp out.bytes.to_a.map { |b| "0x%02x" % b }.join(" ")
       out.should == expected_bytes.pack('c*')
     end
 
@@ -23,14 +22,14 @@ describe Puppet::Util::Puppetdb::CharEncoding do
     end
 
     Utf8ReplacementChar = [0xEF, 0xBF, 0xBD]
-    it "should replace invalid multi-byte characters with the unicode replacement character" do
+    it "should strip invalid UTF-8 characters from an invalid multi-byte sequence" do
       in_bytes = [0xE2, 0xCB, 0x87]
-      test_utf8_clean(in_bytes, Utf8ReplacementChar)
+      test_utf8_clean(in_bytes, [0xCB, 0x87])
     end
 
-    it "should replace an incomplete multi-byte character with the unicode replacement character" do
+    it "should strip incomplete multi-byte characters" do
       in_bytes = [0xE2, 0x9B]
-      test_utf8_clean(in_bytes, Utf8ReplacementChar)
+      test_utf8_clean(in_bytes, [])
     end
 
     it "should replace invalid characters with the unicode replacement character" do
@@ -41,7 +40,6 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       #  clojure, thus causing checksum errors.
       in_bytes = [0x21, 0x7F, 0xFD, 0x80, 0xBD, 0xBB, 0xB6, 0xA1]
       expected_bytes = [0x21, 0x7F]
-      expected_bytes.concat(Utf8ReplacementChar * 6)
       test_utf8_clean(in_bytes, expected_bytes)
     end
 
@@ -52,10 +50,10 @@ describe Puppet::Util::Puppetdb::CharEncoding do
      [[0xF8, 0xF9, 0xFA, 0xFB], 5],
      [[0xFC, 0xFD, 0xFE, 0xFF], 6]].each do |bytes, num_bytes|
       bytes.each do |first_byte|
-        it "should replace invalid #{num_bytes}-byte character starting with 0x#{first_byte.to_s(16)}" do
+        it "should strip the invalid bytes from a #{num_bytes}-byte character starting with 0x#{first_byte.to_s(16)}" do
           in_bytes = [first_byte]
           (num_bytes - 1).times { in_bytes << 0x80 }
-          test_utf8_clean(in_bytes, Utf8ReplacementChar * num_bytes)
+          test_utf8_clean(in_bytes, [])
         end
       end
     end
@@ -69,7 +67,7 @@ describe Puppet::Util::Puppetdb::CharEncoding do
 
       it "should reject characters that are above the 0x10FFFF limit of Unicode" do
         in_bytes = [0xF4, 0x90, 0xbf, 0xbf]
-        test_utf8_clean(in_bytes, Utf8ReplacementChar)
+        test_utf8_clean(in_bytes, [])
       end
     end
   end
@@ -84,18 +82,18 @@ describe Puppet::Util::Puppetdb::CharEncoding do
         subject.utf8_string(str).should == str
       end
 
-      it "should replace invalid chars from non-overlapping latin-1 with a warning" do
+      it "should strip invalid chars from non-overlapping latin-1 with a warning" do
         Puppet.expects(:warning).with {|msg| msg =~ /Ignoring invalid UTF-8 byte sequences/}
 
         str = "a latin-1 string \xd6"
-        subject.utf8_string(str).should == "a latin-1 string \xef\xbf\xbd"
+        subject.utf8_string(str).should == "a latin-1 string "
       end
 
-      it "should replace invalid chars and warn if the string is invalid UTF-8" do
+      it "should strip invalid chars and warn if the string is invalid UTF-8" do
         Puppet.expects(:warning).with {|msg| msg =~ /Ignoring invalid UTF-8 byte sequences/}
 
         str = "an invalid utf-8 string \xff"
-        subject.utf8_string(str).should == "an invalid utf-8 string \xef\xbf\xbd"
+        subject.utf8_string(str).should == "an invalid utf-8 string "
       end
 
       it "should return a valid utf-8 string without warning" do
