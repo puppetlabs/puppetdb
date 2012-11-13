@@ -1,6 +1,7 @@
 require 'puppet/util'
 require 'puppet/util/puppetdb/char_encoding'
 require 'digest'
+require 'time'
 
 # TODO: This module is intended to be mixed-in by subclasses of
 # `Puppet::Indirector::REST`.  This is unfortunate because the code is useful
