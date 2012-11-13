@@ -43,11 +43,11 @@
   (set (map #(expected-resource-event-response % report-id) resource-events)))
 
 (deftest query-by-report
-  (let [report-id (utils/uuid)
-        basic     (:basic reports)]
+  (let [basic     (:basic reports)
+        report-id (scf-store/report-identity-string basic)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic report-id (now))
+    (scf-store/add-report! basic (now))
 
     ;; TODO: test invalid requests
 

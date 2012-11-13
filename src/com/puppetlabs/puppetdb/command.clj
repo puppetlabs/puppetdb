@@ -365,7 +365,7 @@
         timestamp   (:received annotations)]
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! name timestamp)
-      (scf-storage/add-report! report id timestamp))
+      (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [store report] puppet v%s - %s"
                 id (:puppet-version report) (:certname report)))))
 

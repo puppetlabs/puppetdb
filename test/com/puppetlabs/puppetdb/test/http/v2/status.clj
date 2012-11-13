@@ -21,12 +21,12 @@
   (v1/test-v1-node-status v2-url))
 
 (deftest report-status
-  (let [id        (uuid)
-        report    (:basic examples/reports)
+  (let [report    (:basic examples/reports)
+        id        (scf-store/report-identity-string report)
         certname  (:certname report)
         timestamp (now)]
     (scf-store/add-certname! certname)
-    (scf-store/add-report! report id timestamp)
+    (scf-store/add-report! report timestamp)
 
     (testing "should have a last report time"
       (let [response (v1/get-response v2-url certname)

@@ -672,23 +672,66 @@ must be supplied as the value to be matched."
           (delete-facts! name)
           (add-facts! name values timestamp))))
 
+
+(defn resource-event-identity-string
+  "Compute a hash for a resource event
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two resource events are identical (resource type, resource title,
+  property, values, status, timestamp, etc.)
+  "
+  [{:keys [resource-type resource-title property timestamp status old-value
+           new-value message] :as resource-event}]
+  (-> (sorted-map)
+    (assoc :resource-type resource-type)
+    (assoc :resource-title resource-title)
+    (assoc :property property)
+    (assoc :timestamp timestamp)
+    (assoc :status status)
+    (assoc :old-value old-value)
+    (assoc :new-value new-value)
+    (assoc :message message)
+    (pr-str)
+    (utils/utf8-string->sha1)))
+
+(defn report-identity-string
+  "Compute a hash for a report's content
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two reports contain the same things (certname,
+  configuration version, timestamps, events).
+  "
+  [{:keys [certname puppet-version report-format configuration-version
+           start-time end-time resource-events] :as report}]
+  (-> (sorted-map)
+    (assoc :certname certname)
+    (assoc :puppet-version puppet-version)
+    (assoc :report-format report-format)
+    (assoc :configuration-version configuration-version)
+    (assoc :start-time start-time)
+    (assoc :end-time end-time)
+    (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
+    (pr-str)
+    (utils/utf8-string->sha1)))
+
 (defn add-report!
   "Add a report and all of the associated events to the database."
   [{:keys [puppet-version certname report-format configuration-version
            start-time end-time resource-events]
     :as report}
-   report-id
    timestamp]
   {:pre [(map? report)
-         (string? report-id)
          (utils/datetime? timestamp)]}
-  (let [resource-event-rows (map #(-> %
+  (let [report-id           (report-identity-string report)
+        resource-event-rows (map #(-> %
                                      (assoc :timestamp (to-timestamp (:timestamp %)))
                                      (assoc :report-id report-id)
                                      ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
+        ;; TODO: should probably do some checking / error-handling around
+        ;; whether or not the report id already exists
         (sql/insert-record :reports
           { :id                     report-id
             :puppet_version         puppet-version

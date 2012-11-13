@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
+            [com.puppetlabs.puppetdb.report.utils :as reputils]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
@@ -460,14 +461,33 @@
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
 
 
-(let [id          (uuid)
-      timestamp   (now)
+
+
+(let [timestamp   (now)
       report      (:basic reports)
+      id          (report-identity-string report)
       certname    (:certname report)]
-  (deftest catalog-replacement
+
+  (deftest report-dedupe
+    (testing "Reports with the same metadata but different events should have different hashes"
+      (is (not= hash (report-identity-string (reputils/add-random-event-to-report report))))
+      (is (not= hash (report-identity-string (reputils/mod-event-in-report report))))
+      (is (not= hash (report-identity-string (reputils/remove-random-event-from-report report)))))
+
+    (testing "Reports with different metadata but the same events should have different hashes"
+      (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
+                            #(assoc % :puppet-version (str (:puppet-version %) "foo"))
+                            #(assoc % :report-format (inc (:report-format %)))
+                            #(assoc % :configuration-version (str (:configuration-version %) "foo"))
+                            #(assoc % :start-time (str (:start-time %) "foo"))
+                            #(assoc % :end-time (str (:start-time %) "foo"))]]
+        (doseq [mod-report-fn mod-report-fns]
+          (is (not= hash (report-identity-string (mod-report-fn report))))))))
+
+  (deftest report-storage
     (testing "should store reports"
       (add-certname! certname)
-      (add-report! report id timestamp)
+      (add-report! report timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
             [{:certname (:certname report)}]))

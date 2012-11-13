@@ -52,11 +52,11 @@
   (map #(dissoc % :receive-time) reports))
 
 (deftest query-by-certname
-  (let [report-id (utils/uuid)
-        basic     (:basic reports)]
+  (let [basic     (:basic reports)
+        report-id (scf-store/report-identity-string basic)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic report-id (now))
+    (scf-store/add-report! basic (now))
 
     ;; TODO: test invalid requests
 

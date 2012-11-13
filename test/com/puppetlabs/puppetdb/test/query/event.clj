@@ -48,11 +48,11 @@
           (query/compile-resource-event-term ["=" "foo" "foo"])))))
 
 (deftest resource-events-retrieval
-  (let [report-id  (utils/uuid)
-        basic      (:basic reports)]
+  (let [basic      (:basic reports)
+        report-id  (scf-store/report-identity-string basic)]
     (report/validate! basic)
     (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic report-id (now))
+    (scf-store/add-report! basic (now))
 
     (testing "should return the list of resource events for a given report id"
       (let [expected  (expected-resource-events (:resource-events basic) report-id)
