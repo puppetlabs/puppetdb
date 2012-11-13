@@ -106,7 +106,7 @@ module CharEncoding
      Utf8CharLens[byte]
    end
 
-   # Manually cleans a string by replacing stripping any byte sequences that are
+   # Manually cleans a string by stripping any byte sequences that are
    # not valid UTF-8 characters.  If you'd prefer for the invalid bytes to be
    # replaced with the unicode replacement character rather than being stripped,
    # you may pass `false` for the optional second parameter (`strip`, which
