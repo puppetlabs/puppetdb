@@ -349,19 +349,6 @@ body {
   .height(height)
   .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.1%"))
-  .description("Catalog duplication")
-  .addendum("% of catalogs encountered")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
-
   // Check the current version and for updates now, and then every 5 minutes
   setVersion();
   checkForUpdates();
