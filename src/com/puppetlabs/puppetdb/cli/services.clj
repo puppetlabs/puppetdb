@@ -61,8 +61,9 @@
         [clojure.tools.nrepl.transport :only (tty tty-greeting)]
         [clojure.core.incubator :only (-?>)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery version update-info)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.puppetdb.version :only [version update-info]]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -123,9 +124,9 @@
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
   is out of date."
-  [update-server]
+  [update-server db]
   (let [{:keys [version newer link]} (try
-                                       (update-info update-server)
+                                       (update-info update-server db)
                                        (catch Throwable e
                                          (log/debug e "Could not retrieve update information")))
         link-str                     (if link
@@ -284,7 +285,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          updater       (future (check-for-updates update-server))
+          updater       (future (check-for-updates update-server db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))

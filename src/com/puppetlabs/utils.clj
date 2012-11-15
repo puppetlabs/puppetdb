@@ -16,11 +16,8 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
-            [cheshire.core :as json]
-            [clj-http.client :as client]
             [digest]
-            [fs.core :as fs]
-            [trptcolin.versioneer.core :as version])
+            [fs.core :as fs])
   (:use [clojure.core.incubator :only (-?> -?>>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
@@ -486,18 +483,4 @@
   {:post [(pos? %)]}
   (.availableProcessors (Runtime/getRuntime)))
 
-(defn version*
-  []
-  (version/get-version "puppetdb" "puppetdb"))
 
-(def version
-  (memoize version*))
-
-(defn update-info
-  [update-server]
-  (let [current-version        (version)
-        url                    (format "%s?product=puppetdb&version=%s" update-server current-version)
-        {:keys [status body]}  (client/get url {:throw-exceptions false
-                                                :accept           :json})]
-    (if (= status 200)
-      (json/parse-string body true))))
