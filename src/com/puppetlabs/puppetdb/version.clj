@@ -15,26 +15,43 @@
 ;; ### PuppetDB current version
 
 (defn version*
+  "Get the version number of this PuppetDB installation."
   []
+  {:post [(string? %)]}
   (version/get-version "puppetdb" "puppetdb"))
 
 (def version
+  "Get the version number of this PuppetDB installation."
   (memoize version*))
 
 ;; ### Utility functions for checking for the latest available version of PuppetDB
 
 (defn version-data*
-  "Build up a map of version data to be used in the 'latest version' check."
+  "Build up a map of version data to be used in the 'latest version' check.
+
+  `db` is a map containing the database connection info, in the format
+  used by `clojure.jdbc`."
   [db]
+  {:pre  [(map? db)]
+   :post [(map? %)]}
   (sql/with-connection db
-    {:database-name (scf-store/sql-current-connection-database-name)
+    {:database-name    (scf-store/sql-current-connection-database-name)
      :database-version (string/join "." (scf-store/sql-current-connection-database-version))}))
 
 (def version-data
+  "Build up a map of version data to be used in the 'latest version' check."
   (memoize version-data*))
 
 (defn update-info
+  "Make a request to the puppetlabs server to determine the latest available
+  version of PuppetDB.  Returns the JSON object received from the server, which
+  is expected to be a map containing keys `:version`, `:newer`, and `:link`.
+
+  Returns `nil` if the request does not succeed for some reason."
   [update-server db]
+  {:pre  [(string? update-server)
+          (map? db)]
+   :post [((some-fn map? nil?) %)]}
   (let [current-version        (version)
         version-data           (assoc (version-data db) :version current-version)
         query-string           (ring-codec/form-encode version-data)
