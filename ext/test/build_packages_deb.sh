@@ -32,7 +32,7 @@ rm -f $NAME-$VERSION.tar
 ssh neptune "mkdir -p ${INCOMING}"
 
 ssh deb-builder <<BUILD_DEBS
-#set -e
+set -e
 set -x
 
 export PATH=~/bin:\$PATH
@@ -76,7 +76,7 @@ FREIGHT_CONF
 scp ./freight.conf neptune:${FREIGHT_DIR}
 
 ssh neptune <<FREIGHT
-#set -e
+set -e
 set -x
 
 for DISTRO in lucid maverick natty oneiric precise lenny squeeze wheezy; do
