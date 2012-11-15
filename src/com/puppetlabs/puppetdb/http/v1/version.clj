@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
             [clojure.tools.logging :as log])
-  (:use [com.puppetlabs.utils :only [version update-info]]
+  (:use [com.puppetlabs.puppetdb.version :only [version update-info]]
         com.puppetlabs.middleware
         [net.cgrand.moustache :only [app]]))
 
@@ -22,7 +22,7 @@
   {:pre [(:update-server globals)]}
   (let [update-server (:update-server globals)]
     (try
-      (if-let [update (update-info update-server)]
+      (if-let [update (update-info update-server (:scf-db globals))]
         (pl-http/json-response update)
         (do
           (log/debug (format
