@@ -33,7 +33,7 @@ scp $NAME-$VERSION.tar rpm-builder:$RPM_BUILD_DIR
 rm -f $NAME-$VERSION.tar
 
 ssh rpm-builder <<BUILD_RPMS
-#set -e
+set -e
 set -x
 
 tar -C $RPM_BUILD_DIR -xvf $RPM_BUILD_DIR/$NAME-$VERSION.tar
@@ -88,6 +88,7 @@ ssh neptune.puppetlabs.lan <<PUBLISH_RPMS
 
 find $YUM_DIR -name x86_64 -or -name i386 -or -name SRPMS | xargs -n 1 createrepo --update
 
+set -e
 set -x
 
 echo "BUCKET_NAME IS: ${BUCKET_NAME}"
