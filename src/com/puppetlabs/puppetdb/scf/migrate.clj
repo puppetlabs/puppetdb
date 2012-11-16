@@ -199,6 +199,59 @@
       "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
     "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
 
+(defn add-reports-tables
+  "Add a resource_events and reports tables."
+  []
+  (sql/create-table :reports
+    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+    ["puppet_version" "VARCHAR(40)" "NOT NULL"]
+    ["report_format" "SMALLINT" "NOT NULL"]
+    ["configuration_version" "VARCHAR(255)" "NOT NULL"]
+    ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
+
+  (sql/create-table :resource_events
+    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"]
+    ["status" "VARCHAR(40)" "NOT NULL"]
+    ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+    ["resource_type" "TEXT" "NOT NULL"]
+    ["resource_title" "TEXT" "NOT NULL"]
+    ;; I wish these next two could be "NOT NULL", but for now we are
+    ;; fabricating skipped resources as events, and in those cases we don't
+    ;; have any legitimate values to put into these fields.
+    ["property" "VARCHAR(40)"]
+    ["new_value" "TEXT"]
+    ["old_value" "TEXT"]
+    ["message" "TEXT"]
+    ; we can't set the "correct" primary key because `property` is nullable
+    ; (because of skipped resources).
+    ; We decided to just use a UNIQUE constraint for now, but another option
+    ; would be to split this out into two tables.
+    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report, resource_type, resource_title, property)"])
+
+  (sql/do-commands
+    "CREATE INDEX idx_reports_certname ON reports(certname)")
+
+  ; I presume we'll be doing a decent number of queries sorted by a timestamp,
+  ; and this seems like the most likely candidate out of the timestamp fields
+  (sql/do-commands
+    "CREATE INDEX idx_reports_end_time ON reports(end_time)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_report ON resource_events(report)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)")
+
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
+
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -208,7 +261,8 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
    6 drop-classes-and-tags
-   7 rename-fact-column})
+   7 rename-fact-column
+   8 add-reports-tables})
 
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema

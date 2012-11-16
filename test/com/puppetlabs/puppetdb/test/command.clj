@@ -2,7 +2,8 @@
   (:require [fs.core :as fs]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.catalog :as catalog])
+            [com.puppetlabs.puppetdb.catalog :as catalog]
+            [com.puppetlabs.puppetdb.examples.report :as report-examples])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
@@ -221,7 +222,10 @@
          (handle-message# msg#))
        (let [~publish-var publish#
              ~discard-var discard-dir#]
-         ~@body)
+         ~@body
+         ; Uncommenting this line can be very useful for debugging
+;         (println @log-output#)
+         )
        (finally
          (fs/delete-dir discard-dir#)))))
 
@@ -514,3 +518,16 @@
           (is (instance? java.sql.Timestamp (:deactivated result)))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
+
+(let [report       (:basic report-examples/reports)
+      command      {:command "store report"
+                    :version 1
+;                    :payload (json/generate-string report)}]
+                    :payload report}]
+  (deftest store-report
+    (testing "should store the report"
+      (test-msg-handler command publish discard-dir
+        (is (= (query-to-vec "SELECT certname,configuration_version FROM reports")
+              [{:certname (:certname report) :configuration_version (:configuration-version report)}]))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))

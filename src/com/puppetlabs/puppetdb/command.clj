@@ -60,6 +60,7 @@
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
@@ -352,6 +353,21 @@
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
     (log/info (format "[%s] [deactivate node] %s" id certname))))
+
+;; Report submission
+
+(defmethod process-command! ["store report" 1]
+  [{:keys [payload annotations]} {:keys [db]}]
+  (let [id          (:id annotations)
+        report      (upon-error-throw-fatality
+                      (report/validate! payload))
+        name        (:certname report)
+        timestamp   (:received annotations)]
+    (with-transacted-connection db
+      (scf-storage/maybe-activate-node! name timestamp)
+      (scf-storage/add-report! report timestamp))
+    (log/info (format "[%s] [store report] puppet v%s - %s"
+                id (:puppet-version report) (:certname report)))))
 
 ;; ## MQ I/O
 ;;
