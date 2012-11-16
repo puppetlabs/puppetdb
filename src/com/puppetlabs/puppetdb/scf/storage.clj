@@ -20,6 +20,7 @@
 
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -33,7 +34,7 @@
         [metrics.gauges :only (gauge)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]
-        [com.puppetlabs.jdbc :only [query-to-vec]]))
+        [com.puppetlabs.jdbc :only [query-to-vec dashes->underscores]]))
 
 (defn sql-current-connection-database-name
   "Return the database product name currently in use."
@@ -223,6 +224,8 @@ must be supplied as the value to be matched."
                                (float (utils/quotient dupes (+ dupes new)))))
 
    :replace-facts     (timer [ns-str "default" "replace-facts-time"])
+
+   :store-report      (timer [ns-str "default" "store-report-time"])
    })
 
 (defn db-serialize
@@ -643,7 +646,7 @@ must be supplied as the value to be matched."
 
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
-facts associated with the certname."
+  facts associated with the certname."
   [certname facts timestamp]
   {:pre [(utils/datetime? timestamp)]}
   (let [default-row {:certname certname}
@@ -668,3 +671,73 @@ facts associated with the certname."
          (sql/transaction
           (delete-facts! name)
           (add-facts! name values timestamp))))
+
+
+(defn resource-event-identity-string
+  "Compute a hash for a resource event
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two resource events are identical (resource type, resource title,
+  property, values, status, timestamp, etc.)
+  "
+  [{:keys [resource-type resource-title property timestamp status old-value
+           new-value message] :as resource-event}]
+  (-> (sort { :resource-type resource-type
+              :resource-title resource-title
+              :property property
+              :timestamp timestamp
+              :status status
+              :old-value old-value
+              :new-value new-value
+              :message message})
+      (pr-str)
+      (utils/utf8-string->sha1)))
+
+(defn report-identity-string
+  "Compute a hash for a report's content
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two reports contain the same things (certname,
+  configuration version, timestamps, events).
+  "
+  [{:keys [certname puppet-version report-format configuration-version
+           start-time end-time resource-events] :as report}]
+  (-> (sorted-map)
+    (assoc :certname certname)
+    (assoc :puppet-version puppet-version)
+    (assoc :report-format report-format)
+    (assoc :configuration-version configuration-version)
+    (assoc :start-time start-time)
+    (assoc :end-time end-time)
+    (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
+    (pr-str)
+    (utils/utf8-string->sha1)))
+
+(defn add-report!
+  "Add a report and all of the associated events to the database."
+  [{:keys [puppet-version certname report-format configuration-version
+           start-time end-time resource-events]
+    :as report}
+   timestamp]
+  {:pre [(map? report)
+         (utils/datetime? timestamp)]}
+  (let [report-hash         (report-identity-string report)
+        resource-event-rows (map #(-> %
+                                     (update-in [:timestamp] to-timestamp)
+                                     (assoc :report report-hash)
+                                     ((partial utils/mapkeys dashes->underscores)))
+                                  resource-events)]
+    (time! (:store-report metrics)
+      (sql/transaction
+        ;; TODO: should probably do some checking / error-handling around
+        ;; whether or not the report id already exists
+        (sql/insert-record :reports
+          { :hash                   report-hash
+            :puppet_version         puppet-version
+            :certname               certname
+            :report_format          report-format
+            :configuration_version  configuration-version
+            :start_time             (to-timestamp start-time)
+            :end_time               (to-timestamp end-time)
+            :receive_time           (to-timestamp timestamp)})
+        (apply sql/insert-records :resource_events resource-event-rows)))))

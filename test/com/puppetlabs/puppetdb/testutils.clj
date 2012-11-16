@@ -1,11 +1,14 @@
 (ns com.puppetlabs.puppetdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
+            [com.puppetlabs.http :as pl-http]
+            [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging.impl :as impl]
+            [cheshire.core :as json]
             [fs.core :as fs])
-  (:use [clojure.test :only [join-fixtures]]
-        [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]))
+  (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
+            [clojure.test]))
 
 (defn test-db-config
   "This is a placeholder function; it is supposed to return a map containing
@@ -123,6 +126,12 @@
   [f]
   (deref (:args (meta f))))
 
+(defn format-stacktrace
+  "Given a `Throwable`, returns a String containing the message and stack trace.
+  If passed `nil`, returns `nil`."
+  [ex]
+  (if ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
+
 (defn atom-logger [output-atom]
   "A logger factory that logs output to the supplied atom"
   (reify impl/LoggerFactory
@@ -138,3 +147,19 @@
   [& body]
   `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
      (fixture-fn# (fn [] ~@body))))
+
+; TODO: change order of expected/actual?
+; TODO: docs
+(defn response-equal?
+  "Test if the HTTP request is a success, and if the result is equal
+to the result of the form supplied to this method."
+  ([response expected]
+    (response-equal? response expected identity))
+  ([response expected body-munge-fn]
+    (is (= pl-http/status-ok   (:status response)))
+    (is (= "application/json" (get-in response [:headers "Content-Type"])))
+    (let [actual  (if (:body response)
+      (set (body-munge-fn (json/parse-string (:body response) true)))
+      nil)]
+      (is (= expected actual)
+        (str response)))))

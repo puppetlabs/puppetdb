@@ -71,6 +71,7 @@
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.utils :only [parse-number]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+        [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
         [clojure.core.match :only [match]]))
 
 (declare compile-term)
@@ -190,19 +191,19 @@
   "Compile a resource query, returning a vector containing the SQL and
   parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
-  {:post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+  {:post [valid-jdbc-query? %]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :resource joins)
         sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
     (apply vector sql params)))
 
+
+
 (defn fact-query->sql
   "Compile a fact query, returning a vector containing the SQL and parameters
   for the query. All fact columns are selected, and no order is applied."
   [ops query]
-  {:post [(string? (first %))
-          (every? (complement coll?) (rest %))]}
+  {:post [valid-jdbc-query? %]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :fact joins)
         sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]

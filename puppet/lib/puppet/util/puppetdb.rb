@@ -1,14 +1,25 @@
 require 'puppet/util'
 require 'puppet/util/puppetdb/char_encoding'
 require 'digest'
+require 'time'
 
+# TODO: This module is intended to be mixed-in by subclasses of
+# `Puppet::Indirector::REST`.  This is unfortunate because the code is useful
+# in other cases as well, but it's hard to use the "right" methods in Puppet
+# for making HTTPS requests using the Puppet SSL config / certs outside of the
+# indirector.  This has been fixed as of Puppet 3.0, (commit fa32691db3a7c2326118d528144fd1df824c0bb3), and this module
+# should probably be refactored once we don't need to support
+# versions prior to that.  See additional comments
+# below, and see also `Puppet::Util::Puppetdb::ReportHelper` for an example of
+# how to work around this limitation for the time being.
 module Puppet::Util::Puppetdb
 
   CommandsUrl = "/v2/commands"
 
-  CommandReplaceCatalog = "replace catalog"
-  CommandReplaceFacts = "replace facts"
-  CommandDeactivateNode = "deactivate node"
+  CommandReplaceCatalog   = "replace catalog"
+  CommandReplaceFacts     = "replace facts"
+  CommandDeactivateNode   = "deactivate node"
+  CommandStoreReport      = "store report"
 
   # TODO: we should get rid of these; it's global state and it can make our
   #  tests fail based on the order that they are run in.
@@ -46,6 +57,15 @@ module Puppet::Util::Puppetdb
     for_whom = " for #{request.key}" if request.key
 
     begin
+      # TODO: This line introduces a requirement that any class that mixes in this
+      # module must either be a subclass of `Puppet::Indirector::REST`, or
+      # implement its own compatible `#http_post` method, which, unfortunately,
+      # is not likely to have the same error handling functionality as the
+      # one in the REST class.  This was addressed in the following Puppet ticket:
+      #  http://projects.puppetlabs.com/issues/15975
+      # 
+      # and has been fixed in Puppet 3.0, so we can clean this up as soon we no longer need to maintain
+      # backward-compatibity with older versions of Puppet.
       response = http_post(request, CommandsUrl, "checksum=#{checksum}&payload=#{payload}", headers)
 
       log_x_deprecation_header(response)
@@ -59,9 +79,26 @@ module Puppet::Util::Puppetdb
         raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
       end
     rescue => e
+      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
+      #  we are able to do so (can't call them yet w/o breaking backwards
+      #  compatibility.)  We should either be using a nested exception or calling
+      #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
+      #  we lose context as to where the original exception occurred.
       raise Puppet::Error, "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
   end
+
+  ## Given an instance of ruby's Time class, this method converts it to a String
+  ## that conforms to PuppetDB's wire format for representing a date/time.
+  def self.to_wire_time(time)
+    # The current implementation simply calls iso8601, but having this method
+    # allows us to change that in the future if needed w/o being forced to
+    # update all of the date objects elsewhere in the code.
+    time.iso8601
+  end
+
+
+  private
 
   def format_command(payload, command, version)
     message = {
