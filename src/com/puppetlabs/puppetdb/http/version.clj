@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.http.version
   (:require [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr])
-  (:use [com.puppetlabs.utils :only [version update-info]]
+            [ring.util.response :as rr]
+            [clojure.tools.logging :as log])
+  (:use [com.puppetlabs.puppetdb.version :only [version update-info]]
         [net.cgrand.moustache :only [app]]))
 
 (defn current-version-response
@@ -19,9 +20,18 @@
   [{:keys [globals]}]
   {:pre [(:update-server globals)]}
   (let [update-server (:update-server globals)]
-    (if-let [update (update-info update-server)]
-      (pl-http/json-response update)
-      (pl-http/error-response "Could not find version" 404))))
+    (try
+      (if-let [update (update-info update-server (:scf-db globals))]
+        (pl-http/json-response update)
+        (do
+          (log/debug (format
+                       "Unable to determine latest version via update-server: '%s'"
+                       update-server))
+          (pl-http/error-response "Could not find version" 404)))
+      (catch java.io.IOException e
+        (log/debug (format "Error when checking for latest version: %s" e))
+        (pl-http/error-response
+          (format "Error when checking for latest version: %s" e))))))
 
 (def version-app
   (-> (app
