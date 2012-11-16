@@ -10,15 +10,16 @@
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection
-                                    add-limit-clause]]
-        [com.puppetlabs.puppetdb.query :only [resource-query->sql resource-operators-v1 resource-operators-v2 valid-query-format?]]))
+                                    add-limit-clause
+                                    valid-jdbc-query?]]
+        [com.puppetlabs.puppetdb.query :only [resource-query->sql resource-operators-v1 resource-operators-v2]]))
 
 (defn query->sql
   "Compile a resource `query` into an SQL expression using the specified set of
   `operators`."
   [operators query]
   {:pre  [(vector? query)]
-   :post [(valid-query-format? %)]}
+   :post [(valid-jdbc-query? %)]}
   (let [[subselect & params] (resource-query->sql operators query)
         sql (format (str "SELECT certname, resource, type, title, tags, exported, sourcefile, sourceline, rp.name, rp.value "
                          "FROM (%s) subquery1 "

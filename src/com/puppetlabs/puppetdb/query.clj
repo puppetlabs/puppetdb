@@ -71,6 +71,7 @@
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.utils :only [parse-number]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+        [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
         [clojure.core.match :only [match]]))
 
 (declare compile-term)
@@ -186,25 +187,11 @@
        (map #(join-tables lhs %))
        (string/join " ")))
 
-
-(defn valid-query-format?
-  "Most SQL queries generated in the PuppetDB code base are represented internally
-  as a vector whose first item is the SQL string (with optional '?' placeholders),
-  and whose remaining items (if any) are simple data types that can be passed
-  to a JDBC prepared statement as parameter values to bind to the placeholders
-  in the SQL string.  This function validates that a form complies to this structure.
-  It is intended primarily for use in pre- and post-conditions, for validation."
-  [q]
-  (and
-    (vector? q)
-    (string? (first q))
-    (every? (complement coll?) (rest q))))
-
 (defn resource-query->sql
   "Compile a resource query, returning a vector containing the SQL and
   parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-query-format? %]}
+  {:post [valid-jdbc-query? %]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :resource joins)
         sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
@@ -216,7 +203,7 @@
   "Compile a fact query, returning a vector containing the SQL and parameters
   for the query. All fact columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-query-format? %]}
+  {:post [valid-jdbc-query? %]}
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :fact joins)
         sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]

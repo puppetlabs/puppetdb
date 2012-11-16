@@ -682,17 +682,16 @@ must be supplied as the value to be matched."
   "
   [{:keys [resource-type resource-title property timestamp status old-value
            new-value message] :as resource-event}]
-  (-> (sorted-map)
-    (assoc :resource-type resource-type)
-    (assoc :resource-title resource-title)
-    (assoc :property property)
-    (assoc :timestamp timestamp)
-    (assoc :status status)
-    (assoc :old-value old-value)
-    (assoc :new-value new-value)
-    (assoc :message message)
-    (pr-str)
-    (utils/utf8-string->sha1)))
+  (-> (sort { :resource-type resource-type
+              :resource-title resource-title
+              :property property
+              :timestamp timestamp
+              :status status
+              :old-value old-value
+              :new-value new-value
+              :message message})
+      (pr-str)
+      (utils/utf8-string->sha1)))
 
 (defn report-identity-string
   "Compute a hash for a report's content
@@ -724,7 +723,7 @@ must be supplied as the value to be matched."
          (utils/datetime? timestamp)]}
   (let [report-hash         (report-identity-string report)
         resource-event-rows (map #(-> %
-                                     (assoc :timestamp (to-timestamp (:timestamp %)))
+                                     (update-in [:timestamp] to-timestamp)
                                      (assoc :report report-hash)
                                      ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]

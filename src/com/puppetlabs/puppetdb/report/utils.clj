@@ -48,5 +48,5 @@
         i   (rand-int len)]
     (assoc report :resource-events
         (concat (subvec resource-events 0 i)
-                (subvec resource-events (+ i 1) len)))))
+                (subvec resource-events (inc i) len)))))
 
