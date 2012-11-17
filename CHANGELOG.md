@@ -1,3 +1,41 @@
+1.0.3
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Deepak Giridharagopal
+* Nick Lewis
+* Chris Price
+
+Fixes:
+
+* (#17216) Fix problems with UTF-8 transcoding
+
+  Certain 5 and 6 byte sequences were being incorrectly transcoded to
+  UTF-8 on Ruby 1.8.x systems. We now do two separate passes, one with
+  iconv and one with our hand-rolled transcoding algorithms. Better
+  safe than sorry!
+
+* (#17498) Pretty-print JSON HTTP responses
+
+  We now output more nicely-formatted JSON when using the PuppetDB
+  HTTP API.
+
+* (#17397) DB pool setup fails with numeric username or password
+
+  This bug happens during construction of the DB connection pool. If
+  the username or password is numeric, when parsing the configuration
+  file they're turned into numbers. When we go to actually create the
+  pool, we get an error because we're passing in numbers when strings
+  are expected.
+
+* (#17524) Better logging and response handling for version checks
+
+  Errors when using the `version` endpoint are now caught, logged at a
+  more appropriate log level, and a reasonable HTTP response code is
+  returned to callers.
+
 1.0.2
 =========
 
