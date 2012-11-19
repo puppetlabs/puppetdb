@@ -30,22 +30,15 @@ MANIFEST
   sleep_until_queue_empty database
 
 
-  # This is a little unfortunate.  We have no real great way of retrieving the
-  # ids of reports for a specific node.  The only choice we really have for the
-  # moment is to issue a query to puppetdb to get *all* of the reports in the
-  # database.  From that, we can search through the results and find the most
-  # recent one for a given node, and pluck the report ID from that.  Then
-  # we can do another query to get all of the events for that report, and do
-  # our validation against those results.
-
-  # Query for all of the reports:
-  result = on database, "curl -G -H 'Accept: application/json' http://localhost:8080/v2/reports"
-
-  reports = JSON.parse(result.stdout)
-
   agents.each do |agent|
-    # Find the report ID for this agent
-    report = reports.find {|r| r["certname"] == agent.node_name }
+    # Query for all of the reports for this node:
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/reports --data-urlencode 'query=["=", "certname", "#{agent.node_name}"|
+
+    reports = JSON.parse(result.stdout)
+
+    # We are assuming we only care about the most recent report, and they should
+    # be sorted by descending timestamps
+    report = reports[0]
 
     # Now query for all of the events in this report
     result = on database, "curl -G -H 'Accept: application/json' 'http://localhost:8080/v2/events' --data-urlencode 'report-id=#{report["id"]}'"
