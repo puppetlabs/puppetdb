@@ -145,7 +145,7 @@ to the result of the form supplied to this method."
     (testing "fact subqueries are unsupported"
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
-                                                 ["in-result" "certname" ["project" "certname" ["select-facts"
+                                                 ["in" "certname" ["extract" "certname" ["select-facts"
                                                                                                 ["and"
                                                                                                  ["=" "name" "operatingsystem"]
                                                                                                  ["=" "value" "Debian"]]]]]])]
