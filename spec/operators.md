@@ -25,12 +25,10 @@ supplied regexp must follow are backend-dependent:
 
 ### Boolean operators
 
-Each of these operators accepts a list of expressions, and applies a logical
-operation to the results of those expressions.
-
-`and`: True if every expression returns true
-`or`: True if any expression returns true
-`not`: True if no expression returns true
+The `and` and `or` operators accept a list of expressions, and apply a logical
+operation to the results of those expressions. The `not` operator accepts a
+*single* expression, and negates its value (returning true if the expression is
+false, and vice versa).
 
 ### Subqueries
 

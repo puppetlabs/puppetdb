@@ -111,6 +111,14 @@ to the result of the form supplied to this method."
                                 ["=" ["node" "name"] "one.local"]
                                 ["=" "type" "File"]]
                                #{foo1}]
+                              [["or"
+                                ["=" ["node" "name"] "one.local"]
+                                ["=" "type" "File"]]
+                               #{foo1 bar1}]
+                              [["not"
+                                ["=" ["node" "name"] "one.local"]
+                                ["=" "type" "File"]]
+                               #{bar2}]
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
