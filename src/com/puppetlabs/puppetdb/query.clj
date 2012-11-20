@@ -197,8 +197,6 @@
         sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
     (apply vector sql params)))
 
-
-
 (defn fact-query->sql
   "Compile a fact query, returning a vector containing the SQL and parameters
   for the query. All fact columns are selected, and no order is applied."

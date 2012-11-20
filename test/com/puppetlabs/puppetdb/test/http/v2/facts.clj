@@ -58,7 +58,7 @@
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (set (json/parse-string (:body response) true))
                (set (for [[fact value] facts]
-                      {:node certname-with-facts :name fact :value value}))))))))
+                      {:certname certname-with-facts :name fact :value value}))))))))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -88,76 +88,76 @@
     (testing "fact queries"
       (testing "well-formed queries"
         (doseq [[query result] {nil
-                                [{:node "foo1" :name "domain" :value "testing.com"}
-                                 {:node "foo1" :name "hostname" :value "foo1"}
-                                 {:node "foo1" :name "kernel" :value "Linux"}
-                                 {:node "foo1" :name "operatingsystem" :value "Debian"}
-                                 {:node "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
-                                 {:node "foo1" :name "uptime_seconds" :value "4000"}
-                                 {:node "foo2" :name "domain" :value "testing.com"}
-                                 {:node "foo2" :name "hostname" :value "foo2"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "operatingsystem" :value "RedHat"}
-                                 {:node "foo2" :name "uptime_seconds" :value "6000"}
-                                 {:node "foo3" :name "domain" :value "testing.com"}
-                                 {:node "foo3" :name "hostname" :value "foo3"}
-                                 {:node "foo3" :name "kernel" :value "Darwin"}
-                                 {:node "foo3" :name "operatingsystem" :value "Darwin"}]
+                                [{:certname "foo1" :name "domain" :value "testing.com"}
+                                 {:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                                 {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
+                                 {:certname "foo1" :name "uptime_seconds" :value "4000"}
+                                 {:certname "foo2" :name "domain" :value "testing.com"}
+                                 {:certname "foo2" :name "hostname" :value "foo2"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "operatingsystem" :value "RedHat"}
+                                 {:certname "foo2" :name "uptime_seconds" :value "6000"}
+                                 {:certname "foo3" :name "domain" :value "testing.com"}
+                                 {:certname "foo3" :name "hostname" :value "foo3"}
+                                 {:certname "foo3" :name "kernel" :value "Darwin"}
+                                 {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["=" "name" "domain"]
-                                [{:node "foo1" :name "domain" :value "testing.com"}
-                                 {:node "foo2" :name "domain" :value "testing.com"}
-                                 {:node "foo3" :name "domain" :value "testing.com"}]
+                                [{:certname "foo1" :name "domain" :value "testing.com"}
+                                 {:certname "foo2" :name "domain" :value "testing.com"}
+                                 {:certname "foo3" :name "domain" :value "testing.com"}]
 
                                 ["=" "value" "Darwin"]
-                                [{:node "foo3" :name "kernel" :value "Darwin"}
-                                 {:node "foo3" :name "operatingsystem" :value "Darwin"}]
+                                [{:certname "foo3" :name "kernel" :value "Darwin"}
+                                 {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["not" ["=" "name" "domain"]]
-                                [{:node "foo1" :name "hostname" :value "foo1"}
-                                 {:node "foo1" :name "kernel" :value "Linux"}
-                                 {:node "foo1" :name "operatingsystem" :value "Debian"}
-                                 {:node "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
-                                 {:node "foo1" :name "uptime_seconds" :value "4000"}
-                                 {:node "foo2" :name "hostname" :value "foo2"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "operatingsystem" :value "RedHat"}
-                                 {:node "foo2" :name "uptime_seconds" :value "6000"}
-                                 {:node "foo3" :name "hostname" :value "foo3"}
-                                 {:node "foo3" :name "kernel" :value "Darwin"}
-                                 {:node "foo3" :name "operatingsystem" :value "Darwin"}]
+                                [{:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                                 {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
+                                 {:certname "foo1" :name "uptime_seconds" :value "4000"}
+                                 {:certname "foo2" :name "hostname" :value "foo2"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "operatingsystem" :value "RedHat"}
+                                 {:certname "foo2" :name "uptime_seconds" :value "6000"}
+                                 {:certname "foo3" :name "hostname" :value "foo3"}
+                                 {:certname "foo3" :name "kernel" :value "Darwin"}
+                                 {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["and" ["=" "name" "uptime_seconds"]
                                  [">" "value" "5000"]]
-                                [{:node "foo2" :name "uptime_seconds" :value "6000"}]
+                                [{:certname "foo2" :name "uptime_seconds" :value "6000"}]
 
                                 ["and" ["=" "name" "kernel"]
                                  ["~" "value" "i.u[xX]"]]
-                                [{:node "foo1" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}]
+                                [{:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}]
 
                                 ["~" "name" "^ho\\wt.*e$"]
-                                [{:node "foo1" :name "hostname" :value "foo1"}
-                                 {:node "foo2" :name "hostname" :value "foo2"}
-                                 {:node "foo3" :name "hostname" :value "foo3"}]
+                                [{:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo2" :name "hostname" :value "foo2"}
+                                 {:certname "foo3" :name "hostname" :value "foo3"}]
 
                                 ;; heinous regular expression to detect semvers
                                 ["~" "value" "^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"]
-                                [{:node "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}]
+                                [{:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}]
 
                                 ["and" ["=" "name" "hostname"]
                                  ["~" "certname" "^foo[12]$"]]
-                                [{:node "foo1" :name "hostname" :value "foo1"}
-                                 {:node "foo2" :name "hostname" :value "foo2"}]
+                                [{:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo2" :name "hostname" :value "foo2"}]
 
                                 ["and" ["=" "name" "hostname"]
                                  ["not" ["~" "certname" "^foo[12]$"]]]
-                                [{:node "foo3" :name "hostname" :value "foo3"}]
+                                [{:certname "foo3" :name "hostname" :value "foo3"}]
 
                                 ["and" ["=" "name" "uptime_seconds"]
                                  [">=" "value" "4000"]
                                  ["<" "value" "6000.0"]]
-                                [{:node "foo1" :name "uptime_seconds" :value "4000"}]
+                                [{:certname "foo1" :name "uptime_seconds" :value "4000"}]
 
                                 ["and" ["=" "name" "domain"]
                                  [">" "value" "5000"]]
@@ -165,38 +165,38 @@
 
                                 ["or" ["=" "name" "kernel"]
                                  ["=" "name" "operatingsystem"]]
-                                [{:node "foo1" :name "kernel" :value "Linux"}
-                                 {:node "foo1" :name "operatingsystem" :value "Debian"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "operatingsystem" :value "RedHat"}
-                                 {:node "foo3" :name "kernel" :value "Darwin"}
-                                 {:node "foo3" :name "operatingsystem" :value "Darwin"}]
+                                [{:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "operatingsystem" :value "RedHat"}
+                                 {:certname "foo3" :name "kernel" :value "Darwin"}
+                                 {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["=" "certname" "foo2"]
-                                [{:node "foo2" :name "domain" :value "testing.com" }
-                                 {:node "foo2" :name "hostname" :value "foo2"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "operatingsystem" :value "RedHat"}
-                                 {:node "foo2" :name "uptime_seconds" :value "6000"}]
+                                [{:certname "foo2" :name "domain" :value "testing.com" }
+                                 {:certname "foo2" :name "hostname" :value "foo2"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "operatingsystem" :value "RedHat"}
+                                 {:certname "foo2" :name "uptime_seconds" :value "6000"}]
 
                                 ["=" ["node" "active"] true]
-                                [{:node "foo2" :name "domain" :value "testing.com"}
-                                 {:node "foo2" :name "hostname" :value "foo2"}
-                                 {:node "foo2" :name "kernel" :value "Linux"}
-                                 {:node "foo2" :name "operatingsystem" :value "RedHat"}
-                                 {:node "foo2" :name "uptime_seconds" :value "6000"}
-                                 {:node "foo3" :name "domain" :value "testing.com"}
-                                 {:node "foo3" :name "hostname" :value "foo3"}
-                                 {:node "foo3" :name "kernel" :value "Darwin"}
-                                 {:node "foo3" :name "operatingsystem" :value "Darwin"}]
+                                [{:certname "foo2" :name "domain" :value "testing.com"}
+                                 {:certname "foo2" :name "hostname" :value "foo2"}
+                                 {:certname "foo2" :name "kernel" :value "Linux"}
+                                 {:certname "foo2" :name "operatingsystem" :value "RedHat"}
+                                 {:certname "foo2" :name "uptime_seconds" :value "6000"}
+                                 {:certname "foo3" :name "domain" :value "testing.com"}
+                                 {:certname "foo3" :name "hostname" :value "foo3"}
+                                 {:certname "foo3" :name "kernel" :value "Darwin"}
+                                 {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["=" ["node" "active"] false]
-                                [{:node "foo1" :name "domain" :value "testing.com"}
-                                 {:node "foo1" :name "hostname" :value "foo1"}
-                                 {:node "foo1" :name "kernel" :value "Linux"}
-                                 {:node "foo1" :name "operatingsystem" :value "Debian"}
-                                 {:node "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
-                                 {:node "foo1" :name "uptime_seconds" :value "4000"}]
+                                [{:certname "foo1" :name "domain" :value "testing.com"}
+                                 {:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                                 {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
+                                 {:certname "foo1" :name "uptime_seconds" :value "4000"}]
 
                                 ["and" ["=" "certname" "foo1"]
                                  ["=" ["node" "active"] true]]
@@ -248,8 +248,8 @@
                                                                                           ["=" "type" "Class"]
                                                                                           ["=" "title" "Apache"]]]]]]
 
-                                [{:node "bar" :name "ipaddress" :value "192.168.1.101"}
-                                 {:node "foo" :name "ipaddress" :value "192.168.1.100"}]
+                                [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+                                 {:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
                                 ;; "not" matching resources
                                 ["and"
@@ -260,7 +260,7 @@
                                                                                   ["=" "type" "Class"]
                                                                                   ["=" "title" "Apache"]]]]]]]
 
-                                [{:node "baz" :name "ipaddress" :value "192.168.1.102"}]
+                                [{:certname "baz" :name "ipaddress" :value "192.168.1.102"}]
 
                                 ;; Multiple matching resources
                                 ["and"
@@ -268,9 +268,9 @@
                                  ["in" "certname" ["extract" "certname" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]]
 
-                                [{:node "bar" :name "ipaddress" :value "192.168.1.101"}
-                                 {:node "baz" :name "ipaddress" :value "192.168.1.102"}
-                                 {:node "foo" :name "ipaddress" :value "192.168.1.100"}]
+                                [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+                                 {:certname "baz" :name "ipaddress" :value "192.168.1.102"}
+                                 {:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
                                 ;; Multiple facts
                                 ["and"
@@ -282,10 +282,10 @@
                                                                                  ["=" "type" "Class"]
                                                                                  ["=" "title" "Apache"]]]]]]
 
-                                [{:node "bar" :name "ipaddress" :value "192.168.1.101"}
-                                 {:node "bar" :name "operatingsystem" :value "Ubuntu"}
-                                 {:node "foo" :name "ipaddress" :value "192.168.1.100"}
-                                 {:node "foo" :name "operatingsystem" :value "Debian"}]
+                                [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+                                 {:certname "bar" :name "operatingsystem" :value "Ubuntu"}
+                                 {:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+                                 {:certname "foo" :name "operatingsystem" :value "Debian"}]
 
                                 ;; Multiple subqueries
                                 ["and"
@@ -300,9 +300,9 @@
                                                                                   ["=" "type" "Class"]
                                                                                   ["=" "title" "Main"]]]]]]]
 
-                                [{:node "bar" :name "ipaddress" :value "192.168.1.101"}
-                                 {:node "baz" :name "ipaddress" :value "192.168.1.102"}
-                                 {:node "foo" :name "ipaddress" :value "192.168.1.100"}]
+                                [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+                                 {:certname "baz" :name "ipaddress" :value "192.168.1.102"}
+                                 {:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
                                 ;; No matching resources
                                 ["and"
@@ -326,15 +326,15 @@
                                                                                  ["=" "name" "osfamily"]
                                                                                  ["=" "value" "Debian"]]]]]]
 
-                                [{:node "bar" :name "ipaddress" :value "192.168.1.101"}
-                                 {:node "foo" :name "ipaddress" :value "192.168.1.100"}]
+                                [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+                                 {:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
                                 ;; Using a different column
                                 ["in" "name" ["extract" "name" ["select-facts"
                                                                        ["=" "name" "osfamily"]]]]
-                                [{:node "bar" :name "osfamily" :value "Debian"}
-                                 {:node "baz" :name "osfamily" :value "RedHat"}
-                                 {:node "foo" :name "osfamily" :value "Debian"}]
+                                [{:certname "bar" :name "osfamily" :value "Debian"}
+                                 {:certname "baz" :name "osfamily" :value "RedHat"}
+                                 {:certname "foo" :name "osfamily" :value "Debian"}]
 
 
                                 ;; Nested fact subqueries
@@ -349,7 +349,7 @@
                                                                                                                                  ["=" "name" "uptime_seconds"]
                                                                                                                                  [">" "value" 10000]]]]]]]]]]
 
-                                [{:node "foo" :name "ipaddress" :value "192.168.1.100"}]
+                                [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
                                 ;; Multiple fact subqueries
                                 ["and"
@@ -363,7 +363,7 @@
                                                                                  ["=" "name" "uptime_seconds"]
                                                                                  [">" "value" 10000]]]]]]
 
-                                [{:node "foo" :name "ipaddress" :value "192.168.1.100"}]}]
+                                [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}]}]
         (is-query-result query results))))
 
   (testing "invalid queries"
