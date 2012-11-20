@@ -212,7 +212,13 @@
         (let [request (make-request "/v2/facts" {"query" (json/generate-string [])})
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
-          (is (= body "[] is not well-formed: queries must contain at least one operator")))))))
+          (is (= body "[] is not well-formed: queries must contain at least one operator"))))
+
+      (testing "'not' with too many arguments"
+        (let [request (make-request "/v2/facts" {"query" (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]])})
+              {:keys [status body]} (*app* request)]
+          (is (= status pl-http/status-bad-request))
+          (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (defn is-query-result
   [query results]
