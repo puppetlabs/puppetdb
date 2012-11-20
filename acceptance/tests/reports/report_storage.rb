@@ -32,7 +32,7 @@ MANIFEST
 
   agents.each do |agent|
     # Query for all of the reports for this node:
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/reports --data-urlencode 'query=["=", "certname", "#{agent.node_name}"]'|
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
 
     reports = JSON.parse(result.stdout)
 
@@ -41,7 +41,7 @@ MANIFEST
     report = reports[0]
 
     # Now query for all of the events in this report
-    result = on database, %Q|curl -G -H 'Accept: application/json' 'http://localhost:8080/v2/events' --data-urlencode 'query=["=", "report", "#{report["hash"]}"]'|
+    result = on database, %Q|curl -G -H 'Accept: application/json' 'http://localhost:8080/v2/events' --data 'query=["=",%20"report",%20"#{report["hash"]}"]'|
     events = JSON.parse(result.stdout)
 
     # This is a bit weird as well; all "skipped" resources during a puppet
