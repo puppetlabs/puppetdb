@@ -167,7 +167,7 @@ to the result of the form supplied to this method."
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
-                                                 ["in-result" "certname" ["project" "certname" ["select-facts"
+                                                 ["in" "certname" ["extract" "certname" ["select-facts"
                                                                                                 ["and"
                                                                                                  ["=" "name" "operatingsystem"]
                                                                                                  ["=" "value" "Debian"]]]]]])]
@@ -175,7 +175,7 @@ to the result of the form supplied to this method."
         (is (= (set (json/parse-string body true)) #{foo1})))
 
       ;; Using the value of a fact as the title of a resource
-      (let [{:keys [body status]} (get-response ["in-result" "title" ["project" "value" ["select-facts"
+      (let [{:keys [body status]} (get-response ["in" "title" ["extract" "value" ["select-facts"
                                                                                          ["=" "name" "message"]]]])]
         (is (= status pl-http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
@@ -186,7 +186,7 @@ to the result of the form supplied to this method."
                                                ["=" "exported" true]
                                                ["and"
                                                 ["=" "exported" false]
-                                                ["in-result" "title" ["project" "title" ["select-resources"
+                                                ["in" "title" ["extract" "title" ["select-resources"
                                                                                                       ["=" "exported" true]]]]]])]
       (is (= status pl-http/status-ok))
       (is (= (set (json/parse-string body true)) #{foo2 bar2}))))

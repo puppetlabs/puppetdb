@@ -35,22 +35,22 @@
 ;; different set of operators for resources and facts, or v1 and v2 resource
 ;; queries, while still sharing the implementation of the operators themselves.
 ;;
-;; Other operators include the subquery operators, `in-result`, `project`, and
+;; Other operators include the subquery operators, `in`, `extract`, and
 ;; `select-resources` or `select-facts`. The `select-foo` operators implement
 ;; subqueries, and are simply implemented by calling their corresponding
 ;; `foo-query->sql` function, which means they return a complete SQL query
-;; rather than the compiled query map. The `project` function knows how to
+;; rather than the compiled query map. The `extract` function knows how to
 ;; handle that, and is the only place those queries are allowed as arguments.
-;; `project` is used to select a particular column from the subquery. The
-;; sibling operator to `project` is `in-result`, which checks that the value of
+;; `extract` is used to select a particular column from the subquery. The
+;; sibling operator to `extract` is `in`, which checks that the value of
 ;; a certain column from the table being queried is in the result set returned
-;; by `project`. Composed, these three operators provide a complete subquery
+;; by `extract`. Composed, these three operators provide a complete subquery
 ;; facility. For example, consider this fact query:
 ;;
 ;;     ["and"
 ;;      ["=" ["fact" "name"] "ipaddress"]
-;;      ["in-result" "certname"
-;;       ["project" "certname"
+;;      ["in" "certname"
+;;       ["extract" "certname"
 ;;        ["select-resources" ["and"
 ;;                             ["=" "type" "Class"]
 ;;                             ["=" "title" "apache"]]]]]]
@@ -128,8 +128,8 @@
   {"select-resources" :resource
    "select-facts" :fact})
 
-(defn compile-project
-  "Compile a `project` operator, selecting the given `field` from the compiled
+(defn compile-extract
+  "Compile an `extract` operator, selecting the given `field` from the compiled
   result of `subquery`, which must be a kind of `select` operator."
   [ops field subquery]
   {:pre [(string? field)
@@ -139,15 +139,15 @@
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
-      (throw (IllegalArgumentException. (format "The argument to project must be a select operator, not '%s'" (first subquery)))))
+      (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
     (when-not (get-in selectable-columns [subquery-type field])
-      (throw (IllegalArgumentException. (format "Can't project unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (selectable-columns subquery-type)))))))
+      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (selectable-columns subquery-type)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
-(defn compile-in-result
-  "Compile an `in-result` operator, selecting rows for which the value of
-  `field` appears in the result given by `subquery`, which must be a `project`
+(defn compile-in
+  "Compile an `in` operator, selecting rows for which the value of
+  `field` appears in the result given by `subquery`, which must be an `extract`
   composed with a `select`."
   [kind ops field subquery]
   {:pre [(string? field)
@@ -155,9 +155,9 @@
    :post [(map? %)
           (string? (:where %))]}
   (when-not (get-in selectable-columns [kind field])
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in-result'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (selectable-columns kind)))))))
-  (when-not (= (first subquery) "project")
-    (throw (IllegalArgumentException. (format "The subquery argument of 'in-result' must be a 'project', not '%s'" (first subquery)))))
+    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (selectable-columns kind)))))))
+  (when-not (= (first subquery) "extract")
+    (throw (IllegalArgumentException. (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
     (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
 
@@ -196,8 +196,6 @@
         join-stmt (build-join-expr :resource joins)
         sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
     (apply vector sql params)))
-
-
 
 (defn fact-query->sql
   "Compile a fact query, returning a vector containing the SQL and parameters
@@ -376,8 +374,8 @@
       "not" (partial compile-not resource-operators-v1)
       ;; All the subquery operators are unsupported in v1, so we dispatch to a
       ;; function that throws an exception
-      "project" unsupported
-      "in-result" unsupported
+      "extract" unsupported
+      "in" unsupported
       "select-resources" unsupported
       "select-facts" unsupported
       nil)))
@@ -392,8 +390,8 @@
     "and" (partial compile-and resource-operators-v2)
     "or" (partial compile-or resource-operators-v2)
     "not" (partial compile-not resource-operators-v2)
-    "project" (partial compile-project resource-operators-v2)
-    "in-result" (partial compile-in-result :resource resource-operators-v2)
+    "extract" (partial compile-extract resource-operators-v2)
+    "in" (partial compile-in :resource resource-operators-v2)
     "select-resources" (partial resource-query->sql resource-operators-v2)
     "select-facts" (partial fact-query->sql fact-operators-v2)
     nil))
@@ -414,8 +412,8 @@
       (= op "and") (partial compile-and fact-operators-v2)
       (= op "or") (partial compile-or fact-operators-v2)
       (= op "not") (partial compile-not fact-operators-v2)
-      (= op "project") (partial compile-project fact-operators-v2)
-      (= op "in-result") (partial compile-in-result :fact fact-operators-v2)
+      (= op "extract") (partial compile-extract fact-operators-v2)
+      (= op "in") (partial compile-in :fact fact-operators-v2)
       ;; select-resources uses a different set of operators-v2, of course
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))

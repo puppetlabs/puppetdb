@@ -41,10 +41,9 @@ include a subquery.
 
 Available subquery operators:
 
-`in-result`: This operator returns true if the supplied field exists in the
-query results that follow.
+`in`: This matches if the value of the given field is in the list that follows.
 
-`project`: This operator is used to extract the field we care about from the
+`extract`: This operator is used to extract the field we care about from the
 resources, so that we can find the corresponding facts.
 
 #### Examples
@@ -56,8 +55,8 @@ all nodes with Class[Apache]:
 
     ["and"
       ["=" "name" "ipaddress"]
-      ["in-result" "certname"
-        ["project" "certname"
+      ["in" "certname"
+        ["extract" "certname"
           ["select-resources"
             ["and"
               ["=" "type" "Class"]
@@ -76,8 +75,8 @@ all Debian nodes.
 
     ["and"
       ["=" "name" "ipaddress"]
-      ["in-result" "certname"
-        ["project" "certname"
+      ["in" "certname"
+        ["extract" "certname"
           ["select-facts"
             ["and"
               ["=" "name" "operatingsystem"]
