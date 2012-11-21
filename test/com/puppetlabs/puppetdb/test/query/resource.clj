@@ -184,7 +184,7 @@
                   ["=" ["parameter" "hash"] {"bar" 10}] []
                   ;; testing not operations
                   ["not" ["=" "type" "File"]] [foo2 foo3 bar3 foo5 bar5 foo6 foo7 foo8]
-                  ["not" ["=" "type" "File"] ["=" "type" "Notify"]] [foo6 foo7]
+                  ["not" ["=" "type" "Notify"]] [foo1 bar1 foo4 foo6 foo7]
                   ;; and, or
                   ["and" ["=" "type" "File"] ["=" "title" "/etc/passwd"]] [foo1 bar1]
                   ["and" ["=" "type" "File"] ["=" "type" "Notify"]] []
@@ -223,10 +223,20 @@
 
 (deftest query-resources-with-extra-FAIL
   (testing "combine terms without arguments"
-    (doseq [op ["and" "AND" "or" "OR" "AnD" "Or" "not" "NOT" "NoT"]]
+    (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
             (s/query-resources (s/v2-query->sql [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
+            (s/query-resources (s/v2-query->sql [op]))))))
+
+  (testing "'not' term without arguments in v1"
+    (doseq [op ["not" "NOT" "NoT"]]
+      (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
+            (s/query-resources (s/v1-query->sql [op]))))))
+
+  (testing "'not' term without arguments in v2"
+    (doseq [op ["not" "NOT" "NoT"]]
+      (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
             (s/query-resources (s/v2-query->sql [op]))))))
 
   (testing "bad query operators"

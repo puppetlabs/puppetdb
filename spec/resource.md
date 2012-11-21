@@ -18,10 +18,10 @@ Queries for resources must conform to the following format:
 
 The `query` parameter is described by the following grammar:
 
-    query: [ {type} {query}+ ] | [ {match} {field} {value} ]
+    query: [ {bool} {query}+ ] | [ "not" {query} ] | [ {match} {field} {value} ]
     field:  string | [ string+ ]
     value:  string
-    type:   "or" | "and" | "not"
+    bool:   "or" | "and"
     match:  "=" | "~"
 
 `field` may be any of:

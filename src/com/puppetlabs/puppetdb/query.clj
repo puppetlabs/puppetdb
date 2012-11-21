@@ -102,19 +102,35 @@
 (def compile-or
   (partial compile-boolean-operator* "or"))
 
-(defn compile-not
-  "Compile a NOT operator, applied to `terms`. This term is true if *every*
+(defn negate-term*
+  "Compiles `term` and returns the negated version of the query."
+  [ops term]
+  {:pre  [(sequential? term)]
+   :post [(string? (:where %))]}
+  (let [compiled-term (compile-term ops term)
+        query (format "NOT (%s)" (:where compiled-term))]
+    (assoc compiled-term :where query)))
+
+(defn compile-not-v1
+  "Compile a v1 NOT operator, applied to `terms`. This term is true if *every*
   argument term is false. The compilation is effectively to apply an OR
   operation to the terms, and then NOT that result."
   [ops & terms]
-  {:pre  [(every? vector? terms)
-          (every? coll? terms)]
+  {:pre  [(every? sequential? terms)]
    :post [(string? (:where %))]}
   (when (empty? terms)
     (throw (IllegalArgumentException. (str "not requires at least one term"))))
-  (let [term  (compile-term ops (cons "or" terms))
-        query (format "NOT (%s)" (:where term))]
-    (assoc term :where query)))
+  (negate-term* ops (cons "or" terms)))
+
+(defn compile-not-v2
+  "Compile a v2 NOT operator, applied to `term`. This term simply negates the
+  value of `term`. Basically this function just serves as error checking for
+  `negate-term*`."
+  [ops & [term & _ :as args]]
+  {:post [(string? (:where %))]}
+  (when-not (= (count args) 1)
+    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count args)))))
+  (negate-term* ops term))
 
 (def fact-columns #{"certname" "name" "value"})
 
@@ -371,7 +387,7 @@
       "=" compile-resource-equality-v1
       "and" (partial compile-and resource-operators-v1)
       "or" (partial compile-or resource-operators-v1)
-      "not" (partial compile-not resource-operators-v1)
+      "not" (partial compile-not-v1 resource-operators-v1)
       ;; All the subquery operators are unsupported in v1, so we dispatch to a
       ;; function that throws an exception
       "extract" unsupported
@@ -389,7 +405,7 @@
     "~" compile-resource-regexp
     "and" (partial compile-and resource-operators-v2)
     "or" (partial compile-or resource-operators-v2)
-    "not" (partial compile-not resource-operators-v2)
+    "not" (partial compile-not-v2 resource-operators-v2)
     "extract" (partial compile-extract resource-operators-v2)
     "in" (partial compile-in :resource resource-operators-v2)
     "select-resources" (partial resource-query->sql resource-operators-v2)
@@ -411,7 +427,7 @@
       ;; operators/functions to use, depending on the API version.
       (= op "and") (partial compile-and fact-operators-v2)
       (= op "or") (partial compile-or fact-operators-v2)
-      (= op "not") (partial compile-not fact-operators-v2)
+      (= op "not") (partial compile-not-v2 fact-operators-v2)
       (= op "extract") (partial compile-extract fact-operators-v2)
       (= op "in") (partial compile-in :fact fact-operators-v2)
       ;; select-resources uses a different set of operators-v2, of course
