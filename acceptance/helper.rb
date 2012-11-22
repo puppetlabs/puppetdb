@@ -130,6 +130,8 @@ module PuppetDBExtensions
   end
 
   def get_package_version(host, version)
+    return version if (version == "latest")
+
     # These 'platform' values come from the acceptance config files, so
     # we're relying entirely on naming conventions here.  Would be nicer
     # to do this using lsb_release or something, but...
