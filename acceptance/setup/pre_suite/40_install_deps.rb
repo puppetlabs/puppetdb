@@ -8,6 +8,8 @@ step "Install other dependencies" do
     # Our teardown script does some heinous magic with unzip to dig
     #  into the puppetdb jar.  Redhat doesn't ship with unzip.
     on database, "yum install -y unzip"
+  when :debian
+    on database, "apt-get install unzip"
   end
 
 
