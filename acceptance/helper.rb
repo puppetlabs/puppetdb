@@ -122,11 +122,25 @@ module PuppetDBExtensions
   end
 
   def sleep_until_started(host)
-    curl_with_retries("start puppetdb", host, "http://localhost:8080", 0)
+    curl_with_retries("start puppetdb", host, "http://localhost:8080", 0, 120)
     curl_with_retries("start puppetdb (ssl)",
                       host, "https://#{host.node_name}:8081", [35, 60])
   end
 
+  def get_package_version(host, version)
+    # These 'platform' values come from the acceptance config files, so
+    # we're relying entirely on naming conventions here.  Would be nicer
+    # to do this using lsb_release or something, but...
+    if host['platform'].include?('el-5')
+      version + "-1.el5"
+    elsif host['platform'].include?('el-6')
+      version + "-1.el6"
+    elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
+      version + "-1puppetlabs1"
+    else
+      raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
+    end
+  end
 
 
   def install_puppetdb(host, db, version='latest')
@@ -134,7 +148,7 @@ module PuppetDBExtensions
     class { 'puppetdb':
       database               => '#{db}',
       manage_redhat_firewall => false,
-      puppetdb_version       => '#{version}',
+      puppetdb_version       => '#{get_package_version(host, version)}',
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -157,9 +171,10 @@ module PuppetDBExtensions
           else
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
-      PuppetAcceptance::Log.notify "Expecting package version: '#{ENV['PUPPETDB_EXPECTED_VERSION']}', actual version: '#{installed_version}'"
-      if installed_version != ENV['PUPPETDB_EXPECTED_VERSION']
-        raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{ENV['PUPPETDB_EXPECTED_VERSION']}'"
+      expected_version = get_package_version(host, ENV['PUPPETDB_EXPECTED_VERSION'])
+      PuppetAcceptance::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
+      if installed_version != expected_version
+        raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{expected_version}'"
       end
     end
   end
@@ -172,7 +187,7 @@ module PuppetDBExtensions
     manifest = <<-EOS
     class { 'puppetdb::master::config':
       puppetdb_server           => '#{database.node_name}',
-      puppetdb_version          => '#{version}',
+      puppetdb_version          => '#{get_package_version(host, version)}',
       puppetdb_startup_timeout  => 120,
       restart_puppet            => false,
     }
