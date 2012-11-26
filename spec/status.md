@@ -2,7 +2,7 @@
 
 ## Node status
 
-Node status can be queried by making a GET request to `/status/nodes/<node>`,
+Node status can be queried by making a GET request to `/status/<node>`,
 accepting JSON.
 
 The format of the response is:
