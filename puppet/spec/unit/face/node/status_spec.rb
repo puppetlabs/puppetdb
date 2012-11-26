@@ -23,7 +23,7 @@ describe "node face: status" do
 
     nodes = %w[a b c d e]
     nodes.each do |node|
-      http.expects(:get).with("/status/nodes/#{node}", headers)
+      http.expects(:get).with("/status/#{node}", headers)
     end
 
     subject.status(*nodes)
@@ -35,7 +35,7 @@ describe "node face: status" do
 
     node = "foo/+*&bar"
 
-    http.expects(:get).with("/status/nodes/foo%2F%2B%2A%26bar", headers)
+    http.expects(:get).with("/status/foo%2F%2B%2A%26bar", headers)
 
     subject.status(node)
   end

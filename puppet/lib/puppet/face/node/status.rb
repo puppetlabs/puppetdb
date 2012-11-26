@@ -22,7 +22,7 @@ Puppet::Face.define(:node, '0.0.1') do
 
       args.map do |node|
         begin
-          response = http.get("/status/nodes/#{CGI.escape(node)}", headers)
+          response = http.get("/status/#{CGI.escape(node)}", headers)
           if response.is_a? Net::HTTPSuccess
             result = PSON.parse(response.body)
           elsif response.is_a? Net::HTTPNotFound
