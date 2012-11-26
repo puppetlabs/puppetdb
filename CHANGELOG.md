@@ -1,5 +1,25 @@
+1.0.4
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Chris Price
+
+Fixes:
+
+* (#16554) Fix postgres query for numeric comparisons
+
+  This commit changes the regex that we are using for numeric
+  comparisons in postgres to a format that is compatible with both 8.4
+  and 9.1.
+
 1.0.3
 =========
+
+NOTE: This version was not officially released, as additional fixes
+came in between the time we tagged this and the time we were going to
+publish release artifacts.
 
 Many thanks to the following people who contributed patches to this
 release:
