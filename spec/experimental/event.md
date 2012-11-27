@@ -64,4 +64,4 @@ For example, for all events in the report with id
 
 [You can use `curl`](curl.md) to query information about events like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/experimental/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]'
