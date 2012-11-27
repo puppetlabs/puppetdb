@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.v2.event
+(ns com.puppetlabs.puppetdb.test.http.experimental.event
   (:require [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -25,7 +25,7 @@
       (assoc request :headers (assoc headers "Accept" content-type-json))))
 
 (defn get-response
-  [query] (*app* (get-request "/v2/events" query)))
+  [query] (*app* (get-request "/experimental/events" query)))
 
 
 (defn expected-resource-event-response
