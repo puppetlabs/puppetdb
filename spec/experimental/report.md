@@ -61,4 +61,4 @@ the completion time of the report, in descending order:
 
 [You can use `curl`](curl.md) to query information about reports like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/reports' --data-urlencode 'query=["=", "certname", "example.local"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/experimental/reports' --data-urlencode 'query=["=", "certname", "example.local"]'

@@ -45,7 +45,7 @@
 ;;    }
 ;;  ]`
 
-(ns com.puppetlabs.puppetdb.http.v2.event
+(ns com.puppetlabs.puppetdb.http.experimental.event
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event :as query]
             [cheshire.core :as json]

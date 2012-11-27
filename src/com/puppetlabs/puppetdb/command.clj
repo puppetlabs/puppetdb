@@ -366,7 +366,7 @@
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! name timestamp)
       (scf-storage/add-report! report timestamp))
-    (log/info (format "[%s] [store report] puppet v%s - %s"
+    (log/info (format "[%s] [store report (EXPERIMENTAL!)] puppet v%s - %s"
                 id (:puppet-version report) (:certname report)))))
 
 ;; ## MQ I/O

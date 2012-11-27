@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.v2.report
+(ns com.puppetlabs.puppetdb.test.http.experimental.report
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.report :as report]
@@ -26,7 +26,7 @@
     (assoc request :headers (assoc headers "Accept" content-type-json))))
 
 (defn get-response
-  [query] (*app* (get-request "/v2/reports" query)))
+  [query] (*app* (get-request "/experimental/reports" query)))
 
 (defn report-response
   [report]
