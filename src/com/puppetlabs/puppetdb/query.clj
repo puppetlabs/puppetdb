@@ -74,7 +74,18 @@
         [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
         [clojure.core.match :only [match]]))
 
-(declare compile-term)
+(defn compile-term
+  "Compile a single query term, using `ops` as the set of legal operators. This
+  function basically just checks that the operator is known, and then
+  dispatches to the function implementing it."
+  [ops [op & args :as term]]
+  (when-not (sequential? term)
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
+  (when-not op
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
+  (if-let [f (ops op)]
+    (apply f args)
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator %s is unknown" term op)))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -126,11 +137,11 @@
   "Compile a v2 NOT operator, applied to `term`. This term simply negates the
   value of `term`. Basically this function just serves as error checking for
   `negate-term*`."
-  [ops & [term & _ :as args]]
+  [ops & terms]
   {:post [(string? (:where %))]}
-  (when-not (= (count args) 1)
-    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count args)))))
-  (negate-term* ops term))
+  (when-not (= (count terms) 1)
+    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count terms)))))
+  (negate-term* ops (first terms)))
 
 (def fact-columns #{"certname" "name" "value"})
 
@@ -433,16 +444,3 @@
       ;; select-resources uses a different set of operators-v2, of course
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
-
-(defn compile-term
-  "Compile a single query term, using `ops` as the set of legal operators. This
-  function basically just checks that the operator is known, and then
-  dispatches to the function implementing it."
-  [ops [op & args :as term]]
-  (when-not (sequential? term)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
-  (when-not op
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
-  (if-let [f (ops op)]
-    (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator %s is unknown" term op)))))
