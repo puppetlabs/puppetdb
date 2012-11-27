@@ -3,18 +3,19 @@
 Querying resources is accomplished by making an HTTP request to the
 `/resources` REST endpoint.
 
-# Query format
+## v2
 
-Queries for resources must conform to the following format:
+### Routes
 
-* A `GET` is used.
+#### `GET /v2/resources`
 
-* There is a single parameter, `query`.
+This will return all resources matching the given query. There must be
+an `Accept` header containing `application/json`.
 
-* There is an `Accept` header containing `application/json`.
+##### Parameters
 
-* The `query` parameter is a JSON array of query predicates, in prefix
-  form, conforming to the format described below.
+  `query`: Required. A JSON array of query predicates, in prefix form,
+  conforming to the format described below.
 
 The `query` parameter is described by the following grammar:
 
@@ -66,6 +67,94 @@ The available operators are [defined in operators.md](operators.md). Note that
 resource queries *do not support* inequality, and regexp matching *is not
 supported* against node status or parameter values.
 
+#### `GET /v2/resources/:type`
+
+This will return all resources for all active nodes with the given type. There must be
+an `Accept` header containing `application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/resources` route, mentioned above. When
+  supplied, the query is assumed to supply _additional_ criteria that
+  can be used to return a _subset_ of the information normally
+  returned by this route.
+
+##### Examples
+
+    curl -X GET -H "Accept: application/json" 'http://puppetdb:8080/v2/resources/User'
+
+    [{"parameters" : {
+        "uid" : "1000,
+        "shell" : "/bin/bash",
+        "managehome" : false,
+        "gid" : "1000,
+        "home" : "/home/foo,
+        "groups" : "users,
+        "ensure" : "present"
+      },
+      "sourceline" : 10,
+      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "exported" : false,
+      "tags" : [ "foo", "bar" ],
+      "title" : "foo",
+      "type" : "User",
+      "certname" : "host1.mydomain.com"
+    }, {"parameters" : {
+        "uid" : "1001,
+        "shell" : "/bin/bash",
+        "managehome" : false,
+        "gid" : "1001,
+        "home" : "/home/bar,
+        "groups" : "users,
+        "ensure" : "present"
+      },
+      "sourceline" : 20,
+      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "exported" : false,
+      "tags" : [ "foo", "bar" ],
+      "title" : "bar",
+      "type" : "User",
+      "certname" : "host2.mydomain.com"}]
+
+#### `GET /v2/resources/:type/:title`
+
+This will return all resources for all active nodes with the given
+type and title. There must be an `Accept` header containing
+`application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/resources` route, mentioned above. When
+  supplied, the query is assumed to supply _additional_ criteria that
+  can be used to return a _subset_ of the information normally
+  returned by this route.
+
+##### Examples
+
+    curl -X GET -H "Accept: application/json" 'http://puppetdb:8080/v2/resources/User/foo'
+
+    [{"parameters" : {
+        "uid" : "1000,
+        "shell" : "/bin/bash",
+        "managehome" : false,
+        "gid" : "1000,
+        "home" : "/home/foo,
+        "groups" : "users,
+        "ensure" : "present"
+      },
+      "sourceline" : 10,
+      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "exported" : false,
+      "tags" : [ "foo", "bar" ],
+      "title" : "foo",
+      "type" : "User",
+      "certname" : "host1.mydomain.com"
+    }]
+
 # Response format
 
 An array of zero or more resource objects, with each object having the
@@ -87,4 +176,4 @@ following form:
 
 [You can use `curl`](curl.md) to query information about resources like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/resources' --data-urlencode 'query=["and", ["=", "type", "File"], ["=", "title", "/etc/ipsec.conf"]]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/resources' --data-urlencode 'query=["and", ["=", "type", "File"], ["=", "title", "/etc/ipsec.conf"]]'

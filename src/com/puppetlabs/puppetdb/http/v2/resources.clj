@@ -1,8 +1,8 @@
 (ns com.puppetlabs.puppetdb.http.v2.resources
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resource :as r]
-            [cheshire.core :as json]
-            [ring.util.response :as rr])
+            [com.puppetlabs.puppetdb.http.query :as http-q]
+            [cheshire.core :as json])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -30,13 +30,21 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(def routes
+(def query-app
   (app
-    [""]
+    [&]
     {:get (fn [{:keys [params globals]}]
             (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals)))}))
 
 (def resources-app
-  (-> routes
-      verify-accepts-json
-      (verify-param-exists "query")))
+  (app
+   []
+   (-> query-app
+       (verify-param-exists "query")
+       (verify-accepts-json))
+
+   [type title &]
+   (comp query-app (partial http-q/restrict-resource-query-to-type type) (partial http-q/restrict-resource-query-to-title title))
+
+   [type &]
+   (comp query-app (partial http-q/restrict-resource-query-to-type type))))
