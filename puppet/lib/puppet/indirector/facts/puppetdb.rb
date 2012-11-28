@@ -66,7 +66,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       end
     end
 
-    query = ["and", ["=", ["node", "active"], true]] + filters
+    query = ["and"] + filters
     query_param = CGI.escape(query.to_pson)
 
     begin

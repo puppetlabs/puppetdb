@@ -22,44 +22,6 @@
    (let [request (request :get path params)]
      (update-in request [:headers] assoc "Accept" c-t))))
 
-(deftest fact-set-handler
-  (let [certname-with-facts "got_facts"
-        certname-without-facts "no_facts"
-        facts {"domain" "mydomain.com"
-               "fqdn" "myhost.mydomain.com"
-               "hostname" "myhost"
-               "kernel" "Linux"
-               "operatingsystem" "Debian"}]
-    (with-transacted-connection *db*
-      (scf-store/add-certname! certname-without-facts)
-      (scf-store/add-certname! certname-with-facts)
-      (scf-store/add-facts! certname-with-facts facts (now)))
-
-    (testing "for an absent node"
-      (let [request (make-request "/v2/facts/imaginary_node")
-            response (*app* request)]
-        (is (= (:status response) pl-http/status-not-found))
-        (is (= (get-in response [:headers "Content-Type"]) c-t))
-        (is (= (json/parse-string (:body response) true)
-               {:error "Could not find facts for imaginary_node"}))))
-
-    (testing "for a present node without facts"
-      (let [request (make-request (format "/v2/facts/%s" certname-without-facts))
-            response (*app* request)]
-        (is (= (:status response) pl-http/status-not-found))
-        (is (= (get-in response [:headers "Content-Type"]) c-t))
-        (is (= (json/parse-string (:body response) true)
-               {:error (str "Could not find facts for " certname-without-facts)}))))
-
-    (testing "for a present node with facts"
-      (let [request (make-request (format "/v2/facts/%s" certname-with-facts))
-            response (*app* request)]
-        (is (= (:status response) pl-http/status-ok))
-        (is (= (get-in response [:headers "Content-Type"]) c-t))
-        (is (= (set (json/parse-string (:body response) true))
-               (set (for [[fact value] facts]
-                      {:certname certname-with-facts :name fact :value value}))))))))
-
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -75,15 +37,22 @@
         facts3 {"domain" "testing.com"
                 "hostname" "foo3"
                 "kernel" "Darwin"
-                "operatingsystem" "Darwin"}]
+                "operatingsystem" "Darwin"}
+        facts4 {"domain" "testing.com"
+                "hostname" "foo4"
+                "kernel" "Linux"
+                "operatingsystem" "RedHat"
+                "uptime_seconds" "6000"}]
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
+      (scf-store/add-certname! "foo4")
       (scf-store/add-facts! "foo1" facts1 (now))
       (scf-store/add-facts! "foo2" facts2 (now))
       (scf-store/add-facts! "foo3" facts3 (now))
-      (scf-store/deactivate-node! "foo1"))
+      (scf-store/add-facts! "foo4" facts3 (now))
+      (scf-store/deactivate-node! "foo4"))
 
     (testing "fact queries"
       (testing "well-formed queries"
@@ -180,7 +149,13 @@
                                  {:certname "foo2" :name "uptime_seconds" :value "6000"}]
 
                                 ["=" ["node" "active"] true]
-                                [{:certname "foo2" :name "domain" :value "testing.com"}
+                                [{:certname "foo1" :name "domain" :value "testing.com"}
+                                 {:certname "foo1" :name "hostname" :value "foo1"}
+                                 {:certname "foo1" :name "kernel" :value "Linux"}
+                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                                 {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
+                                 {:certname "foo1" :name "uptime_seconds" :value "4000"}
+                                 {:certname "foo2" :name "domain" :value "testing.com"}
                                  {:certname "foo2" :name "hostname" :value "foo2"}
                                  {:certname "foo2" :name "kernel" :value "Linux"}
                                  {:certname "foo2" :name "operatingsystem" :value "RedHat"}
@@ -191,14 +166,9 @@
                                  {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
                                 ["=" ["node" "active"] false]
-                                [{:certname "foo1" :name "domain" :value "testing.com"}
-                                 {:certname "foo1" :name "hostname" :value "foo1"}
-                                 {:certname "foo1" :name "kernel" :value "Linux"}
-                                 {:certname "foo1" :name "operatingsystem" :value "Debian"}
-                                 {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
-                                 {:certname "foo1" :name "uptime_seconds" :value "4000"}]
+                                []
 
-                                ["and" ["=" "certname" "foo1"]
+                                ["and" ["=" "certname" "foo4"]
                                  ["=" ["node" "active"] true]]
                                 []}]
           (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})

@@ -6,7 +6,8 @@
 
 #### `GET /v2/facts`
 
-This will return all facts matching the given query. There must be an
+This will return all facts matching the given query. Facts for
+deactivated nodes are not included in the response. There must be an
 `Accept` header containing `application/json`.
 
 ##### Parameters
@@ -18,7 +19,6 @@ This will return all facts matching the given query. There must be an
   `"name"`: matches facts of the given name
   `"value"`: matches facts with the given value
   `"certname"`: matches facts for the given node
-  `["node", "active"]`: matches facts for nodes which are or aren't active
 
 ##### Operators
 
@@ -44,7 +44,7 @@ This will return all facts matching the given query. There must be an
 
 #### `GET /v2/facts/:name`
 
-This will return all facts for all active nodes with the indicated
+This will return all facts for all nodes with the indicated
 name. There must be an `Accept` header containing `application/json`.
 
 ##### Parameters

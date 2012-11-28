@@ -28,8 +28,9 @@
 (def query-app
   (app
    [&]
-   {:get (fn [{:keys [params globals] :as request}]
-           (query-facts (params "query") (:scf-db globals)))}))
+   {:get (comp (fn [{:keys [params globals] :as request}]
+                 (query-facts (params "query") (:scf-db globals)))
+               http-q/restrict-query-to-active-nodes)}))
 
 (def facts-app
   (app

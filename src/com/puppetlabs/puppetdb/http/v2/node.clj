@@ -10,10 +10,7 @@
 (def routes
   (app
     []
-    v1-node/node-app
-
-    [node "facts" fact &]
-    (comp f/facts-app (partial http-q/restrict-query-to-node node) (partial http-q/restrict-query-to-fact fact))
+    (comp v1-node/node-app http-q/restrict-query-to-active-nodes)
 
     [node "facts" &]
     (comp f/facts-app (partial http-q/restrict-query-to-node node))

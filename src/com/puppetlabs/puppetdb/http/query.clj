@@ -19,10 +19,20 @@
   {:pre  [(coll? restriction)]
    :post [(queries-are-different req %)]}
   (let [restricted-query (if-let [query (params "query")]
-                           (let [q (json/parse-string query true)]
-                             (conj restriction q))
+                           (if-let [q (json/parse-string query true)]
+                             (conj restriction q)
+                             restriction)
                            restriction)]
     (assoc-in req [:params "query"] (json/generate-string restricted-query))))
+
+(defn restrict-query-to-active-nodes
+  "Restrict the query parameter of the supplied request so that it
+  only returns results for the supplied node"
+  [req]
+  {:post [(queries-are-different req %)]}
+  (restrict-query ["and"
+                   ["=" ["node" "active"] true]]
+                  req))
 
 (defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it

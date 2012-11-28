@@ -9,8 +9,9 @@ Querying resources is accomplished by making an HTTP request to the
 
 #### `GET /v2/resources`
 
-This will return all resources matching the given query. There must be
-an `Accept` header containing `application/json`.
+This will return all resources matching the given query. Resources for
+deactivated nodes are not included in the response. There must be an
+`Accept` header containing `application/json`.
 
 ##### Parameters
 
@@ -33,9 +34,6 @@ The `query` parameter is described by the following grammar:
 `certname`
 : the name of the node associated with the resource
 
-`[node active]`
-: `true` if the node has not been deactivated, `false` if it has
-
 `[parameter <resource_param>]`
 : a parameter of the resource
 
@@ -54,11 +52,10 @@ The `query` parameter is described by the following grammar:
 `sourceline`
 : the line of the manifest on which the resource was declared
 
-For example, for file resources, tagged "magical", on any active host except
+For example, for file resources, tagged "magical", on any host except
 for "example.local" the JSON query structure would be:
 
     ["and", ["not", ["=", "certname", "example.local"]],
-            ["=", ["node", "active"], true],
             ["=", "type", "File"],
             ["=", "tag", "magical"],
             ["=", ["parameter", "ensure"], "enabled"]
@@ -69,8 +66,10 @@ supported* against node status or parameter values.
 
 #### `GET /v2/resources/:type`
 
-This will return all resources for all active nodes with the given type. There must be
-an `Accept` header containing `application/json`.
+This will return all resources for all nodes with the given
+type. Resources from deactivated nodes aren't included in the
+response. There must be an `Accept` header containing
+`application/json`.
 
 ##### Parameters
 
@@ -120,8 +119,9 @@ an `Accept` header containing `application/json`.
 
 #### `GET /v2/resources/:type/:title`
 
-This will return all resources for all active nodes with the given
-type and title. There must be an `Accept` header containing
+This will return all resources for all nodes with the given type and
+title. Resources from deactivated nodes aren't included in the
+response. There must be an `Accept` header containing
 `application/json`.
 
 ##### Parameters

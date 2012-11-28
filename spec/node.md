@@ -6,8 +6,9 @@
 
 #### `GET /v2/nodes`
 
-This will return all nodes matching the given query. There must be
-an `Accept` header containing `application/json`.
+This will return all nodes matching the given query. Deactivated nodes
+aren't included in the response. There must be an `Accept` header
+containing `application/json`.
 
 ##### Parameters
 
@@ -16,11 +17,9 @@ an `Accept` header containing `application/json`.
 
 The `query` parameter is a similar format to resource queries.
 
-Only queries against facts and filters based on node activeness are currently
-supported.
+Only queries against facts are currently supported.
 
-These terms must be of the form `["fact", <fact name>]` or `["node", "active"]`,
-respectively.
+These terms must be of the form `["fact", <fact name>]`.
 
 Accepted operators are: `[= > < >= <= and or not]`
 
@@ -30,11 +29,10 @@ which are not numeric.
 Note that nodes which are missing a fact referenced by a `not` query will match
 the query.
 
-This query will return active nodes whose kernel is Linux and whose uptime is less
+This query will return nodes whose kernel is Linux and whose uptime is less
 than 30 days:
 
     ["and",
-      ["=", ["node", "active"], true],
       ["=", ["fact", "kernel"], "Linux"],
       [">", ["fact", "uptime_days"], 30]]
 
@@ -52,12 +50,12 @@ in ascending order:
 [You can use `curl`](curl.md) to query information about nodes like so:
 
     curl -H "Accept: application/json" 'http://localhost:8080/nodes'
-    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 #### `GET /v2/nodes/:node`
 
-This will return status information for the given active node. There
-must be an `Accept` header containing `application/json`.
+This will return status information for the given node, active or
+not. There must be an `Accept` header containing `application/json`.
 
 ##### Response format
 
@@ -66,8 +64,9 @@ endpoint.
 
 #### `GET /v2/nodes/:node/resources`
 
-This will return the resources for the given active node. There must
-be an `Accept` header containing `application/json`.
+This will return the resources for the given node. Resources from
+deactivated nodes aren't included in the response. There must be an
+`Accept` header containing `application/json`.
 
 ##### Parameters
 
@@ -85,7 +84,8 @@ endpoint.
 #### `GET /v2/nodes/:node/resources/:type`
 
 This will return the resources of the indicated type for the given
-active node. There must be an `Accept` header containing
+node. Resources from deactivated nodes aren't included in the
+response. There must be an `Accept` header containing
 `application/json`.
 
 This endpoint behaves identically to the
@@ -96,7 +96,8 @@ for this route.
 #### `GET /v2/nodes/:node/resources/:type/:title`
 
 This will return the resource of the indicated type and title for the
-given active node. There must be an `Accept` header containing
+given node. Resources from deactivated nodes aren't included in the
+response. There must be an `Accept` header containing
 `application/json`.
 
 This endpoint behaves identically to the

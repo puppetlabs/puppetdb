@@ -162,31 +162,13 @@ describe Puppet::Node::Facts::Puppetdb do
       end.to raise_error(Puppet::Error, /Fact search against keys of type 'wrong' is unsupported/)
     end
 
-    it "should add a filter against only active nodes" do
-      args = {
-        'facts.kernel.eq' => 'Linux',
-      }
-
-      query = CGI.escape(["and", ["=", ["node", "active"], true],
-                                 ["=", ["fact", "kernel"], "Linux"]].to_pson)
-
-      response.stubs(:body).returns '[]'
-
-      subject.expects(:http_get).with do |_,url,_|
-        url.should == "/v2/nodes?query=#{query}"
-      end.returns response
-
-      search_facts(args)
-    end
-
     it "should combine multiple terms with 'and'" do
       args = {
         'facts.kernel.eq' => 'Linux',
         'facts.uptime.eq' => '10 days',
       }
 
-      query = CGI.escape(["and", ["=", ["node", "active"], true],
-                                 ["=", ["fact", "kernel"], "Linux"],
+      query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"],
                                  ["=", ["fact", "uptime"], "10 days"]].to_pson)
 
       response.stubs(:body).returns '[]'
@@ -203,8 +185,7 @@ describe Puppet::Node::Facts::Puppetdb do
         'facts.kernel.ne' => 'Linux',
       }
 
-      query = CGI.escape(["and", ["=", ["node", "active"], true],
-                                 ["not", ["=", ["fact", "kernel"], "Linux"]]].to_pson)
+      query = CGI.escape(["and", ["not", ["=", ["fact", "kernel"], "Linux"]]].to_pson)
 
       response.stubs(:body).returns '[]'
 
@@ -220,8 +201,7 @@ describe Puppet::Node::Facts::Puppetdb do
         'facts.kernel' => 'Linux',
       }
 
-      query = CGI.escape(["and", ["=", ["node", "active"], true],
-                                 ["=", ["fact", "kernel"], "Linux"]].to_pson)
+      query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"]].to_pson)
 
       response.stubs(:body).returns '[]'
 
@@ -243,8 +223,7 @@ describe Puppet::Node::Facts::Puppetdb do
           "facts.kernel.#{name}" => 'Linux',
         }
 
-        query = CGI.escape(["and", ["=", ["node", "active"], true],
-                                   [operator, ["fact", "kernel"], "Linux"]].to_pson)
+        query = CGI.escape(["and", [operator, ["fact", "kernel"], "Linux"]].to_pson)
 
         response.stubs(:body).returns '[]'
 

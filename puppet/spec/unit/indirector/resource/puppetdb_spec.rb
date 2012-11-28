@@ -54,7 +54,6 @@ describe Puppet::Resource::Puppetdb do
           ['and',
            ['=', 'type', 'File'],
            ['=', 'exported', true],
-           ['=', ['node', 'active'], true],
            ['not', ['=', 'certname', host]]]
       }
 

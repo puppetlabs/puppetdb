@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.resources
   (:require [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             ring.middleware.params)
   (:use clojure.test
@@ -146,24 +147,6 @@ to the result of the form supplied to this method."
             (is (= (:status response) pl-http/status-internal-error))
             (is (re-find #"more than the maximum number of results" body))))))
 
-    (testing "querying against inactive nodes"
-      (deactivate-node! "one.local")
-
-      (testing "should exclude inactive nodes when requested"
-        (let [query ["=" ["node" "active"] true]
-              result #{bar1 bar2}]
-          (is-response-equal (get-response query) result)))
-
-      (testing "should exclude active nodes when requested"
-        (let [query ["=" ["node" "active"] false]
-              result #{foo1 foo2}]
-          (is-response-equal (get-response query) result)))
-
-      (testing "should include all nodes otherwise"
-        (let [query ["=" "type" "File"]
-              result #{foo1 bar1}]
-          (is-response-equal (get-response query) result))))
-
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
@@ -195,4 +178,23 @@ to the result of the form supplied to this method."
     (let [response (get-response ["="])
           body     (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
-      (is (re-find #"= requires exactly two arguments" body))))))
+      (is (re-find #"= requires exactly two arguments" body))))
+
+  (testing "query with filter should exclude deactivated nodes"
+    ;; After deactivating one.local, it's resources should not appear
+    ;; in the results
+    (scf-store/deactivate-node! "one.local")
+
+    (doseq [[query result] [[["=" "type" "File"] #{bar1}]
+                            [["=" "tag" "one"] #{bar1}]
+                            [["=" "tag" "two"] #{bar1}]
+                            [["and"
+                              ["=" "certname" "one.local"]
+                              ["=" "type" "File"]]
+                             #{}]
+                            [["=" ["parameter" "ensure"] "file"] #{bar1}]
+                            [["=" ["parameter" "owner"] "root"] #{bar1}]
+                            [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
+      (is-response-equal (get-response query) result))))
+
+  )
