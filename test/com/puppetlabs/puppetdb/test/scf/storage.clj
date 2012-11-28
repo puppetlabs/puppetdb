@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [com.puppetlabs.puppetdb.report.utils :as reputils]
+            [com.puppetlabs.puppetdb.report :as report-val]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
@@ -460,8 +461,15 @@
 
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
 
+;; Report tests
 
-
+(defn store-report!
+  [example-report timestamp]
+  (let [report-hash   (report-identity-string example-report)]
+    (report-val/validate! example-report)
+    (add-certname! (:certname example-report))
+    (add-report! example-report timestamp)
+    report-hash))
 
 (let [timestamp     (now)
       report        (:basic reports)
@@ -487,11 +495,11 @@
 
   (deftest report-storage
     (testing "should store reports"
-      (add-certname! certname)
-      (add-report! report timestamp)
+      (store-report! report timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
             [{:certname (:certname report)}]))
 
       (is (= (query-to-vec ["SELECT hash FROM reports"])
             [{:hash report-hash}])))))
+

@@ -6,8 +6,8 @@
   (:use clojure.test
          com.puppetlabs.puppetdb.fixtures
          com.puppetlabs.puppetdb.examples.report
-         [clj-time.coerce :only [to-timestamp]]
-         [clj-time.core :only [now]]))
+         [clj-time.coerce :only [to-string to-timestamp]]
+         [clj-time.core :only [now ago days]]))
 
 (use-fixtures :each with-test-db)
 
@@ -15,6 +15,14 @@
 ;; Utility functions for massaging results and example data into formats that
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn store-report!
+  [example-report]
+  (let [report-hash   (scf-store/report-identity-string example-report)]
+    (report/validate! example-report)
+    (scf-store/maybe-activate-node! (:certname example-report) (now))
+    (scf-store/add-report! example-report (now))
+    report-hash))
 
 (defn expected-resource-event
   [example-resource-event report-hash]
@@ -58,5 +66,27 @@
       (let [expected  (expected-resource-events (:resource-events basic) report-hash)
             actual    (resource-events-query-result ["=" "report" report-hash])]
         (is (= expected actual))))))
+
+
+;; TODO: this test probably "belongs" in the scf/storage namespace, but
+;; that would prevent me from using some of the report-specific test utility
+;; functions that I've built up here.  I suppose I could create a new namespace
+;; for those, or just :use this namespace from the storage tests?  the former
+;; seems like overkill and the latter just feels weird :)
+(deftest resource-events-cleanup
+  (testing "should delete all events for reports older than the specified age"
+    (let [report1       (assoc (:basic reports)
+                                :end-time
+                                (to-string (ago (days 5))))
+          report1-hash  (store-report! report1)
+          report2       (assoc (:basic reports)
+                                :end-time
+                                (to-string (ago (days 2))))
+          report2-hash  (store-report! report2)
+          certname      (:certname report1)
+          _             (scf-store/delete-reports-older-than! (* 60 60 24 3))
+          expected      #{}
+          actual        (resource-events-query-result ["=" "report" report1-hash])]
+      (is (= expected actual)))))
 
 

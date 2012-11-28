@@ -27,8 +27,8 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
-  (:use [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [ago days now]]
+  (:use [clj-time.coerce :only [to-string to-timestamp]]
+        [clj-time.core :only [ago secs now]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -741,3 +741,9 @@ must be supplied as the value to be matched."
             :end_time               (to-timestamp end-time)
             :receive_time           (to-timestamp timestamp)})
         (apply sql/insert-records :resource_events resource-event-rows)))))
+
+(defn delete-reports-older-than!
+  "Delete all reports in the database which have an `end-time` that is more than
+   `report-ttl-seconds` in the past."
+  [report-ttl-seconds]
+  (sql/delete-rows :reports ["end_time < ?" (to-timestamp (ago (secs report-ttl-seconds)))]))

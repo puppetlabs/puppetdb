@@ -1,7 +1,9 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
   (:require [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
-        [clojure.test]))
+        [clojure.test]
+        [clj-time.core :only [days]]
+        [com.puppetlabs.time :only [to-secs]]))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -42,7 +44,39 @@
 
     (testing "should default to 60 minutes"
       (let [config (configure-database {})]
-        (is (= (get-in config [:database :gc-interval]) 60))))))
+        (is (= (get-in config [:database :gc-interval]) 60)))))
+
+  (testing "node-ttl"
+    (testing "should parse node-ttl and produce node-ttl-seconds"
+      (let [dbconfig (:database (configure-database { :database { :node-ttl "10d" }}))]
+        (is (not (contains? dbconfig :node-ttl)))
+        (is (= (to-secs (days 10)) (:node-ttl-seconds dbconfig)))))
+    (testing "should support node-ttl-days for backward compat"
+      (let [dbconfig (:database (configure-database { :database { :node-ttl-days 10 }}))]
+        (is (not (contains? dbconfig :node-ttl-days)))
+        (is (= (to-secs (days 10)) (:node-ttl-seconds dbconfig)))))
+    (testing "should prefer node-ttl over node-ttl-days"
+      (let [dbconfig (:database (configure-database { :database {:node-ttl "5d"
+                                                                 :node-ttl-days 10 }}))]
+        (is (not (contains? dbconfig :node-ttl-days)))
+        (is (not (contains? dbconfig :node-ttl)))
+        (is (= (to-secs (days 5)) (:node-ttl-seconds dbconfig)))))
+    (testing "should default to zero (no expiration)"
+      (let [dbconfig (:database (configure-database {}))]
+        (is (not (contains? dbconfig :node-ttl-days)))
+        (is (not (contains? dbconfig :node-ttl)))
+        (is (= 0 (:node-ttl-seconds dbconfig))))))
+
+  (testing "report-ttl"
+    (testing "should parse report-ttl and produce report-ttl-seconds"
+      (let [dbconfig (:database (configure-database { :database { :report-ttl "10d" }}))]
+        (is (not (contains? dbconfig :report-ttl)))
+        (is (= (to-secs (days 10)) (:report-ttl-seconds dbconfig)))))
+    (testing "should default to 30 days"
+      (let [dbconfig (:database (configure-database {}))]
+        (is (not (contains? dbconfig :report-ttl)))
+        (is (= (to-secs (days 30)) (:report-ttl-seconds dbconfig)))))))
+
 
 (deftest http-configuration
   (testing "should enable need-client-auth"
