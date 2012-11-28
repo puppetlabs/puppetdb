@@ -74,7 +74,18 @@
         [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
         [clojure.core.match :only [match]]))
 
-(declare compile-term)
+(defn compile-term
+  "Compile a single query term, using `ops` as the set of legal operators. This
+  function basically just checks that the operator is known, and then
+  dispatches to the function implementing it."
+  [ops [op & args :as term]]
+  (when-not (sequential? term)
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
+  (when-not op
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
+  (if-let [f (ops op)]
+    (apply f args)
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator %s is unknown" term op)))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -126,15 +137,17 @@
   "Compile a v2 NOT operator, applied to `term`. This term simply negates the
   value of `term`. Basically this function just serves as error checking for
   `negate-term*`."
-  [ops & [term & _ :as args]]
+  [ops & terms]
   {:post [(string? (:where %))]}
-  (when-not (= (count args) 1)
-    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count args)))))
-  (negate-term* ops term))
+  (when-not (= (count terms) 1)
+    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count terms)))))
+  (negate-term* ops (first terms)))
 
 (def fact-columns #{"certname" "name" "value"})
 
 (def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
+
+(def node-columns #{"name" "deactivated"})
 
 (def selectable-columns
   {:resource resource-columns
@@ -221,6 +234,15 @@
   (let [{:keys [where joins params]} (compile-term ops query)
         join-stmt (build-join-expr :fact joins)
         sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]
+    (apply vector sql params)))
+
+(defn node-query->sql
+  "Compile a node query, returning a vector containing the SQL and parameters
+  for the query. All node columns are selected, and no order is applied."
+  [ops query]
+  {:post [valid-jdbc-query? %]}
+  (let [{:keys [where params]} (compile-term ops query)
+        sql (format "SELECT %s FROM certnames WHERE %s" (string/join ", " node-columns) where)]
     (apply vector sql params)))
 
 (defn compile-resource-equality-v2
@@ -354,6 +376,7 @@
 
            :else (throw (IllegalArgumentException.
                           (str path " is not a valid operand for regexp comparison"))))))
+
 (defn compile-fact-inequality
   "Compile a numeric inequality for a fact query (> < >= <=). The `value` for
   comparison must be either a number or the string representation of a number.
@@ -372,6 +395,37 @@
 
            :else (throw (IllegalArgumentException.
                          (str path " is not a queryable object for facts"))))
+    (throw (IllegalArgumentException.
+            (format "Value %s must be a number for %s comparison." value op)))))
+
+(defn compile-node-equality
+  "Compile an equality operator for nodes. This can either be for the value of
+  a specific fact, or based on node activeness."
+  [path value]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (match [path]
+         [["fact" (name :when string?)]]
+         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
+          :params [name (str value)]}
+         [["node" "active"]]
+         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+
+         :else (throw (IllegalArgumentException.
+                        (str path " is not a queryable object for nodes")))))
+
+(defn compile-node-inequality
+  [op path value]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (if-let [number (parse-number (str value))]
+    (match [path]
+           [["fact" (name :when string?)]]
+           {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+            :params [name number]}
+
+           :else (throw (IllegalArgumentException.
+                         (str path " is not a queryable object for nodes"))))
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
@@ -434,15 +488,14 @@
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
 
-(defn compile-term
-  "Compile a single query term, using `ops` as the set of legal operators. This
-  function basically just checks that the operator is known, and then
-  dispatches to the function implementing it."
-  [ops [op & args :as term]]
-  (when-not (sequential? term)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
-  (when-not op
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
-  (if-let [f (ops op)]
-    (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator %s is unknown" term op)))))
+(defn node-operators
+  "Maps v1 node query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [op]
+  (let [op (string/lower-case op)]
+    (cond
+      (= op "=") compile-node-equality
+      (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
+      (= op "and") (partial compile-and node-operators)
+      (= op "or") (partial compile-or node-operators)
+      (= op "not") (partial compile-not-v1 node-operators))))
