@@ -10,26 +10,13 @@
 
 (use-fixtures :each with-test-db)
 
-(deftest fetch-all
-  (sql/insert-records
-   :certnames
-   {:name "foo"}
-   {:name "bar"}
-   {:name "baz"}
-   {:name "quux"}
-   {:name "something"})
-
-  (testing "should return all the certnames in the database"
-    (is (= (node/fetch-all)
-           ["bar" "baz" "foo" "quux" "something"])) ))
-
 (defn retrieve-nodes
   "Search for nodes based on an uncompiled query."
   [filter-expr]
   (let [query (node/query->sql filter-expr)]
-    (node/search query)))
+    (node/query-nodes query)))
 
-(deftest search
+(deftest query-nodes
   (let [names     #{"node_a" "node_b" "node_c" "node_d" "node_e"}
         timestamp (to-timestamp (now))]
     (doseq [name names]
