@@ -20,7 +20,7 @@
 
 (def routes
   (app
-    ["nodes" node]
+    [node]
     {:get (fn [{:keys [globals]}]
             (produce-node-status node (:scf-db globals)))}))
 

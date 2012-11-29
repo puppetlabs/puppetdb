@@ -13,7 +13,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def v2-url "/v2/status/nodes/")
+(def v2-url "/v2/status/")
 
 ;; All of the tests for v1 of the status endpoint are still valid, so we
 ;; just call them with our URL.

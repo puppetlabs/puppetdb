@@ -14,7 +14,6 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     expr = ['and',
              ['=', 'type', type],
              ['=', 'exported', true],
-             ['=', ['node', 'active'], true],
              ['not',
                ['=', 'certname', host]]]
 
