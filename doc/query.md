@@ -1,9 +1,9 @@
 # The PuppetDB query API
 
-The PuppetDB query API comes in two main flavors: facts and resources. These
-correspond naturally to the `/v2/facts` and `/v2/resources` routes. This
-documentation only covers the v2 query API (the v1 API is deprecated), so we'll
-omit that portion of the URL from now on.
+The PuppetDB query API comes in three main flavors: nodes, facts and resources.
+These correspond naturally to the `/v2/nodes`, `/v2/facts` and `/v2/resources`
+routes. This documentation only covers the v2 query API (the v1 API is
+deprecated), so we'll omit that portion of the URL from now on.
 
 # How to query
 
@@ -219,6 +219,32 @@ values which are not numeric. Importantly, version numbers such as 2.6.12 are
 not numeric, and the numeric comparison operators can't be used with them at
 this time.
 
+# Nodes
+
+We can also query for nodes. Once again, this is quite similar to resource and
+fact queries:
+
+    ["=", "name", "foo.example.com"]
+
+The result of this query is:
+
+    ["foo.example.com"]
+
+This will find the node foo.example.com. Note that the results of a node query
+contain only the node names, rather than an object with multiple fields as with
+resources and facts.
+
+## Querying on facts
+
+Nodes can also be queried based on their facts, using the same operators as for
+fact queries:
+
+    ["and",
+      ["=", ["fact", "operatingsystem"], "Debian"],
+      ["<", ["fact", "uptime_seconds"], 10000]]
+
+This will return Debian nodes with uptime_seconds < 10000.
+
 # Subqueries
 
 The queries we've looked at so far are quite powerful and useful, but what if
@@ -275,7 +301,7 @@ seems a lot like the one above, except we didn't have to specify exactly which
 certnames to use, and instead we get them in the same query.
 
 Similarly, there is a "select-facts" operator which will perform a fact
-subquery. Either kind of subquery is usable from either kind of query,
-subqueries may be nested, and multiple subqueries may be used in a single
-query. Finding use cases for some of those combinations is left as an exercise
-to the reader.
+subquery. Either kind of subquery is usable from every kind of query (facts,
+resources, and nodes), subqueries may be nested, and multiple subqueries may be
+used in a single query. Finding use cases for some of those combinations is
+left as an exercise to the reader.
