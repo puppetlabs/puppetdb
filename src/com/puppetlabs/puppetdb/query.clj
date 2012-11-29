@@ -141,7 +141,8 @@
 
 (def selectable-columns
   {:resource resource-columns
-   :fact fact-columns})
+   :fact fact-columns
+   :node node-columns})
 
 (def subquery->type
   {"select-resources" :resource
@@ -359,13 +360,32 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
-(defn compile-node-equality
-  "Compile an equality operator for nodes. This can either be for the value of
+(defn compile-node-equality-v1
+  "Compile a v1 equality operator for nodes. This can either be for the value of
   a specific fact, or based on node activeness."
   [path value]
   {:post [(map? %)
           (string? (:where %))]}
   (match [path]
+         [["fact" (name :when string?)]]
+         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
+          :params [name (str value)]}
+         [["node" "active"]]
+         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+
+         :else (throw (IllegalArgumentException.
+                        (str path " is not a queryable object for nodes")))))
+
+(defn compile-node-equality-v2
+  "Compile a v2 equality operator for nodes. This can either be for the value of
+  a specific fact, or based on node activeness."
+  [path value]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (match [path]
+         ["name"]
+         {:where "certnames.name = ?"
+          :params [value]}
          [["fact" (name :when string?)]]
          {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
           :params [name (str value)]}
@@ -449,7 +469,7 @@
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
 
-(defn node-operators
+(defn node-operators-v1
   "Maps v1 node query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [op]
@@ -457,9 +477,25 @@
         unsupported (fn [& args]
                       (throw (IllegalArgumentException. (format "Operator '%s' is not available in v1 node queries" op))))]
     (cond
-      (= op "=") compile-node-equality
+      (= op "=") compile-node-equality-v1
       (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
-      (= op "and") (partial compile-and node-operators)
-      (= op "or") (partial compile-or node-operators)
-      (= op "not") (partial compile-not-v1 node-operators)
+      (= op "and") (partial compile-and node-operators-v1)
+      (= op "or") (partial compile-or node-operators-v1)
+      (= op "not") (partial compile-not-v1 node-operators-v1)
       (#{"extract" "in" "select-resources" "select-facts"} op) unsupported)))
+
+(defn node-operators-v2
+  "Maps v1 node query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [op]
+  (let [op (string/lower-case op)]
+    (cond
+      (= op "=") compile-node-equality-v2
+      (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
+      (= op "and") (partial compile-and node-operators-v2)
+      (= op "or") (partial compile-or node-operators-v2)
+      (= op "not") (partial compile-not-v1 node-operators-v2)
+      (= op "extract") (partial compile-extract node-operators-v2)
+      (= op "in") (partial compile-in :node node-operators-v2)
+      (= op "select-resources") (partial resource-query->sql resource-operators-v2)
+      (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
