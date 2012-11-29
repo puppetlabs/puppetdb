@@ -6,8 +6,8 @@
 ;; the "compiled" form of the query, and then to turn that into a complete SQL
 ;; query.
 ;;
-;; The compiled form of a query consists of a map with three keys: `where`,
-;; `joins`, and `params`. The `where` key contains SQL for querying that
+;; The compiled form of a query consists of a map with two keys: `where`
+;; and `params`. The `where` key contains SQL for querying that
 ;; particular predicate, written in such a way as to be suitable for placement
 ;; after a `WHERE` clause in the database. `params` contains, naturally, the
 ;; parameters associated with that SQL expression. For instance, a resource
@@ -16,15 +16,7 @@
 ;;     {:where "certname_catalogs.certname = ?"
 ;;      :params ["foo.example.com"]}
 ;;
-;; The `joins` key contains a list of additional tables that need to be
-;; included in the query in order for the `where` clause to work properly. Note
-;; that for resources, the `certname_catalogs` and `catalog_resources` tables
-;; are always included, and for facts the `certname_facts` table is always
-;; included.
-;;
-;; The tables referenced in the `joins` key of the final compiled query are
-;; turned into proper `JOIN` clauses by the `build-join-expr` function. The
-;; `joins` and `where` keys are then inserted into a template query to return
+;; The `where` key is then inserted into a template query to return
 ;; the final result as a string of SQL code.
 ;;
 ;; The compiled query components can be combined by operators such as `AND` or
@@ -98,13 +90,11 @@
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [compiled-terms (map #(compile-term ops %) terms)
-        joins  (distinct (mapcat :joins compiled-terms))
         params (mapcat :params compiled-terms)
         query  (->> (map :where compiled-terms)
                     (map #(format "(%s)" %))
                     (string/join (format " %s " (string/upper-case op))))]
-    {:joins  joins
-     :where  query
+    {:where  query
      :params params}))
 
 (def compile-and
@@ -190,40 +180,13 @@
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
     (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
 
-(defn join-tables
-  "Constructs the appropriate join statement to `table` for a query of the
-  specified `kind`."
-  [kind table]
-  {:pre [(keyword? kind)
-         (keyword? table)]
-   :post [(string? %)]}
-  (condp = [kind table]
-        [:fact :certnames]
-        "INNER JOIN certnames ON certname_facts.certname = certnames.name"
-
-        [:resource :certnames]
-        "INNER JOIN certnames ON certname_catalogs.certname = certnames.name"))
-
-(defn build-join-expr
-  "Constructs the entire join statement from `lhs` to each table specified in
-  `joins`."
-  [lhs joins]
-  {:pre [(keyword? lhs)
-         (or (nil? joins)
-             (sequential? joins))]
-   :post [(string? %)]}
-  (->> joins
-       (map #(join-tables lhs %))
-       (string/join " ")))
-
 (defn resource-query->sql
   "Compile a resource query, returning a vector containing the SQL and
   parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
   {:post [valid-jdbc-query? %]}
-  (let [{:keys [where joins params]} (compile-term ops query)
-        join-stmt (build-join-expr :resource joins)
-        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) %s WHERE %s" (string/join ", " resource-columns) join-stmt where)]
+  (let [{:keys [where params]} (compile-term ops query)
+        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (string/join ", " resource-columns) where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
@@ -231,9 +194,8 @@
   for the query. All fact columns are selected, and no order is applied."
   [ops query]
   {:post [valid-jdbc-query? %]}
-  (let [{:keys [where joins params]} (compile-term ops query)
-        join-stmt (build-join-expr :fact joins)
-        sql (format "SELECT %s FROM certname_facts %s WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) join-stmt where)]
+  (let [{:keys [where params]} (compile-term ops query)
+        sql (format "SELECT %s FROM certname_facts WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) where)]
     (apply vector sql params)))
 
 (defn node-query->sql
@@ -267,8 +229,8 @@
 
          ;; {in,}active nodes.
          [["node" "active"]]
-         {:joins [:certnames]
-          :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+         {
+           :where (format "certname_catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
 
          ;; param joins.
          [["parameter" (name :when string?)]]
@@ -348,9 +310,8 @@
           :params [value]}
 
          [["node" "active"]]
-         {:joins [:certnames]
-          :where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
-
+         {
+          :where (format "certname_facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
          :else
          (throw (IllegalArgumentException. (str path " is not a queryable object for facts")))))
 
