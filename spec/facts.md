@@ -1,26 +1,24 @@
 # Facts
 
-Querying facts is accomplished by making an HTTP request to the
-`/facts` REST endpoint.
-
 ## v2
 
 ### Routes
 
-#### `GET /facts`
+#### `GET /v2/facts`
 
-This will return all facts matching the given query. If no query is supplied, all facts will be returned.
+This will return all facts matching the given query. Facts for
+deactivated nodes are not included in the response. There must be an
+`Accept` header containing `application/json`.
 
 ##### Parameters
 
-  `query`: A JSON array containing the query in prefix notation.
+  `query`: Required. A JSON array containing the query in prefix notation.
 
 ##### Query paths
 
-  `"name"`: matches facts of the given name  
-  `"value"`: matches facts with the given value  
-  `"certname"`: matches facts for the given node  
-  `["node", "active"]`: matches facts for nodes which are or aren't active  
+  `"name"`: matches facts of the given name
+  `"value"`: matches facts with the given value
+  `"certname"`: matches facts for the given node
 
 ##### Operators
 
@@ -30,7 +28,7 @@ This will return all facts matching the given query. If no query is supplied, al
 
   Get the operatingsystem fact for all nodes:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
@@ -38,23 +36,33 @@ This will return all facts matching the given query. If no query is supplied, al
 
   Get all facts for a single node:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
-#### `GET /facts/:node`
+#### `GET /v2/facts/:name`
 
-This will return all facts for the given node.
+This will return all facts for all nodes with the indicated
+name. There must be an `Accept` header containing `application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/facts` route, mentioned above. When supplied,
+  the query is assumed to supply _additional_ criteria that can be
+  used to return a _subset_ of the information normally returned by
+  this route.
 
 ##### Examples
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts/a.example.com
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
-     {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
-     {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
+     {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
+     {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
 ### Request
 

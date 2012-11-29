@@ -15,7 +15,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def find(request)
     begin
-      response = http_get(request, "/v2/facts/#{request.key}", headers)
+      response = http_get(request, "/v2/#{request.key}/facts", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
@@ -66,7 +66,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       end
     end
 
-    query = ["and", ["=", ["node", "active"], true]] + filters
+    query = ["and"] + filters
     query_param = CGI.escape(query.to_pson)
 
     begin
