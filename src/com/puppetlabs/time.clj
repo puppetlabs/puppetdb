@@ -1,5 +1,12 @@
+;; ## Time-related Utility Functions
+;;
+;; This namespace contains some utility functions for working with objects
+;; related to time; it is mostly based off of the `Period` class from
+;; Java's JodaTime library.
+
 (ns com.puppetlabs.time
-  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter)))
+  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter)
+           (org.joda.time Period ReadablePeriod)))
 
 (defn- build-parser
   "A utility function that builds up a joda-time `PeriodFormatter` instance that
@@ -80,12 +87,16 @@
   For example, `(parse-period \"2d\")` returns a `Period` representing a duration
   of 2 days.  Currently supported suffixes are `'d'`, `'h'`, `'m'`, `'s'`, and
   `'ms'`."
-  [period-string]
-  (.parsePeriod period-parser period-string))
+  [s]
+  {:pre  [(string? s)]
+   :post [(instance? Period %)]}
+  (.parsePeriod period-parser s))
 
 (defn- to-unit
   "Helper function for converting periods to specific units"
   [f period]
+  {:pre  [(instance? ReadablePeriod period)]
+   :post [(>= % 0)] }
   (-> period
       (.toStandardDuration)
       (f)))
