@@ -77,7 +77,7 @@
     (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
   (if-let [f (ops op)]
     (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator %s is unknown" term op)))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" term op)))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -238,7 +238,7 @@
           :params [name (db-serialize value)]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" :resource "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
+         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
            {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
 
@@ -397,7 +397,7 @@
   if the operator isn't known."
   [op]
   (let [unsupported (fn [& args]
-                      (throw (IllegalArgumentException. (format "Operator %s is not available in v1 resource queries" op))))]
+                      (throw (IllegalArgumentException. (format "Operator '%s' is not available in v1 resource queries" op))))]
     (condp = (string/lower-case op)
       "=" compile-resource-equality-v1
       "and" (partial compile-and resource-operators-v1)
@@ -453,10 +453,13 @@
   "Maps v1 node query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [op]
-  (let [op (string/lower-case op)]
+  (let [op (string/lower-case op)
+        unsupported (fn [& args]
+                      (throw (IllegalArgumentException. (format "Operator '%s' is not available in v1 node queries" op))))]
     (cond
       (= op "=") compile-node-equality
       (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
       (= op "and") (partial compile-and node-operators)
       (= op "or") (partial compile-or node-operators)
-      (= op "not") (partial compile-not-v1 node-operators))))
+      (= op "not") (partial compile-not-v1 node-operators)
+      (#{"extract" "in" "select-resources" "select-facts"} op) unsupported)))
