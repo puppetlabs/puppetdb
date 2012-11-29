@@ -26,48 +26,90 @@
   ([]      (get-response nil))
   ([query] (*app* (get-request "/v2/nodes" query))))
 
-(deftest node-subqueries
-  (let [node1 "foo"
-        node2 "bar"
-        node3 "baz"
+(defn is-query-result
+  [query expected]
+  (let [{:keys [body status]} (get-response query)
+        result (try
+                 (json/parse-string body true)
+                 (catch com.fasterxml.jackson.core.JsonParseException e
+                   body))]
+    (is (= status pl-http/status-ok))
+    (is (= expected result)
+        (str query))))
+
+(deftest node-queries
+  (let [web1 "web1.example.com"
+        web2 "web2.example.com"
+        puppet "puppet.example.com"
+        db "db.example.com"
         catalog (:empty catalogs)
-        catalog1 (update-in catalog [:resources] conj {{:type "Class" :title "web"} {:type "Class" :title "web" :exported false}})
-        catalog2 (update-in catalog [:resources] conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
-        catalog3 (update-in catalog [:resources] conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
-    (scf-store/add-certname! node1)
-    (scf-store/add-certname! node2)
-    (scf-store/add-certname! node3)
-    (scf-store/add-facts! node1 {"ipaddress" "192.168.1.100" "hostname" "web" "operatingsystem" "Debian"} (now))
-    (scf-store/add-facts! node2 {"ipaddress" "192.168.1.100" "hostname" "puppet" "operatingsystem" "RedHat"} (now))
-    (scf-store/add-facts! node3 {"ipaddress" "192.168.1.100" "hostname" "db" "operatingsystem" "Debian"} (now))
-    (scf-store/replace-catalog! (assoc catalog1 :certname node1) (now))
-    (scf-store/replace-catalog! (assoc catalog2 :certname node2) (now))
-    (scf-store/replace-catalog! (assoc catalog3 :certname node3) (now))
+        web1-catalog (update-in catalog [:resources] conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
+        puppet-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
+        db-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
+    (scf-store/add-certname! web1)
+    (scf-store/add-certname! web2)
+    (scf-store/add-certname! puppet)
+    (scf-store/add-certname! db)
+    (scf-store/add-facts! web1 {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000} (now))
+    (scf-store/add-facts! web2 {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000} (now))
+    (scf-store/add-facts! puppet {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000} (now))
+    (scf-store/add-facts! db {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"} (now))
+    (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
+    (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (now))
+    (scf-store/replace-catalog! (assoc db-catalog :certname db) (now))
 
-    ;; Nodes with the operatingsystem Debian
-    (doseq [[query expected] {["in" "name"
-                               ["extract" "certname"
-                                ["select-facts"
-                                 ["and"
-                                  ["=" "name" "operatingsystem"]
-                                  ["=" "value" "Debian"]]]]]
+    (testing "basic equality is supported for name"
+      (is-query-result ["=" "name" "web1.example.com"] [web1]))
 
-                              [node3 node1]
+    (testing "regular expressions are supported for name"
+      (is-query-result ["~" "name" "web\\d+.example.com"] [web1 web2])
+      (is-query-result ["~" "name" "\\w+.example.com"] [db puppet web1 web2])
+      (is-query-result ["~" "name" "example.net"] []))
 
-                              ;; Nodes with a class matching their hostname
-                              ["in" "name"
-                               ["extract" "certname"
-                                ["select-facts"
-                                 ["and"
-                                  ["=" "name" "hostname"]
-                                  ["in" "value"
-                                   ["extract" "title"
-                                    ["select-resources"
-                                     ["and"
-                                      ["=" "type" "Class"]]]]]]]]]
+    (testing "basic equality works for facts, and is based on string equality"
+      (is-query-result ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
+      (is-query-result ["=" ["fact" "uptime_seconds"] 10000] [web1])
+      (is-query-result ["=" ["fact" "uptime_seconds"] "10000"] [web1])
+      (is-query-result ["=" ["fact" "uptime_seconds"] 10000.0] [])
+      (is-query-result ["=" ["fact" "uptime_seconds"] true] [])
+      (is-query-result ["=" ["fact" "uptime_seconds"] 0] []))
 
-                              [node1]}]
-      (let [{:keys [body status]} (get-response query)]
-        (is (= status pl-http/status-ok))
-        (is (= (json/parse-string body true) expected)
-            body)))))
+    (testing "missing facts are not equal to anything"
+      (is-query-result ["=" ["fact" "fake_fact"] "something"] [])
+      (is-query-result ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
+
+    (testing "arithmetic works on facts"
+      (is-query-result ["<" ["fact" "uptime_seconds"] 12000] [web1])
+      (is-query-result ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
+      (is-query-result ["<" ["fact" "uptime_seconds"] "12000"] [web1])
+      (is-query-result ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
+      (is-query-result ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
+
+    (testing "regular expressions work on facts"
+      (is-query-result ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
+      (is-query-result ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))
+
+    (testing "subqueries are supported"
+      (doseq [[query expected] {["in" "name"
+                                 ["extract" "certname"
+                                  ["select-facts"
+                                   ["and"
+                                    ["=" "name" "operatingsystem"]
+                                    ["=" "value" "Debian"]]]]]
+
+                                [db web1 web2]
+
+                                ;; Nodes with a class matching their hostname
+                                ["in" "name"
+                                 ["extract" "certname"
+                                  ["select-facts"
+                                   ["and"
+                                    ["=" "name" "hostname"]
+                                    ["in" "value"
+                                     ["extract" "title"
+                                      ["select-resources"
+                                       ["and"
+                                        ["=" "type" "Class"]]]]]]]]]
+
+                                [web1]}]
+        (is-query-result query expected)))))

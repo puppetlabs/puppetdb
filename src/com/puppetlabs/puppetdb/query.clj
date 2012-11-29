@@ -395,6 +395,27 @@
          :else (throw (IllegalArgumentException.
                         (str path " is not a queryable object for nodes")))))
 
+(defn compile-node-regexp
+  "Compile an '~' predicate for a fact query, which does regexp matching.  This
+  is done by leveraging the correct database-specific regexp syntax to return
+  only rows where the supplied `path` match the given `pattern`."
+  [path pattern]
+  {:pre [(string? pattern)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+    (match [path]
+           ["name"]
+           {:where (sql-regexp-match "certnames.name")
+            :params [pattern]}
+
+           [["fact" (name :when string?)]]
+           {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s)" (sql-regexp-match "cf.value"))
+            :params [name pattern]}
+
+           :else (throw (IllegalArgumentException.
+                          (str path " is not a valid operand for regexp comparison"))))))
+
 (defn compile-node-inequality
   [op path value]
   {:post [(map? %)
@@ -482,7 +503,7 @@
       (= op "and") (partial compile-and node-operators-v1)
       (= op "or") (partial compile-or node-operators-v1)
       (= op "not") (partial compile-not-v1 node-operators-v1)
-      (#{"extract" "in" "select-resources" "select-facts"} op) unsupported)))
+      (#{"~" "extract" "in" "select-resources" "select-facts"} op) unsupported)))
 
 (defn node-operators-v2
   "Maps v1 node query operators to the functions implementing them. Returns nil
@@ -491,6 +512,7 @@
   (let [op (string/lower-case op)]
     (cond
       (= op "=") compile-node-equality-v2
+      (= op "~") compile-node-regexp
       (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
       (= op "and") (partial compile-and node-operators-v2)
       (= op "or") (partial compile-or node-operators-v2)
