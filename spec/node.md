@@ -62,6 +62,65 @@ not. There must be an `Accept` header containing `application/json`.
 The response is the same format as for the [/v2/status](status.md)
 endpoint.
 
+#### `GET /v2/nodes/:node/facts`
+
+This will return the facts for the given node. Facts from deactivated
+nodes aren't included in the response. There must be an `Accept`
+header containing `application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/v2/facts` route. When supplied, the query is
+  assumed to supply _additional_ criteria that can be used to return a
+  _subset_ of the information normally returned by this route.
+
+##### Response format
+
+The response is the same format as for the [/v2/facts](facts.md)
+endpoint.
+
+#### `GET /v2/nodes/:node/facts/:name`
+
+This will return facts with the given name for the given node. Facts
+from deactivated nodes aren't included in the response. There must be
+an `Accept` header containing `application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/v2/facts` route. When supplied, the query is
+  assumed to supply _additional_ criteria that can be used to return a
+  _subset_ of the information normally returned by this route.
+
+##### Response format
+
+The response is the same format as for the [/v2/facts](facts.md)
+endpoint.
+
+
+#### `GET /v2/nodes/:node/facts/:name/:value`
+
+This will return facts with the given name and value for the given
+node. Facts from deactivated nodes aren't included in the
+response. There must be an `Accept` header containing
+`application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/v2/facts` route. When supplied, the query is
+  assumed to supply _additional_ criteria that can be used to return a
+  _subset_ of the information normally returned by this route.
+
+##### Response format
+
+The response is the same format as for the [/v2/facts](facts.md)
+endpoint.
+
 #### `GET /v2/nodes/:node/resources`
 
 This will return the resources for the given node. Resources from

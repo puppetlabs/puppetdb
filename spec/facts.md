@@ -64,6 +64,27 @@ name. There must be an `Accept` header containing `application/json`.
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
+#### `GET /v2/facts/:name/:value`
+
+This will return all facts for all nodes with the indicated name and
+value. There must be an `Accept` header containing `application/json`.
+
+##### Parameters
+
+  `query`: Optional. A JSON array containing the query in prefix
+  notation. The syntax and semantics are identical to the `query`
+  parameter for the `/facts` route, mentioned above. When supplied,
+  the query is assumed to supply _additional_ criteria that can be
+  used to return a _subset_ of the information normally returned by
+  this route.
+
+##### Examples
+
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/facts/operatingsystem/Debian
+
+    [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
+     {"certname": "b.example.com", "name": "operatingsystem", "value": "Debian}]
+
 ### Request
 
 All requests must accept `application/json`.

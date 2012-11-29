@@ -147,6 +147,13 @@
          (is (= (set (map :name facts)) #{"kernel"}))
          (is (= (count facts) 2))))
 
+      (testing "/facts/<fact>/<value> should return all instances of the given fact with the given value"
+        (check-json-response
+         facts response (get-response "facts/kernel/Linux")
+         (is (= (set (map :name facts)) #{"kernel"}))
+         (is (= (set (map :value facts)) #{"Linux"}))
+         (is (= (count facts) 2))))
+
       (testing "/facts/<fact> should return [] if the fact doesn't match anything"
         (check-json-response
          facts response (get-response "facts/blahblahblah")
@@ -167,4 +174,14 @@
            facts response (get-response (format "nodes/%s/facts/kernel" host))
            (is (= (get-in (treeify-facts facts) [host "kernel"]) "Linux"))
            (is (= (set (map :certname facts)) #{host}))
+           (is (= (count facts) 1)))))
+
+      (testing "/nodes/<node>/fact/<fact>/<value> should return the given fact with the matching value for that node"
+        (doseq [host ["host1" "host2"]]
+          (check-json-response
+           facts response (get-response (format "nodes/%s/facts/kernel/Linux" host))
+           (is (= (get-in (treeify-facts facts) [host "kernel"]) "Linux"))
+           (is (= (set (map :certname facts)) #{host}))
+           (is (= (set (map :name facts)) #{"kernel"}))
+           (is (= (set (map :value facts)) #{"Linux"}))
            (is (= (count facts) 1))))))))
