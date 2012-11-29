@@ -245,7 +245,7 @@
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
-                       (str path " is not a queryable object")))))
+                       (str path " is not a queryable object for resources")))))
 
 (defn compile-resource-equality-v1
   "Compile an = operator for a v1 resource query. `path` represents the field
@@ -261,7 +261,7 @@
   ;; ["node" "name"], rewrite it as "certname". But if they specify "certname",
   ;; fail because this is v1.
   (when (= path "certname")
-    (throw (IllegalArgumentException. "certname is not a queryable object")))
+    (throw (IllegalArgumentException. "certname is not a queryable object for resources")))
   (let [path (if (= path ["node" "name"]) "certname" path)]
     (compile-resource-equality-v2 path value)))
 
