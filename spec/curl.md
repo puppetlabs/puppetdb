@@ -44,7 +44,7 @@ request instead of a `GET`.  Many of the puppetdb endpoints only accept `GET`
 requests, so you'll need to additionally specify the `-G` or `--get` option to
 tell `curl` to use `GET`.  Here's an example:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 
 

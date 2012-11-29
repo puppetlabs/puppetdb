@@ -165,12 +165,13 @@
                                  {:certname "foo3" :name "kernel" :value "Darwin"}
                                  {:certname "foo3" :name "operatingsystem" :value "Darwin"}]
 
+                                ;; Verify that we're enforcing that
+                                ;; facts from inactive nodes are never
+                                ;; returned, even if you ask for them
+                                ;; specifically.
                                 ["=" ["node" "active"] false]
-                                []
-
-                                ["and" ["=" "certname" "foo4"]
-                                 ["=" ["node" "active"] true]]
                                 []}]
+
           (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))

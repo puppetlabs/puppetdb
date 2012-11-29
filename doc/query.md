@@ -118,16 +118,15 @@ So far we've seen that we can query for resources based on their `certname`,
 `type`, `title`, `sourcefile`, and `sourceline`. There are a few more available:
 
     ["and",
-      ["=", ["node", "active"], true],
       ["=", "tag", "foo"],
       ["=", "exported", true],
       ["=", ["parameter", "ensure"], "present"]]
 
-This query returns resources only for active nodes ("active" simply meaning
-"not deactivated"), whose set of tags *contains* the tag "foo", and which
-are exported, and whose "ensure" parameter is "present". Because the parameter
-name can take any value (including that of another attribute), it must be
-namespaced using `["parameter", <parameter name>]`.
+This query returns resources whose set of tags *contains* the tag
+"foo", and which are exported, and whose "ensure" parameter is
+"present". Because the parameter name can take any value (including
+that of another attribute), it must be namespaced using
+`["parameter", <parameter name>]`.
 
 The full set of queryable attributes can be found in [the resource
 spec](../spec/resource.md) for easy reference.
@@ -151,7 +150,7 @@ Notice that, because our regular expression is specified inside a string, the
 backslash characters must be escaped. The rules for which constructs can be
 used in the regexp depend on which database is in use, so common features
 should be used for interoperability. The regexp operator can be used on every
-field of resources except for parameters, `exported`, and `["node", "active"]`.
+field of resources except for parameters, and `exported`.
 
 # Facts
 

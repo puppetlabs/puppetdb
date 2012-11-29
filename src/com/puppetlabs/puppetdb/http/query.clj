@@ -6,7 +6,7 @@
 (ns com.puppetlabs.puppetdb.http.query
   (:require [cheshire.core :as json]))
 
-(defn- queries-are-different
+(defn- are-queries-different?
   [req1 req2]
   (not= (get-in req1 [:params "query"])
         (get-in req2 [:params "query"])))
@@ -17,7 +17,7 @@
   the clause."
   [restriction {:keys [params] :as req}]
   {:pre  [(coll? restriction)]
-   :post [(queries-are-different req %)]}
+   :post [(are-queries-different? req %)]}
   (let [restricted-query (if-let [query (params "query")]
                            (if-let [q (json/parse-string query true)]
                              (conj restriction q)
@@ -29,7 +29,7 @@
   "Restrict the query parameter of the supplied request so that it
   only returns results for the supplied node"
   [req]
-  {:post [(queries-are-different req %)]}
+  {:post [(are-queries-different? req %)]}
   (restrict-query ["and"
                    ["=" ["node" "active"] true]]
                   req))
@@ -39,7 +39,7 @@
   only returns results for the supplied node"
   [node req]
   {:pre  [(string? node)]
-   :post [(queries-are-different req %)]}
+   :post [(are-queries-different? req %)]}
   (restrict-query ["and"
                    ["=" "certname" node]
                    ["=" ["node" "active"] true]]
@@ -50,7 +50,7 @@
   only returns facts with the given name"
   [fact req]
   {:pre  [(string? fact)]
-   :post [(queries-are-different req %)]}
+   :post [(are-queries-different? req %)]}
   (restrict-query ["and"
                    ["=" "name" fact]]
                   req))
@@ -60,7 +60,7 @@
   only returns resources with the given type"
   [type req]
   {:pre  [(string? type)]
-   :post [(queries-are-different req %)]}
+   :post [(are-queries-different? req %)]}
   (restrict-query ["and"
                    ["=" "type" type]]
                   req))
@@ -70,7 +70,7 @@
   only returns resources with the given title"
   [title req]
   {:pre  [(string? title)]
-   :post [(queries-are-different req %)]}
+   :post [(are-queries-different? req %)]}
   (restrict-query ["and"
                    ["=" "title" title]]
                   req))

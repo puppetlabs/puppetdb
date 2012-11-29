@@ -60,9 +60,9 @@ name. There must be an `Accept` header containing `application/json`.
 
     curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/facts/operatingsystem
 
-    [{"node": "a.example.com", "name": "operatingsystem", "value": "Debian"},
-     {"node": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
-     {"node": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
+    [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
+     {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
+     {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
 ### Request
 
