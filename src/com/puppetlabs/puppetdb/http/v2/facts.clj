@@ -39,5 +39,8 @@
        (verify-param-exists "query")
        (verify-accepts-json))
 
+   [fact value &]
+   (comp query-app (partial http-q/restrict-fact-query-to-name fact) (partial http-q/restrict-fact-query-to-value value))
+
    [fact &]
-   (comp query-app (partial http-q/restrict-query-to-fact fact))))
+   (comp query-app (partial http-q/restrict-fact-query-to-name fact))))
