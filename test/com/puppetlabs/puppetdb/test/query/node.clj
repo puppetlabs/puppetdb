@@ -13,7 +13,7 @@
 (defn retrieve-nodes
   "Search for nodes based on an uncompiled query."
   [filter-expr]
-  (let [query (node/query->sql filter-expr)]
+  (let [query (node/v2-query->sql filter-expr)]
     (node/query-nodes query)))
 
 (deftest query-nodes

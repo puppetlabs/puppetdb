@@ -41,8 +41,8 @@ Available subquery operators:
 
 `in`: This matches if the value of the given field is in the list that follows.
 
-`extract`: This operator is used to extract the field we care about from the
-resources, so that we can find the corresponding facts.
+`extract`: This operator is used to extract a single field from the result of a
+subquery, for use with the `in` operator.
 
 #### Examples
 
