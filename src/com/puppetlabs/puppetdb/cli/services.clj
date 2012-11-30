@@ -54,6 +54,7 @@
             [clj-time.core :as time]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
+            [cheshire.core :as json]
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clojure.core.incubator :only (-?>)]
@@ -115,7 +116,7 @@
         (format "sweep of stale nodes (%s day threshold)" node-ttl-days)
         (with-transacted-connection db
           (doseq [node (scf-store/stale-nodes (time/ago (time/days node-ttl-days)))]
-            (send-command! "deactivate node" 1 node)))))
+            (send-command! "deactivate node" 1 (json/generate-string node))))))
 
      (sleep))))
 
