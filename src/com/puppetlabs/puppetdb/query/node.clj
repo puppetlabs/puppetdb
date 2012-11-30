@@ -9,21 +9,27 @@
   (:use clojureql.core
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
-        [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators]]
+        [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection valid-jdbc-query?]]
         [com.puppetlabs.utils :only [parse-number]]))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
-  [query]
+  [operators query]
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(valid-jdbc-query? %)]}
   (let [[subselect & params] (if query
-                               (node-query->sql node-operators query)
+                               (node-query->sql operators query)
                                ["SELECT name, deactivated FROM certnames"])
         sql (format "SELECT name AS certname FROM (%s) subquery1 ORDER BY name ASC" subselect)]
     (apply vector sql params)))
+
+(def v1-query->sql
+  (partial query->sql node-operators-v1))
+
+(def v2-query->sql
+  (partial query->sql node-operators-v2))
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."

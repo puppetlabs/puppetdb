@@ -99,3 +99,21 @@ to the result of the form supplied to this method."
                   [">=" ["fact" "uptime_seconds"] "non-numeric"]
                   ["<" ["fact" "uptime_seconds"] true]]]
       (is (= pl-http/status-bad-request (:status (get-response expr)))))))
+
+(deftest unsupported-operators
+  (testing "subqueries aren't supported"
+    (let [query ["in" "name"
+                 ["extract" "certname"
+                  ["select-facts"
+                   ["and"
+                    ["=" "name" "operatingsystem"]
+                    ["=" "value" "Debian"]]]]]
+          {:keys [body status]} (get-response query)]
+      (is (= status pl-http/status-bad-request))
+      (is (re-find #"Operator .* is not available in v1 node queries" body))))
+
+  (testing "regexps aren't supported"
+    (let [query ["~" "name" "foo"]]
+      (let [{:keys [body status]} (get-response query)]
+        (is (= status pl-http/status-bad-request))
+        (is (re-find #"Operator .* is not available in v1 node queries" body))))))

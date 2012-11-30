@@ -17,11 +17,13 @@ containing `application/json`.
 
 The `query` parameter is a similar format to resource queries.
 
-Only queries against facts are currently supported.
+Only queries against `"name"` and facts are currently supported.
 
-These terms must be of the form `["fact", <fact name>]`.
+Fact terms must be of the form `["fact", <fact name>]`.
 
-Accepted operators are: `[= > < >= <= and or not]`
+Node query supports [all available operators](operators.md). Inequality
+operators are only supported for fact queries, but regular expressions are
+supported for both name and facts.
 
 Inequality operators are strictly arithmetic, and will ignore any fact values
 which are not numeric.

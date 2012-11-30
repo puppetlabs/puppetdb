@@ -44,7 +44,7 @@
   (try
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
-            sql   (node/query->sql query)
+            sql   (node/v1-query->sql query)
             nodes (node/query-nodes sql)]
         (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
