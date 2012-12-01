@@ -18,7 +18,7 @@
   `version` key with the version, as well as a `newer` key which is a boolean
   specifying whether the latest version is newer than the current version."
   [{:keys [globals]}]
-  {:pre [(:update-server globals)]}
+  {:pre [(contains? globals :update-server)]}
   (let [update-server (:update-server globals)]
     (try
       (if-let [update (update-info update-server (:scf-db globals))]

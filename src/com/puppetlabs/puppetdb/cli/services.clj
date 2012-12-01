@@ -63,7 +63,7 @@
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.version :only [version update-info]]))
+        [com.puppetlabs.puppetdb.version :only [version-check-disabled? version update-info]]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -178,6 +178,19 @@
                             (or database default-db))]
     (assoc config :database db)))
 
+(defn configure-update-server
+  "Update the supplied config map with information about the URL that we should
+  check to see if there is a new version of PuppetDB available."
+  [{:keys [global] :as config}]
+  {:pre  [(map? config)]
+   :post [(map? %)
+          (contains? (:global %) :update-server)]}
+  (let [url (cond
+               (version-check-disabled? global) nil
+               (string? (:update-server global)) (:update-server global)
+               :else    "http://updates.puppetlabs.com/check-for-updates")]
+    (assoc config :global (assoc global :update-server url))))
+
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
   appropriate exceptions if any condition is unmet."
@@ -234,6 +247,7 @@
         (configure-commandproc-threads)
         (configure-web-server)
         (configure-database)
+        (configure-update-server)
         (set-global-configuration!))))
 
 (defn on-shutdown
@@ -248,7 +262,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global] :as config} (parse-config! (:config options) initial-config)
         vardir                                     (validate-vardir (:vardir global))
-        update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
+        update-server                              (:update-server global)
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
         db-gc-minutes                              (get database :gc-interval 60)
