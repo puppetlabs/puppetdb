@@ -616,7 +616,7 @@ This setting is used by PuppetDB to check to see if a newer version is
 available.  It defaults to `http://updates.puppetlabs.com/check-for-updates`.
 Overriding this setting may be useful if, for example, you are running PuppetDB
 on a machine that is firewalled and can't make external HTTP requests.  You could
-then configure a proxy server to send requests to the `update.puppetlabs.com` URL,
+then configure a proxy server to send requests to the `updates.puppetlabs.com` URL,
 and override this setting to point to your proxy server.
 
 **[database]**
