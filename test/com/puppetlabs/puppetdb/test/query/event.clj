@@ -84,7 +84,7 @@
                                 (to-string (ago (days 2))))
           report2-hash  (store-report! report2)
           certname      (:certname report1)
-          _             (scf-store/delete-reports-older-than! (* 60 60 24 3))
+          _             (scf-store/delete-reports-older-than! (ago (days 3)))
           expected      #{}
           actual        (resource-events-query-result ["=" "report" report1-hash])]
       (is (= expected actual)))))

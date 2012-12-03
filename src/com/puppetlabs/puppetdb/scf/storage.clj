@@ -743,7 +743,8 @@ must be supplied as the value to be matched."
         (apply sql/insert-records :resource_events resource-event-rows)))))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an `end-time` that is more than
-   `report-ttl-seconds` in the past."
-  [report-ttl-seconds]
-  (sql/delete-rows :reports ["end_time < ?" (to-timestamp (ago (secs report-ttl-seconds)))]))
+  "Delete all reports in the database which have an `end-time` that is prior to
+  the specified date/time."
+  [time]
+  {:pre [(utils/datetime? time)]}
+  (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))

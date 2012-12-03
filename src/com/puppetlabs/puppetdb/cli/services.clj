@@ -130,7 +130,7 @@
         (format "sweep of stale reports (threshold: %s)"
           (format-period (secs report-ttl-seconds)))
         (with-transacted-connection db
-          (scf-store/delete-reports-older-than! report-ttl-seconds))))
+          (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
 
      (sleep))))
 
