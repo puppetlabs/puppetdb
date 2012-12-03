@@ -235,7 +235,7 @@
                       :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
         default-opts {:gc-interval        60
                       :node-ttl-seconds   0
-                      :report-ttl-seconds (to-secs (days 30))}
+                      :report-ttl-seconds (to-secs (days 7))}
         db           (configure-database-ttls (or database default-db))]
     (assoc config :database (merge default-opts db))))
 

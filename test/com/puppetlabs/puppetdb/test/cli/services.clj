@@ -72,10 +72,10 @@
       (let [dbconfig (:database (configure-database { :database { :report-ttl "10d" }}))]
         (is (not (contains? dbconfig :report-ttl)))
         (is (= (to-secs (days 10)) (:report-ttl-seconds dbconfig)))))
-    (testing "should default to 30 days"
+    (testing "should default to 7 days"
       (let [dbconfig (:database (configure-database {}))]
         (is (not (contains? dbconfig :report-ttl)))
-        (is (= (to-secs (days 30)) (:report-ttl-seconds dbconfig)))))))
+        (is (= (to-secs (days 7)) (:report-ttl-seconds dbconfig)))))))
 
 
 (deftest http-configuration
