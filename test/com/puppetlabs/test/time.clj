@@ -35,6 +35,21 @@
     (is (thrown-with-msg? IllegalArgumentException #"Invalid format: \"2 s\""
           (parse-period "2 s")))))
 
+(deftest test-format-period
+  (testing "should return a human-readable string for a period"
+    (is (= "2 days" (format-period (days 2)))))
+  (testing "should normalize when possible, and return a human-readable string"
+    (is (= "2 hours" (format-period (minutes 120)))))
+  (testing "should use singular versions of time units when appropriate"
+    (is (= "1 minute" (format-period (secs 60)))))
+  (testing "should not use weeks when normalizing"
+    (is (= "30 days" (format-period (days 30)))))
+  (testing "should only normalize to the largest whole unit"
+    (is (= "121 seconds" (format-period (secs 121))))
+    (is (= "2 minutes" (format-period (secs 120))))
+    (is (= "26 hours" (format-period (hours 26))))
+    (is (= "1 day" (format-period (hours 24))))))
+
 (deftest test-to-days
   (testing "should convert periods in various units to days"
     (is (= 1 (to-days (hours 24))))
