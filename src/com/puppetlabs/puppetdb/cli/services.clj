@@ -58,7 +58,7 @@
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs days]]
         [clojure.core.incubator :only (-?>)]
-        [com.puppetlabs.time :only [to-secs to-days parse-period]]
+        [com.puppetlabs.time :only [to-secs parse-period format-period]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
@@ -103,7 +103,9 @@
   that haven't been active in the last `node-ttl-seconds`, and clearing out
   reports that are older than `report-ttl-seconds`"
   [db interval node-ttl-seconds report-ttl-seconds]
-  {:pre [(integer? report-ttl-seconds)]}
+  {:pre [(pos? interval)
+         (>= node-ttl-seconds 0)
+         (>= report-ttl-seconds 0)]}
   (let [sleep #(Thread/sleep (* 60 1000 interval))]
     (pl-utils/keep-going
      (fn [exception]
@@ -117,16 +119,16 @@
 
      (when (pos? node-ttl-seconds)
        (pl-utils/demarcate
-        (format "sweep of stale nodes (%s day threshold)"
-              (to-days (secs node-ttl-seconds)))
+        (format "sweep of stale nodes (threshold: %s)"
+          (format-period (secs node-ttl-seconds)))
         (with-transacted-connection db
           (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
             (send-command! "deactivate node" 1 (json/generate-string node))))))
 
      (when (pos? report-ttl-seconds)
        (pl-utils/demarcate
-        (format "sweep of stale reports (%s day threshold)"
-          (to-days (secs report-ttl-seconds)))
+        (format "sweep of stale reports (threshold: %s)"
+          (format-period (secs report-ttl-seconds)))
         (with-transacted-connection db
           (scf-store/delete-reports-older-than! report-ttl-seconds))))
 
