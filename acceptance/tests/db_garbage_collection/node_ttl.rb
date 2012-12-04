@@ -9,7 +9,7 @@ test_name "validate that nodes are deactivated based on node-ttl setting" do
   end
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/nodes|
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
     result_node_names = JSON.parse(result.stdout)
     assert_equal(agents.length, result_node_names.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_names.length}'")
   end
@@ -36,7 +36,7 @@ test_name "validate that nodes are deactivated based on node-ttl setting" do
   end
 
   step "Verify that the number of active nodes is zero" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/nodes|
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
     result_node_names = JSON.parse(result.stdout)
     assert_equal(0, result_node_names.length, "Expected query to return '0' active nodes; returned '#{result_node_names.length}'")
   end
