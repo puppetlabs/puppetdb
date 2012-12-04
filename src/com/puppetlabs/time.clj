@@ -88,7 +88,7 @@
 
 (def hour-formatter
   "A formatter that converts Hour `Period` objects to strings formatted as,
-  e.g., '2 days'."
+  e.g., '2 hours'."
   (build-parser #(.appendHours %) " hour" " hours"))
 
 (def minute-formatter
