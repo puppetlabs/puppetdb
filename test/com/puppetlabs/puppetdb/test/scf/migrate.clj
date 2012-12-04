@@ -1,6 +1,9 @@
 (ns com.puppetlabs.puppetdb.test.scf.migrate
-  (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate])
+  (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
+            [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
+        [clj-time.coerce :only [to-timestamp]]
+        [clj-time.core :only [now]]
         [clojure.test]
         [com.puppetlabs.utils :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
@@ -29,4 +32,11 @@
     (testing "should return nothing if the db is completely migrated"
       (with-transacted-connection db
         (migrate!)
-        (is (empty? (pending-migrations)))))))
+        (is (empty? (pending-migrations))))))
+
+  (testing "should throw error if db is at a higher schema rev than we support"
+    (with-transacted-connection db
+      (migrate!)
+      (sql/insert-record :schema_migrations
+                         {:version (inc migrate/desired-schema-version) :time (to-timestamp (now))})
+      (is (thrown? IllegalStateException (migrate!))))))
