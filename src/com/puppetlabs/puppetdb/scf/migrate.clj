@@ -172,6 +172,8 @@
    4 add-certname-facts-metadata-table
    5 add-missing-indexes})
 
+(def desired-schema-version (apply max (keys migrations)))
+
 (defn schema-version
   "Returns the current version of the schema, or 0 if the schema
 version can't be determined."
@@ -208,6 +210,12 @@ along with the time at which the migration was performed."
   "Migrates database to the latest schema version. Does nothing if database is
 already at the latest schema version."
   []
+  (let [current-schema-version (schema-version)]
+    (when (< desired-schema-version current-schema-version)
+      (throw (IllegalStateException.
+              (format "This version of PuppetDB works with schema version %d, but the DB is at version %d"
+                      desired-schema-version current-schema-version)))))
+
   (if-let [pending (seq (pending-migrations))]
     (sql/transaction
      (doseq [[version migration] pending]
