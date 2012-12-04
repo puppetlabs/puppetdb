@@ -6,13 +6,15 @@
             [cheshire.core :as json])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
         [com.puppetlabs.puppetdb.examples.report :only [reports]]
+        [com.puppetlabs.puppetdb.testutils.report]
+        [com.puppetlabs.puppetdb.testutils.event]
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.utils :only [uuid]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations subsets)]
         [clj-time.core :only [ago from-now now days]]
-        [clj-time.coerce :only [to-timestamp]]
+        [clj-time.coerce :only [to-timestamp to-string]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.fixtures]))
 
@@ -463,14 +465,6 @@
 
 ;; Report tests
 
-(defn store-report!
-  [example-report timestamp]
-  (let [report-hash   (report-identity-string example-report)]
-    (report-val/validate! example-report)
-    (add-certname! (:certname example-report))
-    (add-report! example-report timestamp)
-    report-hash))
-
 (let [timestamp     (now)
       report        (:basic reports)
       report-hash   (report-identity-string report)
@@ -501,5 +495,32 @@
             [{:certname (:certname report)}]))
 
       (is (= (query-to-vec ["SELECT hash FROM reports"])
-            [{:hash report-hash}])))))
+            [{:hash report-hash}]))))
+
+  (deftest report-cleanup
+    (testing "should delete reports older than the specified age"
+      (let [report1       (assoc report :end-time (to-string (ago (days 5))))
+            report1-hash  (store-report! report1 timestamp)
+            report2       (assoc report :end-time (to-string (ago (days 2))))
+            report2-hash  (store-report! report2 timestamp)
+            certname      (:certname report1)
+            _             (delete-reports-older-than! (ago (days 3)))
+            expected      (expected-reports [(assoc report2 :hash report2-hash)])
+            actual        (reports-query-result ["=" "certname" certname])]
+        (is (= expected actual)))))
+
+  (deftest resource-events-cleanup
+    (testing "should delete all events for reports older than the specified age"
+      (let [report1       (assoc report :end-time (to-string (ago (days 5))))
+            report1-hash  (store-report! report1 timestamp)
+            report2       (assoc report :end-time (to-string (ago (days 2))))
+            report2-hash  (store-report! report2 timestamp)
+            certname      (:certname report1)
+            _             (delete-reports-older-than! (ago (days 3)))
+            expected      #{}
+            actual        (resource-events-query-result ["=" "report" report1-hash])]
+        (is (= expected actual))))))
+
+
+
 
