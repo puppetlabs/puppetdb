@@ -7,10 +7,12 @@
   (:require [trptcolin.versioneer.core :as version]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [clj-http.client :as client]
             [ring.util.codec :as ring-codec]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]))
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store])
+  (:use [clojure.java.io :only [file]]))
 
 ;; ### PuppetDB current version
 
@@ -25,6 +27,21 @@
   (memoize version*))
 
 ;; ### Utility functions for checking for the latest available version of PuppetDB
+
+(defn version-check-disabled?
+  "This predicate is used to determine whether or not we should check to see if
+  a new version of PuppetDB are available."
+  [global]
+  {:pre  [(map? global)
+          (contains? global :vardir)]
+   :post [((some-fn true? false?) %)]}
+  (let [vardir        (:vardir global)
+        disabled-file (file vardir "DISABLE_VERSION_CHECK")]
+    (if (.exists disabled-file)
+      (do
+        (log/info (str "Found file '" (.getAbsolutePath disabled-file) "'; version check disabled."))
+        true)
+      false)))
 
 (defn version-data*
   "Build up a map of version data to be used in the 'latest version' check.
@@ -47,16 +64,19 @@
   version of PuppetDB.  Returns the JSON object received from the server, which
   is expected to be a map containing keys `:version`, `:newer`, and `:link`.
 
-  Returns `nil` if the request does not succeed for some reason."
+  Returns `nil` if the request does not succeed for some reason.
+
+  Skips the check and returns `nil` if `update-server` is `nil`."
   [update-server db]
-  {:pre  [(string? update-server)
+  {:pre  [((some-fn string? nil?) update-server)
           (map? db)]
    :post [((some-fn map? nil?) %)]}
-  (let [current-version        (version)
-        version-data           (assoc (version-data db) :version current-version)
-        query-string           (ring-codec/form-encode version-data)
-        url                    (format "%s?product=puppetdb&%s" update-server query-string)
-        {:keys [status body]}  (client/get url {:throw-exceptions false
-                                                :accept           :json})]
-    (when (= status 200)
-      (json/parse-string body true))))
+  (when-not (nil? update-server)
+    (let [current-version        (version)
+          version-data           (assoc (version-data db) :version current-version)
+          query-string           (ring-codec/form-encode version-data)
+          url                    (format "%s?product=puppetdb&%s" update-server query-string)
+          {:keys [status body]}  (client/get url {:throw-exceptions false
+                                                  :accept           :json})]
+      (when (= status 200)
+        (json/parse-string body true)))))
