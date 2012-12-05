@@ -183,6 +183,13 @@
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
 
+(defn drop-old-tags-index
+  "Drops the non-GIN tags index, which is never used (because nobody
+  does equality comparisons against array columns)"
+  []
+  (sql/do-commands
+    "DROP INDEX idx_catalog_resources_tags"))
+
 (defn drop-classes-and-tags
   "Removes the `classes` and `tags` tables, as this information can be derived
   from resources."
@@ -260,9 +267,10 @@
    3 add-catalog-timestamps
    4 add-certname-facts-metadata-table
    5 add-missing-indexes
-   6 drop-classes-and-tags
-   7 rename-fact-column
-   8 add-reports-tables})
+   6 drop-old-tags-index
+   7 drop-classes-and-tags
+   8 rename-fact-column
+   9 add-reports-tables})
 
 (def desired-schema-version (apply max (keys migrations)))
 
