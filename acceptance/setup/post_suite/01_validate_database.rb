@@ -27,7 +27,7 @@ step "Verify we've been talking to the correct database" do
       # in the code, and it's just generally moronic.  We should provide a lein task
       # or some way of interrogating the latest expected schema version from
       # the command line so that we can get rid of this crap.
-      source_migration_version = on(database, "unzip -p /usr/share/puppetdb/puppetdb.jar com/puppetlabs/puppetdb/scf/migrate.clj | sed '/defn schema.version/,$d' |sed '1,/def migrations/d' |grep -v \"^\s*$\" |tail -n 1 |awk '{print $1}'").stdout.strip
+      source_migration_version = on(database, "unzip -p /usr/share/puppetdb/puppetdb.jar com/puppetlabs/puppetdb/scf/migrate.clj | sed '/def desired-schema-version/,$d' |sed '1,/def migrations/d' |grep -v \"^\s*$\" |tail -n 1 |awk '{print $1}'").stdout.strip
 
       assert_equal(db_migration_version, source_migration_version,
                    "Expected migration version from source code '#{source_migration_version}' " +
