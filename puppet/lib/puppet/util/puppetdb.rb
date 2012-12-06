@@ -2,6 +2,7 @@ require 'puppet/util'
 require 'puppet/util/puppetdb/char_encoding'
 require 'digest'
 require 'time'
+require 'fileutils'
 
 # TODO: This module is intended to be mixed-in by subclasses of
 # `Puppet::Indirector::REST`.  This is unfortunate because the code is useful
@@ -21,16 +22,25 @@ module Puppet::Util::Puppetdb
   CommandDeactivateNode   = "deactivate node"
   CommandStoreReport      = "store report"
 
-  # TODO: we should get rid of these; it's global state and it can make our
-  #  tests fail based on the order that they are run in.
+  # a map for looking up config file section names that correspond to our
+  # individual commands
+  CommandsConfigSectionNames = {
+      CommandReplaceCatalog => :catalogs,
+      CommandReplaceFacts   => :facts,
+      CommandStoreReport    => :reports,
+  }
+
   def self.server
-    @server, @port = load_puppetdb_config unless @server
-    @server
+    config[:server]
   end
 
   def self.port
-    @server, @port = load_puppetdb_config unless @port
-    @port
+    config[:port]
+  end
+
+  def self.config
+    @config ||= load_puppetdb_config
+    @config
   end
 
   module ClassMethods
@@ -63,7 +73,7 @@ module Puppet::Util::Puppetdb
       # is not likely to have the same error handling functionality as the
       # one in the REST class.  This was addressed in the following Puppet ticket:
       #  http://projects.puppetlabs.com/issues/15975
-      # 
+      #
       # and has been fixed in Puppet 3.0, so we can clean this up as soon we no longer need to maintain
       # backward-compatibity with older versions of Puppet.
       response = http_post(request, CommandsUrl, "checksum=#{checksum}&payload=#{payload}", headers)
@@ -115,12 +125,17 @@ module Puppet::Util::Puppetdb
   def self.load_puppetdb_config
     default_server = "puppetdb"
     default_port = 8081
+    default_spool_settings = {
+        CommandReplaceCatalog => false,
+        CommandReplaceFacts   => false,
+        CommandStoreReport    => true,
+    }
 
-    config = File.join(Puppet[:confdir], "puppetdb.conf")
+    config_file = File.join(Puppet[:confdir], "puppetdb.conf")
 
-    if File.exists?(config)
-      Puppet.debug("Configuring PuppetDB terminuses with config file #{config}")
-      content = File.read(config)
+    if File.exists?(config_file)
+      Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
+      content = File.read(config_file)
     else
       Puppet.debug("No puppetdb.conf file found; falling back to default #{default_server}:#{default_port}")
       content = ''
@@ -136,22 +151,32 @@ module Puppet::Util::Puppetdb
         section = $1
         result[section] ||= {}
       when /^\s*(\w+)\s*=\s*(\S+)\s*$/
-        raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config}:#{number}" unless section
+        raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config_file}:#{number}" unless section
         result[section][$1] = $2
       when /^\s*[#;]/
         # Skip comments
       when /^\s*$/
         # Skip blank lines
       else
-        raise "Unparseable line '#{line}' in PuppetDB config #{config}:#{number}"
+        raise "Unparseable line '#{line}' in PuppetDB config #{config_file}:#{number}"
       end
     end
 
-    main_section = result['main'] || {}
-    server = main_section['server'] || default_server
-    port = main_section['port'] || default_port
+    config_hash = {}
 
-    [server.strip, port.to_i]
+    main_section = result['main'] || {}
+    config_hash[:server] = (main_section['server'] || default_server).strip
+    config_hash[:port] = (main_section['port'] || default_port).to_i
+
+    [CommandReplaceCatalog, CommandReplaceFacts, CommandStoreReport].each do |c|
+      config_hash[c] = {}
+      command_section = result[CommandsConfigSectionNames[c].to_s]
+      config_hash[c][:spool] = (command_section && command_section.has_key?('spool')) ?
+                                  (command_section['spool'] == "true") :
+                                  default_spool_settings[c]
+    end
+
+    config_hash
   rescue => detail
     puts detail.backtrace if Puppet[:trace]
     Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"

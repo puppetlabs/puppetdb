@@ -16,7 +16,8 @@ Puppet::Face.define(:node, '0.0.1') do
       opts = args.pop
       raise ArgumentError, "Please provide at least one node" if args.empty?
 
-      server, port = Puppet::Util::Puppetdb.load_puppetdb_config
+      server = Puppet::Util::Puppetdb.server
+      port = Puppet::Util::Puppetdb.port
 
       http = Puppet::Network::HttpPool.http_instance(server, port)
 
