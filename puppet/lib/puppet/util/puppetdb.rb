@@ -30,6 +30,8 @@ module Puppet::Util::Puppetdb
       CommandStoreReport    => :reports,
   }
 
+  # Public class methods and magic voodoo
+
   def self.server
     config[:server]
   end
@@ -43,6 +45,8 @@ module Puppet::Util::Puppetdb
     @config
   end
 
+  # This magical stuff is needed so that the indirector termini will make requests to
+  # the correct host/port.
   module ClassMethods
     def server
       Puppet::Util::Puppetdb.server
@@ -56,6 +60,18 @@ module Puppet::Util::Puppetdb
   def self.included(child)
     child.extend ClassMethods
   end
+
+  ## Given an instance of ruby's Time class, this method converts it to a String
+  ## that conforms to PuppetDB's wire format for representing a date/time.
+  def self.to_wire_time(time)
+    # The current implementation simply calls iso8601, but having this method
+    # allows us to change that in the future if needed w/o being forced to
+    # update all of the date objects elsewhere in the code.
+    time.iso8601
+  end
+
+
+  # Public instance methods
 
   def submit_command(request, command_payload, command, version)
     message = format_command(command_payload, command, version)
@@ -98,29 +114,10 @@ module Puppet::Util::Puppetdb
     end
   end
 
-  ## Given an instance of ruby's Time class, this method converts it to a String
-  ## that conforms to PuppetDB's wire format for representing a date/time.
-  def self.to_wire_time(time)
-    # The current implementation simply calls iso8601, but having this method
-    # allows us to change that in the future if needed w/o being forced to
-    # update all of the date objects elsewhere in the code.
-    time.iso8601
-  end
-
 
   private
 
-  def format_command(payload, command, version)
-    message = {
-      :command => command,
-      :version => version,
-      :payload => payload,
-    }.to_pson
-
-    CharEncoding.utf8_string(message)
-  end
-
-  private
+  # Private class methods
 
   def self.load_puppetdb_config
     default_server = "puppetdb"
@@ -181,6 +178,18 @@ module Puppet::Util::Puppetdb
     puts detail.backtrace if Puppet[:trace]
     Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"
     raise
+  end
+
+  ## Private instance methods
+
+  def format_command(payload, command, version)
+    message = {
+        :command => command,
+        :version => version,
+        :payload => payload,
+    }.to_pson
+
+    CharEncoding.utf8_string(message)
   end
 
   def headers
