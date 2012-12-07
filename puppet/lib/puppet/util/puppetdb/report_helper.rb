@@ -31,23 +31,6 @@ class Puppet::Util::Puppetdb::ReportHelper
   # that point in time.
   #######################################################################
 
-  ## HACK: the existing `http_*` methods and the
-  # `Puppet::Util::PuppetDb#submit_command` expect their first argument to
-  # be a "request" object (which is typically an instance of
-  # `Puppet::Indirector::Request`), but really all they use it for is to check
-  # it for attributes called `server`, `port`, and `key`.  Since we don't have,
-  # want, or need an instance of `Indirector::Request` here, we will use this
-  # hacky struct to comply with the existing "API".
-  BunkRequest = Struct.new(:server, :port, :key)
-
-  # A `#submit_command` method that doesn't require an `Indirector::Request`
-  #  argument.
-  def submit_command(key, payload, command, version)
-    bunk_request = BunkRequest.new(Puppet::Util::Puppetdb.server, Puppet::Util::Puppetdb.port, key)
-    # call into the "real" `#submit_command` method in `Puppet::Util::Puppetdb`
-    super(bunk_request, payload, command, version)
-  end
-
   # This method will be called back by `Puppet::Util::Puppetdb#submit_command`
   def http_post(bunk_request, path, body, headers)
     http = Puppet::Network::HttpPool.http_instance(bunk_request.server, bunk_request.port)

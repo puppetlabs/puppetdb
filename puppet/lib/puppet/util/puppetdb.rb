@@ -1,6 +1,7 @@
 require 'puppet/util'
+require 'puppet/util/logging'
 require 'puppet/util/puppetdb/char_encoding'
-require 'digest'
+require 'digest/sha1'
 require 'time'
 require 'fileutils'
 
@@ -22,6 +23,8 @@ module Puppet::Util::Puppetdb
   CommandDeactivateNode   = "deactivate node"
   CommandStoreReport      = "store report"
 
+  CommandsSpoolDir        = File.join("puppetdb", "commands")
+
   # a map for looking up config file section names that correspond to our
   # individual commands
   CommandsConfigSectionNames = {
@@ -29,6 +32,18 @@ module Puppet::Util::Puppetdb
       CommandReplaceFacts   => :facts,
       CommandStoreReport    => :reports,
   }
+
+  ## HACK: the existing `http_*` methods and the
+  # `Puppet::Util::PuppetDb#submit_command` expect their first argument to
+  # be a "request" object (which is typically an instance of
+  # `Puppet::Indirector::Request`), but really all they use it for is to check
+  # it for attributes called `server`, `port`, and `key`.  Since we don't have,
+  # want, or need an instance of `Indirector::Request` in many cases, we will use
+  # this hacky struct to comply with the existing "API".
+  BunkRequest = Struct.new(:server, :port, :key)
+
+  Command = Struct.new(:command, :version, :certname, :payload)
+
 
   # Public class methods and magic voodoo
 
@@ -73,44 +88,17 @@ module Puppet::Util::Puppetdb
 
   # Public instance methods
 
-  def submit_command(request, command_payload, command, version)
-    message = format_command(command_payload, command, version)
+  def submit_command(certname, command_payload, command_name, version)
+    payload = format_command(command_payload, command_name, version)
+    command = Command.new(command_name, version, certname, payload)
 
-    checksum = Digest::SHA1.hexdigest(message)
+    spool = command_spooled?(command_name)
 
-    payload = CGI.escape(message)
-
-    for_whom = " for #{request.key}" if request.key
-
-    begin
-      # TODO: This line introduces a requirement that any class that mixes in this
-      # module must either be a subclass of `Puppet::Indirector::REST`, or
-      # implement its own compatible `#http_post` method, which, unfortunately,
-      # is not likely to have the same error handling functionality as the
-      # one in the REST class.  This was addressed in the following Puppet ticket:
-      #  http://projects.puppetlabs.com/issues/15975
-      #
-      # and has been fixed in Puppet 3.0, so we can clean this up as soon we no longer need to maintain
-      # backward-compatibity with older versions of Puppet.
-      response = http_post(request, CommandsUrl, "checksum=#{checksum}&payload=#{payload}", headers)
-
-      log_x_deprecation_header(response)
-
-      if response.is_a? Net::HTTPSuccess
-        result = PSON.parse(response.body)
-        Puppet.info "'#{command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
-        result
-      else
-        # Newline characters cause an HTTP error, so strip them
-        raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
-      end
-    rescue => e
-      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-      #  we are able to do so (can't call them yet w/o breaking backwards
-      #  compatibility.)  We should either be using a nested exception or calling
-      #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
-      #  we lose context as to where the original exception occurred.
-      raise Puppet::Error, "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
+    if (spool)
+      enqueue_command(command_dir, command)
+      flush_commands(command_dir)
+    else
+      submit_single_command(command)
     end
   end
 
@@ -182,6 +170,10 @@ module Puppet::Util::Puppetdb
 
   ## Private instance methods
 
+  def config
+    Puppet::Util::Puppetdb.config
+  end
+
   def format_command(payload, command, version)
     message = {
         :command => command,
@@ -191,6 +183,122 @@ module Puppet::Util::Puppetdb
 
     CharEncoding.utf8_string(message)
   end
+
+  def command_dir
+    dir = File.join(Puppet[:vardir], CommandsSpoolDir)
+    FileUtils.mkdir_p(dir)
+    dir
+  end
+
+  def command_file_name(command)
+    # TODO: the logic for this method probably needs to be improved.  For the time
+    # being, we are giving the catalog/fact commands very specific filenames
+    # that are intended to prevent the existence of more than one catalog/fact
+    # command per node in the spool dir.  Otherwise we'd need to deal with
+    # ordering issues.
+    clean_command_name = command.command.gsub(/[^\w_]/, "_")
+    if ([CommandReplaceCatalog, CommandReplaceFacts].include?(command.command))
+      "#{command.certname}_#{clean_command_name}.command"
+    else
+      # otherwise we're using a sha1 of the payload to try to prevent filename collisions.
+      #millis = (Time.now.to_f * 1000.0).to_i
+      "#{command.certname}_#{clean_command_name}_#{Digest::SHA1.hexdigest(command.payload.to_pson)}.command"
+    end
+  end
+
+  def all_command_files(dir)
+    # this method is mostly useful for testing purposes
+    Dir.glob(File.join(dir, "*.command"))
+  end
+
+  def command_spooled?(command_name)
+    config.has_key?(command_name) ? config[command_name][:spool] : false
+  end
+
+  def load_command(command_file_path)
+    rv = Command.new
+
+    File.open(command_file_path, "r") do |f|
+      rv.command = f.readline.strip
+      rv.version = f.readline.strip.to_i
+      rv.certname = f.readline.strip
+      rv.payload = f.read
+    end
+    rv
+  end
+
+  def enqueue_command(dir, command)
+    file_path = File.join(dir, command_file_name(command))
+
+    File.open(file_path, "w") do |f|
+      f.puts(command.command)
+      f.puts(command.version)
+      f.puts(command.certname)
+      f.write(command.payload)
+    end
+    Puppet.info("Spooled PuppetDB command for node '#{command.certname}' to file: '#{file_path}'")
+  end
+
+  def flush_commands(dir)
+    ######################################
+    # TODO: IMPLEMENT A MAX FAILURE COUNT
+    ######################################
+
+    all_command_files(dir).each do |path|
+      begin
+        command = load_command(path)
+
+        submit_single_command(command)
+        # If we get here, the command was submitted successfully so we can
+        # clean up the file from vardir.
+        File.delete(path)
+      rescue => e
+        Puppet.err("Failed to submit command to PuppetDB; command saved to file '#{path}'.  Queued for retry.")
+      end
+    end
+  end
+
+  def submit_single_command(command)
+    checksum = Digest::SHA1.hexdigest(command.payload)
+    escaped_payload = CGI.escape(command.payload)
+    for_whom = " for #{command.certname}" if command.certname
+
+    # This is a compatibility hack.  For more info see the comments
+    # on the BunkRequest Struct definition above.
+    request = BunkRequest.new(config[:server], config[:port], command.certname)
+
+    begin
+      # TODO: This line introduces a requirement that any class that mixes in this
+      # module must either be a subclass of `Puppet::Indirector::REST`, or
+      # implement its own compatible `#http_post` method, which, unfortunately,
+      # is not likely to have the same error handling functionality as the
+      # one in the REST class.  This was addressed in the following Puppet ticket:
+      #  http://projects.puppetlabs.com/issues/15975
+      # and has been fixed in Puppet 3.0, so we can clean this up as soon we no longer need to maintain
+      # backward-compatibity with older versions of Puppet.
+      response = http_post(request, CommandsUrl, "checksum=#{checksum}&payload=#{escaped_payload}", headers)
+
+      log_x_deprecation_header(response)
+
+      if response.is_a? Net::HTTPSuccess
+        result = PSON.parse(response.body)
+        Puppet.info "'#{command.command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
+        result
+      else
+        # Newline characters cause an HTTP error, so strip them
+        raise Puppet::Error, "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+      end
+    rescue => e
+      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
+      #  we are able to do so (can't call them yet w/o breaking backwards
+      #  compatibility.)  We should either be using a nested exception or calling
+      #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
+      #  we lose context as to where the original exception occurred.
+      puts e.backtrace if Puppet[:trace]
+      raise Puppet::Error, "Failed to submit '#{command.command}' command#{for_whom} to PuppetDB at #{config[:server]}:#{config[:port]}: #{e}"
+    end
+  end
+
 
   def headers
     {
