@@ -4,12 +4,13 @@
 require 'spec_helper'
 require 'digest/sha1'
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 # Create a local copy of these constants so that we don't have to refer to them
 # by their full namespaced name
-CommandReplaceCatalog   = Puppet::Util::Puppetdb::CommandReplaceCatalog
-CommandReplaceFacts     = Puppet::Util::Puppetdb::CommandReplaceFacts
-CommandStoreReport      = Puppet::Util::Puppetdb::CommandStoreReport
+CommandReplaceCatalog   = Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog
+CommandReplaceFacts     = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
+CommandStoreReport      = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
 
 Command                 = Puppet::Util::Puppetdb::Command
 
@@ -162,45 +163,33 @@ CONF
     let(:command_dir)    { subject.send(:command_dir) }
     let(:payload)        { {'resistance' =>  'futile', 'opinion' => 'irrelevant'} }
     let(:good_command1)  { Command.new("OPEN SESAME", 1, 'foo.localdomain',
-                                       payload.merge(:uniqueprop => "good_command1").to_pson) }
+                                       payload.merge(:uniqueprop => "good_command1")) }
     let(:good_command2)  { Command.new("OPEN SESAME", 1, 'bar.localdomain',
-                                       payload.merge(:uniqueprop => "good_command2").to_pson) }
+                                       payload.merge(:uniqueprop => "good_command2")) }
     let(:bad_command)    { Command.new("BAD COMMAND", 1, 'foo.localdomain',
-                                       payload.merge(:uniqueprop => "bad_command1").to_pson) }
-
-    def command_file_path(command)
-      command_file_name = subject.send(:command_file_name, command)
-      File.join(command_dir, command_file_name)
-    end
-
-    describe "#enqueue_command" do
-      it "should write the command to a file and log a message" do
-        subject.send(:enqueue_command, command_dir, good_command1)
-        test_logs.find_all {|m| m =~ /Spooled PuppetDB command.*to file/}.length.should == 1
-        path = command_file_path(good_command1)
-        File.exist?(path).should == true
-        spooled_command = subject.send(:load_command, path)
-        spooled_command.should == good_command1
-      end
-    end
+                                       payload.merge(:uniqueprop => "bad_command1")) }
 
     describe "#flush_commands" do
-      context "when there are no files in the directory" do
+      context "when there are no commands queued" do
         it "should do nothing, log nothing" do
-          subject.send(:flush_commands, command_dir)
-          subject.expects(:load_command).never
+          subject.send(:flush_commands)
+          subject.expects(:submit_single_command).never
           test_logs.length.should == 0
         end
       end
 
-      context "when there are files in the directory" do
+      context "when there are commands queued" do
         context "when the commands can all be submitted successfully" do
-          it "should submit each command and delete the files" do
-            subject.send(:enqueue_command, command_dir, good_command1)
-            subject.send(:enqueue_command, command_dir, good_command2)
+          it "should submit and dequeue each command" do
+            good_command1.enqueue
+            good_command2.enqueue
             subject.expects(:submit_single_command).times(2)
-            subject.send(:flush_commands, command_dir)
-            Dir.glob(File.join(command_dir, "*")).length.should == 0
+            subject.send(:flush_commands)
+            num_remaining = 0
+            Puppet::Util::Puppetdb::Command.each_enqueued_command do |c|
+              num_remaining += 1
+            end
+            num_remaining.should == 0
           end
         end
 
@@ -227,27 +216,27 @@ CONF
             TestClass.new
           }
 
-          it "should submit each command, log failures, and delete only the successful files" do
+          it "should submit each command, log failures, and dequeue only the successful commands" do
 
-            subject.send(:enqueue_command, command_dir, good_command1)
-            subject.send(:enqueue_command, command_dir, good_command2)
-            subject.send(:enqueue_command, command_dir, bad_command)
+            good_command1.enqueue
+            good_command2.enqueue
+            bad_command.enqueue
 
             # More coupling with implementation details, yuck.  However, it's
             # important here that I know that the failed command will be processed
             # before at least one 'good' command, to ensure that the bad
             # command doesn't prevent us from continuing processing.
-            subject.stubs(:all_command_files).returns([
-                command_file_path(bad_command),
-                command_file_path(good_command1),
-                command_file_path(good_command2),
-            ])
+            Puppet::Util::Puppetdb::Command.stubs(:each_enqueued_command).
+                multiple_yields(bad_command, good_command1, good_command2)
 
-            subject.send(:flush_commands, command_dir)
+            subject.send(:flush_commands)
             subject.num_commands_submitted.should == 3
-            Dir.glob(File.join(command_dir, "*")).should == [command_file_path(bad_command)]
 
             test_logs.find_all { |m| m =~ /Failed to submit command to PuppetDB/ }.length.should == 1
+
+            good_command1.queued?.should == false
+            good_command2.queued?.should == false
+            bad_command.queued?.should == true
           end
         end
       end
@@ -261,9 +250,6 @@ CONF
           httpok.stubs(:body).returns '{"uuid": "a UUID"}'
           subject.expects(:http_post).returns(httpok)
           subject.send(:submit_single_command, good_command1)
-          #require 'pp'
-          #pp test_logs
-          #puts "Log level '#{Puppet::Util::Log.level}'"
           test_logs.find_all { |m|
             m =~ /'#{good_command1.command}' command for #{good_command1.certname} submitted to PuppetDB/
           }.length.should == 1
@@ -287,7 +273,10 @@ CONF
       context "when the command is set to spool" do
         it "should enqueue the command and then flush" do
           subject.expects(:command_spooled?).returns(true)
-          subject.expects(:enqueue_command).once
+          # careful here... since we're going to stub Command.new, we need to
+          # make sure we reference good_command1 first, because it calls Command.new.
+          good_command1.expects(:enqueue).once
+          Command.expects(:new).once.returns(good_command1)
           subject.expects(:flush_commands).once
           subject.expects(:submit_single_command).never
           subject.submit_command(good_command1.certname,

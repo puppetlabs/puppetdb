@@ -14,7 +14,7 @@ require 'puppet/util/log'
 
 RSpec.configure do |config|
 
-  config.before :all do
+  config.before :suite do
     # Now that we are spooling commands to disk, we need to set up a temp dir
     # where we can safely write them.
     $puppetdb_tmp_vardir = Dir.mktmpdir("puppetdb-test-vardir")
@@ -36,12 +36,11 @@ RSpec.configure do |config|
   end
 
   config.after :each do
-    # Clear out our tmpdir after each test
-    FileUtils.rmtree($puppetdb_tmp_vardir)
-    FileUtils.mkdir_p($puppetdb_tmp_vardir)
+    # Clear out any queued commands after each test
+    Puppet::Util::Puppetdb::Command.send(:clear_queue)
   end
 
-  config.after :all do
+  config.after :suite do
     # Finally, remove our tmpdir
     FileUtils.rmtree($puppetdb_tmp_vardir)
   end

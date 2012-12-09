@@ -32,7 +32,7 @@ describe processor do
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|
-        path.should == Puppet::Util::Puppetdb::CommandsUrl
+        path.should == Puppet::Util::Puppetdb::Command::Url
         match = /payload=(.+)/.match(CGI.unescape(body))
         match.should_not be_nil
         match[1].should == payload
