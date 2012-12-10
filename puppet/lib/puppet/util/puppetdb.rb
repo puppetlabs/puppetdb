@@ -94,9 +94,9 @@ module Puppet::Util::Puppetdb
 
 
   def flush_commands
-    ######################################
-    # TODO: IMPLEMENT A MAX FAILURE COUNT
-    ######################################
+    num_failures = 0
+    # TODO: make this configurable?
+    max_failures = 3
 
     Command.each_enqueued_command do |command|
       success =
@@ -112,7 +112,16 @@ module Puppet::Util::Puppetdb
           false
         end
 
-      command.dequeue if success
+      if success
+        command.dequeue
+      else
+        num_failures += 1
+        if (num_failures >= max_failures)
+          Puppet.warning("#{max_failures} failures occurred while attempting to " +
+                             "flush queued PuppetDB commands; giving up for now.")
+          break
+        end
+      end
     end
   end
 

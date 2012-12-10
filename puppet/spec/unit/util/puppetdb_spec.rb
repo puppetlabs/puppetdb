@@ -93,6 +93,27 @@ describe Puppet::Util::Puppetdb do
             bad_command.queued?.should == true
           end
         end
+
+        context "when more than the max number of failures occur" do
+          it "should stop attempting to submit commands and log a warning" do
+            commands = (1..4).map do |i|
+              c = Command.new("foo", 1, "localhost", {:foo => i})
+              c.enqueue
+              c
+            end
+
+            Command.any_instance.expects(:dequeue).never
+
+            # TODO: change this test if we make it configurable
+            max_failures = 3
+            subject.expects(:submit_single_command).times(max_failures).
+                raises(Puppet::Error, "Strange things are afoot")
+            subject.send(:flush_commands)
+            test_logs.find_all { |m|
+              m =~ /#{max_failures} failures occurred.*PuppetDB.*giving up for now/
+            }.length.should == 1
+          end
+        end
       end
     end
 
