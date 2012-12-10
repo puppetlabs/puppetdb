@@ -3,10 +3,11 @@
 require 'spec_helper'
 
 require 'puppet/indirector/node/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 describe Puppet::Node::Puppetdb do
 
-  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandDeactivateNode
+  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandNames::CommandDeactivateNode
 
   before :each do
     Puppet::Node.indirection.stubs(:terminus).returns(subject)

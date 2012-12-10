@@ -4,6 +4,7 @@ require 'spec_helper'
 require 'puppet/reports'
 require 'net/http'
 require 'puppet/network/http_pool'
+require 'puppet/util/puppetdb/command_names'
 
 processor = Puppet::Reports.report(:puppetdb)
 
@@ -25,7 +26,7 @@ describe processor do
       subject.stubs(:run_duration).returns(10)
 
       payload = {
-          :command => Puppet::Util::Puppetdb::CommandStoreReport,
+          :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
           :version => 1,
           :payload => subject.send(:report_to_hash)
       }.to_pson

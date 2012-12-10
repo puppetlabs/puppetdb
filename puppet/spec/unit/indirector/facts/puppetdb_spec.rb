@@ -2,10 +2,11 @@
 require 'spec_helper'
 
 require 'puppet/indirector/facts/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 describe Puppet::Node::Facts::Puppetdb do
 
-  CommandReplaceFacts = Puppet::Util::Puppetdb::CommandReplaceFacts
+  CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
   before :each do
     Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'

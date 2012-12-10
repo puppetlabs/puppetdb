@@ -10,6 +10,7 @@ require 'tmpdir'
 require 'fileutils'
 require 'puppet'
 require 'puppet/util/log'
+require 'puppet/util/puppetdb/command'
 
 
 RSpec.configure do |config|

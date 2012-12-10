@@ -3,6 +3,7 @@
 require 'spec_helper'
 
 require 'puppet/indirector/catalog/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
@@ -29,7 +30,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     it "should POST the catalog command as a URL-encoded PSON string" do
       command_payload = subject.munge_catalog(catalog)
       payload = {
-        :command => Puppet::Util::Puppetdb::CommandReplaceCatalog,
+        :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
         :version => 2,
         :payload => command_payload,
       }.to_pson

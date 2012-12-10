@@ -1,8 +1,9 @@
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 Puppet::Face.define(:node, '0.0.1') do
 
-  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandDeactivateNode
+  CommandDeactivateNode = Puppet::Util::Puppetdb::CommandNames::CommandDeactivateNode
 
   action :deactivate do
     summary "Deactivate a set of nodes in PuppetDB"

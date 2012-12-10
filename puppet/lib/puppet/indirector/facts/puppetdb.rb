@@ -4,6 +4,7 @@ require 'puppet/util/puppetdb'
 
 class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
+  include Puppet::Util::Puppetdb::CommandNames
 
   def save(request)
     facts = request.instance.dup

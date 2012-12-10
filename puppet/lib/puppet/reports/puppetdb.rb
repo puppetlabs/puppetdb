@@ -1,11 +1,12 @@
 require 'puppet'
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/report_helper'
 
 
 Puppet::Reports.register_report(:puppetdb) do
 
-  CommandStoreReport = Puppet::Util::Puppetdb::CommandStoreReport
+  CommandStoreReport = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
 
   desc <<-DESC
   Send report information to PuppetDB via the REST API.  Reports are serialized to
