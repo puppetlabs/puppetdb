@@ -25,6 +25,18 @@
           (migrate!)
           (is (= (schema-version) latest-version))))))
 
+  (testing "applied migrations"
+    (sql/with-connection db
+      (clear-db-for-testing!)
+      (is (= (applied-migrations) []))
+      (testing "should migrate the database"
+        (migrate!)
+        (is (= (applied-migrations) (keys migrations))))
+
+      (testing "should not do anything the second time"
+        (migrate!)
+        (is (= (applied-migrations) (keys migrations))))))
+
   (testing "pending migrations"
     (testing "should return every migration if the db isn't migrated"
       (sql/with-connection db

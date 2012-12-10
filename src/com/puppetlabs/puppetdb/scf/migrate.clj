@@ -295,6 +295,21 @@ along with the time at which the migration was performed."
    "INSERT INTO schema_migrations (version, time) VALUES (?, ?)"
    [version (to-timestamp (now))]))
 
+(defn applied-migrations
+  "Returns a collection of migrations that have been run against this database
+  already, ordered from oldest to latest."
+  []
+  {:post  [(seq? %)
+           (apply < 0 %)
+           (<= (count %) (count migrations))]}
+  (try
+    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
+          results (sql/transaction (query-to-vec query))]
+      (map :version results))
+    (catch java.sql.SQLException e
+      (log/info "Unabled to determine applied migrations; new database?" e)
+      '())))
+
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
   []
