@@ -4,24 +4,12 @@ module Puppet::Util::Puppetdb
 class Config
   include Puppet::Util::Puppetdb::CommandNames
 
-  # a map for looking up config file section names that correspond to our
-  # individual commands
-  CommandConfigSectionNames = {
-      CommandReplaceCatalog => :catalogs,
-      CommandReplaceFacts   => :facts,
-      CommandStoreReport    => :reports,
-  }
-
   # Public class methods
 
   def self.load(config_file = nil)
     default_server = "puppetdb"
     default_port = 8081
-    default_spool_settings = {
-        CommandReplaceCatalog => false,
-        CommandReplaceFacts   => false,
-        CommandStoreReport    => true,
-    }
+    default_max_queued_commands = 1000
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
 
@@ -59,14 +47,7 @@ class Config
     main_section = result['main'] || {}
     config_hash[:server] = (main_section['server'] || default_server).strip
     config_hash[:port] = (main_section['port'] || default_port).to_i
-
-    [CommandReplaceCatalog, CommandReplaceFacts, CommandStoreReport].each do |c|
-      config_hash[c] = {}
-      command_section = result[CommandConfigSectionNames[c].to_s]
-      config_hash[c][:spool] = (command_section && command_section.has_key?('spool')) ?
-          (command_section['spool'] == "true") :
-          default_spool_settings[c]
-    end
+    config_hash[:max_queued_commands] = (main_section['max_queued_commands'] || default_max_queued_commands).to_i
 
     self.new(config_hash)
   rescue => detail
@@ -81,14 +62,16 @@ class Config
     @config = config_hash
   end
 
-  def command_spooled?(command_name)
-    config.has_key?(command_name) ? config[command_name][:spool] : false
+  def server
+    config[:server]
   end
 
-  def [](property)
-    # TODO: ultimately it might be nice to define a more rigid API, rather than
-    #  allowing access to the internals of the config hash.
-    config[property]
+  def port
+    config[:port]
+  end
+
+  def max_queued_commands
+    config[:max_queued_commands]
   end
 
   # Private instance methods

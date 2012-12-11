@@ -82,6 +82,17 @@ describe Puppet::Util::Puppetdb::Command do
         spooled_command = described_class.send(:load_command, path)
         spooled_command.should == subject
       end
+
+      context "when the max queue size is exceeded" do
+        it "should raise an error" do
+          Puppet::Util::Puppetdb.config.expects(:max_queued_commands).at_least_once.returns(0)
+          max_queued_commands = Puppet::Util::Puppetdb::config.max_queued_commands
+          described_class.expects(:queue_size).returns(1)
+          expect {
+            subject.enqueue
+          }.to raise_error(Puppet::Error, /Unable to queue command.*'#{max_queued_commands}'.*'#{described_class.spool_dir}'/)
+        end
+      end
     end
 
     describe "#dequeue" do

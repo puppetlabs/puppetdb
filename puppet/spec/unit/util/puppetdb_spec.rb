@@ -147,7 +147,7 @@ describe Puppet::Util::Puppetdb do
     describe "#submit_command" do
       context "when the command is set to spool" do
         it "should enqueue the command and then flush" do
-          subject.send(:config).expects(:command_spooled?).returns(true)
+          good_command1.expects(:supports_queueing?).returns(true)
           # careful here... since we're going to stub Command.new, we need to
           # make sure we reference good_command1 first, because it calls Command.new.
           good_command1.expects(:enqueue).once
@@ -162,7 +162,10 @@ describe Puppet::Util::Puppetdb do
       end
       context "when the command is set *not* to spool" do
         it "should simply submit the command, and not enqueue or flush" do
-          subject.send(:config).expects(:command_spooled?).returns(false)
+          good_command1.expects(:supports_queueing?).returns(false)
+          # careful here... since we're going to stub Command.new, we need to
+          # make sure we reference good_command1 first, because it calls Command.new.
+          Command.expects(:new).once.returns(good_command1)
           subject.expects(:enqueue_command).never
           subject.expects(:flush_commands).never
           subject.expects(:submit_single_command).once

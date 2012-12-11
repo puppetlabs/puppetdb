@@ -27,18 +27,13 @@ describe Puppet::Util::Puppetdb::Config do
     end
 
     describe "with no config file" do
-      it "should use the default server and port" do
+      it "should use the default settings" do
         config = described_class.load
-        config[:server].should == 'puppetdb'
-        config[:port].should == 8081
+        config.server.should == 'puppetdb'
+        config.port.should == 8081
+        config.max_queued_commands.should == 1000
       end
 
-      it "should use the default settings for command spooling" do
-        config = described_class.load
-        config[CommandReplaceCatalog][:spool].should == false
-        config[CommandReplaceFacts][:spool].should == false
-        config[CommandStoreReport][:spool].should == true
-      end
     end
 
     describe "with a config file" do
@@ -65,18 +60,20 @@ CONF
 [main]
 server = main_server
 port = 1234
+max_queued_commands = 0
 CONF
         config = described_class.load
-        config[:server].should == 'main_server'
-        config[:port].should == 1234
+        config.server.should == 'main_server'
+        config.port.should == 1234
+        config.max_queued_commands.should == 0
       end
 
       it "should use the default if no value is specified" do
         write_config ''
 
         config = described_class.load
-        config[:server].should == 'puppetdb'
-        config[:port].should == 8081
+        config.server.should == 'puppetdb'
+        config.port.should == 8081
       end
 
       it "should be insensitive to whitespace" do
@@ -86,8 +83,8 @@ CONF
     port    =  1234
 CONF
         config = described_class.load
-        config[:server].should == 'main_server'
-        config[:port].should == 1234
+        config.server.should == 'main_server'
+        config.port.should == 1234
       end
 
       it "should accept valid hostnames" do
@@ -98,8 +95,8 @@ port = 8081
 CONF
 
         config = described_class.load
-        config[:server].should == 'foo.example-thing.com'
-        config[:port].should == 8081
+        config.server.should == 'foo.example-thing.com'
+        config.port.should == 8081
       end
 
       it "should raise if a setting is outside of a section" do
@@ -116,34 +113,6 @@ CONF
         expect do
           described_class.load
         end.to raise_error(/Unparseable line 'foo bar baz'/)
-      end
-
-      context "command-specific settings" do
-        it "should use the defaults if no value is specified" do
-          write_config ''
-
-          config = described_class.load
-          config[CommandReplaceCatalog][:spool].should == false
-          config[CommandReplaceFacts][:spool].should == false
-          config[CommandStoreReport][:spool].should == true
-        end
-
-        it "should use the config value if specified" do
-          write_config <<CONF
-[facts]
-spool = true
-
-[catalogs]
-spool = true
-
-[reports]
-spool = false
-CONF
-          config = described_class.load
-          config[CommandReplaceCatalog][:spool].should == true
-          config[CommandReplaceFacts][:spool].should == true
-          config[CommandStoreReport][:spool].should == false
-        end
       end
 
     end

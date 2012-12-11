@@ -11,10 +11,17 @@ class Puppet::Util::Puppetdb::Command
   # Public class methods
 
   def self.each_enqueued_command
+    # we expose an iterator as API rather than just returning a list of
+    # all of the commands so that we are only reading one from disk at a time,
+    # rather than trying to load every single command into memory
     all_command_files.each do |command_file_path|
       command = load_command(command_file_path)
       yield command
     end
+  end
+
+  def self.queue_size
+    all_command_files.length
   end
 
   # Public instance methods
@@ -61,11 +68,25 @@ class Puppet::Util::Puppetdb::Command
   end
 
 
+  def supports_queueing?
+    # Right now, only report commands are candidates for queueing
+    command == CommandStoreReport
+  end
+
   def queued?
     File.exists?(spool_file_path)
   end
 
   def enqueue
+    # This is gross that we are referencing the Puppetdb config instance directly.
+    # Would be better to make a separate 'Queue' class and construct an instance
+    # of it at startup, and pass in the necessary config to the constructor.
+    if (self.class.queue_size >= Puppet::Util::Puppetdb.config.max_queued_commands)
+      raise Puppet::Error, "Unable to queue command, max queue size of " +
+          "'#{Puppet::Util::Puppetdb.config.max_queued_commands}' has been reached. " +
+          "Please clean out the queue directory ('#{self.class.spool_dir}')."
+    end
+
     File.open(spool_file_path, "w") do |f|
       f.puts(command)
       f.puts(version)

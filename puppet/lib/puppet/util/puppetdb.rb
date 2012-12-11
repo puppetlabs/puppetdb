@@ -30,11 +30,11 @@ module Puppet::Util::Puppetdb
   # Public class methods and magic voodoo
 
   def self.server
-    config[:server]
+    config.server
   end
 
   def self.port
-    config[:port]
+    config.port
   end
 
   def self.config
@@ -73,9 +73,7 @@ module Puppet::Util::Puppetdb
   def submit_command(certname, payload, command_name, version)
     command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
 
-    spool = config.command_spooled?(command_name)
-
-    if (spool)
+    if (command.supports_queueing?)
       command.enqueue
       flush_commands
     else
@@ -132,7 +130,7 @@ module Puppet::Util::Puppetdb
 
     # This is a compatibility hack.  For more info see the comments
     # on the BunkRequest Struct definition above.
-    request = BunkRequest.new(config[:server], config[:port], command.certname)
+    request = BunkRequest.new(config.server, config.port, command.certname)
 
     begin
       # TODO: This line introduces a requirement that any class that mixes in this
@@ -162,7 +160,7 @@ module Puppet::Util::Puppetdb
       #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
       #  we lose context as to where the original exception occurred.
       puts e, e.backtrace if Puppet[:trace]
-      raise Puppet::Error, "Failed to submit '#{command.command}' command#{for_whom} to PuppetDB at #{config[:server]}:#{config[:port]}: #{e}"
+      raise Puppet::Error, "Failed to submit '#{command.command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
     end
   end
 
