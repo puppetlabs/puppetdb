@@ -149,18 +149,13 @@ class Puppet::Util::Puppetdb::Command
 
   def spool_file_name
     unless (@spool_file_name)
-      # TODO: the logic for this method probably needs to be improved.  For the time
-      # being, we are giving the catalog/fact commands very specific filenames
-      # that are intended to prevent the existence of more than one catalog/fact
-      # command per node in the spool dir.  Otherwise we'd need to deal with
-      # ordering issues.
+      # TODO: the logic for this method might need to be improved.  We're using
+      # a sha1 of the payload to try to prevent filename collisions, but it's
+      # entirely possible for subsequent catalog submissions to have the same
+      # exact payload.  If we included a local timestamp in the catalog command,
+      # this concern would probably be alleviated.
       clean_command_name = command.gsub(/[^\w_]/, "_")
-      if ([CommandReplaceCatalog, CommandReplaceFacts].include?(command))
-        @spool_file_name = "#{certname}_#{clean_command_name}.command"
-      else
-        # otherwise we're using a sha1 of the payload to try to prevent filename collisions.
-        @spool_file_name = "#{certname}_#{clean_command_name}_#{Digest::SHA1.hexdigest(payload.to_pson)}.command"
-      end
+      @spool_file_name = "#{certname}_#{clean_command_name}_#{Digest::SHA1.hexdigest(payload.to_pson)}.command"
     end
     @spool_file_name
   end

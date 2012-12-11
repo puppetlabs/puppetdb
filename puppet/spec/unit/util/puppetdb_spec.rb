@@ -73,45 +73,23 @@ describe Puppet::Util::Puppetdb do
           it "should submit each command, log failures, and dequeue only the successful commands" do
 
             good_command1.enqueue
-            good_command2.enqueue
             bad_command.enqueue
+            good_command2.enqueue
 
             # More coupling with implementation details, yuck.  However, it's
-            # important here that I know that the failed command will be processed
-            # before at least one 'good' command, to ensure that the bad
-            # command doesn't prevent us from continuing processing.
+            # important here that we know what order the commands will be processed
+            # in.
             Puppet::Util::Puppetdb::Command.stubs(:each_enqueued_command).
-                multiple_yields(bad_command, good_command1, good_command2)
+                multiple_yields(good_command1, bad_command, good_command2)
 
             subject.send(:flush_commands)
-            subject.num_commands_submitted.should == 3
+            subject.num_commands_submitted.should == 2
 
             test_logs.find_all { |m| m =~ /Failed to submit command to PuppetDB/ }.length.should == 1
 
             good_command1.queued?.should == false
-            good_command2.queued?.should == false
             bad_command.queued?.should == true
-          end
-        end
-
-        context "when more than the max number of failures occur" do
-          it "should stop attempting to submit commands and log a warning" do
-            commands = (1..4).map do |i|
-              c = Command.new("foo", 1, "localhost", {:foo => i})
-              c.enqueue
-              c
-            end
-
-            Command.any_instance.expects(:dequeue).never
-
-            # TODO: change this test if we make it configurable
-            max_failures = 3
-            subject.expects(:submit_single_command).times(max_failures).
-                raises(Puppet::Error, "Strange things are afoot")
-            subject.send(:flush_commands)
-            test_logs.find_all { |m|
-              m =~ /#{max_failures} failures occurred.*PuppetDB.*giving up for now/
-            }.length.should == 1
+            good_command2.queued?.should == true
           end
         end
       end

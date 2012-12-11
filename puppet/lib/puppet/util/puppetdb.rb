@@ -98,33 +98,17 @@ module Puppet::Util::Puppetdb
 
 
   def flush_commands
-    num_failures = 0
-    # TODO: make this configurable?
-    max_failures = 3
-
     Command.each_enqueued_command do |command|
-      success =
-        begin
-          submit_single_command(command)
-          true
-        # TODO: I'd really prefer to be catching a more specific exception here
-        rescue => e
-          # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-          #  we are able to do so
-          puts e, e.backtrace if Puppet[:trace]
-          Puppet.err("Failed to submit command to PuppetDB: '#{e}'; Leaving in queue for retry.")
-          false
-        end
-
-      if success
+      begin
+        submit_single_command(command)
         command.dequeue
-      else
-        num_failures += 1
-        if (num_failures >= max_failures)
-          Puppet.warning("#{max_failures} failures occurred while attempting to " +
-                             "flush queued PuppetDB commands; giving up for now.")
-          break
-        end
+      # TODO: I'd really prefer to be catching a more specific exception here
+      rescue => e
+        # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
+        #  we are able to do so
+        puts e, e.backtrace if Puppet[:trace]
+        Puppet.err("Failed to submit command to PuppetDB: '#{e}'; Leaving in queue for retry.")
+        break
       end
     end
   end
