@@ -42,10 +42,15 @@ If no `query` parameter is supplied, all nodes will be returned.
 
 ##### Response format
 
-The response is a JSON array of node names matching the predicates, sorted
-in ascending order:
+The response is a JSON array of hashes of the form:
 
-`["foo.example.com", "bar.example.com", "baz.example.com"]`
+    {"name": <string>,
+     "deactivated": <timestamp>,
+     "catalog_timestamp": <timestamp>,
+     "facts_timestamp": <timestamp>,
+     "report_timestamp": <timestamp>}
+
+The array is sorted alphabetically by `name`.
 
 ##### Example
 

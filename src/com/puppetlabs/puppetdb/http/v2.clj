@@ -4,7 +4,6 @@
         [com.puppetlabs.puppetdb.http.v2.fact-names :only (fact-names-app)]
         [com.puppetlabs.puppetdb.http.v2.node :only (node-app)]
         [com.puppetlabs.puppetdb.http.v2.resources :only (resources-app)]
-        [com.puppetlabs.puppetdb.http.v2.status :only (status-app)]
         [com.puppetlabs.puppetdb.http.v2.metrics :only (metrics-app)]
         [com.puppetlabs.puppetdb.http.v2.version :only (version-app)]
         [net.cgrand.moustache :only (app)]))
@@ -25,9 +24,6 @@
 
     ["resources" &]
     {:any resources-app}
-
-    ["status" &]
-    {:any status-app}
 
     ["metrics" &]
     {:any metrics-app}

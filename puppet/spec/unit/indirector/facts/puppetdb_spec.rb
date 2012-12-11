@@ -146,6 +146,9 @@ describe Puppet::Node::Facts::Puppetdb do
       }
 
       response.stubs(:body).returns '["foo", "bar", "baz"]'
+      response.stubs(:body).returns '[{"name": "foo", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
+                                      {"name": "bar", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
+                                      {"name": "baz", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
       subject.stubs(:http_get).returns response
 
       search_facts(args).should == ['foo', 'bar', 'baz']

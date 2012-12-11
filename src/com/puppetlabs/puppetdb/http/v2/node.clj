@@ -3,7 +3,6 @@
             [com.puppetlabs.puppetdb.query.node :as node]
             [com.puppetlabs.puppetdb.http.v2.facts :as f]
             [com.puppetlabs.puppetdb.http.v2.resources :as r]
-            [com.puppetlabs.puppetdb.http.v2.status :as s]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only (app)]
@@ -25,6 +24,15 @@
     (catch IllegalArgumentException e
       (pl-http/error-response e))))
 
+(defn node-status
+  "Produce a response body for a request to obtain status information
+  for the given node."
+  [node db]
+  (if-let [status (with-transacted-connection db
+                    (node/status node))]
+    (pl-http/json-response status)
+    (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
+
 (def routes
   (app
     []
@@ -33,14 +41,15 @@
               (search-nodes (params "query") (:scf-db globals)))
             http-q/restrict-query-to-active-nodes)}
 
+    [node]
+    {:get (fn [{:keys [globals]}]
+              (node-status node (:scf-db globals)))}
+
     [node "facts" &]
     (comp f/facts-app (partial http-q/restrict-query-to-node node))
 
     [node "resources" &]
-    (comp r/resources-app (partial http-q/restrict-query-to-node node))
-
-    [node]
-    s/status-app))
+    (comp r/resources-app (partial http-q/restrict-query-to-node node))))
 
 (def node-app
   (verify-accepts-json routes))

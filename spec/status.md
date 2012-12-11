@@ -1,22 +1,5 @@
 # Status
 
-## v2
-
-### Routes
-
-#### `GET /v2/status/:node`
-
-This will return status information for the given node. There must be
-an `Accept` header containing `application/json`.
-
-##### Example
-
-[You can use `curl`](curl.md) to query status like so:
-
-    curl -H "Accept: application/json" 'http://localhost:8080/v2/status/<node>'
-
-where <node> is the certname of the host you wish to view the facts for.
-
 ## v1
 
 ### Routes

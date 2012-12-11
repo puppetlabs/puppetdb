@@ -30,7 +30,7 @@
   [query expected]
   (let [{:keys [body status]} (get-response query)
         result (try
-                 (json/parse-string body true)
+                 (mapv :name (json/parse-string body true))
                  (catch com.fasterxml.jackson.core.JsonParseException e
                    body))]
     (is (= status pl-http/status-ok))
