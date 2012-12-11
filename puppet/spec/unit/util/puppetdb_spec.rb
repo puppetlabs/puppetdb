@@ -145,29 +145,9 @@ describe Puppet::Util::Puppetdb do
     end
 
     describe "#submit_command" do
-      context "when the command is set to spool" do
-        it "should enqueue the command and then flush" do
-          good_command1.expects(:supports_queueing?).returns(true)
-          # careful here... since we're going to stub Command.new, we need to
-          # make sure we reference good_command1 first, because it calls Command.new.
-          good_command1.expects(:enqueue).once
-          Command.expects(:new).once.returns(good_command1)
+      context "when the command is submitted successfully" do
+        it "should flush the queue and then submit the command" do
           subject.expects(:flush_commands).once
-          subject.expects(:submit_single_command).never
-          subject.submit_command(good_command1.certname,
-                                 good_command1.payload,
-                                 good_command1.command,
-                                 good_command1.version)
-        end
-      end
-      context "when the command is set *not* to spool" do
-        it "should simply submit the command, and not enqueue or flush" do
-          good_command1.expects(:supports_queueing?).returns(false)
-          # careful here... since we're going to stub Command.new, we need to
-          # make sure we reference good_command1 first, because it calls Command.new.
-          Command.expects(:new).once.returns(good_command1)
-          subject.expects(:enqueue_command).never
-          subject.expects(:flush_commands).never
           subject.expects(:submit_single_command).once
           subject.submit_command(good_command1.certname,
                                  good_command1.payload,
@@ -175,6 +155,46 @@ describe Puppet::Util::Puppetdb do
                                  good_command1.version)
         end
       end
+
+      context "when the command is not submitted successfully" do
+        context "when the command does not support queueing" do
+          it "should not try to enqueue the command" do
+            subject.expects(:flush_commands).once
+            subject.expects(:submit_single_command).once.raises(Puppet::Error, "Strange things are afoot")
+
+            # careful here... since we're going to stub Command.new, we need to
+            # make sure we reference good_command1 first, because it calls Command.new.
+            good_command1.expects(:supports_queueing?).returns(false)
+            good_command1.expects(:enqueue).never
+            Command.expects(:new).once.returns(good_command1)
+
+            subject.submit_command(good_command1.certname,
+                                   good_command1.payload,
+                                   good_command1.command,
+                                   good_command1.version)
+          end
+        end
+
+        context "when the command does support queueing" do
+          it "should enqueue the command" do
+            subject.expects(:flush_commands).once
+            subject.expects(:submit_single_command).once.raises(Puppet::Error, "Strange things are afoot")
+
+            # careful here... since we're going to stub Command.new, we need to
+            # make sure we reference good_command1 first, because it calls Command.new.
+            good_command1.expects(:supports_queueing?).returns(true)
+            good_command1.expects(:enqueue).once
+            Command.expects(:new).once.returns(good_command1)
+
+            subject.submit_command(good_command1.certname,
+                                   good_command1.payload,
+                                   good_command1.command,
+                                   good_command1.version)
+          end
+        end
+
+      end
+
     end
   end
 
