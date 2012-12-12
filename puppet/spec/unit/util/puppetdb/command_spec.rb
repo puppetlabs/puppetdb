@@ -10,25 +10,42 @@ describe Puppet::Util::Puppetdb::Command do
 
   describe "public class methods" do
     describe "#each_enqueued_command" do
-      it "should iterate over the enqueued commands" do
-        command1 = described_class.new(subject.command + "1", subject.version,
-                               subject.certname, payload)
-        command2 = described_class.new(subject.command + "2", subject.version,
-                                       subject.certname, payload)
-        command3 = described_class.new(subject.command + "3", subject.version,
-                                       subject.certname, payload)
-        command1.enqueue
-        command2.enqueue
-        command3.enqueue
+      # we are using defs rather than lets here, because the current implementation
+      # does not support calling 'enqueue' on the same command multiple times
+      def command1
+        described_class.new("command1", subject.version, subject.certname, payload)
+      end
 
-        result = Set.new
-        described_class.each_enqueued_command do |command|
-          result << command.command
-        end
+      def command2
+        described_class.new("command2", subject.version, subject.certname, payload)
+      end
 
-        result.should == Set.new([subject.command + "1",
-                                  subject.command + "2",
-                                  subject.command + "3"])
+      def command3
+        described_class.new("command3", subject.version, subject.certname, payload)
+      end
+
+
+      it "should iterate over the commands in the order that they were enqueued" do
+
+        command1.enqueue ; command2.enqueue ; command3.enqueue
+
+        result = []
+        described_class.each_enqueued_command { |command| result << command.command }
+        result.should == [command1.command, command2.command, command3.command]
+
+        described_class.send(:clear_queue)
+        command2.enqueue ; command1.enqueue ; command3.enqueue
+
+        result = []
+        described_class.each_enqueued_command { |command| result << command.command }
+        result.should == [command2.command, command1.command, command3.command]
+
+        described_class.send(:clear_queue)
+        command3.enqueue ; command2.enqueue ; command1.enqueue
+
+        result = []
+        described_class.each_enqueued_command { |command| result << command.command }
+        result.should == [command3.command, command2.command, command1.command]
       end
     end
   end

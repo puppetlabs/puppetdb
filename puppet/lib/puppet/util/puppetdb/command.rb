@@ -14,7 +14,7 @@ class Puppet::Util::Puppetdb::Command
     # we expose an iterator as API rather than just returning a list of
     # all of the commands so that we are only reading one from disk at a time,
     # rather than trying to load every single command into memory
-    all_command_files.each do |command_file_path|
+    all_command_files.sort_by { |f| File.basename(f) }.each do |command_file_path|
       command = load_command(command_file_path)
       yield command
     end
@@ -87,12 +87,13 @@ class Puppet::Util::Puppetdb::Command
           "Please clean out the queue directory ('#{self.class.spool_dir}')."
     end
 
-    File.open(spool_file_path, "w") do |f|
+    File.open(spool_file_path + ".tmp", "w") do |f|
       f.puts(command)
       f.puts(version)
       f.puts(certname)
       f.write(payload)
     end
+    File.rename(spool_file_path + ".tmp", spool_file_path)
     Puppet.info("Spooled PuppetDB command for node '#{certname}' to file: '#{spool_file_path}'")
   end
 
@@ -121,7 +122,13 @@ class Puppet::Util::Puppetdb::Command
       version = f.readline.strip.to_i
       certname = f.readline.strip
       payload = f.read
-      self.new(command, version, certname, payload, :format_payload => false)
+      result = self.new(command, version, certname, payload,
+                        :format_payload => false)
+      # This sucks, we're calling a private method on the instance; but I don't
+      # want to expose this method in the public API for the class because no
+      # one should ever be doing this outside of this one code path.
+      result.send(:override_spool_file_name, File.basename(command_file_path))
+      result
     end
   end
 
@@ -155,7 +162,8 @@ class Puppet::Util::Puppetdb::Command
       # exact payload.  If we included a local timestamp in the catalog command,
       # this concern would probably be alleviated.
       clean_command_name = command.gsub(/[^\w_]/, "_")
-      @spool_file_name = "#{certname}_#{clean_command_name}_#{Digest::SHA1.hexdigest(payload.to_pson)}.command"
+      timestamp = Time.now.to_f.to_s.gsub("\.", "")
+      @spool_file_name = "#{timestamp}_#{certname}_#{clean_command_name}_#{Digest::SHA1.hexdigest(payload.to_pson)}.command"
     end
     @spool_file_name
   end
@@ -163,5 +171,13 @@ class Puppet::Util::Puppetdb::Command
   def spool_file_path
     File.join(self.class.spool_dir, spool_file_name)
   end
+
+  # This method is *only* for use by the Command.load_command factory method.
+  # In all other cases, the spool_file_name should be generated dynamically.
+  def override_spool_file_name(file_name)
+    @spool_file_name = file_name
+  end
+
+
 
 end

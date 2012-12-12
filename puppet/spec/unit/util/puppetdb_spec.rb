@@ -71,16 +71,9 @@ describe Puppet::Util::Puppetdb do
           }
 
           it "should submit each command, log failures, and dequeue only the successful commands" do
-
             good_command1.enqueue
             bad_command.enqueue
             good_command2.enqueue
-
-            # More coupling with implementation details, yuck.  However, it's
-            # important here that we know what order the commands will be processed
-            # in.
-            Puppet::Util::Puppetdb::Command.stubs(:each_enqueued_command).
-                multiple_yields(good_command1, bad_command, good_command2)
 
             subject.send(:flush_commands)
             subject.num_commands_submitted.should == 2
