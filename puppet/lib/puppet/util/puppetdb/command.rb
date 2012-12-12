@@ -34,31 +34,26 @@ class Puppet::Util::Puppetdb::Command
   # @param payload Object the payload of the command.  This object should be a
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
-  # @param options Hash you should rarely need to use this parameter; it supports
-  #   a few low-level operations regarding how the constructor should behave.
-  #   - :format_payload: defaults to true; the internal representation of the
-  #        payload should always be a JSON string, so by default, the constructor
-  #        will format and serialize the payload according to the wire format
-  #        specification.  However, in rare cases (such as when you are loading
-  #        a command from a file and the payload has already been formatted and
-  #        serialized), you may wish to pass `false` here to skip this step.
-  def initialize(command, version, certname, payload, options = {})
-
-    default_options = { :format_payload => true }
-    options = default_options.merge(options)
-
+  def initialize(command, version, certname, payload)
     @command = command
     @version = version
     @certname = certname
-    @payload = options[:format_payload] ?
-                  self.class.format_payload(command, version, payload) :
-                  payload
-    unless @payload.is_a? String
-      raise Puppet::Error, "payload must be a String (perhaps you passed :format_payload => false?)"
-    end
+    @payload = self.class.format_payload(command, version, payload)
   end
 
   attr_reader :command, :version, :certname, :payload
+
+  # This is not part of the public API
+  # @private
+  def initialize_from_file(command_file_path)
+    File.open(command_file_path, "r") do |f|
+      @command = f.readline.strip
+      @version = f.readline.strip.to_i
+      @certname = f.readline.strip
+      @payload = f.read
+      @spool_file_name = File.basename(command_file_path)
+    end
+  end
 
   def ==(other)
     (@command == other.command) &&
@@ -117,19 +112,9 @@ class Puppet::Util::Puppetdb::Command
   end
 
   def self.load_command(command_file_path)
-    File.open(command_file_path, "r") do |f|
-      command = f.readline.strip
-      version = f.readline.strip.to_i
-      certname = f.readline.strip
-      payload = f.read
-      result = self.new(command, version, certname, payload,
-                        :format_payload => false)
-      # This sucks, we're calling a private method on the instance; but I don't
-      # want to expose this method in the public API for the class because no
-      # one should ever be doing this outside of this one code path.
-      result.send(:override_spool_file_name, File.basename(command_file_path))
-      result
-    end
+    cmd = self.allocate
+    cmd.initialize_from_file(command_file_path)
+    cmd
   end
 
   def self.spool_dir
@@ -177,7 +162,5 @@ class Puppet::Util::Puppetdb::Command
   def override_spool_file_name(file_name)
     @spool_file_name = file_name
   end
-
-
 
 end

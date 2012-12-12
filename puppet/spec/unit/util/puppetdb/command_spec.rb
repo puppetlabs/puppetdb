@@ -50,21 +50,6 @@ describe Puppet::Util::Puppetdb::Command do
     end
   end
 
-  describe "#initialize" do
-    it "should raise an error if payload does not end up as a String" do
-      described_class.new("command", 1,
-                          "certname", {:payload => 1}).payload.should be_a String
-      described_class.new("command", 1,
-                          "certname", "payload",
-                          :format_payload => false).payload.should be_a String
-      expect {
-        described_class.new("command", 1,
-                            "certname", {:payload => 1},
-                            :format_payload => false)
-      }.to raise_error(Puppet::Error, /payload must be a String/)
-    end
-  end
-
   describe "#==" do
     it "should consider two commands equal if all of their properties are equal" do
       command1 = described_class.new(subject.command, subject.version,
