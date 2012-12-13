@@ -322,7 +322,7 @@ along with the time at which the migration was performed."
           (sorted? %)
           (apply < 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [pending (difference (utils/keyset migrations) (set (applied-migrations)))]
+  (let [pending (difference (utils/keyset migrations) (applied-migrations))]
       (into (sorted-map)
         (select-keys migrations pending))))
 
@@ -330,7 +330,7 @@ along with the time at which the migration was performed."
   "Migrates database to the latest schema version. Does nothing if database is
 already at the latest schema version."
   []
-  (if-let [unexpected (first (difference (set (applied-migrations)) (set (keys migrations))))]
+  (if-let [unexpected (first (difference (applied-migrations) (utils/keyset migrations)))]
     (throw (IllegalStateException.
               (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                     unexpected))))
