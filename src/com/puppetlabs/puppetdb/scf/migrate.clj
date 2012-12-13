@@ -25,6 +25,26 @@
 ;; can reasonably and safely be applied *after* the bugfix migration, because
 ;; that is what will happen for upgrading users.
 ;;
+;; In short, here are some guidelines re: applying schema changes to multiple
+;; branches:
+;;
+;; 1. If at all possible, avoid it.
+;; 2. Seriously, are you sure you need to do this? :)
+;; 3. OK, if you really must do it, make sure that the schema change in question
+;;    is as independent as humanly possible.  For example, things like creating
+;;    or dropping an index on a table should be fairly self-contained.  You should
+;;    think long and hard about any change more complex than that.
+;; 4. Determine what the latest version of the schema is in each of the two branches.
+;; 5. Examine every migration that exists in the newer branch but not the older
+;;    branch, and make sure that your new schema change will not conflict with
+;;    *any* of those migrations.  Your change must be able to execute successfully
+;;    regardless of whether it is applied BEFORE all of those migrations or AFTER
+;;    them.
+;; 6. If you're certain you've met the conditions described above, choose the next
+;;    available integer from the *newer* branch and add your migration to both
+;;    branches using this integer.  This will result in a gap between the integers
+;;    in the migrations array in the old branch, but that is not a problem.
+;;
 ;; _TODO: consider using multimethods for migration funcs_
 
 (ns com.puppetlabs.puppetdb.scf.migrate
