@@ -17,16 +17,6 @@ require 'fileutils'
 # below, and see also `Puppet::Util::Puppetdb::ReportHelper` for an example of
 # how to work around this limitation for the time being.
 module Puppet::Util::Puppetdb
-
-  ## HACK: the existing `http_*` methods and the
-  # `Puppet::Util::PuppetDb#submit_command` expect their first argument to
-  # be a "request" object (which is typically an instance of
-  # `Puppet::Indirector::Request`), but really all they use it for is to check
-  # it for attributes called `server`, `port`, and `key`.  Since we don't have,
-  # want, or need an instance of `Indirector::Request` in many cases, we will use
-  # this hacky struct to comply with the existing "API".
-  BunkRequest = Struct.new(:server, :port, :key)
-
   # Public class methods and magic voodoo
 
   def self.server

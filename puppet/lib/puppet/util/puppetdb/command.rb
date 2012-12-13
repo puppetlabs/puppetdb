@@ -22,9 +22,6 @@ class Puppet::Util::Puppetdb::Command
     end
   end
 
-  def self.queue_size
-    all_command_files.length
-  end
 
   def self.retry_queued_commands
     if queue_size == 0
@@ -87,7 +84,9 @@ class Puppet::Util::Puppetdb::Command
 
 
   def supports_queueing?
-    # Right now, only report commands are candidates for queueing
+    # After discussion with @grimradical, we've decided that for the time
+    # being, only report commands are candidates for queueing.  We will add
+    # support for other commands at a later date.
     command == CommandStoreReport
   end
 
@@ -175,6 +174,13 @@ class Puppet::Util::Puppetdb::Command
     @spool_dir
   end
 
+  def self.queue_size
+    # There is technically a race condition here in that files could be added
+    # to or removed from the directory before, after, or during a call to this
+    # method.  However, for all of our purposes, that shouldn't cause any problems.
+    all_command_files.length
+  end
+
   def self.all_command_files
     # this method is mostly useful for testing purposes
     Dir.glob(File.join(spool_dir, "*.command"))
@@ -192,16 +198,15 @@ class Puppet::Util::Puppetdb::Command
   def spool_file_name
     unless (@spool_file_name)
       # TODO: the logic for this method might be able to be improved.
-      # My main concern is that the filenames can be pretty long, and on some
-      # really old filesystems that might be an issue.  We are trying to name
-      # the files with a timestamp prefix that ensures FIFO (at least on a
-      # per-thread basis).  However, because we have no guarantees about how
-      # many processes or threads may be calling this code simultaneously, we
-      # have to add the pid, thread id, and a thread-local counter integer
-      # to the prefix.  Removing these causes transient test failures.
-      clean_command_name = command.gsub(/[^\w_]/, "_")
+      # We need to name the files with a timestamp prefix that ensures FIFO
+      # (at least on a per-thread basis).  However, because we have no guarantees
+      # about how many processes or threads may be calling this code simultaneously,
+      # we have to add the pid, thread id, and a thread-local counter integer
+      # to the prefix.  (These last three make up for the fact that the timestamp
+      # does not have enough precision to guarantee uniqueness.)
+      clean_command_name = command.gsub(/[^\w]/, "_")
       timestamp = Time.now.to_i.to_s
-      @spool_file_name = "#{timestamp}_#{pid}_#{thread_id}_#{next_command_num}_#{certname}_#{clean_command_name}.command"
+      @spool_file_name = "#{timestamp}_#{Process.pid}_#{thread_id}_#{next_command_num}_#{certname}_#{clean_command_name}.command"
     end
     @spool_file_name
   end
@@ -221,10 +226,6 @@ class Puppet::Util::Puppetdb::Command
     # Would prefer to pass this to the constructor or acquire it some other
     # way besides this pseudo-global reference.
     Puppet::Util::Puppetdb.config
-  end
-
-  def pid
-    Process.pid
   end
 
   def thread_id
