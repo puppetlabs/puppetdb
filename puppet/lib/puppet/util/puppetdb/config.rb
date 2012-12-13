@@ -7,9 +7,10 @@ class Config
   # Public class methods
 
   def self.load(config_file = nil)
-    default_server = "puppetdb"
-    default_port = 8081
-    default_max_queued_commands = 1000
+    defaults = { :server              => "puppetdb",
+                 :port                => 8081,
+                 :max_queued_commands => 1000,
+    }
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
 
@@ -17,7 +18,7 @@ class Config
       Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
       content = File.read(config_file)
     else
-      Puppet.debug("No puppetdb.conf file found; falling back to default #{default_server}:#{default_port}")
+      Puppet.debug("No puppetdb.conf file found; falling back to default #{defaults[:server]}:#{defaults[:port]}")
       content = ''
     end
 
@@ -42,12 +43,18 @@ class Config
       end
     end
 
-    config_hash = {}
 
     main_section = result['main'] || {}
-    config_hash[:server] = (main_section['server'] || default_server).strip
-    config_hash[:port] = (main_section['port'] || default_port).to_i
-    config_hash[:max_queued_commands] = (main_section['max_queued_commands'] || default_max_queued_commands).to_i
+    # symbolize the keys
+    main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
+    # merge with defaults but filter out anything except the legal settings
+    config_hash = defaults.merge(main_section).reject do |k, v|
+      !([:server, :port, :max_queued_commands].include?(k))
+    end
+
+    config_hash[:server] = config_hash[:server].strip
+    config_hash[:port] = config_hash[:port].to_i
+    config_hash[:max_queued_commands] = config_hash[:max_queued_commands].to_i
 
     self.new(config_hash)
   rescue => detail

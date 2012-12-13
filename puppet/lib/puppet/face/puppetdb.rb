@@ -13,7 +13,7 @@ Puppet::Face.define(:puppetdb, '0.0.1') do
     failed during previous agent runs.
   EOT
 
-  action(:retry) do
+  action(:flush_queue) do
     summary "Retry any queued PuppetDB commands that were not successfully submitted on the first try"
 
     when_invoked do |name|
