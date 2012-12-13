@@ -13,6 +13,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
   describe "#save" do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:http)     { mock 'http' }
     let(:catalog) do
       cat = Puppet::Resource::Catalog.new('foo')
       cat.add_resource(Puppet::Resource.new(:file, 'my_file'))
@@ -21,6 +22,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
     before :each do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
+      Puppet::Network::HttpPool.expects(:http_instance).returns http
     end
 
     def save
@@ -35,7 +37,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         :payload => command_payload,
       }.to_pson
 
-      subject.expects(:http_post).with do |request,uri,body,headers|
+      http.expects(:post).with do |uri, body, headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
       end.returns response
@@ -52,7 +54,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         msg =~ /A horrible deprecation warning!/
       end
 
-      subject.stubs(:http_post).returns response
+      http.stubs(:post).returns response
 
       save
     end

@@ -74,8 +74,7 @@ module Puppet::Util::Puppetdb
     command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
 
     begin
-      flush_commands
-      submit_single_command(command)
+      command.submit
     rescue Puppet::Error => e
       # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
       #  we are able to do so
@@ -97,74 +96,11 @@ module Puppet::Util::Puppetdb
   end
 
 
-  def flush_commands
-    Command.each_enqueued_command do |command|
-      begin
-        submit_single_command(command)
-        command.dequeue
-      # TODO: I'd really prefer to be catching a more specific exception here
-      rescue => e
-        # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-        #  we are able to do so
-        puts e, e.backtrace if Puppet[:trace]
-        Puppet.err("Failed to submit command to PuppetDB: '#{e}'; Leaving in queue for retry.")
-        break
-      end
-    end
-  end
-
-  def submit_single_command(command)
-    checksum = Digest::SHA1.hexdigest(command.payload)
-    escaped_payload = CGI.escape(command.payload)
-    for_whom = " for #{command.certname}" if command.certname
-
-    # This is a compatibility hack.  For more info see the comments
-    # on the BunkRequest Struct definition above.
-    request = BunkRequest.new(config.server, config.port, command.certname)
-
-    begin
-      # TODO: This line introduces a requirement that any class that mixes in this
-      # module must either be a subclass of `Puppet::Indirector::REST`, or
-      # implement its own compatible `#http_post` method, which, unfortunately,
-      # is not likely to have the same error handling functionality as the
-      # one in the REST class.  This was addressed in the following Puppet ticket:
-      #  http://projects.puppetlabs.com/issues/15975
-      # and has been fixed in Puppet 3.0, so we can clean this up as soon we no longer need to maintain
-      # backward-compatibity with older versions of Puppet.
-      response = http_post(request, Command::Url, "checksum=#{checksum}&payload=#{escaped_payload}", headers)
-
-      log_x_deprecation_header(response)
-
-      if response.is_a? Net::HTTPSuccess
-        result = PSON.parse(response.body)
-        Puppet.info "'#{command.command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
-        result
-      else
-        # Newline characters cause an HTTP error, so strip them
-        raise Puppet::Error, "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
-      end
-    rescue => e
-      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-      #  we are able to do so (can't call them yet w/o breaking backwards
-      #  compatibility.)  We should either be using a nested exception or calling
-      #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
-      #  we lose context as to where the original exception occurred.
-      puts e, e.backtrace if Puppet[:trace]
-      raise Puppet::Error, "Failed to submit '#{command.command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
-    end
-  end
-
-
-  def headers
-    {
-      "Accept" => "application/json",
-      "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
-    }
-  end
-
   def log_x_deprecation_header(response)
     if warning = response['x-deprecation']
       Puppet.deprecation_warning "Deprecation from PuppetDB: #{warning}"
     end
   end
+  module_function :log_x_deprecation_header
+
 end

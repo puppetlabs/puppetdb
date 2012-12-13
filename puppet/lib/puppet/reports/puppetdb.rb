@@ -1,10 +1,10 @@
 require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
-require 'puppet/util/puppetdb/report_helper'
 
 
 Puppet::Reports.register_report(:puppetdb) do
+  include Puppet::Util::Puppetdb
 
   CommandStoreReport = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
 
@@ -16,8 +16,7 @@ Puppet::Reports.register_report(:puppetdb) do
 
 
   def process
-    helper = Puppet::Util::Puppetdb::ReportHelper.new
-    helper.submit_command(self.host, report_to_hash, CommandStoreReport, 1)
+    submit_command(self.host, report_to_hash, CommandStoreReport, 1)
   end
 
   private
