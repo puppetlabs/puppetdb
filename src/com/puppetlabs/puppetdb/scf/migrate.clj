@@ -30,7 +30,8 @@
 (ns com.puppetlabs.puppetdb.scf.migrate
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.utils :as utils])
   (:use [clojure.set]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
@@ -304,15 +305,15 @@ along with the time at which the migration was performed."
   "Returns a collection of migrations that have been run against this database
   already, ordered from oldest to latest."
   []
-  {:post  [(seq? %)
+  {:post  [(sorted? %)
+           (set? %)
            (apply < 0 %)]}
   (try
     (let [query   "SELECT version FROM schema_migrations ORDER BY version"
           results (sql/transaction (query-to-vec query))]
-      (map :version results))
+      (apply sorted-set (map :version results)))
     (catch java.sql.SQLException e
-      (log/info "Unabled to determine applied migrations; new database?" e)
-      '())))
+      (sorted-set))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
@@ -321,8 +322,7 @@ along with the time at which the migration was performed."
           (sorted? %)
           (apply < 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [applied (applied-migrations)
-        pending (difference (set (keys migrations)) (set applied))]
+  (let [pending (difference (utils/keyset migrations) (set (applied-migrations)))]
       (into (sorted-map)
         (select-keys migrations pending))))
 

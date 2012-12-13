@@ -42,26 +42,27 @@
                             (set applied))))))))
 
   (testing "applying the migrations"
-    (sql/with-connection db
-      (clear-db-for-testing!)
-      (is (= (applied-migrations) []))
-      (testing "should migrate the database"
-        (migrate!)
-        (is (= (applied-migrations) (keys migrations))))
-
-      (testing "should not do anything the second time"
-        (migrate!)
-        (is (= (applied-migrations) (keys migrations))))
-
-      (testing "should attempt a partial migration if there are migrations missing"
+    (let [expected-migrations (apply sorted-set (keys migrations))]
+      (sql/with-connection db
         (clear-db-for-testing!)
-        ;; we are using migration 6 here because it's just dropping an index,
-        ;; so we know for sure that it can be applied in any order.
-        (doseq [m (filter (fn [[i migration]] (not= i 6)) (pending-migrations))]
-          (apply-migration-for-testing (first m)))
-        (is (= (keys (pending-migrations)) '(6)))
-        (migrate!)
-        (is (= (applied-migrations) (keys migrations))))))
+        (is (= (applied-migrations) #{}))
+        (testing "should migrate the database"
+          (migrate!)
+          (is (= (applied-migrations) expected-migrations)))
+
+        (testing "should not do anything the second time"
+          (migrate!)
+          (is (= (applied-migrations) expected-migrations)))
+
+        (testing "should attempt a partial migration if there are migrations missing"
+          (clear-db-for-testing!)
+          ;; we are using migration 6 here because it's just dropping an index,
+          ;; so we know for sure that it can be applied in any order.
+          (doseq [m (filter (fn [[i migration]] (not= i 6)) (pending-migrations))]
+            (apply-migration-for-testing (first m)))
+          (is (= (keys (pending-migrations)) '(6)))
+          (migrate!)
+          (is (= (applied-migrations) expected-migrations))))))
 
   (testing "should throw error if db is at a higher schema rev than we support"
     (with-transacted-connection db
