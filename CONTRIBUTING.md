@@ -34,6 +34,19 @@
 * Submit a pull request to the repository in the puppetlabs organization.
 * Update your Redmine ticket to mark that you have submitted code.
 
+## Database Schema Changes
+
+* When making any changes that will modify the schema of the underlying database,
+  great caution should be exercised.
+* Except in very rare circumstances (crucial bug fixes or performance improvements),
+  these types of changes should only be made in the master branch.  Older release
+  branches should not introduce database schema changes unless absolutely
+  necessary.
+* In these rare circumstances where a schema change must be made against more
+  than one branch of the code, see the notes at the beginning of the file
+  `src/com/puppetlabs/puppetdb/scf/migrate.clj` on this subject.  Exercise extreme
+  caution to make sure that you are adhering to the guidelines therein.
+
 # Additional Resources
 
 * [More information on contributing](http://projects.puppetlabs.com/projects/puppet/wiki/Development_Lifecycle)
