@@ -4,14 +4,63 @@ require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
 
+###############################################################################
+# NOTES ON COMMAND SUBMISSION / RETRY FOR PUPPETDB 1.1
+###############################################################################
+# This code is not in a finished state.  We started working on it in order to
+# provide command retry capability for PuppetDB; so, if the master attempts
+# to submit commands to PuppetDB and they fail for whatever reason, we could
+# have some way of queueing them for retry at a later time.  This would be
+# a first step towards a high-availability solution.
+#
+# However, we quickly realized that there are a lot of challenges involved.
+# The biggest one is that we are not able to make any assumptions about the
+# threading / process model that Puppet is running under; this means that we
+# are extremely limited in our options for dealing with shared state and
+# concurrent access to shared resources.  We were going to end up having to
+# launch a daemon / worker process or run a cron job to ensure that the sensitive
+# parts of the code were not being executed simultaneously by multiple processes
+# or threads.  This seemed fairly risky, difficult to test, and not particularly
+# user-friendly.
+#
+# There is also an ordering issue w/rt catalog and fact commands.  In their
+# current incarnation, they do not contain any client-side timestamp information,
+# and PuppetDB blindly overwrites existing data with the most recently submitted
+# facts / catalog.  Thus, if we were to queue and retry fact and catalog
+# commands, there is a potential for us to end up overwriting good data from
+# recent successful command submissions with stale data from old, queued commands.
+#
+# The short-term compromise that we decided on is to keep things a bit simpler
+# for now.  The only commands that we will queue are report commands, and they
+# will never be automatically retried.  There is a new Face (puppetdb flush_queue)
+# that will retry the queued commands, and users can run it manually for now if
+# they need it.  As long as that is the only place where the sensitive code is
+# called, we know we don't have to worry about concurrency.
+#
+# The current state of this code is basically a step towards an eventual goal
+# of separating out the Command / Queue logic into a reasonable object model,
+# and in its current state it has some benefits over the previous implementation
+# (a bit more separation of concerns, decoupling from most of the internals of
+# the indirector, etc.), but there is still room for improvement and further
+# refactoring.  Our intent is to revisit this when we come back to do more work
+# on high-availability.
+###############################################################################
+
 class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb::CommandNames
+
+  # Notes on future refactoring:  We could at least break out a CommandQueue
+  # class, and could potentially break out the transport mechanism (HTTP in this
+  # case) into a separate class as well.
 
   Url                = "/v2/commands"
   SpoolSubDir        = File.join("puppetdb", "commands")
 
   # Public class methods
 
+  # WARNING: this method is not thread-safe, nor safe to run in multiple
+  # processes simultaneously.  For more info see the notes on the
+  # `#all_command_files` method.
   def self.each_queued_command
     # we expose an iterator as API rather than just returning a list of
     # all of the commands so that we are only reading one from disk at a time,
@@ -22,7 +71,9 @@ class Puppet::Util::Puppetdb::Command
     end
   end
 
-
+  # WARNING: this method is not thread-safe, nor safe to run in multiple
+  # processes simultaneously.  For more info see the notes on the
+  # `#all_command_files` method.
   def self.retry_queued_commands
     if queue_size == 0
       Puppet.notice("No queued commands to retry")
@@ -181,11 +232,18 @@ class Puppet::Util::Puppetdb::Command
     all_command_files.length
   end
 
+  # WARNING: this method is NOT thread-safe, nor safe to execute in multiple
+  # processes simultaneously.  If it is executed simultaneously, files may
+  # be deleted out from under the nose of threads that are trying to read them,
+  # commands may be submitted multiple times, etc.  Ideally this needs to be
+  # restricted to a worker process that can use a thread-safe queue or some
+  # other mechanism to manage concurrent access.
   def self.all_command_files
     # this method is mostly useful for testing purposes
     Dir.glob(File.join(spool_dir, "*.command"))
   end
 
+  # WARNING: this is not thread safe
   def self.clear_queue
     # this method is mostly useful for cleaning up after tests
     all_command_files.each do |f|
