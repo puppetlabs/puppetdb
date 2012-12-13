@@ -9,13 +9,31 @@
 ;; the migration function will be invoked, and the schema version and current
 ;; time will be recorded in the schema_migrations table.
 ;;
+;; NOTE: in order to support bug-fix schema changes to older branches without
+;; breaking the ability to upgrade, it is possible to define a sequence of
+;; migrations with non-sequential integers.  e.g., if the 1.0.x branch
+;; contains migrations 1-5, and the 2.0.x branch contains schema migrations
+;; 1-10, and then a bugfix schema change (such as creating or adding an index)
+;; is identified, this migration can be defined as #11 in both branches.  Code
+;; in the 1.0.x branch should happily apply #11 even though it does not have
+;; a definition for 6-10.  Then when a 1.0.x user upgrades to 2.0.x, migrations
+;; 6-10 will be applied, and 11 will be skipped because it's already been run.
+;; Because of this, it is crucial to be extremely careful about numbering new
+;; migrations if they are going into multiple branches.  It's also crucial to
+;; be absolutely certain that the schema change in question is compatible
+;; with both branches and that the migrations missing from the earlier branch
+;; can reasonably and safely be applied *after* the bugfix migration, because
+;; that is what will happen for upgrading users.
+;;
 ;; _TODO: consider using multimethods for migration funcs_
 
 (ns com.puppetlabs.puppetdb.scf.migrate
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [clojure.string :as string])
-  (:use [clj-time.coerce :only [to-timestamp]]
+            [clojure.string :as string]
+            [com.puppetlabs.utils :as utils])
+  (:use [clojure.set]
+        [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
@@ -274,19 +292,7 @@
 
 (def desired-schema-version (apply max (keys migrations)))
 
-(defn schema-version
-  "Returns the current version of the schema, or 0 if the schema
-version can't be determined."
-  []
-  (try
-    (let [query   "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1"
-          results (sql/transaction
-                   (query-to-vec query))]
-      (:version (first results)))
-    (catch java.sql.SQLException e
-      0)))
-
-(defn- record-migration!
+(defn record-migration!
   "Records a migration by storing its version in the schema_migrations table,
 along with the time at which the migration was performed."
   [version]
@@ -295,6 +301,20 @@ along with the time at which the migration was performed."
    "INSERT INTO schema_migrations (version, time) VALUES (?, ?)"
    [version (to-timestamp (now))]))
 
+(defn applied-migrations
+  "Returns a collection of migrations that have been run against this database
+  already, ordered from oldest to latest."
+  []
+  {:post  [(sorted? %)
+           (set? %)
+           (apply < 0 %)]}
+  (try
+    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
+          results (sql/transaction (query-to-vec query))]
+      (apply sorted-set (map :version results)))
+    (catch java.sql.SQLException e
+      (sorted-set))))
+
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
   []
@@ -302,24 +322,23 @@ along with the time at which the migration was performed."
           (sorted? %)
           (apply < 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [current-version (schema-version)]
-    (into (sorted-map)
-          (filter #(> (key %) current-version) migrations)) ))
+  (let [pending (difference (utils/keyset migrations) (applied-migrations))]
+      (into (sorted-map)
+        (select-keys migrations pending))))
 
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if database is
 already at the latest schema version."
   []
-  (let [current-schema-version (schema-version)]
-    (when (< desired-schema-version current-schema-version)
-      (throw (IllegalStateException.
-              (format "This version of PuppetDB works with schema version %d, but the DB is at version %d"
-                      desired-schema-version current-schema-version)))))
+  (if-let [unexpected (first (difference (applied-migrations) (utils/keyset migrations)))]
+    (throw (IllegalStateException.
+              (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
+                    unexpected))))
 
   (if-let [pending (seq (pending-migrations))]
     (sql/transaction
      (doseq [[version migration] pending]
-       (log/info (format "Migrating to version %d" version))
+       (log/info (format "Applying migration version %d" version))
        (migration)
        (record-migration! version)))
     (log/info "There are no pending migrations")))
