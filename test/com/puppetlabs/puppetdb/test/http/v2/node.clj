@@ -4,6 +4,7 @@
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
+        [com.puppetlabs.utils :only (keyset)]
         [clj-time.core :only [now]]
         com.puppetlabs.puppetdb.examples
         com.puppetlabs.puppetdb.fixtures))
@@ -30,11 +31,13 @@
   [query expected]
   (let [{:keys [body status]} (get-response query)
         result (try
-                 (mapv :name (json/parse-string body true))
+                 (json/parse-string body true)
                  (catch com.fasterxml.jackson.core.JsonParseException e
                    body))]
+    (doseq [res result]
+      (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res))))
     (is (= status pl-http/status-ok))
-    (is (= expected result)
+    (is (= expected (mapv :name result))
         (str query))))
 
 (deftest node-queries
@@ -57,6 +60,19 @@
     (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (now))
     (scf-store/replace-catalog! (assoc db-catalog :certname db) (now))
+
+    (testing "status objects should reflect fact/catalog activity"
+      (let [status-for-node #(first (json/parse-string (:body (get-response ["=" "name" %])) true))]
+        (testing "when node is active"
+          (is (nil? (:deactivated (status-for-node web1)))))
+
+        (testing "when node has facts, but no catalog"
+          (is (:facts_timestamp (status-for-node web2)))
+          (is (nil? (:catalog_timestamp (status-for-node web2)))))
+
+        (testing "when node has an associated catalog and facts"
+          (is (:catalog_timestamp (status-for-node web1)))
+          (is (:facts_timestamp (status-for-node web1))))))
 
     (testing "basic equality is supported for name"
       (is-query-result ["=" "name" "web1.example.com"] [web1]))
