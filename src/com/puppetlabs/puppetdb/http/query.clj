@@ -36,7 +36,7 @@
 
 (defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it
-  only returns results for the supplied node"
+  only returns results for the supplied active node"
   [node req]
   {:pre  [(string? node)]
    :post [(are-queries-different? req %)]}

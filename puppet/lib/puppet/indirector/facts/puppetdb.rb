@@ -74,7 +74,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
-        PSON.parse(response.body)
+        PSON.parse(response.body).collect {|s| s["name"]}
       else
         # Newline characters cause an HTTP error, so strip them
         raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
