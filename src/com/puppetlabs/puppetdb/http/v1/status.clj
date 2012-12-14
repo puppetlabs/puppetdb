@@ -4,9 +4,9 @@
 ;; spec](../spec/status.md).
 (ns com.puppetlabs.puppetdb.http.v1.status
   (:require [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.query.node :as n]
             [ring.util.response :as rr])
-  (:use com.puppetlabs.puppetdb.query.status
-        com.puppetlabs.middleware
+  (:use com.puppetlabs.middleware
         [net.cgrand.moustache :only (app)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
@@ -18,7 +18,7 @@
                     ; other than that, the code is exactly the same, so here we
                     ; are basically just calling the new v2 logic and then
                     ; removing the report timestamp.
-                    (dissoc (node-status node) :report_timestamp))]
+                    (dissoc (n/status node) :report_timestamp))]
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 
