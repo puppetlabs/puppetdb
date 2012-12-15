@@ -62,20 +62,8 @@ module Puppet::Util::Puppetdb
 
   def submit_command(certname, payload, command_name, version)
     command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
-
-    begin
-      command.submit
-    rescue Puppet::Error => e
-      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-      #  we are able to do so
-      puts e, e.backtrace if Puppet[:trace]
-      Puppet.err("Failed to submit command '#{command_name}' for '#{certname}' to PuppetDB.")
-      if (command.supports_queueing?)
-        command.enqueue
-      end
-    end
+    command.submit
   end
-
 
   private
 

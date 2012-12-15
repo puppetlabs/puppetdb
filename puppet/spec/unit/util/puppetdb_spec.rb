@@ -17,52 +17,15 @@ describe Puppet::Util::Puppetdb do
     let(:command1)  { Command.new("OPEN SESAME", 1, 'foo.localdomain',
                                   payload.merge(:uniqueprop => "command1")) }
 
-    context "when the command is submitted successfully" do
-      it "should submit the command" do
-        # careful here... since we're going to stub Command.new, we need to
-        # make sure we reference command1 first, because it calls Command.new.
-        command1.expects(:submit).once
-        Command.expects(:new).once.returns(command1)
-        subject.submit_command(command1.certname,
-                               command1.payload,
-                               command1.command,
-                               command1.version)
-      end
-    end
-
-    context "when the command is not submitted successfully" do
-      context "when the command does not support queueing" do
-        it "should not try to enqueue the command" do
-          # careful here... since we're going to stub Command.new, we need to
-          # make sure we reference command1 first, because it calls Command.new.
-          command1.expects(:submit).once.raises(Puppet::Error, "Strange things are afoot")
-          command1.expects(:supports_queueing?).returns(false)
-          command1.expects(:enqueue).never
-          Command.expects(:new).once.returns(command1)
-
-          subject.submit_command(command1.certname,
-                                 command1.payload,
-                                 command1.command,
-                                 command1.version)
-        end
-      end
-
-      context "when the command does support queueing" do
-        it "should enqueue the command" do
-          # careful here... since we're going to stub Command.new, we need to
-          # make sure we reference command1 first, because it calls Command.new.
-          command1.expects(:submit).once.raises(Puppet::Error, "Strange things are afoot")
-          command1.expects(:supports_queueing?).returns(true)
-          command1.expects(:enqueue).once
-          Command.expects(:new).once.returns(command1)
-
-          subject.submit_command(command1.certname,
-                                 command1.payload,
-                                 command1.command,
-                                 command1.version)
-        end
-      end
-
+    it "should submit the command" do
+      # careful here... since we're going to stub Command.new, we need to
+      # make sure we reference command1 first, because it calls Command.new.
+      command1.expects(:submit).once
+      Command.expects(:new).once.returns(command1)
+      subject.submit_command(command1.certname,
+                             command1.payload,
+                             command1.command,
+                             command1.version)
     end
 
   end
