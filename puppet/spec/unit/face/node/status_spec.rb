@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'puppet'
 require 'puppet/face'
+require 'puppet/network/http_pool'
 
 describe "node face: status" do
   let(:subject) { Puppet::Face[:node, :current] }

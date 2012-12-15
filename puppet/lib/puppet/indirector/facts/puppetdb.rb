@@ -4,13 +4,14 @@ require 'puppet/util/puppetdb'
 
 class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
+  include Puppet::Util::Puppetdb::CommandNames
 
   def save(request)
     facts = request.instance.dup
     facts.values = facts.values.dup
     facts.stringify
 
-    submit_command(request, facts.to_pson, CommandReplaceFacts, 1)
+    submit_command(request.key, facts.to_pson, CommandReplaceFacts, 1)
   end
 
   def find(request)

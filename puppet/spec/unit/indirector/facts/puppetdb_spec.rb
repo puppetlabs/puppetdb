@@ -2,10 +2,11 @@
 require 'spec_helper'
 
 require 'puppet/indirector/facts/puppetdb'
+require 'puppet/util/puppetdb/command_names'
 
 describe Puppet::Node::Facts::Puppetdb do
 
-  CommandReplaceFacts = Puppet::Util::Puppetdb::CommandReplaceFacts
+  CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
   before :each do
     Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
@@ -15,11 +16,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
   describe "#save" do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
-    let(:facts) do
-      Puppet::Node::Facts.new('foo')
-    end
+    let(:facts)    { Puppet::Node::Facts.new('foo') }
+    let(:http)     { mock 'http' }
 
     before :each do
+      Puppet::Network::HttpPool.expects(:http_instance).returns http
       response.stubs(:body).returns '{"uuid": "a UUID"}'
     end
 
@@ -34,7 +35,7 @@ describe Puppet::Node::Facts::Puppetdb do
         :payload => facts.to_pson,
       }.to_pson
 
-      subject.expects(:http_post).with do |request,uri,body,headers|
+      http.expects(:post).with do |uri, body, headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
       end.returns response
@@ -47,13 +48,7 @@ describe Puppet::Node::Facts::Puppetdb do
     it "should stringify fact values before submitting" do
       facts.values['something'] = 100
 
-      payload = {
-        :command => CommandReplaceFacts,
-        :version => 1,
-        :payload => facts.to_pson,
-      }.to_pson
-
-      subject.expects(:http_post).with do |request,uri,body,headers|
+      http.expects(:post).with do |uri, body, headers|
         body =~ /payload=(.+)/
         @sent_payload = $1
       end.returns response
