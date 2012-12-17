@@ -52,18 +52,29 @@
 
 (def cli-description "Development-only benchmarking tool")
 
-(def hosts nil)
-(def hostname nil)
-(def port nil)
-(def runinterval nil)
-(def rand-percentage 0)
+(defn try-load-file
+  "Attempt to read and parse the JSON in `file`. If this failed, an error is
+  logged, and nil is returned."
+  [file]
+  (try
+    (json/parse-string (slurp file))
+    (catch Exception e
+      (log/error (format "Error parsing %s; skipping" file)))))
+
+(defn load-sample-data
+  "Load all .json files contained in `dir`."
+  [dir]
+  (->> (fs/glob (fs/file dir "*.json"))
+       (map try-load-file)
+       (remove nil?)
+       (vec)))
 
 (defn submit-catalog
-  "Send the given wire-format catalog (associated with `host`) to a
-  command-processing endpoint."
-  [host catalog]
-  (let [result (command/submit-command-via-http! hostname port "replace catalog" 1 (json/generate-string catalog))]
-    (if (not= pl-http/status-ok (:status result))
+  "Send the given wire-format `catalog` (associated with `host`) to a
+  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
+  [puppetdb-host puppetdb-port catalog]
+  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port "replace catalog" 1 (json/generate-string catalog))]
+    (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
 (defn tweak-catalog
@@ -84,8 +95,8 @@
     hosts catalog changes in accordance to the users preference)
 
   * Submit the resulting catalog"
-  [{:keys [host lastrun catalog] :as state} clock]
-  (if (> (- clock lastrun) runinterval)
+  [{:keys [host lastrun catalog puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
+  (if (> (- clock lastrun) run-interval)
     (let [catalog (if (< (rand 100) rand-percentage)
                     (tweak-catalog catalog)
                     catalog)]
@@ -94,7 +105,7 @@
       ;; continuum.
       (future
         (log/info (format "[%s] submitting catalog" host))
-        (submit-catalog host catalog))
+        (submit-catalog puppetdb-host puppetdb-port catalog))
       (assoc state :lastrun clock :catalog catalog))
     state))
 
@@ -104,7 +115,7 @@
   This function never terminates.
 
   The time resolution of this loop is 10ms."
-  []
+  [hosts]
   (loop [last-time (System/currentTimeMillis)]
     (let [curr-time (System/currentTimeMillis)]
 
@@ -122,43 +133,37 @@
   (-> catalog
       (assoc-in ["data" "name"] hostname)
       (assoc-in ["data" "resources"] (for [resource (get-in catalog ["data" "resources"])]
-                                       (assoc resource "tags" (conj (resource "tags") hostname))))))
+                                       (update-in resource ["tags"] conj hostname)))))
 (defn -main
   [& args]
-  (let [[options _] (cli! args
-                          ["-d" "--dir" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-                          ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
-                          ["-n" "--numhosts" "How many hosts to use during simulation"]
-                          ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
+  (let [[options _]     (cli! args
+                              ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
+                              ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
+                              ["-n" "--numhosts" "How many hosts to use during simulation"]
+                              ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
-        config      (-> options
-                        :config
-                        (inis-to-map)
-                        (configure-logging!))
+        config          (-> (:config options)
+                            (inis-to-map)
+                            (configure-logging!))
 
-        dir         (:dir options)
-        catalogs    (->> (for [file (fs/glob (fs/file dir "*.json"))]
-                           (try
-                             (json/parse-string (slurp file))
-                             (catch Exception e
-                               (log/error (format "Error parsing %s; skipping" file)))))
-                         (remove nil?)
-                         (vec))
+        catalogs        (load-sample-data (:catalogs options))
 
-        nhosts      (:numhosts options)
-        hostnames   (set (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
+        nhosts          (:numhosts options)
+        hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
+        hostname        (get-in config [:jetty :host] "localhost")
+        port            (get-in config [:jetty :port] 8080)
+        rand-percentage (Integer/parseInt (:rand-perc options))
+        run-interval     (* 60 1000 (Integer/parseInt (:runinterval options)))
 
-    (def hostname (get-in config [:jetty :host] "localhost"))
-    (def port (get-in config [:jetty :port] 8080))
-    (def rand-percentage (Integer/parseInt (:rand-perc options)))
-    (def runinterval (* 60 1000 (Integer/parseInt (:runinterval options))))
-
-    ;; Create an agent for each host
-    (def hosts
-      (mapv #(agent {:host    %,
-                     :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
-                     :catalog (associate-catalog-with-host % (rand-nth catalogs))})
-            hostnames))
+        ;; Create an agent for each host
+        hosts (mapv #(agent {:host    %
+                             :puppetdb-host hostname
+                             :puppetdb-port port
+                             :rand-percentage rand-percentage
+                             :run-interval run-interval
+                             :lastrun (- (System/currentTimeMillis) (rand-int run-interval))
+                             :catalog (associate-catalog-with-host % (rand-nth catalogs))})
+                    hostnames)]
 
     ;; Loop forever
-    (world-loop)))
+    (world-loop hosts)))
