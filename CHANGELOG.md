@@ -1,3 +1,21 @@
+1.0.5
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Chris Price
+* Deepak Giridharagopal
+
+Fixes:
+
+* Drop a large, unused index on catalog_resources(tags)
+
+  This index was superseded by a GIN index on the same column, but the previous
+  index was kept around by mistake. This should result in a space savings of
+  10-20%, as well as a possible very minor improvement in catalog insert
+  performance.
+
 1.0.4
 =========
 
