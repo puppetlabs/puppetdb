@@ -13,8 +13,8 @@ on port 8080 of the puppetdb server itself.  It's only open to connections
 received from `localhost`, so you'll need to open a shell on that host.  Then
 you can run commands like these:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/facts/<node>'
-    curl -H "Accept: application/json" 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/facts/<node>'
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
 
 For additional examples, please see the docs for the individual REST endpoints:
 
@@ -32,7 +32,7 @@ no HTTP port), you'll also need to point `curl` to your SSL certs in order
 to connect successfully.  (The certs you use will need to be signed by the
 puppet CA in order for PuppetDb to trust them.)
 
-    curl -H "Accept: application/json" 'https://<your.puppetdb.server>:8081/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
+    curl -H "Accept: application/json" 'https://<your.puppetdb.server>:8081/v2/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
 
 ## Dealing with complex query strings
 
@@ -44,7 +44,7 @@ request instead of a `GET`.  Many of the puppetdb endpoints only accept `GET`
 requests, so you'll need to additionally specify the `-G` or `--get` option to
 tell `curl` to use `GET`.  Here's an example:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 
 
