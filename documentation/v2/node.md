@@ -56,8 +56,8 @@ The array is sorted alphabetically by `name`.
 
 [You can use `curl`](curl.md) to query information about nodes like so:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/nodes'
-    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/nodes'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 #### `GET /v2/nodes/:node`
 
