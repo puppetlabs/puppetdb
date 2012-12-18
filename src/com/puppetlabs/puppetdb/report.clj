@@ -14,7 +14,7 @@
   {:certname                 :string
    :puppet-version           :string
    :report-format            :integer
-   :configuration-version    :datetime
+   :configuration-version    :string
    :start-time               :datetime
    :end-time                 :datetime
    :resource-events          :coll})
