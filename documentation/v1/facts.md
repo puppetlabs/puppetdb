@@ -14,7 +14,7 @@ This will return all facts for the given node.
       "facts": {
          "operatingsystem": "Debian",
          "ipaddress": "192.168.1.105",
-         "uptime_days": "26 days",
+         "uptime_days": "26 days"
       }
     }
 
