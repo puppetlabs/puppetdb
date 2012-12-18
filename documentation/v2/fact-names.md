@@ -2,8 +2,6 @@
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
-## v2
-
 ### Routes
 
 #### `GET /fact-names`
@@ -13,7 +11,7 @@ known only for deactivated nodes.
 
 ##### Examples
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/fact-names
+    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/v2/fact-names
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 
