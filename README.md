@@ -298,10 +298,12 @@ On a Debian box you can install PostgreSQL locally like so:
 ## Puppet Setup
 
 In order to talk to PuppetDB, Puppet must be configured to use the PuppetDB
-terminuses. This can be achieved by installing the module on the Puppet master
-and changing the `storeconfigs_backend` setting to `puppetdb`. The location of
-the server can be specified using the `$confdir/puppetdb.conf` file. The basic
-format of this file is:
+terminuses. This can be achieved by installing the `puppetdb-terminus` package
+on the Puppet master, and changing the `storeconfigs_backend` setting to `puppetdb`
+(you'll also need to set `storeconfigs` to `true` if it is not already).
+
+The location of the server can be specified using the `$confdir/puppetdb.conf` file.
+The basic format of this file is:
 
     [main]
     server = puppetdb.example.com
@@ -324,6 +326,25 @@ default at `$confdir/routes.yaml`. The content should be:
 This configuration tells Puppet to use PuppetDB as the authoritative source of
 fact information, which is what is necessary for inventory search to consult
 it.
+
+### Enabling Experimental Report Storage
+
+Version 1.1 of PuppetDB includes experimental support for storing Puppet
+reports.  This feature can be enabled by simply adding the `puppetdb` report
+processor in your `puppet.conf` file.  If you don't already have a `reports`
+setting in your `puppet.conf` file, you'll probably want to add a line like this:
+
+    reports = store,puppetdb
+
+This will keep Puppet's default behavior of storing the reports to disk as YAML,
+while also sending the reports to PuppetDB.
+
+You can configure how long PuppetDB stores these reports, and you can do some
+very basic querying.  For more information, see the documentation in the
+[`experimental`](./experimental) section of the PuppetDB docs.
+
+More information about Puppet report processors in general can be found
+[here](http://docs.puppetlabs.com/guides/reporting.html).
 
 ## SSL Setup
 
