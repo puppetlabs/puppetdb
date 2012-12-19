@@ -6,7 +6,7 @@
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
     :report-format          3
-    :configuration-version  "123456789"
+    :configuration-version  "a81jasj123"
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"
     :resource-events
