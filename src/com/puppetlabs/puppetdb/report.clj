@@ -27,9 +27,9 @@
    :property           { :optional? true
                          :type      :string}
    :new-value          { :optional? true
-                         :type      :string}
+                         :type      :jsonable }
    :old-value          { :optional? true
-                         :type      :string}
+                         :type      :jsonable }
    :message            { :optional? true
                          :type      :string}})
 
