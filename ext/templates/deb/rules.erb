@@ -19,11 +19,11 @@ install::
 <% if @pe -%>
 	/opt/puppet/bin/rake install DESTDIR=$(BUILD_ROOT) PE_BUILD=true
 	/opt/puppet/bin/rake terminus DESTDIR=$(BUILD_ROOT) PE_BUILD=true
-	dh_installdocs -p pe-puppetdb spec
+	dh_installdocs -p pe-puppetdb documentation
 <% else -%>
 	rake install DESTDIR=$(BUILD_ROOT)
 	rake terminus DESTDIR=$(BUILD_ROOT)
-	dh_installdocs -p puppetdb spec
+	dh_installdocs -p puppetdb documentation
 <% end -%>
 
 binary-indep: build install
