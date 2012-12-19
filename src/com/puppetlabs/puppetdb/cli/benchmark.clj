@@ -52,24 +52,46 @@
 
 (def cli-description "Development-only benchmarking tool")
 
-(def hosts nil)
-(def hostname nil)
-(def port nil)
-(def runinterval nil)
-(def rand-percentage 0)
+(defn try-load-file
+  "Attempt to read and parse the JSON in `file`. If this failed, an error is
+  logged, and nil is returned."
+  [file]
+  (try
+    (json/parse-string (slurp file))
+    (catch Exception e
+      (log/error (format "Error parsing %s; skipping" file)))))
+
+(defn load-sample-data
+  "Load all .json files contained in `dir`."
+  [dir]
+  (->> (fs/glob (fs/file dir "*.json"))
+       (map try-load-file)
+       (remove nil?)
+       (vec)))
 
 (defn submit-catalog
-  "Send the given wire-format catalog (associated with `host`) to a
-  command-processing endpoint."
-  [host catalog]
-  (let [result (command/submit-command-via-http! hostname port "replace catalog" 1 (json/generate-string catalog))]
-    (if (not= pl-http/status-ok (:status result))
+  "Send the given wire-format `catalog` (associated with `host`) to a
+  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
+  [puppetdb-host puppetdb-port catalog]
+  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port "replace catalog" 1 (json/generate-string catalog))]
+    (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
-(defn tweak-catalog
-  "Slightly tweak the given catalog, returning a new catalog"
-  [catalog]
-  (catutils/add-random-resource-to-wire-catalog catalog))
+(defn submit-report
+  "Send the given wire-format `report` (associated with `host`) to a
+  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
+  [puppetdb-host puppetdb-port report]
+  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port "store report" 1 report)]
+    (when-not (= pl-http/status-ok (:status result))
+      (log/error result))))
+
+(defn maybe-tweak-catalog
+  "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
+  percent of the time."
+  [rand-percentage catalog]
+  (if (< (rand 100) rand-percentage)
+    (catutils/add-random-resource-to-wire-catalog catalog)
+    catalog))
 
 (defn update-host
   "Send a new _clock tick_ to a host
@@ -84,17 +106,25 @@
     hosts catalog changes in accordance to the users preference)
 
   * Submit the resulting catalog"
-  [{:keys [host lastrun catalog] :as state} clock]
-  (if (> (- clock lastrun) runinterval)
-    (let [catalog (if (< (rand 100) rand-percentage)
-                    (tweak-catalog catalog)
-                    catalog)]
-      ;; Submit the catalog in a separate thread, so as to not disturb
-      ;; the world-loop and otherwise distort the space-time
-      ;; continuum.
-      (future
-        (log/info (format "[%s] submitting catalog" host))
-        (submit-catalog host catalog))
+  [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
+  (if (> (- clock lastrun) run-interval)
+    (let [catalog (if catalog (maybe-tweak-catalog rand-percentage catalog))]
+      ;; Submit the catalog and reports in separate threads, so as to not
+      ;; disturb the world-loop and otherwise distort the space-time continuum.
+      (when catalog
+        (future
+          (try
+            (submit-catalog puppetdb-host puppetdb-port catalog)
+            (log/info (format "[%s] submitted catalog" host))
+            (catch Exception e
+              (log/error (format "[%s] failed to submit catalog: %s" host e))))))
+      (when report
+        (future
+          (try
+            (submit-report puppetdb-host puppetdb-port report)
+            (log/info (format "[%s] submitted report" host))
+            (catch Exception e
+              (log/error (format "[%s] failed to submit report: %s" host e))))))
       (assoc state :lastrun clock :catalog catalog))
     state))
 
@@ -104,61 +134,73 @@
   This function never terminates.
 
   The time resolution of this loop is 10ms."
-  []
+  [hosts]
   (loop [last-time (System/currentTimeMillis)]
     (let [curr-time (System/currentTimeMillis)]
 
       ;; Send out updated ticks to each agent
       (doseq [host hosts]
-        (send host update-host curr-time))
+        (send host update-host curr-time)
+        (when-let [error (agent-error host)]
+          (log/error error (format "[%s] agent failed; restarting" host))
+          ;; Restart it with exactly the same state. Hopefully that's okay!
+          (restart-agent host @host)))
 
       (Thread/sleep 10)
       (recur curr-time))))
 
 (defn associate-catalog-with-host
-  "Takes the given catalog and transforms it to appear related to
+  "Takes the given `catalog` and transforms it to appear related to
   `hostname`"
   [hostname catalog]
   (-> catalog
       (assoc-in ["data" "name"] hostname)
       (assoc-in ["data" "resources"] (for [resource (get-in catalog ["data" "resources"])]
-                                       (assoc resource "tags" (conj (resource "tags") hostname))))))
+                                       (update-in resource ["tags"] conj hostname)))))
+
+(defn associate-report-with-host
+  "Takes the given `report` and transforms it to appear related to
+  `hostname`"
+  [hostname report]
+  (assoc report "certname" hostname))
+
 (defn -main
   [& args]
-  (let [[options _] (cli! args
-                          ["-d" "--dir" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-                          ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
-                          ["-n" "--numhosts" "How many hosts to use during simulation"]
-                          ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
+  (let [[options _]     (cli! args
+                              ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
+                              ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
+                              ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
+                              ["-n" "--numhosts" "How many hosts to use during simulation"]
+                              ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
 
-        config      (-> options
-                        :config
-                        (inis-to-map)
-                        (configure-logging!))
+        config          (-> (:config options)
+                            (inis-to-map)
+                            (configure-logging!))
 
-        dir         (:dir options)
-        catalogs    (->> (for [file (fs/glob (fs/file dir "*.json"))]
-                           (try
-                             (json/parse-string (slurp file))
-                             (catch Exception e
-                               (log/error (format "Error parsing %s; skipping" file)))))
-                         (remove nil?)
-                         (vec))
+        catalogs        (if (:catalogs options) (load-sample-data (:catalogs options)))
+        reports         (if (:reports options) (load-sample-data (:reports options)))
 
-        nhosts      (:numhosts options)
-        hostnames   (set (map #(str "host-" %) (range 1 (Integer/parseInt nhosts))))]
+        nhosts          (:numhosts options)
+        hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
+        hostname        (get-in config [:jetty :host] "localhost")
+        port            (get-in config [:jetty :port] 8080)
+        rand-percentage (Integer/parseInt (:rand-perc options))
+        run-interval     (* 60 1000 (Integer/parseInt (:runinterval options)))
 
-    (def hostname (get-in config [:jetty :host] "localhost"))
-    (def port (get-in config [:jetty :port] 8080))
-    (def rand-percentage (Integer/parseInt (:rand-perc options)))
-    (def runinterval (* 60 1000 (Integer/parseInt (:runinterval options))))
+        ;; Create an agent for each host
+        hosts (mapv #(agent {:host    %
+                             :puppetdb-host hostname
+                             :puppetdb-port port
+                             :rand-percentage rand-percentage
+                             :run-interval run-interval
+                             :lastrun (- (System/currentTimeMillis) (rand-int run-interval))
+                             :catalog (if catalogs (associate-catalog-with-host % (rand-nth catalogs)))
+                             :report (if reports (associate-report-with-host % (rand-nth reports)))})
+                    hostnames)]
 
-    ;; Create an agent for each host
-    (def hosts
-      (mapv #(agent {:host    %,
-                     :lastrun (- (System/currentTimeMillis) (rand-int runinterval)),
-                     :catalog (associate-catalog-with-host % (rand-nth catalogs))})
-            hostnames))
-
+    (when-not catalogs
+      (log/info "No catalogs specified; skipping catalog submission"))
+    (when-not reports
+      (log/info "No reports specified; skipping report submission"))
     ;; Loop forever
-    (world-loop)))
+    (world-loop hosts)))
