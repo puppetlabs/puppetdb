@@ -18,7 +18,7 @@ class Config
       Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
       content = File.read(config_file)
     else
-      Puppet.debug("No puppetdb.conf file found; falling back to default #{defaults[:server]}:#{defaults[:port]}")
+      Puppet.debug("No #{config_file} file found; falling back to default server and port #{defaults[:server]}:#{defaults[:port]}")
       content = ''
     end
 
