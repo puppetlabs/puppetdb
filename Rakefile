@@ -92,7 +92,7 @@ if @pe
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
-    @cows = 'lenny', 'lucid', 'squeeze', 'precise'
+    @cows = 'lucid', 'squeeze', 'precise', 'wheezy'
     @pe_version = '2.5'
 else
     @install_dir = "/usr/share/puppetdb"
