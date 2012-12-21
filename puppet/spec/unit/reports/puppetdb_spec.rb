@@ -12,7 +12,7 @@ describe processor do
 
   subject {
     s = Puppet::Transaction::Report.new("foo").extend(processor)
-    s.configuration_version = "123456789"
+    s.configuration_version = 123456789
     s
   }
 
@@ -94,7 +94,7 @@ describe processor do
           # TODO: change these two to use accessors as soon as we get up to puppet 3.0
           result["puppet-version"].should == subject.instance_variable_get(:@puppet_version)
           result["report-format"].should == subject.instance_variable_get(:@report_format)
-          result["configuration-version"].should == subject.configuration_version
+          result["configuration-version"].should == subject.configuration_version.to_s
           result["resource-events"].should == []
         end
       end
