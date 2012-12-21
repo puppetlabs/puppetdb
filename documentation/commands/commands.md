@@ -85,3 +85,12 @@ the [fact wire format](../wire-formats/fact-wire-format.md).
 
 The payload is expected to be the name of a node, as a JSON string, which will be deactivated
 effective as of the time the command is *processed*.
+
+# Experimental commands
+
+## "store report", version 1
+
+The payload is expected to be a report, containing events that occurred on Puppet
+resources.  It is structured as a JSON object, confirming to the
+[report wire format](./report-wire-format.md).
+
