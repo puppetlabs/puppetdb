@@ -1,7 +1,8 @@
 (ns com.puppetlabs.validation
   (:require [com.puppetlabs.utils :as pl-utils]
             [clojure.string :as string]
-            [clojure.set :as set]))
+            [clojure.set :as set])
+  (:use [cheshire.custom :only [JSONable]]))
 
 (defmacro defmodel
   "Defines a 'model' which can be used for validating maps of data.  Here's an
@@ -58,7 +59,8 @@
                   :integer  integer?
                   :number   number?
                   :datetime pl-utils/datetime?
-                  :coll     coll? }
+                  :coll     coll?
+                  :jsonable #(satisfies? JSONable %)}
         type-errors (for [[field {:keys [optional? type]}] fields
                           :let [value (field obj)
                                 type-fn (type-fns type)]]
