@@ -87,6 +87,13 @@ rm pkg/rpm/$NAME-*.src.rpm
 # Ship the rpms staged locally in yum.puppetlabs.com
 ship_rpms
 
+# This is a Puppet Enterprise rpm
+build_srpm "PE_BUILD=true"
+build_rpm "PKG=\$(ls pkg/rpm/pe-$NAME-*.src.rpm)"
+
+# Ship the PE rpms
+ship_rpms PE_BUILD=true
+
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
   scp -r el fedora neptune.puppetlabs.lan:$PENDING/$NAME-$VERSION
