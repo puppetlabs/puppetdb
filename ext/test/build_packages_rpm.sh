@@ -71,6 +71,13 @@ PATH=~/bin:\$PATH rake srpm RUBY_VER=1.9
 
 rake \$RAKE_ARGS setup newbuild ship PKG=\$(ls pkg/rpm/$NAME-*.src.rpm) TARGET=neptune.puppetlabs.lan:$YUM_DIR NO_CHECK=true OVERRIDE=1 MOCKS=fedora-17-i386
 
+# This is a Puppet Enterprise rpm
+build_srpm "PE_BUILD=true"
+build_rpm "PKG=\$(ls pkg/rpm/pe-$NAME-*.src.rpm)"
+
+# Ship the PE rpms
+ship_rpms PE_BUILD=true
+
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
   scp -r el fedora neptune.puppetlabs.lan:$PENDING/$NAME-$VERSION
