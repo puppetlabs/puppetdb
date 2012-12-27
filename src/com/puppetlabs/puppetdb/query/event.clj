@@ -2,7 +2,8 @@
 
 (ns com.puppetlabs.puppetdb.query.event
   (:require [com.puppetlabs.utils :as utils]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [cheshire.core :as json])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]))
 
 ;; ## Resource Event query functions
@@ -44,7 +45,9 @@
                                   FROM resource_events %s")
                         sql)
         results   (map
-                    #(utils/mapkeys underscores->dashes %)
+                    #(-> (utils/mapkeys underscores->dashes %)
+                         (update-in [:old-value] json/parse-string)
+                         (update-in [:new-value] json/parse-string))
                     (query-to-vec (apply vector query params)))]
     results))
 

@@ -16,7 +16,15 @@
           :resource-title   "notify, yo"
           :property         "message"
           :new-value        "notify, yo"
-          :old-value        "absent"
+          :old-value        ["what" "the" "woah"]
+          :message          "defined 'message' as 'notify, yo'"}
+         {:status           "success"
+          :timestamp        "2011-01-01T12:00:03-03:00"
+          :resource-type    "Notify"
+          :resource-title   "notify, yar"
+          :property         "message"
+          :new-value        {"absent" 5}
+          :old-value        {"absent" true}
           :message          "defined 'message' as 'notify, yo'"}
          {:status           "skipped"
           :timestamp        "2011-01-01T12:00:02-03:00"

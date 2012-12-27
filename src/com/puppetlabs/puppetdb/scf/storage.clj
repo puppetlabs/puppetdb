@@ -724,6 +724,8 @@ must be supplied as the value to be matched."
   (let [report-hash         (report-identity-string report)
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
+                                     (update-in [:old-value] db-serialize)
+                                     (update-in [:new-value] db-serialize)
                                      (assoc :report report-hash)
                                      ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]

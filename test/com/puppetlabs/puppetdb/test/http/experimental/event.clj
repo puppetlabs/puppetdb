@@ -4,6 +4,7 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json])
   (:use clojure.test
+        [clojure.walk :only [stringify-keys]]
         ring.mock.request
         com.puppetlabs.puppetdb.examples.report
         com.puppetlabs.puppetdb.fixtures
@@ -55,5 +56,6 @@
       (let [response (get-response ["=" "report" report-hash])
             expected (expected-resource-events-response
                         (:resource-events basic)
-                        report-hash)]
-        (response-equal? response expected)))))
+                        report-hash)
+            munge-event-values #(utils/maptrans {[:old-value :new-value] stringify-keys} %)]
+        (response-equal? response expected #(map munge-event-values %))))))
