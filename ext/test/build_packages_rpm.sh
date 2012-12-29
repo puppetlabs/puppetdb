@@ -46,35 +46,58 @@ echo "****************************************************"
 ls -l
 echo "****************************************************"
 
+function prepare_env(){
 # The Rake task depends on having a version file, since it's not a git repo
 echo $VERSION > version
-
-# This SRPM is built for ruby 1.8 pathing, so in the newbuild call we turn off fedora 17 building
-PATH=~/bin:\$PATH rake srpm
-
+RAKE_ARGS="-Iyum.puppetlabs.com -f yum.puppetlabs.com/Rakefile"
+PATH=~/bin:\$PATH
 # This file has to exist or rsync freaks out :(
 touch excludes
-
 # Clone yum.puppetlabs.com repo for its rake tasks
 git clone git@github.com:puppetlabs/yum.puppetlabs.com
+}
 
-# Build the SRPM
-RAKE_ARGS="-Iyum.puppetlabs.com -f yum.puppetlabs.com/Rakefile"
+function build_srpm(){
+  args=\${1}
+  rake srpm \$args
+}
 
-# Build the packages and ship them off to neptune
-rake \$RAKE_ARGS setup newbuild ship PKG=\$(ls pkg/rpm/$NAME-*.src.rpm) TARGET=neptune.puppetlabs.lan:$YUM_DIR NO_CHECK=true OVERRIDE=1 F17_BUILD=FALSE
+function build_rpm(){
+  args=\${@}
+  rake \$RAKE_ARGS setup newbuild \$args
+}
 
-# Now we remove and rebuild the SRPM for ruby 1.9 and mock against fedora 17
+function ship_rpms(){
+  args=\${@}
+  rake \$RAKE_ARGS ship TARGET=neptune.puppetlabs.lan:$YUM_DIR NO_CHECK=true OVERRIDE=1 \$args
+}
+
+prepare_env
+
+# This RPM is built for ruby 1.8 pathing, so in the newbuild call we turn off fedora 17 building
+build_srpm
+build_rpm "PKG=\$(ls pkg/rpm/$NAME-*.src.rpm)" "F17_BUILD=FALSE"
 rm pkg/rpm/$NAME-*.src.rpm
-PATH=~/bin:\$PATH rake srpm RUBY_VER=1.9
 
-rake \$RAKE_ARGS setup newbuild ship PKG=\$(ls pkg/rpm/$NAME-*.src.rpm) TARGET=neptune.puppetlabs.lan:$YUM_DIR NO_CHECK=true OVERRIDE=1 MOCKS=fedora-17-i386
+# This RPM is build for ruby 1.9, and mocked against fedora 17
+build_srpm "RUBY_VER=1.9"
+build_rpm "PKG=\$(ls pkg/rpm/$NAME-*.src.rpm)" "MOCKS=fedora-17-i386"
+rm pkg/rpm/$NAME-*.src.rpm
+
+# Ship the rpms staged locally in yum.puppetlabs.com
+ship_rpms
+
+# This is a Puppet Enterprise rpm
+build_srpm "PE_BUILD=true"
+build_rpm "PKG=\$(ls pkg/rpm/pe-$NAME-*.src.rpm)"
+
+# Ship the PE rpms
+ship_rpms PE_BUILD=true
 
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
   scp -r el fedora neptune.puppetlabs.lan:$PENDING/$NAME-$VERSION
 fi
-
 
 # Clean up after ourselves
 cd ~
