@@ -93,7 +93,7 @@ if @pe
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
     @cows = 'lucid', 'squeeze', 'precise', 'wheezy'
-    @pe_version = '2.5'
+    @pe_version = ENV['PE_VER'] || '2.7'
 else
     @install_dir = "/usr/share/puppetdb"
     @etc_dir = "/etc/puppetdb"
@@ -352,10 +352,9 @@ task :deb  => [ :package ] do
       @cows.each do |cow|
         mkdir "#{temp}/#{cow}"
         arch = ENV['ARCH'] || 'i386'
-        ENV['PE_VER'] ||= @pe_version
         # Because these are general purpose cows, we have to update them with PE repos
         # to ensure this build succeeds at dependency resolution
-        sh "export DIST=#{cow} ARCH=#{arch} PE_VER=#{ENV['PE_VER']} ; \
+        sh "export DIST=#{cow} ARCH=#{arch} PE_VER=#{@pe_version} ; \
           sudo -E cowbuilder --update \
           --override-config \
           --basepath=/var/cache/pbuilder/base-#{cow}-#{arch}.cow \
@@ -364,7 +363,7 @@ task :deb  => [ :package ] do
         sh "pdebuild --buildresult #{temp}/#{cow} \
           --pbuilder cowbuilder -- \
           --override-config \
-          --othermirror=\"deb http://freight.puppetlabs.lan #{ENV['PE_VER']} #{cow}\" \
+          --othermirror=\"deb http://freight.puppetlabs.lan #{@pe_version} #{cow}\" \
           --basepath /var/cache/pbuilder/base-#{cow}-#{arch}.cow/"
       end
     else
