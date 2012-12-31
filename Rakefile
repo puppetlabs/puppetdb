@@ -362,8 +362,6 @@ task :deb  => [ :package ] do
           --architecture #{arch}"
         sh "pdebuild --buildresult #{temp}/#{cow} \
           --pbuilder cowbuilder -- \
-          --override-config \
-          --othermirror=\"deb http://freight.puppetlabs.lan #{@pe_version} #{cow}\" \
           --basepath /var/cache/pbuilder/base-#{cow}-#{arch}.cow/"
       end
     else
