@@ -362,10 +362,10 @@ task :deb  => [ :package ] do
           --dist #{cow} \
           --architecture #{arch}"
         sh "pdebuild --buildresult #{temp}/#{cow} \
-        --pbuilder cowbuilder -- \
-        --override-config \
-        --othermirror=\"deb http://freight.puppetlabs.lan #{ENV['PE_VER']} #{cow}\" \
-        --basepath /var/cache/pbuilder/base-#{cow}-i386.cow/"
+          --pbuilder cowbuilder -- \
+          --override-config \
+          --othermirror=\"deb http://freight.puppetlabs.lan #{ENV['PE_VER']} #{cow}\" \
+          --basepath /var/cache/pbuilder/base-#{cow}-#{arch}.cow/"
       end
     else
       sh 'debuild --no-lintian  -uc -us'
