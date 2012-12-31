@@ -22,6 +22,7 @@ PENDING=$FREIGHT_DIR/pending
 WORK_DIR=$DEB_BUILD_DIR/$NAME-$VERSION
 BUCKET_NAME=${NAME}-prerelease
 S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${DEB_BUILD_BRANCH}
+[ -n "${PE_VER}" ] || PE_VER='2.7'
 
 git archive --format=tar HEAD --prefix=$NAME-$VERSION/ -o $NAME-$VERSION.tar
 
@@ -42,12 +43,28 @@ export PATH=~/bin:\$PATH
 #tar -C ~/$NAME/build/$BUILD_BRANCH -xvf ~/$NAME/build/$BUILD_BRANCH/$NAME-$VERSION.tar
 tar -C $DEB_BUILD_DIR -xvf $DEB_BUILD_DIR/$NAME-$VERSION.tar
 echo $VERSION > $WORK_DIR/version
+
+# This rake call builds our FOSS debs
 cd $WORK_DIR && rake deb
 
 set -x
 
 echo "ABOUT TO COPY OVER THE DEB"
 scp -r $WORK_DIR/pkg/deb neptune:${INCOMING}/$NAME-$VERSION
+
+# This one is going to build us our PE debs
+# To avoid a tremendous amount of output, we'll +x this
+set +x
+cd $WORK_DIR && rake deb PE_BUILD=true PE_VER=${PE_VER}
+
+set -x
+
+# We ship a second time here because the second rake deb call blows away
+# the results of the first. We could also move the first set of artifacts
+# aside and only ship once, but, you know, since we're already at 11/10 on
+# the hack scale here...
+echo "ABOUT TO COPY OVER THE PE DEBS"
+scp -r $WORK_DIR/pkg/deb/{lucid,squeeze,precise,wheezy} neptune:${INCOMING}/$NAME-$VERSION
 
 rm -rf $WORK_DIR{,.tar}
 BUILD_DEBS
@@ -81,8 +98,14 @@ ssh neptune <<FREIGHT
 set -e
 set -x
 
+# This adds the FOSS debs, which are at the first directory level
 for DISTRO in lucid maverick natty oneiric precise lenny squeeze wheezy; do
   freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/*.deb apt/\$DISTRO
+done
+
+# The PE debs are all in subdirectories named after their dist
+for DISTRO in lucid squeeze precise wheezy; do
+  freight add -c ${FREIGHT_DIR}/freight.conf ${INCOMING}/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
 freight cache -c ${FREIGHT_DIR}/freight.conf
