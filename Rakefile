@@ -351,9 +351,16 @@ task :deb  => [ :package ] do
     if @pe
       @cows.each do |cow|
         mkdir "#{temp}/#{cow}"
-        ENV['DIST'] = cow
-        ENV['ARCH'] = 'i386'
+        arch = ENV['ARCH'] || 'i386'
         ENV['PE_VER'] ||= @pe_version
+        # Because these are general purpose cows, we have to update them with PE repos
+        # to ensure this build succeeds at dependency resolution
+        sh "export DIST=#{cow} ARCH=#{arch} PE_VER=#{ENV['PE_VER']} ; \
+          sudo -E cowbuilder --update \
+          --override-config \
+          --basepath=/var/cache/pbuilder/base-#{cow}-#{arch}.cow \
+          --dist #{cow} \
+          --architecture #{arch}"
         sh "pdebuild --buildresult #{temp}/#{cow} \
         --pbuilder cowbuilder -- \
         --override-config \
