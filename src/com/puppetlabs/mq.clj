@@ -96,6 +96,8 @@
                (.setPersistent true)
                (set-store-usage! (:store-usage config))
                (set-temp-usage!  (:temp-usage config)))
+          mc (doto (.getManagementContext mq)
+               (.setCreateConnector false))
           db (doto (.getPersistenceAdapter mq)
                (.setIgnoreMissingJournalfiles true)
                (.setArchiveCorruptedIndex true)
