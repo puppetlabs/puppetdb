@@ -27,12 +27,16 @@
     (testing "should respect delayed message sending properties"
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
-          (connect-and-publish! conn "queue" tracer-msg (delay-property 2 :seconds))
-          ;; After 1s, there should be nothing in the queue
-          (is (= [] (timed-drain-into-vec! conn "queue" 1000)))
-          (Thread/sleep 1000)
-          ;; After another 1s, we should see the message
-          (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))))
+          (connect-and-publish! conn "queue" tracer-msg (delay-property 3 :seconds))
+          ;; After 500ms, there should be nothing in the queue
+          (is (= [] (timed-drain-into-vec! conn "queue" 500)))
+          (Thread/sleep 500)
+          ;; Within another 3s, we should see the message, we leave some
+          ;; give or take here to componsate for the fact that the MQ
+          ;; scheduler resolves delays to a second tick boundary (ignoring
+          ;; or diluting milliseconds) so may appear to take almost 4 seconds
+          ;; sometimes. This is to avoid potential races in the test.
+          (is (= [tracer-msg] (timed-drain-into-vec! conn "queue" 3000))))))))
 
 (deftest test-build-broker
   (testing "build-embedded-broker"
