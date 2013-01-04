@@ -1,3 +1,129 @@
+1.1.0rc1
+=========
+
+Many thanks to the following people who contributed patches to this
+release:
+
+* Chris Price
+* Deepak Giridharagopal
+* Jeff Blaine
+* Ken Barber
+* Kushal Pisavadia
+* Matthaus Litteken
+* Michael Stahnke
+* Moses Mendoza
+* Nick Lewis
+* Pierre-Yves Ritschard
+
+Notable features:
+
+* Enhanced query API
+
+  A substantially improved version 2 of the HTTP query API has been added. This
+  is located under the /v2 route. Detailed documentation on all the available
+  routes and query language can be found in the API documentation, but here are
+  a few of the noteworthy improvements:
+
+  * Query based on regular expressions
+
+    Regular expressions are now supported against most fields when querying
+    against resources, facts, and nodes, using the ~ operator. This makes it
+    easy to, for instance, find *all* IP addresses for a node, or apply a query
+    to some set of nodes.
+
+  * More node information
+
+    Queries against the /v2/nodes endpoint now return objects, rather than
+    simply a list of node names. These are effectively the same as what was
+    previously returned by the /status endpoint, containing the node name, its
+    deactivation time, as well as the timestamps of its latest catalog, facts,
+    and report.
+
+  * Full fact query
+
+    The /v2/facts endpoint supports the same type of query language available
+    when querying resources, where previously it could only be used to retrieve
+    the set of facts for a given node. This makes it easy to find the value of
+    some fact for all nodes, or to do more complex queries.
+
+  * Subqueries
+
+    Queries can now contain subqueries through the `select-resources` and
+    `select-facts` operators. These operators perform queries equivalent to
+    using the /v2/resources and /v2/facts routes, respectively. The information
+    returned from them can then be correlated, to perform complex queries such
+    as "fetch the IP address of all nodes with Class[apache]", or "fetch the
+    operatingsystemrelease of all Debian nodes". These operators can also be
+    nested and correlated on any field, to answer virtually any question in a
+    single query.
+
+  * Friendlier, RESTful query routes
+
+    In addition to the standard query language, there are also now more
+    friendly, "RESTful" query routes. For instance, /v2/nodes/foo.example.com
+    will return information about the node foo.example.com. Similarly,
+    /v2/facts/operatingsystem will return the operatingsystem of every node, or
+    /v2/nodes/foo.example.com/operatingsystem can be used to just find the
+    operatingsystem of foo.example.com.
+
+    The same sort of routes are available for resources as well.
+    /v2/resources/User will return every User resource, /v2/resources/User/joe
+    will return every instance of the User[joe] resource, and
+    /v2/nodes/foo.example.com/Package will return every Package resource on
+    foo.example.com. These routes can also have a query parameter supplied, to
+    further query against their results, as with the standard query API.
+
+* Improved catalog storage performance
+
+   Some improvements have been made to the way catalog hashes are computed for
+   deduplication, resulting in somewhat faster catalog storage, and a
+   significant decrease in the amount of time taken to store the first catalog
+   received after startup.
+
+* Experimental report submission and storage
+
+  The 'puppetdb' report processor is now available, which can be used
+  (alongside any other reports) to submit reports to PuppetDB for storage. This
+  feature is considered experimental, which means the query API may change
+  significantly in the future. The ability to query reports is currently
+  limited and experimental, meaning it is accessed via /experimental/reports
+  rather than /v2/reports. Currently it is possible to get a list of reports
+  for a node, and to retrieve the contents of a single report. More advanced
+  querying (and integration with other query endpoints) will come in a future
+  release.
+
+  Unlike catalogs, reports are retained for a fixed time period (defaulting to
+  7 days), rather than only the most recent report being stored. This means
+  more data is available than just the latest, but also prevents the database
+  from growing unbounded. See the documentation for information on how to
+  configure the storage duration.
+
+* Tweakable settings for database connection and ActiveMQ storage
+
+  It is now possible to set the timeout for an idle database connection to be
+  terminated, as well as the keep alive interval for the connection, through
+  the `conn-max-age` and `conn-keep-alive` settings.
+
+  The settings `store-usage` and `temp-usage` can be used to set the amount of
+  disk space (in MB) for ActiveMQ to use for permanent and temporary message
+  storage. The main use for these settings is to lower the usage from the
+  default of 100GB and 50GB respectively, as ActiveMQ will issue a warning if
+  that amount of space is not available.
+
+Behavior changes:
+  * Messages received after a node is deactivated will be processed
+
+    Previously, commands which were initially received before a node was
+    deactivated, but not processed until after (for instance, because the first
+    attempt to process the command failed, and the node was deactivated before
+    the command was retried) were ignored and the node was left deactivated.
+    For example, if a new catalog were submitted, but couldn't be processed
+    because the database was temporarily down, and the node was deactivated
+    before the catalog was retried, the catalog would be dropped. Now the
+    catalog will be stored, though the node will stay deactivated. Commands
+    *received* after a node is deactivated will continue to reactivate the node
+    as before.
+
 1.0.5
 =========
 
