@@ -46,6 +46,8 @@
 (defn sql-current-connection-database-version
   "Return the version of the database product currently in use."
   []
+  {:post [(every? integer? %)
+          (= (count %) 2)]}
   (let [db-metadata (.. (sql/find-connection)
                       (getMetaData))
         major (.getDatabaseMajorVersion db-metadata)
@@ -750,3 +752,31 @@ must be supplied as the value to be matched."
   [time]
   {:pre [(utils/datetime? time)]}
   (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))
+
+(defmulti db-deprecated?
+  "Returns a vector with a boolean indicating if database type and version is
+  marked for deprecation. The second element in the vector is a string
+  explaining the deprecation."
+  (fn [dbtype version] dbtype))
+
+(defmethod db-deprecated? "PostgreSQL"
+  [_ version]
+  (if (pos? (compare [8 4] version))
+    [true "PostgreSQL DB 8.3 and older are deprecated and won't be supported in the future."]
+    [false nil]))
+
+(defmethod db-deprecated? :default
+  [_ _]
+  [false nil])
+
+(defn warn-on-db-deprecation!
+  "Connect to database, get metadata about it and warn if database we are using
+  is deprecated."
+  [db]
+  {:pre [(map? db)]}
+  (sql/with-connection db
+    (let [version    (sql-current-connection-database-version)
+          dbtype     (sql-current-connection-database-name)
+          [deprecated? message] (db-deprecated? dbtype version)]
+      (when deprecated?
+        (log/warn message)))))

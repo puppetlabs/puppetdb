@@ -332,6 +332,9 @@
     ;; Add a shutdown hook where we can handle any required cleanup
     (pl-utils/add-shutdown-hook! on-shutdown)
 
+    ;; Check for deprecated database versions
+    (scf-store/warn-on-db-deprecation! db)
+
     ;; Ensure the database is migrated to the latest version
     (sql/with-connection db
       (migrate!))
