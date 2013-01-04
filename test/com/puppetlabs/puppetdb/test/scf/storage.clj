@@ -521,6 +521,13 @@
             actual        (resource-events-query-result ["=" "report" report1-hash])]
         (is (= expected actual))))))
 
+(deftest db-deprecation?
+  (testing "should return true and a string if db is deprecated"
+    (let [[deprecated? message] (db-deprecated? "PostgreSQL" [8 1])]
+      (is deprecated?)
+      (is (string? message))))
 
-
-
+  (testing "should return false and nil if db is not deprecated"
+    (let [[deprecated? message] (db-deprecated? "PostgreSQL" [9 4])]
+      (is (not deprecated?))
+      (is (nil? message)))))
