@@ -7,17 +7,7 @@ require 'digest/sha1'
 require 'time'
 require 'fileutils'
 
-# TODO: This module is intended to be mixed-in by subclasses of
-# `Puppet::Indirector::REST`.  This is unfortunate because the code is useful
-# in other cases as well, but it's hard to use the "right" methods in Puppet
-# for making HTTPS requests using the Puppet SSL config / certs outside of the
-# indirector.  This has been fixed as of Puppet 3.0, (commit fa32691db3a7c2326118d528144fd1df824c0bb3), and this module
-# should probably be refactored once we don't need to support
-# versions prior to that.  See additional comments
-# below, and see also `Puppet::Util::Puppetdb::ReportHelper` for an example of
-# how to work around this limitation for the time being.
 module Puppet::Util::Puppetdb
-  # Public class methods and magic voodoo
 
   def self.server
     config.server
@@ -33,7 +23,8 @@ module Puppet::Util::Puppetdb
   end
 
   # This magical stuff is needed so that the indirector termini will make requests to
-  # the correct host/port.
+  # the correct host/port, because this module gets mixed in to our indirector
+  # termini.
   module ClassMethods
     def server
       Puppet::Util::Puppetdb.server
