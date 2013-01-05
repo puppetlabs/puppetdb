@@ -770,13 +770,11 @@ must be supplied as the value to be matched."
   [false nil])
 
 (defn warn-on-db-deprecation!
-  "Connect to database, get metadata about it and warn if database we are using
-  is deprecated."
-  [db]
-  {:pre [(map? db)]}
-  (sql/with-connection db
-    (let [version    (sql-current-connection-database-version)
-          dbtype     (sql-current-connection-database-name)
-          [deprecated? message] (db-deprecated? dbtype version)]
-      (when deprecated?
-        (log/warn message)))))
+  "Get metadata about the current connection and warn if the database we are
+  using is deprecated."
+  []
+  (let [version    (sql-current-connection-database-version)
+        dbtype     (sql-current-connection-database-name)
+        [deprecated? message] (db-deprecated? dbtype version)]
+    (when deprecated?
+      (log/warn message))))
