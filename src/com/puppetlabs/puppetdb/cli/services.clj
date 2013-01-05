@@ -332,11 +332,12 @@
     ;; Add a shutdown hook where we can handle any required cleanup
     (pl-utils/add-shutdown-hook! on-shutdown)
 
-    ;; Check for deprecated database versions
-    (scf-store/warn-on-db-deprecation! db)
-
-    ;; Ensure the database is migrated to the latest version
+    ;; Ensure the database is migrated to the latest version, and warn if it's
+    ;; deprecated. We do this in a single connection because HSQLDB seems to
+    ;; get confused if the database doesn't exist but we open and close a
+    ;; connection without creating anything.
     (sql/with-connection db
+      (scf-store/warn-on-db-deprecation!)
       (migrate!))
 
     ;; Initialize database-dependent metrics
