@@ -714,31 +714,31 @@ to persist the database.
 
 **PostgreSQL**
 
-The `classname` and `subprotocol` _must_ look like this:
+Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure that it will accept incoming connections, create a user for PuppetDB to use when connecting, and create a database for PuppetDB. Completely configuring PostgreSQL is beyond the scope of this manual, but if you are logged in as root on a running Postgres server, you can create a user and database as follows:
+
+    $ sudo -u postgres sh
+    $ createuser -DRSP puppetdb
+    $ createdb -O puppetdb puppetdb
+    $ exit
+
+Ensure you can log in by running:
+
+    $ psql -h localhost puppetdb puppetdb
+
+To configure PuppetDB to use this database, put the following in the `[database]` section:
 
     classname = org.postgresql.Driver
     subprotocol = postgresql
-    subname = //host:port/database
+    subname = //<HOST>:<PORT>/<DATABASE>
+    username = <USERNAME>
+    password = <PASSWORD>
 
-Replace `host` with the hostname on which the database is
-running. Replace `port` with the port on which PostgreSQL is
-listening. Replace `database` with the name of the database you've
-created for use with PuppetDB.
+Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with the port on which PostgreSQL is listening. Replace `<DATABASE>` with the name of the database you've created for use with PuppetDB.
 
-It's possible to use SSL to protect connections to the database. The
-[PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html)
-indicate how to do this. Be sure to add `ssl=true` to the `subname`
-parameter.
+It's possible to use SSL to protect connections to the database. The [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html) explain how to do this in full. Be sure to add `?ssl=true` to the `subname` setting:
 
-Other properties you can set:
+    subname = //<host>:<port>/<database>?ssl=true
 
-`username`
-
-What username to use when connecting.
-
-`password`
-
-A password to use when connecting.
 
 `log-slow-statements`
 
