@@ -735,10 +735,27 @@ To configure PuppetDB to use this database, put the following in the `[database]
 
 Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with the port on which PostgreSQL is listening. Replace `<DATABASE>` with the name of the database you've created for use with PuppetDB.
 
-It's possible to use SSL to protect connections to the database. The [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html) explain how to do this in full. Be sure to add `?ssl=true` to the `subname` setting:
+***Support for TLS/SSL with PostgreSQL***
+
+It's possible to use SSL to protect connections to the database. The [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html) explain how to do this in full. 
+
+Simply be sure to always add `?ssl=true` to the `subname` setting in the `[database]` section of the PuppetDB configuration:
 
     subname = //<host>:<port>/<database>?ssl=true
 
+There are a few different ways you can configure SSL support:
+
+* Using publicly signed SSL certificates on the PostgreSQL server side
+  * As the certificate is already trusted by a public authority, Java should already have the public CA in its system-wide keystore and therefore trust should already be established.
+  * No extra work needed, besides the `ssl=true` in this case.
+* Using self-signed certificates, you can add either the self-signed CA or self-signed server certificate to the Java system-wide key store or create a new key store and use that instead.
+  * The instructions on how to do this are provided in detail in the [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html).
+  * While creating a new keystore might be tempting, the new store will not by default contain all public CA's so it may interfere with anything that requires that functionality in PuppetDB in the future. Therefore its recommended to instead add certificates to the system keystore, if possible.
+* Stop doing SSL validation completely.
+  * This setup disables all SSL validation, thereby removing the ability to protect from man-in-the-middle attacks. It's not recommended if you wish to gain the maximum security provided by the PostgreSQL SSL configuration.
+  * However if you absolutely must have it, simply be sure to add the parameters `ssl=true` and `sslfactory=org.postgresql.ssl.NonValidatingFactory` to the `subname` setting as follows:
+
+            subname = //<host>:<port>/<database>?ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory
 
 `log-slow-statements`
 
