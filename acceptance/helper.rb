@@ -133,12 +133,15 @@ module PuppetDBExtensions
     # These 'platform' values come from the acceptance config files, so
     # we're relying entirely on naming conventions here.  Would be nicer
     # to do this using lsb_release or something, but...
+    match = version.match(/(\d+\.\d+\.\d+)(\.rc\d+)?/)
+    version, rc = match[1], match[2]
+    release = rc ? "0.1#{rc.sub('.', '')}" : "1"
     if host['platform'].include?('el-5')
-      version + "-1.el5"
+      "#{version}-#{release}.el5"
     elsif host['platform'].include?('el-6')
-      version + "-1.el6"
+      "#{version}-#{release}.el6"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      version + "-1puppetlabs1"
+      "#{version}-#{release}puppetlabs1"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
