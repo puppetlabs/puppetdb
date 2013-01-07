@@ -30,15 +30,12 @@ def get_version
 end
 
 def get_debversion
-  if @pe then
-    return "#{(@version.include?("rc") ? @version.sub(/rc[0-9]+/, '-0.1\0') : @version + "-1")}puppet#{get_debrelease}"
+  packager = @pe ? 'puppet' : 'puppetlabs'
+  version = @version.match(/\d\.\d\.\d/)[0]
+  if @version.include?('rc')
+    return version + '-0.1' + @version.match(/rc\d+/)[0] + packager + get_debrelease
   else
-    version = @version.match(/\d\.\d\.\d/)[0]
-    if @version.include?('rc')
-      return version + '-0.1' + @version.match(/rc\d+/)[0] + 'puppetlabs' + get_debrelease
-    else
-      return version + '-1puppetlabs' + get_debrelease
-    end
+    return version + "-1#{packager}" + get_debrelease
   end
 end
 
