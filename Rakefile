@@ -42,7 +42,12 @@ def get_origversion
 end
 
 def get_rpmversion
-  @version.match(/^([0-9.]+)/)[1]
+  rpmversion = @version.match(/^([0-9\.]+)/)[1]
+  if @version.include?('rc')
+    # If an rc, the match will include an extra dot we don't want, so we trim
+    rpmversion.chop!
+  end
+  rpmversion
 end
 
 def get_debrelease

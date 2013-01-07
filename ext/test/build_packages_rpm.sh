@@ -65,7 +65,7 @@ function build_srpm(){
 
 function build_rpm(){
   args=\${@}
-  rake \$RAKE_ARGS setup newbuild \$args
+  rake \$RAKE_ARGS setup newbuild OVERRIDE=1 \$args
 }
 
 function ship_rpms(){
