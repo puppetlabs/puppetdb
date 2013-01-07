@@ -97,6 +97,7 @@ ship_rpms PE_BUILD=true
 
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
+  ssh neptune.puppetlabs.lan "mkdir -p $PENDING/$NAME-$VERSION/deb"
   scp -r el fedora neptune.puppetlabs.lan:$PENDING/$NAME-$VERSION
 fi
 
