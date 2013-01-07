@@ -33,7 +33,12 @@ def get_debversion
   if @pe then
     return "#{(@version.include?("rc") ? @version.sub(/rc[0-9]+/, '-0.1\0') : @version + "-1")}puppet#{get_debrelease}"
   else
-    return "#{(@version.include?("rc") ? @version.sub(/rc[0-9]+/, '-0.1\0') : @version + "-1")}puppetlabs#{get_debrelease}"
+    version = @version.match(/\d\.\d\.\d/)[0]
+    if @version.include?('rc')
+      return version + '-0.1' + @version.match(/rc\d+/)[0] + 'puppetlabs' + get_debrelease
+    else
+      return version + '-1puppetlabs' + get_debrelease
+    end
   end
 end
 
@@ -42,12 +47,7 @@ def get_origversion
 end
 
 def get_rpmversion
-  rpmversion = @version.match(/^([0-9\.]+)/)[1]
-  if @version.include?('rc')
-    # If an rc, the match will include an extra dot we don't want, so we trim
-    rpmversion.chop!
-  end
-  rpmversion
+  rpmversion = @version.match(/^([0-9\.]+)/)[1].chomp('.')
 end
 
 def get_debrelease
