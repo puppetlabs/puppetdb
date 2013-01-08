@@ -17,7 +17,7 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   temp = `mktemp -d -t tmpXXXXXX`.strip
   workdir = File.join(temp, "puppetdb-#{@version}")
   mkdir_p workdir
-  FileList[ "ext", "*.md", JAR_FILE, "documentation", "Rakefile" ].each do |f|
+  FileList[ "tasks", "ext", "*.md", JAR_FILE, "documentation", "Rakefile" ].each do |f|
     cp_pr f, workdir
   end
   # Lay down version file for later reading
