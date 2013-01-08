@@ -16,19 +16,16 @@
 %endif
 <% end -%>
 
-# ruby 1.9 uses vendorlibdir instead of sitelibdir
-<% if @ruby_version == '1.9' -%>
-  <% if @pe -%>
-%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
-  <% else -%>
-%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
-  <% end -%>
-<% else -%>
-  <% if @pe -%>
+# On FOSS releases for platforms with ruby 1.9, puppet uses vendorlibdir instead of sitelibdir
+# On PE, we use sitelibdir
+<% if @pe -%>
 %global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
-  <% else -%>
+<% else -%>
+%if 0%{?fedora} >= 17
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+%else
 %global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
-  <% end -%>
+%endif
 <% end -%>
 
 # These macros are not always defined on much older rpm-based systems
@@ -73,7 +70,7 @@ BuildRequires: ruby
 Requires:      puppet >= 2.7.12
 <% end -%>
 BuildArch:     noarch
-<% if @osfamily == 'suse' %>
+%if 0%{?suse_version}
 BuildRequires: aaa_base
 BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
