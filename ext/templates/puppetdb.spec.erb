@@ -2,12 +2,19 @@
 %global realversion <%= @version %>
 %global rpmversion <%= @rpmversion %>
 
+<% if @pe -%>
+%global open_jdk          pe-java
+<% else -%>
 # Fedora 17 ships with openjdk 1.7.0
 %if 0%{?fedora} >= 17
 %global open_jdk          java-1.7.0-openjdk
 %else
+%if 0%{?suse_version}
+%global open_jdk          java-1_6_0-ibm
+%endif
 %global open_jdk          java-1.6.0-openjdk
 %endif
+<% end -%>
 
 # ruby 1.9 uses vendorlibdir instead of sitelibdir
 <% if @ruby_version == '1.9' -%>
@@ -71,11 +78,10 @@ BuildRequires: aaa_base
 BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
 BuildRequires: sles-release
-Requires:      java-1_6_0-ibm
 <% else %>
 BuildRequires: /usr/sbin/useradd
-Requires:      %{open_jdk}
 <% end %>
+Requires:      %{open_jdk}
 Requires:      chkconfig
 
 %description
