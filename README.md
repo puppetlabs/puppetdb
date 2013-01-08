@@ -714,31 +714,48 @@ to persist the database.
 
 **PostgreSQL**
 
-The `classname` and `subprotocol` _must_ look like this:
+Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure that it will accept incoming connections, create a user for PuppetDB to use when connecting, and create a database for PuppetDB. Completely configuring PostgreSQL is beyond the scope of this manual, but if you are logged in as root on a running Postgres server, you can create a user and database as follows:
+
+    $ sudo -u postgres sh
+    $ createuser -DRSP puppetdb
+    $ createdb -O puppetdb puppetdb
+    $ exit
+
+Ensure you can log in by running:
+
+    $ psql -h localhost puppetdb puppetdb
+
+To configure PuppetDB to use this database, put the following in the `[database]` section:
 
     classname = org.postgresql.Driver
     subprotocol = postgresql
-    subname = //host:port/database
+    subname = //<HOST>:<PORT>/<DATABASE>
+    username = <USERNAME>
+    password = <PASSWORD>
 
-Replace `host` with the hostname on which the database is
-running. Replace `port` with the port on which PostgreSQL is
-listening. Replace `database` with the name of the database you've
-created for use with PuppetDB.
+Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with the port on which PostgreSQL is listening. Replace `<DATABASE>` with the name of the database you've created for use with PuppetDB.
 
-It's possible to use SSL to protect connections to the database. The
-[PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html)
-indicate how to do this. Be sure to add `ssl=true` to the `subname`
-parameter.
+***Support for TLS/SSL with PostgreSQL***
 
-Other properties you can set:
+It's possible to use SSL to protect connections to the database. The [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html) explain how to do this in full. 
 
-`username`
+Simply be sure to always add `?ssl=true` to the `subname` setting in the `[database]` section of the PuppetDB configuration:
 
-What username to use when connecting.
+    subname = //<host>:<port>/<database>?ssl=true
 
-`password`
+There are a few different ways you can configure SSL support:
 
-A password to use when connecting.
+* Using publicly signed SSL certificates on the PostgreSQL server side
+  * As the certificate is already trusted by a public authority, Java should already have the public CA in its system-wide keystore and therefore trust should already be established.
+  * No extra work needed, besides the `ssl=true` in this case.
+* Using self-signed certificates, you can add either the self-signed CA or self-signed server certificate to the Java system-wide key store or create a new key store and use that instead.
+  * The instructions on how to do this are provided in detail in the [PostgreSQL JDBC docs](http://jdbc.postgresql.org/documentation/head/ssl.html).
+  * While creating a new keystore might be tempting, the new store will not by default contain all public CA's so it may interfere with anything that requires that functionality in PuppetDB in the future. Therefore its recommended to instead add certificates to the system keystore, if possible.
+* Stop doing SSL validation completely.
+  * This setup disables all SSL validation, thereby removing the ability to protect from man-in-the-middle attacks. It's not recommended if you wish to gain the maximum security provided by the PostgreSQL SSL configuration.
+  * However if you absolutely must have it, simply be sure to add the parameters `ssl=true` and `sslfactory=org.postgresql.ssl.NonValidatingFactory` to the `subname` setting as follows:
+
+            subname = //<host>:<port>/<database>?ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory
 
 `log-slow-statements`
 
