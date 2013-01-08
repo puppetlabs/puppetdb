@@ -78,14 +78,16 @@ Requires:      puppet >= 2.7.12
 BuildArch:     noarch
 %if 0%{?suse_version}
 BuildRequires: aaa_base
-BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
 BuildRequires: sles-release
-<% else %>
+Requires:      aaa_base
+Requires:      pwdutils
+%else
 BuildRequires: /usr/sbin/useradd
-<% end %>
-Requires:      %{open_jdk}
 Requires:      chkconfig
+%endif
+BuildRequires: %{open_jdk}
+Requires:      %{open_jdk}
 
 %description
 Puppet Centralized Storage.
