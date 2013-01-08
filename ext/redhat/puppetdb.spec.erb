@@ -2,12 +2,20 @@
 %global realversion <%= @version %>
 %global rpmversion <%= @rpmversion %>
 
+<% if @pe -%>
+%global open_jdk          pe-java
+<% else -%>
 # Fedora 17 ships with openjdk 1.7.0
 %if 0%{?fedora} >= 17
 %global open_jdk          java-1.7.0-openjdk
 %else
+%if 0%{?suse_version}
+%global open_jdk          java-1_6_0-ibm
+%else
 %global open_jdk          java-1.6.0-openjdk
 %endif
+%endif
+<% end -%>
 
 # On FOSS releases for platforms with ruby 1.9, puppet uses vendorlibdir instead of sitelibdir
 # On PE, we use sitelibdir
@@ -71,15 +79,16 @@ Requires:      puppet >= 2.7.12
 BuildArch:     noarch
 %if 0%{?suse_version}
 BuildRequires: aaa_base
-BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
 BuildRequires: sles-release
-Requires:      java-1_6_0-ibm
+Requires:      aaa_base
+Requires:      pwdutils
 %else
 BuildRequires: /usr/sbin/useradd
-Requires:      %{open_jdk}
-%endif
 Requires:      chkconfig
+%endif
+BuildRequires: %{open_jdk}
+Requires:      %{open_jdk}
 
 %description
 Puppet Centralized Storage.
