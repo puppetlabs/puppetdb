@@ -113,7 +113,7 @@ freight cache -c ${FREIGHT_DIR}/freight.conf
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
   mkdir -p $PENDING/$NAME-$VERSION/deb
-  cp $INCOMING/$NAME-$VERSION/* $PENDING/$NAME-$VERSION/deb
+  cp -R $INCOMING/$NAME-$VERSION/* $PENDING/$NAME-$VERSION/deb
 fi
 
 rm -rf $INCOMING/$NAME-$VERSION
