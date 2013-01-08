@@ -5,25 +5,17 @@
 (def version-string
   (memoize
    (fn []
-     "Determine the version number using 'git describe'"
+     "Determine the version number using 'rake version -s'"
      []
      (if (.exists (file "version"))
        (s/trim (slurp "version"))
-       (let [command                ["git" "describe"]
+       (let [command                ["rake" "version" "-s"]
              {:keys [exit out err]} (apply sh command)]
          (when-not (zero? exit)
            (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
                             command exit out err))
            (System/exit 1))
-
-         ;; We just want the first 4 "components" of the version string,
-         ;; joined with dots
-         (-> out
-           (s/trim)
-           (s/replace #"-" ".")
-           (s/split #"\.")
-           (#(take 4 %))
-           (#(s/join "." %))))))))
+       (s/trim out))))))
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
