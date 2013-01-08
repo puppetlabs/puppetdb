@@ -105,9 +105,9 @@ Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 %build
 
 %install
-<% if @osfamily == 'suse' %>
+%if 0%{?suse_version}
 export NO_BRP_CHECK_BYTECODE_VERSION=true
-<% end %>
+%endif
 
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
