@@ -44,15 +44,15 @@
 <% end -%>
 
 <% if @pe -%>
-Name:           pe-puppetdb
+Name:          pe-puppetdb
 <% else -%>
-Name:           puppetdb
+Name:          puppetdb
 <% end -%>
-Version:        <%= @rpmversion %>
-Release:        <%= @rpmrelease %>%{?dist}
-BuildRoot:      %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
+Version:       <%= @rpmversion %>
+Release:       <%= @rpmrelease %>%{?dist}
+BuildRoot:     %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Summary:        Puppet Centralized Storage Daemon
+Summary:       Puppet Centralized Storage Daemon
 License:       ASL 2.0
 <% if @pe -%>
 URL:           http://puppetlabs.com/puppet/puppet-enterprise
