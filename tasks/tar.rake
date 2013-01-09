@@ -24,7 +24,7 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   File.open(File.join(workdir,'version'), File::CREAT|File::TRUNC|File::RDWR, 0644) do |f|
     f.puts @version
   end
-  mv "#{workdir}/ext/files/debian", workdir
+  mv "#{workdir}/ext/files/debian", "#{workdir}/ext"
   cp_pr "puppet", "#{workdir}/ext/master"
   mkdir_p "pkg"
   pkg_dir = File.expand_path(File.join(".", "pkg"))
