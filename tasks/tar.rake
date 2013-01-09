@@ -15,7 +15,7 @@ end
 desc "Create a source tar archive"
 task :package => [ :clobber, JAR_FILE, :template  ] do
   temp = `mktemp -d -t tmpXXXXXX`.strip
-  workdir = File.join(temp, "puppetdb-#{@version}")
+  workdir = File.join(temp, "#{@name}-#{@version}")
   mkdir_p workdir
   FileList[ "tasks", "ext", "*.md", JAR_FILE, "documentation", "Rakefile" ].each do |f|
     cp_pr f, workdir
@@ -28,9 +28,9 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   cp_pr "puppet", "#{workdir}/ext/master"
   mkdir_p "pkg"
   pkg_dir = File.expand_path(File.join(".", "pkg"))
-  sh "cd #{temp}; tar --exclude=.gitignore -zcf #{pkg_dir}/puppetdb-#{@version}.tar.gz puppetdb-#{@version}"
+  sh "cd #{temp}; tar --exclude=.gitignore -zcf #{pkg_dir}/#{@name}-#{@version}.tar.gz #{@name}-#{@version}"
   rm_rf temp
   puts
-  puts "Wrote #{`pwd`.strip}/pkg/puppetdb-#{@version}"
+  puts "Wrote #{`pwd`.strip}/pkg/#{@name}-#{@version}"
 end
 
