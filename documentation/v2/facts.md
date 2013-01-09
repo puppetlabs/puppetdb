@@ -44,8 +44,8 @@ deactivated nodes are not included in the response. There must be an
 
 #### `GET /v2/facts/:name`
 
-This will return all facts for all nodes with the indicated
-name. There must be an `Accept` header containing `application/json`.
+This will return all facts with the specified name, for all of the nodes that
+define the fact. There must be an `Accept` header containing `application/json`.
 
 ##### Parameters
 
