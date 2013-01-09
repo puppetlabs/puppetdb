@@ -47,8 +47,14 @@ BuildRoot:      %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -
 
 Summary:        Puppet Centralized Storage Daemon
 License:       ASL 2.0
+<% if @pe -%>
+URL:           http://puppetlabs.com/puppet/puppet-enterprise
+Source0:       %{name}-%{realversion}.tar.gz
+<% else -%>
 URL:           http://github.com/puppetlabs/puppetdb
 Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{realversion}.tar.gz
+<% end -%>
+
 Group:         System Environment/Daemons
 
 <% if @pe -%>
@@ -91,7 +97,11 @@ Requires: puppet >= 2.7.12
 Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 
 %prep
+<% if @pe -%>
+%setup -q -n %{name}-%{realversion}
+<% else -%>
 %setup -q -n %{realname}-%{realversion}
+<% end -%>
 
 %build
 
