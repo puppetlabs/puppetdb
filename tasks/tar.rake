@@ -18,8 +18,9 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   workdir = File.join(temp, "#{@name}-#{@version}")
   mkdir_p workdir
   FileList[ "tasks", "ext", "*.md", JAR_FILE, "documentation", "Rakefile" ].each do |f|
-    cp_pr f, workdir
+    sh "cp -pr #{f} #{workdir}"
   end
+
   # Lay down version file for later reading
   File.open(File.join(workdir,'version'), File::CREAT|File::TRUNC|File::RDWR, 0644) do |f|
     f.puts @version
