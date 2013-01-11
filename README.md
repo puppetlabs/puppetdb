@@ -730,6 +730,9 @@ It's possible to use SSL to protect connections to the database. The
 indicate how to do this. Be sure to add `ssl=true` to the `subname`
 parameter.
 
+More details for configuring SSL connectivity are available in the
+[PostgreSQL SSL Setup](documentation/postgresql_ssl.md) section.
+
 Other properties you can set:
 
 `username`
