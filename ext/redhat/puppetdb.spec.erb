@@ -230,8 +230,18 @@ fi
 <% else -%>
 %defattr(-, puppet, puppet)
 <% end -%>
-# There are not specs yet in our rpms
-%{puppet_libdir}/puppet
+%{puppet_libdir}/puppet/face/node/deactivate.rb
+%{puppet_libdir}/puppet/face/node/status.rb
+%{puppet_libdir}/puppet/indirector/catalog/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/facts/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/node/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/resource/puppetdb.rb
+%{puppet_libdir}/puppet/reports/puppetdb.rb
+%{puppet_libdir}/puppet/util/puppetdb.rb
+%{puppet_libdir}/puppet/util/puppetdb/char_encoding.rb
+%{puppet_libdir}/puppet/util/puppetdb/command.rb
+%{puppet_libdir}/puppet/util/puppetdb/command_names.rb
+%{puppet_libdir}/puppet/util/puppetdb/config.rb
 
 %changelog
 <%
