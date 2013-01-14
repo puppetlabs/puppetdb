@@ -105,8 +105,8 @@ there's an operator to help us:
       ["=", "title", "nick"],
       ["not",
         ["and",
-          ["=", "sourceline", "/etc/puppet/manifests/user.pp"],
-          ["=", "sourcefile", 111]]]]
+          ["=", "sourcefile", "/etc/puppet/manifests/user.pp"],
+          ["=", "sourceline", 111]]]]
 
 The `"not"` operator wraps another clause, and returns results for which the
 clause is *not* true. In this case, we want resources which aren't defined on
