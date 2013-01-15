@@ -94,7 +94,7 @@ FREIGHT_CONF
 
 scp ./freight.conf neptune:${FREIGHT_DIR}
 
-ssh neptune <<FREIGHT
+ssh neptune -t -t <<FREIGHT
 set -e
 set -x
 
