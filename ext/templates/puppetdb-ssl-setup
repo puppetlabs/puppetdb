@@ -94,7 +94,7 @@ fi
 jettyfile="${puppetdb_confdir}/conf.d/jetty.ini"
 if [ -f "$jettyfile" ] ; then
   if grep "ssl-host" ${jettyfile} > /dev/null; then
-    sed -e 's/^ssl-host.*/ssl-host = '"`facter fqdn`"'/' ${jettyfile} > ${jettyfile}.tmp
+    sed -e 's/^ssl-host.*/ssl-host = '"$fqdn"'/' ${jettyfile} > ${jettyfile}.tmp
     mv ${jettyfile}.tmp ${jettyfile}
   else
     echo "$jettyfile exists, but could not find ssl-host setting. Please update that setting to the desired hostname that puppetdb should listen on (e.g.: '`facter fqdn`)."
