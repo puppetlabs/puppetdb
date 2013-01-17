@@ -152,7 +152,8 @@ module PuppetDBExtensions
     manifest = <<-EOS
     class { 'puppetdb':
       database               => '#{db}',
-      manage_redhat_firewall => false,
+      open_ssl_listen_port   => false,
+      open_postgres_port     => false,
       puppetdb_version       => '#{get_package_version(host, version)}',
     }
     EOS
