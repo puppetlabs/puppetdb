@@ -14,7 +14,8 @@ General Information
 Installation
 -----
 
-* [Installing PuppetDB](./documentation/install.markdown)
+* [Installing PuppetDB via the Puppet Module](./documentation/install_via_module.markdown)
+* [Installing PuppetDB from Packages](./documentation/install_from_packages.markdown)
 * [Connecting Puppet Masters](./documentation/connect_puppet_master.markdown)
 * [Connecting Standalone Puppet](./documentation/connect_puppet_apply.markdown)
 * [Upgrading PuppetDB](./documentation/upgrade.markdown)
