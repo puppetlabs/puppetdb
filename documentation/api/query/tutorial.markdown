@@ -19,6 +19,43 @@ easily try queries from the command line:
 
 where `filename` contains the query to execute.
 
+## Authentication
+
+### Authenticating locally
+
+With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
+
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/facts/<node>'
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
+
+If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
+
+### Authenticating remotely
+
+To make secured requests from other hosts, you will need to supply the following via the command line:
+
+* Your site's CA certificate (`--cacert`)
+* An SSL certificate signed by your site's Puppet CA (`--cert`)
+* The private key for that certificate (`--key`)
+
+Any node managed by puppet agent will already have all of these and you can re-use them for contacting PuppetDB. You can also generate a new cert on the CA puppet master with the `puppet cert generate` command. 
+
+> **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
+
+    curl -H "Accept: application/json" 'https://<your.puppetdb.server>:8081/v2/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
+
+#### Locating Puppet Certificate Files
+
+Locate Puppet's `ssldir` as follows:
+
+    $ sudo puppet config print ssldir
+
+Within this directory:
+
+* The CA certificate is found at `certs/ca.pem`
+* The corresponding private key is found at `private_keys/<name>.pem`
+* Other certificates are found at `certs/<name>.pem`
+
 ## Resources Walkthrough
 
 ### Our first query
