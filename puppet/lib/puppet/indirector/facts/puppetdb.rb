@@ -25,8 +25,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           a.merge(h['name'] => h['value'])
         end
         Puppet::Node::Facts.new(request.key, facts)
-      elsif response.is_a? Net::HTTPNotFound
-        nil
       else
         # Newline characters cause an HTTP error, so strip them
         raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
