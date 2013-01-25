@@ -118,6 +118,7 @@
           :type       "Node"}]
         :tags        ["settings" "default" "node"]
         :classes     ["settings" "default"]
+        :environment "production"
         :version     1332533763}}}
 
    2 {:empty
