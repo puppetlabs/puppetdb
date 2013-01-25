@@ -71,7 +71,7 @@ FREIGHT_CONF
 
 scp ./freight.conf $APT_HOST:${FREIGHT_DIR}
 
-ssh -t -t $APT_HOST <<FREIGHT
+ssh $APT_HOST <<FREIGHT
 set -e
 set -x
 
