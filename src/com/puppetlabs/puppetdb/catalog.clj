@@ -300,7 +300,7 @@
          (number? version)]
    :post [(map? %)]}
   (-> catalog
-      (update-in [:data] dissoc :classes :tags)
+      (update-in [:data] dissoc :classes :tags :environment)
       (parse-catalog (inc version))))
 
 (defmethod parse-catalog 2
