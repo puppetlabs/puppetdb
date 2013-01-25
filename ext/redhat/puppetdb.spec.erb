@@ -114,11 +114,11 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
 
 <% if @pe -%>
-PATH=/opt/puppet/bin:$PATH rake install DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
-PATH=/opt/puppet/bin:$PATH rake terminus DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+PATH=/opt/puppet/bin:$PATH rake terminus PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
 <% else -%>
-rake install DESTDIR=$RPM_BUILD_ROOT
-rake terminus DESTDIR=$RPM_BUILD_ROOT
+rake install PARAMS_FILE= DESTDIR= $RPM_BUILD_ROOT
+rake terminus PARAMS_FILE= DESTDIR= $RPM_BUILD_ROOT
 <% end -%>
 
 mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
