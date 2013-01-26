@@ -16,7 +16,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def find(request)
     begin
-      response = http_get(request, "/v2/#{request.key}/facts", headers)
+      response = http_get(request, "/v2/nodes/#{CGI.escape(request.key)}/facts", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
