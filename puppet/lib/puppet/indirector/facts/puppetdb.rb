@@ -21,6 +21,15 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
       if response.is_a? Net::HTTPSuccess
         result = PSON.parse(response.body)
+        # Note: the Inventory Service API appears to expect us to return nil here
+        # if the node isn't found.  However, PuppetDB returns an empty array in
+        # this case; for now we will just look for that condition and assume that
+        # it means that the node wasn't found, so we will return nil.  In the
+        # future we may want to improve the logic such that we can distinguish
+        # between the "node not found" and the "no facts for this node" cases.
+        if result.empty?
+          return nil
+        end
         facts = result.inject({}) do |a,h|
           a.merge(h['name'] => h['value'])
         end
