@@ -24,50 +24,27 @@ BUCKET_NAME=${NAME}-prerelease
 S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${DEB_BUILD_BRANCH}
 [ -n "${PE_VER}" ] || PE_VER='2.7'
 
-git archive --format=tar HEAD --prefix=$NAME-$VERSION/ -o $NAME-$VERSION.tar
+APT_HOST=neptune.puppetlabs.lan
+APT_REPO=$INCOMING/$NAME-$VERSION
+TEAM=dev
+export APT_HOST APT_REPO TEAM
 
-ssh deb-builder "mkdir -p $DEB_BUILD_DIR"
+rake package:implode --trace
+rake package:bootstrap --trace
+rake pl:fetch --trace
+rake pl:remote:deb_all --trace
+rake pl:ship_debs --trace
 
-scp $NAME-$VERSION.tar deb-builder:$DEB_BUILD_DIR
+# Establish PE building environment variables
+PE_BUILD=true
+TEAM=pe-dev
+export PE_BUILD TEAM
 
-rm -f $NAME-$VERSION.tar
+ssh $APT_HOST "mkdir -p ${INCOMING}"
 
-ssh neptune "mkdir -p ${INCOMING}"
-
-ssh deb-builder <<BUILD_DEBS
-set -e
-set -x
-
-export PATH=~/bin:\$PATH
-
-#tar -C ~/$NAME/build/$BUILD_BRANCH -xvf ~/$NAME/build/$BUILD_BRANCH/$NAME-$VERSION.tar
-tar -C $DEB_BUILD_DIR -xvf $DEB_BUILD_DIR/$NAME-$VERSION.tar
-echo $VERSION > $WORK_DIR/version
-
-# This rake call builds our FOSS debs
-cd $WORK_DIR && rake deb
-
-set -x
-
-echo "ABOUT TO COPY OVER THE DEB"
-scp -r $WORK_DIR/pkg/deb neptune:${INCOMING}/$NAME-$VERSION
-
-# This one is going to build us our PE debs
-# To avoid a tremendous amount of output, we'll +x this
-set +x
-cd $WORK_DIR && rake deb PE_BUILD=true PE_VER=${PE_VER}
-
-set -x
-
-# We ship a second time here because the second rake deb call blows away
-# the results of the first. We could also move the first set of artifacts
-# aside and only ship once, but, you know, since we're already at 11/10 on
-# the hack scale here...
-echo "ABOUT TO COPY OVER THE PE DEBS"
-scp -r $WORK_DIR/pkg/deb/{lucid,squeeze,precise,wheezy} neptune:${INCOMING}/$NAME-$VERSION
-
-rm -rf $WORK_DIR{,.tar}
-BUILD_DEBS
+rake pl:fetch --trace
+rake pe:deb_all --trace
+rake pe:ship_debs --trace
 
 # That's right, I'm templating a config file via shell script inside
 # a Jenkins job.  So?  Back off.
@@ -92,20 +69,14 @@ ARCHS="i386 amd64 all"
 GPG="pluto@puppetlabs.lan"
 FREIGHT_CONF
 
-scp ./freight.conf neptune:${FREIGHT_DIR}
+scp ./freight.conf $APT_HOST:${FREIGHT_DIR}
 
-ssh neptune <<FREIGHT
+ssh $APT_HOST <<FREIGHT
 set -e
 set -x
 
-# This adds the FOSS debs, which are at the first directory level
-for DISTRO in lucid maverick natty oneiric precise lenny squeeze wheezy; do
-  freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/*.deb apt/\$DISTRO
-done
-
-# The PE debs are all in subdirectories named after their dist
-for DISTRO in lucid squeeze precise wheezy; do
-  freight add -c ${FREIGHT_DIR}/freight.conf ${INCOMING}/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
+for DISTRO in lucid natty oneiric precise quantal sid squeeze stable testing unstable wheezy; do
+  freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
 freight cache -c ${FREIGHT_DIR}/freight.conf

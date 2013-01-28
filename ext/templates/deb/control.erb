@@ -13,7 +13,7 @@ Homepage: http://puppetlabs.com
 Package: <%= @name %>
 Architecture: all
 <% if @pe -%>
-Depends: ${misc:Depends},  java6-runtime-headless, adduser, pe-puppet-agent (>= 2.7.12)
+Depends: ${misc:Depends}, pe-java, adduser, pe-puppet-agent (>= 2.7.12)
 <% else -%>
 Depends: ${misc:Depends},  java6-runtime-headless, adduser, puppet (>= 2.7.12)
 <% end -%>
