@@ -85,7 +85,10 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return nil if no facts are found" do
-      response = Net::HTTPNotFound.new('1.1', 404, 'Not Found')
+      body = [].to_pson
+
+      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response.stubs(:body).returns body
 
       subject.stubs(:http_get).returns response
 
