@@ -23,7 +23,7 @@ Once you have PuppetDB running, visit the following URL, substituting in the nam
 
 `http://puppetdb.example.com:8080/dashboard/index.html`
 
-> **Note:** You may need to [edit PuppetDB's HTTP configuration][configure_jetty] first, changing the `host` setting to the server's externally-accessible hostname. When you do this, you should also configure your firewall to control access to PuppetDB's cleartext HTTP port.
+> **Note:** You may need to [edit PuppetDB's HTTP configuration][configure_jetty] first, changing the `host` setting to the server's externally-accessible hostname.  If you've used the PuppetDB module to install, you'll need to [set the `listen_address` parameter](./install_via_module.html#assign_classes_to_nodes).  When you do this, you should also configure your firewall to control access to PuppetDB's cleartext HTTP port.
 
 PuppetDB uses this page to display a web-based dashboard with performance information and metrics, including its memory use, queue depth, command processing metrics, duplication rate, and query stats. It displays min/max/median of each metric over a configurable duration, as well as an animated SVG "sparkline" (a simple line chart that shows general variation). It also displays the current version of PuppetDB and checks for updates, showing a link to the latest package if your deployment is out of date.
 
