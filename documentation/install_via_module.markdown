@@ -33,6 +33,12 @@ Using the normal methods for your site, assign the PuppetDB module's classes to 
 * If you want to run PuppetDB on its own server with a local PostgreSQL instance, assign the `puppetdb` class to it, and assign the `puppetdb::master::config` class to your puppet master. Make sure to set the class parameters as necessary.
 * If you want PuppetDB and PostgreSQL to each run on their own servers, assign the `puppetdb::server` class and the `puppetdb::database::postgresql` classes to different servers, and the `puppetdb::master::config` class to your puppet master. Make sure to set the class parameters as necessary.
 
+Note: by default the module sets up the PuppetDB dashboard to be accessible only via `localhost`.  If you'd like to allow access to the PuppetDB dashboard via an external network interface, you should set the `listen_address` parameter on either of the `puppetdb` or `puppetdb::server` classes.  e.g.:
+
+    class { 'puppetdb':
+        listen_address => 'example.foo.com'
+    }
+
 These classes automatically configure most aspects of PuppetDB. If you need to set additional settings (to change the `node_ttl`, for example), see [the "Playing Nice With the PuppetDB Module" section][config_with_module] of the "Configuring" page. 
 
 For full details on how to use the module, see the [README_GETTING_STARTED.md
