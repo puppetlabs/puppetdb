@@ -32,7 +32,7 @@ scp $NAME-$VERSION.tar deb-builder:$DEB_BUILD_DIR
 
 rm -f $NAME-$VERSION.tar
 
-ssh neptune "mkdir -p ${INCOMING}"
+ssh neptune.puppetlabs.lan "mkdir -p ${INCOMING}"
 
 ssh deb-builder <<BUILD_DEBS
 set -e
@@ -50,7 +50,7 @@ cd $WORK_DIR && rake deb
 set -x
 
 echo "ABOUT TO COPY OVER THE DEB"
-scp -r $WORK_DIR/pkg/deb neptune:${INCOMING}/$NAME-$VERSION
+scp -r $WORK_DIR/pkg/deb neptune.puppetlabs.lan:${INCOMING}/$NAME-$VERSION
 
 # This one is going to build us our PE debs
 # To avoid a tremendous amount of output, we'll +x this
@@ -64,7 +64,7 @@ set -x
 # aside and only ship once, but, you know, since we're already at 11/10 on
 # the hack scale here...
 echo "ABOUT TO COPY OVER THE PE DEBS"
-scp -r $WORK_DIR/pkg/deb/{lucid,squeeze,precise,wheezy} neptune:${INCOMING}/$NAME-$VERSION
+scp -r $WORK_DIR/pkg/deb/{lucid,squeeze,precise,wheezy} neptune.puppetlabs.lan:${INCOMING}/$NAME-$VERSION
 
 rm -rf $WORK_DIR{,.tar}
 BUILD_DEBS
@@ -92,9 +92,9 @@ ARCHS="i386 amd64 all"
 GPG="pluto@puppetlabs.lan"
 FREIGHT_CONF
 
-scp ./freight.conf neptune:${FREIGHT_DIR}
+scp ./freight.conf neptune.puppetlabs.lan:${FREIGHT_DIR}
 
-ssh neptune <<FREIGHT
+ssh neptune.puppetlabs.lan <<FREIGHT
 set -e
 set -x
 
