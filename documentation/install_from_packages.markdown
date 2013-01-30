@@ -57,6 +57,8 @@ Use Puppet to install PuppetDB.
 
     $ sudo puppet resource package pe-puppetdb ensure=latest
 
+(Note that PE support for PuppetDB [is currently unofficial](./index.html#note-about-puppet-enterprise).)
+
 ### For Open Source Users
 
     $ sudo puppet resource package puppetdb ensure=latest
