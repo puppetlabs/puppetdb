@@ -32,7 +32,7 @@ If Puppet isn't fully installed and configured yet on your PuppetDB server, inst
 * [Instructions for open source Puppet][installpuppet]
 
 [installpuppet]: /guides/installation.html
-[installpe]: /pe/2.5/install_basic.html
+[installpe]: /pe/2.7/install_basic.html
 
 Your PuppetDB server should be running puppet agent and have a signed certificate from your puppet master server. If you run `puppet agent --test`, it should successfully complete a run, ending with "`notice: Finished catalog run in X.XX seconds`."
 
