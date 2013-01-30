@@ -87,6 +87,13 @@ If you're willing to do some manual configuration, PuppetDB can run on any Unix-
 
 Your site's puppet masters must be running Puppet 2.7.12 or later. [You will need to connect your puppet masters to PuppetDB after installing it][connect]. If you wish to use PuppetDB with [standalone nodes that are running puppet apply][apply], every node must be running 2.7.12 or later.
 
+> #### Note about Puppet Enterprise
+>
+> PuppetDB generally works well with Puppet Enterprise 2.5 and higher, and we provide PE-specific packages. However, it isn't yet officially supported.
+>
+> * For now, PE users can install PuppetDB themselves; Puppet Labs support staff will help with PuppetDB questions on a _best-effort basis._
+> * An upcoming version of Puppet Enterprise will feature _official support_ for PuppetDB, and will ship with PuppetDB already enabled.
+
 ### Robust Hardware
 
 PuppetDB will be a critical component of your Puppet deployment and so should be run on a robust and reliable server. 
