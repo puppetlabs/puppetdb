@@ -21,7 +21,7 @@ If you haven't already, you will need to do **one** of the following:
 
 To enable the Puppet Labs repos, follow the instructions linked below:
 
-- [Instructions for PE users](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories)
+- [Instructions for PE users](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories) (Note that PE support for PuppetDB [is currently unofficial](./index.html#note-about-puppet-enterprise).)
 - [Instructions for open source users](/guides/puppetlabs_package_repositories.html#open-source-repositories)
 
 Step 2: Assign Classes to Nodes
