@@ -133,7 +133,7 @@ module PuppetDBExtensions
     # These 'platform' values come from the acceptance config files, so
     # we're relying entirely on naming conventions here.  Would be nicer
     # to do this using lsb_release or something, but...
-    match = version.match(/(\d+\.\d+\.\d+)(\.rc\d+)?/)
+    match = version.match(/(\d+\.\d+\.\d+(?:\.\d+)?)(\.rc\d+)?/)
     version, rc = match[1], match[2]
     release = rc ? "0.1#{rc.sub('.', '')}" : "1"
     if host['platform'].include?('el-5')
