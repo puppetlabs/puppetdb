@@ -31,7 +31,7 @@ end
 
 def get_debversion
   packager = @pe ? 'puppet' : 'puppetlabs'
-  version = @version.match(/\d\.\d\.\d/)[0]
+  version = @version.match(/\d+\.\d+\.\d+(\.\d+)?/)[0]
   if @version.include?('rc')
     return version + '-0.1' + @version.match(/rc\d+/)[0] + packager + get_debrelease
   else
