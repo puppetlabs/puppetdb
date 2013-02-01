@@ -4,6 +4,28 @@ layout: default
 canonical: "/puppetdb/1.1/release_notes.html"
 ---
 
+1.1.1
+-----
+
+PuppetDB 1.1.1 is a bugfix release.  It contains the following fixes:
+
+* (#18934) Dashboard Inventory Service returns 404
+
+  Version 1.1.0 of the PuppetDB terminus package contained a faulty URL for
+  retrieving fact data for the inventory service.  This issue is fixed and
+  we've added better testing to ensure that this doesn't break again in the
+  future.
+
+* (#18879) PuppetDB terminus 1.0.5 is incompatible with PuppetDB 1.1.0
+
+  Version 1.1.0 of the PuppetDB server package contained some API changes that
+  were not entirely backward-compatible with version 1.0.5 of the PuppetDB
+  terminus; this caused failures for some users if they upgraded the server
+  to 1.1.0 without simultaneously upgrading the terminus package.  Version 1.1.1
+  of the server is backward-compatible with terminus 1.0.5, allowing an easier
+  upgrade path for 1.0.x users.
+
+
 1.1.0
 -----
 
