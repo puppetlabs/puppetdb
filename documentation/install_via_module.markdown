@@ -41,6 +41,4 @@ Note: by default the module sets up the PuppetDB dashboard to be accessible only
 
 These classes automatically configure most aspects of PuppetDB. If you need to set additional settings (to change the `node_ttl`, for example), see [the "Playing Nice With the PuppetDB Module" section][config_with_module] of the "Configuring" page. 
 
-For full details on how to use the module, see the [README_GETTING_STARTED.md
-file](https://github.com/puppetlabs/puppetlabs-puppetdb/blob/master/README_GETTING_STARTED.md) in the module's GitHub repo.  The module also includes some sample manifests in
-the `tests` directory that demonstrate its basic usage.
+For full details on how to use the module, see the [PuppetDB module documentation](http://forge.puppetlabs.com/puppetlabs/puppetdb) on Puppet Forge.  The module also includes some sample manifests in the `tests` directory that demonstrate its basic usage.
