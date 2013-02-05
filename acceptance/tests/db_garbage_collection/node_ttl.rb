@@ -1,29 +1,6 @@
 require 'json'
 
-test_name "validate that nodes are deactivated based on node-ttl setting" do
-
-  with_master_running_on master, "--autosign true", :preserve_ssl => true do
-    step "Run agents once to activate nodes" do
-      run_agent_on agents, "--test --server #{master}"
-    end
-  end
-
-  step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
-    result_node_names = JSON.parse(result.stdout)
-    assert_equal(agents.length, result_node_names.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_names.length}'")
-  end
-
-  step "Sleep for one second to make sure we have a ttl to exceed" do
-    sleep 1
-  end
-
-  step "Back up the database.ini file and create a temp one with a ttl" do
-    on database, "cp /etc/puppetdb/conf.d/database.ini /etc/puppetdb/conf.d/database.ini.bak"
-    # TODO: this could/should be done via the module once we support it
-    on database, "echo 'node-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
-  end
-
+def restart_to_gc(database)
   step "Restart PuppetDB to pick up config changes" do
     restart_puppetdb database
   end
@@ -34,15 +11,82 @@ test_name "validate that nodes are deactivated based on node-ttl setting" do
   step "sleep 5 seconds to allow GC to complete" do
     sleep 5
   end
+end
 
-  step "Verify that the number of active nodes is zero" do
+test_name "validate that nodes are deactivated and deleted based on ttl settings" do
+
+  with_master_running_on master, "--autosign true", :preserve_ssl => true do
+    step "Run agents once to activate nodes" do
+      run_agent_on agents, "--test --server #{master}"
+    end
+  end
+
+  step "Verify that the number of active nodes is what we expect" do
     result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
-    result_node_names = JSON.parse(result.stdout)
-    assert_equal(0, result_node_names.length, "Expected query to return '0' active nodes; returned '#{result_node_names.length}'")
+    result_node_statuses = JSON.parse(result.stdout)
+    assert_equal(agents.length, result_node_statuses.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_statuses.length}'")
+  end
+
+  step "Sleep for one second to make sure we have a ttl to exceed" do
+    sleep 1
+  end
+
+  step "Back up the database.ini file and create a temp one with a node-purge-ttl" do
+    on database, "cp -p /etc/puppetdb/conf.d/database.ini /etc/puppetdb/conf.d/database.ini.bak"
+    # TODO: this could/should be done via the module once we support it
+    on database, "echo 'node-purge-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
+  end
+
+  restart_to_gc database
+
+  step "Verify that the nodes are still there and still active" do
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
+    result_node_statuses = JSON.parse(result.stdout)
+    assert_equal(agents.length, result_node_statuses.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_statuses.length}'")
+  end
+
+  step "Restore the original database.ini and add a node-ttl" do
+    on database, "cp -p /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini"
+    on database, "echo 'node-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
+  end
+
+  restart_to_gc database
+
+  step "Verify that the nodes were deactivated but not deleted" do
+    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
+    result_node_statuses = JSON.parse(result.stdout)
+    assert_equal(0, result_node_statuses.length, "Expected query to return '0' active nodes; returned '#{result_node_statuses.length}'")
+
+    agents.each do |agent|
+      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes/#{agent.node_name}|
+      result_node_status = JSON.parse(result.stdout)
+
+      assert_equal(agent.node_name, result_node_status['name'], "Didn't get a node back for #{agent.node_name}")
+      assert_not_nil(result_node_status['deactivated'], "Expected #{agent.node_name} to be present but deactivated, and it wasn't deactivated")
+    end
+  end
+
+  step "Sleep for one second to make sure we have a ttl to exceed" do
+    sleep 1
+  end
+
+  step "Add a purge ttl to the database.ini file" do
+    on database, "echo 'node-purge-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
+  end
+
+  restart_to_gc database
+
+  step "Verify that the nodes were all deleted" do
+    agents.each do |agent|
+      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes/#{agent.node_name}|
+      result_node_status = JSON.parse(result.stdout)
+
+      assert_equal({"error" => "No information is known about #{agent.node_name}"}, result_node_status, "Got a result back for #{agent.node_name} when it shouldn't exist")
+    end
   end
 
   step "Restore the original database.ini file and restart puppetdb" do
-    on database, "mv /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini ; chown puppetdb:puppetdb /etc/puppetdb/conf.d/database.ini"
+    on database, "mv /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini"
     restart_puppetdb database
   end
 
