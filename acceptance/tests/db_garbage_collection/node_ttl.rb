@@ -74,6 +74,10 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
     on database, "echo 'node-purge-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
   end
 
+  # In case there are any catalogs/facts/reports waiting to be processed, let
+  # them finish so we can be sure everything was deleted.
+  sleep_until_queue_empty database
+
   restart_to_gc database
 
   step "Verify that the nodes were all deleted" do
@@ -82,6 +86,27 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
       result_node_status = JSON.parse(result.stdout)
 
       assert_equal({"error" => "No information is known about #{agent.node_name}"}, result_node_status, "Got a result back for #{agent.node_name} when it shouldn't exist")
+    end
+  end
+
+  step "Verify that all associated data was deleted" do
+    result = on database, "curl -G -H 'Accept: application/json' http://localhost:8080/v2/facts/operatingsystem"
+    facts = JSON.parse(result.stdout)
+
+    assert_equal([], facts, "Got facts when they should all have been deleted")
+
+    # We have to supply a query for resources, so use one that will always match
+    result = on database, %q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data-urlencode 'query=["=", "exported", false]'|
+    resources = JSON.parse(result.stdout)
+
+    assert_equal([], resources, "Got resources when they should all have been deleted")
+
+    # Reports can only be retrieved per node, so check one at a time.
+    agents.each do |agent|
+      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/reports --data-urlencode 'query=["=", "certname", "#{agent.node_name}"]'|
+      reports = JSON.parse(result.stdout)
+
+      assert_equal([], resources, "Got reports for #{agent.node_name} when they should all have been deleted")
     end
   end
 

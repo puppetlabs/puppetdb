@@ -112,11 +112,6 @@
         (log/error exception "Error during database sweep")
         (sleep))
 
-      (pl-utils/demarcate
-        "database garbage collection"
-        (with-transacted-connection db
-          (scf-store/garbage-collect!)))
-
       (when (pos? node-ttl-seconds)
         (pl-utils/demarcate
           (format "sweep of stale nodes (threshold: %s)"
@@ -138,6 +133,11 @@
                   (format-period (secs report-ttl-seconds)))
           (with-transacted-connection db
             (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
+
+      (pl-utils/demarcate
+        "database garbage collection"
+        (with-transacted-connection db
+          (scf-store/garbage-collect!)))
 
       (sleep))))
 
