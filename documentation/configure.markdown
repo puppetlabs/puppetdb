@@ -268,6 +268,14 @@ deactivation will continue to work as always.
 
 If unset, auto-deactivation of nodes is disabled.
 
+### `node-purge-ttl`
+
+Automatically delete nodes that have been _deactivated_ for the specified
+amount of time. This will also delete all facts, catalogs and reports for the
+node. This ttl may be specified the same way as `node-ttl` above.
+
+If unset, auto-deletion of nodes is disabled.
+
 ### `report-ttl`
 
 Automatically delete reports that are older than the specified amount of time.

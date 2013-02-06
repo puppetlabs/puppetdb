@@ -293,6 +293,13 @@ must be supplied as the value to be matched."
     ["SELECT deactivated FROM certnames WHERE name=?" certname]
     (:deactivated (first result-set))))
 
+(defn purge-deactivated-nodes!
+  "Delete nodes from the database which were deactivated before `time`."
+  [time]
+  {:pre [(utils/datetime? time)]}
+  (let [ts (to-timestamp time)]
+    (sql/delete-rows :certnames ["deactivated < ?" ts])))
+
 (defn activate-node!
   "Reactivate the given host.  Adds the host to the database if it was not
   already present."
