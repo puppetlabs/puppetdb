@@ -17,12 +17,12 @@ install::
 	echo $(BUILD_ROOT)
 	mkdir -p $(BUILD_ROOT)
 <% if @pe -%>
-	/opt/puppet/bin/rake install DESTDIR=$(BUILD_ROOT) PE_BUILD=true
-	/opt/puppet/bin/rake terminus DESTDIR=$(BUILD_ROOT) PE_BUILD=true
+	/opt/puppet/bin/rake install PARAMS_FILE= DESTDIR=$(BUILD_ROOT) PE_BUILD=true
+	/opt/puppet/bin/rake terminus PARAMS_FILE= DESTDIR=$(BUILD_ROOT) PE_BUILD=true
 	dh_installdocs -p pe-puppetdb documentation
 <% else -%>
-	rake install DESTDIR=$(BUILD_ROOT)
-	rake terminus DESTDIR=$(BUILD_ROOT)
+	rake install PARAMS_FILE= DESTDIR=$(BUILD_ROOT)
+	rake terminus PARAMS_FILE= DESTDIR=$(BUILD_ROOT)
 	dh_installdocs -p puppetdb documentation
 <% end -%>
 
