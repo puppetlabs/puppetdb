@@ -463,6 +463,20 @@
 
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
 
+(deftest node-purge
+  (testing "should purge only nodes which were deactivated before the specified date"
+    (add-certname! "node1")
+    (add-certname! "node2")
+    (add-certname! "node3")
+    (deactivate-node! "node1")
+    (with-redefs [now (constantly (ago (days 10)))]
+      (deactivate-node! "node2"))
+
+    (purge-deactivated-nodes! (ago (days 5)))
+
+    (is (= (map :name (query-to-vec "SELECT name FROM certnames ORDER BY name ASC"))
+           ["node1" "node3"]))))
+
 ;; Report tests
 
 (let [timestamp     (now)
