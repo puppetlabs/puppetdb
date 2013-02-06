@@ -105,6 +105,7 @@
   [db interval node-ttl-seconds node-purge-ttl-seconds report-ttl-seconds]
   {:pre [(pos? interval)
          (>= node-ttl-seconds 0)
+         (>= node-purge-ttl-seconds 0)
          (>= report-ttl-seconds 0)]}
   (let [sleep #(Thread/sleep (* 60 1000 interval))]
     (pl-utils/keep-going
@@ -187,8 +188,8 @@
   [database]
   {:pre  [(map? database)]
    :post [(map? %)
-          (not (contains? % :node-ttl))
-          (not (contains? % :node-ttl-days))]}
+          ;; Nothing else should be changed
+          (= (dissoc database :node-ttl :node-ttl-days) (dissoc % :node-ttl-seconds))]}
   (cond
     (:node-ttl database)      (-> database
                                   (assoc :node-ttl-seconds
@@ -221,7 +222,7 @@
   [{:keys [report-ttl] :as database}]
   {:pre  [(map? database)]
    :post [(map? %)
-          (not (contains? % :report-ttl))]}
+          (= (dissoc database :report-ttl) (dissoc % :report-ttl-seconds))]}
   (if report-ttl
     (-> database
       (assoc :report-ttl-seconds (to-secs (parse-period report-ttl)))
@@ -232,12 +233,11 @@
   "Helper function that munges the supported permutations of our `ttl` settings
   (if present) from their config file representation to our internal
   representation (in seconds)"
-  [{:keys [report-ttl node-ttl node-ttl-seconds node-purge-ttl] :as database}]
+  [database]
   {:pre  [(map? database)]
    :post [(map? database)
-          (not (contains? % :report-ttl))
-          (not (contains? % :node-ttl))
-          (not (contains? % :node-ttl-days))]}
+          (= (dissoc database :report-ttl :node-purge-ttl :node-ttl :node-ttl-days)
+             (dissoc % :report-ttl-seconds :node-purge-ttl-seconds :node-ttl-seconds))]}
   (-> database
       configure-report-ttl
       configure-node-ttl
