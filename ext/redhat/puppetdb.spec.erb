@@ -11,24 +11,22 @@
 %else
 %if 0%{?suse_version}
 %global open_jdk          java-1_6_0-ibm
-%endif
+%else
 %global open_jdk          java-1.6.0-openjdk
+%endif
 %endif
 <% end -%>
 
-# ruby 1.9 uses vendorlibdir instead of sitelibdir
-<% if @ruby_version == '1.9' -%>
-  <% if @pe -%>
-%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
-  <% else -%>
-%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
-  <% end -%>
-<% else -%>
-  <% if @pe -%>
+# On FOSS releases for platforms with ruby 1.9, puppet uses vendorlibdir instead of sitelibdir
+# On PE, we use sitelibdir
+<% if @pe -%>
 %global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
-  <% else -%>
+<% else -%>
+%if 0%{?fedora} >= 17
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+%else
 %global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
-  <% end -%>
+%endif
 <% end -%>
 
 # These macros are not always defined on much older rpm-based systems
@@ -47,18 +45,24 @@
 <% end -%>
 
 <% if @pe -%>
-Name:           pe-puppetdb
+Name:          pe-puppetdb
 <% else -%>
-Name:           puppetdb
+Name:          puppetdb
 <% end -%>
-Version:        <%= @rpmversion %>
-Release:        <%= @rpmrelease %>%{?dist}
-BuildRoot:      %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
+Version:       <%= @rpmversion %>
+Release:       <%= @rpmrelease %>%{?dist}
+BuildRoot:     %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Summary:        Puppet Centralized Storage Daemon
+Summary:       Puppet Centralized Storage Daemon
 License:       ASL 2.0
+<% if @pe -%>
+URL:           http://puppetlabs.com/puppet/puppet-enterprise
+Source0:       %{name}-%{realversion}.tar.gz
+<% else -%>
 URL:           http://github.com/puppetlabs/puppetdb
 Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{realversion}.tar.gz
+<% end -%>
+
 Group:         System Environment/Daemons
 
 <% if @pe -%>
@@ -73,16 +77,18 @@ BuildRequires: ruby
 Requires:      puppet >= 2.7.12
 <% end -%>
 BuildArch:     noarch
-<% if @osfamily == 'suse' %>
+%if 0%{?suse_version}
 BuildRequires: aaa_base
-BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
 BuildRequires: sles-release
-<% else %>
+Requires:      aaa_base
+Requires:      pwdutils
+%else
 BuildRequires: /usr/sbin/useradd
-<% end %>
-Requires:      %{open_jdk}
 Requires:      chkconfig
+%endif
+BuildRequires: %{open_jdk}
+Requires:      %{open_jdk}
 
 %description
 Puppet Centralized Storage.
@@ -100,7 +106,11 @@ Requires: puppet >= 2.7.12
 Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 
 %prep
+<% if @pe -%>
+%setup -q -n %{name}-%{realversion}
+<% else -%>
 %setup -q -n %{realname}-%{realversion}
+<% end -%>
 
 %build
 
@@ -113,11 +123,11 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
 
 <% if @pe -%>
-PATH=/opt/puppet/bin:$PATH rake install DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
-PATH=/opt/puppet/bin:$PATH rake terminus DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
+PATH=/opt/puppet/bin:$PATH rake terminus PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
 <% else -%>
-rake install DESTDIR=$RPM_BUILD_ROOT
-rake terminus DESTDIR=$RPM_BUILD_ROOT
+rake install PARAMS_FILE= DESTDIR= $RPM_BUILD_ROOT
+rake terminus PARAMS_FILE= DESTDIR= $RPM_BUILD_ROOT
 <% end -%>
 
 mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
@@ -223,8 +233,18 @@ fi
 <% else -%>
 %defattr(-, puppet, puppet)
 <% end -%>
-# There are not specs yet in our rpms
-%{puppet_libdir}/puppet
+%{puppet_libdir}/puppet/face/node/deactivate.rb
+%{puppet_libdir}/puppet/face/node/status.rb
+%{puppet_libdir}/puppet/indirector/catalog/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/facts/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/node/puppetdb.rb
+%{puppet_libdir}/puppet/indirector/resource/puppetdb.rb
+%{puppet_libdir}/puppet/reports/puppetdb.rb
+%{puppet_libdir}/puppet/util/puppetdb.rb
+%{puppet_libdir}/puppet/util/puppetdb/char_encoding.rb
+%{puppet_libdir}/puppet/util/puppetdb/command.rb
+%{puppet_libdir}/puppet/util/puppetdb/command_names.rb
+%{puppet_libdir}/puppet/util/puppetdb/config.rb
 
 %changelog
 <%

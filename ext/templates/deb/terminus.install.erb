@@ -1,1 +1,27 @@
-<%= @plibdir -%>/puppet
+<% if @pe -%>
+/opt/puppet/lib/ruby/1.8/puppet/face/node/deactivate.rb
+/opt/puppet/lib/ruby/1.8/puppet/face/node/status.rb
+/opt/puppet/lib/ruby/1.8/puppet/indirector/catalog/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/indirector/facts/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/indirector/node/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/indirector/resource/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/reports/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/util/puppetdb.rb
+/opt/puppet/lib/ruby/1.8/puppet/util/puppetdb/char_encoding.rb
+/opt/puppet/lib/ruby/1.8/puppet/util/puppetdb/command.rb
+/opt/puppet/lib/ruby/1.8/puppet/util/puppetdb/command_names.rb
+/opt/puppet/lib/ruby/1.8/puppet/util/puppetdb/config.rb
+<% else -%>
+/usr/lib/ruby/vendor_ruby/puppet/face/node/deactivate.rb
+/usr/lib/ruby/vendor_ruby/puppet/face/node/status.rb
+/usr/lib/ruby/vendor_ruby/puppet/indirector/catalog/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/indirector/facts/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/indirector/node/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/indirector/resource/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/reports/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/util/puppetdb.rb
+/usr/lib/ruby/vendor_ruby/puppet/util/puppetdb/char_encoding.rb
+/usr/lib/ruby/vendor_ruby/puppet/util/puppetdb/command.rb
+/usr/lib/ruby/vendor_ruby/puppet/util/puppetdb/command_names.rb
+/usr/lib/ruby/vendor_ruby/puppet/util/puppetdb/config.rb
+<% end -%>
