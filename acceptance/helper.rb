@@ -31,10 +31,15 @@ module PuppetDBExtensions
             [:true, :false], "'validate package version'",
             "PUPPETDB_VALIDATE_PACKAGE_VERSION", :true)
 
-    expected_package_version =
-        get_option_value(options[:puppetdb_expected_package_version],
-            nil, "'expected package version'",
-            "PUPPETDB_EXPECTED_PACKAGE_VERSION", nil)
+    expected_rpm_version =
+        get_option_value(options[:puppetdb_expected_rpm_version],
+            nil, "'expected RPM package version'",
+            "PUPPETDB_EXPECTED_RPM_VERSION", nil)
+
+    expected_deb_version =
+        get_option_value(options[:puppetdb_expected_deb_version],
+                         nil, "'expected DEB package version'",
+                         "PUPPETDB_EXPECTED_DEB_VERSION", nil)
 
     use_proxies =
         get_option_value(options[:puppetdb_use_proxies],
@@ -62,7 +67,8 @@ module PuppetDBExtensions
         :install_mode => install_mode,
         :database => database,
         :validate_package_version => validate_package_version == :true,
-        :expected_package_version => expected_package_version,
+        :expected_rpm_version => expected_rpm_version,
+        :expected_deb_version => expected_deb_version,
         :use_proxies => use_proxies == :true,
         :purge_after_run => purge_after_run == :true,
         :package_repo_url => package_repo_url,
@@ -127,28 +133,26 @@ module PuppetDBExtensions
                       host, "https://#{host.node_name}:8081", [35, 60])
   end
 
-  def get_package_version(host, version)
-    return version if (version == "latest")
+  def get_package_version(host, version = nil)
+    return version unless version.nil?
 
-    # These 'platform' values come from the acceptance config files, so
-    # we're relying entirely on naming conventions here.  Would be nicer
-    # to do this using lsb_release or something, but...
-    match = version.match(/(\d+\.\d+\.\d+(?:\.\d+)?)(\.rc\d+)?/)
-    version, rc = match[1], match[2]
-    release = rc ? "0.1#{rc.sub('.', '')}" : "1"
+    ## These 'platform' values come from the acceptance config files, so
+    ## we're relying entirely on naming conventions here.  Would be nicer
+    ## to do this using lsb_release or something, but...
     if host['platform'].include?('el-5')
-      "#{version}-#{release}.el5"
+      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
     elsif host['platform'].include?('el-6')
-      "#{version}-#{release}.el6"
+      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{version}-#{release}puppetlabs1"
+      PuppetDBExtensions.config[:expected_deb_version]
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
+
   end
 
 
-  def install_puppetdb(host, db, version='latest')
+  def install_puppetdb(host, db, version=nil)
     manifest = <<-EOS
     class { 'puppetdb':
       database               => '#{db}',
@@ -177,7 +181,7 @@ module PuppetDBExtensions
           else
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
-      expected_version = get_package_version(host, ENV['PUPPETDB_EXPECTED_VERSION'])
+      expected_version = get_package_version(host)
       PuppetAcceptance::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
       if installed_version != expected_version
         raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{expected_version}'"
@@ -186,7 +190,7 @@ module PuppetDBExtensions
   end
 
 
-  def install_puppetdb_termini(host, database, version='latest')
+  def install_puppetdb_termini(host, database, version=nil)
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).

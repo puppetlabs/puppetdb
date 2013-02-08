@@ -28,11 +28,18 @@ in your hash; the environment variable names are the same but uppercased
   package version matches what we expect.  This is mostly useful in CI, to make
   sure we're testing the right code.  Legal values are `:true` and `:false`.
 
-* `:puppetdb_expected_package_version` (`PUPPETDB_EXPECTED_PACKAGE_VERSION`) :
+* `:puppetdb_expected_rpm_version` (`PUPPETDB_EXPECTED_RPM_VERSION`) :
+  This is only relevant if `:puppetdb_validate_package_version` is set to `:true`.
+  In that case, this setting may contain a version number string (including the
+  rpm release specifier), and the tests will fail on RedHat-based systems if, when
+  we install the development puppetdb package, its version number does not match
+  this string.
+
+* `:puppetdb_expected_deb_version` (`PUPPETDB_EXPECTED_DEB_VERSION`) :
   This is only relevant if `:puppetdb_validate_package_version` is set to `:true`.
   In that case, this setting may contain a version number string, and the tests
-  will fail if, when we install the development puppetdb package, its version
-  number does not match this string.
+  will fail on Debian-based systems if, when we install the development puppetdb
+  package, its version number does not match this string.
 
 * `:puppetdb_use_proxies` (`PUPPETDB_USE_PROXIES`) : This determines whether or
   not the test run will configure package managers (apt/yum) and maven to use
