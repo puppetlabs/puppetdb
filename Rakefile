@@ -34,7 +34,6 @@ if @pe
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
-    @cows = 'lucid', 'squeeze', 'precise', 'wheezy'
     @pe_version = ENV['PE_VER'] || '2.8'
     @java_bin = "/opt/puppet/bin/java"
 else
