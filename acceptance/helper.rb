@@ -144,7 +144,7 @@ module PuppetDBExtensions
     elsif host['platform'].include?('el-6')
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      PuppetDBExtensions.config[:expected_deb_version]
+      "#{PuppetDBExtensions.config[:expected_deb_version]}"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
