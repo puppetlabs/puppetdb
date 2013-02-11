@@ -182,18 +182,6 @@ module PuppetDBExtensions
             raise ArgumentError, "Unsupported OS family: '#{os}'"
         end
       expected_version = get_package_version(host)
-      puts "Expected version class, length, inspect, bytes:"
-      puts expected_version.class
-      puts expected_version.length
-      puts expected_version.inspect
-      expected_version.bytes.map { |b| puts b }
-      puts "-------------------"
-      puts "Installed version class, length, inspect, bytes:"
-      puts installed_version.class
-      puts installed_version.length
-      puts installed_version.inspect
-      installed_version.bytes.map { |b| puts b }
-      puts "-------------------"
 
       PuppetAcceptance::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
       if installed_version != expected_version
