@@ -96,14 +96,14 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
     assert_equal([], facts, "Got facts when they should all have been deleted")
 
     # We have to supply a query for resources, so use one that will always match
-    result = on database, %q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data-urlencode 'query=["=", "exported", false]'|
+    result = on database, %q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=","exported",false]'|
     resources = JSON.parse(result.stdout)
 
     assert_equal([], resources, "Got resources when they should all have been deleted")
 
     # Reports can only be retrieved per node, so check one at a time.
     agents.each do |agent|
-      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/reports --data-urlencode 'query=["=", "certname", "#{agent.node_name}"]'|
+      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/reports --data 'query=["=","certname","#{agent.node_name}"]'|
       reports = JSON.parse(result.stdout)
 
       assert_equal([], resources, "Got reports for #{agent.node_name} when they should all have been deleted")
