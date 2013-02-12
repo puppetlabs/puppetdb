@@ -66,11 +66,10 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         data = catalog['data']
 
-        data.keys.should =~ ['name', 'version', 'edges', 'resources', 'environment']
+        data.keys.should =~ ['name', 'version', 'edges', 'resources']
 
         data['name'].should == 'foo'
         data['edges'].should == []
-        data['environment'].should == 'production'
 
         data['resources'].first.should == {
           'type'       => 'Notify',

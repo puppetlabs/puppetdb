@@ -60,7 +60,6 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
         :version => node.last_compile || Time.now,
         :edges => [],
         :resources => resources,
-        :environment => node.environment || 'production'
       },
     }
   end
