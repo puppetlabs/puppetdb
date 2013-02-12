@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.experimental
   (:use [com.puppetlabs.puppetdb.http.experimental.catalog :only (catalog-app)]
+        [com.puppetlabs.puppetdb.http.experimental.graphviz-catalog :only (graphviz-catalog-app)]
         [com.puppetlabs.puppetdb.http.experimental.population :only (population-app)]
         [com.puppetlabs.puppetdb.http.experimental.event :only (events-app)]
         [com.puppetlabs.puppetdb.http.experimental.report :only (reports-app)]
@@ -9,6 +10,9 @@
   (app
    ["catalog" &]
    {:any catalog-app}
+
+   ["graphviz-catalog" &]
+   {:any graphviz-catalog-app}
 
    ["population" &]
    {:any population-app}

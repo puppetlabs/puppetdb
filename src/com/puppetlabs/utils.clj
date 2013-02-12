@@ -150,8 +150,19 @@
   (let [ks (keys keys-fns)]
     (reduce (fn [m k] (mapvals (keys-fns k) k m)) m ks)))
 
+(defn dissoc-if-nil
+  "Given a map and a key, checks to see if the value for the key is `nil`; if so,
+  returns a modified map with the specified key removed.  If the value is not `nil`,
+  simply returns the original map."
+  [m k]
+  {:pre  [(map? m)]
+   :post [(map? %)]}
+  (if (nil? (m k))
+    (dissoc m k)
+    m))
+
 (defn keyset
-  "Retuns the set of keys from the supplied map"
+  "Returns the set of keys from the supplied map"
   [m]
   {:pre  [(map? m)]
    :post [(set? %)]}

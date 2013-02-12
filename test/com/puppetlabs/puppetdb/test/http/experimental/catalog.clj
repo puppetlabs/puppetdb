@@ -1,15 +1,13 @@
 (ns com.puppetlabs.puppetdb.test.http.experimental.catalog
   (:require [cheshire.core :as json]
-            ring.middleware.params
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http])
-  (:use clojure.test
-        ring.mock.request
-        [clj-time.core :only [now]]
-        [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.examples]))
+            [com.puppetlabs.puppetdb.testutils.catalog :as testcat])
+  (:use  [clojure.java.io :only [resource]]
+         clojure.test
+         ring.mock.request
+         [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db with-http-app)
+
 
 (def c-t "application/json")
 
@@ -22,76 +20,15 @@
   ([]      (get-response nil))
   ([node] (*app* (get-request (str "/experimental/catalog/" node)))))
 
-(defn is-response-equal
-  "Test if the HTTP request is a success, and if the result is equal
-to the result of the form supplied to this method."
-  [response body]
-  (is (= pl-http/status-ok   (:status response)))
-  (is (= c-t (get-in response [:headers "Content-Type"])))
-  (is (= (when-let [body (:body response)]
-           (let [body (json/parse-string body)
-                 resources (body "resources")]
-             (-> body
-               (update-in ["edges"] set)
-               (assoc "resources" (into {} (for [[ref resource] resources]
-                                             [ref (update-in resource ["tags"] sort)]))))))
-         body)))
 
 (deftest catalog-retrieval
-  (let [basic-catalog (:basic catalogs)
-        empty-catalog (:empty catalogs)]
-    (scf-store/add-certname! (:certname basic-catalog))
-    (scf-store/add-certname! (:certname empty-catalog))
-    (scf-store/replace-catalog! basic-catalog (now))
-    (scf-store/replace-catalog! empty-catalog (now))
-
-    (testing "should return the catalog if it's present"
-      (is-response-equal (get-response (:certname empty-catalog))
-        {"name" (:certname empty-catalog)
-         "resources" {"Class[Main]" {"certname"   (:certname empty-catalog)
-                                     "type"       "Class"
-                                     "title"      "Main"
-                                     "resource"   "fc22ffa0a8128d5676e1c1d55e04c6f55529f04c"
-                                     "exported"   false
-                                     "sourcefile" nil
-                                     "sourceline" nil
-                                     "count"      1
-                                     "tags"       ["class" "main"]
-                                     "parameters" {"name" "main"}}
-                     "Class[Settings]" {"certname"   (:certname empty-catalog)
-                                        "type"       "Class"
-                                        "title"      "Settings"
-                                        "resource"   "cc1869f0f075fc3c3e5828de9e92d65a0bf8d9ff"
-                                        "exported"   false
-                                        "sourcefile" nil
-                                        "sourceline" nil
-                                        "count"      1
-                                        "tags"       ["class" "settings"]
-                                        "parameters" {}}
-                     "Stage[main]" {"certname"   (:certname empty-catalog)
-                                    "type"       "Stage"
-                                    "title"      "main"
-                                    "resource"   "124522a30c56cb9e4bbc66bae4c2515cda6ec889"
-                                    "exported"   false
-                                    "sourcefile" nil
-                                    "sourceline" nil
-                                    "count"      1
-                                    "tags"       ["main" "stage"]
-                                    "parameters" {}}}
-         "edges" #{{"source" {"type" "Stage" "title" "main"}
-                   "target" {"type" "Class" "title" "Settings"}
-                   "relationship" "contains"}
-                  {"source" {"type" "Stage" "title" "main"}
-                   "target" {"type" "Class" "title" "Main"}
-                   "relationship" "contains"}}}))
-
-    (testing "should return status-not-found if the catalog isn't found"
-      (let [response (get-response "non-existent-node")]
-        (is (= pl-http/status-not-found (:status response)))
-        (is (= {:error "Could not find catalog for non-existent-node"}
-               (json/parse-string (:body response) true)))))
-
-    (testing "should fail if no node is specified"
-      (let [response (get-response)]
-        (is (= pl-http/status-not-found (:status response)))
-        (is (= "missing node") (:body response))))))
+  (let [original-catalog-str (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/big-catalog.json"))
+        original-catalog     (json/parse-string original-catalog-str)
+        certname             (get-in original-catalog ["data" "name"])
+        catalog-version      (str (get-in original-catalog ["data" "version"]))]
+    (testcat/replace-catalog original-catalog-str)
+    (testing "it should return the catalog if it's present"
+      (let [{:keys [status body] :as response} (get-response certname)]
+        (is (= status 200))
+        (is (= (testcat/munge-catalog-for-comparison original-catalog)
+               (testcat/munge-catalog-for-comparison (json/parse-string body))))))))
