@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'spec_helper'
-require 'puppet/rails'
-require 'puppet/indirector/catalog/active_record'
 require 'puppet/face/storeconfigs'
 
 describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? and Puppet.features.rails?) do
@@ -16,6 +14,16 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
     Puppet::Rails.init
   end
 
+  before :all do
+    # We have to have this block to require this file, so they get loaded on
+    # platforms where we are going to run the tests, but not on Ruby 1.8.5.
+    # Unfortunately, rspec will evaluate the describe block (but not the before
+    # block or tests) even if the conditions fail. The lack of a sqlite3 gem
+    # for Ruby 1.8.5 ensures that the condition will always be false on Ruby
+    # 1.8.5, so at this point it's safe to require this.
+    require 'puppet/indirector/catalog/active_record'
+  end
+
   before :each do
     setup_scratch_database
     Puppet[:storeconfigs] = true
@@ -24,15 +32,33 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
   describe "export action" do
     after :each do
-      FileUtils.rm_f(@path)
+      FileUtils.rm_rf(@path)
     end
 
     before :each do
-      file = Tempfile.new('export')
-      @path = file.path
-      file.close!
+      tempfile = Tempfile.new('export')
+      @path = tempfile.path
+      tempfile.close!
+
+      Dir.mkdir(@path)
+
+      subject.stubs(:destination_file).returns File.join(@path, 'storeconfigs-test.tar')
     end
 
+    # Turn the filename of a gzipped tar into a hash from filename to content.
+    def tgz_to_hash(filename)
+      # List the files in the archive, ignoring the catalogs directory
+      files = `tar tf #{filename}`.lines.map(&:chomp) - ['catalogs/']
+
+      # Get the content of the files, one per line. Thank goodness they're a
+      # single line each.
+      content = `tar xf #{filename} -O`.lines
+
+      # Build a hash from filename to content. Ruby 1.8.5 doesn't like
+      # Hash[array_of_pairs], so we have to jump through hoops by flattening
+      # and splatting this list.
+      Hash[*files.zip(content).flatten]
+    end
 
     describe "with nodes present" do
       def notify(title, exported=false)
@@ -54,11 +80,19 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
       end
 
       it "should have the right structure" do
-        result = subject.export(@path)
+        filename = subject.export
 
-        result.should == ['foo']
+        results = tgz_to_hash(filename)
 
-        catalog = PSON.load(File.read(@path))
+        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
+
+        metadata = PSON.load(results['metadata.json'])
+
+        metadata.keys.should =~ ['timestamp', 'version', 'nodes']
+        metadata['version'].should == 2
+        metadata['nodes'].should == ['foo']
+
+        catalog = PSON.load(results['catalogs/foo.json'])
 
         catalog.keys.should =~ ['metadata', 'data']
 
@@ -86,14 +120,15 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
       end
 
       it "should only include exported resources" do
-        result = subject.export(@path)
+        filename = subject.export
 
-        result.should == ['foo']
+        results = tgz_to_hash(filename)
 
-        catalogs = File.readlines(@path).map {|line| PSON.load(line)}
+        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
 
-        catalogs.length.should == 1
-        data = catalogs.first['data']
+        catalog = PSON.load(results['catalogs/foo.json'])
+
+        data = catalog['data']
         data['name'].should == 'foo'
 
         data['resources'].map {|resource| [resource['type'], resource['title']]}.should == [['Notify', 'exported']]
@@ -107,22 +142,22 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         save_catalog(catalog)
 
-        result = subject.export(@path)
+        filename = subject.export
 
-        result.should == ['foo']
+        results = tgz_to_hash(filename)
 
-        catalogs = File.readlines(@path).map {|line| PSON.load(line)}
-
-        catalogs.map {|catalog| catalog['data']['name']}.should == ['foo']
+        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
       end
     end
 
     it "should do nothing if there are no nodes" do
-      result = subject.export(@path)
+      filename = subject.export
 
-      result.should == []
+      results = tgz_to_hash(filename)
+      results.keys.should == ['metadata.json']
 
-      File.read(@path).should be_empty
+      metadata = PSON.load(results['metadata.json'])
+      metadata['nodes'].should == []
     end
   end
 end

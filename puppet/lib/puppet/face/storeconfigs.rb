@@ -1,4 +1,5 @@
 require 'puppet/face'
+require 'tmpdir'
 
 Puppet::Face.define(:storeconfigs, '0.0.1') do
   copyright "Puppet Labs", 2011
@@ -13,38 +14,96 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
 
   action :export do
     summary "Export the storeconfigs database"
-    arguments "<filename>"
     description <<-DESC
       Generate a complete dump of all catalogs from the storeconfigs database,
-      in a format which can be consumed by PuppetDB. Returns the set of nodes
-      which were exported.
+      as a tarball which can be imported by PuppetDB. Returns the location of
+      the output.
     DESC
 
-    when_invoked do |filename, options|
+    when_invoked do |options|
       require 'puppet/rails'
 
-      Puppet::Rails.connect
+      workdir = Dir.mktmpdir
 
-      # Fetch all nodes, including exported resources and their params
-      nodes = Puppet::Rails::Host.all(:include => {:resources => [:param_values, :puppet_tags]},
-                                      :conditions => {:resources => {:exported => true}})
+      begin
+        Puppet::Rails.connect
 
-      catalogs = nodes.map {|node| node_to_catalog_hash(node)}
+        # Fetch all nodes, including exported resources and their params
+        nodes = Puppet::Rails::Host.all(:include => {:resources => [:param_values, :puppet_tags]},
+                                        :conditions => {:resources => {:exported => true}})
 
-      File.open(filename, 'w') do |file|
-        # The content of this file is a series of individual catalogs as JSON
-        # objects, not an array of them. This makes it easier to, for instance,
-        # process them in a stream.
+        catalogs = nodes.map {|node| node_to_catalog_hash(node)}
+
+        catalog_dir = File.join(workdir, 'catalogs')
+        FileUtils.mkdir(catalog_dir)
+
         catalogs.each do |catalog|
-          file.puts catalog.to_pson
-        end
-      end
+          filename = File.join(catalog_dir, "#{catalog[:data][:name]}.json")
 
-      nodes.map(&:name).sort
+          File.open(filename, 'w') do |file|
+            file.puts catalog.to_pson
+          end
+        end
+
+        node_names = nodes.map(&:name).sort
+
+        timestamp = Time.now
+
+        File.open(File.join(workdir, 'metadata.json'), 'w') do |file|
+          metadata = {
+            :timestamp => timestamp,
+            :version => 2,
+            :nodes => node_names,
+          }
+
+          file.puts metadata.to_pson
+        end
+
+        tarfile = destination_file(timestamp)
+
+        if tar = Puppet::Util.which('tar')
+          execute("cd #{workdir} && #{tar} -cf #{tarfile} *")
+
+          FileUtils.rm_rf(workdir)
+
+          if gzip = Puppet::Util.which('gzip')
+            execute("#{gzip} #{tarfile}")
+            "#{tarfile}.gz"
+          else
+            Puppet.warning "Can't find the `gzip` command to compress the tarball; output will not be compressed"
+            tarfile
+          end
+        else
+          Puppet.warning "Can't find the `tar` command to produce a tarball; output will remain in the temporary working directory"
+          workdir
+        end
+      rescue => e
+        # Clean up if something goes wrong. We don't want to ensure this,
+        # because we want the directory to stick around in the case where they
+        # don't have tar.
+        FileUtils.rm_rf(workdir)
+        raise
+      end
     end
 
-    when_rendering :console do |nodes|
-      "Exported #{nodes.length} nodes"
+    when_rendering :console do |filename|
+      "Exported storeconfigs data to #{filename}"
+    end
+  end
+
+  # Returns the location to leave the output. This is really only here for testing. :/
+  def destination_file(timestamp)
+    File.expand_path("storeconfigs-#{timestamp.strftime('%Y%m%d%H%M%S')}.tar")
+  end
+
+  def execute(command)
+    # Puppet::Util::Execution is the preferred way to do this in newer Puppets,
+    # but isn't available in older versions. For the sake of not getting
+    # deprecation warnings, we choose intelligently.
+    if Puppet::Util::Execution.respond_to?(:execute)
+      Puppet::Util::Execution.execute(command)
+    else
+      Puppet::Util.execute(command)
     end
   end
 
