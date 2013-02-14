@@ -30,6 +30,11 @@ Administration
 * [Configuring](./documentation/configure.markdown)
 * [Debugging with Remote REPL](./documentation/repl.markdown)
 
+Troubleshooting
+-----
+
+* [KahaDB Corruption](./documentation/trouble_kahadb_corruption.markdown)
+
 The PuppetDB API
 -----
 
