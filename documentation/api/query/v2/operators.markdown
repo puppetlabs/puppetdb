@@ -167,6 +167,15 @@ all nodes with `Class[Apache]`:
               ["=", "type", "Class"],
               ["=", "title", "Apache"]]]]]]
 
+This query string queries the `/nodes` endpoint for all nodes with `Class[Apache]`:
+
+    ["in", "name",
+      ["extract", "certname",
+        ["select-resources",
+          ["and",
+            ["=", "type", "Class"],
+            ["=", "title", "Apache"]]]]]]
+
 This query string queries the `/facts` endpoint for the IP address of
 all Debian nodes.
 
@@ -176,5 +185,5 @@ all Debian nodes.
         ["extract", "certname",
           ["select-facts",
             ["and",
-              ["=", "name", "operatingsystem"], 
+              ["=", "name", "operatingsystem"],
               ["=", "value", "Debian"]]]]]]
