@@ -18,7 +18,7 @@ Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |
 end
 
 # We establish variables used in the puppetdb tasks before hand
-if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
+if (@build and @build.build_pe) || (ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true')
   @pe = TRUE
   ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
 else
