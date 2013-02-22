@@ -86,7 +86,7 @@ end
 
 desc "Get rid of build artifacts including clojure (lein) builds"
 task :clobber => [ :clean ] do
-  rm_rf FileList["puppetdb*jar"]
+  rm_rf FileList["target/puppetdb*jar"]
 end
 
 task :version do
