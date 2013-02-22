@@ -18,7 +18,7 @@ Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |
 end
 
 # We establish variables used in the puppetdb tasks before hand
-if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
+if (@build and @build.build_pe) || (ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true')
   @pe = TRUE
   ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
 else
@@ -86,7 +86,7 @@ end
 
 desc "Get rid of build artifacts including clojure (lein) builds"
 task :clobber => [ :clean ] do
-  rm_rf FileList["puppetdb*jar"]
+  rm_rf FileList["target/puppetdb*jar"]
 end
 
 task :version do
