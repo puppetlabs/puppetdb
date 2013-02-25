@@ -133,6 +133,13 @@
   [seq elm]
   (some #(= elm %) seq))
 
+(defn enumerate
+  "Returns a lazy sequence consisting of 0 and the first item of coll,
+  followed by 1 and the second item in coll, etc, until coll is
+  exhausted."
+  [coll]
+  (map-indexed vector coll))
+
 (defn mapvals
   "Return map `m`, with each value transformed by function `f`.
 

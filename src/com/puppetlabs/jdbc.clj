@@ -140,6 +140,41 @@
      (sql/transaction
       ~@body)))
 
+(defn with-query-results-cursor*
+  "Executes the given parameterized query within a transaction,
+  producing a lazy sequence of rows. The callback `func` is executed
+  on the entire sequence.
+
+  The lazy sequence is backed by an active database cursor, and is thus
+  useful for streaming very large resultsets.
+
+  The cursor is closed when `func` returns. If an exception is thrown,
+  the query is cancelled."
+  [func sql params]
+  (sql/transaction
+   (with-open [stmt (.prepareStatement (sql/connection) sql)]
+     (doseq [[index value] (map vector (iterate inc 1) params)]
+       (.setObject stmt index value))
+     (.setFetchSize stmt 500)
+     (with-open [rset (.executeQuery stmt)]
+       (try
+         (-> rset
+             (sql/resultset-seq)
+             (convert-result-arrays)
+             (func))
+         (catch Exception e
+           ;; Cancel the current query
+           (.cancel stmt)
+           (throw e)))))))
+
+(defmacro with-query-results-cursor
+  "Executes the given parameterized query within a transaction.
+  `body` is then executed with `rs-var` bound to the lazy sequence of
+  resulting rows. See `with-query-results-cursor*`."
+  [sql params rs-var & body]
+  `(let [func# (fn [~rs-var] (do ~@body))]
+     (with-query-results-cursor* func# ~sql ~params)))
+
 (defn make-connection-pool
   "Create a new database connection pool"
   [{:keys [classname subprotocol subname username password

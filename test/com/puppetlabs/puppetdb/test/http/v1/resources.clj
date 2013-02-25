@@ -26,7 +26,10 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v1/resources" query))))
+  ([query] (let [resp (*app* (get-request "/v1/resources" query))]
+             (if (string? (:body resp))
+               resp
+               (update-in resp [:body] slurp)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -123,14 +126,6 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
         (is-response-equal (get-response query) result)))
-
-    (testing "query exceeding resource-query-limit"
-      (with-http-app {:resource-query-limit 1}
-        (fn []
-          (let [response (get-response ["=" "type" "File"])
-                body     (get response :body "null")]
-            (is (= (:status response) pl-http/status-internal-error))
-            (is (re-find #"more than the maximum number of results" body))))))
 
     (testing "querying against inactive nodes"
       (deactivate-node! "one.local")

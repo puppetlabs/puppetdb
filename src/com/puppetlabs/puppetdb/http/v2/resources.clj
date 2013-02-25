@@ -2,39 +2,42 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resource :as r]
             [com.puppetlabs.puppetdb.http.query :as http-q]
+            [ring.util.response :as rr]
             [cheshire.core :as json])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given a `limit`, a query, and database connection, return a Ring
-  response with the query results.
+  "Given a a query, and database connection, return a Ring response
+  with the query results.
 
-  If the query can't be parsed, a 400 is returned.
-
-  If the query would return more than `limit` results, `status-internal-error` is returned."
-  [limit query db]
-  {:pre [(and (integer? limit) (>= limit 0))]}
+  If the query can't be parsed, a 400 is returned."
+  [query query->sql db]
   (try
-    (with-transacted-connection db
-      (-> query
-          (json/parse-string true)
-          (r/v2-query->sql)
-          ((partial r/limited-query-resources limit))
-          (pl-http/json-response)))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (pl-http/error-response e))
+    (let [[sql & params] (with-transacted-connection db
+                           (-> query
+                               (json/parse-string true)
+                               (query->sql)))]
+
+      (-> (pl-http/streamed-response buffer
+            (r/with-queried-resources sql params #(pl-http/stream-json % buffer)))
+          (rr/response)
+          (rr/header "Content-Type" "application/json")
+          (rr/charset "utf-8")
+          (rr/status pl-http/status-ok)))
+
     (catch IllegalArgumentException e
+      ;; Query compilation error
       (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+    (catch com.fasterxml.jackson.core.JsonParseException e
+      (pl-http/error-response e))))
 
 (def query-app
   (app
     [&]
     {:get (comp (fn [{:keys [params globals]}]
-                  (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals)))
+                  (produce-body (params "query") r/v2-query->sql (:scf-db globals)))
                 http-q/restrict-query-to-active-nodes)}))
 
 (def resources-app
