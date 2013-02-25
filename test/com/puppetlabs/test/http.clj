@@ -1,11 +1,13 @@
 (ns com.puppetlabs.test.http
   (:require [clj-http.client :as client]
             [cheshire.core :as json])
+  (:import [java.io InputStream StringWriter])
   (:use [com.puppetlabs.http]
         [com.puppetlabs.jetty]
         [com.puppetlabs.testutils.logging]
         [com.puppetlabs.puppetdb.testutils]
         [clojure.test]
+        [cheshire.core]
         [ring.mock.request]))
 
 (deftest conneg
@@ -128,3 +130,25 @@
                      (:body)
                      (json/parse-string)))
               "N�rnberg"))))))
+
+(deftest streaming-json
+  (testing "empty seq should return []"
+    (let [w (StringWriter.)]
+      (stream-json [] w)
+      (is (= (str w) "[]"))))
+
+  (testing "should jsonify all items in the seq"
+    (let [w    (StringWriter.)
+          test [nil 1 "a" [1 2] {"foo" 123}]]
+      (stream-json test w)
+      (is (= (parse-string (str w)) test)))))
+
+(deftest response-streaming
+  (testing "can read back what we've written"
+    (let [istream (streamed-response writer (spit writer "foo bar baz"))]
+      (is (instance? InputStream istream))
+      (is (= "foo bar baz" (slurp istream)))))
+
+  (testing "exceptions are caught"
+    (let [istream (streamed-response writer (/ 1 0))]
+      (is (= "" (slurp istream))))))
