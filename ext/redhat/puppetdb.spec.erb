@@ -75,10 +75,10 @@ BuildRequires: java-1_6_0-ibm
 BuildRequires: unzip
 BuildRequires: sles-release
 Requires:      java-1_6_0-ibm
-<% else %>
+%else
 BuildRequires: /usr/sbin/useradd
 Requires:      %{open_jdk}
-<% end %>
+%endif
 Requires:      chkconfig
 
 %description
