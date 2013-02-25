@@ -75,7 +75,7 @@ ssh $APT_HOST <<FREIGHT
 set -e
 set -x
 
-for DISTRO in lucid natty oneiric precise quantal sid squeeze stable testing unstable wheezy; do
+for DISTRO in lucid oneiric precise quantal sid squeeze stable testing unstable wheezy; do
   freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
