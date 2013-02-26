@@ -52,6 +52,7 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.http.server :as server])
@@ -262,6 +263,18 @@
         db           (configure-database-ttls (or database default-db))]
     (assoc config :database (merge default-opts db))))
 
+(defn normalize-product-name
+  "Checks that `product-name` is specified as a legal value, throwing an
+  exception if not. Returns `product-name` if it's okay."
+  [product-name]
+  {:pre [(string? product-name)]
+   :post [(= (string/lower-case product-name) %)]}
+  (let [lower-product-name (string/lower-case product-name)]
+    (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
+      (throw (IllegalArgumentException.
+               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+    lower-product-name))
+
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
   appropriate exceptions if any condition is unmet."
@@ -332,6 +345,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global command-processing]
             :as config}                            (parse-config! (:config options) initial-config)
+        product-name                               (normalize-product-name (get global :product-name "puppetdb"))
         vardir                                     (validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)

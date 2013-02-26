@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
-  (:require [com.puppetlabs.utils :as utils])
+  (:require clojure.string
+            [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
         [clj-time.core :only [days]]
@@ -82,6 +83,21 @@
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:client-auth false}})]
       (is (= (get-in config [:jetty :client-auth]) :need)))))
+
+(deftest product-name-validation
+  (doseq [product-name ["puppetdb" "pe-puppetdb"]]
+    (testing (format "should accept %s and return it" product-name)
+      (is (= product-name
+             (normalize-product-name product-name)))))
+
+  (doseq [product-name ["PUPPETDB" "PE-PUPPETDB" "PuppetDB" "PE-PuppetDB"]]
+    (testing (format "should accept %s and return it lower-cased" product-name)
+      (is (= (clojure.string/lower-case product-name)
+             (normalize-product-name product-name)))))
+
+  (testing "should disallow anything else"
+    (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
+          (normalize-product-name "puppet")))))
 
 (deftest vardir-validation
   (testing "should fail if it's not specified"
