@@ -15,6 +15,8 @@
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
+(def export-metadata-file-name "export-metadata.json")
+(def export-root-dir           "puppetdb-bak")
 
 ;; TODO: configure puppetdb host / port; either via --config to read the inifile,
 ;;   or as separate command-line args
@@ -44,6 +46,16 @@
     (when (= status 200)
       (map #(get % "name") (json/parse-string body)))))
 
+(def export-metadata
+  "Metadata about this export; used during import to ensure version compatibility."
+  {:command-versions
+    ;; This is not ideal that we are hard-coding the command version here, but
+    ;;  in our current architecture I don't believe there is any way to introspect
+    ;;  on which version of the `replace catalog` matches up with the current
+    ;;  version of the `catalog` endpoint... or even to query what the latest
+    ;;  version of a command is.  We should improve that.
+    {:replace-catalog 2}})
+
 (defn -main
   [& args]
   (let [specs       [["-o" "--outfile" "Path to backup file (required)"]]
@@ -52,9 +64,11 @@
         nodes       (get-active-node-names)]
 ;; TODO: support tarball, tmp dir for extracting archive
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (let [path (fs/file (:outfile options) "puppetdb_bak" "catalogs")]
+    (let [path (fs/file (:outfile options) export-root-dir "catalogs")]
       (fs/mkdirs path)
       (doseq [node nodes]
         (let [catalog-file (fs/file path (format "%s.json" node))]
           (println "Writing catalog file: " (.getAbsolutePath catalog-file))
-          (spit catalog-file(catalog-for-node node)))))))
+          (spit catalog-file(catalog-for-node node)))))
+    (let [metadata-file (fs/file (:outfile options) export-root-dir export-metadata-file-name )]
+      (spit metadata-file (json/generate-string export-metadata {:pretty true})))))
