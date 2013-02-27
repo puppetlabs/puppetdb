@@ -4,7 +4,6 @@
             [com.puppetlabs.http :as pl-http]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
-            [clojure.tools.logging.impl :as impl]
             [cheshire.core :as json]
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
@@ -131,16 +130,6 @@
   If passed `nil`, returns `nil`."
   [ex]
   (if ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
-
-(defn atom-logger [output-atom]
-  "A logger factory that logs output to the supplied atom"
-  (reify impl/LoggerFactory
-    (name [_] "test factory")
-    (get-logger [_ log-ns]
-      (reify impl/Logger
-        (enabled? [_ level] true)
-        (write! [_ lvl ex msg]
-          (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
 
 (defmacro with-fixtures
   "Evaluates `body` wrapped by the `each` fixtures of the current namespace."
