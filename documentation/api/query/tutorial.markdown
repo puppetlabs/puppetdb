@@ -8,20 +8,38 @@ This page is a walkthrough for constructing several types of PuppetDB queries. I
 
 If you need to use the v1 API, note that it lacks many of v2's capabilities, and be sure to consult the v1 endpoint references before attempting to use these examples with it.
 
-## How to query
+## How to Query
 
-Queries are performed by performing a GET request to an endpoint URL and supplying a querystring parameter called `query`,
+Queries are performed by performing an HTTP GET request to an endpoint URL and supplying a URL parameter called `query`,
 which contains the query to execute. Results are always returned in
-`application/json` form. A curl command like the following can be used to
-easily try queries from the command line:
+`application/json` form. 
 
-`curl -H 'Accept: application/json' -X GET http://puppetdb:8080/v2/<resources-or-facts> --data-urlencode query@<filename>`
+Oueries are usually issued from code, but you can easily issue them from the command line using curl.
 
-where `filename` contains the query to execute.
+### Querying with Curl
+
+[See "Curl Tips" for more detailed information about constructing curl commands.](./curl.html) 
+
+**Without SSL:**
+
+`curl -H 'Accept: application/json' -X GET http://puppetdb.example.com:8080/v2/resources --data-urlencode query@<filename>`
+
+This requires that PuppetDB be [configured to accept non-SSL connections][config_jetty]. By default, it will only accept unencrypted traffic from `localhost`.
+
+[config_jetty]: ../../configure.html#jetty-http-settings
+
+**With SSL:**
+
+`curl -H 'Accept: application/json' -X GET https://puppetdb.example.com:8081/v2/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
+
+This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
+
+In both examples, `<filename>` should be a file that contains the query to execute.
+
 
 ## Resources Walkthrough
 
-### Our first query
+### Our First Query
 
 Let's start by taking a look at a simple resource query. Suppose we want to
 find the user "nick" on every node. We can use this query:
@@ -115,7 +133,7 @@ The `"not"` operator wraps another clause, and returns results for which the
 clause is *not* true. In this case, we want resources which aren't defined on
 line 111 of /etc/puppet/manifests/user.pp.
 
-### Resource attributes
+### Resource Attributes
 
 So far we've seen that we can query for resources based on their `certname`,
 `type`, `title`, `sourcefile`, and `sourceline`. There are a few more available:
@@ -134,7 +152,7 @@ that of another attribute), it must be namespaced using
 The full set of queryable attributes can be found in [the resource
 endpoint documentation](./v2/resources.html) for easy reference.
 
-### Regular expressions
+### Regular Expressions
 
 What if we want to restrict our results to a certain subset of nodes? Certainly, we could do something like:
 
@@ -192,7 +210,7 @@ This gives results that look something like this:
       "value" : "2.6.32"
     } ]
 
-### Fact attributes
+### Fact Attributes
 
 In the last query, we saw that a "fact" consists of a "certname", a "name", and
 a "value". As you might expect, we can query using "name" or "value".
@@ -205,7 +223,7 @@ This will find all the "operatingsystem = Debian" facts, and their
 corresponding nodes. As you see, "and" is supported for facts, as are "or" and
 "not".
 
-### Fact operators
+### Fact Operators
 
 As with resources, facts also support the `~` regular expression match
 operator, for all their fields. In addition to that, numeric comparisons are
@@ -237,7 +255,7 @@ This will find the node foo.example.com. Note that the results of a node query
 contain only the node names, rather than an object with multiple fields as with
 resources and facts.
 
-### Querying on facts
+### Querying on Facts
 
 Nodes can also be queried based on their facts, using the same operators as for
 fact queries:
