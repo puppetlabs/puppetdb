@@ -43,7 +43,6 @@
 ;;   maintain acceptable performance.
 ;;
 (ns com.puppetlabs.puppetdb.cli.services
-  (:import [java.security KeyStore])
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.scf.migrate :as migrations]
             [com.puppetlabs.puppetdb.command :as command]
@@ -55,8 +54,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.ssl :as ssl])
+            [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs days]]
         [clojure.core.incubator :only (-?>)]
@@ -174,62 +172,14 @@
                              (max 1))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
-(defn configure-web-server-ssl-from-pems
-  "Configures the web server's SSL settings based on Puppet PEM files, rather than
-  via a java keystore (jks) file.  The configuration map returned by this function
-  will have overwritten any existing keystore-related settings to use in-memory
-  KeyStore objects, which are constructed based on the values of
-  `:puppet-agent-private-key`, `:puppet-agent-cert`, and `:puppet-ca-cert` from
-  the input map.  The output map does not include the `:puppet-*` keys, as they
-  are not meaningful to the web server implementation."
-  [{:keys [puppet-agent-private-key puppet-agent-cert puppet-ca-cert] :as jetty}]
-  {:pre  [puppet-agent-private-key
-          puppet-agent-cert
-          puppet-ca-cert]
-   :post [(map? %)
-          (instance? KeyStore (:keystore %))
-          (string? (:key-password %))
-          (instance? KeyStore (:truststore %))
-          (not (contains? % :trust-password))
-          (not (contains? % :puppet-agent-private-key))
-          (not (contains? % :puppet-agent-cert))
-          (not (contains? % :puppet-ca-cert))]}
-  (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
-        old-ssl-config      (select-keys jetty old-ssl-config-keys)]
-    (when (> (count old-ssl-config) 0)
-      (log/warn (format "Found settings for both keystore-based and Puppet PEM-based SSL; using PEM-based settings, ignoring %s"
-                  (keys old-ssl-config)))))
-  (let [truststore  (-> (ssl/keystore)
-                        (ssl/assoc-cert-file! "PuppetDB CA" puppet-ca-cert))
-        keystore-pw (pl-utils/uuid)
-        keystore    (-> (ssl/keystore)
-                        (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" puppet-agent-private-key keystore-pw puppet-agent-cert))]
-    (-> jetty
-        (dissoc :puppet-agent-private-key :puppet-ca-cert :puppet-agent-cert :trust-password)
-        (assoc :keystore keystore)
-        (assoc :key-password keystore-pw)
-        (assoc :truststore truststore))))
-
 (defn configure-web-server
   "Update the supplied config map with information about the HTTP webserver to
   start. This will specify client auth, and add a default host/port
   http://puppetdb:8080 if none are supplied (and SSL is not specified)."
-  [{:keys [jetty] :as config}]
+  [config]
   {:pre  [(map? config)]
-   :post [(map? %)
-          (not (contains? (:jetty %) :puppet-agent-private-key))
-          (not (contains? (:jetty %) :puppet-agent-cert))
-          (not (contains? (:jetty %) :puppet-ca-cert))]}
-  (let [pem-required-keys [:puppet-agent-private-key :puppet-agent-cert :puppet-ca-cert]
-        pem-config        (select-keys jetty pem-required-keys)]
-    (assoc config :jetty
-      (-> (condp = (count pem-config)
-            3 (configure-web-server-ssl-from-pems jetty)
-            0 jetty
-            (throw (IllegalArgumentException.
-                     (format "Found SSL config options: %s; If configuring SSL from Puppet PEM files, you must provide all of the following options: %s"
-                        (keys pem-config) pem-required-keys))))
-          (assoc :client-auth :need)))))
+   :post [(map? %)]}
+  (assoc-in config [:jetty :client-auth] :need))
 
 (defn configure-node-ttl
   "Helper function that parses the `node-ttl` setting from the config file
