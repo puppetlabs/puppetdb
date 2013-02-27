@@ -31,7 +31,6 @@
           (integer? puppetdb-port)
           (integer? command-version)
           (string?  catalog-payload)]}
-;; TODO: read metadata file to determine what version of command to use
   (let [result (command/submit-command-via-http!
                   puppetdb-host puppetdb-port
                   "replace catalog" command-version
@@ -41,16 +40,16 @@
 
 (defn -main
   [& args]
-  (let [specs       [["-i" "--infile" "Path to backup file (required)"]]
+  (let [specs       [["-i" "--infile" "Path to backup file (required)"]
+                     ["-H" "--host" "Hostname of PuppetDB server (defaults to 'localhost')" :default "localhost"]
+                     ["-p" "--port" "Port to connect to PuppetDB server (defaults to 8080)" :default 8080]]
         required    [:infile]
-        [options _] (cli! args specs required)
-        root-dir    (fs/file (:infile options) export-root-dir)
+        [{:keys [infile host port]} _] (cli! args specs required)
+        root-dir    (fs/file infile export-root-dir)
         metadata    (parse-metadata root-dir)]
 ;; TODO: support tarball, tmp dir for extracting archive
-;; TODO: configure puppetdb host / port; either via --config to read the inifile,
-;;   or as separate command-line args
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (let [path (fs/file (:infile options) export-root-dir "catalogs")]
+    (let [path (fs/file infile export-root-dir "catalogs")]
       (doseq [catalog-file (fs/glob (fs/file path "*.json"))]
         (println (format "Importing catalog from file '%s'"
                    (.getName catalog-file)))
@@ -59,6 +58,6 @@
       ;;   that polls puppetdb until the command queue is empty, then does a
       ;;   query to the /nodes endpoint and shows the set difference between
       ;;   the list of nodes that we submitted and the output of that query
-        (submit-catalog "localhost" 8080
+        (submit-catalog host port
           (get-in metadata [:command-versions :replace-catalog])
           (slurp catalog-file))))))
