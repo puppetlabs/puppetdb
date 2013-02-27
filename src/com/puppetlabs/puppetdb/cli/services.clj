@@ -152,11 +152,19 @@
                                        (catch Throwable e
                                          (log/debug e (format "Could not retrieve update information (%s)" update-server))))
         link-str                     (if link
-                                       (format "Visit %s for details." link)
+                                       (format " Visit %s for details." link)
                                        "")
-        update-msg                   (format "Newer version %s is available! %s" version link-str)]
+        update-msg                   (format "Newer version %s is available!%s" version link-str)]
     (when newer
       (log/info update-msg))))
+
+(defn maybe-check-for-updates
+  "Check for updates if our `product-name` indicates we should, and skip the
+  check otherwise."
+  [product-name update-server db]
+  (if (= product-name "puppetdb")
+    (check-for-updates update-server db)
+    (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -392,7 +400,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          updater       (future (check-for-updates update-server db))
+          updater       (future (maybe-check-for-updates product-name update-server db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))
