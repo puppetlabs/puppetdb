@@ -74,8 +74,8 @@
 (defn -main
   [& args]
   (let [specs       [["-i" "--infile" "Path to backup file (required)"]
-                     ["-H" "--host" "Hostname of PuppetDB server (defaults to 'localhost')" :default "localhost"]
-                     ["-p" "--port" "Port to connect to PuppetDB server (defaults to 8080)" :default 8080]]
+                     ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
+                     ["-p" "--port" "Port to connect to PuppetDB server" :default 8080]]
         required    [:infile]
         [{:keys [infile host port]} _] (cli! args specs required)
         metadata    (parse-metadata infile)]

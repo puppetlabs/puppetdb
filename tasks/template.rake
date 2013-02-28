@@ -10,6 +10,10 @@ task :template => [ :clean ] do
    erb "ext/templates/database.ini.erb",  "ext/files/database.ini"
    erb "ext/templates/puppetdb-foreground.erb",  "ext/files/puppetdb-foreground"
    chmod 0700, "ext/files/puppetdb-foreground"
+   erb "ext/templates/puppetdb-import.erb",  "ext/files/puppetdb-import"
+   chmod 0700, "ext/files/puppetdb-import"
+   erb "ext/templates/puppetdb-export.erb",  "ext/files/puppetdb-export"
+   chmod 0700, "ext/files/puppetdb-export"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"

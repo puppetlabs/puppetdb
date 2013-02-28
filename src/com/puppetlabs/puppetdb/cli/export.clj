@@ -64,8 +64,8 @@
 (defn -main
   [& args]
   (let [specs       [["-o" "--outfile" "Path to backup file (required)"]
-                     ["-H" "--host" "Hostname of PuppetDB server (defaults to 'localhost')" :default "localhost"]
-                     ["-p" "--port" "Port to connect to PuppetDB server (defaults to 8080)" :default 8080]]
+                     ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
+                     ["-p" "--port" "Port to connect to PuppetDB server" :default 8080]]
         required    [:outfile]
         [{:keys [outfile host port]} _] (cli! args specs required)
         nodes       (get-active-node-names host port)]
