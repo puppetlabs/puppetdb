@@ -11,7 +11,9 @@
   (:use [com.puppetlabs.utils :only (cli!)])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
-            [clj-http.client :as client]))
+            [clojure.java.io :as io]
+            [clj-http.client :as client]
+            [com.puppetlabs.archive :as archive]))
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
@@ -64,13 +66,14 @@
         required    [:outfile]
         [{:keys [outfile host port]} _] (cli! args specs required)
         nodes       (get-active-node-names host port)]
-;; TODO: support tarball, tmp dir for extracting archive
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (let [path (fs/file outfile export-root-dir "catalogs")]
-      (fs/mkdirs path)
+
+    (with-open [tar-writer (archive/tarball-writer outfile)]
+      (archive/add-entry tar-writer
+        (.getPath (io/file export-root-dir export-metadata-file-name))
+        (json/generate-string export-metadata {:pretty true}))
       (doseq [node nodes]
-        (let [catalog-file (fs/file path (format "%s.json" node))]
-          (println "Writing catalog file: " (.getAbsolutePath catalog-file))
-          (spit catalog-file(catalog-for-node host port node)))))
-    (let [metadata-file (fs/file outfile export-root-dir export-metadata-file-name)]
-      (spit metadata-file (json/generate-string export-metadata {:pretty true})))))
+        (println (format "Exporting catalog for node '%s'" node))
+        (archive/add-entry tar-writer
+          (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
+          (catalog-for-node host port node))))))

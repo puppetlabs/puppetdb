@@ -62,7 +62,8 @@
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [clj-http "0.5.3"]
                  [ring/ring-core "1.1.1"]
-                 [ring/ring-jetty-adapter "1.1.1"]]
+                 [ring/ring-jetty-adapter "1.1.1"]
+                 [org.apache.commons/commons-compress "1.4.1"]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.1"]]}}

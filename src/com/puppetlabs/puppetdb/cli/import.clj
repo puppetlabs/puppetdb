@@ -8,7 +8,11 @@
             [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json])
+            [com.puppetlabs.archive :as archive]
+            [cheshire.core :as json]
+            [clojure.java.io :as io])
+  (:import  [com.puppetlabs.archive TarGzReader]
+            [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:use [com.puppetlabs.utils :only (cli!)]
         [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]))
 
@@ -17,11 +21,18 @@
 (defn parse-metadata
   "Parses the export metadata file to determine, e.g., what versions of the
   commands should be used during import."
-  [dir]
-  {:pre  [(fs/exists? dir)]
+  [tarball]
+  {:pre  [(fs/exists? tarball)]
    :post [(map? %)
           (contains? % :command-versions)]}
-  (json/parse-string (slurp (fs/file dir export-metadata-file-name)) true))
+  (let [metadata-path (.getPath (io/file export-root-dir export-metadata-file-name))]
+    (with-open [tar-reader (archive/tarball-reader tarball)]
+      (when-not (archive/find-entry tar-reader metadata-path)
+        (throw (IllegalStateException.
+                 (format "Unable to find export metadata file '%s' in archive '%s'"
+                   metadata-path
+                   tarball))))
+      (json/parse-string (archive/read-entry-content tar-reader) true))))
 
 (defn submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a
@@ -38,6 +49,28 @@
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
+(defn process-tar-entry
+  "Determine the type of an entry from the exported archive, and process it
+  accordingly."
+  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry host port metadata]
+  {:pre  [(instance? TarGzReader tar-reader)
+          (instance? TarArchiveEntry tar-entry)
+          (string? host)
+          (integer? port)
+          (map? metadata)]}
+  (let [path    (.getName tar-entry)
+        pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")]
+    (when (re-find (re-pattern pattern) path)
+      (println (format "Importing catalog from archive entry '%s'" path))
+      ;; NOTE: these submissions are async and we have no guarantee that they
+      ;;   will succeed.  We might want to add something at the end of the import
+      ;;   that polls puppetdb until the command queue is empty, then does a
+      ;;   query to the /nodes endpoint and shows the set difference between
+      ;;   the list of nodes that we submitted and the output of that query
+      (submit-catalog host port
+        (get-in metadata [:command-versions :replace-catalog])
+        (archive/read-entry-content tar-reader)))))
+
 (defn -main
   [& args]
   (let [specs       [["-i" "--infile" "Path to backup file (required)"]
@@ -45,19 +78,23 @@
                      ["-p" "--port" "Port to connect to PuppetDB server (defaults to 8080)" :default 8080]]
         required    [:infile]
         [{:keys [infile host port]} _] (cli! args specs required)
-        root-dir    (fs/file infile export-root-dir)
-        metadata    (parse-metadata root-dir)]
-;; TODO: support tarball, tmp dir for extracting archive
+        metadata    (parse-metadata infile)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (let [path (fs/file infile export-root-dir "catalogs")]
-      (doseq [catalog-file (fs/glob (fs/file path "*.json"))]
-        (println (format "Importing catalog from file '%s'"
-                   (.getName catalog-file)))
-      ;; NOTE: these submissions are async and we have no guarantee that they
-      ;;   will succeed.  We might want to add something at the end of the import
-      ;;   that polls puppetdb until the command queue is empty, then does a
-      ;;   query to the /nodes endpoint and shows the set difference between
-      ;;   the list of nodes that we submitted and the output of that query
-        (submit-catalog host port
-          (get-in metadata [:command-versions :replace-catalog])
-          (slurp catalog-file))))))
+    (with-open [tar-reader (archive/tarball-reader infile)]
+      (loop [tar-entry (archive/next-entry tar-reader)]
+        (when-not (nil? tar-entry)
+          (process-tar-entry tar-reader tar-entry host port metadata)
+          (recur (archive/next-entry tar-reader)))))))
+
+;    (let [path (fs/file infile export-root-dir "catalogs")]
+;      (doseq [catalog-file (fs/glob (fs/file path "*.json"))]
+;        (println (format "Importing catalog from file '%s'"
+;                   (.getName catalog-file)))
+;      ;; NOTE: these submissions are async and we have no guarantee that they
+;      ;;   will succeed.  We might want to add something at the end of the import
+;      ;;   that polls puppetdb until the command queue is empty, then does a
+;      ;;   query to the /nodes endpoint and shows the set difference between
+;      ;;   the list of nodes that we submitted and the output of that query
+;        (submit-catalog host port
+;          (get-in metadata [:command-versions :replace-catalog])
+;          (slurp catalog-file))))))
