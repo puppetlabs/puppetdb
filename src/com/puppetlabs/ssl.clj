@@ -20,11 +20,11 @@
   "Given a file path (or any other type supported by clojure's `reader`), reads
   a PEM-encoded object and returns an instance of the corresponding type from
   `java.security`."
-  [f]
-  (let [result (-> (reader f)
+  [pem]
+  (let [result (-> (reader pem)
                    (PEMReader.)
                    (.readObject))]
-    (log/debug (format "Loaded PRM object of type '%s' from '%s'" (class result) f))
+    (log/debug (format "Loaded PEM object of type '%s' from '%s'" (class result) pem))
     result))
 
 (defn obj->pem!
@@ -34,10 +34,10 @@
          to PEM; usually this is limited to certain types from the `java.security`
          packages.
 
-  `f`:   the file path to write the PEM output to.  (Alternately, you may pass a `Writer`
+  `pem`:   the file path to write the PEM output to.  (Alternately, you may pass a `Writer`
          or any other type that is supported by clojure's `writer`.)"
-  [obj f]
-  (with-open [w (writer f)]
+  [obj pem]
+  (with-open [w (writer pem)]
     (doto (PEMWriter. w)
           (.writeObject obj)
           (.flush))))
@@ -45,25 +45,25 @@
 (defn pem->cert
   "Given the path to a PEM file (or some other object supported by clojure's `reader`),
   decodes the contents into an instance of `X509Certificate`."
-  [f]
+  [pem]
   {:post [(instance? X509Certificate %)]}
-  (pem->obj f))
+  (pem->obj pem))
 
 (defn pem->private-key
   "Given the path to a PEM file (or some other object supported by clojure's `reader`),
   decodes the contents into an instance of `PrivateKey`."
-  [f]
+  [pem]
   {:post [(instance? PrivateKey %)]}
   ; bouncy-castle's PEMReader reads a private key pem file as a KeyPair, with
   ; an empty public key.  That seems useless so we're just returning the PrivateKey.
-  (.getPrivate (pem->obj f)))
+  (.getPrivate (pem->obj pem)))
 
 (defn pem->public-key
   "Given the path to a PEM file (or some other object supported by clojure's `reader`),
   decodes the contents into an instance of `PublicKey`."
-  [f]
+  [pem]
   {:post [(instance? PublicKey %)]}
-  (pem->obj f))
+  (pem->obj pem))
 
 (defn key->pem!
   "Encodes a public or private key to PEM format, and writes it to a file (or other
@@ -72,9 +72,9 @@
   `key`: the key to encode and write.  Usually an instance of `PrivateKey` or `PublicKey`.
   `f`:   the file path to write the PEM output to.  (Alternately, you may pass a `Writer`
          or any other type that is supported by clojure's `writer`.)"
-  [key f]
+  [key pem]
   {:pre  [(instance? Key key)]}
-  (obj->pem! key f))
+  (obj->pem! key pem))
 
 (defn assoc-cert!
   "Add a certificate to a keystore.  Arguments:
