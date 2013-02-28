@@ -326,9 +326,19 @@
   ;; nothing much to do here for now, but let's at least log that we're shutting down.
   (log/info "Shutdown request received; puppetdb exiting."))
 
+
+(def supported-cli-options
+  [["-c" "--config" "Path to config.ini (required)"]
+   ["-D" "--debug" "Enable debug mode" :default false :flag true]])
+
+(def required-cli-options
+  [:config])
+
 (defn -main
   [& args]
-  (let [[options _]                                (cli! args)
+  (let [[options _]                                (cli! args
+                                                      supported-cli-options
+                                                      required-cli-options)
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global command-processing]
             :as config}                            (parse-config! (:config options) initial-config)

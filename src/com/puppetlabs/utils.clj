@@ -404,22 +404,35 @@
 ;; ## Command-line parsing
 
 (defn cli!
-  "Wraps `tools.cli/cli`, automatically adding in a set of options for
-  displaying help.
+  "Validates that required command-line arguments are present.  If they are not,
+  exits with an error and displays usage information.  Input:
 
-  If the user asks for help, we display the help banner text and the
-  process will immediately exit."
-  [args & specs]
-  (let [specs                    (conj specs
-                                       ["-c" "--config" "Path to config.ini" :required true]
-                                       ["-h" "--help" "Show help" :default false :flag true]
-                                       ["-D" "--debug" "Enable debug mode" :default false :flag true]
-                                       ["--trace" "Print stacktraces on error" :default false :flag true])
-        [options posargs banner] (apply cli/cli args specs)]
+  - args     : the command line arguments passed in by the user
+  - specs    : an array of supported argument specifications, as accepted by
+               `clojure.tools.cli`
+  - required : an array of keywords (using the long form of the argument spec)
+               specifying which of the `specs` are required.  If any of the
+               `required` options are not present, the function will cause
+               the program to exit and display the help message.
+
+  Also checks to see whether user has passed the `--help` flag, and if so, displays
+  the help and exits."
+  [args specs required-args]
+  (let [specs                   (conj specs
+                                  ["-h" "--help" "Show help" :default false :flag true])
+        [options extras banner] (apply cli/cli args specs)]
     (when (:help options)
       (println banner)
       (System/exit 0))
-    [options posargs]))
+    (let [required-pairs (select-keys options required-args)]
+      (when-let [missing-field (some #(if (nil? (val %)) (key %)) required-pairs)]
+        (println)
+        (println (format "Missing required argument '--%s'!" (name missing-field)))
+        (println)
+        (println banner)
+        (System/exit 1)))
+    [options extras]))
+
 
 ;; ## SSL Certificate handling
 
