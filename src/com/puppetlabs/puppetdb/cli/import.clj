@@ -85,16 +85,3 @@
         (when-not (nil? tar-entry)
           (process-tar-entry tar-reader tar-entry host port metadata)
           (recur (archive/next-entry tar-reader)))))))
-
-;    (let [path (fs/file infile export-root-dir "catalogs")]
-;      (doseq [catalog-file (fs/glob (fs/file path "*.json"))]
-;        (println (format "Importing catalog from file '%s'"
-;                   (.getName catalog-file)))
-;      ;; NOTE: these submissions are async and we have no guarantee that they
-;      ;;   will succeed.  We might want to add something at the end of the import
-;      ;;   that polls puppetdb until the command queue is empty, then does a
-;      ;;   query to the /nodes endpoint and shows the set difference between
-;      ;;   the list of nodes that we submitted and the output of that query
-;        (submit-catalog host port
-;          (get-in metadata [:command-versions :replace-catalog])
-;          (slurp catalog-file))))))

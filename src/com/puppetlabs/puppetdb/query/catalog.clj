@@ -105,5 +105,4 @@
                       :edges     (get-edges node)
                       :resources (get-resources node)
                       :version   catalog-version}
-      :metadata      {:api_version 1 }
-      :document_type "Catalog" }))
+      :metadata      {:api_version 1 }}))
