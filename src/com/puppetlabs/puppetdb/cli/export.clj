@@ -8,7 +8,9 @@
 ;; database.
 
 (ns com.puppetlabs.puppetdb.cli.export
-  (:use [com.puppetlabs.utils :only (cli!)])
+  (:use [com.puppetlabs.utils :only (cli!)]
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-string]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -50,7 +52,8 @@
 
 (def export-metadata
   "Metadata about this export; used during import to ensure version compatibility."
-  {:command-versions
+  {:timestamp (to-string (now))
+   :command-versions
     ;; This is not ideal that we are hard-coding the command version here, but
     ;;  in our current architecture I don't believe there is any way to introspect
     ;;  on which version of the `replace catalog` matches up with the current
