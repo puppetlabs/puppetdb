@@ -17,14 +17,14 @@
         (archive/add-entry tar-writer (:path bazfile) (:content bazfile))
         (archive/add-entry tar-writer (:path blingfile) (:content blingfile))))
 
-    (let [in-stream (ByteArrayInputStream. (.toByteArray out-stream))]
+    (with-open [in-stream (ByteArrayInputStream. (.toByteArray out-stream))]
       (with-open [tar-reader (archive/tarball-reader in-stream)]
         (testing "should be able to find a specific entry in a tarball"
           (let [bling-entry (archive/find-entry tar-reader (:path blingfile))]
             (is (not (nil? bling-entry)))
             (is (= (:content blingfile) (archive/read-entry-content tar-reader)))))))
 
-    (let [in-stream (ByteArrayInputStream. (.toByteArray out-stream))]
+    (with-open [in-stream (ByteArrayInputStream. (.toByteArray out-stream))]
       (with-open [tar-reader (archive/tarball-reader in-stream)]
         (let [entry-count (atom 0)]
           (testing "should only contain the expected entries, with expected content"
