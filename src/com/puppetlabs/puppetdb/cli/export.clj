@@ -61,22 +61,40 @@
     ;;  version of a command is.  We should improve that.
     {:replace-catalog 2}})
 
+(defn get-catalog-for-node
+  "Utility function for retrieving catalog data from the PuppetDB web service.
+  Returns a map containing the node name and the corresponding catalog; this
+  allows us to run this function against multiple nodes in parallel, and still
+  be able to identify which node we've retrieved the data for when it returns."
+  [host port node]
+  {:pre  [(string? host)
+          (integer? port)
+          (string? node)]
+   :post [(map? %)
+          (contains? % :node)
+          (contains? % :catalog)]}
+  {:node    node
+   :catalog (catalog-for-node host port node)})
+
 (defn -main
   [& args]
-  (let [specs       [["-o" "--outfile" "Path to backup file (required)"]
-                     ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
-                     ["-p" "--port" "Port to connect to PuppetDB server" :default 8080]]
-        required    [:outfile]
+  (let [specs          [["-o" "--outfile" "Path to backup file (required)"]
+                        ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
+                        ["-p" "--port" "Port to connect to PuppetDB server" :default 8080]]
+        required       [:outfile]
         [{:keys [outfile host port]} _] (cli! args specs required)
-        nodes       (get-active-node-names host port)]
+        nodes          (get-active-node-names host port)
+        get-catalog-fn (partial get-catalog-for-node host port)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
 
     (with-open [tar-writer (archive/tarball-writer outfile)]
       (archive/add-entry tar-writer
         (.getPath (io/file export-root-dir export-metadata-file-name))
         (json/generate-string export-metadata {:pretty true}))
-      (doseq [node nodes]
-        (println (format "Exporting catalog for node '%s'" node))
+      ;; we can use a pmap call to retrieve the catalogs in parallel, so long
+      ;; as we only touch the tar stream from a single thread.
+      (doseq [{:keys [node catalog]} (pmap get-catalog-fn nodes)]
+        (println (format "Writing catalog for node '%s'" node))
         (archive/add-entry tar-writer
           (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
-          (catalog-for-node host port node))))))
+          catalog)))))
