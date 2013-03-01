@@ -46,7 +46,9 @@
                                 (format "http://%s:%s/v2/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
-      (map :name (json/parse-string body true)))))
+      (map :name
+        (filter #(not (nil? (:catalog_timestamp %)))
+          (json/parse-string body true))))))
 
 (def export-metadata
   "Metadata about this export; used during import to ensure version compatibility."
