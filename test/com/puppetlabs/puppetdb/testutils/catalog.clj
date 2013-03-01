@@ -3,7 +3,8 @@
             [cheshire.core :as json])
   (:use     [com.puppetlabs.utils :only [uuid]]
             [clj-time.core :only [now]]
-            [com.puppetlabs.puppetdb.testutils :only [test-db]]))
+            [com.puppetlabs.puppetdb.testutils :only [test-db]]
+            [com.puppetlabs.puppetdb.fixtures :only [*db*]]))
 
 
 (defn munge-resource-for-comparison
@@ -55,4 +56,4 @@
      :annotations {:id (uuid)
                    :received (now)}
      :version     2}
-    {:db          (test-db)}))
+    {:db          *db*}))
