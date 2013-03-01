@@ -43,12 +43,10 @@
           (integer? port)]
    :post ((some-fn nil? seq?) %)}
   (let [{:keys [status body]} (client/get
-                                (format
-                                  "http://%s:%s/v2/nodes"
-                                  host port)
-                                { :accept :json})]
-    (when (= status 200)
-      (map #(get % "name") (json/parse-string body)))))
+                                (format "http://%s:%s/v2/nodes" host port)
+                                {:accept :json})]
+    (if (= status 200)
+      (map :name (json/parse-string body true)))))
 
 (def export-metadata
   "Metadata about this export; used during import to ensure version compatibility."

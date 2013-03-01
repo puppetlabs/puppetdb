@@ -1,7 +1,7 @@
-(ns com.puppetlabs.puppetdb.http.experimental.graphviz-catalog
+(ns com.puppetlabs.puppetdb.http.experimental.planetarium-catalog
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.graphviz-catalog :as c]
+            [com.puppetlabs.puppetdb.query.planetarium-catalog :as c]
             [ring.util.response :as rr])
   (:use com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
@@ -21,5 +21,5 @@
     (fn [{:keys [globals]}]
       (produce-body node (:scf-db globals)))))
 
-(def graphviz-catalog-app
+(def planetarium-catalog-app
   (verify-accepts-json routes))

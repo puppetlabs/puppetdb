@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.graphviz-catalog
+(ns com.puppetlabs.puppetdb.test.http.experimental.planetarium-catalog
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -20,7 +20,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([node] (*app* (get-request (str "/experimental/graphviz-catalog/" node)))))
+  ([node] (*app* (get-request (str "/experimental/planetarium-catalog/" node)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

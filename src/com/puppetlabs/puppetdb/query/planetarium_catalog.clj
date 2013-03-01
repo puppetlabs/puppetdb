@@ -8,7 +8,7 @@
 ;;                  ...}
 ;;      :edges     #{<dependency-spec>
 ;;                   <dependency-spec>}}
-(ns com.puppetlabs.puppetdb.query.graphviz-catalog
+(ns com.puppetlabs.puppetdb.query.planetarium-catalog
   (:refer-clojure :exclude  [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.puppetdb.query.resource :as r])
   (:use [com.puppetlabs.jdbc]

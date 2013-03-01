@@ -21,31 +21,23 @@
                "INNER JOIN certname_catalogs "
                "ON certname_catalogs.catalog = catalogs.hash "
                "WHERE certname = ?")]
-    (:catalog_version (get (query-to-vec query node) 0))))
+    (:catalog_version (first (query-to-vec query node)))))
 
 (defn resource-to-wire-format
   "Given a resource as returned by our resource database query functions,
   munges the resource into a map that complies with our wire format.  This
   basically involves removing extraneous fields (`certname`, the puppetdb resource
   hash), and removing the `file` and `line` fields if they are `nil`."
-  [resource]
+  [{:keys [sourceline sourcefile] :as resource}]
   {:pre  [(map? resource)]
    :post [(map? %)
-          (not-any? (partial contains? %)
-            [:sourceline :sourcefile :certname :resource])]}
+          (empty? (select-keys % [:sourceline :sourcefile :certname :resource]))]}
   (-> resource
-    (dissoc :certname)
-    (dissoc :resource)
-    ;; We store file/line as `sourcefile` and `sourceline`, which doesn't match
-    ;; the wire format.
-    (assoc :line (:sourceline resource))
-    (assoc :file (:sourcefile resource))
-    (dissoc :sourceline)
-    (dissoc :sourcefile)
+    (dissoc :certname :resource :sourceline :sourcefile)
     ;; All of the sample JSON catalogs I've seen do not include the `file`/`line`
     ;; fields if we don't have actual values for them.
-    (dissoc-if-nil :line)
-    (dissoc-if-nil :file)))
+    (assoc :line (:sourceline resource) :file (:sourcefile resource))
+    (dissoc-if-nil :line :file)))
 
 (defn get-resources
   "Given a node name, return a sequence of resources (as maps, conforming to

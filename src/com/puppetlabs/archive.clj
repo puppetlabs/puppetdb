@@ -19,7 +19,7 @@
     (.close gzip-stream)))
 
 ;; A simple type for reading tar/gz streams
-(defrecord TarGzReader [in-stream gzip-stream tar-stream tar-reader tar-entry]
+(defrecord TarGzReader [gzip-stream tar-stream tar-reader tar-entry]
   Closeable
   (close [this]
     (.close tar-stream)
@@ -107,7 +107,7 @@
         tar-stream  (TarArchiveInputStream. gzip-stream)
         tar-reader  (reader tar-stream)
         tar-entry   (atom nil)]
-    (TarGzReader. in-stream gzip-stream tar-stream tar-reader tar-entry)))
+    (TarGzReader. gzip-stream tar-stream tar-reader tar-entry)))
 
 
 (defn next-entry
