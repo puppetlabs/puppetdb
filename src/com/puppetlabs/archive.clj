@@ -120,6 +120,19 @@
     (reset! tar-entry (.getNextTarEntry (:tar-stream reader)))
     @tar-entry))
 
+(defn all-entries
+  "Returns a lazy sequence of all of the entries in the tar-reader.  The stream
+  will not be advanced to the next entry until you request the next item from
+  the sequence.  Note that this sequence is very much *NOT* thread-safe; if you
+  begin to read the data for an entry in one thread and then advance the stream
+  to the next entry in another thread, spectacular and confusing failures are
+  likely to ensue."
+  ([tar-reader] (all-entries tar-reader (next-entry tar-reader)))
+  ([tar-reader next-entry]
+    (if next-entry
+      (cons next-entry (lazy-seq (all-entries tar-reader)))
+      '())))
+
 (defn find-entry
   "Given a `TarGzReader` and a relative file path, returns the `TarArchiveEntry`
   from the archive corresponding to the specified path.  Returns `nil` if no

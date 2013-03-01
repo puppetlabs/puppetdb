@@ -28,13 +28,11 @@
       (with-open [tar-reader (archive/tarball-reader in-stream)]
         (let [entry-count (atom 0)]
           (testing "should only contain the expected entries, with expected content"
-            (loop [tar-entry (archive/next-entry tar-reader)]
-              (when-not (nil? tar-entry)
-                (swap! entry-count inc)
-                (is (contains? tar-entries (.getName tar-entry)))
-                (let [content (archive/read-entry-content tar-reader)]
-                  (is (= content (tar-entries (.getName tar-entry)))))
-                (recur (archive/next-entry tar-reader)))))
+            (doseq [tar-entry (archive/all-entries tar-reader)]
+              (swap! entry-count inc)
+              (is (contains? tar-entries (.getName tar-entry)))
+              (let [content (archive/read-entry-content tar-reader)]
+                (is (= content (tar-entries (.getName tar-entry)))))))
 
           (testing "should contain the correct number of entries"
             (is (= (count tar-entries) @entry-count))))))))

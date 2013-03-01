@@ -81,7 +81,5 @@
         metadata    (parse-metadata infile)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-reader (archive/tarball-reader infile)]
-      (loop [tar-entry (archive/next-entry tar-reader)]
-        (when-not (nil? tar-entry)
-          (process-tar-entry tar-reader tar-entry host port metadata)
-          (recur (archive/next-entry tar-reader)))))))
+      (doseq [tar-entry (archive/all-entries tar-reader)]
+        (process-tar-entry tar-reader tar-entry host port metadata)))))
