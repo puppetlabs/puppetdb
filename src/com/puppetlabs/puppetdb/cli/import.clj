@@ -52,8 +52,8 @@
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
-  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry host port metadata]
-  {:pre  [(instance? TarGzReader tar-reader)
+  [_ content ^TarArchiveEntry tar-entry host port metadata]
+  {:pre  [(string? content)
           (instance? TarArchiveEntry tar-entry)
           (string? host)
           (integer? port)
@@ -69,7 +69,7 @@
       ;;   the list of nodes that we submitted and the output of that query
       (submit-catalog host port
         (get-in metadata [:command-versions :replace-catalog])
-        (archive/read-entry-content tar-reader)))))
+        content))))
 
 (defn -main
   [& args]
@@ -80,6 +80,13 @@
         [{:keys [infile host port]} _] (cli! args specs required)
         metadata    (parse-metadata infile)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (with-open [tar-reader (archive/tarball-reader infile)]
-      (doseq [tar-entry (archive/all-entries tar-reader)]
-        (process-tar-entry tar-reader tar-entry host port metadata)))))
+    (let [agents (transient [])]
+      (with-open [tar-reader (archive/tarball-reader infile)]
+        (doseq [tar-entry (archive/all-entries tar-reader)]
+          (let [content   (archive/read-entry-content tar-reader)
+                agent     (agent true)]
+            (conj! agents agent)
+            (send agent process-tar-entry content tar-entry host port metadata))))
+      (doseq [agent (persistent! agents)]
+        (println "Waiting for agent")
+        (await agent)))))
