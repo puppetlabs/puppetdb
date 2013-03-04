@@ -9,6 +9,20 @@ RAKE_ROOT = File.dirname(__FILE__)
 # Load tasks and variables for packaging automation
 Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |t| load t }
 
+def ln_sfT(src, dest)
+  sh "ln -sfT #{src} #{dest}"
+end
+
+def cp_pr(src, dest, options={})
+  mandatory = {:preserve => true}
+  cp_r(src, dest, options.merge(mandatory))
+end
+
+def cp_p(src, dest, options={})
+  mandatory = {:preserve => true}
+  cp(src, dest, options.merge(mandatory))
+end
+
 # We want to use puppetdb's package:tar and its dependencies, because it
 # contains all the special java snowflake magicks, so we have to clear the
 # packaging repo's. We also want to use puppetdb's clean task, since it has so
