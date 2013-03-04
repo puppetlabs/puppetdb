@@ -4,26 +4,21 @@
             [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
-        [clojure.tools.logging :only [*logger-factory*]]
+        [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
         [clj-time.core :only [days]]
-        [com.puppetlabs.puppetdb.testutils :only [atom-logger]]
         [com.puppetlabs.time :only [to-secs]]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
     (with-redefs [com.puppetlabs.puppetdb.version/update-info (constantly {:version "0.0.0" :newer true})]
-      (let [log-output (atom [])]
-        (binding [*logger-factory* (atom-logger log-output)]
-          (maybe-check-for-updates "puppetdb" "update-server!" {})
-          (is (= "Newer version 0.0.0 is available!"
-                (get (first @log-output) 3)))))))
+      (with-log-output log-output
+        (maybe-check-for-updates "puppetdb" "update-server!" {})
+        (is (= 1 (count (logs-matching #"Newer version 0.0.0 is available!" @log-output)))))))
 
   (testing "should skip the update check if running as pe-puppetdb"
-    (let [log-output (atom [])]
-      (binding [*logger-factory* (atom-logger log-output)]
-        (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
-        (is (= "Skipping update check on Puppet Enterprise"
-               (get (first @log-output) 3)))))))
+    (with-log-output log-output
+      (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
+      (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
