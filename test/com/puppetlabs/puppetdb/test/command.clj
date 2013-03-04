@@ -10,6 +10,7 @@
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.testutils.logging]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]

@@ -164,15 +164,21 @@
   [hostname report]
   (assoc report "certname" hostname))
 
+
+(def supported-cli-options
+  [["-c" "--config" "Path to config.ini (required)"]
+   ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
+   ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
+   ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
+   ["-n" "--numhosts" "How many hosts to use during simulation"]
+   ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]])
+
+(def required-cli-options
+  [:config])
+
 (defn -main
   [& args]
-  (let [[options _]     (cli! args
-                              ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-                              ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
-                              ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
-                              ["-n" "--numhosts" "How many hosts to use during simulation"]
-                              ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"])
-
+  (let [[options _]     (cli! args supported-cli-options required-cli-options)
         config          (-> (:config options)
                             (inis-to-map)
                             (configure-logging!))

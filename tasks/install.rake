@@ -30,12 +30,12 @@ task :install => [  JAR_FILE  ] do
     ln_sfT "#{@lib_dir}/state", "#{DESTDIR}#{@link}/state"
     ln_sfT "#{@lib_dir}/db", "#{DESTDIR}#{@link}/db"
     ln_sfT "#{@lib_dir}/mq", "#{DESTDIR}#{@link}/mq"
-    mkdir_p "#{DESTDIR}#/etc/puppetdb"
+    mkdir_p "#{DESTDIR}/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"
     mkdir_p "#{DESTDIR}#{@lib_dir}/db"
     mkdir_p "#{DESTDIR}#{@lib_dir}/mq"
-    mkdir_p "#{DESTDIR}#/etc/puppetlabs/puppetdb"
+    mkdir_p "#{DESTDIR}/etc/puppetlabs/puppetdb"
   end
 
   cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
