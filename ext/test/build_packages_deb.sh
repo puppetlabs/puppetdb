@@ -27,7 +27,7 @@ S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${DEB_BUILD_BRANCH}
 APT_HOST=neptune.puppetlabs.lan
 APT_REPO=$INCOMING/$NAME-$VERSION
 TEAM=dev
-export APT_HOST APT_REPO TEAM
+export APT_HOST APT_REPO TEAM PE_VER
 
 rake package:implode --trace
 rake package:bootstrap --trace
