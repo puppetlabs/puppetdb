@@ -69,6 +69,40 @@
     (testing "should not remove the key if the value is not nil"
       (is (= testmap (dissoc-if-nil testmap :a))))))
 
+(defn simple-work-stack
+  ;; TODO docs
+  [size]
+  {:pre  [(pos? size)]}
+  (let [original-work   (range size)
+        remaining-work  (atom (range size))
+        counter         (atom 0)
+        iterator-fn     (fn []
+      (swap! counter inc)
+      (let [old-work  (swap-and-return-old-val! remaining-work next)
+            next-item (first old-work)]
+        next-item))]
+    {:original-work   original-work
+     :remaining-work  remaining-work
+     :counter         counter
+     :iterator-fn     iterator-fn}))
+
+(deftest test-iterator-fn->lazy-seq
+  (let [{:keys [counter iterator-fn]} (simple-work-stack 5)
+        iterator-seq                  (iterator-fn->lazy-seq iterator-fn)]
+    (testing "iterator-fn is not called until seq is accessed"
+      (is (= 0 @counter)))
+    (testing "iterator-fn is called exactly once if we take one item from the seq"
+      (is (= 0 (first iterator-seq)))
+      (is (= 1 @counter)))
+    (testing "iterator-fn is not called again if we take the same item from the seq again"
+      (is (= 0 (first iterator-seq)))
+      (is (= 1 @counter)))
+    (testing "iterator-fn is called one more time if we take the first two items from the seq"
+      (is (= '(0 1) (clojure.core/take 2 iterator-seq)))
+      (is (= 2 @counter)))
+    (testing "iterator-fn is called once for each item in the seq, plus once for the final nil if we walk the whole seq"
+      (doseq [i iterator-seq] i)
+      (is (= 6 @counter)))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"

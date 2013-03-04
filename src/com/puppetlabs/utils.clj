@@ -96,6 +96,17 @@
    :post [(or (number? %) (nil? %))]}
   ((some-fn parse-int parse-float) s))
 
+;; ## Concurrency primitives
+
+(defn swap-and-return-old-val!
+  ;; TODO: docs
+  [a f & args]
+  (loop []
+    (let [old-value @a
+          new-value (apply f old-value args)]
+      (if (compare-and-set! a old-value new-value)
+        old-value
+        (recur)))))
 
 ;; ## Collection operations
 
@@ -166,7 +177,6 @@
          (recur ret (first ks) (next ks))
          ret))))
 
-
 (defn keyset
   "Returns the set of keys from the supplied map"
   [m]
@@ -180,6 +190,19 @@
   {:pre  [(map? m)]
    :post [(set? %)]}
   (set (vals m)))
+
+
+(defn iterator-fn->lazy-seq
+  ;; TODO docs
+  [f]
+  {:pre  [(fn? f)]
+   :post [(seq? %)]}
+  (lazy-seq
+    (let [next-item (f)]
+      (if (nil? next-item)
+        '()
+        (cons next-item (iterator-fn->lazy-seq f))))))
+
 
 ;; ## Date and Time
 

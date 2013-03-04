@@ -7,6 +7,7 @@
             [cheshire.core :as json]
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
+            [com.puppetlabs.utils :only [swap-and-return-old-val!]]
             [clojure.test]))
 
 (defn test-db-config
@@ -138,7 +139,6 @@
      (fixture-fn# (fn [] ~@body))))
 
 ; TODO: change order of expected/actual?
-; TODO: docs
 (defn response-equal?
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
