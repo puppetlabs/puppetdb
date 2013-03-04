@@ -47,8 +47,9 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
     # Turn the filename of a gzipped tar into a hash from filename to content.
     def tgz_to_hash(filename)
-      # List the files in the archive, ignoring the catalogs directory
-      files = `tar tf #{filename}`.lines.map(&:chomp) - ['catalogs/']
+      # List the files in the archive, ignoring directories (whose names end
+      # with /), and stripping the leading puppetdb-bak.
+      files = `tar tf #{filename}`.lines.map(&:chomp).reject {|filename| filename[-1] == '/'}.map {|filename| filename.sub('puppetdb-bak/', '')}
 
       # Get the content of the files, one per line. Thank goodness they're a
       # single line each.
@@ -84,13 +85,12 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         results = tgz_to_hash(filename)
 
-        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
+        results.keys.should =~ ['export-metadata.json', 'catalogs/foo.json']
 
-        metadata = PSON.load(results['metadata.json'])
+        metadata = PSON.load(results['export-metadata.json'])
 
-        metadata.keys.should =~ ['timestamp', 'version', 'nodes']
-        metadata['version'].should == 2
-        metadata['nodes'].should == ['foo']
+        metadata.keys.should =~ ['timestamp', 'command-versions']
+        metadata['command-versions'].should == {'replace-catalog' => 2}
 
         catalog = PSON.load(results['catalogs/foo.json'])
 
@@ -124,7 +124,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         results = tgz_to_hash(filename)
 
-        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
+        results.keys.should =~ ['export-metadata.json', 'catalogs/foo.json']
 
         catalog = PSON.load(results['catalogs/foo.json'])
 
@@ -146,7 +146,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         results = tgz_to_hash(filename)
 
-        results.keys.should =~ ['metadata.json', 'catalogs/foo.json']
+        results.keys.should =~ ['export-metadata.json', 'catalogs/foo.json']
       end
     end
 
@@ -154,10 +154,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
       filename = subject.export
 
       results = tgz_to_hash(filename)
-      results.keys.should == ['metadata.json']
-
-      metadata = PSON.load(results['metadata.json'])
-      metadata['nodes'].should == []
+      results.keys.should == ['export-metadata.json']
     end
   end
 end

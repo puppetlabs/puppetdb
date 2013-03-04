@@ -15,15 +15,18 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
   action :export do
     summary "Export the storeconfigs database"
     description <<-DESC
-      Generate a complete dump of all catalogs from the storeconfigs database,
-      as a tarball which can be imported by PuppetDB. Returns the location of
-      the output.
+      Generate a dump of all catalogs from the storeconfigs database, as a
+      tarball which can be imported by PuppetDB. Only exported resources are
+      included; non-exported resources, edges, facts, or other data are
+      omitted. Returns the location of the output.
     DESC
 
     when_invoked do |options|
       require 'puppet/rails'
 
-      workdir = Dir.mktmpdir
+      tmpdir = Dir.mktmpdir
+      workdir = File.join(tmpdir, 'puppetdb-bak')
+      Dir.mkdir(workdir)
 
       begin
         Puppet::Rails.connect
@@ -49,11 +52,12 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
 
         timestamp = Time.now
 
-        File.open(File.join(workdir, 'metadata.json'), 'w') do |file|
+        File.open(File.join(workdir, 'export-metadata.json'), 'w') do |file|
           metadata = {
-            :timestamp => timestamp,
-            :version => 2,
-            :nodes => node_names,
+            'timestamp' => timestamp,
+            'command-versions' => {
+              'replace-catalog' => 2,
+            }
           }
 
           file.puts metadata.to_pson
@@ -62,7 +66,7 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
         tarfile = destination_file(timestamp)
 
         if tar = Puppet::Util.which('tar')
-          execute("cd #{workdir} && #{tar} -cf #{tarfile} *")
+          execute("cd #{tmpdir} && #{tar} -cf #{tarfile} puppetdb-bak")
 
           FileUtils.rm_rf(workdir)
 
