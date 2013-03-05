@@ -1,6 +1,6 @@
 test_config = PuppetDBExtensions.config
 
-step "Install other dependencies" do
+step "Install other dependencies on database" do
   os = test_config[:os_families][database.name]
 
   case os
@@ -33,5 +33,18 @@ step "Install other dependencies" do
           on database, "LEIN_ROOT=true lein"
         end
       end
+  end
+end
+
+step "Install sqlite3 on master" do
+  os = test_config[:os_familes][master.name]
+
+  case os
+  when :redhat
+    on database, "yum install ruby-sqlite3"
+  when :debian
+    on database, "apt-get install libsqlite3-ruby"
+  else
+    raise ArgumentError, "Unsupported OS '#{os}'"
   end
 end
