@@ -37,7 +37,7 @@ step "Install other dependencies on database" do
 end
 
 step "Install sqlite3 on master" do
-  os = test_config[:os_familes][master.name]
+  os = test_config[:os_families][master.name]
 
   case os
   when :redhat
