@@ -49,11 +49,11 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
     def tgz_to_hash(filename)
       # List the files in the archive, ignoring directories (whose names end
       # with /), and stripping the leading puppetdb-bak.
-      files = `tar tf #{filename}`.lines.map(&:chomp).reject {|filename| filename[-1] == '/'}.map {|filename| filename.sub('puppetdb-bak/', '')}
+      files = `tar tf #{filename}`.lines.map(&:chomp).reject {|fname| fname[-1,1] == '/'}.map {|fname| fname.sub('puppetdb-bak/', '')}
 
       # Get the content of the files, one per line. Thank goodness they're a
       # single line each.
-      content = `tar xf #{filename} -O`.lines
+      content = `tar xf #{filename} -O`.lines.to_a
 
       # Build a hash from filename to content. Ruby 1.8.5 doesn't like
       # Hash[array_of_pairs], so we have to jump through hoops by flattening
