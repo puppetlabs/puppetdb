@@ -1,9 +1,24 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
-  (:require [com.puppetlabs.utils :as utils])
+  (:require clojure.string
+            [com.puppetlabs.puppetdb.version]
+            [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
+        [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
         [clj-time.core :only [days]]
         [com.puppetlabs.time :only [to-secs]]))
+
+(deftest update-checking
+  (testing "should check for updates if running as puppetdb"
+    (with-redefs [com.puppetlabs.puppetdb.version/update-info (constantly {:version "0.0.0" :newer true})]
+      (with-log-output log-output
+        (maybe-check-for-updates "puppetdb" "update-server!" {})
+        (is (= 1 (count (logs-matching #"Newer version 0.0.0 is available!" @log-output)))))))
+
+  (testing "should skip the update check if running as pe-puppetdb"
+    (with-log-output log-output
+      (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
+      (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -82,6 +97,21 @@
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:client-auth false}})]
       (is (= (get-in config [:jetty :client-auth]) :need)))))
+
+(deftest product-name-validation
+  (doseq [product-name ["puppetdb" "pe-puppetdb"]]
+    (testing (format "should accept %s and return it" product-name)
+      (is (= product-name
+             (normalize-product-name product-name)))))
+
+  (doseq [product-name ["PUPPETDB" "PE-PUPPETDB" "PuppetDB" "PE-PuppetDB"]]
+    (testing (format "should accept %s and return it lower-cased" product-name)
+      (is (= (clojure.string/lower-case product-name)
+             (normalize-product-name product-name)))))
+
+  (testing "should disallow anything else"
+    (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
+          (normalize-product-name "puppet")))))
 
 (deftest vardir-validation
   (testing "should fail if it's not specified"
