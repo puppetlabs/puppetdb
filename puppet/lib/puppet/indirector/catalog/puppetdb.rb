@@ -171,6 +171,22 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             resource_hash = {'type' => resource['type'], 'title' => resource['title']}
             other_hash = resource_ref_to_hash(other_ref)
 
+            # Puppet doesn't always seem to check this correctly. If we don't
+            # users will later get an invalid relationship error instead.
+            #
+            # Primarily we are trying to catch the non-capitalized resourceref
+            # case problem here: http://projects.puppetlabs.com/issues/19474
+            # Once that problem is solved and older versions of Puppet that have
+            # the bug are no longer supported we can probably remove this code.
+            unless other_ref =~ /^[A-Z][a-z0-9_]*(::[A-Z][a-z0-9_]*)*\[.*\]/
+              rel = edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)
+              raise Puppet::Error, "Invalid relationship: #{rel}, because " +
+                "#{other_ref} doesn't seem to be in the correct format. " +
+                "Resource references should be formatted as: " +
+                "Classname['title'] or Modulename::Classname['title'] (take " +
+                "careful note of the capitalization)."
+            end
+
             # This is an unfortunate hack.  Puppet does some weird things w/rt
             # munging off trailing slashes from file resources, and users may
             # legally specify relationships using a different number of trailing
@@ -191,7 +207,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # and try that
             other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
 
-            raise "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} doesn't seem to be in the catalog" unless other_resource
+            raise Puppet::Error, "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} doesn't seem to be in the catalog" unless other_resource
 
             # As above, virtual exported resources will eventually be removed,
             # so if a real resource refers to one, it's wrong. Non-virtual
@@ -201,7 +217,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
             # suffices to check for virtual.
             if other_real_resource = catalog.resource(other_resource['type'], other_resource['title'])
               if other_real_resource.virtual?
-                raise "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} is exported but not collected"
+                raise Puppet::Error, "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} is exported but not collected"
               end
             end
 
