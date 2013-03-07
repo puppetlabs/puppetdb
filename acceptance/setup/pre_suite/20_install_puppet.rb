@@ -25,6 +25,16 @@ enabled=1
 gpgcheck=1
     REPO
 
+    create_remote_file host, '/etc/yum.repos.d/epel.repo', <<-REPO
+[epel]
+name=Extra Packages for Enterprise Linux $releasever - $basearch
+baseurl=http://download.fedoraproject.org/pub/epel/$releasever/$basearch
+mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=epel-$releasever&arch=$basearch
+failovermethod=priority
+enabled=1
+gpgcheck=0
+    REPO
+
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end
