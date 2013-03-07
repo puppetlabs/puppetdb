@@ -52,6 +52,7 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clojure.java.jdbc :as sql]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.http.server :as server])
@@ -151,11 +152,19 @@
                                        (catch Throwable e
                                          (log/debug e (format "Could not retrieve update information (%s)" update-server))))
         link-str                     (if link
-                                       (format "Visit %s for details." link)
+                                       (format " Visit %s for details." link)
                                        "")
-        update-msg                   (format "Newer version %s is available! %s" version link-str)]
+        update-msg                   (format "Newer version %s is available!%s" version link-str)]
     (when newer
       (log/info update-msg))))
+
+(defn maybe-check-for-updates
+  "Check for updates if our `product-name` indicates we should, and skip the
+  check otherwise."
+  [product-name update-server db]
+  (if (= product-name "puppetdb")
+    (check-for-updates update-server db)
+    (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -262,6 +271,18 @@
         db           (configure-database-ttls (or database default-db))]
     (assoc config :database (merge default-opts db))))
 
+(defn normalize-product-name
+  "Checks that `product-name` is specified as a legal value, throwing an
+  exception if not. Returns `product-name` if it's okay."
+  [product-name]
+  {:pre [(string? product-name)]
+   :post [(= (string/lower-case product-name) %)]}
+  (let [lower-product-name (string/lower-case product-name)]
+    (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
+      (throw (IllegalArgumentException.
+               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+    lower-product-name))
+
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
   appropriate exceptions if any condition is unmet."
@@ -342,6 +363,7 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database global command-processing]
             :as config}                            (parse-config! (:config options) initial-config)
+        product-name                               (normalize-product-name (get global :product-name "puppetdb"))
         vardir                                     (validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
@@ -388,7 +410,7 @@
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          updater       (future (check-for-updates update-server db))
+          updater       (future (maybe-check-for-updates product-name update-server db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (pl-utils/cn-whitelist->authorizer wl)
                                             (constantly true))
