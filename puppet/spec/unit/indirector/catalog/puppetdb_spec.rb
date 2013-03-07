@@ -383,7 +383,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           expect do
             subject.munge_catalog(catalog)
-          end.to raise_error("Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] is exported but not collected")
+          end.to raise_error(Puppet::Error, "Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] is exported but not collected")
         end
 
         it "should not add edges defined on an uncollected exported resource" do
@@ -485,7 +485,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           expect do
             subject.munge_catalog(catalog)
-          end.to raise_error("Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] doesn't seem to be in the catalog")
+          end.to raise_error(Puppet::Error, "Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] doesn't seem to be in the catalog")
         end
 
         it "should not add edges defined on an uncollected virtual resource" do
@@ -526,7 +526,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error("Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
       end
 
       it "should produce a reasonable error message for a missing 'required-by' relationship" do
@@ -534,7 +534,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error("Invalid relationship: Notify[anyone] { require => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { require => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
       end
 
       it "should produce a reasonable error message for a missing 'notifies' relationship" do
@@ -543,7 +543,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error("Invalid relationship: Notify[anyone] { notify => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { notify => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
       end
 
       it "should produce a reasonable error message for a missing 'subscription-of' relationship" do
@@ -552,7 +552,16 @@ describe Puppet::Resource::Catalog::Puppetdb do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error("Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+      end
+
+      it "should produce a reasonable error message for an invalid resourceref" do
+        resource[:subscribe] = 'Foobar::baz[name]'
+
+        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        expect {
+          subject.synthesize_edges(hash, catalog)
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitilization).")
       end
     end
 
