@@ -561,7 +561,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitilization).")
+        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitalization).")
       end
     end
 
