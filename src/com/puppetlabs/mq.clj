@@ -119,6 +119,18 @@
   (.stop broker)
   (.waitUntilStopped broker))
 
+(defn build-and-start-broker!
+  "Builds ands starts a broker in one go, attempts restart upon known exceptions"
+  [brokername dir config]
+  (try
+    (start-broker! (build-embedded-broker brokername dir config))
+    (catch java.io.EOFException e
+      (log/warn
+        (str "Caught EOFException on broker startup, trying to restart it "
+             "again to see if that solves it. This is probably due to "
+             "KahaDB corruption."))
+      (start-broker! (build-embedded-broker brokername dir config)))))
+
 (defn connect!
   "Connect to the specified broker URI."
   [uri]

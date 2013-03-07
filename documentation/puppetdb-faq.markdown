@@ -5,6 +5,8 @@ subtitle: "Basic Info and Troubleshooting Tips"
 canonical: "/puppetdb/1.1/puppetdb-faq.html"
 ---
 
+[trouble_kahadb]: ./trouble_kahadb_corruption.html
+
 ## PuppetDB is complaining about a truststore or keystore file. What do I do?
 
 There are several related causes for this, but it boils down to PuppetDB being
@@ -91,3 +93,16 @@ databases before settling on PostgreSQL. These included Neo4j, Riak, and MySQL
 with ActiveRecord in Ruby. We have no plans to support any other databases,
 including MySQL, which lacks important features such as array columns and
 recursive queries.
+
+## I may have a corrupt KahaDB store. What does this mean, what causes it and how can I recover?
+
+If PuppetDB throws an exception while the application starts or while receiving
+a command it may be due to KahaDB corruption. The exception generally has some
+mention of the KahaDB libraries (org.apache.activemq.store.kahadb), for example:
+
+    java.io.EOFException
+        at java.io.RandomAccessFile.readInt(RandomAccessFile.java:776)
+        at org.apache.activemq.store.kahadb.disk.journal.DataFileAccessor.readRecord(DataFileAccessor.java:81)
+
+You should consult the [Troubleshooting guide for Kahadb][trouble_kahadb] for
+details on how to rememdy this.
