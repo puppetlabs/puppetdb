@@ -13,13 +13,13 @@ step "Install development build of PuppetDB on the PuppetDB server" do
   when :package
     Log.notify("Installing puppetdb from package; install mode: '#{test_config[:install_mode].inspect}'")
 
-    install_puppetdb(database, test_config[:database], ENV['PUPPETDB_EXPECTED_VERSION'] || 'latest')
+    install_puppetdb(database, test_config[:database])
 
     if test_config[:validate_package_version]
       validate_package_version(database)
     end
 
-    install_puppetdb_termini(master, database, ENV['PUPPETDB_EXPECTED_VERSION'] || 'latest')
+    install_puppetdb_termini(master, database)
 
     # The package should automatically start the service on debian.  On redhat,
     # it doesn't.  However, during test runs where we're doing package upgrades,

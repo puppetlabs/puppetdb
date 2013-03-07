@@ -1,0 +1,16 @@
+---
+project: 'puppetdb'
+author: 'Puppet Labs'
+email: 'info@puppetlabs.com'
+homepage: 'https://github.com/puppetlabs/puppetdb'
+summary: 'Puppet Centralized Storage Daemon'
+description: 'Puppet Centralized Storage'
+version_file: 'version'
+# files and gem_files are space separated lists
+files: 'ext *.md puppetb.jar version documentation Rakefile'
+tar_excludes: '.gitignore'
+gem_files:
+gem_require_path:
+gem_test_files:
+gem_executables:
+gem_default_executables:
