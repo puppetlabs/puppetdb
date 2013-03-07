@@ -27,7 +27,7 @@ S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${DEB_BUILD_BRANCH}
 APT_HOST=neptune.puppetlabs.lan
 APT_REPO=$INCOMING/$NAME-$VERSION
 TEAM=dev
-export APT_HOST APT_REPO TEAM
+export APT_HOST APT_REPO TEAM PE_VER
 
 rake package:implode --trace
 rake package:bootstrap --trace
@@ -75,7 +75,7 @@ ssh $APT_HOST <<FREIGHT
 set -e
 set -x
 
-for DISTRO in lucid natty oneiric precise quantal sid squeeze stable testing unstable wheezy; do
+for DISTRO in lucid oneiric precise quantal sid squeeze stable testing unstable wheezy; do
   freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
