@@ -59,6 +59,7 @@
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs days]]
         [clojure.core.incubator :only (-?>)]
+        [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs parse-period format-period]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
@@ -145,40 +146,6 @@
         (scf-store/garbage-collect!)))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
-
-(defn sweep-database!
-  "Sweep the indicated database every `interval` minutes.
-
-  This function doesn't terminate. If we encounter an exception during
-  compaction, the operation will be retried after `interval` millis.
-
-  This function will perform database garbage collection.  This entails
-  cleaning out catalogs and facts that are no longer in use, deactivating nodes
-  that haven't been active in the last `node-ttl-seconds`, and clearing out
-  reports that are older than `report-ttl-seconds`"
-  [db interval node-ttl-seconds node-purge-ttl-seconds report-ttl-seconds]
-  {:pre [(pos? interval)
-         (>= node-ttl-seconds 0)
-         (>= node-purge-ttl-seconds 0)
-         (>= report-ttl-seconds 0)]}
-  (let [sleep #(Thread/sleep (* 60 1000 interval))]
-    (pl-utils/keep-going
-      (fn [exception]
-        (log/error exception "Error during database sweep")
-        (sleep))
-
-      (when (pos? node-ttl-seconds)
-        (auto-deactivate-nodes! db node-ttl-seconds))
-
-      (when (pos? node-purge-ttl-seconds)
-        (purge-nodes! db node-purge-ttl-seconds))
-
-      (when (pos? report-ttl-seconds)
-        (sweep-reports! db report-ttl-seconds))
-
-      (garbage-collect! db)
-
-      (sleep))))
 
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
@@ -405,7 +372,7 @@
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
-        db-gc-minutes                              (get database :gc-interval)
+        db-gc-millis                               (* (get database :gc-interval) 60 1000)
         node-ttl-seconds                           (get database :node-ttl-seconds)
         node-purge-ttl-seconds                     (get database :node-purge-ttl-seconds)
         report-ttl-seconds                         (get database :report-ttl-seconds)
@@ -459,10 +426,18 @@
                           (log/info "Starting query server")
                           (future (with-error-delivery error
                                     (jetty/run-jetty app jetty))))
-          db-gc         (do
-                          (log/info (format "Starting database sweeper (%d minute interval)" db-gc-minutes))
-                          (future (with-error-delivery error
-                                    (sweep-database! db db-gc-minutes node-ttl-seconds node-purge-ttl-seconds report-ttl-seconds))))]
+          job-pool      (mk-pool)]
+
+      (interspaced db-gc-millis #(garbage-collect! db) job-pool)
+
+      (when (pos? node-ttl-seconds)
+        (interspaced db-gc-millis #(auto-deactivate-nodes! db node-ttl-seconds) job-pool :initial-delay (* db-gc-millis 1/4)))
+
+      (when (pos? node-purge-ttl-seconds)
+        (interspaced db-gc-millis #(purge-nodes! db node-purge-ttl-seconds) job-pool :initial-delay (* db-gc-millis 2/4)))
+
+      (when (pos? report-ttl-seconds)
+            (interspaced db-gc-millis #(sweep-reports! db report-ttl-seconds) job-pool :initial-delay (* db-gc-millis 3/4)))
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
@@ -475,7 +450,7 @@
           (future-cancel cp))
         (future-cancel updater)
         (future-cancel web-app)
-        (future-cancel db-gc)
+
         ;; Stop the mq the old-fashioned way
         (mq/stop-broker! broker)
 
