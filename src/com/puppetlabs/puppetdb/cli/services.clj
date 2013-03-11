@@ -97,31 +97,40 @@
   "Deactivate nodes which haven't had any activity (catalog/fact submission) in
   more than `node-ttl-seconds` seconds."
   [db node-ttl-seconds]
-  (pl-utils/demarcate
-    (format "sweep of stale nodes (threshold: %s)"
-            (format-period (secs node-ttl-seconds)))
-    (with-transacted-connection db
-      (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
-        (send-command! "deactivate node" 1 (json/generate-string node))))))
+  (try
+    (pl-utils/demarcate
+      (format "sweep of stale nodes (threshold: %s)"
+              (format-period (secs node-ttl-seconds)))
+      (with-transacted-connection db
+        (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
+          (send-command! "deactivate node" 1 (json/generate-string node)))))
+    (catch Exception e
+      (log/error e "Error while deactivating stale nodes"))))
 
 (defn purge-nodes!
   "Delete nodes which have been *deactivated* for more than
   `node-purge-ttl-seconds` seconds."
   [db node-purge-ttl-seconds]
-  (pl-utils/demarcate
-    (format "purge deactivated nodes (threshold: %s)"
-            (format-period (secs node-purge-ttl-seconds)))
-    (with-transacted-connection db
-      (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds))))))
+  (try
+    (pl-utils/demarcate
+      (format "purge deactivated nodes (threshold: %s)"
+              (format-period (secs node-purge-ttl-seconds)))
+      (with-transacted-connection db
+        (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds)))))
+    (catch Exception e
+      (log/error e "Error while purging deactivated nodes"))))
 
 (defn sweep-reports!
   "Delete reports which are older than than `report-ttl-seconds` seconds."
   [db report-ttl-seconds]
-  (pl-utils/demarcate
-    (format "sweep of stale reports (threshold: %s)"
-            (format-period (secs report-ttl-seconds)))
-    (with-transacted-connection db
-      (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
+  (try
+    (pl-utils/demarcate
+      (format "sweep of stale reports (threshold: %s)"
+              (format-period (secs report-ttl-seconds)))
+      (with-transacted-connection db
+        (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds)))))
+    (catch Exception e
+      (log/error e "Error while sweeping reports"))))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
@@ -129,10 +138,13 @@
   logging and other ceremony. Exceptions are logged but otherwise ignored."
   [db]
   {:pre [(map? db)]}
-  (pl-utils/demarcate
-    "database garbage collection"
-    (with-transacted-connection db
-      (scf-store/garbage-collect!))))
+  (try
+    (pl-utils/demarcate
+      "database garbage collection"
+      (with-transacted-connection db
+        (scf-store/garbage-collect!)))
+    (catch Exception e
+      (log/error e "Error during garbage collection"))))
 
 (defn sweep-database!
   "Sweep the indicated database every `interval` minutes.
