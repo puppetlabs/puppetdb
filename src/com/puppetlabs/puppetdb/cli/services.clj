@@ -101,9 +101,9 @@
   (try
     (pl-utils/demarcate
       (format "sweep of stale nodes (threshold: %s)"
-              (format-period (secs node-ttl-seconds)))
+              (format-period node-ttl-seconds))
       (with-transacted-connection db
-        (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
+        (doseq [node (scf-store/stale-nodes (ago node-ttl-seconds))]
           (send-command! "deactivate node" 1 (json/generate-string node)))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
@@ -115,9 +115,9 @@
   (try
     (pl-utils/demarcate
       (format "purge deactivated nodes (threshold: %s)"
-              (format-period (secs node-purge-ttl-seconds)))
+              (format-period node-purge-ttl-seconds))
       (with-transacted-connection db
-        (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds)))))
+        (scf-store/purge-deactivated-nodes! (ago node-purge-ttl-seconds))))
     (catch Exception e
       (log/error e "Error while purging deactivated nodes"))))
 
@@ -127,9 +127,9 @@
   (try
     (pl-utils/demarcate
       (format "sweep of stale reports (threshold: %s)"
-              (format-period (secs report-ttl-seconds)))
+              (format-period report-ttl-seconds))
       (with-transacted-connection db
-        (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds)))))
+        (scf-store/delete-reports-older-than! (ago report-ttl-seconds))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
 
@@ -431,13 +431,13 @@
       (interspaced db-gc-millis #(garbage-collect! db) job-pool)
 
       (when (pos? node-ttl-seconds)
-        (interspaced db-gc-millis #(auto-deactivate-nodes! db node-ttl-seconds) job-pool :initial-delay (* db-gc-millis 1/4)))
+        (interspaced db-gc-millis #(auto-deactivate-nodes! db (secs node-ttl-seconds)) job-pool :initial-delay (* db-gc-millis 1/4)))
 
       (when (pos? node-purge-ttl-seconds)
-        (interspaced db-gc-millis #(purge-nodes! db node-purge-ttl-seconds) job-pool :initial-delay (* db-gc-millis 2/4)))
+        (interspaced db-gc-millis #(purge-nodes! db (secs node-purge-ttl-seconds)) job-pool :initial-delay (* db-gc-millis 2/4)))
 
       (when (pos? report-ttl-seconds)
-            (interspaced db-gc-millis #(sweep-reports! db report-ttl-seconds) job-pool :initial-delay (* db-gc-millis 3/4)))
+            (interspaced db-gc-millis #(sweep-reports! db (secs report-ttl-seconds)) job-pool :initial-delay (* db-gc-millis 3/4)))
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
