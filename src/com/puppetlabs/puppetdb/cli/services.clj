@@ -93,6 +93,47 @@
    (with-open [conn (mq/connect! mq)]
      (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
+(defn auto-deactivate-nodes!
+  "Deactivate nodes which haven't had any activity (catalog/fact submission) in
+  more than `node-ttl-seconds` seconds."
+  [db node-ttl-seconds]
+  (pl-utils/demarcate
+    (format "sweep of stale nodes (threshold: %s)"
+            (format-period (secs node-ttl-seconds)))
+    (with-transacted-connection db
+      (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
+        (send-command! "deactivate node" 1 (json/generate-string node))))))
+
+(defn purge-nodes!
+  "Delete nodes which have been *deactivated* for more than
+  `node-purge-ttl-seconds` seconds."
+  [db node-purge-ttl-seconds]
+  (pl-utils/demarcate
+    (format "purge deactivated nodes (threshold: %s)"
+            (format-period (secs node-purge-ttl-seconds)))
+    (with-transacted-connection db
+      (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds))))))
+
+(defn sweep-reports!
+  "Delete reports which are older than than `report-ttl-seconds` seconds."
+  [db report-ttl-seconds]
+  (pl-utils/demarcate
+    (format "sweep of stale reports (threshold: %s)"
+            (format-period (secs report-ttl-seconds)))
+    (with-transacted-connection db
+      (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
+
+(defn garbage-collect!
+  "Perform garbage collection on `db`, which means deleting any orphaned data.
+  This basically just wraps the corresponding scf.storage function with some
+  logging and other ceremony. Exceptions are logged but otherwise ignored."
+  [db]
+  {:pre [(map? db)]}
+  (pl-utils/demarcate
+    "database garbage collection"
+    (with-transacted-connection db
+      (scf-store/garbage-collect!))))
+
 (defn sweep-database!
   "Sweep the indicated database every `interval` minutes.
 
@@ -115,31 +156,15 @@
         (sleep))
 
       (when (pos? node-ttl-seconds)
-        (pl-utils/demarcate
-          (format "sweep of stale nodes (threshold: %s)"
-                  (format-period (secs node-ttl-seconds)))
-          (with-transacted-connection db
-            (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
-              (send-command! "deactivate node" 1 (json/generate-string node))))))
+        (auto-deactivate-nodes! db node-ttl-seconds))
 
       (when (pos? node-purge-ttl-seconds)
-        (pl-utils/demarcate
-          (format "purge deactivated nodes (threshold: %s)"
-                  (format-period (secs node-purge-ttl-seconds)))
-          (with-transacted-connection db
-            (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds))))))
+        (purge-nodes! db node-purge-ttl-seconds))
 
       (when (pos? report-ttl-seconds)
-        (pl-utils/demarcate
-          (format "sweep of stale reports (threshold: %s)"
-                  (format-period (secs report-ttl-seconds)))
-          (with-transacted-connection db
-            (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
+        (sweep-reports! db report-ttl-seconds))
 
-      (pl-utils/demarcate
-        "database garbage collection"
-        (with-transacted-connection db
-          (scf-store/garbage-collect!)))
+      (garbage-collect! db)
 
       (sleep))))
 
