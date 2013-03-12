@@ -344,11 +344,15 @@
     (pop/initialize-metrics db)
 
     (let [error         (promise)
-          broker        (do
+          broker        (try
                           (log/info "Starting broker")
-                          (mq/start-broker!
-                            (mq/build-embedded-broker
-                              "localhost" mq-dir command-processing)))
+                          (mq/build-and-start-broker! "localhost" mq-dir command-processing)
+                          (catch java.io.EOFException e
+                            (log/error
+                              "EOF Exception caught during broker start, this "
+                              "might be due to KahaDB corruption. Consult the "
+                              "PuppetDB troubleshooting guide.")
+                            (throw e)))
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]

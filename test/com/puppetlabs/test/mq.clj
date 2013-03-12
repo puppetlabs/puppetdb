@@ -1,7 +1,9 @@
 (ns com.puppetlabs.test.mq
   (:import [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.broker BrokerService])
-  (:require [clamq.jms :as jms])
+  (:require [clamq.jms :as jms]
+            [fs.core :as fs]
+            [clojure.java.io :as io])
   (:use [com.puppetlabs.mq]
         [com.puppetlabs.puppetdb.testutils]
         [clojure.test]))
@@ -37,6 +39,48 @@
           ;; or diluting milliseconds) so may appear to take almost 4 seconds
           ;; sometimes. This is to avoid potential races in the test.
           (is (= [tracer-msg] (timed-drain-into-vec! conn "queue" 3000))))))))
+
+(deftest corrupt-kahadb-journal
+  (testing "corrupt kahadb journal handling"
+    (testing "corruption should return exception"
+      ;; We are capturing the previous known failure here, just in case in the
+      ;; future ActiveMQ changes behaviour (hopefully fixing this problem) so
+      ;; we can make a decision about weither capturing EOFException and
+      ;; restarting the broker ourselves is still needed.
+      ;;
+      ;; Upstream bug is: https://issues.apache.org/jira/browse/AMQ-4339
+      (let [dir          (fs/absolute-path (fs/temp-dir))
+            broker-name  "test"]
+        (try
+          ;; Start and stop a broker, then corrupt the journal
+          (let [broker (build-embedded-broker broker-name dir)]
+            (start-broker! broker)
+            (stop-broker! broker)
+            (spit (fs/file dir "test" "KahaDB" "db-1.log") "asdf"))
+          ;; Upon next open, we should get an EOFException
+          (let [broker (build-embedded-broker broker-name dir)]
+            (is (thrown? java.io.EOFException (start-broker! broker))))
+          ;; Now lets clean up
+          (finally
+            (fs/delete-dir dir)))))
+    (testing "build-and-start-broker! should ignore the corruption"
+      ;; Current work-around is to restart the broker upon this kind of
+      ;; corruption. This test makes sure this continues to work for the
+      ;; lifetime of this code.
+      (let [dir         (fs/absolute-path (fs/temp-dir))
+            broker-name "test"]
+        (try
+          ;; Start and stop a broker, then corrupt the journal
+          (let [broker (build-embedded-broker broker-name dir)]
+            (start-broker! broker)
+            (stop-broker! broker)
+            (spit (fs/file dir "test" "KahaDB" "db-1.log") "asdf"))
+          ;; Now lets use the more resilient build-and-start-broker!
+          (let [broker (build-and-start-broker! broker-name dir {})]
+            (stop-broker! broker))
+          ;; Now lets clean up
+          (finally
+            (fs/delete-dir dir)))))))
 
 (deftest test-build-broker
   (testing "build-embedded-broker"
