@@ -228,11 +228,7 @@ fi
 
 
 %files terminus
-<% if @pe -%>
-%defattr(-, pe-puppet, pe-puppet)
-<% else -%>
-%defattr(-, puppet, puppet)
-<% end -%>
+%defattr(-, root, root)
 %{puppet_libdir}/puppet/application/storeconfigs.rb
 %{puppet_libdir}/puppet/face/node/deactivate.rb
 %{puppet_libdir}/puppet/face/node/status.rb
