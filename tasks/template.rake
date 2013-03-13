@@ -22,7 +22,6 @@ task :template => [ :clean ] do
    erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
    chmod 0755, "ext/files/debian/rules"
    erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
-   erb "ext/templates/deb/terminus.postinst.erb", "ext/files/debian/#{@name}-terminus.postinst"
    erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
    erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
