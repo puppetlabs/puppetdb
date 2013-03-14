@@ -47,6 +47,8 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
   cp_pr "ext/files/puppetdb-ssl-setup", "#{DESTDIR}/#{@sbin_dir}"
   cp_pr "ext/files/puppetdb-foreground", "#{DESTDIR}/#{@sbin_dir}"
+  cp_pr "ext/files/puppetdb-import", "#{DESTDIR}/#{@sbin_dir}"
+  cp_pr "ext/files/puppetdb-export", "#{DESTDIR}/#{@sbin_dir}"
 
   # figure out which init script to install based on facter
   if @osfamily == "redhat" || @osfamily == "suse"
@@ -67,4 +69,6 @@ task :install => [  JAR_FILE  ] do
   chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-ssl-setup"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-foreground"
+  chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-import"
+  chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-export"
 end

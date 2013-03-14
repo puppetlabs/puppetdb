@@ -216,6 +216,8 @@ fi
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
 %{_sbindir}/puppetdb-ssl-setup
 %{_sbindir}/puppetdb-foreground
+%{_sbindir}/puppetdb-import
+%{_sbindir}/puppetdb-export
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>

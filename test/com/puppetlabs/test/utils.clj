@@ -62,6 +62,14 @@
     (is (= {:a 3 :b 3}
           (maptrans {[:a :b] :foo} {:a {:foo 3} :b {:foo 3}})))))
 
+(deftest dissoc-if-nil-test
+  (let [testmap {:a 1 :b nil}]
+    (testing "should remove the key if the value is nil"
+      (is (= (dissoc testmap :b) (dissoc-if-nil testmap :b))))
+    (testing "should not remove the key if the value is not nil"
+      (is (= testmap (dissoc-if-nil testmap :a))))))
+
+
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"
     (testing "should fail if not passed a string"
