@@ -326,7 +326,7 @@ module PuppetDBExtensions
   def apply_manifest_on(host, manifest_content)
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     create_remote_file(host, manifest_path, manifest_content)
-  PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
+    PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 
@@ -399,7 +399,7 @@ module PuppetDBExtensions
     end
 
     export2_files = Set.new(
-      Dir.glob("#{export_dir2}/**/*").map { |f| f.sub(/^#{export_dir2}\//, "") })
+      Dir.glob("#{export_dir2}/**/*").map { |f| f.sub(/^#{Regexp.escape(export_dir2)}\//, "") })
     diff = export2_files - export1_files
 
     assert(diff.empty?, "Export file '#{export_file2}' contains extra file entries: '#{diff.to_a.join("', '")}'")
