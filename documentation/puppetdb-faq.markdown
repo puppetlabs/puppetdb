@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "PuppetDB 1.1 FAQ"
-subtitle: "Basic Info and Troubleshooting Tips"
+subtitle: "Frequently Asked Questions"
 canonical: "/puppetdb/1.1/puppetdb-faq.html"
 ---
 
