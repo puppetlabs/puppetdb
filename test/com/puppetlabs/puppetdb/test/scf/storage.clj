@@ -10,7 +10,6 @@
         [com.puppetlabs.puppetdb.testutils.event]
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.utils :only [uuid]]
         [clojure.test]
         [clojure.math.combinatorics :only (combinations subsets)]
         [clj-time.core :only [ago from-now now days]]
