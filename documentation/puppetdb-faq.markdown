@@ -6,6 +6,13 @@ canonical: "/puppetdb/1.1/puppetdb-faq.html"
 ---
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
+[migrating]: ./migrate.html
+
+## Can I migrate my data from ActiveRecord storeconfigs or from an existing PuppetDB to a new instance?
+
+Yes.  At this time, you can only migrate exported resources from ActiveRecord, and
+you can migrate catalogs from an existing PuppetDB.  For more information, see
+[Migrating Data][migrating] for more information.
 
 ## PuppetDB is complaining about a truststore or keystore file. What do I do?
 
