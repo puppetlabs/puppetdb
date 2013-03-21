@@ -20,11 +20,11 @@ Exporting data from an existing PuppetDB database
 
 If you've been trying out PuppetDB using the embedded database and are ready to move to a production environment backed by PostgreSQL, or if you'd simply like to move your data from one PostgreSQL database to another one, you can use the `puppetdb-export` command (which is available in your `/usr/sbin` directory for versions of PuppetDB >= 1.2).  All you'll need to do is run a command like this:
 
-    puppetdb-export --outfile ./my-puppetdb-export.tar.gz
+    sudo puppetdb-export --outfile ./my-puppetdb-export.tar.gz
 
 This command is intended to be run on the PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration).  If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
-    puppetdb-export --help
+    sudo puppetdb-export --help
 
 The generated tarball will contain a backup of all of your current catalog data (including exported resources).  At this time, this tool is only intended to aid in migrations while preventing any nodes from failing due to missing exported resources, so the export file does not include fact or report data.
 
@@ -38,9 +38,9 @@ Importing data to a new PuppetDB database
 
 Once you have an export tarball and a new PuppetDB server up and running that you would like to import your data into, use the `puppetdb-import` command to do so.  (This command is available in your `/usr/sbin` directory in versions of PuppetDB >= 1.2.) The syntax will look something like this:
 
-    puppetdb-import --infile ./my-puppetdb-export.tar.gz
+    sudo puppetdb-import --infile ./my-puppetdb-export.tar.gz
 
 This command is intended to be run on the new PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration).  If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
-    puppetdb-import --help
+    sudo puppetdb-import --help
 
