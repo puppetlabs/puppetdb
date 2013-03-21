@@ -13,13 +13,15 @@ canonical: "/puppetdb/1.1/install_from_packages.html"
 [configure_jetty]: ./configure.html#jetty-http-settings
 [requirements]: ./index.html#standard-install-rhel-centos-debian-ubuntu-or-fedora
 [module]: ./install_via_module.html
+[migrating]: ./migrate.html
 
 This page describes how to manually install and configure PuppetDB from the official packages. **In general, we recommend that you [use the puppetlabs-puppetdb module][module] instead,** since automation makes your whole infrastructure better. See [the "Install via Module" page][module] for more details.
 
 However, these instructions may be useful for understanding the various moving parts, or in cases where you must create your own PuppetDB module. 
 
 > **Notes:**
-> 
+>
+> * If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
 > * After following these instructions, you should [connect your puppet master(s) to PuppetDB][connect_master]. (If you use a standalone Puppet deployment, you will need to [connect every node to PuppetDB][connect_apply].)
 > * These instructions are for [platforms with official PuppetDB packages][requirements]. To install on other systems, you should instead follow [the instructions for installing from source](./install_from_source.html).
 > * If this is a production deployment, [review the scaling recommendations](./scaling_recommendations.html) before installing. You should ensure your PuppetDB server will be able to comfortably handle your site's load. 

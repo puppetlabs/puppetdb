@@ -6,10 +6,14 @@ canonical: "/puppetdb/1.1/install_via_module.html"
 
 [module]: http://forge.puppetlabs.com/puppetlabs/puppetdb
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
+[migrating]: ./migrate.html
 
 You can install and configure all of PuppetDB's components and prerequisites (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems, and the
 terminus plugins for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge. This is the **easiest method** for installing PuppetDB. 
 
+> **Note:**
+>
+> If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
 
 Step 1: Enable the Puppet Labs Package Repository
 -----
