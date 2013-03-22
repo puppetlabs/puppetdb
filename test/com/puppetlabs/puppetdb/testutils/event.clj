@@ -23,5 +23,5 @@
 
 (defn resource-events-query-result
   [query]
-  (set (->> (query/resource-event-query->sql query)
-         (query/query-resource-events))))
+  (set (->> (query/query->sql query)
+            (query/query-resource-events))))

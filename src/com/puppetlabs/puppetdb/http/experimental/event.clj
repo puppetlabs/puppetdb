@@ -64,7 +64,7 @@
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
-          (query/resource-event-query->sql)
+          (query/query->sql)
           (query/query-resource-events)
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
