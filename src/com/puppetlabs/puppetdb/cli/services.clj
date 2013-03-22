@@ -45,6 +45,7 @@
 (ns com.puppetlabs.puppetdb.cli.services
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.command :as command]
+            [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
@@ -137,6 +138,17 @@
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
 
+(defn compress-dlo!
+  "Compresses discarded message which are older than `dlo-compression-threshold`."
+  [dlo dlo-compression-threshold]
+  (try
+    (pl-utils/demarcate
+      (format "compression of discarded messages (threshold: %s)"
+              (format-period dlo-compression-threshold))
+      (dlo/compress! dlo dlo-compression-threshold))
+    (catch Exception e
+      (log/error e "Error while compressing discarded messages"))))
+
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
   This basically just wraps the corresponding scf.storage function with some
@@ -202,43 +214,45 @@
   "Helper function that munges the supported permutations of our GC-related
   `ttl` and interval settings (if present) from their config file
   representation to our internal representation as Period objects."
-  [{:keys [node-ttl-days] :as database}]
-  {:pre  [(map? database)]
+  [{:keys [database command-processing] :as config :or {database {}}}]
+  {:pre  [(map? config)]
    :post [(map? %)
           (= (dissoc database :gc-interval :report-ttl :node-purge-ttl :node-ttl :node-ttl-days)
-             (dissoc % :gc-interval :report-ttl :node-purge-ttl :node-ttl))
-          (every? period? (map % [:node-ttl :node-purge-ttl :report-ttl :gc-interval]))]}
+             (dissoc (:database %) :gc-interval :report-ttl :node-purge-ttl :node-ttl))
+          (period? (get-in % [:command-processing :dlo-compression-threshold]))
+          (every? period? (map (:database %) [:node-ttl :node-purge-ttl :report-ttl :gc-interval]))]}
   (let [maybe-parse-period #(-?> % parse-period)
         maybe-days #(-?> % days)
         maybe-minutes #(-?> % minutes)
         gc-interval-default (minutes 60)
+        dlo-compression-default (days 1)
         ;; These defaults have to be actual periods rather than nil, because
         ;; the user could explicitly specify 0, and we want to treat that the
         ;; same
         node-ttl-default (secs 0)
         node-purge-ttl-default (secs 0)
-        report-ttl-default (days 7)]
-    (-> database
-        (update-in [:gc-interval] #(or (maybe-minutes %) gc-interval-default))
-        (update-in [:report-ttl] #(or (maybe-parse-period %) report-ttl-default))
-        (update-in [:node-purge-ttl] #(or (maybe-parse-period %) (secs 0)))
-        (update-in [:node-ttl] #(or (maybe-parse-period %) (maybe-days node-ttl-days) node-ttl-default))
-        (dissoc :node-ttl-days))))
+        report-ttl-default (days 7)
+        parsed-commandproc (update-in command-processing [:dlo-compression-threshold] #(or (maybe-parse-period %) dlo-compression-default))
+        parsed-database (-> database
+                            (update-in [:gc-interval] #(or (maybe-minutes %) gc-interval-default))
+                            (update-in [:report-ttl] #(or (maybe-parse-period %) report-ttl-default))
+                            (update-in [:node-purge-ttl] #(or (maybe-parse-period %) (secs 0)))
+                            (update-in [:node-ttl] #(or (maybe-parse-period %) (maybe-days (:node-ttl-days database)) node-ttl-default))
+                            (dissoc :node-ttl-days))]
+    (assoc config :database parsed-database :command-processing parsed-commandproc)))
 
 (defn configure-database
   "Update the supplied config map with information about the database. Adds a
-  default hsqldb and a gc-interval of 60 minutes. If a single part of the
-  database information is specified (such as classname but not subprotocol), no
-  defaults will be filled in."
+  default hsqldb. If a single part of the database information is specified
+  (such as classname but not subprotocol), no defaults will be filled in."
   [{:keys [database global] :as config}]
   {:pre  [(map? config)]
    :post [(map? config)]}
   (let [vardir       (:vardir global)
         default-db   {:classname   "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
-                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
-        db           (configure-gc-params (or database default-db))]
-    (assoc config :database db)))
+                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
+    (assoc config :database (or database default-db))))
 
 (defn normalize-product-name
   "Checks that `product-name` is specified as a legal value, throwing an
@@ -308,6 +322,7 @@
         (configure-commandproc-threads)
         (configure-web-server)
         (configure-database)
+        (configure-gc-params)
         (set-global-configuration!))))
 
 (defn on-shutdown
@@ -341,6 +356,7 @@
         node-ttl                                   (get database :node-ttl)
         node-purge-ttl                             (get database :node-purge-ttl)
         report-ttl                                 (get database :report-ttl)
+        dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
         mq-dir                                     (str (file vardir "mq"))
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db               db
@@ -398,6 +414,9 @@
             gc-task (fn [f & args] (apply interspaced gc-interval-millis f job-pool args))]
 
         (gc-task #(garbage-collect! db))
+
+        (when (pos? (to-secs dlo-compression-threshold))
+          (gc-task #(compress-dlo! discard-dir dlo-compression-threshold)))
 
         ;; We splay these a bit to hopefully reduce DB contention.
         (when (pos? (to-secs node-ttl))

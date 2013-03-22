@@ -7,9 +7,9 @@
   (:import [java.io Closeable File OutputStream FileOutputStream IOException InputStream FileInputStream]
            [org.apache.commons.compress.archivers.tar TarArchiveEntry TarArchiveOutputStream TarArchiveInputStream]
            [org.apache.commons.compress.compressors.gzip GzipCompressorOutputStream GzipCompressorInputStream])
-  (:use    [clojure.java.io]
-           [clj-time.core :only [now]]
-           [clj-time.coerce :only [to-date]]))
+  (:use [clojure.java.io]
+        [clj-time.core :only [now]]
+        [clj-time.coerce :only [to-date]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [tar-stream tar-writer gzip-stream]
@@ -60,8 +60,6 @@
                        "expected String, File, or InputStream")
                (type in))))))
 
-
-
 (defn tarball-writer
   "Returns a `TarGzWriter` object, which can be used to write entries to a
   tar/gzip archive.  The input to this function is either a filename, a File
@@ -94,6 +92,15 @@
     (.write tar-writer data)
     (.flush tar-writer)
     (.closeArchiveEntry tar-stream)))
+
+;; Lovingly adapted from fs
+(defn tar
+  "Creates a tar file called `filename` consisting of the files specified as
+  filename/content pairs."
+  [filename & filename-content-pairs]
+  (with-open [tarball (tarball-writer filename)]
+    (doseq [[filename content] filename-content-pairs]
+      (add-entry tarball filename content))))
 
 (defn tarball-reader
   "Returns a `TarGzReader` object, which can be used to read entries from a

@@ -1,8 +1,13 @@
 (ns com.puppetlabs.puppetdb.command.dlo
   (:require [clojure.string :as string]
+            [com.puppetlabs.archive :as archive]
             [com.puppetlabs.utils :as pl-utils]
-            [cheshire.core :as json])
-  (:use [clojure.java.io :only [file make-parents]]))
+            [clj-time.format :as time-format]
+            [cheshire.core :as json]
+            [fs.core :as fs])
+  (:use [clojure.java.io :only [file make-parents]]
+        [clj-time.core :only [ago after?]]
+        [com.puppetlabs.time :only [period?]]))
 
 (defn summarize-attempt
   "Convert an 'attempt' annotation for a message into a string summary,
@@ -45,3 +50,98 @@
         filename (file dir subdir basename)]
     (make-parents filename)
     (spit filename contents)))
+
+(defn- subdirectories
+  "Returns the list of subdirectories of the DLO `dir`."
+  [dir]
+  {:pre [(or (string? dir)
+             (instance? java.io.File dir))]
+   :post [(every? (partial instance? java.io.File) %)]}
+  (filter fs/directory? (.listFiles (file dir))))
+
+(defn messages
+  "Returns the list of messages in the given DLO `subdir`. This is every file
+  except the .tgz or .partial files."
+  [subdir]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]
+   :post [(every? (partial instance? java.io.File) %)]}
+  (filter #(and (fs/file? %)
+                (not (#{".tgz" ".partial"} (fs/extension %))))
+          (.listFiles subdir)))
+
+(defn compressible-files
+  "Lists the compressible files in the DLO subdirectory `subdir`. These are
+  non-tgz files older than `threshold`."
+  [subdir threshold]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]
+   :post [(every? (partial instance? java.io.File) %)]}
+  (let [cutoff-time (.getMillis (ago threshold))
+        file-filter #(and
+                       (fs/file? %)
+                       (not= (fs/extension %) ".tgz")
+                       (< (fs/mod-time %) cutoff-time))]
+    (filter file-filter (messages subdir))))
+
+(defn archives
+  "Returns the list of message archives in the given DLO `subdir`."
+  [subdir]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]
+   :post [(every? (partial instance? java.io.File) %)]}
+  (fs/glob (file subdir "*.tgz")))
+
+(defn last-archived
+  "Returns the timestamp of the latest archive file in DLO `subdir`, indicating
+  the most recent time the directory was archived."
+  [subdir]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]
+   :post [(or (nil? %)
+              (pl-utils/datetime? %))]}
+  (->> (archives subdir)
+       (map #(fs/base-name % ".tgz"))
+       (map #(time-format/parse (time-format/formatters :date-time) %))
+       (sort)
+       (last)))
+
+(defn already-archived?
+  "Returns true if this `subdir` of the DLO has already been archived within the
+  last `threshold` amount of time, and false if not. This checks if a .tgz file
+  exists with a timestamp newer than `threshold`, and ensures that we will only
+  archive once per `threshold`."
+  [subdir threshold]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]}
+  (if-let [archive-time (last-archived subdir)]
+    (after? (last-archived subdir) (ago threshold))))
+
+(defn- compress-subdir!
+  "Compresses the specified `files` in the particular command-specific
+  subdirectory `subdir`, replacing them with a timestamped .tgz file."
+  [subdir files]
+  {:pre [(or (string? subdir)
+             (instance? java.io.File subdir))]}
+  (let [target-file (file subdir (str (pl-utils/timestamp) ".tgz"))
+        temp (str target-file ".partial")]
+    (try
+      (apply archive/tar temp (map (juxt fs/base-name slurp) files))
+      (fs/rename temp target-file)
+      (doseq [filename files]
+        (fs/delete filename))
+      (finally
+        (fs/delete temp)))))
+
+(defn compress!
+  "Compresses all DLO subdirectories which have messages that have been in the
+  directory for longer than `threshold`. This will produce a timestamped .tgz
+  file in each subdirectory containing old messages."
+  [dir threshold]
+  {:pre [(or (string? dir)
+             (instance? java.io.File dir))
+         (period? threshold)]}
+  (doseq [subdir (remove #(already-archived? % threshold) (subdirectories dir))
+          :let [files (compressible-files subdir threshold)]
+          :when (seq files)]
+    (compress-subdir! subdir files)))
