@@ -9,7 +9,7 @@
         com.puppetlabs.puppetdb.examples.report
         com.puppetlabs.puppetdb.fixtures
         [clj-time.core :only [now]]
-        [clj-time.coerce :only [to-string]]
+        [clj-time.coerce :only [to-string to-long]]
         [com.puppetlabs.puppetdb.testutils :only (response-equal?)]))
 
 (def content-type-json "application/json")
@@ -28,6 +28,11 @@
 (defn get-response
   [query] (*app* (get-request "/experimental/events" query)))
 
+(defn munge-event-values
+  "Munge the event values that we get back from the web to a format suitable
+  for comparison with test data"
+  [events]
+  (map #(utils/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
 (defn expected-resource-event-response
   [resource-event report-hash]
@@ -56,6 +61,27 @@
       (let [response (get-response ["=" "report" report-hash])
             expected (expected-resource-events-response
                         (:resource-events basic)
-                        report-hash)
-            munge-event-values #(utils/maptrans {[:old-value :new-value] stringify-keys} %)]
-        (response-equal? response expected #(map munge-event-values %))))))
+                        report-hash)]
+        (response-equal? response expected munge-event-values)))
+
+    ;; NOTE: more exhaustive testing for these queries can be found in
+    ;; `com.puppetlabs.puppetdb.test.query.event`
+    (testing "should support querying resource events by timestamp"
+      (let [start-time  "2011-01-01T12:00:01-03:00"
+            end-time    "2011-01-01T12:00:03-03:00"]
+        (testing "should support single term timestamp queries"
+          (let [response (get-response ["<" "timestamp" end-time])
+                expected (expected-resource-events-response
+                            (filter #(< (to-long (:timestamp %)) (to-long end-time))
+                              (:resource-events basic))
+                            report-hash)]
+            (response-equal? response expected munge-event-values)))
+        (testing "should support compound timestamp queries"
+          (let [response (get-response ["and" [">" "timestamp" start-time]
+                                              ["<" "timestamp" end-time]])
+                expected (expected-resource-events-response
+                            (filter #(and (< (to-long (:timestamp %)) (to-long end-time))
+                                          (> (to-long (:timestamp %)) (to-long start-time)))
+                              (:resource-events basic))
+                            report-hash)]
+            (response-equal? response expected munge-event-values)))))))
