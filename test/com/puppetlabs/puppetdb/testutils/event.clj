@@ -25,3 +25,9 @@
   [query]
   (set (->> (query/query->sql query)
             (query/query-resource-events))))
+
+
+(defn resource-events-limited-query-result
+  [limit query]
+  (set (->> (query/query->sql query)
+            ((partial query/limited-query-resource-events limit)))))

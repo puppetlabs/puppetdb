@@ -4,7 +4,10 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
+  (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
+                                    underscores->dashes
+                                    valid-jdbc-query?
+                                    add-limit-clause]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
@@ -18,11 +21,13 @@
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
   (match [path]
     ["timestamp"]
-    {:where (format "resource_events.timestamp %s ?" op)
-     :params [(to-timestamp value)] }
+    (if-let [timestamp (to-timestamp value)]
+      {:where (format "resource_events.timestamp %s ?" op)
+       :params [(to-timestamp value)]}
+      (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
 
     :else (throw (IllegalArgumentException.
-                   (str op " operator does not support object " path " for resource events")))))
+                   (str op " operator does not support object '" path "' for resource events")))))
 
 (defn compile-resource-event-equality
   [& [path value :as args]]
@@ -65,15 +70,22 @@
               where)]
     (apply vector sql params)))
 
+(defn limited-query-resource-events
+  [limit [query & params]]
+  {:pre  [(and (integer? limit) (>= limit 0))]
+   :post [(or (zero? limit) (<= (count %) limit))]}
+  (let [limited-query (add-limit-clause limit query)
+        results       (limited-query-to-vec limit (apply vector limited-query params))]
+    (map
+      #(-> (utils/mapkeys underscores->dashes %)
+         (update-in [:old-value] json/parse-string)
+         (update-in [:new-value] json/parse-string))
+      results)))
+
 (defn query-resource-events
   "Take a query and its parameters, and return a vector of matching resource
   events."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (let [results (query-to-vec (apply vector sql params))]
-    (map
-      #(-> (utils/mapkeys underscores->dashes %)
-           (update-in [:old-value] json/parse-string)
-           (update-in [:new-value] json/parse-string))
-      results)))
+  (limited-query-resource-events 0 (apply vector sql params)))
 
