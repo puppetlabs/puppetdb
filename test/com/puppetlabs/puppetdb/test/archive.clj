@@ -14,8 +14,8 @@
         out-stream (ByteArrayOutputStream.)]
     (testing "should be able to write a simple tarball w/o errors"
       (with-open [tar-writer (archive/tarball-writer out-stream)]
-        (archive/add-entry tar-writer (:path bazfile) (:content bazfile))
-        (archive/add-entry tar-writer (:path blingfile) (:content blingfile))))
+        (archive/add-entry tar-writer "UTF-8" (:path bazfile) (:content bazfile))
+        (archive/add-entry tar-writer "UTF-8" (:path blingfile) (:content blingfile))))
 
     (with-open [in-stream (ByteArrayInputStream. (.toByteArray out-stream))]
       (with-open [tar-reader (archive/tarball-reader in-stream)]

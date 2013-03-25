@@ -75,18 +75,20 @@
 
 (defn add-entry
   "Add an entry to a tar/gzip archive.  The arguments are:
-  - writer : a `TarGzWriter` (see `tarball-writer`) to write to
-  - path   : a String or File defining the path (relative to the root of the archive)
-             for this entry
-  - data   : a String containing the data to write as the tar entry"
-  [^TarGzWriter writer path data]
+  - writer   : a `TarGzWriter` (see `tarball-writer`) to write to
+  - path     : a String or File defining the path (relative to the root of the archive)
+  for this entry
+  - data     : a String containing the data to write as the tar entry
+  - encoding : a String specifying the encoding of the data; defaults to UTF-8"
+  [^TarGzWriter writer encoding path data]
   {:pre  [(instance? TarGzWriter writer)
+          (string? encoding)
           (string? path)
-          (string? data)]}
+          (string? data) ]}
   (let [tar-stream (:tar-stream writer)
         tar-writer (:tar-writer writer)
         tar-entry  (TarArchiveEntry. path)]
-    (.setSize tar-entry (count data))
+    (.setSize tar-entry (count (.getBytes data encoding)))
     (.setModTime tar-entry (to-date (now)))
     (.putArchiveEntry tar-stream tar-entry)
     (.write tar-writer data)
@@ -96,11 +98,13 @@
 ;; Lovingly adapted from fs
 (defn tar
   "Creates a tar file called `filename` consisting of the files specified as
-  filename/content pairs."
-  [filename & filename-content-pairs]
+  filename/content pairs, with content specified in `encoding`."
+  [filename encoding & filename-content-pairs]
+  {:pre [(string? filename)
+         (string? encoding)]}
   (with-open [tarball (tarball-writer filename)]
     (doseq [[filename content] filename-content-pairs]
-      (add-entry tarball filename content))))
+      (add-entry tarball encoding filename content))))
 
 (defn tarball-reader
   "Returns a `TarGzReader` object, which can be used to read entries from a
@@ -169,7 +173,3 @@
         buffer       (char-array entry-length)]
     (.read tar-reader buffer 0 entry-length)
     (String. buffer)))
-
-
-
-

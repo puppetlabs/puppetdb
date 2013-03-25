@@ -126,7 +126,7 @@
   (let [target-file (file subdir (str (pl-utils/timestamp) ".tgz"))
         temp (str target-file ".partial")]
     (try
-      (apply archive/tar temp (map (juxt fs/base-name slurp) files))
+      (apply archive/tar temp "UTF-8" (map (juxt fs/base-name slurp) files))
       (fs/rename temp target-file)
       (doseq [filename files]
         (fs/delete filename))
