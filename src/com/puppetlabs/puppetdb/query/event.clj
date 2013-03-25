@@ -12,8 +12,10 @@
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
 
-
 (defn compile-resource-event-inequality
+  "Compile a timestamp inequality for a resource event query (> < >= <=).
+  The `value` for comparison must be coercible to a timestamp via
+  `clj-time.coerce/to-timestamp` (e.g., an ISO-8601 compatible date-time string)."
   [& [op path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
@@ -30,6 +32,8 @@
                    (str op " operator does not support object '" path "' for resource events")))))
 
 (defn compile-resource-event-equality
+  "Compile an = predicate for resource event fact query. `path` represents the field to
+  query against, and `value` is the value."
   [& [path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
@@ -44,6 +48,8 @@
                    (str path " is not a queryable object for resource events")))))
 
 (defn resource-event-ops
+  "Maps resource event query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
   [op]
   (let [op (string/lower-case op)]
     (cond
@@ -71,6 +77,10 @@
     (apply vector sql params)))
 
 (defn limited-query-resource-events
+  "Take a limit, a query, and its parameters, and return a vector of resource
+   events which match.  Throws an exception if the query would
+   return more than `limit` results.  (A value of `0` for `limit` means
+   that the query should not be limited.)"
   [limit [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
