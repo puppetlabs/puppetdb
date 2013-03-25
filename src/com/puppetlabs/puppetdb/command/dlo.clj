@@ -115,7 +115,7 @@
   {:pre [(or (string? subdir)
              (instance? java.io.File subdir))]}
   (if-let [archive-time (last-archived subdir)]
-    (after? (last-archived subdir) (ago threshold))))
+    (after? archive-time (ago threshold))))
 
 (defn- compress-subdir!
   "Compresses the specified `files` in the particular command-specific

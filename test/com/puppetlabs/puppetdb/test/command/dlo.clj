@@ -3,7 +3,7 @@
             [fs.core :as fs]
             [com.puppetlabs.utils :as pl-utils])
   (:use [clojure.test]
-        [clj-time.core :only [years days ago now]]
+        [clj-time.core :only [years days secs ago now]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.time :only [to-millis]]
         [com.puppetlabs.puppetdb.command.dlo]))
@@ -98,6 +98,7 @@
 (deftest dlo-compression
   (let [dlo (fs/temp-dir)
         threshold (days 7)
+        short-threshold (secs 0)
         stale-timestamp (.getMillis (ago (days 8)))]
     (testing "should work with no subdirectories"
       (compress! "non-existent-dir" (days 7))
@@ -136,4 +137,11 @@
           (is (= 1 (count (messages subdir))))
           (is (= 1 (count (messages other-subdir))))
           (is (= 1 (count (archives subdir))))
-          (is (= 1 (count (archives other-subdir)))))))))
+          (is (= 1 (count (archives other-subdir)))))
+
+        (testing "should archive subdirectories again after the threshold has passed"
+          (compress! dlo short-threshold)
+          (is (empty? (messages subdir)))
+          (is (empty? (messages other-subdir)))
+          (is (= 2 (count (archives other-subdir))))
+          (is (= 2 (count (archives other-subdir)))))))))
