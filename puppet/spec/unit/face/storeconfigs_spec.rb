@@ -49,7 +49,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
     def tgz_to_hash(filename)
       # List the files in the archive, ignoring directories (whose names end
       # with /), and stripping the leading puppetdb-bak.
-      files = `tar tf #{filename}`.lines.map(&:chomp).reject {|fname| fname[-1,1] == '/'}.map {|fname| fname.sub('puppetdb-bak/', '')}
+      files = `tar tf #{filename}`.lines.map(&:chomp).reject { |fname| fname[-1,1] == '/'}.map {|fname| fname.sub('puppetdb-bak/', '') }
 
       # Get the content of the files, one per line. Thank goodness they're a
       # single line each.
@@ -103,9 +103,24 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
         data.keys.should =~ ['name', 'version', 'edges', 'resources']
 
         data['name'].should == 'foo'
-        data['edges'].should == []
+        data['edges'].should == [{
+          'source' => {'type' => 'Stage', 'title' => 'main'},
+          'target' => {'type' => 'Notify', 'title' => 'exported'},
+          'relationship' => 'contains',
+        }]
 
-        data['resources'].first.should == {
+        data['resources'].should include({
+          'type'       => 'Stage',
+          'title'      => 'main',
+          'exported'   => false,
+          'tags'       => ['stage', 'main'],
+          'aliases'    => [],
+          'file'       => nil,
+          'line'       => nil,
+          'parameters' => {},
+        })
+
+        data['resources'].should include({
           'type'       => 'Notify',
           'title'      => 'exported',
           'exported'   => true,
@@ -116,10 +131,10 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
           'parameters' => {
             'message' => 'exported',
           },
-        }
+        })
       end
 
-      it "should only include exported resources" do
+      it "should only include exported resources and Stage[main]" do
         filename = subject.export
 
         results = tgz_to_hash(filename)
@@ -131,8 +146,15 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
         data = catalog['data']
         data['name'].should == 'foo'
 
-        data['resources'].map {|resource| [resource['type'], resource['title']]}.should == [['Notify', 'exported']]
-        data['resources'].should be_all {|resource| resource['exported'] == true}
+        data['edges'].map do |edge|
+          [edge['source']['type'], edge['source']['title'], edge['relationship'], edge['target']['type'], edge['target']['title']]
+        end.should == [['Stage', 'main', 'contains', 'Notify', 'exported']]
+
+        data['resources'].map { |resource| [resource['type'], resource['title']] }.should == [['Notify', 'exported'], ['Stage', 'main']]
+
+        notify = data['resources'].find {|resource| resource['type'] == 'Notify'}
+
+        notify['exported'].should == true
       end
 
       it "should exclude nodes with no exported resources" do
