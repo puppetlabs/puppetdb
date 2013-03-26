@@ -35,7 +35,7 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
         nodes = Puppet::Rails::Host.all(:include => {:resources => [:param_values, :puppet_tags]},
                                         :conditions => {:resources => {:exported => true}})
 
-        catalogs = nodes.map {|node| node_to_catalog_hash(node)}
+        catalogs = nodes.map { |node| node_to_catalog_hash(node) }
 
         catalog_dir = File.join(workdir, 'catalogs')
         FileUtils.mkdir(catalog_dir)
@@ -112,7 +112,8 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
   end
 
   def node_to_catalog_hash(node)
-    resources = node.resources.map {|resource| resource_to_hash(resource)}
+    resources = node.resources.map { |resource| resource_to_hash(resource) }
+    edges = node.resources.map { |resource| resource_to_edge_hash(resource) }
 
     {
       :metadata => {
@@ -121,8 +122,8 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
       :data => {
         :name => node.name,
         :version => node.last_compile || Time.now,
-        :edges => [],
-        :resources => resources,
+        :edges => edges,
+        :resources => resources + [stage_main_hash],
       },
     }
   end
@@ -134,15 +135,36 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
 
     tags = resource.puppet_tags.map(&:name).uniq.sort
 
-    {
+    hash = {
       :type       => resource.restype,
       :title      => resource.title,
       :exported   => true,
       :parameters => parameters,
       :tags       => tags,
-      :aliases    => [],
-      :file       => resource.file,
-      :line       => resource.line,
+    }
+
+    hash[:file] = resource.file if resource.file
+    hash[:line] = resource.line if resource.line
+
+    hash
+  end
+
+  # The catalog *must* have edges, so everything is contained by Stage[main]!
+  def resource_to_edge_hash(resource)
+    {
+      'source' => {'type' => 'Stage', 'title' => 'main'},
+      'target' => {'type' => resource.restype, 'title' => resource.title},
+      'relationship' => 'contains',
+    }
+  end
+
+  def stage_main_hash
+    {
+      :type       => 'Stage',
+      :title      => 'main',
+      :exported   => false,
+      :parameters => {},
+      :tags       => ['stage', 'main'],
     }
   end
 end
