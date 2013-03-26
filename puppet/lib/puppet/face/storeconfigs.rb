@@ -135,16 +135,18 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
 
     tags = resource.puppet_tags.map(&:name).uniq.sort
 
-    {
+    hash = {
       :type       => resource.restype,
       :title      => resource.title,
       :exported   => true,
       :parameters => parameters,
       :tags       => tags,
-      :aliases    => [],
-      :file       => resource.file,
-      :line       => resource.line,
     }
+
+    hash[:file] = resource.file if resource.file
+    hash[:line] = resource.line if resource.line
+
+    hash
   end
 
   # The catalog *must* have edges, so everything is contained by Stage[main]!
@@ -163,9 +165,6 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
       :exported   => false,
       :parameters => {},
       :tags       => ['stage', 'main'],
-      :aliases    => [],
-      :file       => nil,
-      :line       => nil,
     }
   end
 end

@@ -114,9 +114,6 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
           'title'      => 'main',
           'exported'   => false,
           'tags'       => ['stage', 'main'],
-          'aliases'    => [],
-          'file'       => nil,
-          'line'       => nil,
           'parameters' => {},
         })
 
@@ -125,9 +122,6 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
           'title'      => 'exported',
           'exported'   => true,
           'tags'       => ['exported', 'notify'],
-          'aliases'    => [],
-          'file'       => nil,
-          'line'       => nil,
           'parameters' => {
             'message' => 'exported',
           },
