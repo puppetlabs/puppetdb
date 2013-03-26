@@ -446,9 +446,15 @@ module PuppetDBExtensions
     meta
   end
 
+  def munge_resource_for_comparison(resource)
+    resource['tags'] = Set.new(resource['tags'])
+    resource
+  end
+
   def munge_catalog_for_comparison(cat_path)
     meta = JSON.parse(File.read(cat_path))
-    meta["data"]["resources"] = Set.new(meta["data"]["resources"])
+    munged_resources = meta["data"]["resources"].map { |resource| munge_resource_for_comparison(resource) }
+    meta["data"]["resources"] = Set.new(munged_resources)
     meta
   end
 
