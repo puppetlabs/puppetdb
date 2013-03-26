@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.experimental.event
   (:require [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json])
   (:use clojure.test
@@ -84,4 +85,13 @@
                                           (> (to-long (:timestamp %)) (to-long start-time)))
                               (:resource-events basic))
                             report-hash)]
-            (response-equal? response expected munge-event-values)))))))
+            (response-equal? response expected munge-event-values)))))
+
+
+    (testing "query exceeding event-query-limit"
+      (with-http-app {:event-query-limit 1}
+        (fn []
+          (let [response (get-response ["=" "report" report-hash])
+                body     (get response :body "null")]
+            (is (= (:status response) pl-http/status-internal-error))
+            (is (re-find #"more than the maximum number of results" body))))))))

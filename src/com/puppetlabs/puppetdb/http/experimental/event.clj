@@ -55,17 +55,21 @@
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given a query and a database connection, return a Ring response with the
-  query results.  The result format conforms to that documented above.
+  "Given a `limit`, a query and a database connection, return a Ring response
+  with the query results.  The result format conforms to that documented above.
 
-  If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query db]
+  If the query can't be parsed, an HTTP `Bad Request` (400) is returned.
+
+  If the query would return more than `limit` results, `status-internal-error`
+  is returned."
+  [limit query db]
+  {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
           (query/query->sql)
-          (query/query-resource-events)
+          ((partial query/limited-query-resource-events limit))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -79,6 +83,7 @@
     [""]
     {:get (fn [{:keys [params globals]}]
           (produce-body
+            (:event-query-limit globals)
             (params "query")
             (:scf-db globals)))}))
 
