@@ -28,7 +28,7 @@
   {:pre  [(string? host)
           (integer? port)
           (string? node)]
-   :post [(string? %)]}
+   :post [((some-fn string? nil?) %)]}
   (let [{:keys [status body]} (client/get
                                  (format
                                    "http://%s:%s/experimental/catalog/%s"
