@@ -3,9 +3,20 @@
 (ns com.puppetlabs.middleware
   (:require [com.puppetlabs.utils :as utils]
             [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr])
+            [ring.util.response :as rr]
+            [clojure.tools.logging :as log])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]))
+
+(defn wrap-with-debug-logging
+  "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
+  requests come in.  To enable, add this line to your log4j.properties:
+
+  `log4j.logger.com.puppetlabs.middleware=DEBUG`"
+  [app]
+  (fn [req]
+    (log/debug (str "Processing HTTP request to URI: '" (:uri req) "'"))
+    (app req)))
 
 (defn wrap-with-authorization
   "Ring middleware that will only pass through a request if the

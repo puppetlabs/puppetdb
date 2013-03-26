@@ -9,7 +9,7 @@
         [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
-         (wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
+         (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
         [com.puppetlabs.http :only (uri-segments json-response)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
@@ -54,6 +54,7 @@
   [& options]
   (let [opts (apply hash-map options)]
     (-> routes
+        (wrap-with-debug-logging)
         (wrap-resource "public")
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
