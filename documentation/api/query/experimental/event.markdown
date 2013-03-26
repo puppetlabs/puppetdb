@@ -21,17 +21,28 @@ For example, for all events in the report with id
 
     ["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]
 
+To retrieve all of the events within a given time period:
+
+    ["and", ["<", "timestamp", "2011-01-01T12:01:00-03:00"],
+            [">", "timestamp", "2011-01-01T12:00:00-03:00"]]
+
+* `limit`: Optional.  If specified, this should be an integer value that will be used to override the `event-query-limit` [configuration setting](../../../configure.html#event_query_limit)
+
 ##### Operators
 
-The only available [OPERATOR][] is `=`.
+See [the Operators page](./operators.html) for the full list of available operators.
+Note that inequality operators (`<`, `>`, `<=`, `>=`) are only supported against
+the `timestamp` FIELD.
 
 ##### Fields
 
-The only available FIELD is `report`, which is the unique id of the report; this
-is a hash built up from the contents of the report which allow us to distinguish
-it from other reports.  These ids can be acquired via the [`/reports`][report]
-query endpoint.
+For the equality operator (`=`), the only supported FIELD is `report`, which is
+the unique id of the report; this is a hash built up from the contents of the
+report which allow us to distinguish it from other reports.  These ids can be
+acquired via the [`/reports`][report] query endpoint.
 
+Inequality operators (`<`, `>`, `<=`, `>=`) are supported for the `timestamp`
+FIELD.  Timestamp values should be passed as an ISO-8601-formatted string.
 
 #### Response format
 
@@ -68,4 +79,4 @@ query endpoint.
 
 [You can use `curl`][curl] to query information about events like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/experimental/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]'
+    curl -G -H "Accept: application/json" 'http://localhost:8080/experimental/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]' --data-urlencode 'limit=1000'
