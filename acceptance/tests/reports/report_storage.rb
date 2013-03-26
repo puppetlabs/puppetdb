@@ -9,7 +9,7 @@ notify { "hi":
 }
 MANIFEST
 
-  tmpdir = master.tmpdir('storeconfigs')
+  tmpdir = master.tmpdir('report_storage')
 
   manifest_file = File.join(tmpdir, 'site.pp')
 
