@@ -3,8 +3,12 @@
 require 'cgi'
 require 'lib/puppet_acceptance/dsl/install_utils'
 require 'pp'
+require 'set'
+require 'test/unit/assertions'
+require 'json'
 
 module PuppetDBExtensions
+  include PuppetAcceptance::Assertions
 
   GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
 
@@ -246,6 +250,7 @@ module PuppetDBExtensions
     end
 
     on host, "rm -rf /etc/puppetdb/ssl"
+    on host, "#{LeinCommandPrefix} rake package:bootstrap"
     on host, "#{LeinCommandPrefix} rake template"
     on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
     on host, "#{LeinCommandPrefix} rake install"
@@ -296,6 +301,12 @@ module PuppetDBExtensions
     start_puppetdb(host)
   end
 
+  def clear_and_restart_puppetdb(host)
+    stop_puppetdb(host)
+    clear_database(host)
+    start_puppetdb(host)
+  end
+
   def sleep_until_queue_empty(host, timeout=nil)
     metric = "org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands"
     queue_size = nil
@@ -333,6 +344,196 @@ module PuppetDBExtensions
     end
   end
 
+  def clear_database(host)
+    case PuppetDBExtensions.config[:database]
+      when :postgres
+        on host, 'su postgres -c "dropdb puppetdb"'
+        install_postgres(host)
+      when :embedded
+        on host, "rm -rf /etc/puppetdb/conf/db/*"
+      else
+        raise ArgumentError, "Unsupported database: '#{PuppetDBExtensions.config[:database]}'"
+    end
+  end
+
+  #########################################################
+  # PuppetDB export utility functions
+  #########################################################
+  # These are for comparing puppetdb export tarballs.
+  # This seems like a pretty ridiculous place to define them,
+  # but there are no other obvious choices that I see at the
+  # moment.  Should consider moving them to a ruby utility
+  # code folder in the main PuppetDB source tree if such a
+  # thing ever materializes.
+
+  def compare_export_data(export_file1, export_file2)
+    # NOTE: I'm putting this tmpdir inside of cwd because I expect for that to
+    #  be inside of the jenkins workspace, which I'm hoping means that it will
+    #  be cleaned up regularly if we accidentally leave anything lying around
+    tmpdir = "./puppetdb_export_test_tmp"
+    export_dir1 = File.join(tmpdir, "export1")
+    export_dir2 = File.join(tmpdir, "export2")
+    FileUtils.mkdir_p(export_dir1)
+    FileUtils.mkdir_p(export_dir2)
+
+    `tar zxvf #{export_file1} -C #{export_dir1}`
+    `tar zxvf #{export_file2} -C #{export_dir2}`
+
+    export1_files = Set.new()
+    Dir.glob("#{export_dir1}/**/*") do |f|
+      relative_path = f.sub(/^#{export_dir1}\//, "")
+      export1_files.add(relative_path)
+      expected_path = File.join(export_dir2, relative_path)
+      assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+      puts "Comparing file '#{relative_path}'"
+      next if File.directory?(f)
+      export_entry_type = get_export_entry_type(relative_path)
+      case export_entry_type
+        when :catalog
+          compare_catalog(f, expected_path)
+        when :metadata
+          compare_metadata(f, expected_path)
+        when :unknown
+          fail("Unrecognized file found in archive: '#{relative_path}'")
+      end
+    end
+
+    export2_files = Set.new(
+      Dir.glob("#{export_dir2}/**/*").map { |f| f.sub(/^#{Regexp.escape(export_dir2)}\//, "") })
+    diff = export2_files - export1_files
+
+    assert(diff.empty?, "Export file '#{export_file2}' contains extra file entries: '#{diff.to_a.join("', '")}'")
+
+    FileUtils.rm_rf(tmpdir)
+  end
+
+  def get_export_entry_type(path)
+    case path
+      when "puppetdb-bak/export-metadata.json"
+        :metadata
+      when /^puppetdb-bak\/catalogs\/.*\.json$/
+        :catalog
+      else
+        :unknown
+    end
+  end
+
+
+  def compare_catalog(cat1_path, cat2_path)
+    cat1 = munge_catalog_for_comparison(cat1_path)
+    cat2 = munge_catalog_for_comparison(cat2_path)
+
+    diff = hash_diff(cat1, cat2)
+    if (diff)
+      diff = JSON.pretty_generate(diff)
+    end
+
+    assert(diff == nil, "Catalogs '#{cat1_path}' and '#{cat2_path}' don't match!' Diff:\n#{diff}")
+  end
+
+  def compare_metadata(meta1_path, meta2_path)
+    meta1 = munge_metadata_for_comparison(meta1_path)
+    meta2 = munge_metadata_for_comparison(meta2_path)
+
+    diff = hash_diff(meta1, meta2)
+
+    assert(diff == nil, "Export metadata does not match!  Diff\n#{diff}")
+  end
+
+  def munge_metadata_for_comparison(meta_path)
+    meta = JSON.parse(File.read(meta_path))
+    meta.delete("timestamp")
+    meta
+  end
+
+  def munge_catalog_for_comparison(cat_path)
+    meta = JSON.parse(File.read(cat_path))
+    meta["data"]["resources"] = Set.new(meta["data"]["resources"])
+    meta
+  end
+
+  ##############################################################################
+  # Object diff functions
+  ##############################################################################
+  # This is horrible and really doesn't belong here, but I'm not sure where
+  # else to put it.  I need a way to do a recursive diff of a hash (which may
+  # contain nested objects whose type can be any of Hash, Array, Set, or a
+  # scalar).  The hashes may be absolutely gigantic, so if they don't match,
+  # I need a way to be able to show a small enough diff so that the user can
+  # actually figure out what's going wrong (rather than dumping out the entire
+  # gigantic string).  I searched for gems that could handle this and tried
+  # 4 or 5 different things, and couldn't find anything that suited the task,
+  # so I had to write my own.  This could use improvement, relocation, or
+  # replacement with a gem if we ever find a suitable one.
+  #
+  # UPDATE: chatted with Justin about this and he suggests creating a special
+  # puppetlabs-test-utils repo or similar and have that pulled down via
+  # bundler, once the acceptance harness is accessible as a gem.  You know,
+  # in "The Future".
+
+  # JSON gem doesn't have native support for Set objects, so we have to
+  # add this hack.
+  class ::Set
+    def to_json(arg)
+      to_a.to_json(arg)
+    end
+  end
+
+
+  def hash_diff(obj1, obj2)
+    result =
+      (obj1.keys | obj2.keys).inject({}) do |diff, k|
+        if obj1[k] != obj2[k]
+          objdiff = object_diff(obj1[k], obj2[k])
+          if (objdiff)
+            diff[k] = objdiff
+          end
+        end
+        diff
+      end
+    (result == {}) ? nil : result
+  end
+
+  def array_diff(arr1, arr2)
+    (0..([arr1.length, arr2.length].max)).inject([]) do |diff, i|
+      objdiff = object_diff(arr1[i], arr2[i])
+      if (objdiff)
+        diff << objdiff
+      end
+      diff
+    end
+  end
+
+  def set_diff(set1, set2)
+    diff1 = set1 - set2
+    diff2 = set2 - set1
+    unless (diff1.empty? and diff2.empty?)
+      [diff1, diff2]
+    end
+  end
+
+  def object_diff(obj1, obj2)
+    if (obj1.class != obj2.class)
+      [obj1, obj2]
+    else
+      case obj1
+        when Hash
+          hash_diff(obj1, obj2)
+        when Array
+          array_diff(obj1, obj2)
+        when Set
+          set_diff(obj1, obj2)
+        else
+          (obj1 == obj2) ? nil : [obj1, obj2]
+      end
+    end
+  end
+
+  ##############################################################################
+  # End Object diff functions
+  ##############################################################################
+
 end
 
+# oh dear.
 PuppetAcceptance::TestCase.send(:include, PuppetDBExtensions)
