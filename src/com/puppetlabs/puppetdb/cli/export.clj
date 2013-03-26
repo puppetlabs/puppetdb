@@ -28,7 +28,7 @@
   {:pre  [(string? host)
           (integer? port)
           (string? node)]
-   :post [(string? %)]}
+   :post [((some-fn string? nil?) %)]}
   (let [{:keys [status body]} (client/get
                                  (format
                                    "http://%s:%s/experimental/catalog/%s"
@@ -93,7 +93,7 @@
         (json/generate-string export-metadata {:pretty true}))
       ;; we can use a pmap call to retrieve the catalogs in parallel, so long
       ;; as we only touch the tar stream from a single thread.
-      (doseq [{:keys [node catalog]} (pmap get-catalog-fn nodes)]
+      (doseq [{:keys [node catalog]} (map get-catalog-fn nodes)]
         (println (format "Writing catalog for node '%s'" node))
         (archive/add-entry tar-writer
           (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
