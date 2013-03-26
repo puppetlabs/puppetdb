@@ -20,14 +20,20 @@
 ;; TODO: these might be able to be abstracted out and consolidated with the similar version
 ;; that currently resides in test.http.resource
 (defn get-request
-  [path query]
+  ([path query]
+    (get-request path query {}))
+  ([path query extra-query-params]
     (let [request (request :get path
-                      {"query" (if (string? query) query (json/generate-string query))})
+                    (assoc extra-query-params
+                      "query" (if (string? query) query (json/generate-string query))))
           headers (:headers request)]
-      (assoc request :headers (assoc headers "Accept" content-type-json))))
+      (assoc request :headers (assoc headers "Accept" content-type-json)))))
 
 (defn get-response
-  [query] (*app* (get-request "/experimental/events" query)))
+  ([query]
+    (get-response query {}))
+  ([query extra-query-params]
+    (*app* (get-request "/experimental/events" query extra-query-params))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -94,4 +100,13 @@
           (let [response (get-response ["=" "report" report-hash])
                 body     (get response :body "null")]
             (is (= (:status response) pl-http/status-internal-error))
-            (is (re-find #"more than the maximum number of results" body))))))))
+            (is (re-find #"more than the maximum number of results" body))))))
+
+    (testing "overriding event-query-limit with a query parameter"
+      (with-http-app {:event-query-limit 1}
+        (fn []
+          (let [response (get-response ["=" "report" report-hash] {"limit" 500})
+                expected (expected-resource-events-response
+                            (:resource-events basic)
+                            report-hash)]
+            (response-equal? response expected munge-event-values)))))))

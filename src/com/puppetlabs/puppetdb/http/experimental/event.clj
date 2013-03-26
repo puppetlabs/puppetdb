@@ -47,6 +47,7 @@
 
 (ns com.puppetlabs.puppetdb.http.experimental.event
   (:require [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.event :as query]
             [cheshire.core :as json]
             [ring.util.response :as rr])
@@ -78,14 +79,18 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
+(defn- get-limit-from-params
+  [params]
+  (if-let [limit (params "limit")]
+    (pl-utils/parse-int limit)))
+
 (def routes
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
-          (produce-body
-            (:event-query-limit globals)
-            (params "query")
-            (:scf-db globals)))}))
+            (let [limit (or (get-limit-from-params params)
+                            (:event-query-limit globals))]
+              (produce-body limit (params "query") (:scf-db globals))))}))
 
 (def events-app
   "Ring app for querying events"
