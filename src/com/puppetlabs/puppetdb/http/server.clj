@@ -54,11 +54,11 @@
   [& options]
   (let [opts (apply hash-map options)]
     (-> routes
-        (wrap-with-debug-logging)
         (wrap-resource "public")
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
         (wrap-with-metrics (atom {}) #(first (uri-segments %)))
-        (wrap-with-globals (opts :globals)))))
+        (wrap-with-globals (opts :globals))
+        (wrap-with-debug-logging))))
