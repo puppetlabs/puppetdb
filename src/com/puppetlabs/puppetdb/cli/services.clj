@@ -97,7 +97,7 @@
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
   for more than `node-ttl`."
-  [db node-ttl]
+  [node-ttl db]
   {:pre [(map? db)
          (period? node-ttl)]}
   (try
@@ -112,7 +112,7 @@
 
 (defn purge-nodes!
   "Delete nodes which have been *deactivated* longer than `node-purge-ttl`."
-  [db node-purge-ttl]
+  [node-purge-ttl db]
   {:pre [(map? db)
          (period? node-purge-ttl)]}
   (try
@@ -126,7 +126,7 @@
 
 (defn sweep-reports!
   "Delete reports which are older than than `report-ttl`."
-  [db report-ttl]
+  [report-ttl db]
   {:pre [(map? db)
          (period? report-ttl)]}
   (try
@@ -162,6 +162,16 @@
         (scf-store/garbage-collect!)))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
+
+(defn perform-db-maintenance!
+  "Runs the full set of database maintenance tasks in `fns` on `db` in order.
+  Has no error-handling of its own, so all `fns` must handle their own errors.
+  The purpose of this function is primarily to serialize these tasks, to avoid
+  concurrent long-running database tasks."
+  [db & fns]
+  {:pre [(map? db)]}
+  (doseq [f fns]
+    (f db)))
 
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
@@ -411,22 +421,17 @@
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [gc-interval-millis (to-millis gc-interval)
-            gc-task (fn [f & args] (apply interspaced gc-interval-millis f job-pool args))]
+            gc-task (fn [f] (apply interspaced gc-interval-millis f job-pool))
+            db-maintenance-tasks [garbage-collect!
+                                  (when (pos? (to-secs node-ttl))
+                                    (partial auto-deactivate-nodes! node-ttl))
+                                  (when (pos? (to-secs node-purge-ttl))
+                                    (partial purge-nodes! node-purge-ttl))
+                                  (when (pos? (to-secs report-ttl))
+                                    (partial sweep-reports! report-ttl))]]
 
-        (gc-task #(garbage-collect! db))
-
-        (when (pos? (to-secs dlo-compression-threshold))
-          (gc-task #(compress-dlo! discard-dir dlo-compression-threshold)))
-
-        ;; We splay these a bit to hopefully reduce DB contention.
-        (when (pos? (to-secs node-ttl))
-          (gc-task #(auto-deactivate-nodes! db node-ttl) :initial-delay (* gc-interval-millis 1/4)))
-
-        (when (pos? (to-secs node-purge-ttl))
-          (gc-task #(purge-nodes! db node-purge-ttl) :initial-delay (* gc-interval-millis 2/4)))
-
-        (when (pos? (to-secs report-ttl))
-          (gc-task #(sweep-reports! db report-ttl) :initial-delay (* gc-interval-millis 3/4))))
+        (gc-task #(apply perform-db-maintenance! db (remove nil? db-maintenance-tasks)))
+        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir )))
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
