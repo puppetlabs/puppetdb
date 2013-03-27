@@ -143,12 +143,8 @@
   {:pre [(or (string? subdir)
              (instance? java.io.File subdir))]
    :post [(every? (partial instance? java.io.File) %)]}
-  (let [cutoff-time (.getMillis (ago threshold))
-        file-filter #(and
-                       (fs/file? %)
-                       (not= (fs/extension %) ".tgz")
-                       (< (fs/mod-time %) cutoff-time))]
-    (filter file-filter (messages subdir))))
+  (let [cutoff-time (.getMillis (ago threshold))]
+    (filter #(< (fs/mod-time %) cutoff-time) (messages subdir))))
 
 (defn already-archived?
   "Returns true if this `subdir` of the DLO has already been archived within the
