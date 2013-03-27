@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.2 » Migrating Data"
 layout: default
-canonical: "/puppetdb/1.2/migrate.html"
+canonical: "/puppetdb/latest/migrate.html"
 ---
 
 Migrating from ActiveRecord storeconfigs
