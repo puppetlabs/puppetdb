@@ -61,11 +61,12 @@
 (defn- create-metrics-for-dlo!
   "Creates the standard set of global metrics."
   [dir]
-  (swap! metrics assoc-in [:global :compression] (timer [ns-str "global" "compression"]))
-  (swap! metrics assoc-in [:global :compression-failures] (meter [ns-str "global" "compression-failures"] "failures/s"))
-  (swap! metrics assoc-in [:global :filesize] (gauge [ns-str "global" "filesize"] (FileUtils/sizeOf dir)))
-  (swap! metrics assoc-in [:global :messages] (gauge [ns-str "global" "messages"] (count (mapcat messages (subdirectories dir)))))
-  (swap! metrics assoc-in [:global :archives] (gauge [ns-str "global" "archives"] (count (mapcat archives (subdirectories dir))))))
+  (when-not (:global @metrics)
+    (swap! metrics assoc-in [:global :compression] (timer [ns-str "global" "compression"]))
+    (swap! metrics assoc-in [:global :compression-failures] (meter [ns-str "global" "compression-failures"] "failures/s"))
+    (swap! metrics assoc-in [:global :filesize] (gauge [ns-str "global" "filesize"] (FileUtils/sizeOf dir)))
+    (swap! metrics assoc-in [:global :messages] (gauge [ns-str "global" "messages"] (count (mapcat messages (subdirectories dir)))))
+    (swap! metrics assoc-in [:global :archives] (gauge [ns-str "global" "archives"] (count (mapcat archives (subdirectories dir)))))))
 
 (defn- create-metrics-for-subdir!
   "Creates the standard set of metrics for the given `subdir`, using its
@@ -73,12 +74,13 @@
   [subdir]
   (let [subdir-name (fs/base-name subdir)
         prefix [ns-str subdir-name]]
-    (swap! metrics assoc-in [subdir-name :compression] (timer (conj prefix "compression")))
-    (swap! metrics assoc-in [subdir-name :compression-failures] (meter (conj prefix "compression-failures") "failures/s"))
-    (swap! metrics assoc-in [subdir-name :filesize] (gauge (conj prefix "filesize") (FileUtils/sizeOf subdir)))
-    (swap! metrics assoc-in [subdir-name :messages] (gauge (conj prefix "messages") (count (messages subdir))))
-    (swap! metrics assoc-in [subdir-name :archives] (gauge (conj prefix "archives") (count (archives subdir))))
-    (swap! metrics assoc-in [subdir-name :last-archived] (gauge (conj prefix "archives") (last-archived subdir)))))
+    (when-not (get @metrics subdir-name)
+      (swap! metrics assoc-in [subdir-name :compression] (timer (conj prefix "compression")))
+      (swap! metrics assoc-in [subdir-name :compression-failures] (meter (conj prefix "compression-failures") "failures/s"))
+      (swap! metrics assoc-in [subdir-name :filesize] (gauge (conj prefix "filesize") (FileUtils/sizeOf subdir)))
+      (swap! metrics assoc-in [subdir-name :messages] (gauge (conj prefix "messages") (count (messages subdir))))
+      (swap! metrics assoc-in [subdir-name :archives] (gauge (conj prefix "archives") (count (archives subdir))))
+      (swap! metrics assoc-in [subdir-name :last-archived] (gauge (conj prefix "archives") (last-archived subdir))))))
 
 (defn- global-metric
   "Returns the global metric corresponding to `metric`."
