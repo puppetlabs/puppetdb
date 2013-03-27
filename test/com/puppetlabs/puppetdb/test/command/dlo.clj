@@ -106,11 +106,16 @@
 
     (testing "with subdirectories"
       (let [subdir (fs/temp-dir dlo)
-            other-subdir (fs/temp-dir dlo)]
+            other-subdir (fs/temp-dir dlo)
+            compression (get-in @metrics [:global :compression])
+            failures (get-in @metrics [:global :compression-failures])]
         (testing "should not archive empty subdirectories"
           (compress! dlo threshold)
           (is (empty? (archives subdir)))
-          (is (empty? (archives other-subdir))))
+          (is (empty? (archives other-subdir)))
+
+          (is (= 0 (.count compression)))
+          (is (= 0 (.count failures))))
 
         (testing "should not archive new messages"
           (fs/touch (fs/file subdir "foo"))
@@ -119,7 +124,10 @@
           (is (= 1 (count (messages subdir))))
           (is (= 1 (count (messages other-subdir))))
           (is (empty? (archives subdir)))
-          (is (empty? (archives other-subdir))))
+          (is (empty? (archives other-subdir)))
+
+          (is (= 0 (.count compression)))
+          (is (= 0 (.count failures))))
 
         (testing "should archive old messages in subdirectories which haven't been archived"
           (fs/touch (fs/file subdir "foo") stale-timestamp)
@@ -128,7 +136,10 @@
           (is (empty? (messages subdir)))
           (is (empty? (messages other-subdir)))
           (is (= 1 (count (archives subdir))))
-          (is (= 1 (count (archives other-subdir)))))
+          (is (= 1 (count (archives other-subdir))))
+
+          (is (= 1 (.count compression)))
+          (is (= 0 (.count failures))))
 
         (testing "should not archive subdirectories which have already been, even if there are old messages"
           (fs/touch (fs/file subdir "foo2") stale-timestamp)
@@ -137,11 +148,17 @@
           (is (= 1 (count (messages subdir))))
           (is (= 1 (count (messages other-subdir))))
           (is (= 1 (count (archives subdir))))
-          (is (= 1 (count (archives other-subdir)))))
+          (is (= 1 (count (archives other-subdir))))
+
+          (is (= 1 (.count compression)))
+          (is (= 0 (.count failures))))
 
         (testing "should archive subdirectories again after the threshold has passed"
           (compress! dlo short-threshold)
           (is (empty? (messages subdir)))
           (is (empty? (messages other-subdir)))
           (is (= 2 (count (archives other-subdir))))
-          (is (= 2 (count (archives other-subdir)))))))))
+          (is (= 2 (count (archives other-subdir))))
+
+          (is (= 2 (.count compression)))
+          (is (= 0 (.count failures))))))))
