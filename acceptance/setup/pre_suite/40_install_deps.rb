@@ -43,7 +43,7 @@ step "Install sqlite3 on master" do
   when :redhat
     on database, "yum install -y ruby-sqlite3"
   when :debian
-    on database, "apt-get install -y libsqlite3-ruby"
+    on database, "apt-get install -y libsqlite3-ruby rubygems"
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end

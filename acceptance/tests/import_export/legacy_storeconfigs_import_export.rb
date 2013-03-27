@@ -19,7 +19,13 @@ test_name "storeconfigs export and import" do
   end
 
   step "install activerecord on the master" do
-    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc"
+    # EL5 doesn't have the activerecord gem, because it's Ruby 1.8.5. So we
+    # have to use our own package of it.
+    if master['platform'] == 'el-5'
+      on master, "yum install -y rubygem-activerecord"
+    else
+      on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc"
+    end
   end
 
   step "run each agent once to populate the database" do
@@ -64,6 +70,10 @@ test_name "storeconfigs export and import" do
   end
 
   teardown do
-    on master, "gem uninstall activerecord activesupport"
+    if master['platform'] == 'el-5'
+      on master, "yum -y remove rubygem-activerecord rubygem-activesupport"
+    else
+      on master, "gem uninstall activerecord activesupport"
+    end
   end
 end
