@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "PuppetDB 1.1 » Installing PuppetDB Via Module"
-canonical: "/puppetdb/1.1/install_via_module.html"
+canonical: "/puppetdb/latest/install_via_module.html"
 ---
 
 [module]: http://forge.puppetlabs.com/puppetlabs/puppetdb

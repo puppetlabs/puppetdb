@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » API » Query Tutorial"
 layout: default
-canonical: "/puppetdb/1.1/api/query/tutorial.html"
+canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
 This page is a walkthrough for constructing several types of PuppetDB queries. It uses the **version 2 API** in all of its examples; however, most of the general principles are also applicable to the version 1 API. 

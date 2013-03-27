@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Scaling Recommendations"
 layout: default
-canonical: "/puppetdb/1.1/scaling_recommendations.html"
+canonical: "/puppetdb/latest/scaling_recommendations.html"
 ---
 
 [configure_heap]: ./configure.html#configuring-the-java-heap-size

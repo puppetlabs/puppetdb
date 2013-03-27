@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » API » v2 » Querying Metrics"
 layout: default
-canonical: "/puppetdb/1.1/api/query/v2/metrics.html"
+canonical: "/puppetdb/latest/api/query/v2/metrics.html"
 ---
 
 > **Note:** The v2 metrics endpoint is currently exactly the same as the [v1 endpoint](../v1/metrics.html).
