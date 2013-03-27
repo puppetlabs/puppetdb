@@ -76,10 +76,10 @@
 (defn add-entry
   "Add an entry to a tar/gzip archive.  The arguments are:
   - writer   : a `TarGzWriter` (see `tarball-writer`) to write to
+  - encoding : a String specifying the encoding of the data; defaults to UTF-8
   - path     : a String or File defining the path (relative to the root of the archive)
-  for this entry
-  - data     : a String containing the data to write as the tar entry
-  - encoding : a String specifying the encoding of the data; defaults to UTF-8"
+               for this entry
+  - data     : a String containing the data to write as the tar entry"
   [^TarGzWriter writer encoding path data]
   {:pre  [(instance? TarGzWriter writer)
           (string? encoding)
