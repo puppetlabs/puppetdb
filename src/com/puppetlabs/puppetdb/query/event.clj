@@ -6,8 +6,10 @@
             [cheshire.core :as json])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     underscores->dashes
+                                    dashes->underscores
                                     valid-jdbc-query?
                                     add-limit-clause]]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
@@ -40,9 +42,13 @@
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (match [path]
-    ["report"]
-    {:where "resource_events.report = ?"
+    [(field :when #{"report" "resource-type" "resource-title" "status" "property" "message"})]
+    {:where (format "resource_events.%s = ?" (dashes->underscores field))
      :params [value] }
+
+    [(field :when #{"old-value" "new-value"})]
+    {:where (format "resource_events.%s = ?" (dashes->underscores field))
+     :params [(db-serialize value)] }
 
     :else (throw (IllegalArgumentException.
                    (str path " is not a queryable object for resource events")))))

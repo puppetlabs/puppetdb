@@ -55,7 +55,7 @@
     (scf-store/add-certname! (:certname basic))
     (scf-store/add-report! basic (now))
 
-    (testing "resource event retrieval"
+    (testing "resource event retrieval by report"
       (testing "should return the list of resource events for a given report hash"
         (let [expected  (expected-resource-events (:resource-events basic) report-hash)
               actual    (resource-events-query-result ["=" "report" report-hash])]
@@ -111,15 +111,32 @@
           (is (= expected actual))
           (is (= 3 (count actual))))))
 
-      (testing "when querying with a limit"
-        (let [num-events (count (:resource-events basic))]
-          (testing "should succeed if the number of returned events is less than the limit"
-            (is (= num-events
-                  (count (resource-events-limited-query-result (inc num-events) ["=" "report" report-hash])))))
-          (testing "should fail if the number of returned events would exceed the limit"
-            (is (thrown-with-msg?
-              IllegalStateException #"Query returns more than the maximum number of results"
-              (resource-events-limited-query-result (dec num-events) ["=" "report" report-hash]))))))))
+    (testing "when querying with a limit"
+      (let [num-events (count (:resource-events basic))]
+        (testing "should succeed if the number of returned events is less than the limit"
+          (is (= num-events
+                (count (resource-events-limited-query-result (inc num-events) ["=" "report" report-hash])))))
+        (testing "should fail if the number of returned events would exceed the limit"
+          (is (thrown-with-msg?
+            IllegalStateException #"Query returns more than the maximum number of results"
+            (resource-events-limited-query-result (dec num-events) ["=" "report" report-hash]))))))
+
+    (testing "when querying for field equality"
+      (doseq [[field value] {:resource-type  "Notify"
+                             :resource-title "notify, yo"
+                             :status         "success"
+                             :property       "message"
+                             :old-value      ["what" "the" "woah"]
+                             :new-value      "notify, yo"
+                             :message        "defined 'message' as 'notify, yo'"}]
+        (testing (format "equality query on field '%s'" field)
+          (let [expected  (expected-resource-events
+                            (filter #(= value (% field))
+                              (:resource-events basic))
+                            report-hash)
+                actual    (resource-events-query-result ["=" (name field) value])]
+            (is (= expected actual))
+            (is (> (count actual) 0))))))))
 
 
 
