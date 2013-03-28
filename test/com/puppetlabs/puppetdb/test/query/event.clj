@@ -59,7 +59,7 @@
       (testing "should return the list of resource events for a given report hash"
         (let [expected  (expected-resource-events (:resource-events basic) report-hash)
               actual    (resource-events-query-result ["=" "report" report-hash])]
-          (is (= expected actual)))))
+          (is (= actual expected)))))
 
     (testing "resource event timestamp queries"
       (testing "should return the list of resource events that occurred before a given time"
@@ -69,7 +69,7 @@
                               (:resource-events basic))
                             report-hash)
               actual      (resource-events-query-result ["<" "timestamp" end-time])]
-          (is (= expected actual))
+          (is (= actual expected))
           (is (= 2 (count actual)))))
       (testing "should return the list of resource events that occurred after a given time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
@@ -78,7 +78,7 @@
                               (:resource-events basic))
                             report-hash)
               actual      (resource-events-query-result [">" "timestamp" start-time])]
-          (is (= expected actual))
+          (is (= actual expected))
           (is (= 2 (count actual)))))
       (testing "should return the list of resource events that occurred between a given start and end time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
@@ -93,7 +93,7 @@
               actual      (resource-events-query-result
                             ["and"  [">" "timestamp" start-time]
                                     ["<" "timestamp" end-time]])]
-          (is (= expected actual))
+          (is (= actual expected))
           (is (= 1 (count actual)))))
       (testing "should return the list of resource events that occurred between a given start and end time (inclusive)"
         (let [start-time  "2011-01-01T12:00:01-03:00"
@@ -108,7 +108,7 @@
               actual      (resource-events-query-result
                             ["and"   [">=" "timestamp" start-time]
                                      ["<=" "timestamp" end-time]])]
-          (is (= expected actual))
+          (is (= actual expected))
           (is (= 3 (count actual))))))
 
     (testing "when querying with a limit"
@@ -121,22 +121,47 @@
             IllegalStateException #"Query returns more than the maximum number of results"
             (resource-events-limited-query-result (dec num-events) ["=" "report" report-hash]))))))
 
-    (testing "when querying for field equality"
-      (doseq [[field value] {:resource-type  "Notify"
-                             :resource-title "notify, yo"
-                             :status         "success"
-                             :property       "message"
-                             :old-value      ["what" "the" "woah"]
-                             :new-value      "notify, yo"
-                             :message        "defined 'message' as 'notify, yo'"}]
+    (testing "equality queries"
+      (doseq [[field value num-matches]
+                  [[:resource-type  "Notify"              3]
+                   [:resource-title "notify, yo"          1]
+                   [:status         "success"             2]
+                   [:property       "message"             2]
+                   [:old-value      ["what" "the" "woah"] 1]
+                   [:new-value      "notify, yo"          1]
+                   [:message        "defined 'message' as 'notify, yo'" 2]
+                   [:resource-title "bunk"                0]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (filter #(= value (% field))
                               (:resource-events basic))
                             report-hash)
                 actual    (resource-events-query-result ["=" (name field) value])]
-            (is (= expected actual))
-            (is (> (count actual) 0))))))))
+            (is (= actual expected))
+            (is (= (count actual) num-matches))))))
+
+    (testing "compound queries"
+      (testing "'or' equality queries"
+        (doseq [[terms num-matches]
+                  [[[[:resource-title "notify, yo"]
+                     [:status         "skipped"]]       2]
+                   [[[:resource-type  "bunk"]
+                     [:resource-title "notify, yar"]]   1]
+                   [[[:resource-type  "bunk"]
+                     [:status         "bunk"]]          0]
+                   [[[:new-value      "notify, yo"]
+                     [:resource-title "notify, yar"]
+                     [:resource-title "hi"]]            3]]]
+          (let [equality-fn (fn [m [k v]] (= v (m k)))
+                expected    (expected-resource-events
+                              (filter #(some identity (map (partial equality-fn %) terms))
+                                (:resource-events basic))
+                              report-hash)
+                term-fn     (fn [[field value]] ["=" (name field) value])
+                actual      (resource-events-query-result
+                              (vec (cons "or" (map term-fn terms))))]
+            (is (= actual expected))
+            (is (= (count actual) num-matches))))))))
 
 
 

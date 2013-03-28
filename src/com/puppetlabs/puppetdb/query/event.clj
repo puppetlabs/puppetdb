@@ -10,7 +10,7 @@
                                     valid-jdbc-query?
                                     add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize]]
-        [com.puppetlabs.puppetdb.query :only [compile-term compile-and]]
+        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
 
@@ -61,6 +61,7 @@
     (cond
       (= op "=") compile-resource-event-equality
       (= op "and") (partial compile-and resource-event-ops)
+      (= op "or") (partial compile-or resource-event-ops)
       (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op))))
 
 (defn query->sql
