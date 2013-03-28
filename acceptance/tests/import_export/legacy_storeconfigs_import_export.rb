@@ -70,7 +70,7 @@ test_name "storeconfigs export and import" do
   end
 
   teardown do
-    if master['platform'.include? 'el-5'
+    if master['platform'].include? 'el-5'
       on master, "yum -y remove rubygem-activerecord rubygem-activesupport"
     else
       on master, "gem uninstall activerecord activesupport"
