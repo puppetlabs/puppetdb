@@ -187,7 +187,7 @@
   [ops query]
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (string/join ", " resource-columns) where)]
+        sql (format "SELECT certname_catalogs.certname, catalog_resources.catalog, catalog_resources.resource, catalog_resources.type, catalog_resources.title, catalog_resources.tags, catalog_resources.exported, catalog_resources.sourcefile, catalog_resources.sourceline FROM catalog_resources JOIN certname_catalogs ON certname_catalogs.catalog = catalog_resources.catalog WHERE %s"  where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
