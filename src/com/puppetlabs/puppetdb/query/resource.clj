@@ -21,9 +21,9 @@
   {:pre  [(vector? query)]
    :post [(valid-jdbc-query? %)]}
   (let [[subselect & params] (resource-query->sql operators query)
-        sql (format (str "SELECT certname, resource, type, title, tags, exported, sourcefile, sourceline, rp.name, rp.value "
+        sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rp.name, rp.value "
                          "FROM (%s) subquery1 "
-                         "LEFT OUTER JOIN resource_params rp USING(resource)")
+                         "LEFT OUTER JOIN resource_params rp ON rp.resource = subquery1.resource")
                     subselect)]
     (apply vector sql params)))
 
