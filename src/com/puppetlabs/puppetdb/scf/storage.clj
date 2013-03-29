@@ -363,7 +363,7 @@ must be supplied as the value to be matched."
           (every? string? resource-hashes)]
    :post [(set? resource-hashes)]}
   (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
-        query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
+        query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
         sql-params (vec (cons query resource-hashes))]
     (sql/with-query-results result-set
       sql-params
@@ -432,10 +432,9 @@ must be supplied as the value to be matched."
 
   The result map has the following format:
 
-    {:hashes [[<catalog hash> <resource hash>] ...]
-     :metadata [[<resouce hash> <type> <title> <exported?> <sourcefile> <sourceline>] ...]
+    {:resource [[<catalog hash> <resouce hash> <type> <title> <tags> <exported?> <sourcefile> <sourceline>] ...]
      :parameters [[<resource hash> <name> <value>] ...]
-     :tags [[<resource hash> <tag>] ...]}
+     :parameters_cache [[<resource hash> <parameters>] ...]}
 
   The result map format may seem arbitrary and confusing, but its best
   to think about it in 2 ways:
@@ -445,14 +444,17 @@ must be supplied as the value to be matched."
      by `add-resources!`"
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
-   :post [(= (set (keys %)) #{:resource :parameters})]}
-  (let [values {:resource   [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
-                :parameters []}]
+   :post [(= (set (keys %)) #{:resource :parameters :parameters_cache})]}
+  (let [values {:resource         [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
+                :parameters       []
+                :parameters_cache []}]
 
     (if persisted?
       values
-      (assoc values :parameters (for [[key value] parameters]
-                                  [resource-hash (name key) (db-serialize value)])))))
+      (assoc values
+        :parameters (for [[key value] parameters]
+                      [resource-hash (name key) (db-serialize value)])
+        :parameters_cache [[resource-hash (if parameters (db-serialize parameters))]]))))
 
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -461,7 +463,8 @@ must be supplied as the value to be matched."
         resource-values (for [[ref resource] refs-to-resources
                               :let [hash (refs-to-hashes ref)]]
                           (resource->values catalog-hash resource hash (persisted? hash)))
-        lookup-table    [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
+        lookup-table    [[:parameters_cache "INSERT INTO resource_params_cache (resource, parameters) VALUES (?, ?)"]
+                         [:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
                          [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table
@@ -630,7 +633,7 @@ must be supplied as the value to be matched."
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
-         (sql/delete-rows :resource_params ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params.resource)"])))
+         (sql/delete-rows :resource_params_cache ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params_cache.resource)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"

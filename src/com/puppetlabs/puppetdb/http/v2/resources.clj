@@ -21,7 +21,8 @@
                                (query->sql)))]
 
       (-> (pl-http/streamed-response buffer
-            (r/with-queried-resources sql params #(pl-http/stream-json % buffer)))
+            (with-transacted-connection db
+              (r/with-queried-resources sql params #(pl-http/stream-json % buffer))))
           (rr/response)
           (rr/header "Content-Type" "application/json")
           (rr/charset "utf-8")
