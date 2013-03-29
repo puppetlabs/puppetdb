@@ -17,10 +17,9 @@
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [[subselect & params] (resource-query->sql operators query)
-        sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rp.name, rp.value "
+        sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rpc.parameters "
                          "FROM (%s) subquery1 "
-                         "LEFT OUTER JOIN resource_params rp ON rp.resource = subquery1.resource "
-                         "ORDER BY certname, resource")
+                         "LEFT OUTER JOIN resource_params_cache rpc ON rpc.resource = subquery1.resource")
                     subselect)]
     (apply vector sql params)))
 
@@ -32,20 +31,9 @@
 
 (defn with-queried-resources
   [query params func]
-  (let [current                (atom nil)
-        metadata_cols          [:certname :type :title :tags :exported :sourcefile :sourceline :resource]
-        metadata               (apply juxt metadata_cols)
-        split-by-resource      #(vector (:certname %) (:resource %))
-        collapse-into-resource (fn [rows]
-                                 (let [[md params] (first (group-by metadata rows))]
-                                   (assoc (zipmap metadata_cols md) :parameters
-                                          (into {} (for [param params :when (:name param)]
-                                                     [(:name param) (json/parse-string (:value param))])))))]
-
+  (let [parse-params #(if % (json/parse-string %) {})]
     (with-query-results-cursor query params rs
-      (let [resource-seq (->> rs
-                              (partition-by split-by-resource)
-                              (map collapse-into-resource))]
+      (let [resource-seq (map #(update-in % [:parameters] parse-params) rs)]
         (func resource-seq)))))
 
 (defn query-resources

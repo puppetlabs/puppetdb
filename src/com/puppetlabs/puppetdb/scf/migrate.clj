@@ -51,11 +51,12 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [cheshire.core :as json]
             [com.puppetlabs.utils :as utils])
   (:use [clojure.set]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
-        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.jdbc :only [query-to-vec with-query-results-cursor]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
                                                     sql-current-connection-database-name
                                                     sql-current-connection-database-version]]))
@@ -296,6 +297,44 @@
   (sql/do-commands
     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
+(defn posix-collation-for-hashes
+  []
+  (when (= (sql-current-connection-database-name) "PostgreSQL")
+    (if (pos? (compare (sql-current-connection-database-version) [9 0]))
+      (let [updates {"catalog_resources" ["resource"]}]
+        (log/warn "Specifying POSIX collation for hash columns; this may take several minutes, depending on the size of your database. It will make sorting operations faster, and is totally worth it.")
+        (doseq [[table columns] updates
+                column columns]
+          (sql/do-commands
+           (format "ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(40) COLLATE \"POSIX\"" table column))))
+      (log/warn (format "Version %s of PostgreSQL is too old to support fast, column-specific collations; skipping adding POSIX collations for hashes. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
+
+(defn add-parameter-cache
+  "Creates the new resource_params_cache table, and populates it using
+  the existing parameters in the database."
+  []
+  ;; Create cache table
+  (sql/create-table :resource_params_cache
+                    ["resource" "VARCHAR(40)"]
+                    ["parameters" "TEXT" "NOT NULL"]
+                    ["PRIMARY KEY (resource)"])
+
+  (log/warn "Building resource parameters cache. This make take a few minutes, but faster resource queries are worth it.")
+
+  ;; Loop over all parameters, and insert a cache entry for each resource
+  (let [query    "SELECT resource, name, value from resource_params ORDER BY resource"
+        collapse (fn [rows]
+                   (let [resource (:resource (first rows))
+                         params   (into {} (map #(vector (:name %) (json/parse-string (:value %))) rows))]
+                     [resource params]))]
+
+    (with-query-results-cursor query [] rs
+      (let [param-sets (->> rs
+                            (partition-by :resource)
+                            (map collapse))]
+        (doseq [[resource params] param-sets]
+          (sql/insert-record :resource_params_cache {:resource resource
+                                                     :parameters   (json/generate-string params)}))))))
 
 (defn add-event-status-index
   "Add an index to the `status` column of the event table."
@@ -328,7 +367,9 @@
    8 rename-fact-column
    9 add-reports-tables
    10 add-event-status-index
-   11 increase-puppet-version-field-length})
+   11 increase-puppet-version-field-length
+   12 posix-collation-for-hashes
+   13 add-parameter-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
 

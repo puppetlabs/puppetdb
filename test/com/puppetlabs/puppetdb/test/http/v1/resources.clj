@@ -50,6 +50,12 @@ to the result of the form supplied to this method."
      {:resource "1" :name "group"  :value (db-serialize "root")}
      {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
     (sql/insert-records
+     :resource_params_cache
+     {:resource "1" :parameters (db-serialize {"ensure" "file"
+                                               "owner"  "root"
+                                               "group"  "root"
+                                               "acl"    ["john:rwx" "fred:rwx"]})})
+    (sql/insert-records
      :certnames
      {:name "one.local"}
      {:name "two.local"})
