@@ -325,7 +325,7 @@
       (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
             [{:c 7}]))
       (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params_cache"])
-            [{:c 2}]))))
+            [{:c 3}]))))
 
   (deftest catalog-delete-with-gc
     (testing "when deleted and GC'ed, should leave no dangling params or edges"

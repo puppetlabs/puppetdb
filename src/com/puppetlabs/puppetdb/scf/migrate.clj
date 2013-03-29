@@ -297,18 +297,6 @@
   (sql/do-commands
     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
-(defn posix-collation-for-hashes
-  []
-  (when (= (sql-current-connection-database-name) "PostgreSQL")
-    (if (pos? (compare (sql-current-connection-database-version) [9 0]))
-      (let [updates {"catalog_resources" ["resource"]}]
-        (log/warn "Specifying POSIX collation for hash columns; this may take several minutes, depending on the size of your database. It will make sorting operations faster, and is totally worth it.")
-        (doseq [[table columns] updates
-                column columns]
-          (sql/do-commands
-           (format "ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(40) COLLATE \"POSIX\"" table column))))
-      (log/warn (format "Version %s of PostgreSQL is too old to support fast, column-specific collations; skipping adding POSIX collations for hashes. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
-
 (defn add-parameter-cache
   "Creates the new resource_params_cache table, and populates it using
   the existing parameters in the database."
@@ -316,7 +304,7 @@
   ;; Create cache table
   (sql/create-table :resource_params_cache
                     ["resource" "VARCHAR(40)"]
-                    ["parameters" "TEXT" "NOT NULL"]
+                    ["parameters" "TEXT"]
                     ["PRIMARY KEY (resource)"])
 
   (log/warn "Building resource parameters cache. This make take a few minutes, but faster resource queries are worth it.")
@@ -334,7 +322,19 @@
                             (map collapse))]
         (doseq [[resource params] param-sets]
           (sql/insert-record :resource_params_cache {:resource resource
-                                                     :parameters   (json/generate-string params)}))))))
+                                                     :parameters   (json/generate-string params)})))))
+
+  ;; Create NULL entries for resources that have no parameters
+  (sql/do-commands
+   "INSERT INTO resource_params_cache
+    SELECT DISTINCT resource, NULL FROM catalog_resources WHERE NOT EXISTS
+    (SELECT 1 FROM resource_params WHERE resource=catalog_resources.resource)")
+
+  (sql/do-commands
+   "ALTER TABLE catalog_resources ADD FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE")
+
+  (sql/do-commands
+   "ALTER TABLE resource_params ADD FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
 
 (defn add-event-status-index
   "Add an index to the `status` column of the event table."
@@ -368,8 +368,7 @@
    9 add-reports-tables
    10 add-event-status-index
    11 increase-puppet-version-field-length
-   12 posix-collation-for-hashes
-   13 add-parameter-cache})
+   12 add-parameter-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
 

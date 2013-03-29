@@ -44,17 +44,18 @@ to the result of the form supplied to this method."
 (deftest resource-list-handler
   (with-transacted-connection *db*
     (sql/insert-records
+     :resource_params_cache
+     {:resource "1" :parameters (db-serialize {"ensure" "file"
+                                               "owner"  "root"
+                                               "group"  "root"
+                                               "acl"    ["john:rwx" "fred:rwx"]})}
+     {:resource "2" :parameters nil})
+    (sql/insert-records
      :resource_params
      {:resource "1" :name "ensure" :value (db-serialize "file")}
      {:resource "1" :name "owner"  :value (db-serialize "root")}
      {:resource "1" :name "group"  :value (db-serialize "root")}
      {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
-    (sql/insert-records
-     :resource_params_cache
-     {:resource "1" :parameters (db-serialize {"ensure" "file"
-                                               "owner"  "root"
-                                               "group"  "root"
-                                               "acl"    ["john:rwx" "fred:rwx"]})})
     (sql/insert-records
      :certnames
      {:name "one.local"}
