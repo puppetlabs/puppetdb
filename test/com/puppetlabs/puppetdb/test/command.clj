@@ -11,6 +11,7 @@
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.examples]
         [com.puppetlabs.testutils.logging]
+        [com.puppetlabs.puppetdb.testutils.report :only [munge-example-report-for-storage]]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
@@ -520,7 +521,7 @@
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 
-(let [report       (:basic report-examples/reports)
+(let [report       (munge-example-report-for-storage (:basic report-examples/reports))
       command      {:command "store report"
                     :version 1
 ;                    :payload (json/generate-string report)}]

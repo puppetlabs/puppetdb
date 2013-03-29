@@ -7,6 +7,7 @@
   (:use clojure.test
          com.puppetlabs.puppetdb.fixtures
          com.puppetlabs.puppetdb.examples.report
+         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
          com.puppetlabs.puppetdb.testutils.event
          [clj-time.coerce :only [to-string to-timestamp to-long]]
          [clj-time.core :only [now ago days]]))
@@ -50,10 +51,7 @@
 
 (deftest resource-event-queries
   (let [basic         (:basic reports)
-        report-hash   (scf-store/report-identity-string basic)]
-    (report/validate! basic)
-    (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic (now))
+        report-hash   (store-example-report! basic (now))]
 
     (testing "resource event retrieval by report"
       (testing "should return the list of resource events for a given report hash"

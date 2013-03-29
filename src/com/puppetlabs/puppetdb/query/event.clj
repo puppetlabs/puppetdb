@@ -70,16 +70,19 @@
   {:pre  [(vector? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format (str "SELECT report,
-                                      status,
-                                      timestamp,
-                                      resource_type,
-                                      resource_title,
-                                      property,
-                                      new_value,
-                                      old_value,
-                                      message
-                                  FROM resource_events WHERE %s")
+        sql (format (str "SELECT reports.certname,
+                                  resource_events.report,
+                                  resource_events.status,
+                                  resource_events.timestamp,
+                                  resource_events.resource_type,
+                                  resource_events.resource_title,
+                                  resource_events.property,
+                                  resource_events.new_value,
+                                  resource_events.old_value,
+                                  resource_events.message
+                                  FROM resource_events
+                                  JOIN reports ON resource_events.report = reports.hash
+                                  WHERE %s")
               where)]
     (apply vector sql params)))
 

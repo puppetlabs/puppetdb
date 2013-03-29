@@ -502,7 +502,7 @@
 
   (deftest report-storage
     (testing "should store reports"
-      (store-report! report timestamp)
+      (store-example-report! report timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
             [{:certname (:certname report)}]))
@@ -513,9 +513,9 @@
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-report! report1 timestamp)
+            report1-hash  (store-example-report! report1 timestamp)
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-report! report2 timestamp)
+            report2-hash  (store-example-report! report2 timestamp)
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
@@ -525,9 +525,9 @@
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-report! report1 timestamp)
+            report1-hash  (store-example-report! report1 timestamp)
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-report! report2 timestamp)
+            report2-hash  (store-example-report! report2 timestamp)
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      #{}
