@@ -41,8 +41,12 @@ step "Install rubygems and sqlite3 on master" do
 
   case os
   when :redhat
-    on master, "yum install -y rubygems sqlite-devel"
-    on master, "gem install sqlite3"
+    if master['platform'].include? 'el-5'
+      on master, "yum install -y rubygems sqlite-devel"
+      on master, "gem install sqlite3"
+    else
+      on master, "yum install -y rubygems ruby-sqlite3"
+    end
   when :debian
     on master, "apt-get install -y rubygems libsqlite3-ruby"
   else
@@ -50,5 +54,5 @@ step "Install rubygems and sqlite3 on master" do
   end
 
   # Make sure there isn't a gemrc file, because that could ruin our day.
-  on master, "rm ~/.gemrc"
+  on master, "rm -f ~/.gemrc"
 end
