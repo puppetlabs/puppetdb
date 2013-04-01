@@ -10,7 +10,8 @@
 (ns com.puppetlabs.puppetdb.cli.export
   (:use [com.puppetlabs.utils :only (cli!)]
         [clj-time.core :only [now]]
-        [clj-time.coerce :only [to-string]])
+        [clj-time.coerce :only [to-string]]
+        [com.puppetlabs.concurrent :only [bounded-pmap]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -92,8 +93,11 @@
         (.getPath (io/file export-root-dir export-metadata-file-name))
         (json/generate-string export-metadata {:pretty true}))
       ;; we can use a pmap call to retrieve the catalogs in parallel, so long
-      ;; as we only touch the tar stream from a single thread.
-      (doseq [{:keys [node catalog]} (map get-catalog-fn nodes)]
+      ;; as we only touch the tar stream from a single thread.  However, we need
+      ;; to bound the pmap so that it doesn't overwhelm the server with requests
+      ;; and use up all of the db connections.  Allowing 5 concurrent requests
+      ;; seems to give us close to optimal performance w/o using too much memory.
+      (doseq [{:keys [node catalog]} (bounded-pmap 5 get-catalog-fn nodes)]
         (println (format "Writing catalog for node '%s'" node))
         (archive/add-entry tar-writer "UTF-8"
           (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
