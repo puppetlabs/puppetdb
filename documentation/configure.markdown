@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.1 » Configuration"
+title: "PuppetDB 1.2 » Configuration"
 layout: default
 canonical: "/puppetdb/latest/configure.html"
 ---
