@@ -421,7 +421,7 @@
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [gc-interval-millis (to-millis gc-interval)
-            gc-task (fn [f] (apply interspaced gc-interval-millis f job-pool))
+            gc-task #(interspaced gc-interval-millis % job-pool)
             db-maintenance-tasks [garbage-collect!
                                   (when (pos? (to-secs node-ttl))
                                     (partial auto-deactivate-nodes! node-ttl))
@@ -431,7 +431,7 @@
                                     (partial sweep-reports! report-ttl))]]
 
         (gc-task #(apply perform-db-maintenance! db (remove nil? db-maintenance-tasks)))
-        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir )))
+        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
