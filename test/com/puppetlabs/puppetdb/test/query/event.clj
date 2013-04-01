@@ -128,7 +128,9 @@
                    [:old-value      ["what" "the" "woah"] 1]
                    [:new-value      "notify, yo"          1]
                    [:message        "defined 'message' as 'notify, yo'" 2]
-                   [:resource-title "bunk"                0]]]
+                   [:resource-title "bunk"                0]
+                   [:certname       "foo.local"           3]
+                   [:certname       "bunk.remote"         0]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (filter #(= value (% field))

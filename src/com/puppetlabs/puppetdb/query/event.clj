@@ -42,6 +42,10 @@
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (match [path]
+    ["certname"]
+    {:where (format "reports.certname = ?")
+     :params [value]}
+
     [(field :when #{"report" "resource-type" "resource-title" "status" "property" "message"})]
     {:where (format "resource_events.%s = ?" (dashes->underscores field))
      :params [value] }
