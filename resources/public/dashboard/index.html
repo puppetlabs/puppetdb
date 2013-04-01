@@ -349,6 +349,45 @@ body {
   .height(height)
   .call();
 
+  counterAndSparkline()
+  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=compression")
+  .snag(function(res) { return res["50thPercentile"] / 1000; })
+  .format(d3.format(",.3s"))
+  .description("DLO Compression")
+  .addendum("round trip time, seconds")
+  .container("#metrics")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=filesize")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.3s"))
+  .description("DLO Size on Disk")
+  .addendum("bytes")
+  .container("#metrics")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
+  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=messages")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(","))
+  .description("Discarded Messages")
+  .addendum("to be reviewed")
+  .container("#metrics")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
   // Check the current version and for updates now, and then every 5 minutes
   setVersion();
   checkForUpdates();

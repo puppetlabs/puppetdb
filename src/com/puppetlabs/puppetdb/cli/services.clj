@@ -44,8 +44,8 @@
 ;;
 (ns com.puppetlabs.puppetdb.cli.services
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.scf.migrate :as migrations]
             [com.puppetlabs.puppetdb.command :as command]
+            [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
@@ -57,9 +57,10 @@
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
-        [clj-time.core :only [ago secs days]]
+        [clj-time.core :only [ago secs minutes days]]
         [clojure.core.incubator :only (-?>)]
-        [com.puppetlabs.time :only [to-secs parse-period format-period]]
+        [overtone.at-at :only (mk-pool interspaced)]
+        [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
@@ -93,55 +94,84 @@
    (with-open [conn (mq/connect! mq)]
      (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
 
-(defn sweep-database!
-  "Sweep the indicated database every `interval` minutes.
+(defn auto-deactivate-nodes!
+  "Deactivate nodes which haven't had any activity (catalog/fact submission)
+  for more than `node-ttl`."
+  [node-ttl db]
+  {:pre [(map? db)
+         (period? node-ttl)]}
+  (try
+    (pl-utils/demarcate
+      (format "sweep of stale nodes (threshold: %s)"
+              (format-period node-ttl))
+      (with-transacted-connection db
+        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
+          (send-command! "deactivate node" 1 (json/generate-string node)))))
+    (catch Exception e
+      (log/error e "Error while deactivating stale nodes"))))
 
-  This function doesn't terminate. If we encounter an exception during
-  compaction, the operation will be retried after `interval` millis.
+(defn purge-nodes!
+  "Delete nodes which have been *deactivated* longer than `node-purge-ttl`."
+  [node-purge-ttl db]
+  {:pre [(map? db)
+         (period? node-purge-ttl)]}
+  (try
+    (pl-utils/demarcate
+      (format "purge deactivated nodes (threshold: %s)"
+              (format-period node-purge-ttl))
+      (with-transacted-connection db
+        (scf-store/purge-deactivated-nodes! (ago node-purge-ttl))))
+    (catch Exception e
+      (log/error e "Error while purging deactivated nodes"))))
 
-  This function will perform database garbage collection.  This entails
-  cleaning out catalogs and facts that are no longer in use, deactivating nodes
-  that haven't been active in the last `node-ttl-seconds`, and clearing out
-  reports that are older than `report-ttl-seconds`"
-  [db interval node-ttl-seconds node-purge-ttl-seconds report-ttl-seconds]
-  {:pre [(pos? interval)
-         (>= node-ttl-seconds 0)
-         (>= node-purge-ttl-seconds 0)
-         (>= report-ttl-seconds 0)]}
-  (let [sleep #(Thread/sleep (* 60 1000 interval))]
-    (pl-utils/keep-going
-      (fn [exception]
-        (log/error exception "Error during database sweep")
-        (sleep))
+(defn sweep-reports!
+  "Delete reports which are older than than `report-ttl`."
+  [report-ttl db]
+  {:pre [(map? db)
+         (period? report-ttl)]}
+  (try
+    (pl-utils/demarcate
+      (format "sweep of stale reports (threshold: %s)"
+              (format-period report-ttl))
+      (with-transacted-connection db
+        (scf-store/delete-reports-older-than! (ago report-ttl))))
+    (catch Exception e
+      (log/error e "Error while sweeping reports"))))
 
-      (when (pos? node-ttl-seconds)
-        (pl-utils/demarcate
-          (format "sweep of stale nodes (threshold: %s)"
-                  (format-period (secs node-ttl-seconds)))
-          (with-transacted-connection db
-            (doseq [node (scf-store/stale-nodes (ago (secs node-ttl-seconds)))]
-              (send-command! "deactivate node" 1 (json/generate-string node))))))
+(defn compress-dlo!
+  "Compresses discarded message which are older than `dlo-compression-threshold`."
+  [dlo dlo-compression-threshold]
+  (try
+    (pl-utils/demarcate
+      (format "compression of discarded messages (threshold: %s)"
+              (format-period dlo-compression-threshold))
+      (dlo/compress! dlo dlo-compression-threshold))
+    (catch Exception e
+      (log/error e "Error while compressing discarded messages"))))
 
-      (when (pos? node-purge-ttl-seconds)
-        (pl-utils/demarcate
-          (format "purge deactivated nodes (threshold: %s)"
-                  (format-period (secs node-purge-ttl-seconds)))
-          (with-transacted-connection db
-            (scf-store/purge-deactivated-nodes! (ago (secs node-purge-ttl-seconds))))))
+(defn garbage-collect!
+  "Perform garbage collection on `db`, which means deleting any orphaned data.
+  This basically just wraps the corresponding scf.storage function with some
+  logging and other ceremony. Exceptions are logged but otherwise ignored."
+  [db]
+  {:pre [(map? db)]}
+  (try
+    (pl-utils/demarcate
+      "database garbage collection"
+      (with-transacted-connection db
+        (scf-store/garbage-collect!)))
+    (catch Exception e
+      (log/error e "Error during garbage collection"))))
 
-      (when (pos? report-ttl-seconds)
-        (pl-utils/demarcate
-          (format "sweep of stale reports (threshold: %s)"
-                  (format-period (secs report-ttl-seconds)))
-          (with-transacted-connection db
-            (scf-store/delete-reports-older-than! (ago (secs report-ttl-seconds))))))
-
-      (pl-utils/demarcate
-        "database garbage collection"
-        (with-transacted-connection db
-          (scf-store/garbage-collect!)))
-
-      (sleep))))
+(defn perform-db-maintenance!
+  "Runs the full set of database maintenance tasks in `fns` on `db` in order.
+  Has no error-handling of its own, so all `fns` must handle their own errors.
+  The purpose of this function is primarily to serialize these tasks, to avoid
+  concurrent long-running database tasks."
+  [db & fns]
+  {:pre [(map? db)]}
+  (doseq [f fns]
+    (f db)))
 
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
@@ -190,86 +220,49 @@
    :post [(map? %)]}
   (assoc-in config [:jetty :client-auth] :need))
 
-(defn configure-node-ttl
-  "Helper function that parses the `node-ttl` setting from the config file
-  (if present) into our internal representation (in seconds).  Also supports
-  `node-ttl-days` for backward compatibility with previous versions."
-  [database]
-  {:pre  [(map? database)]
+(defn configure-gc-params
+  "Helper function that munges the supported permutations of our GC-related
+  `ttl` and interval settings (if present) from their config file
+  representation to our internal representation as Period objects."
+  [{:keys [database command-processing] :as config :or {database {}}}]
+  {:pre  [(map? config)]
    :post [(map? %)
-          ;; Nothing else should be changed
-          (= (dissoc database :node-ttl :node-ttl-days) (dissoc % :node-ttl-seconds))]}
-  (cond
-    (:node-ttl database)      (-> database
-                                  (assoc :node-ttl-seconds
-                                    (to-secs (parse-period (:node-ttl database))))
-                                  (dissoc :node-ttl)
-                                  (dissoc :node-ttl-days))
-    (:node-ttl-days database) (-> database
-                                  (assoc :node-ttl-seconds
-                                    (to-secs (days (:node-ttl-days database))))
-                                  (dissoc :node-ttl-days))
-    :else                     database))
-
-(defn configure-node-purge-ttl
-  "Helper function that replaces the `node-purge-ttl` key in the specified
-  `database` config with a `node-purge-ttl-seconds` key whose value is the
-  equivalent in seconds"
-  [{:keys [node-purge-ttl] :as database}]
-  {:pre [(map? database)]
-   :post [(map? %)
-          (= (dissoc database :node-purge-ttl) (dissoc % :node-purge-ttl-seconds))]}
-  (if node-purge-ttl
-    (-> database
-        (assoc :node-purge-ttl-seconds (to-secs (parse-period node-purge-ttl)))
-        (dissoc :node-purge-ttl))
-    database))
-
-(defn configure-report-ttl
-  "Helper function that parses the `report-ttl` setting from the config file
-  (if present) into our internal representation (in seconds)"
-  [{:keys [report-ttl] :as database}]
-  {:pre  [(map? database)]
-   :post [(map? %)
-          (= (dissoc database :report-ttl) (dissoc % :report-ttl-seconds))]}
-  (if report-ttl
-    (-> database
-      (assoc :report-ttl-seconds (to-secs (parse-period report-ttl)))
-      (dissoc :report-ttl))
-    database))
-
-(defn configure-database-ttls
-  "Helper function that munges the supported permutations of our `ttl` settings
-  (if present) from their config file representation to our internal
-  representation (in seconds)"
-  [database]
-  {:pre  [(map? database)]
-   :post [(map? database)
-          (= (dissoc database :report-ttl :node-purge-ttl :node-ttl :node-ttl-days)
-             (dissoc % :report-ttl-seconds :node-purge-ttl-seconds :node-ttl-seconds))]}
-  (-> database
-      configure-report-ttl
-      configure-node-ttl
-      configure-node-purge-ttl))
+          (= (dissoc database :gc-interval :report-ttl :node-purge-ttl :node-ttl :node-ttl-days)
+             (dissoc (:database %) :gc-interval :report-ttl :node-purge-ttl :node-ttl))
+          (period? (get-in % [:command-processing :dlo-compression-threshold]))
+          (every? period? (map (:database %) [:node-ttl :node-purge-ttl :report-ttl :gc-interval]))]}
+  (let [maybe-parse-period #(-?> % parse-period)
+        maybe-days #(-?> % days)
+        maybe-minutes #(-?> % minutes)
+        gc-interval-default (minutes 60)
+        dlo-compression-default (days 1)
+        ;; These defaults have to be actual periods rather than nil, because
+        ;; the user could explicitly specify 0, and we want to treat that the
+        ;; same
+        node-ttl-default (secs 0)
+        node-purge-ttl-default (secs 0)
+        report-ttl-default (days 7)
+        parsed-commandproc (update-in command-processing [:dlo-compression-threshold] #(or (maybe-parse-period %) dlo-compression-default))
+        parsed-database (-> database
+                            (update-in [:gc-interval] #(or (maybe-minutes %) gc-interval-default))
+                            (update-in [:report-ttl] #(or (maybe-parse-period %) report-ttl-default))
+                            (update-in [:node-purge-ttl] #(or (maybe-parse-period %) (secs 0)))
+                            (update-in [:node-ttl] #(or (maybe-parse-period %) (maybe-days (:node-ttl-days database)) node-ttl-default))
+                            (dissoc :node-ttl-days))]
+    (assoc config :database parsed-database :command-processing parsed-commandproc)))
 
 (defn configure-database
   "Update the supplied config map with information about the database. Adds a
-  default hsqldb and a gc-interval of 60 minutes. If a single part of the
-  database information is specified (such as classname but not subprotocol), no
-  defaults will be filled in."
+  default hsqldb. If a single part of the database information is specified
+  (such as classname but not subprotocol), no defaults will be filled in."
   [{:keys [database global] :as config}]
   {:pre  [(map? config)]
    :post [(map? config)]}
   (let [vardir       (:vardir global)
         default-db   {:classname   "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
-                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}
-        default-opts {:gc-interval                60
-                      :node-ttl-seconds           0
-                      :node-purge-ttl-seconds     0
-                      :report-ttl-seconds         (to-secs (days 7))}
-        db           (configure-database-ttls (or database default-db))]
-    (assoc config :database (merge default-opts db))))
+                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
+    (assoc config :database (or database default-db))))
 
 (defn normalize-product-name
   "Checks that `product-name` is specified as a legal value, throwing an
@@ -339,6 +332,7 @@
         (configure-commandproc-threads)
         (configure-web-server)
         (configure-database)
+        (configure-gc-params)
         (set-global-configuration!))))
 
 (defn on-shutdown
@@ -368,10 +362,11 @@
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         resource-query-limit                       (get global :resource-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
-        db-gc-minutes                              (get database :gc-interval)
-        node-ttl-seconds                           (get database :node-ttl-seconds)
-        node-purge-ttl-seconds                     (get database :node-purge-ttl-seconds)
-        report-ttl-seconds                         (get database :report-ttl-seconds)
+        gc-interval                                (get database :gc-interval)
+        node-ttl                                   (get database :node-ttl)
+        node-purge-ttl                             (get database :node-purge-ttl)
+        report-ttl                                 (get database :report-ttl)
+        dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
         mq-dir                                     (str (file vardir "mq"))
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-db               db
@@ -422,10 +417,21 @@
                           (log/info "Starting query server")
                           (future (with-error-delivery error
                                     (jetty/run-jetty app jetty))))
-          db-gc         (do
-                          (log/info (format "Starting database sweeper (%d minute interval)" db-gc-minutes))
-                          (future (with-error-delivery error
-                                    (sweep-database! db db-gc-minutes node-ttl-seconds node-purge-ttl-seconds report-ttl-seconds))))]
+          job-pool      (mk-pool)]
+
+      ;; Pretty much this helper just knows our job-pool and gc-interval
+      (let [gc-interval-millis (to-millis gc-interval)
+            gc-task (fn [f] (apply interspaced gc-interval-millis f job-pool))
+            db-maintenance-tasks [garbage-collect!
+                                  (when (pos? (to-secs node-ttl))
+                                    (partial auto-deactivate-nodes! node-ttl))
+                                  (when (pos? (to-secs node-purge-ttl))
+                                    (partial purge-nodes! node-purge-ttl))
+                                  (when (pos? (to-secs report-ttl))
+                                    (partial sweep-reports! report-ttl))]]
+
+        (gc-task #(apply perform-db-maintenance! db (remove nil? db-maintenance-tasks)))
+        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir )))
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
@@ -438,7 +444,7 @@
           (future-cancel cp))
         (future-cancel updater)
         (future-cancel web-app)
-        (future-cancel db-gc)
+
         ;; Stop the mq the old-fashioned way
         (mq/stop-broker! broker)
 

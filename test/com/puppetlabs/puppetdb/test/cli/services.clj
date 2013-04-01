@@ -5,8 +5,8 @@
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
         [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
-        [clj-time.core :only [days]]
-        [com.puppetlabs.time :only [to-secs]]))
+        [clj-time.core :only [days hours minutes secs]]
+        [com.puppetlabs.time :only [to-secs to-minutes to-hours to-days period?]]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -50,48 +50,50 @@
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
         (is (= (select-keys (:database config) #{:classname :subprotocol :subname})
-               expected)))))
+               expected))))))
 
+(deftest garbage-collection
   (testing "gc-interval"
-    (testing "should use the value specified"
-      (let [config (configure-database {:database {:gc-interval 900}})]
-        (is (= (get-in config [:database :gc-interval]) 900))))
+    (testing "should use the value specified in minutes"
+      (let [{:keys [gc-interval]} (:database (configure-gc-params {:database {:gc-interval 900}}))]
+        (is (period? gc-interval))
+        (is (= (minutes 900) gc-interval))))
 
     (testing "should default to 60 minutes"
-      (let [config (configure-database {})]
-        (is (= (get-in config [:database :gc-interval]) 60)))))
+      (let [{:keys [gc-interval]} (:database (configure-gc-params {}))]
+        (is (period? gc-interval))
+        (is (= (minutes 60) gc-interval)))))
 
   (testing "node-ttl"
-    (testing "should parse node-ttl and produce node-ttl-seconds"
-      (let [dbconfig (:database (configure-database { :database { :node-ttl "10d" }}))]
-        (is (not (contains? dbconfig :node-ttl)))
-        (is (= (to-secs (days 10)) (:node-ttl-seconds dbconfig)))))
-    (testing "should support node-ttl-days for backward compat"
-      (let [dbconfig (:database (configure-database { :database { :node-ttl-days 10 }}))]
-        (is (not (contains? dbconfig :node-ttl-days)))
-        (is (= (to-secs (days 10)) (:node-ttl-seconds dbconfig)))))
+    (testing "should parse node-ttl and return a Period object"
+      (let [{:keys [node-ttl]} (:database (configure-gc-params { :database { :node-ttl "10d" }}))]
+        (is (period? node-ttl))
+        (is (= (days 10) (days (to-days node-ttl))))))
+    (testing "should support node-ttl-days for backward compatibility"
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database { :node-ttl-days 10 }}))]
+        (is (period? node-ttl))
+        (is (= (days 10) node-ttl))
+        (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should prefer node-ttl over node-ttl-days"
-      (let [dbconfig (:database (configure-database { :database {:node-ttl "5d"
-                                                                 :node-ttl-days 10 }}))]
-        (is (not (contains? dbconfig :node-ttl-days)))
-        (is (not (contains? dbconfig :node-ttl)))
-        (is (= (to-secs (days 5)) (:node-ttl-seconds dbconfig)))))
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database {:node-ttl "5d"
+                                                                                        :node-ttl-days 10 }}))]
+        (is (period? node-ttl))
+        (is (= (days 5) (days (to-days node-ttl))))
+        (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should default to zero (no expiration)"
-      (let [dbconfig (:database (configure-database {}))]
-        (is (not (contains? dbconfig :node-ttl-days)))
-        (is (not (contains? dbconfig :node-ttl)))
-        (is (= 0 (:node-ttl-seconds dbconfig))))))
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params {}))]
+        (is (period? node-ttl))
+        (is (= (secs 0) node-ttl)))))
 
   (testing "report-ttl"
-    (testing "should parse report-ttl and produce report-ttl-seconds"
-      (let [dbconfig (:database (configure-database { :database { :report-ttl "10d" }}))]
-        (is (not (contains? dbconfig :report-ttl)))
-        (is (= (to-secs (days 10)) (:report-ttl-seconds dbconfig)))))
+    (testing "should parse report-ttl and produce report-ttl"
+      (let [{:keys [report-ttl]} (:database (configure-gc-params { :database { :report-ttl "10d" }}))]
+        (is (period? report-ttl))
+        (is (= (days 10) (days (to-days report-ttl))))))
     (testing "should default to 7 days"
-      (let [dbconfig (:database (configure-database {}))]
-        (is (not (contains? dbconfig :report-ttl)))
-        (is (= (to-secs (days 7)) (:report-ttl-seconds dbconfig)))))))
-
+      (let [{:keys [report-ttl]} (:database (configure-gc-params {}))]
+        (is (period? report-ttl))
+        (is (= (days 7) (days (to-days report-ttl))))))))
 
 (deftest http-configuration
   (testing "should enable need-client-auth"
