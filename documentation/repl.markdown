@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Debugging with the Remote REPL"
 layout: default
-canonical: "/puppetdb/1.1/repl.html"
+canonical: "/puppetdb/latest/repl.html"
 ---
 
 PuppetDB includes a remote REPL interface, which is disabled by default.

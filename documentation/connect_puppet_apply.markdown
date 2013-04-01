@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Connecting Standalone Puppet Nodes to PuppetDB"
 layout: default
-canonical: "/puppetdb/1.1/connect_puppet_apply.html"
+canonical: "/puppetdb/latest/connect_puppet_apply.html"
 ---
 
 [exported]: /puppet/2.7/reference/lang_exported.html

@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Maintaining and Tuning"
 layout: default
-canonical: "/puppetdb/1.1/maintain_and_tune.html"
+canonical: "/puppetdb/latest/maintain_and_tune.html"
 ---
 
 [configure_jetty]: ./configure.html#jetty-http-settings
