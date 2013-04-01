@@ -161,7 +161,32 @@
                 actual      (resource-events-query-result
                               (vec (cons "or" (map term-fn terms))))]
             (is (= actual expected))
-            (is (= (count actual) num-matches))))))))
+            (is (= (count actual) num-matches))))))
+
+      (testing "'and' equality queries"
+        (doseq [[terms num-matches]
+                [[[[:resource-type  "Notify"]
+                   [:status         "success"]]       2]
+                 [[[:resource-type  "bunk"]
+                   [:resource-title "notify, yar"]]   0]
+                 [[[:resource-title "notify, yo"]
+                   [:status         "skipped"]]       0]
+                 [[[:new-value      "notify, yo"]
+                   [:resource-type  "Notify"]
+                   [:certname       "foo.local"]]     1]
+                 [[[:certname       "foo.local"]
+                   [:resource-type  "Notify"]]        3]]]
+          (let [equality-fn (fn [m [k v]] (= v (m k)))
+                expected    (expected-resource-events
+                              (filter #(every? identity (map (partial equality-fn %) terms))
+                                (:resource-events basic))
+                              report-hash)
+                term-fn     (fn [[field value]] ["=" (name field) value])
+                query       (vec (cons "and" (map term-fn terms)))
+                actual      (resource-events-query-result query)]
+            (is (= actual expected))
+            (is (= (count actual) num-matches)
+              (format "Counts didn't match for query '%s'" query)))))))
 
 
 
