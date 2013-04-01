@@ -41,6 +41,8 @@
                  [org.ini4j/ini4j "0.5.2"]
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
+                 ;; Job scheduling
+                 [overtone/at-at "1.1.1"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.3"]
                  [digest "1.3.0"]

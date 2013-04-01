@@ -88,13 +88,13 @@
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
 
     (with-open [tar-writer (archive/tarball-writer outfile)]
-      (archive/add-entry tar-writer
+      (archive/add-entry tar-writer "UTF-8"
         (.getPath (io/file export-root-dir export-metadata-file-name))
         (json/generate-string export-metadata {:pretty true}))
       ;; we can use a pmap call to retrieve the catalogs in parallel, so long
       ;; as we only touch the tar stream from a single thread.
       (doseq [{:keys [node catalog]} (map get-catalog-fn nodes)]
         (println (format "Writing catalog for node '%s'" node))
-        (archive/add-entry tar-writer
+        (archive/add-entry tar-writer "UTF-8"
           (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
           catalog)))))

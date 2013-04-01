@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.command
   (:require [fs.core :as fs]
             [clojure.java.jdbc :as sql]
+            [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.catalog :as catalog]
             [com.puppetlabs.puppetdb.examples.report :as report-examples])
@@ -14,7 +15,6 @@
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
-        [cheshire.core :as json]
         [slingshot.slingshot :only [try+ throw+]]))
 
 (use-fixtures :each with-test-db)
