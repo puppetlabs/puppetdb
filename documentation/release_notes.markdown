@@ -4,6 +4,81 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.2.0
+
+Many thanks to following people who contributed patches to this
+release:
+
+* Chris Price
+* Deepak Giridharagopal
+* Erik Dalén
+* Jordi Boggiano
+* Ken Barber
+* Matthaus Owens
+* Michael Hall
+* Moses Mendoza
+* Nick Fagerlund
+* Nick Lewis
+
+Notable features:
+
+* Automatic node purging
+
+  This is the first feature which allows data in PuppetDB to be deleted. The
+  new `node-purge-ttl` setting, which is off by default, specifies a period of
+  time to keep deactivated nodes before deleting them. This can be used with
+  the `puppet node deactivate` command or the automatic node deactivation
+  `node-ttl` setting. This will also delete all facts, catalogs and reports for
+  the purged nodes. As always, if new data is received for a deactivated node,
+  the node will be reactivated, and thus exempt from purging until it is
+  deactivated again.
+
+* Import/export of PuppetDB data
+
+  Two new commands have been added, `puppetdb-export` and `puppetdb-import`.
+  These will respectively export and import the entire collection of catalogs
+  in your PuppetDB database. This can be useful for migrating from HSQL to
+  PostgreSQL, for instance.
+
+  There is also a new Puppet subcommand, `puppet storeconfigs export`. This
+  command will generate a similar export data from the ActiveRecord
+  storeconfigs database. Specifically, this includes only exported resources,
+  and is useful when first migrating to PuppetDB, in order to prevent failures
+  due to temporarily missing exported resources.
+
+* Automatic dead-letter office compression
+
+  When commands fail irrecoverably or over a long period of time, they are
+  written to disk in what is called the dead-letter office (or DLO). Until now,
+  this directory had no automatic maintenance, and could rapidly grow in size.
+  Now there is a `dlo-compression-threshold` setting, which defaults to 1 day,
+  after which commands in the DLO will be compressed. There are also now
+  metrics collected about DLO usage, several of which (size, number of
+  messages, compression time) are visible from the PuppetDB dashboard.
+
+* Package availability changes
+
+  Packages are now provided for Fedora 18, but are no longer provided for
+  Ubuntu 11.04 Natty Narwhal, which is end-of-life. Due to work being done to
+  integrate PuppetDB with Puppet Enterprise, new pe-puppetdb packages are not
+  available.
+
+Bug fixes:
+
+* KahaDB journal corruption workaround
+
+  If the KahaDB journal, used by ActiveMQ (in turn used for asynchronous
+  message processing), becomes corrupted, PuppetDB would fail to start.
+  However, if the embedded ActiveMQ broker is restarted, it will cleanup the
+  corruption itself. Now, PuppetDB will recover from such a failure and restart
+  the broker automatically.
+
+* Terminus files conflict between puppetdb-terminus and puppet
+
+  There was a conflict between these two packages over ownership of certain
+  directories which could cause the puppetdb-terminus package to fail to
+  install in some cases. This has been resolved.
+
 1.1.1
 -----
 
