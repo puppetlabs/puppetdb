@@ -29,6 +29,8 @@ APT_REPO=$INCOMING/$NAME-$VERSION
 TEAM=dev
 export APT_HOST APT_REPO TEAM PE_VER
 
+ssh $APT_HOST "mkdir -p ${INCOMING}"
+
 rake package:implode --trace
 rake package:bootstrap --trace
 rake pl:fetch --trace
@@ -39,8 +41,6 @@ rake pl:ship_debs --trace
 PE_BUILD=true
 TEAM=pe-dev
 export PE_BUILD TEAM
-
-ssh $APT_HOST "mkdir -p ${INCOMING}"
 
 rake pl:fetch --trace
 rake pe:deb_all --trace
