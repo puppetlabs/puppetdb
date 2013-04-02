@@ -20,13 +20,8 @@ Step 1: Enable the Puppet Labs Package Repository
 
 If you haven't already, you will need to do **one** of the following: 
 
-* Enable the Puppet Labs package repository on your PuppetDB server and puppet master server.
+* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html#open-source-repositories) on your PuppetDB server and puppet master server.
 * Grab the PuppetDB and terminus plugin packages, and import them into your site's local package repos. 
-
-To enable the Puppet Labs repos, follow the instructions linked below:
-
-- [Instructions for PE users](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories) (Note that PE support for PuppetDB [is currently unofficial](./index.html#note-about-puppet-enterprise).)
-- [Instructions for open source users](/guides/puppetlabs_package_repositories.html#open-source-repositories)
 
 Step 2: Assign Classes to Nodes
 -----

@@ -31,7 +31,7 @@ OS and Package              | File
 Redhat-like (open source)   | `/etc/sysconfig/puppetdb`
 Redhat-like (PE)            | `/etc/sysconfig/pe-puppetdb`
 Debian/Ubuntu (open source) | `/etc/default/puppetdb`
-Debian/Ubuntu (PE)          | `/etc/default/pe-puppetb`
+Debian/Ubuntu (PE)          | `/etc/default/pe-puppetdb`
 
  In this file, you can change the following settings:
 
