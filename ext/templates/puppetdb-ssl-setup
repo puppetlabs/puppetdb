@@ -9,13 +9,37 @@ function sedeasy {
   mv $tmp $3
 }
 
-while getopts "if" opt;
+# Display usage information
+function usage {
+  echo "Usage: $0 [-if]"
+  echo "Configuration helper for enabling SSL for PuppetDB."
+  echo
+  echo "This tool will attempt to create the necessary JKS trust & keystore for" \
+    "PuppetDB SSL to operate from the local Puppet agents certificate, key and"\
+    "CA certificate. It also is able to update the necessary PuppetDB"\
+    "configuration files if necessary to point to the location of these" \
+    "stores, configure the correct passwords and also configures the host and" \
+    "port for SSL to listen on."
+  echo
+  echo "Options:"
+  echo " -i  Interactive mode"
+  echo " -f  Force configuration file update. By default if the configuration"\
+    "already exists in your jetty.ini, you must use this option to override it"
+  echo " -h  Help"
+  exit 0
+}
+
+while getopts "ifh" opt;
 do
     case $opt in
         i)
             interactive=true ;;
         f)
             force=true ;;
+        h)
+            usage ;;
+        *)
+            usage ;;
     esac
 done
 
