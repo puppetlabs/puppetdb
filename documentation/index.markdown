@@ -92,7 +92,7 @@ Your site's puppet masters must be running Puppet 2.7.12 or later. [You will nee
 
 > #### Note about Puppet Enterprise
 >
-> * PuppetDB 1.2 is not available for use with Puppet Enterprise. Puppet Enterprise users should visit the [1.1 documentation][old_docs].
+> * Due to packaging changes related to future integration of PuppetDB with Puppet Enterprise, PuppetDB 1.2 packages are not available for use with Puppet Enterprise. PuppetDB will be included by default in the next major release of Puppet Enterprise. In the meantime, Puppet Enterprise users should visit the [1.1 documentation][old_docs].
 
 ### Robust Hardware
 
