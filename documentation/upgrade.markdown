@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.1 » Upgrading PuppetDB"
+title: "PuppetDB 1.2 » Upgrading PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/upgrade.html"
 ---
@@ -51,14 +51,6 @@ If you upgrade PuppetDB without upgrading the terminus plugins, your Puppet depl
 
 **On your PuppetDB server:** stop the PuppetDB service, upgrade the PuppetDB package, then restart the PuppetDB service. 
 
-#### For PE Users
-
-    $ sudo puppet resource service pe-puppetdb ensure=stopped
-    $ sudo puppet resource package pe-puppetdb ensure=latest
-    $ sudo puppet resource service pe-puppetdb ensure=running
-
-#### For Open Source Users
-
     $ sudo puppet resource service puppetdb ensure=stopped
     $ sudo puppet resource package puppetdb ensure=latest
     $ sudo puppet resource service puppetdb ensure=running
@@ -72,14 +64,6 @@ If you are running PuppetDB from source, you should stop the service, replace th
 ### Upgrading the Terminus Plugins
 
 **On your puppet master servers:** upgrade the PuppetDB terminus plugins package, then restart the puppet master's web server: 
-
-#### For PE Users
-
-    $ sudo puppet resource package pe-puppetdb-terminus ensure=latest
-    $ sudo puppet resource service pe-httpd ensure=stopped
-    $ sudo puppet resource service pe-httpd ensure=running
-
-#### For Open Source Users
 
     $ sudo puppet resource package puppetdb-terminus ensure=latest
 
