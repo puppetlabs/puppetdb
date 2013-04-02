@@ -136,9 +136,36 @@
                             (filter #(= value (% field))
                               (:resource-events basic))
                             report-hash)
-                actual    (resource-events-query-result ["=" (name field) value])]
-            (is (= actual expected))
-            (is (= (count actual) num-matches))))))
+                query     ["=" (name field) value]
+                actual    (resource-events-query-result query)]
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))
+            (is (= (count actual) num-matches)
+              (format "Counts didn't match for query '%s'" query))))))
+
+    (testing "'not' queries"
+      (doseq [[field value num-matches]
+              [[:resource-type  "Notify"              0]
+               [:resource-title "notify, yo"          2]
+               [:status         "success"             1]
+               [:property       "message"             1]
+               [:old-value      ["what" "the" "woah"] 2]
+               [:new-value      "notify, yo"          2]
+               [:message        "defined 'message' as 'notify, yo'" 1]
+               [:resource-title "bunk"                3]
+               [:certname       "foo.local"           0]
+               [:certname       "bunk.remote"         3]]]
+        (testing (format "equality query on field '%s'" field)
+          (let [expected  (expected-resource-events
+                            (filter #(not (= value (% field)))
+                              (:resource-events basic))
+                            report-hash)
+                query     ["not" ["=" (name field) value]]
+                actual    (resource-events-query-result query)]
+            (is (= (count actual) num-matches)
+              (format "Counts didn't match for query '%s'" query))
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))))))
 
     (testing "compound queries"
       (testing "'or' equality queries"
@@ -158,10 +185,12 @@
                                 (:resource-events basic))
                               report-hash)
                 term-fn     (fn [[field value]] ["=" (name field) value])
-                actual      (resource-events-query-result
-                              (vec (cons "or" (map term-fn terms))))]
-            (is (= actual expected))
-            (is (= (count actual) num-matches))))))
+                query       (vec (cons "or" (map term-fn terms)))
+                actual      (resource-events-query-result query)]
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))
+            (is (= (count actual) num-matches)
+              (format "Counts didn't match for query '%s'" query))))))
 
       (testing "'and' equality queries"
         (doseq [[terms num-matches]
@@ -184,7 +213,8 @@
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
-            (is (= actual expected))
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))
             (is (= (count actual) num-matches)
               (format "Counts didn't match for query '%s'" query)))))))
 

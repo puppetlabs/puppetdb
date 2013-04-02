@@ -10,7 +10,7 @@
                                     valid-jdbc-query?
                                     add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize]]
-        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or]]
+        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
 
@@ -41,21 +41,31 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (match [path]
-    ["certname"]
-    {:where (format "reports.certname = ?")
-     :params [value]}
+  (let [path (dashes->underscores path)]
+    (match [path]
+      ["certname"]
+      {:where (format "reports.certname = ?")
+       :params [value]}
 
-    [(field :when #{"report" "resource-type" "resource-title" "status" "property" "message"})]
-    {:where (format "resource_events.%s = ?" (dashes->underscores field))
-     :params [value] }
+      [(field :when #{"report" "resource_type" "resource_title" "status"})]
+      {:where (format "resource_events.%s = ?" field)
+       :params [value] }
 
-    [(field :when #{"old-value" "new-value"})]
-    {:where (format "resource_events.%s = ?" (dashes->underscores field))
-     :params [(db-serialize value)] }
+      ;; these fields allow NULL, which causes a change in semantics when
+      ;; wrapped in a NOT(...) clause, so we have to be very explicit
+      ;; about the NULL case.
+      [(field :when #{"property" "message"})]
+      {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+       :params [value] }
 
-    :else (throw (IllegalArgumentException.
-                   (str path " is not a queryable object for resource events")))))
+      ;; these fields require special treatment for NULL (as described above),
+      ;; plus a serialization step since the values can be complex data types
+      [(field :when #{"old_value" "new_value"})]
+      {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+       :params [(db-serialize value)] }
+
+      :else (throw (IllegalArgumentException.
+                     (str path " is not a queryable object for resource events"))))))
 
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
@@ -66,6 +76,7 @@
       (= op "=") compile-resource-event-equality
       (= op "and") (partial compile-and resource-event-ops)
       (= op "or") (partial compile-or resource-event-ops)
+      (= op "not") (partial compile-not-v2 resource-event-ops)
       (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op))))
 
 (defn query->sql
@@ -111,5 +122,6 @@
   events."
   [[sql & params]]
   {:pre [(string? sql)]}
+  ;; (println "About to execute query: " sql params)
   (limited-query-resource-events 0 (apply vector sql params)))
 
