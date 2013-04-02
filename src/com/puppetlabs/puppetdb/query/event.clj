@@ -9,7 +9,7 @@
                                     dashes->underscores
                                     valid-jdbc-query?
                                     add-limit-clause]]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize]]
+        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-regexp-match]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]))
@@ -34,7 +34,7 @@
                    (str op " operator does not support object '" path "' for resource events")))))
 
 (defn compile-resource-event-equality
-  "Compile an = predicate for resource event fact query. `path` represents the field to
+  "Compile an = predicate for resource event query. `path` represents the field to
   query against, and `value` is the value."
   [& [path value :as args]]
   {:post [(map? %)
@@ -67,7 +67,39 @@
       :else (throw (IllegalArgumentException.
                      (str path " is not a queryable object for resource events"))))))
 
-(defn resource-event-ops
+(defn compile-resource-event-regexp
+  "Compile an ~ predicate for resource event query. `path` represents the field
+   to query against, and `pattern` is the regular expression to match."
+    [& [path pattern :as args]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (when-not (= (count args) 2)
+      (throw (IllegalArgumentException. (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
+    (let [path (dashes->underscores path)]
+      (match [path]
+        ["certname"]
+        {:where (sql-regexp-match "reports.certname")
+         :params [pattern]}
+
+        [(field :when #{"report" "resource_type" "resource_title" "status"})]
+        {:where  (sql-regexp-match (format "resource_events.%s" field))
+         :params [pattern] }
+
+        ;; these fields allow NULL, which causes a change in semantics when
+        ;; wrapped in a NOT(...) clause, so we have to be very explicit
+        ;; about the NULL case.
+        [(field :when #{"property" "message"})]
+        {:where (format "%s AND resource_events.%s IS NOT NULL"
+                    (sql-regexp-match (format "resource_events.%s" field))
+                    field)
+         :params [pattern] }
+
+        :else (throw (IllegalArgumentException.
+                       (str path " is not a queryable object for resource events"))))))
+
+
+
+  (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [op]
@@ -77,7 +109,8 @@
       (= op "and") (partial compile-and resource-event-ops)
       (= op "or") (partial compile-or resource-event-ops)
       (= op "not") (partial compile-not-v2 resource-event-ops)
-      (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op))))
+      (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+      (= op "~") compile-resource-event-regexp)))
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
@@ -122,6 +155,5 @@
   events."
   [[sql & params]]
   {:pre [(string? sql)]}
-  ;; (println "About to execute query: " sql params)
   (limited-query-resource-events 0 (apply vector sql params)))
 

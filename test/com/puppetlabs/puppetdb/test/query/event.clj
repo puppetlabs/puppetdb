@@ -155,12 +155,35 @@
                [:resource-title "bunk"                3]
                [:certname       "foo.local"           0]
                [:certname       "bunk.remote"         3]]]
-        (testing (format "equality query on field '%s'" field)
+        (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (filter #(not (= value (% field)))
                               (:resource-events basic))
                             report-hash)
                 query     ["not" ["=" (name field) value]]
+                actual    (resource-events-query-result query)]
+            (is (= (count actual) num-matches)
+              (format "Counts didn't match for query '%s'" query))
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))))))
+
+    (testing "regex queries"
+      (doseq [[field value num-matches]
+              [[:resource-type  "otify"               3]
+               [:resource-title "^[Nn]otify,\\s*yo$"  1]
+               [:status         "^.ucces."            2]
+               [:property       "^[Mm][\\w\\s]+"      2]
+               [:message        "notify, yo"          2]
+               [:resource-title "^bunk$"              0]
+               [:certname       "^foo\\."             3]
+               [:certname       "^.*\\.mydomain\\.com$" 0]]]
+        (testing (format "regex query on field '%s'" field)
+          (let [expected  (expected-resource-events
+                            (filter #(re-find (re-pattern value) (% field))
+                              (filter #(not (nil? (% field)))
+                                (:resource-events basic)))
+                            report-hash)
+                query     ["~" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= (count actual) num-matches)
               (format "Counts didn't match for query '%s'" query))
