@@ -25,13 +25,13 @@ Notable features:
 * Automatic node purging
 
   This is the first feature which allows data in PuppetDB to be deleted. The
-  new `node-purge-ttl` setting, which is off by default, specifies a period of
-  time to keep deactivated nodes before deleting them. This can be used with
-  the `puppet node deactivate` command or the automatic node deactivation
-  `node-ttl` setting. This will also delete all facts, catalogs and reports for
-  the purged nodes. As always, if new data is received for a deactivated node,
-  the node will be reactivated, and thus exempt from purging until it is
-  deactivated again.
+  new `node-purge-ttl` setting specifies a period of time to keep deactivated
+  nodes before deleting them. This can be used with the `puppet node
+  deactivate` command or the automatic node deactivation `node-ttl` setting.
+  This will also delete all facts, catalogs and reports for the purged nodes.
+  As always, if new data is received for a deactivated node, the node will be
+  reactivated, and thus exempt from purging until it is deactivated again. The
+  `node-purge-ttl` setting defaults to 0, which disables purging.
 
 * Import/export of PuppetDB data
 
