@@ -3,13 +3,16 @@
 #host = localhost
 # Port to listen on for clear-text HTTP.
 port = 8080
-<%# placeholder string for ssl-host; will be overwritten by the
+
+<%# placeholder configuration for ssl setup will be overridden by
         puppetdb-ssl-setup script %>
-ssl-host = `facter fqdn`
-ssl-port = 8081
-keystore = <%= @etc_dir -%>/ssl/keystore.jks
-truststore = <%= @etc_dir -%>/ssl/truststore.jks
-<%# these are placeholder passwords, will be overwritten by the
-        puppetdb-ssl-setup script %>
-key-password = PASSWORD
-trust-password = PASSWORD
+# The following are SSL specific settings. They can be configured
+# automatically with the tool puppetdb-ssl-setup, which is normally
+# ran during package installation.
+#
+# ssl-host = <HOST>
+# ssl-port = <PORT>
+# keystore = <PATH>
+# truststore = <PATH>
+# key-password = <PASSWORD>
+# trust-password = <PASSWORD>
