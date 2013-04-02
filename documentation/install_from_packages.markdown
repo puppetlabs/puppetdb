@@ -28,7 +28,7 @@ However, these instructions may be useful for understanding the various moving p
 
 Step 1: Install and Configure Puppet
 -----
-If Puppet isn't fully installed and configured yet on your PuppetDB server, [install it][installpuppet] and request/sign/retrieve a certificate for the node:
+If Puppet isn't fully installed and configured yet on your PuppetDB server, [install it][installpuppet] and request/sign/retrieve a certificate for the node.
 
 [installpuppet]: /guides/installation.html
 
