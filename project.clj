@@ -11,11 +11,9 @@
        (s/trim (slurp "version"))
        (let [command                ["rake" "version" "-s"]
              {:keys [exit out err]} (apply sh command)]
-         (when-not (zero? exit)
-           (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
-                            command exit out err))
-           (System/exit 1))
-       (s/trim out))))))
+         (if (zero? exit)
+           (s/trim out)
+           "0.0-dev-build"))))))
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -71,7 +69,6 @@
                    :dependencies [[ring-mock "0.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
-  :manifest {"Build-Version" ~(version-string)}
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core
