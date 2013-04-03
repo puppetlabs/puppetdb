@@ -12,7 +12,7 @@
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string to-long]]
         [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
-        [com.puppetlabs.puppetdb.testutils.report :only (store-example-report!)]))
+        [com.puppetlabs.puppetdb.testutils.report :only (store-example-report! get-events-map)]))
 
 (def content-type-json "application/json")
 
@@ -58,8 +58,9 @@
   (set (map #(expected-resource-event-response % report-hash) resource-events)))
 
 (deftest query-by-report
-  (let [basic       (:basic reports)
-        report-hash (store-example-report! basic (now))]
+  (let [basic         (:basic reports)
+        report-hash   (store-example-report! basic (now))
+        basic-events  (get-events-map basic)]
 
     ;; TODO: test invalid requests
 
@@ -69,28 +70,6 @@
                         (:resource-events basic)
                         report-hash)]
         (response-equal? response expected munge-event-values)))
-
-    ;; NOTE: more exhaustive testing for these queries can be found in
-    ;; `com.puppetlabs.puppetdb.test.query.event`
-    (testing "should support querying resource events by timestamp"
-      (let [start-time  "2011-01-01T12:00:01-03:00"
-            end-time    "2011-01-01T12:00:03-03:00"]
-        (testing "should support single term timestamp queries"
-          (let [response (get-response ["<" "timestamp" end-time])
-                expected (expected-resource-events-response
-                            (filter #(< (to-long (:timestamp %)) (to-long end-time))
-                              (:resource-events basic))
-                            report-hash)]
-            (response-equal? response expected munge-event-values)))
-        (testing "should support compound timestamp queries"
-          (let [response (get-response ["and" [">" "timestamp" start-time]
-                                              ["<" "timestamp" end-time]])
-                expected (expected-resource-events-response
-                            (filter #(and (< (to-long (:timestamp %)) (to-long end-time))
-                                          (> (to-long (:timestamp %)) (to-long start-time)))
-                              (:resource-events basic))
-                            report-hash)]
-            (response-equal? response expected munge-event-values)))))
 
 
     (testing "query exceeding event-query-limit"
@@ -106,6 +85,25 @@
         (fn []
           (let [response (get-response ["=" "report" report-hash] {"limit" 500})
                 expected (expected-resource-events-response
-                            (:resource-events basic)
+              (:resource-events basic)
+              report-hash)]
+            (response-equal? response expected munge-event-values)))))
+
+    ;; NOTE: more exhaustive testing for these queries can be found in
+    ;; `com.puppetlabs.puppetdb.test.query.event`
+    (testing "should support querying resource events by timestamp"
+      (let [start-time  "2011-01-01T12:00:01-03:00"
+            end-time    "2011-01-01T12:00:03-03:00"]
+        (testing "should support single term timestamp queries"
+          (let [response (get-response ["<" "timestamp" end-time])
+                expected (expected-resource-events-response
+                            (utils/select-values basic-events [1 3])
+                            report-hash)]
+            (response-equal? response expected munge-event-values)))
+        (testing "should support compound timestamp queries"
+          (let [response (get-response ["and" [">" "timestamp" start-time]
+                                              ["<" "timestamp" end-time]])
+                expected (expected-resource-events-response
+                            (utils/select-values basic-events [3])
                             report-hash)]
             (response-equal? response expected munge-event-values)))))))
