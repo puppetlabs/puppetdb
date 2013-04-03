@@ -167,6 +167,25 @@
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query))))))
 
+    (testing "negated regex queries"
+      (doseq [[field value matches]
+              [[:resource-type  "otify"               []]
+               [:resource-title "^[Nn]otify,\\s*yo$"  [2 3]]
+               [:status         "^.ucces."            [3]]
+               [:property       "^[Mm][\\w\\s]+"      [3]]
+               [:message        "notify, yo"          [3]]
+               [:resource-title "^bunk$"              [1 2 3]]
+               [:certname       "^foo\\."             []]
+               [:certname       "^.*\\.mydomain\\.com$" [1 2 3]]]]
+        (testing (format "negated regex query on field '%s'" field)
+          (let [expected  (expected-resource-events
+            (utils/select-values basic-events matches)
+            report-hash)
+                query     ["not" ["~" (name field) value]]
+                actual    (resource-events-query-result query)]
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query))))))
+
     (testing "compound queries"
       (testing "'or' equality queries"
         (doseq [[terms matches]
@@ -179,8 +198,7 @@
                    [[[:new-value      "notify, yo"]
                      [:resource-title "notify, yar"]
                      [:resource-title "hi"]]            [1 2 3]]]]
-          (let [equality-fn (fn [m [k v]] (= v (m k)))
-                expected    (expected-resource-events
+          (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
                               report-hash)
                 term-fn     (fn [[field value]] ["=" (name field) value])
@@ -202,16 +220,50 @@
                    [:certname       "foo.local"]]     [1]]
                  [[[:certname       "foo.local"]
                    [:resource-type  "Notify"]]        [1 2 3]]]]
-          (let [equality-fn (fn [m [k v]] (= v (m k)))
-                expected    (expected-resource-events
+          (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
                               report-hash)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
             (is (= actual expected)
-              (format "Results didn't match for query '%s'" query)))))))
+              (format "Results didn't match for query '%s'" query)))))
 
+      (testing "nested compound queries"
+        (doseq [[query matches]
+                [[["and"
+                    ["or"
+                      ["=" "resource-title" "hi"]
+                      ["=" "resource-title" "notify, yo"]]
+                    ["=" "status" "success"]]               [1]]
+                 [["or"
+                    ["and"
+                      ["=" "resource-title" "hi"]
+                      ["=" "status" "success"]]
+                    ["and"
+                      ["=" "resource-type" "Notify"]
+                      ["=" "property" "message"]]]          [1 2]]]]
+          (let [expected  (expected-resource-events
+                            (utils/select-values basic-events matches)
+                            report-hash)
+                actual    (resource-events-query-result query)]
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query)))))
+
+      (testing "compound queries with both equality and inequality"
+        (doseq [[query matches]
+                [[["and"
+                    ["=" "status" "success"]
+                    ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
+                 [["or"
+                    ["=" "status" "skipped"]
+                    ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
+          (let [expected  (expected-resource-events
+                            (utils/select-values basic-events matches)
+                            report-hash)
+                actual    (resource-events-query-result query)]
+            (is (= actual expected)
+              (format "Results didn't match for query '%s'" query)))))))
 
 
 
