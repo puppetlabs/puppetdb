@@ -106,4 +106,30 @@
                 expected (expected-resource-events-response
                             (utils/select-values basic-events [3])
                             report-hash)]
-            (response-equal? response expected munge-event-values)))))))
+            (response-equal? response expected munge-event-values)))))
+
+    (testing "compound queries"
+      (doseq [[query matches]
+              [[["and"
+                  ["or"
+                    ["=" "resource-title" "hi"]
+                    ["=" "resource-title" "notify, yo"]]
+                  ["=" "status" "success"]]                       [1]]
+               [["or"
+                  ["and"
+                    ["=" "resource-title" "hi"]
+                    ["=" "status" "success"]]
+                  ["and"
+                    ["=" "resource-type" "Notify"]
+                    ["=" "property" "message"]]]                  [1 2]]
+               [["and"
+                  ["=" "status" "success"]
+                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
+               [["or"
+                  ["=" "status" "skipped"]
+                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
+        (let [response  (get-response query)
+              expected  (expected-resource-events-response
+                          (utils/select-values basic-events matches)
+                          report-hash)]
+          (response-equal? response expected munge-event-values))))))
