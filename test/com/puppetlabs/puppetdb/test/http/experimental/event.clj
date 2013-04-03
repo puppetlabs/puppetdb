@@ -50,7 +50,8 @@
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.
-    (update-in [:timestamp] to-string)))
+    (update-in [:timestamp] to-string)
+    (dissoc :test-id)))
 
 (defn expected-resource-events-response
   [resource-events report-hash]
