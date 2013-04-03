@@ -47,3 +47,7 @@
          ;; calculated by the server), so we remove this field from the response
          ;; for test comparison
          (map #(dissoc % :receive-time)))))
+
+(defn get-events-map
+  [example-report]
+  (reduce (fn [res ev] (assoc res (:test-id ev) ev)) {} (:resource-events example-report)))

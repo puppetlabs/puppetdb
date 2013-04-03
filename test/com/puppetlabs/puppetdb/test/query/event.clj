@@ -7,7 +7,7 @@
   (:use clojure.test
          com.puppetlabs.puppetdb.fixtures
          com.puppetlabs.puppetdb.examples.report
-         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
+         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report! get-events-map]]
          com.puppetlabs.puppetdb.testutils.event
          [clj-time.coerce :only [to-string to-timestamp to-long]]
          [clj-time.core :only [now ago days]]))
@@ -51,7 +51,8 @@
 
 (deftest resource-event-queries
   (let [basic         (:basic reports)
-        report-hash   (store-example-report! basic (now))]
+        report-hash   (store-example-report! basic (now))
+        basic-events  (get-events-map basic)]
 
     (testing "resource event retrieval by report"
       (testing "should return the list of resource events for a given report hash"
@@ -63,51 +64,37 @@
       (testing "should return the list of resource events that occurred before a given time"
         (let [end-time  "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (filter #(> (to-long end-time) (to-long (:timestamp %)))
-                              (:resource-events basic))
+                            (utils/select-values basic-events [1 3])
                             report-hash)
               actual      (resource-events-query-result ["<" "timestamp" end-time])]
-          (is (= actual expected))
-          (is (= 2 (count actual)))))
+          (is (= actual expected))))
       (testing "should return the list of resource events that occurred after a given time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               expected    (expected-resource-events
-                            (filter #(< (to-long start-time) (to-long (:timestamp %)))
-                              (:resource-events basic))
+                            (utils/select-values basic-events [2 3])
                             report-hash)
               actual      (resource-events-query-result [">" "timestamp" start-time])]
-          (is (= actual expected))
-          (is (= 2 (count actual)))))
+          (is (= actual expected))))
       (testing "should return the list of resource events that occurred between a given start and end time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (filter #(and (< (to-long start-time)
-                                             (to-long (:timestamp %)))
-                                          (> (to-long end-time)
-                                             (to-long (:timestamp %))))
-                              (:resource-events basic))
+                            (utils/select-values basic-events [3])
                             report-hash)
               actual      (resource-events-query-result
                             ["and"  [">" "timestamp" start-time]
                                     ["<" "timestamp" end-time]])]
-          (is (= actual expected))
-          (is (= 1 (count actual)))))
+          (is (= actual expected))))
       (testing "should return the list of resource events that occurred between a given start and end time (inclusive)"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (filter #(and (<= (to-long start-time)
-                                              (to-long (:timestamp %)))
-                                          (>= (to-long end-time)
-                                              (to-long (:timestamp %))))
-                              (:resource-events basic))
+                            (utils/select-values basic-events [1 2 3])
                             report-hash)
               actual      (resource-events-query-result
                             ["and"   [">=" "timestamp" start-time]
                                      ["<=" "timestamp" end-time]])]
-          (is (= actual expected))
-          (is (= 3 (count actual))))))
+          (is (= actual expected)))))
 
     (testing "when querying with a limit"
       (let [num-events (count (:resource-events basic))]
@@ -120,126 +107,110 @@
             (resource-events-limited-query-result (dec num-events) ["=" "report" report-hash]))))))
 
     (testing "equality queries"
-      (doseq [[field value num-matches]
-                  [[:resource-type  "Notify"              3]
-                   [:resource-title "notify, yo"          1]
-                   [:status         "success"             2]
-                   [:property       "message"             2]
-                   [:old-value      ["what" "the" "woah"] 1]
-                   [:new-value      "notify, yo"          1]
-                   [:message        "defined 'message' as 'notify, yo'" 2]
-                   [:resource-title "bunk"                0]
-                   [:certname       "foo.local"           3]
-                   [:certname       "bunk.remote"         0]]]
+      (doseq [[field value matches]
+                  [[:resource-type  "Notify"              [1 2 3]
+                   [:resource-title "notify, yo"          [1]]
+                   [:status         "success"             [1 2]]
+                   [:property       "message"             [1 2]]
+                   [:old-value      ["what" "the" "woah"] [1]]
+                   [:new-value      "notify, yo"          [1]]
+                   [:message        "defined 'message' as 'notify, yo'" [1 2]
+                   [:resource-title "bunk"                []]
+                   [:certname       "foo.local"           [1 2 3]]
+                   [:certname       "bunk.remote"         []]]]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (filter #(= value (% field))
-                              (:resource-events basic))
+                            (utils/select-values basic-events matches)
                             report-hash)
                 query     ["=" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
-              (format "Results didn't match for query '%s'" query))
-            (is (= (count actual) num-matches)
-              (format "Counts didn't match for query '%s'" query))))))
+              (format "Results didn't match for query '%s'" query))))))
 
     (testing "'not' queries"
-      (doseq [[field value num-matches]
-              [[:resource-type  "Notify"              0]
-               [:resource-title "notify, yo"          2]
-               [:status         "success"             1]
-               [:property       "message"             1]
-               [:old-value      ["what" "the" "woah"] 2]
-               [:new-value      "notify, yo"          2]
-               [:message        "defined 'message' as 'notify, yo'" 1]
-               [:resource-title "bunk"                3]
-               [:certname       "foo.local"           0]
-               [:certname       "bunk.remote"         3]]]
+      (doseq [[field value matches]
+              [[:resource-type  "Notify"              []]
+               [:resource-title "notify, yo"          [2 3]]
+               [:status         "success"             [3]]
+               [:property       "message"             [3]]
+               [:old-value      ["what" "the" "woah"] [2 3]]
+               [:new-value      "notify, yo"          [2 3]]
+               [:message        "defined 'message' as 'notify, yo'" [3]]
+               [:resource-title "bunk"                [1 2 3]]
+               [:certname       "foo.local"           []]
+               [:certname       "bunk.remote"         [1 2 3]]]]
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (filter #(not (= value (% field)))
-                              (:resource-events basic))
+                            (utils/select-values basic-events matches)
                             report-hash)
                 query     ["not" ["=" (name field) value]]
                 actual    (resource-events-query-result query)]
-            (is (= (count actual) num-matches)
-              (format "Counts didn't match for query '%s'" query))
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query))))))
 
     (testing "regex queries"
-      (doseq [[field value num-matches]
-              [[:resource-type  "otify"               3]
-               [:resource-title "^[Nn]otify,\\s*yo$"  1]
-               [:status         "^.ucces."            2]
-               [:property       "^[Mm][\\w\\s]+"      2]
-               [:message        "notify, yo"          2]
-               [:resource-title "^bunk$"              0]
-               [:certname       "^foo\\."             3]
-               [:certname       "^.*\\.mydomain\\.com$" 0]]]
+      (doseq [[field value matches]
+              [[:resource-type  "otify"               [1 2 3]]
+               [:resource-title "^[Nn]otify,\\s*yo$"  [1]]
+               [:status         "^.ucces."            [1 2]]
+               [:property       "^[Mm][\\w\\s]+"      [1 2]]
+               [:message        "notify, yo"          [1 2]]
+               [:resource-title "^bunk$"              []]
+               [:certname       "^foo\\."             [1 2 3]]
+               [:certname       "^.*\\.mydomain\\.com$" []]]]
         (testing (format "regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (filter #(re-find (re-pattern value) (% field))
-                              (filter #(not (nil? (% field)))
-                                (:resource-events basic)))
+                            (utils/select-values basic-events matches)
                             report-hash)
                 query     ["~" (name field) value]
                 actual    (resource-events-query-result query)]
-            (is (= (count actual) num-matches)
-              (format "Counts didn't match for query '%s'" query))
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query))))))
 
     (testing "compound queries"
       (testing "'or' equality queries"
-        (doseq [[terms num-matches]
+        (doseq [[terms matches]
                   [[[[:resource-title "notify, yo"]
-                     [:status         "skipped"]]       2]
+                     [:status         "skipped"]]       [1 3]
                    [[[:resource-type  "bunk"]
-                     [:resource-title "notify, yar"]]   1]
+                     [:resource-title "notify, yar"]]   [2]]
                    [[[:resource-type  "bunk"]
-                     [:status         "bunk"]]          0]
+                     [:status         "bunk"]]          []]]
                    [[[:new-value      "notify, yo"]
                      [:resource-title "notify, yar"]
-                     [:resource-title "hi"]]            3]]]
+                     [:resource-title "hi"]]            [1 2 3]]]]
           (let [equality-fn (fn [m [k v]] (= v (m k)))
                 expected    (expected-resource-events
-                              (filter #(some identity (map (partial equality-fn %) terms))
-                                (:resource-events basic))
+                              (utils/select-values basic-events matches)
                               report-hash)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "or" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
             (is (= actual expected)
-              (format "Results didn't match for query '%s'" query))
-            (is (= (count actual) num-matches)
-              (format "Counts didn't match for query '%s'" query))))))
+              (format "Results didn't match for query '%s'" query))))))
 
       (testing "'and' equality queries"
-        (doseq [[terms num-matches]
+        (doseq [[terms matches]
                 [[[[:resource-type  "Notify"]
-                   [:status         "success"]]       2]
+                   [:status         "success"]]       [1 2]]
                  [[[:resource-type  "bunk"]
-                   [:resource-title "notify, yar"]]   0]
+                   [:resource-title "notify, yar"]]   []]
                  [[[:resource-title "notify, yo"]
-                   [:status         "skipped"]]       0]
+                   [:status         "skipped"]]       []]
                  [[[:new-value      "notify, yo"]
                    [:resource-type  "Notify"]
-                   [:certname       "foo.local"]]     1]
+                   [:certname       "foo.local"]]     [1]]
                  [[[:certname       "foo.local"]
-                   [:resource-type  "Notify"]]        3]]]
+                   [:resource-type  "Notify"]]        [1 2 3]]]]
           (let [equality-fn (fn [m [k v]] (= v (m k)))
                 expected    (expected-resource-events
-                              (filter #(every? identity (map (partial equality-fn %) terms))
-                                (:resource-events basic))
+                              (utils/select-values basic-events matches)
                               report-hash)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
             (is (= actual expected)
-              (format "Results didn't match for query '%s'" query))
-            (is (= (count actual) num-matches)
-              (format "Counts didn't match for query '%s'" query)))))))
+              (format "Results didn't match for query '%s'" query)))))))
 
 
 
