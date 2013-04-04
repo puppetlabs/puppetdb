@@ -178,6 +178,12 @@ The maximum number of legal results that a resource query can return.  If you is
   
 The default value is 20000.
 
+### `event-query-limit`
+
+The maximum number of legal results that a resource event query can return.  If you issue a query that would result in more results than this value, the query will simply return an error.  (This can be used to prevent accidental queries that would yield huge numbers of results from consuming undesirable amounts of resources on the server.)
+
+The default value is 20000.
+
 ### `update-server`
 
 The URL to query when checking for newer versions; defaults to `http://updates.puppetlabs.com/check-for-updates`.
