@@ -24,7 +24,7 @@
 (def export-root-dir           "puppetdb-bak")
 
 (defn catalog-for-node
-  "Given a node name, retrieve the catalog for the node.  This"
+  "Given a node name, retrieve the catalog for the node."
   [host port node]
   {:pre  [(string? host)
           (integer? port)
