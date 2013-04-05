@@ -25,7 +25,7 @@ are generated from Puppet reports.)  There must be an `Accept` header containing
 The `query` parameter is described by the following grammar:
 
     query: [ {bool} {query}+ ] | [ "not" {query} ] | [ {match} {field} {value} ] | [ {inequality} {field} {value} ]
-    field:          string | [ string+ ]
+    field:          FIELD (conforming to [Fields](#fields) specification below)
     value:          string
     bool:           "or" | "and"
     match:          "=" | "~"
@@ -48,7 +48,7 @@ type 'Service':
             ["~", "certname", "^foo\\."],
             ["=", "resource-type", "Service"]]
 
-For more information on the available values for `field`, see the [fields](#fields) section below.
+For more information on the available values for `FIELD`, see the [fields](#fields) section below.
 
 * `limit`: Optional.  If specified, this should be an integer value that will be used to override the `event-query-limit` [configuration setting](../../../configure.html#event_query_limit)
 
@@ -60,7 +60,7 @@ the `timestamp` FIELD.
 
 ##### Fields
 
-`field` may be any of the following.  Unless otherwise noted, all fields support
+`FIELD` may be any of the following.  Unless otherwise noted, all fields support
 both equality and regular expression match operators, but do not support inequality
 operators.
 
