@@ -51,6 +51,18 @@
                     (query-to-vec (apply vector query params)))]
     results))
 
+(defn events-for-report-hash
+  "Given a particular report hash, this function returns all events for that
+   given hash."
+  [report-hash]
+  {:pre [(string? report-hash)]
+   :post [(vector? %)]}
+  (let [query ["=" "report" report-hash]]
+    (vec
+      (-> query
+        (resource-event-query->sql)
+        (query-resource-events)))))
+
 (defmethod compile-resource-event-term :equality
   [[op path value :as term]]
   {:post [(map? %)

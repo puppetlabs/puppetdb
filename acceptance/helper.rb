@@ -393,6 +393,8 @@ module PuppetDBExtensions
           compare_catalog(f, expected_path)
         when :metadata
           compare_metadata(f, expected_path)
+        when :report
+          compare_metadata(f, expected_path)
         when :unknown
           fail("Unrecognized file found in archive: '#{relative_path}'")
       end
@@ -413,6 +415,8 @@ module PuppetDBExtensions
         :metadata
       when /^puppetdb-bak\/catalogs\/.*\.json$/
         :catalog
+      when /^puppetdb-bak\/reports\/.*\.json$/
+        :report
       else
         :unknown
     end

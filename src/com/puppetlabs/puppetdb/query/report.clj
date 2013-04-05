@@ -3,7 +3,8 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
+        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]))
 
 ;; ## Report query functions
 ;;
@@ -61,3 +62,14 @@
     (throw (IllegalArgumentException.
                  (str term " is not a valid query term")))))
 
+(defn reports-for-node
+  "Return reports for a particular node."
+  [node]
+  {:pre  [(string? node)]
+   :post [(or (nil? %)
+              (seq? %))]}
+  (let [query ["=" "certname" node]
+        reports (-> query (report-query->sql) (query-reports))]
+    (map
+      #(merge % {:resource-events (events-for-report-hash (get % :hash))})
+      reports)))
