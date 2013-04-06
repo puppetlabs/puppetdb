@@ -27,7 +27,7 @@
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
-                 [org.clojure/tools.nrepl "0.2.0-beta2"]
+                 [org.clojure/tools.nrepl "0.2.2"]
                  [org.clojure/tools.namespace "0.1.3"]
                  [swank-clojure "1.4.0"]
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
