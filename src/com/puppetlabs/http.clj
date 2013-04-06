@@ -162,19 +162,10 @@
 
 (defn stream-json
   "Serializes the supplied sequence to `buffer`, which is a `Writer`
-  object.
-
-  The sequence is serialized as a JSON array. The supplied buffer is
-  left open."
+  object."
   [coll buffer]
   {:pre [(instance? Writer buffer)]}
-  (let [spit-json #(json/generate-stream % buffer {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})]
-    (.write buffer "[")
-    (doseq [[idx obj] (utils/enumerate coll)]
-      (when (pos? idx)
-        (.write buffer ",\n"))
-      (spit-json obj))
-    (.write buffer "]")))
+  (json/generate-stream coll buffer {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true}))
 
 (defmacro streamed-response
   "Evaluates `body` in a thread, with a local variable (`writer-var`)

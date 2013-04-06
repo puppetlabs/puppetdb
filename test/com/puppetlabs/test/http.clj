@@ -135,7 +135,7 @@
   (testing "empty seq should return []"
     (let [w (StringWriter.)]
       (stream-json [] w)
-      (is (= (str w) "[]"))))
+      (is (empty? (parse-string (str w))))))
 
   (testing "should jsonify all items in the seq"
     (let [w    (StringWriter.)
