@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 ---
 
 1.2.0
+-----
 
 Many thanks to following people who contributed patches to this
 release:
