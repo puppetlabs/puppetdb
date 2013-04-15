@@ -16,8 +16,8 @@ To enable the REPL, you must edit PuppetDB's config file to [enable it, configur
     # /etc/puppetdb/conf.d/repl.ini
     [repl]
     enabled = true
-    type = nrepl
-    port = 8081
+    type = telnet
+    port = 8082
 
 After configuring it, you should restart the PuppetDB service.
 
@@ -26,12 +26,12 @@ Connecting to a Remote REPL
 
 Once PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
 
-For example, with an _nrepl_ type REPL configured on port 8082:
+For example, with a _telnet_ type REPL configured on port 8082:
 
     $ telnet localhost 8082
     Connected to localhost.
     Escape character is '^]'.
-    ;; Clojure 1.3.0
+    ;; Clojure 1.4.0
     user=> (+ 1 2 3)
     6
 
