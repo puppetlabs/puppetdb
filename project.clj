@@ -9,7 +9,7 @@
      []
      (if (.exists (file "version"))
        (s/trim (slurp "version"))
-       (let [command                ["rake" "version" "-s"]
+       (let [command                ["rake" "package:version" "-s"]
              {:keys [exit out err]} (apply sh command)]
          (if (zero? exit)
            (s/trim out)
