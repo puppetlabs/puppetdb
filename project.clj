@@ -17,7 +17,7 @@
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.5.1"]
                  [cheshire "4.0.2"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
@@ -27,7 +27,7 @@
                  [org.clojure/tools.cli "0.2.1"]
                  [org.clojure/tools.nrepl "0.2.2"]
                  [org.clojure/tools.namespace "0.1.3"]
-                 [swank-clojure "1.4.0"]
+                 [swank-clojure "1.4.3"]
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
                  [clj-stacktrace "0.2.4"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
