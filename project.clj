@@ -18,7 +18,7 @@
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [cheshire "4.0.2"]
+                 [cheshire "5.1.1"]
                  [org.clojure/core.incubator "0.1.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
                  [org.clojure/core.memoize "0.5.1"]
