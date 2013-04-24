@@ -241,7 +241,7 @@
         ;; same
         node-ttl-default (secs 0)
         node-purge-ttl-default (secs 0)
-        report-ttl-default (days 7)
+        report-ttl-default (days 14)
         parsed-commandproc (update-in command-processing [:dlo-compression-threshold] #(or (maybe-parse-period %) dlo-compression-default))
         parsed-database (-> database
                             (update-in [:gc-interval] #(or (maybe-minutes %) gc-interval-default))

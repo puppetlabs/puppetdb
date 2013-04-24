@@ -285,7 +285,7 @@ You may specify the time as a string using any of the suffixes described in the
 Outdated reports will be deleted during the database garbage collection, which
 runs every `gc-interval` minutes.
 
-If unset, the default value is 7 days.
+If unset, the default value is 14 days.
 
 ### `log-slow-statements`
 

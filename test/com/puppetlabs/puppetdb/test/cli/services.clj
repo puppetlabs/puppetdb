@@ -90,10 +90,10 @@
       (let [{:keys [report-ttl]} (:database (configure-gc-params { :database { :report-ttl "10d" }}))]
         (is (period? report-ttl))
         (is (= (days 10) (days (to-days report-ttl))))))
-    (testing "should default to 7 days"
+    (testing "should default to 14 days"
       (let [{:keys [report-ttl]} (:database (configure-gc-params {}))]
         (is (period? report-ttl))
-        (is (= (days 7) (days (to-days report-ttl))))))))
+        (is (= (days 14) (days (to-days report-ttl))))))))
 
 (deftest http-configuration
   (testing "should enable need-client-auth"

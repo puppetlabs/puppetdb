@@ -54,7 +54,7 @@ Although deactivated nodes will be excluded from storeconfigs queries, their dat
 
 ## Clean Up Old Reports
 
-When the [PuppetDB report processor][puppetdb_report_processor] is enabled on your Puppet master, PuppetDB will retain reports for each node for a fixed amount of time.  This defaults to seven days, but you can alter this to suit your needs using the [`report-ttl` setting][report_ttl].  The larger the value you provide for this setting, the more history you will retain; however, your database size will grow accordingly.
+When the [PuppetDB report processor][puppetdb_report_processor] is enabled on your Puppet master, PuppetDB will retain reports for each node for a fixed amount of time.  This defaults to 14 days, but you can alter this to suit your needs using the [`report-ttl` setting][report_ttl].  The larger the value you provide for this setting, the more history you will retain; however, your database size will grow accordingly.
 
 ## View the Log
 
