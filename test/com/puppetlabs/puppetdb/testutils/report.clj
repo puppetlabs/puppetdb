@@ -14,7 +14,7 @@
 (defn munge-example-report-for-storage
   [example-report]
   (update-in example-report [:resource-events]
-    #(vec (map munge-example-event-for-storage %))))
+    #(mapv munge-example-event-for-storage %)))
 
 (defn store-example-report!
   [example-report timestamp]
@@ -50,4 +50,6 @@
 
 (defn get-events-map
   [example-report]
-  (reduce (fn [res ev] (assoc res (:test-id ev) ev)) {} (:resource-events example-report)))
+  (into {}
+    (for [ev (:resource-events example-report)]
+      [(:test-id ev) ev])))

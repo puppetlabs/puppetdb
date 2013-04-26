@@ -41,8 +41,8 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [path (dashes->underscores path)]
-    (match [path]
+  (let [db-field (dashes->underscores path)]
+    (match [db-field]
       ["certname"]
       {:where (format "reports.certname = ?")
        :params [value]}

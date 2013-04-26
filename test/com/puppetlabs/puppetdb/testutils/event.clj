@@ -39,13 +39,15 @@
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
   [query]
-  (set (->> (query/query->sql query)
-            (query/query-resource-events))))
+  (->> (query/query->sql query)
+       (query/query-resource-events)
+       (set)))
 
 
 (defn resource-events-limited-query-result
   "Utility function that executes a resource events query with a limit, and returns
   a set of results for use in test comparisons."
   [limit query]
-  (set (->> (query/query->sql query)
-            ((partial query/limited-query-resource-events limit)))))
+  (->> (query/query->sql query)
+       (query/limited-query-resource-events limit)
+       (set)))
