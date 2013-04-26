@@ -3,7 +3,7 @@
 set -e
 set -v
 
-if [ $PE_BUILD != "true" ]; then
+if [ "$PE_BUILD" != "true" ]; then
   PE_BUILD=false
 fi
 
@@ -51,7 +51,7 @@ export PE_BUILD TEAM
 
 rake pl:fetch --trace
 
-if [ $PE_BUILD = "true" ]; then
+if [ "$PE_BUILD" = "true" ]; then
     rake pe:mock_all --trace
     rake pe:ship_rpms --trace
 fi
