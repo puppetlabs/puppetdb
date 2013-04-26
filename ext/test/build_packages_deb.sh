@@ -2,10 +2,15 @@ set -e
 
 NAME=puppetdb
 
+if [ $PE_BUILD != "true" ]; then
+  PE_BUILD=false
+fi
+
 echo "**********************************************"
 echo "RUNNING CLOUD DEB PACKAGING; PARAMS FROM UPSTREAM BUILD:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
+echo "PE_BUILD?: ${PE_BUILD}
 echo "**********************************************"
 
 # `git describe` returns something like 1.0.0-20-ga1b2c3d
@@ -38,13 +43,16 @@ rake pl:remote:deb_all --trace
 rake pl:ship_debs --trace
 
 # Establish PE building environment variables
-PE_BUILD=true
+#PE_BUILD=true # we now expect for this variable to be populated by the jenkins job
 TEAM=pe-dev
 export PE_BUILD TEAM
 
 rake pl:fetch --trace
-rake pe:deb_all --trace
-rake pe:ship_debs --trace
+
+if [ $PE_BUILD = "true" ]; then
+    rake pe:deb_all --trace
+    rake pe:ship_debs --trace
+fi
 
 # That's right, I'm templating a config file via shell script inside
 # a Jenkins job.  So?  Back off.
