@@ -86,10 +86,10 @@ set -e
 set -x
 
 for DISTRO in lucid oneiric precise quantal sid squeeze stable testing unstable wheezy; do
-  freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
+  sudo freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
-freight cache -c ${FREIGHT_DIR}/freight.conf
+sudo freight cache -c ${FREIGHT_DIR}/freight.conf
 
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
