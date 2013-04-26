@@ -11,7 +11,7 @@ echo "**********************************************"
 echo "RUNNING RPM PACKAGING; PARAMS FROM UPSTREAM BUILD:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
-echo "PE_BUILD?: ${PE_BUILD}
+echo "PE_BUILD?: ${PE_BUILD}"
 echo "**********************************************"
 env
 echo "**********************************************"

@@ -12,7 +12,7 @@ echo "**********************************************"
 echo "RUNNING CLOUD DEB PACKAGING; PARAMS FROM UPSTREAM BUILD:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
-echo "PE_BUILD?: ${PE_BUILD}
+echo "PE_BUILD?: ${PE_BUILD}"
 echo "**********************************************"
 
 # `git describe` returns something like 1.0.0-20-ga1b2c3d
