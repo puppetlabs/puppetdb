@@ -1,10 +1,15 @@
 set -e
 set -v
 
+if [ $PE_BUILD != "true" ]; then
+  PE_BUILD=false
+fi
+
 echo "**********************************************"
 echo "RUNNING RPM PACKAGING; PARAMS FROM UPSTREAM BUILD:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
+echo "PE_BUILD?: ${PE_BUILD}
 echo "**********************************************"
 env
 echo "**********************************************"
@@ -38,13 +43,16 @@ rake pl:remote:mock_all --trace
 rake pl:ship_rpms --trace
 
 # Establish PE building environment variables
-PE_BUILD=true
+#PE_BUILD=true # we now expect for this variable to be populated by the jenkins job
 TEAM=pe-dev
 export PE_BUILD TEAM
 
 rake pl:fetch --trace
-rake pe:mock_all --trace
-rake pe:ship_rpms --trace
+
+if [ $PE_BUILD = "true" ]; then
+    rake pe:mock_all --trace
+    rake pe:ship_rpms --trace
+fi
 
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then
