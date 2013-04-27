@@ -20,7 +20,7 @@
 # On FOSS releases for platforms with ruby 1.9, puppet uses vendorlibdir instead of sitelibdir
 # On PE, we use sitelibdir
 <% if @pe -%>
-%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+%global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 <% else -%>
 %if 0%{?fedora} >= 17
 %global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
