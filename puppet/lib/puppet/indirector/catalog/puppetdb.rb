@@ -138,13 +138,13 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     aliases
   end
 
-  def find_resource(resources, resource_hash)
-    return unless resource_hash
-    resources.find {|res| res['type'] == resource_hash['type'] and res['title'].to_s == resource_hash['title'].to_s}
-  end
-
   def synthesize_edges(hash, catalog)
     aliases = map_aliases_to_title(hash)
+
+    resource_table = {}
+    hash['resources'].each do |resource|
+      resource_table[ [resource['type'], resource['title']] ] = resource
+    end
 
     hash['resources'].each do |resource|
       # Standard virtual resources don't appear in the catalog. However,
@@ -205,7 +205,10 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
             # Try to find the resource by type/title or look it up as an alias
             # and try that
-            other_resource = find_resource(hash['resources'], other_hash) || find_resource(hash['resources'], aliases[other_array])
+            other_resource = resource_table[other_array]
+            if other_resource.nil? and alias_hash = aliases[other_array]
+              other_resource = resource_table[ alias_hash.values_at('type', 'title') ]
+            end
 
             raise Puppet::Error, "Invalid relationship: #{edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)}, because #{other_ref} doesn't seem to be in the catalog" unless other_resource
 
