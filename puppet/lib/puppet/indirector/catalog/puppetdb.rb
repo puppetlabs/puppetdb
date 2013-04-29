@@ -1,6 +1,7 @@
 require 'puppet/resource/catalog'
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
+require 'set'
 
 class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -74,7 +75,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       # is both an optimization and a safeguard.
       next if real_resource.key_attributes.count > 1
 
-      aliases = [real_resource[:alias]].flatten.compact
+      aliases = Set.new [real_resource[:alias]].flatten.compact
 
       # Non-isomorphic resources aren't unique based on namevar, so we can't
       # use it as an alias
