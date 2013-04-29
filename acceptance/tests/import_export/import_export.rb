@@ -6,7 +6,7 @@ test_name "storeconfigs export and import" do
 
   step "run each agent once to populate the database" do
     # dbadapter, dblocation, storeconfigs_backend, routefile
-    with_master_running_on master, "--autosign true", :preserve_ssl => true do
+    with_master_running_on master, "--autosign true --report true --reports=store,puppetdb", :preserve_ssl => true do
       hosts.each do |host|
         run_agent_on host, "--test --server #{master}", :acceptable_exit_codes => [0,2]
       end
