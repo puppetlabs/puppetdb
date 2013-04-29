@@ -49,6 +49,21 @@
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
+(defn submit-report
+  "Send the given wire-format `report` (associated with `host`) to a
+  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
+  [puppetdb-host puppetdb-port command-version report-payload]
+  {:pre  [(string?  puppetdb-host)
+          (integer? puppetdb-port)
+          (integer? command-version)
+          (string?  report-payload)]}
+  (let [result (command/submit-command-via-http!
+                  puppetdb-host puppetdb-port
+                  "store report" command-version
+                  (json/parse-string report-payload))]
+    (when-not (= pl-http/status-ok (:status result))
+      (log/error result))))
+
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
@@ -59,8 +74,9 @@
           (integer? port)
           (map? metadata)]}
   (let [path    (.getName tar-entry)
-        pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")]
-    (when (re-find (re-pattern pattern) path)
+        catalog-pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")
+        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")]
+    (when (re-find (re-pattern catalog-pattern) path)
       (println (format "Importing catalog from archive entry '%s'" path))
       ;; NOTE: these submissions are async and we have no guarantee that they
       ;;   will succeed.  We might want to add something at the end of the import
@@ -69,6 +85,11 @@
       ;;   the list of nodes that we submitted and the output of that query
       (submit-catalog host port
         (get-in metadata [:command-versions :replace-catalog])
+        (archive/read-entry-content tar-reader)))
+    (when (re-find (re-pattern report-pattern) path)
+      (println (format "Importing report from archive entry '%s'" path))
+      (submit-report host port
+        (get-in metadata [:command-versions :store-report])
         (archive/read-entry-content tar-reader)))))
 
 (defn -main

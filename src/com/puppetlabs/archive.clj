@@ -69,7 +69,9 @@
   {:post [(instance? TarGzWriter %)]}
   (let [out-stream  (get-outstream out)
         gzip-stream (GzipCompressorOutputStream. out-stream)
-        tar-stream  (TarArchiveOutputStream. gzip-stream)
+        tar-stream  (doto
+                      (new TarArchiveOutputStream gzip-stream)
+                      (.setLongFileMode TarArchiveOutputStream/LONGFILE_POSIX))
         tar-writer  (writer tar-stream)]
     (TarGzWriter. tar-stream tar-writer gzip-stream)))
 
