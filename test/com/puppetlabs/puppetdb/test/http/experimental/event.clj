@@ -38,8 +38,15 @@
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
-  for comparison with test data"
+  for comparison with test data.  This generally involves things like converting
+  map keys from keywords to strings, etc."
   [events]
+  ;; It is possible for the `old-value` and `new-value` field of an event
+  ;; to contain values that are complex data types (arrays, maps).  In
+  ;; the case where one of these values is a map, we will get it back
+  ;; with keywords as keys, but real world-data has strings as keys.  Here
+  ;; we simply convert the keys to strings so that we can compare them for
+  ;; tests.
   (map #(utils/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
 (defn expected-resource-event-response
