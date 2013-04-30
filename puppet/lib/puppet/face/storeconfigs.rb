@@ -57,7 +57,6 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
             'timestamp' => timestamp,
             'command-versions' => {
               'replace-catalog' => 2,
-              'store-report' => 1,
             }
           }
 
