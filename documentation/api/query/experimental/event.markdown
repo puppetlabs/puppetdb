@@ -87,20 +87,28 @@ operators.
 
 `property`:
 : the property/parameter of the resource that the event occurred on; e.g., for a
-  `Package` resource, this field might have a value of `ensure`.
+  `Package` resource, this field might have a value of `ensure`.  NOTE: this field
+  may contain `NULL` values; see notes below.
 
 `new-value`
 : the new value that Puppet was attempting to set for the specified resource
-  property.
+  property.  NOTE: this field may contain `NULL` values; see notes below.
 
 `old-value`
 : the previous value of the resource property, which Puppet was attempting to
-  change
+  change.  NOTE: this field may contain `NULL` values; see notes below.
 
 `message`
 : a description (supplied by the resource provider) of what happened during the
-  event
+  event.  NOTE: this field may contain `NULL` values; see notes below.
 
+##### Notes on fields that allow `NULL` values
+
+In the case of a `skipped` resource event, some of the fields of an event may
+not have values.  We handle this case in a slightly special way when these
+fields are used in equality (`=`) or inequality (`!=`) queries; specifically,
+an equality query will always return `false` for an event with no value for
+the field, and an inequality query will always return `true`.
 
 #### Response format
 
