@@ -59,8 +59,8 @@ test_name "storeconfigs export and import" do
     scp_from(database, db_new_export_file, ".")
   end
 
-  step "verify legacy export data matches new export data" do
-    compare_export_data(driver_legacy_export_file, driver_new_export_file)
+  step "verify legacy export data matches new export data - catalog data only" do
+    compare_export_data(driver_legacy_export_file, driver_new_export_file, :metadata => false, :reports => false)
   end
 
   teardown do
