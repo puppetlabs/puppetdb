@@ -366,7 +366,20 @@ module PuppetDBExtensions
   # code folder in the main PuppetDB source tree if such a
   # thing ever materializes.
 
-  def compare_export_data(export_file1, export_file2)
+  # @param export_file1 [String] path to first export file
+  # @param export_file2 [String] path to second export file
+  # @param opts [Hash] comparison options
+  # @option opts [Boolean] :catalogs compare catalog? defaults to true
+  # @option opts [Boolean] :metadata compare metadata? defaults to true
+  # @option opts [Boolean] :reports compare reports? defaults to true
+  def compare_export_data(export_file1, export_file2, opts={})
+    # Apply defaults
+    opts = {
+      :catalogs => true,
+      :metadata => true,
+      :reports => true,
+    }.merge(opts)
+
     # NOTE: I'm putting this tmpdir inside of cwd because I expect for that to
     #  be inside of the jenkins workspace, which I'm hoping means that it will
     #  be cleaned up regularly if we accidentally leave anything lying around
@@ -390,11 +403,11 @@ module PuppetDBExtensions
       export_entry_type = get_export_entry_type(relative_path)
       case export_entry_type
         when :catalog
-          compare_catalog(f, expected_path)
+          compare_catalog(f, expected_path) if opts[:catalogs]
         when :metadata
-          compare_metadata(f, expected_path)
+          compare_metadata(f, expected_path) if opts[:metadata]
         when :report
-          compare_metadata(f, expected_path)
+          compare_report(f, expected_path) if opts[:reports]
         when :unknown
           fail("Unrecognized file found in archive: '#{relative_path}'")
       end
@@ -435,6 +448,18 @@ module PuppetDBExtensions
     assert(diff == nil, "Catalogs '#{cat1_path}' and '#{cat2_path}' don't match!' Diff:\n#{diff}")
   end
 
+  def compare_report(cat1_path, cat2_path)
+    cat1 = munge_report_for_comparison(cat1_path)
+    cat2 = munge_report_for_comparison(cat2_path)
+
+    diff = hash_diff(cat1, cat2)
+    if (diff)
+      diff = JSON.pretty_generate(diff)
+    end
+
+    assert(diff == nil, "Reports '#{cat1_path}' and '#{cat2_path}' don't match!' Diff:\n#{diff}")
+  end
+
   def compare_metadata(meta1_path, meta2_path)
     meta1 = munge_metadata_for_comparison(meta1_path)
     meta2 = munge_metadata_for_comparison(meta2_path)
@@ -460,6 +485,10 @@ module PuppetDBExtensions
     munged_resources = meta["data"]["resources"].map { |resource| munge_resource_for_comparison(resource) }
     meta["data"]["resources"] = Set.new(munged_resources)
     meta
+  end
+
+  def munge_report_for_comparison(cat_path)
+    JSON.parse(File.read(cat_path))
   end
 
   ##############################################################################
