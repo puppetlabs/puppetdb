@@ -14,12 +14,12 @@
   "Munges event objects in a way that is suitable for equality comparisons in tests"
   [events]
   {:pre  [(vector? events)]
-   :post [(vector? %)]}
-  (mapv
-    #(-> %
-      (update-in ["timestamp"] time-coerce/to-string)
-      (dissoc "report"))
-    events))
+   :post [(set? %)]}
+  (set (map
+      #(-> %
+        (update-in ["timestamp"] time-coerce/to-string)
+        (dissoc "report"))
+      events)))
 
 (defn munge-report-for-comparison
   "Given a report object (represented as a map, either having come out of a
@@ -30,7 +30,8 @@
   JSON doesn't have a data type for)."
   [report]
   {:pre  [(map? report)]
-   :post [(map? %)]}
+   :post [(map? %)
+          (set? (% "resource-events"))]}
   (-> report
     (clojure.walk/stringify-keys)
     (update-in ["start-time"] time-coerce/to-string)
