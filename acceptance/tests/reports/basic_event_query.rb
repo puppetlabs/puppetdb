@@ -1,6 +1,6 @@
 require 'json'
 require 'time'
-require 'uri'
+require 'cgi'
 
 test_name "validation of basic PuppetDB resource event queries" do
 
@@ -57,7 +57,7 @@ MANIFEST
         ["~", "message", "Hi #{agent.node_name}"],
         [">", "timestamp", "#{query_start_time}"]]
 EOM
-      query = URI.escape(query)
+      query = CGI.escape(query)
 
       # Now query for all of the event for this agent
       result = on database, %Q|curl -G -H 'Accept: application/json' 'http://localhost:8080/experimental/events' --data 'query=#{query}'|

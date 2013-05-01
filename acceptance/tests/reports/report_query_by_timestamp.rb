@@ -1,9 +1,10 @@
 require 'json'
 require 'time'
+require 'cgi'
 
 test_name "basic validation of puppet report query by timestamp" do
 
-  query_start_time = Time.now.iso8601
+  query_start_time = CGI.escape(Time.now.iso8601)
 
   # Query for all of the events after the start time
   result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/events --data 'query=[">",%20"timestamp",%20"#{query_start_time}"]'|
@@ -37,7 +38,7 @@ test_name "basic validation of puppet report query by timestamp" do
   # than the timestamp of the agent runs, and expect the results to match the
   # previous query.
 
-  end_time = Time.now.iso8601
+  end_time = CGI.escape(Time.now.iso8601)
   result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/events --data 'query=["and",%20[">",%20"timestamp",%20"#{query_start_time}"],%20["<",%20"timestamp",%20"#{end_time}"]]'|
   events2 = JSON.parse(result.stdout)
   assert(events.length == events2.length, "Expected compound event time query to return the same number of results as the previous query")
