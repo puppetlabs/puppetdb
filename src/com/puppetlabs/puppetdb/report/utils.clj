@@ -6,21 +6,7 @@
 (ns com.puppetlabs.puppetdb.report.utils
   (:require [clojure.string :as string])
   (:use [clojure.walk :only [keywordize-keys]]
-        [com.puppetlabs.puppetdb.catalog.utils :only [random-string]]))
-
-(defn random-resource-event
-  "Generate a random resource event."
-  []
-  {
-    "resource-type"      (random-string)
-    "resource-title"     (random-string)
-    "property"           (random-string)
-    "timestamp"          (random-string)
-    "status"             (random-string)
-    "old-value"          (random-string)
-    "new-value"          (random-string)
-    "message"            (random-string)
-  })
+        [com.puppetlabs.random :only [random-string random-resource-event]]))
 
 (defn add-random-event-to-report
   "Add a randomly-generated event to an existing report."

@@ -14,6 +14,8 @@ task :template => [ :clean ] do
    chmod 0700, "ext/files/puppetdb-import"
    erb "ext/templates/puppetdb-export.erb",  "ext/files/puppetdb-export"
    chmod 0700, "ext/files/puppetdb-export"
+   erb "ext/templates/puppetdb-anonymize.erb", "ext/files/puppetdb-anonymize"
+   chmod 0700, "ext/files/puppetdb-anonymize"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"

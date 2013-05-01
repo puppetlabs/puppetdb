@@ -49,6 +49,7 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/puppetdb-foreground", "#{DESTDIR}/#{@sbin_dir}"
   cp_pr "ext/files/puppetdb-import", "#{DESTDIR}/#{@sbin_dir}"
   cp_pr "ext/files/puppetdb-export", "#{DESTDIR}/#{@sbin_dir}"
+  cp_pr "ext/files/puppetdb-anonymize", "#{DESTDIR}/#{@sbin_dir}"
 
   # figure out which init script to install based on facter
   if @osfamily == "redhat"
@@ -81,4 +82,5 @@ task :install => [  JAR_FILE  ] do
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-foreground"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-import"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-export"
+  chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-anonymize"
 end
