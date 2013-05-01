@@ -23,7 +23,7 @@
 
 (deftest reports-retrieval
   (let [basic         (:basic reports)
-        report-hash   (store-report! basic (now))]
+        report-hash   (store-example-report! basic (now))]
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]

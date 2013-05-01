@@ -47,6 +47,7 @@
 
 (ns com.puppetlabs.puppetdb.http.experimental.event
   (:require [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.event :as query]
             [cheshire.core :as json]
             [ring.util.response :as rr])
@@ -55,17 +56,21 @@
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn produce-body
-  "Given a query and a database connection, return a Ring response with the
-  query results.  The result format conforms to that documented above.
+  "Given a `limit`, a query and a database connection, return a Ring response
+  with the query results.  The result format conforms to that documented above.
 
-  If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query db]
+  If the query can't be parsed, an HTTP `Bad Request` (400) is returned.
+
+  If the query would return more than `limit` results, `status-internal-error`
+  is returned."
+  [limit query db]
+  {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
-          (query/resource-event-query->sql)
-          (query/query-resource-events)
+          (query/query->sql)
+          ((partial query/limited-query-resource-events limit))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -74,13 +79,18 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
+(defn- get-limit-from-params
+  [params]
+  (if-let [limit (params "limit")]
+    (pl-utils/parse-int limit)))
+
 (def routes
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
-          (produce-body
-            (params "query")
-            (:scf-db globals)))}))
+            (let [limit (or (get-limit-from-params params)
+                            (:event-query-limit globals))]
+              (produce-body limit (params "query") (:scf-db globals))))}))
 
 (def events-app
   "Ring app for querying events"

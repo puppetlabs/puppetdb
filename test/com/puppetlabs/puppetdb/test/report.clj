@@ -2,11 +2,12 @@
   (:use [clojure.test]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.examples.report]
-        [com.puppetlabs.puppetdb.report])
+        [com.puppetlabs.puppetdb.report]
+        [com.puppetlabs.puppetdb.testutils.report :only [munge-example-report-for-storage]])
   (:require [com.puppetlabs.utils :as utils]
             [cheshire.core :as json]))
 
-(let [report (:basic reports)]
+(let [report (munge-example-report-for-storage (:basic reports))]
 
   (deftest test-validate!
     (testing "should accept a valid report"

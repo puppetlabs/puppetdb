@@ -181,6 +181,10 @@
    :post [(set? %)]}
   (set (vals m)))
 
+(def select-values
+  "Returns the sequence of values from the map for the entries with the specified keys"
+  (comp vals select-keys))
+
 ;; ## Date and Time
 
 (defn timestamp

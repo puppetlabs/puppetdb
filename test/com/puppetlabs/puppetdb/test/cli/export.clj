@@ -28,7 +28,7 @@
     (testing "the exported JSON should match the original import JSON"
       (let [original-report-str (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/sample-report.json"))
             original-report      (clojure.walk/keywordize-keys (json/parse-string original-report-str))]
-        (testrep/store-report! original-report "2012-10-09T22:15:17-07:00")
+        (testrep/store-example-report! original-report "2012-10-09T22:15:17-07:00")
 
         (let [exported-report (first (r/reports-for-node "myhost.localdomain"))]
           (is (= (testrep/munge-report-for-comparison original-report)

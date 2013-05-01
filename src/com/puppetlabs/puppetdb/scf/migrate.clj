@@ -297,6 +297,12 @@
     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
 
+(defn add-event-status-index
+  "Add an index to the `status` column of the event table."
+  []
+  (sql/do-commands
+    "CREATE INDEX idx_resource_events_status ON resource_events(status)"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -308,7 +314,8 @@
    6 drop-old-tags-index
    7 drop-classes-and-tags
    8 rename-fact-column
-   9 add-reports-tables})
+   9 add-reports-tables
+   10 add-event-status-index})
 
 (def desired-schema-version (apply max (keys migrations)))
 
