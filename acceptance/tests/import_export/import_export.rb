@@ -39,41 +39,4 @@ test_name "storeconfigs export and import" do
     compare_export_data(export_file1, export_file2)
   end
 
-
-  #
-  #driver_legacy_export_file = "./legacy_storeconfigs_export.tar.gz"
-  #driver_new_export_file    = "./puppetdb-export.tar.gz"
-  #
-  #step "export the storeconfigs data" do
-  #  result = on master, "puppet storeconfigs export #{args}"
-  #  regex = /Exported storeconfigs data to (.*)/
-  #  assert_match regex, result.output
-  #  legacy_export_file = regex.match(result.output)[1]
-  #
-  #  scp_from(master, legacy_export_file, ".")
-  #  File.rename(File.join(".", File.basename(legacy_export_file)), driver_legacy_export_file)
-  #end
-  #
-  #clear_and_restart_puppetdb(database)
-  #
-  #step "import data into puppetdb" do
-  #  db_legacy_export_dir  = "."
-  #  db_legacy_export_file = File.join(db_legacy_export_dir, "legacy_storeconfigs_export.tar.gz")
-  #  scp_to(database, driver_legacy_export_file, db_legacy_export_dir)
-  #  on database, "puppetdb-import --infile #{db_legacy_export_file}"
-  #end
-  #
-  #step "export data from puppetdb" do
-  #  db_new_export_file = "./puppetdb-export.tar.gz"
-  #  on database, "puppetdb-export --outfile #{db_new_export_file}"
-  #  scp_from(database, db_new_export_file, ".")
-  #end
-  #
-  #step "verify legacy export data matches new export data" do
-  #  compare_export_data(driver_legacy_export_file, driver_new_export_file)
-  #end
-  #
-  #teardown do
-  #  on master, "gem uninstall activerecord activesupport"
-  #end
 end
