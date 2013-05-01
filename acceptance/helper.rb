@@ -384,6 +384,7 @@ module PuppetDBExtensions
     #  be inside of the jenkins workspace, which I'm hoping means that it will
     #  be cleaned up regularly if we accidentally leave anything lying around
     tmpdir = "./puppetdb_export_test_tmp"
+    FileUtils.rm_rf(tmpdir)
     export_dir1 = File.join(tmpdir, "export1", File.basename(export_file1, ".tar.gz"))
     export_dir2 = File.join(tmpdir, "export2", File.basename(export_file2, ".tar.gz"))
     FileUtils.mkdir_p(export_dir1)
