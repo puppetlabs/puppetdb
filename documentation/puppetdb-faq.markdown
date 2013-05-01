@@ -1,8 +1,8 @@
 ---
 layout: default
-title: "PuppetDB 1.1 FAQ"
+title: "PuppetDB 1.2 FAQ"
 subtitle: "Frequently Asked Questions"
-canonical: "/puppetdb/1.1/puppetdb-faq.html"
+canonical: "/puppetdb/latest/puppetdb-faq.html"
 ---
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html

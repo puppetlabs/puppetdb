@@ -62,7 +62,7 @@
                 "targets.type AS target_type, "
                 "targets.title AS target_title, "
                 "edges.type AS relationship "
-                "FROM certname_catalogs INNER JOIN edges USING(catalog) "
+                "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog = edges.catalog "
                 "INNER JOIN catalog_resources sources "
                     "ON edges.catalog = sources.catalog "
                     "AND source = sources.resource "
@@ -86,7 +86,7 @@
    :post [(or (nil? %)
               (and (map? %)
                    (= node  (:name (:data %)))
-                   (seq? (:resources (:data %)))
+                   (seq?    (:resources (:data %)))
                    (seq?    (:edges (:data %)))
                    (map?    (:metadata %))))]
    }

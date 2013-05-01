@@ -9,13 +9,11 @@
      []
      (if (.exists (file "version"))
        (s/trim (slurp "version"))
-       (let [command                ["rake" "version" "-s"]
+       (let [command                ["rake" "package:version" "-s"]
              {:keys [exit out err]} (apply sh command)]
-         (when-not (zero? exit)
-           (println (format "Non-zero exit status during version check:\n%s\n%s\n%s\n%s"
-                            command exit out err))
-           (System/exit 1))
-       (s/trim out))))))
+         (if (zero? exit)
+           (s/trim out)
+           "0.0-dev-build"))))))
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -27,7 +25,7 @@
                  [org.clojure/math.combinatorics "0.0.2"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/tools.cli "0.2.1"]
-                 [org.clojure/tools.nrepl "0.2.0-beta2"]
+                 [org.clojure/tools.nrepl "0.2.2"]
                  [org.clojure/tools.namespace "0.1.3"]
                  [swank-clojure "1.4.0"]
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
@@ -41,6 +39,8 @@
                  [org.ini4j/ini4j "0.5.2"]
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
+                 ;; Job scheduling
+                 [overtone/at-at "1.1.1"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.3"]
                  [digest "1.3.0"]
@@ -69,7 +69,6 @@
                    :dependencies [[ring-mock "0.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
-  :manifest {"Build-Version" ~(version-string)}
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core

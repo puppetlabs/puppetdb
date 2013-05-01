@@ -10,6 +10,11 @@
 
 ;; Functions for parsing Periods from Strings
 
+(defn period?
+  "Returns true if `p` is a ReadablePeriod instance, false otherwise."
+  [p]
+  (instance? ReadablePeriod p))
+
 (defn- build-parser
   "A utility function that builds up a joda-time `PeriodFormatter` instance that
   can be used for parsing strings into `Period`s.  The parser returned by this
@@ -76,7 +81,7 @@
   `'ms'`."
   [s]
   {:pre  [(string? s)]
-   :post [(instance? Period %)]}
+   :post [(period? %)]}
   (.parsePeriod period-parser s))
 
 ;; Functions for converting `Period` instances to readable strings
@@ -130,7 +135,7 @@
   the largest round unit; e.g., a `Period` of 121 seconds will
   not be normalized to minutes."
   [p]
-  {:pre  [(instance? ReadablePeriod p)]
+  {:pre  [(period? p)]
    :post [(string? %)]}
   (let [normalized   (.. p
                          (toPeriod)
@@ -145,7 +150,7 @@
     (.print period-formatter normalized)))
 
 
-;; Comparison functions
+;; Comparison and predicate functions
 
 (defn periods-equal?
   "Given two or more instances of `Period`, returns true if they all represent
@@ -172,7 +177,7 @@
 (defn- to-unit
   "Helper function for converting periods to specific units"
   [f period]
-  {:pre  [(instance? ReadablePeriod period)]
+  {:pre  [(period? period)]
    :post [(>= % 0)] }
   (-> period
       (.toStandardDuration)

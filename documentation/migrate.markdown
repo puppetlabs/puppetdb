@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.2 » Migrating Data"
 layout: default
-canonical: "/puppetdb/1.2/migrate.html"
+canonical: "/puppetdb/latest/migrate.html"
 ---
 
 Migrating from ActiveRecord storeconfigs
@@ -22,11 +22,13 @@ If you've been trying out PuppetDB using the embedded database and are ready to 
 
     $ sudo puppetdb-export --outfile ./my-puppetdb-export.tar.gz
 
-This command is intended to be run on the PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration).  If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
+This command is intended to be run on the PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration). If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
     $ sudo puppetdb-export --help
 
-The generated tarball will contain a backup of all of your current catalog data (including exported resources).  At this time, this tool is only intended to aid in migrations while preventing any nodes from failing due to missing exported resources, so the export file does not include fact or report data.
+While its not required it is recommended you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
+
+The generated tarball will contain a backup of all of your current catalog data (including exported resources) and all you report data. At this time fact data exporting is not supported.
 
 Exporting data from a version of PuppetDB prior to 1.2
 ------

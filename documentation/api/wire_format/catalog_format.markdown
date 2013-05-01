@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » API » Catalog Wire Format, Version 1"
+title: "PuppetDB 1.2 » API » Catalog Wire Format, Version 1"
 layout: default
-canonical: "/puppetdb/1.1/api/wire_format/catalog_format.html"
+canonical: "/puppetdb/latest/api/wire_format/catalog_format.html"
 ---
 
 [containment]: /puppet/2.7/reference/lang_containment.html
@@ -20,7 +20,7 @@ canonical: "/puppetdb/1.1/api/wire_format/catalog_format.html"
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1
 
-PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB terminus plugins](/puppetdb/1.1/connect_puppet_master.html) before they are sent. [See below][below] for the justification for this separate format. 
+PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB terminus plugins](/puppetdb/1.2/connect_puppet_master.html) before they are sent. [See below][below] for the justification for this separate format. 
 
 Catalog Interchange Format
 -----

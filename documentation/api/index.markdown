@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » API » Overview"
+title: "PuppetDB 1.2 » API » Overview"
 layout: default
-canonical: "/puppetdb/1.1/api/index.html"
+canonical: "/puppetdb/latest/api/index.html"
 ---
 
 [commands]: ./commands.html
@@ -26,7 +26,7 @@ The PuppetDB API consists of the following parts:
 Queries
 -----
 
-PuppetDB 1.1 supports versions 1 and 2 of the query API. Version 1 is backwards-compatible with PuppetDB 1.0.x, but version 2 has significant new capabilities, including subqueries. 
+PuppetDB 1.2 supports versions 1 and 2 of the query API. Version 1 is backwards-compatible with PuppetDB 1.0.x, but version 2 has significant new capabilities, including subqueries. 
 
 PuppetDB's data can be queried with a REST API.
 

@@ -1,0 +1,30 @@
+{
+  "resource-events": [
+    {
+      "old-value": "dreadly",
+      "resource-type": "melanospermous",
+      "timestamp": "2012-10-09T22:15:17.005Z",
+      "property": "auxotonic",
+      "message": "infundibulate acmite uranium disciplinarianism",
+      "resource-title": "undoubting",
+      "new-value": "ultraloyal",
+      "status": "success"
+    },
+    {
+      "old-value": "vacantly",
+      "resource-type": "photolithography",
+      "timestamp": "2012-10-09T22:15:17.000Z",
+      "property": "lipuria",
+      "message": "horizontalize noncoincident levity lucifugous nationalism undergirdle khutuktu somatosplanchnic",
+      "resource-title": "vitiator",
+      "new-value": "forecastlehead",
+      "status": "success"
+    }
+  ],
+  "configuration-version": "02ae0b7",
+  "start-time": "2012-01-10T05:14:02.000Z",
+  "end-time": "2012-01-10T05:15:01.098Z",
+  "certname": "myhost.localdomain",
+  "puppet-version": "3.0.0",
+  "report-format": 3
+}

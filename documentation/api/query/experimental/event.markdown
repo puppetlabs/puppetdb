@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » API » Experimental » Querying Events"
+title: "PuppetDB 1.2 » API » Experimental » Querying Events"
 layout: default
-canonical: "/puppetdb/1.1/api/query/experimental/event.html"
+canonical: "/puppetdb/latest/api/query/experimental/event.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp

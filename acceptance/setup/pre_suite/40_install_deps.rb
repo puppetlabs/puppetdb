@@ -36,15 +36,23 @@ step "Install other dependencies on database" do
   end
 end
 
-step "Install sqlite3 on master" do
+step "Install rubygems and sqlite3 on master" do
   os = test_config[:os_families][master.name]
 
   case os
   when :redhat
-    on database, "yum install -y ruby-sqlite3"
+    if master['platform'].include? 'el-5'
+      on master, "yum install -y rubygems sqlite-devel"
+      on master, "gem install sqlite3"
+    else
+      on master, "yum install -y rubygems ruby-sqlite3"
+    end
   when :debian
-    on database, "apt-get install -y libsqlite3-ruby"
+    on master, "apt-get install -y rubygems libsqlite3-ruby"
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end
+
+  # Make sure there isn't a gemrc file, because that could ruin our day.
+  on master, "rm -f ~/.gemrc"
 end

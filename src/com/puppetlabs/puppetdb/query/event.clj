@@ -157,3 +157,14 @@
   {:pre [(string? sql)]}
   (limited-query-resource-events 0 (apply vector sql params)))
 
+(defn events-for-report-hash
+  "Given a particular report hash, this function returns all events for that
+   given hash."
+  [report-hash]
+  {:pre [(string? report-hash)]
+   :post [(vector? %)]}
+  (let [query ["=" "report" report-hash]]
+    (vec
+      (-> query
+        (query->sql)
+        (query-resource-events)))))

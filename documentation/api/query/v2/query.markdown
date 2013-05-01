@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » API » v2 » Query Structure"
+title: "PuppetDB 1.2 » API » v2 » Query Structure"
 layout: default
-canonical: "/puppetdb/1.1/api/query/v2/query.html"
+canonical: "/puppetdb/latest/api/query/v2/query.html"
 ---
 
 [prefix]: http://en.wikipedia.org/wiki/Polish_notation

@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » Connecting Puppet Masters to PuppetDB"
+title: "PuppetDB 1.2 » Connecting Puppet Masters to PuppetDB"
 layout: default
-canonical: "/puppetdb/1.1/connect_puppet_master.html"
+canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
@@ -32,13 +32,7 @@ After PuppetDB is installed and running, you should configure your puppet master
 
 Currently, puppet masters need additional Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory. 
 
-### For PE Users
-
-[Enable the Puppet Labs repo](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories) and then install the `pe-puppetdb-terminus` package:
-
-    $ sudo puppet resource package pe-puppetdb-terminus ensure=latest
-
-### For Open Source Users
+### On Platforms With Packages
 
 [Enable the Puppet Labs repo](/guides/puppetlabs_package_repositories.html#open-source-repositories) and then install the `puppetdb-terminus` package:
 
@@ -49,7 +43,7 @@ Currently, puppet masters need additional Ruby plugins in order to use PuppetDB.
 If your puppet master isn't running Puppet from a supported package, you will need to install the plugins manually:
 
 * [Download the PuppetDB source code][puppetdb_download], unzip it and navigate into the resulting directory in your terminal.
-* Run `sudo cp -R puppet/lib/puppet /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`.
+* Run `sudo cp -R ext/master/lib/puppet /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`.
 
 ## Step 2: Edit Config Files
 
@@ -122,11 +116,9 @@ This will make PuppetDB the authoritative source for the inventory service.
 
 ## Step 3: Restart Puppet Master
 
-Use your system's service tools to restart the puppet master service. For open source users, the command to do this will vary depending on the front-end web server being used. For Puppet Enterprise users, run:
+Use your system's service tools to restart the puppet master service. For open source users, the command to do this will vary depending on the front-end web server being used.
 
-    $ sudo /etc/init.d/pe-httpd restart
-
-> Your puppet master should now be using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test this by triggering a puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetdb/puppetdb.log` or `/var/log/pe-puppetdb/pe-puppetdb.log` file --- you should see calls to the "replace facts" and "replace catalog" commands:
+> Your puppet master should now be using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test this by triggering a puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetdb/puppetdb.log` file --- you should see calls to the "replace facts" and "replace catalog" commands:
 >
 >     2012-05-17 13:08:41,664 INFO  [command-proc-67] [puppetdb.command] [85beb105-5f4a-4257-a5ed-cdf0d07aa1a5] [replace facts] screech.example.com
 >     2012-05-17 13:08:45,993 INFO  [command-proc-67] [puppetdb.command] [3a910863-6b33-4717-95d2-39edf92c8610] [replace catalog] screech.example.com

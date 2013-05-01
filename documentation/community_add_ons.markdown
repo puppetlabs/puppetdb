@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » Community Projects and Add-ons"
+title: "PuppetDB 1.2 » Community Projects and Add-ons"
 layout: default
-canonical: "/puppetdb/1.1/community_add_ons.html"
+canonical: "/puppetdb/latest/community_add_ons.html"
 ---
 
 

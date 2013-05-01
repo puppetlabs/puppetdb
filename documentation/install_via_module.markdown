@@ -1,7 +1,7 @@
 ---
 layout: default
-title: "PuppetDB 1.1 » Installing PuppetDB Via Module"
-canonical: "/puppetdb/1.1/install_via_module.html"
+title: "PuppetDB 1.2 » Installing PuppetDB Via Module"
+canonical: "/puppetdb/latest/install_via_module.html"
 ---
 
 [module]: http://forge.puppetlabs.com/puppetlabs/puppetdb
@@ -9,7 +9,10 @@ canonical: "/puppetdb/1.1/install_via_module.html"
 [migrating]: ./migrate.html
 
 You can install and configure all of PuppetDB's components and prerequisites (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems, and the
-terminus plugins for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge. This is the **easiest method** for installing PuppetDB. 
+terminus plugins for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge.
+
+* If you are **already familiar with Puppet** and have a working Puppet deployment, this is the easiest method for installing PuppetDB. In this guide, we expect that you already know how to assign Puppet classes to nodes.
+* If you are **just getting started with Puppet,** you should probably follow the [Installing PuppetDB From Packages guide](./install_from_packages.html) instead.
 
 > **Note:**
 >
@@ -18,15 +21,10 @@ terminus plugins for your Puppet master) using [the PuppetDB module][module] fro
 Step 1: Enable the Puppet Labs Package Repository
 -----
 
-If you haven't already, you will need to do **one** of the following: 
+If you haven't already, you will need to do **one** of the following:
 
-* Enable the Puppet Labs package repository on your PuppetDB server and puppet master server.
-* Grab the PuppetDB and terminus plugin packages, and import them into your site's local package repos. 
-
-To enable the Puppet Labs repos, follow the instructions linked below:
-
-- [Instructions for PE users](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories) (Note that PE support for PuppetDB [is currently unofficial](./index.html#note-about-puppet-enterprise).)
-- [Instructions for open source users](/guides/puppetlabs_package_repositories.html#open-source-repositories)
+* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html#open-source-repositories) on your PuppetDB server and puppet master server.
+* Grab the PuppetDB and terminus plugin packages, and import them into your site's local package repos.
 
 Step 2: Assign Classes to Nodes
 -----
@@ -43,6 +41,6 @@ Note: by default the module sets up the PuppetDB dashboard to be accessible only
         listen_address => 'example.foo.com'
     }
 
-These classes automatically configure most aspects of PuppetDB. If you need to set additional settings (to change the `node_ttl`, for example), see [the "Playing Nice With the PuppetDB Module" section][config_with_module] of the "Configuring" page. 
+These classes automatically configure most aspects of PuppetDB. If you need to set additional settings (to change the `node_ttl`, for example), see [the "Playing Nice With the PuppetDB Module" section][config_with_module] of the "Configuring" page.
 
 For full details on how to use the module, see the [PuppetDB module documentation](http://forge.puppetlabs.com/puppetlabs/puppetdb) on Puppet Forge.  The module also includes some sample manifests in the `tests` directory that demonstrate its basic usage.

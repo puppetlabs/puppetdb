@@ -2,6 +2,7 @@
   (:import [vimclojure.nailgun NGServer])
   (:require [clojure.string :as string]
             [clojure.tools.nrepl.server :as nrepl]
+            [clojure.tools.nrepl.transport :as nrepl-transport]
             [swank.swank :as swank]))
 
 (defmulti start-repl
@@ -9,6 +10,10 @@
   `port`."
   (fn [kind host port]
     (string/lower-case kind)))
+
+(defmethod start-repl "telnet"
+  [kind host port]
+  (nrepl/start-server :bind host :port port :transport-fn nrepl-transport/tty :greeting-fn nrepl-transport/tty-greeting))
 
 (defmethod start-repl "nrepl"
   [kind host port]

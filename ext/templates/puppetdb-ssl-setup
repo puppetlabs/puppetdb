@@ -1,17 +1,50 @@
 #!/bin/bash
 
+# This function wraps sed:
+# * Makes sure its atomic by writing to a temp file and moving it _after_
+# * Escapes any forward slashes and ampersands on the RHS for you
+function sedeasy {
+  tmp=$3.tmp.`date +%s`
+  sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
+  mv $tmp $3
+}
 
-#TODO Move this into the init script and ensure it only runs when something is wrong with configuraiton
+# Display usage information
+function usage {
+  echo "Usage: $0 [-if]"
+  echo "Configuration helper for enabling SSL for PuppetDB."
+  echo
+  echo "This tool will attempt to create the necessary JKS trust & keystore for" \
+    "PuppetDB SSL to operate from the local Puppet agents certificate, key and"\
+    "CA certificate. It also is able to update the necessary PuppetDB"\
+    "configuration files if necessary to point to the location of these" \
+    "stores, configure the correct passwords and also configures the host and" \
+    "port for SSL to listen on."
+  echo
+  echo "Options:"
+  echo " -i  Interactive mode"
+  echo " -f  Force configuration file update. By default if the configuration"\
+    "already exists in your jetty.ini, you must use this option to override it"
+  echo " -h  Help"
+  exit 0
+}
 
-while getopts "i" opt;
+while getopts "ifh" opt;
 do
     case $opt in
         i)
-            interactive=true
+            interactive=true ;;
+        f)
+            force=true ;;
+        h)
+            usage ;;
+        *)
+            usage ;;
     esac
 done
 
 ${interactive:=false}
+${force:=false}
 
 if $interactive
 then
@@ -93,21 +126,43 @@ fi
 
 jettyfile="${puppetdb_confdir}/conf.d/jetty.ini"
 if [ -f "$jettyfile" ] ; then
-  if grep "ssl-host" ${jettyfile} > /dev/null; then
-    sed -e 's/^ssl-host.*/ssl-host = '"$fqdn"'/' ${jettyfile} > ${jettyfile}.tmp
-    mv ${jettyfile}.tmp ${jettyfile}
-  else
-    echo "$jettyfile exists, but could not find ssl-host setting. Please update that setting to the desired hostname that puppetdb should listen on (e.g.: '`facter fqdn`)."
-  fi
+  jettyfile_bak="${jettyfile}.bak.`date +%s`"
+  cp -p $jettyfile $jettyfile_bak
+  echo "Backing up ${jettyfile} to ${jettyfile_bak} before making changes"
 
-  if grep "key-password" ${jettyfile} >/dev/null && grep "trust-password" ${jettyfile} >/dev/null; then
-    sed -e 's/^key-password.*/key-password = '"$password"'/' ${jettyfile} > ${tmpdir}/tmp.jetty
-    sed -e 's/^trust-password.*/trust-password = '"$password"'/' ${tmpdir}/tmp.jetty > ${jettyfile}
-  else
-    echo "$jettyfile exists, but could not find key-password and trust-password settings. Please update those settings to the password contained in ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt"
-  fi
+  settings=('ssl-host' 'ssl-port' 'key-password' 'trust-password' 'keystore' 'truststore')
+  values=($fqdn 8081 $password $password "${puppetdb_confdir}/ssl/keystore.jks" "${puppetdb_confdir}/ssl/truststore.jks")
+
+  for (( i=0; i<${#settings[@]}; i++ )); do
+    if grep -qe "^${settings[$i]}" ${jettyfile}; then
+      if grep -qe "^${settings[$i]} = ${values[$i]}$" ${jettyfile}; then
+        echo "Setting ${settings[$i]} in ${jettyfile} already correct."
+      else
+        if $force; then
+          sedeasy "^${settings[$i]}.*" "${settings[$i]} = ${values[$i]}" ${jettyfile}
+          echo "Updated setting ${settings[$i]} in ${jettyfile}."
+        else
+          echo "Setting ${settings[$i]} in ${jettyfile} doesn't seem to be correct. This can be remedied with $0 -f."
+        fi
+      fi
+    else
+      if grep -qE "^# ${settings[$i]} = <[A-Z]+>$" ${jettyfile}; then
+        sedeasy "^# ${settings[$i]}.*" "${settings[$i]} = ${values[$i]}" ${jettyfile}
+        echo "Updated default settings from package installation for ${settings[$i]} in ${jettyfile}."
+      else
+        if $force; then
+          cat ${jettyfile} > ${jettyfile}.tmp
+          echo "${settings[$i]} = ${values[$i]}" >> ${jettyfile}.tmp
+          mv ${jettyfile}.tmp ${jettyfile}
+          echo "Added setting ${settings[$i]} to ${jettyfile}."
+        else
+          echo "$jettyfile exists, but could not find active ${settings[$i]} setting. Include that setting yourself manually. Or force with $0 -f."
+        fi
+      fi
+    fi
+  done
 else
-  echo "Please update your key-password and trust-password settings to the password contained in ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt"
+  echo "Unable to find PuppetDB Jetty configuration at ${jettyfile}. Unable to provide automatic configuration for that file."
 fi
 
 chmod 600 ${puppetdb_confdir}/ssl/*

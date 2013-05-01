@@ -48,7 +48,7 @@ if @pe
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
-    @pe_version = ENV['PE_VER'] || '2.9'
+    @pe_version = ENV['PE_VER'] || '3.0'
     @java_bin = "/opt/puppet/bin/java"
 else
     @install_dir = "/usr/share/puppetdb"
@@ -71,16 +71,17 @@ end
 
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
+PE_SITELIBDIR = "/opt/puppet/lib/ruby/site_ruby/1.9.1"
 
 @osfamily = (Facter.value(:osfamily) || "").downcase
 
 case @osfamily
   when /debian/
-    @plibdir = @pe ? '/opt/puppet/lib/ruby/1.8' : '/usr/lib/ruby/vendor_ruby'
+    @plibdir = @pe ? PE_SITELIBDIR : '/usr/lib/ruby/vendor_ruby'
   when /redhat/
-    @plibdir = @pe ? '/opt/puppet/lib/ruby/site_ruby/1.8' : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
+    @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
   when /suse/
-    @plibdir = @pe ? '/opt/puppet/lib/ruby/site_ruby/1.8' : nil
+    @plibdir = @pe ? PE_SITELIBDIR : nil
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"

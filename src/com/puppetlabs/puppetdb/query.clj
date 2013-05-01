@@ -61,7 +61,7 @@
 ;;
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string])
-  (:use [com.puppetlabs.utils :only [parse-number]]
+  (:use [com.puppetlabs.utils :only [parse-number keyset]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
         [clojure.core.match :only [match]]))
@@ -133,16 +133,42 @@
     (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count terms)))))
   (negate-term* ops (first terms)))
 
-(def fact-columns #{"certname" "name" "value"})
+;; This map's keys are the queryable fields for facts, and the values are the
+;;  corresponding table names where the fields reside
+(def fact-columns {"certname" "certname_facts"
+                   "name"     "certname_facts"
+                   "value"    "certname_facts"})
 
-(def resource-columns #{"certname" "catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})
+;; This map's keys are the queryable fields for resources, and the values are the
+;;  corresponding table names where the fields reside
+(def resource-columns {"certname"   "certname_catalogs"
+                       "catalog"    "catalog_resources"
+                       "resource"   "catalog_resources"
+                       "type"       "catalog_resources"
+                       "title"      "catalog_resources"
+                       "tags"       "catalog_resources"
+                       "exported"   "catalog_resources"
+                       "sourcefile" "catalog_resources"
+                       "sourceline" "catalog_resources"})
 
-(def node-columns #{"name" "deactivated"})
+;; This map's keys are the queryable fields for nodes, and the values are the
+;;  corresponding table names where the fields reside
+(def node-columns {"name"         "certnames"
+                   "deactivated"  "certnames"})
 
-(def selectable-columns
-  {:resource resource-columns
-   :fact fact-columns
-   :node node-columns})
+(defn column-map->sql
+  "Helper function that converts one of our column maps to a SQL string suitable
+  for use in a SELECT"
+  [col-map]
+  (string/join ", "
+    (for [[field table] col-map]
+      (str table "." field))))
+
+
+(def queryable-fields
+  {:resource (keyset resource-columns)
+   :fact     (keyset fact-columns)
+   :node     (keyset node-columns)})
 
 (def subquery->type
   {"select-resources" :resource
@@ -160,8 +186,8 @@
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
       (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
-    (when-not (get-in selectable-columns [subquery-type field])
-      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (selectable-columns subquery-type)))))))
+    (when-not (get-in queryable-fields [subquery-type field])
+      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (queryable-fields subquery-type)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
@@ -174,8 +200,8 @@
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
-  (when-not (get-in selectable-columns [kind field])
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (selectable-columns kind)))))))
+  (when-not (get-in queryable-fields [kind field])
+    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (queryable-fields kind)))))))
   (when-not (= (first subquery) "extract")
     (throw (IllegalArgumentException. (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
@@ -187,7 +213,7 @@
   [ops query]
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (string/join ", " resource-columns) where)]
+        sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (column-map->sql resource-columns) where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
@@ -196,7 +222,7 @@
   [ops query]
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM certname_facts WHERE %s" (string/join ", " (map #(str "certname_facts." %) fact-columns)) where)]
+        sql (format "SELECT %s FROM certname_facts WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
 (defn node-query->sql
@@ -205,7 +231,7 @@
   [ops query]
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM certnames WHERE %s" (string/join ", " node-columns) where)]
+        sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
     (apply vector sql params)))
 
 (defn compile-resource-equality-v2

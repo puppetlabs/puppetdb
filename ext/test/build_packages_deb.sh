@@ -1,11 +1,18 @@
+#!/usr/bin/env bash
+
 set -e
 
 NAME=puppetdb
+
+if [ "$PE_BUILD" != "true" ]; then
+  PE_BUILD=false
+fi
 
 echo "**********************************************"
 echo "RUNNING CLOUD DEB PACKAGING; PARAMS FROM UPSTREAM BUILD:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
+echo "PE_BUILD?: ${PE_BUILD}"
 echo "**********************************************"
 
 # `git describe` returns something like 1.0.0-20-ga1b2c3d
@@ -22,12 +29,14 @@ PENDING=$FREIGHT_DIR/pending
 WORK_DIR=$DEB_BUILD_DIR/$NAME-$VERSION
 BUCKET_NAME=${NAME}-prerelease
 S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${DEB_BUILD_BRANCH}
-[ -n "${PE_VER}" ] || PE_VER='2.9'
+[ -n "${PE_VER}" ] || PE_VER='3.0'
 
 APT_HOST=neptune.puppetlabs.lan
 APT_REPO=$INCOMING/$NAME-$VERSION
 TEAM=dev
 export APT_HOST APT_REPO TEAM PE_VER
+
+ssh $APT_HOST "mkdir -p ${INCOMING}"
 
 rake package:implode --trace
 rake package:bootstrap --trace
@@ -36,15 +45,16 @@ rake pl:remote:deb_all --trace
 rake pl:ship_debs --trace
 
 # Establish PE building environment variables
-PE_BUILD=true
+#PE_BUILD=true # we now expect for this variable to be populated by the jenkins job
 TEAM=pe-dev
 export PE_BUILD TEAM
 
-ssh $APT_HOST "mkdir -p ${INCOMING}"
-
 rake pl:fetch --trace
-rake pe:deb_all --trace
-rake pe:ship_debs --trace
+
+if [ "$PE_BUILD" = "true" ]; then
+    rake pe:deb_all --trace
+    rake pe:ship_debs --trace
+fi
 
 # That's right, I'm templating a config file via shell script inside
 # a Jenkins job.  So?  Back off.
@@ -76,10 +86,10 @@ set -e
 set -x
 
 for DISTRO in lucid oneiric precise quantal sid squeeze stable testing unstable wheezy; do
-  freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
+  sudo freight add -c ${FREIGHT_DIR}/freight.conf $INCOMING/$NAME-$VERSION/\$DISTRO/*.deb apt/\$DISTRO
 done
 
-freight cache -c ${FREIGHT_DIR}/freight.conf
+sudo freight cache -c ${FREIGHT_DIR}/freight.conf
 
 # If this is a tagged version, we want to save the results for later promotion.
 if [ "$REF_TYPE" = "tag" ]; then

@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » Installing PuppetDB from Source"
+title: "PuppetDB 1.2 » Installing PuppetDB from Source"
 layout: default
-canonical: "/puppetdb/1.1/install_from_source.html"
+canonical: "/puppetdb/latest/install_from_source.html"
 ---
 
 [perf_dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard

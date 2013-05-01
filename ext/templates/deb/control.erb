@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Puppet Labs <info@puppetlabs.com>
 <% if @pe -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rake, pe-facter, pe-puppet-agent
+Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rubygem-rake, pe-facter, pe-puppet-agent
 <% else -%>
 Build-Depends: debhelper (>= 7.0.0~), cdbs, rake, facter, puppet
 <% end -%>

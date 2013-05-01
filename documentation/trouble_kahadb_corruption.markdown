@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » Troubleshooting » KahaDB Corruption"
+title: "PuppetDB 1.2 » Troubleshooting » KahaDB Corruption"
 layout: default
-canonical: "/puppetdb/1.1/trouble_kahadb_corruption.html"
+canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 ---
 
 [configure_vardir]: ./configure.html#vardir

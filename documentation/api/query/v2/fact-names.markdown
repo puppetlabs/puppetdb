@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » API » v2 » Querying Fact Names"
+title: "PuppetDB 1.2 » API » v2 » Querying Fact Names"
 layout: default
-canonical: "/puppetdb/1.1/api/query/v2/fact-names.html"
+canonical: "/puppetdb/latest/api/query/v2/fact-names.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp

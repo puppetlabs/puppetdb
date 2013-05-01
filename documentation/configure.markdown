@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.1 » Configuration"
+title: "PuppetDB 1.2 » Configuration"
 layout: default
-canonical: "/puppetdb/1.1/configure.html"
+canonical: "/puppetdb/latest/configure.html"
 ---
 
 [log4j]: http://logging.apache.org/log4j/1.2/manual.html
@@ -31,7 +31,7 @@ OS and Package              | File
 Redhat-like (open source)   | `/etc/sysconfig/puppetdb`
 Redhat-like (PE)            | `/etc/sysconfig/pe-puppetdb`
 Debian/Ubuntu (open source) | `/etc/default/puppetdb`
-Debian/Ubuntu (PE)          | `/etc/default/pe-puppetb`
+Debian/Ubuntu (PE)          | `/etc/default/pe-puppetdb`
 
  In this file, you can change the following settings:
 
@@ -291,7 +291,7 @@ You may specify the time as a string using any of the suffixes described in the
 Outdated reports will be deleted during the database garbage collection, which
 runs every `gc-interval` minutes.
 
-If unset, the default value is 7 days.
+If unset, the default value is 14 days.
 
 ### `log-slow-statements`
 
@@ -344,6 +344,10 @@ Every change to PuppetDB's data stores arrives via **commands** that are inserte
 This defines how many command processing threads to use. Each thread can process a single command at a time. [The number of threads can be tuned based on what you see in the performance dashboard.][dashboard]
   
 This setting defaults to half the number of cores in your system.
+
+### `dlo-compression-threshold`
+
+This setting specifies the maximum duration to keep messages in the dead-letter office before archiving them. This process will check for compressible messages on startup and after every `gc-interval`, but will only perform the archive once per `dlo-compression-threshold`. The same format can be used as for the `node-ttl` setting above. If set to 0 seconds, this behavior will be disabled. The default value is 1 day.
 
 `[jetty]` (HTTP) Settings
 -----
@@ -408,11 +412,13 @@ Set to `true` to enable the REPL. Defaults to false.
 
 ### `type`
 
-Either `nrepl` or `swank`.
+Either `nrepl` or `swank` or `telnet`.
 
-The _nrepl_ repl type opens up a socket you can connect to via telnet. 
+The _telnet_ repl type opens up a socket you can connect to via telnet. The interface is pretty low-level and raw (no completion or command history), but it is nonetheless usable on just about any system without the need of any external tools other than telnet itself.
 
-The _swank_ type allows emacs' clojure-mode to connect directly to a running PuppetDB instance by using `M-x slime-connect`. This is much more user-friendly than telnet.
+The _nrepl_ repl type opens up a socket you can connect to via any nrepl-protocol client, such as via [Leiningen](https://github.com/technomancy/leiningen) using `lein repl :connect localhost:8082` or via Emacs (via `M-x nrepl`), Vim, or integration with other editors like Netbeans or Eclipse. This is much more user-friendly than telnet.
+
+The _swank_ type allows emacs' clojure-mode to connect directly to a running PuppetDB instance by using `M-x slime-connect`. This is not recommended, as the upstream Swank project has been deprecated in favor of nrepl.
 
 ### `port`
 
