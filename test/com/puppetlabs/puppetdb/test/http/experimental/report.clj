@@ -8,6 +8,7 @@
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
         [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
+        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
         [clj-time.coerce :only [to-date-time to-string]]
         [clj-time.core :only [now]]))
 
@@ -53,10 +54,7 @@
 
 (deftest query-by-certname
   (let [basic         (:basic reports)
-        report-hash   (scf-store/report-identity-string basic)]
-    (report/validate! basic)
-    (scf-store/add-certname! (:certname basic))
-    (scf-store/add-report! basic (now))
+        report-hash   (store-example-report! basic (now))]
 
     ;; TODO: test invalid requests
 

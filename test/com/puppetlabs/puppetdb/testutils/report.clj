@@ -3,12 +3,18 @@
             [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.puppetdb.query.report :as query]
-            [clj-time.coerce :as time-coerce]))
+            [clj-time.coerce :as time-coerce])
+  (:use [com.puppetlabs.puppetdb.testutils.event :only [munge-example-event-for-storage]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn munge-example-report-for-storage
+  [example-report]
+  (update-in example-report [:resource-events]
+    #(mapv munge-example-event-for-storage %)))
 
 (defn munge-events-for-comparison
   "Munges event objects in a way that is suitable for equality comparisons in tests"
@@ -18,7 +24,8 @@
   (set (map
       #(-> %
         (update-in ["timestamp"] time-coerce/to-string)
-        (dissoc "report"))
+        (dissoc "report")
+        (dissoc "certname"))
       events)))
 
 (defn munge-report-for-comparison
@@ -40,9 +47,10 @@
     (dissoc "hash")
     (dissoc "receive-time")))
 
-(defn store-report!
+(defn store-example-report!
   [example-report timestamp]
-  (let [report-hash   (scf-store/report-identity-string example-report)]
+  (let [example-report  (munge-example-report-for-storage example-report)
+        report-hash     (scf-store/report-identity-string example-report)]
     (report/validate! example-report)
     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
     (scf-store/add-report! example-report timestamp)
@@ -70,3 +78,9 @@
          ;; calculated by the server), so we remove this field from the response
          ;; for test comparison
          (map #(dissoc % :receive-time)))))
+
+(defn get-events-map
+  [example-report]
+  (into {}
+    (for [ev (:resource-events example-report)]
+      [(:test-id ev) ev])))
