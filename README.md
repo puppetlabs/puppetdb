@@ -50,8 +50,8 @@ The PuppetDB API
   * [Querying Fact Names](./documentation/api/query/v2/fact-names.markdown)
   * [Querying Resources](./documentation/api/query/v2/resources.markdown)
   * [Querying Metrics](./documentation/api/query/v2/metrics.markdown)
-  * [Querying Reports (experimental)](./documentation/api/experimental/report.markdown)
-  * [Querying Events (experimental)](./documentation/api/experimental/event.markdown)
+  * [Querying Reports (experimental)](./documentation/api/query/experimental/report.markdown)
+  * [Querying Events (experimental)](./documentation/api/query/experimental/event.markdown)
 * Wire Formats
   * [Catalog Format](./documentation/api/wire_format/catalog_format.markdown)
   * [Facts Format](./documentation/api/wire_format/facts_format.markdown)
