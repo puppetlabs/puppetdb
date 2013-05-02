@@ -350,7 +350,7 @@ module PuppetDBExtensions
         on host, 'su postgres -c "dropdb puppetdb"'
         install_postgres(host)
       when :embedded
-        on host, "rm -rf /etc/puppetdb/conf/db/*"
+        on host, "rm -rf /usr/share/puppetdb/db/*"
       else
         raise ArgumentError, "Unsupported database: '#{PuppetDBExtensions.config[:database]}'"
     end
