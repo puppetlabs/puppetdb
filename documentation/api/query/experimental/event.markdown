@@ -117,6 +117,7 @@ the field, and an inequality query will always return `true`.
 
     [
       {
+        "certname": "foo.localdomain",
         "old-value": "absent",
         "property": "ensure",
         "timestamp": "2012-10-30T19:01:05.000Z",
@@ -128,6 +129,7 @@ the field, and an inequality query will always return `true`.
         "status": "success"
       },
       {
+        "certname": "foo.localdomain",
         "old-value": "absent",
         "property": "message",
         "timestamp": "2012-10-30T19:01:05.000Z",
