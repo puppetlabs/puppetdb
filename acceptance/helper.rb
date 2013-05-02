@@ -417,6 +417,12 @@ module PuppetDBExtensions
     export2_files = Set.new(
       Dir.glob("#{export_dir2}/**/*").map { |f| f.sub(/^#{Regexp.escape(export_dir2)}\//, "") })
     diff = export2_files - export1_files
+    unless opts[:catalogs]
+      diff = diff.select { |f| !(f =~ /^puppetdb_bak\/catalogs/) }
+    end
+    unless opts[:reports]
+      diff = diff.select { |f| !(f =~ /^puppetdb_bak\/reports/) }
+    end
 
     assert(diff.empty?, "Export file '#{export_file2}' contains extra file entries: '#{diff.to_a.join("', '")}'")
 
