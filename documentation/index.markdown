@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.2 » Overview"
+title: "PuppetDB 1.3 » Overview"
 layout: default
 canonical: "/puppetdb/latest/index.html"
 ---
@@ -92,7 +92,7 @@ Your site's puppet masters must be running Puppet 2.7.12 or later. [You will nee
 
 > #### Note about Puppet Enterprise
 >
-> * Due to packaging changes related to future integration of PuppetDB with Puppet Enterprise, PuppetDB 1.2 packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB will be included by default in the next major release of Puppet Enterprise.
+> * Due to packaging changes related to future integration of PuppetDB with Puppet Enterprise, PuppetDB 1.3 packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB will be included by default in the next major release of Puppet Enterprise.
 
 ### Robust Hardware
 

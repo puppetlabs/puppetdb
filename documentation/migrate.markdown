@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.2 » Migrating Data"
+title: "PuppetDB 1.3 » Migrating Data"
 layout: default
 canonical: "/puppetdb/latest/migrate.html"
 ---
