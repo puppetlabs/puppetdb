@@ -4,6 +4,52 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.3.0
+-----
+
+Many thanks to following people who contributed patches to this
+release:
+
+* Branan Purvine-Riley
+* Chris Price
+* Deepak Giridharagopal
+* Ken Barber
+* Matthaus Owens
+* Moses Mendoza
+* Nick Fagerlund
+* Nick Lewis
+
+Notable features:
+
+* Report queries
+
+  The query endpoint `experimental/event` has been augmented to support a
+  much more interesting set of queries against report data.  You can now query
+  for events by status (e.g. `success`, `failed`, `noop`), timestamp ranges,
+  resource types/titles/property name, etc.  This should make the report
+  storage feature of PuppetDB *much* more valuable!
+
+* Import/export of PuppetDB reports
+
+  PuppetDB 1.2 added the command-line tools `puppetdb-export` and `puppetdb-import`,
+  which are useful for migrating catalog data between PuppetDB databases or
+  instances.  In PuppetDB 1.3, these tools now support importing
+  and exporting report data in addition to catalog data.
+
+Bug fixes:
+
+* `puppetdb-ssl-setup` is now smarter about not overwriting keystore
+  settings in `jetty.ini` during upgrades
+
+* Add database index to `status` field for events to improve query performance
+
+* Fix `telnet` protocol support for embedded nrepl
+
+* Upgrade to newer version of nrepl
+
+* Improvements to developer experience (remove dependency on `rake` for
+  building/running clojure code)
+
 1.2.0
 -----
 
