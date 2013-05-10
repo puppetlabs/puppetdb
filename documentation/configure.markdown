@@ -394,6 +394,12 @@ Optional. This describes the path to a file that contains a list of certificate 
 
 If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
 
+### `cipher-suites`
+
+Optional. A comma-separated list of cryptographic ciphers to allow for incoming SSL connections. Valid names are listed in the [official JDK cryptographic providers documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites); you'll need to use the all-caps cipher suite name.
+
+If not supplied, PuppetDB uses the complete, non-DHE set of ciphers.
+
 `[repl]` Settings
 -----
 
