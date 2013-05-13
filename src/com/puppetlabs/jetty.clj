@@ -5,7 +5,8 @@
            (org.eclipse.jetty.server.nio SelectChannelConnector))
   (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]
-        [clojure.string :only (split trim)]))
+        [clojure.string :only (split trim)]
+        [com.puppetlabs.utils :only (compare-jvm-versions)]))
 
 ;; We need to monkey-patch `add-ssl-connector!` in order to set the
 ;; appropriate options for Client Certificate Authentication, and use
@@ -27,21 +28,29 @@
     (catch Throwable e
       (log/error e "Could not remove security providers; HTTPS may not work!"))))
 
-;; TODO: Only do this on certain 1.7 jdks
-;;
 ;; Due to weird issues between JSSE and OpenSSL clients on some 1.7
 ;; jdks when using Diffie-Hellman exchange, we need to only enable
 ;; RSA-based ciphers.
 ;;
 ;; https://forums.oracle.com/forums/thread.jspa?messageID=10999587
 ;; https://issues.apache.org/jira/browse/APLO-287
-(def acceptable-ciphers ["TLS_RSA_WITH_AES_256_CBC_SHA256"
-                         "TLS_RSA_WITH_AES_256_CBC_SHA"
-                         "TLS_RSA_WITH_AES_128_CBC_SHA256"
-                         "TLS_RSA_WITH_AES_128_CBC_SHA"
-                         "SSL_RSA_WITH_RC4_128_SHA"
-                         "SSL_RSA_WITH_3DES_EDE_CBC_SHA"
-                         "SSL_RSA_WITH_RC4_128_MD5"])
+;;
+;; If not running on an affected JVM version, this is nil.
+(defn acceptable-ciphers
+  ([]
+     (acceptable-ciphers (System/getProperty "java.version")))
+  ([jvm-version]
+     (let [known-good-version "1.7.0_05"]
+       (if (pos? (compare-jvm-versions jvm-version known-good-version))
+         ;; We're more recent than the last known-good version, and hence
+         ;; are busted
+         ["TLS_RSA_WITH_AES_256_CBC_SHA256"
+          "TLS_RSA_WITH_AES_256_CBC_SHA"
+          "TLS_RSA_WITH_AES_128_CBC_SHA256"
+          "TLS_RSA_WITH_AES_128_CBC_SHA"
+          "SSL_RSA_WITH_RC4_128_SHA"
+          "SSL_RSA_WITH_3DES_EDE_CBC_SHA"
+          "SSL_RSA_WITH_RC4_128_MD5"]))))
 
 ;; Monkey-patched version of `create-server` that will only create a
 ;; non-SSL connector if the options specifically dictate it.
@@ -66,9 +75,10 @@
             connector (#'jetty/ssl-connector options)
             ciphers   (if-let [txt (options :cipher-suites)]
                         (map trim (split txt #","))
-                        acceptable-ciphers)]
-        (doto (.getSslContextFactory connector)
-          (.setIncludeCipherSuites (into-array ciphers)))
+                        (acceptable-ciphers))]
+        (when ciphers
+          (doto (.getSslContextFactory connector)
+            (.setIncludeCipherSuites (into-array ciphers))))
         (.addConnector server connector)))
     server))
 

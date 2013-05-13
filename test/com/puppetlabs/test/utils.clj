@@ -220,3 +220,25 @@
 
         (memoized 3)
         (is (= (times-called f) 4))))))
+
+(deftest jvm-versions
+  (testing "comparing same versions should return 0"
+    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3"))))
+
+  (testing "comparing same versions should return 0, even with trailing fields"
+    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3-beta3"))))
+
+  (testing "should detect older versions"
+    (is (neg? (compare-jvm-versions "1.7.0_0" "1.7.0_3")))
+    (is (neg? (compare-jvm-versions "1.7.0_0" "1.7.0_3-beta3")))
+    (is (neg? (compare-jvm-versions "1.7.0_2" "1.7.0_03")))
+    (is (neg? (compare-jvm-versions "1.6.0_3" "1.7.0_3")))
+    (is (neg? (compare-jvm-versions "1.6.0_2" "1.7.0_3")))
+    (is (neg? (compare-jvm-versions "0.6.0_2" "1.7.0_3"))))
+
+  (testing "should detect newer versions"
+    (is (pos? (compare-jvm-versions "1.7.0_13" "1.7.0_3")))
+    (is (pos? (compare-jvm-versions "1.8.0_3" "1.7.0_3")))
+    (is (pos? (compare-jvm-versions "1.8.0_3" "1.7.0_3-beta3")))
+    (is (pos? (compare-jvm-versions "2.7.0_3" "1.7.0_3")))
+    (is (pos? (compare-jvm-versions "1.7.0_10" "1.7.0_3")))))
