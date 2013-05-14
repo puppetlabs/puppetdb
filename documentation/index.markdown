@@ -37,13 +37,13 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 1.2.x series of PuppetDB releases, which is backwards-compatible with the 1.1.x series but adds several new features. [See the release notes][releasenotes] for information on all changes since the final 1.0.x release.
+This manual covers the 1.3.x series of PuppetDB releases, which is backwards-compatible with the 1.1.x series but adds several new features. [See the release notes][releasenotes] for information on all changes since the final 1.0.x release.
 
 
 What Data?
 -----
 
-In version 1.2, PuppetDB stores:
+In version 1.3, PuppetDB stores:
 
 * The most recent [facts][] from every node
 * The most recent [catalog][] for every node
@@ -51,11 +51,11 @@ In version 1.2, PuppetDB stores:
 
 Together, these give you a huge inventory of metadata about every node in your infrastructure and a searchable database of **every single resource** being managed on any node.
 
-Puppet itself can search a subset of this data using [exported resources][exported], which allow nodes to manage resources on other nodes. This is similar to the capabilities of the legacy ActiveRecord `storeconfigs` interface, but much, much faster. The remaining data is available through PuppetDB's query APIs (see navigation sidebar for details) and Puppet's [inventory service][inventory]. 
+Puppet itself can search a subset of this data using [exported resources][exported], which allow nodes to manage resources on other nodes. This is similar to the capabilities of the legacy ActiveRecord `storeconfigs` interface, but much, much faster. The remaining data is available through PuppetDB's query APIs (see navigation sidebar for details) and Puppet's [inventory service][inventory].
 
 ### What Next?
 
-In future versions, PuppetDB will store historical catalogs for every node. 
+In future versions, PuppetDB will store historical catalogs for every node.
 
 
 System Requirements
@@ -96,7 +96,7 @@ Your site's puppet masters must be running Puppet 2.7.12 or later. [You will nee
 
 ### Robust Hardware
 
-PuppetDB will be a critical component of your Puppet deployment and so should be run on a robust and reliable server. 
+PuppetDB will be a critical component of your Puppet deployment and so should be run on a robust and reliable server.
 
 However, it can do a lot with fairly modest hardware: in benchmarks using real-world catalogs from a customer, a single 2012 laptop (16 GB of RAM, consumer-grade SSD, and quad-core processor) running PuppetDB and PostgreSQL was able to keep up with sustained input from 8,000 simulated Puppet nodes checking in every 30 minutes. Powerful server-grade hardware will perform even better.
 
