@@ -21,6 +21,7 @@
   (:use [clojure.core.incubator :only (-?> -?>>)]
         [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
+        [clojure.string :only (split)]
         [clojure.stacktrace :only (print-cause-trace)]
         [clj-time.core :only [now]]
         [clj-time.coerce :only [ICoerce to-date-time]]
@@ -165,7 +166,6 @@
        (if ks
          (recur ret (first ks) (next ks))
          ret))))
-
 
 (defn keyset
   "Returns the set of keys from the supplied map"
@@ -560,4 +560,21 @@
   {:post [(pos? %)]}
   (.availableProcessors (Runtime/getRuntime)))
 
+;; Comparison of JVM versions
+
+(defn compare-jvm-versions
+  "Same behavior as `compare`, but specifically for JVM version
+   strings.  Because Java versions don't follow semver or anything, we
+   need to do some massaging of the input first:
+
+  http://www.oracle.com/technetwork/java/javase/versioning-naming-139433.html"
+  [a b]
+  {:pre  [(string? a)
+          (string? b)]
+   :post [(number? %)]}
+  (let [parse #(mapv parse-int (-> %
+                                   (split #"-")
+                                   (first)
+                                   (split #"[\\._]")))]
+    (compare (parse a) (parse b))))
 
