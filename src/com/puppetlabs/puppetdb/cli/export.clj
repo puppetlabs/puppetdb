@@ -152,23 +152,21 @@
       (archive/add-entry tar-writer "UTF-8"
         (.getPath (io/file export-root-dir export-metadata-file-name))
         (json/generate-string export-metadata {:pretty true}))
-      ;; we can use a pmap call to retrieve the catalogs in parallel, so long
-      ;; as we only touch the tar stream from a single thread.  However, we need
-      ;; to bound the pmap so that it doesn't overwhelm the server with requests
-      ;; and use up all of the db connections.  Allowing 5 concurrent requests
-      ;; seems to give us close to optimal performance w/o using too much memory.
-      (doseq [{:keys [node catalog]} (bounded-pmap 5 get-catalog-fn nodes)]
+
+      ;; Write out catalogs
+      (doseq [node nodes]
         (println (format "Writing catalog for node '%s'" node))
         (archive/add-entry tar-writer "UTF-8"
           (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
-          catalog))
+          (:catalog (get-catalog-fn node))))
+
       ;; Write out reports
-      (doseq [{:keys [node reports]} (bounded-pmap 5 get-reports-fn nodes)]
-        (doseq [report reports]
-          (let [confversion (get report :configuration-version)
-                starttime (get report :start-time)
-                reportstr (json/generate-string (dissoc report :hash) {:pretty true})]
-            (println (format "Writing report '%s-%s' for node '%s'" starttime confversion node))
-            (archive/add-entry tar-writer "UTF-8"
-              (.getPath (io/file export-root-dir "reports" (format "%s-%s-%s.json" node starttime confversion)))
-              reportstr)))))))
+      (doseq [node nodes
+              report (:reports (get-reports-fn node))]
+        (let [confversion (get report :configuration-version)
+              starttime (get report :start-time)
+              reportstr (json/generate-string (dissoc report :hash) {:pretty true})]
+          (println (format "Writing report '%s-%s' for node '%s'" starttime confversion node))
+          (archive/add-entry tar-writer "UTF-8"
+            (.getPath (io/file export-root-dir "reports" (format "%s-%s-%s.json" node starttime confversion)))
+            reportstr))))))
