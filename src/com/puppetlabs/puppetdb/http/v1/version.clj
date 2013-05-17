@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log])
   (:use [com.puppetlabs.puppetdb.version :only [version update-info]]
         com.puppetlabs.middleware
-        [net.cgrand.moustache :only [app]]))
+        [net.cgrand.moustache :only [app]]
+        [com.puppetlabs.utils :only [cond-let]]))
 
 (defn current-version-response
   "Responds with the current version of PuppetDB as a JSON object containing a
@@ -18,17 +19,29 @@
   "Responds with the latest version of PuppetDB as a JSON object containing a
   `version` key with the version, as well as a `newer` key which is a boolean
   specifying whether the latest version is newer than the current version."
-  [{:keys [globals]}]
-  {:pre [(:update-server globals)]}
-  (let [update-server (:update-server globals)]
+  [{:keys [globals] :as request}]
+  {:pre [(:update-server globals)
+         (:product-name  globals)]}
+  (let [update-server (:update-server globals)
+        product-name  (:product-name globals)]
     (try
-      (if-let [update (update-info update-server (:scf-db globals))]
-        (pl-http/json-response update)
+      (cond-let [result]
+        ;; if we get one of these requests from pe-puppetdb, we always want to
+        ;; return 'newer->false' so that the dashboard will never try to
+        ;; display info about a newer version being available
+        (= product-name "pe-puppetdb")
+        (pl-http/json-response {"newer" false})
+
+        (update-info update-server (:scf-db globals))
+        (pl-http/json-response result)
+
+        :else
         (do
           (log/debug (format
                        "Unable to determine latest version via update-server: '%s'"
                        update-server))
           (pl-http/error-response "Could not find version" 404)))
+
       (catch java.io.IOException e
         (log/debug (format "Error when checking for latest version: %s" e))
         (pl-http/error-response
