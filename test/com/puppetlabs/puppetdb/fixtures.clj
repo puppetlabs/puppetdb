@@ -41,6 +41,7 @@
                                 {:scf-db               *db*
                                  :command-mq           *mq*
                                  :resource-query-limit 20000
-                                 :event-query-limit    20000}
+                                 :event-query-limit    20000
+                                 :product-name         "puppetdb"}
                                 globals-overrides))]
        (f))))
