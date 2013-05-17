@@ -375,8 +375,9 @@
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
                                                     :resource-query-limit resource-query-limit
-                                                    :event-query-limit event-query-limit
-                                                    :update-server        update-server}]
+                                                    :event-query-limit    event-query-limit
+                                                    :update-server        update-server
+                                                    :product-name         product-name}]
 
 
 
