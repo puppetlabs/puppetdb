@@ -25,18 +25,25 @@
                       (constantly
                         {"newer" true
                          "link" "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html"
-                         "version" "100.0.0"})]
+                         "version" "100.0.0"})
+                      version/version (constantly "99.0.0")]
           (json/parse-string (:body (*app* (get-request "/v2/version/latest")))))))))
 
 (deftest latest-version-response
   (testing "should return 'newer'->true if product is not specified"
     (let [response (get-response)]
-      (is (= true (response "newer")))))
+      (is (= true (response "newer")))
+      (is (= "100.0.0" (response "version")))
+      (is (= "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" (response "link")))))
   (testing "should return 'newer'->true if product is 'puppetdb"
     (let [response (get-response {:product-name "puppetdb"})]
-      (is (= true (response "newer")))))
+      (is (= true (response "newer")))
+      (is (= "100.0.0" (response "version")))
+      (is (= "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" (response "link")))))
   (testing "should return 'newer'->false if product is 'pe-puppetdb"
     ;; it should *always* return false for pe-puppetdb because
     ;; we don't even want to allow checking for updates
     (let [response (get-response {:product-name "pe-puppetdb"})]
-      (is (= false (response "newer"))))))
+      (is (= false (response "newer")))
+      (is (= "99.0.0" (response "version")))
+      (is (= nil (response "link"))))))

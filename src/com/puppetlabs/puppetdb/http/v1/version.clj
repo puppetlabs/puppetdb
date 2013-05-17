@@ -30,7 +30,9 @@
         ;; return 'newer->false' so that the dashboard will never try to
         ;; display info about a newer version being available
         (= product-name "pe-puppetdb")
-        (pl-http/json-response {"newer" false})
+        (pl-http/json-response {"newer"   false
+                                "version" (version)
+                                "link"    nil})
 
         (update-info update-server (:scf-db globals))
         (pl-http/json-response result)
