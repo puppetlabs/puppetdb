@@ -4,10 +4,55 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.3.1
+-----
+
+PuppetDB 1.3.1 is a bugfix release.  Many thanks to the following
+people who contributed patches to this release:
+
+* Chris Price
+* Deepak Giridharagopal
+* Ken Barber
+* Matthaus Owens
+* Nick Fagerlund
+
+Bug fixes:
+
+* (#19884) Intermittent SSL errors in Puppet master / PuppetDB communication
+
+  There is a bug in OpenJDK 7 (starting in 1.7 update 6) whereby SSL
+  communication using Diffie-Hellman ciphers will error out a small
+  percentage of the time.  In 1.3.1, we've made the list of SSL ciphers
+  that will be considered during SSL handshake configurable.  In addition,
+  if you're using an affected version of the JDK and you don't specify
+  a legal list of ciphers, we'll automatically default to a list that
+  does not include the Diffie-Hellman variants.  When this issue is
+  fixed in the JDK, we'll update the code to re-enable them on known
+  good versions.
+
+* (#20563) Out of Memory error on PuppetDB export
+
+  Because the `puppetdb-export` tool used multiple threads to retrieve
+  data from PuppetDB and a single thread to write the data to the
+  export file, it was possible in certain hardware configurations to
+  exhaust all of the memory available to the JVM.  We've moved this
+  back to a single-threaded implementation for now, which may result
+  in a minor performance decrease for exports, but will prevent
+  the possibility of hitting an OOM error.
+
+* Don't check for newer versions in the PE-PuppetDB dashboard
+
+  When running PuppetDB as part of a Puppet Enterprise installation, the
+  PuppetDB package should not be upgraded independently of Puppet Enterprise.
+  Therefore, the notification message that would appear in the PuppetDB
+  dashboard indicating that a newer version is available has been removed
+  for PE environments.
+
+
 1.3.0
 -----
 
-Many thanks to following people who contributed patches to this
+Many thanks to the following people who contributed patches to this
 release:
 
 * Branan Purvine-Riley
