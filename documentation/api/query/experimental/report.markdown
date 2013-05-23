@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » API » Experimental » Querying Reports"
 layout: default
-canonical: "/puppetdb/1.1/api/query/experimental/report.html"
+canonical: "/puppetdb/latest/api/query/experimental/report.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp

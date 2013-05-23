@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Configuration"
 layout: default
-canonical: "/puppetdb/1.1/configure.html"
+canonical: "/puppetdb/latest/configure.html"
 ---
 
 [log4j]: http://logging.apache.org/log4j/1.2/manual.html
