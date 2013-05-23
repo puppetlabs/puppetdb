@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Connecting Puppet Masters to PuppetDB"
 layout: default
-canonical: "/puppetdb/1.1/connect_puppet_master.html"
+canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb

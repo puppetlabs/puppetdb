@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.1 » Using PuppetDB"
 layout: default
-canonical: "/puppetdb/1.1/using.html"
+canonical: "/puppetdb/latest/using.html"
 ---
 
 [exported]: /puppet/2.7/reference/lang_exported.html
