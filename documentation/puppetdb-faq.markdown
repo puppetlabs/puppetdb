@@ -66,14 +66,8 @@ plaintext, as outlined above.
 
 ## Does PuppetDB support Puppet apply?
 
-Partially. Use with Puppet apply requires some special configuration, and due
-to limitations in Puppet, inventory service functionality isn't fully
-supported. Catalog storage and collection queries are completely functional,
-though. You can find information about configuring Puppet apply to work with
-PuppetDB in the installation guide for your version of PuppetDB.
-
-Either of these issues can also be solved through clever and judicious use of
-proxies, although the details of that are left as an exercise to the reader.
+Yes. The setup is quite different to the normal master based setup, so
+[consult the documentation][connect_puppet_apply] for more details.
 
 ## Why is PuppetDB written in Java?
 

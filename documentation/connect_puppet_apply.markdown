@@ -23,8 +23,7 @@ PuppetDB can also be used with standalone Puppet deployments where each node run
 
 * Send the node's catalog to PuppetDB
 * Query PuppetDB when compiling catalogs that collect [exported resources][exported]
-
-**Note that standalone deployments can only store catalogs and cannot use the inventory service.** This is due to a limitation in Puppet.
+* Store facts in PuppetDB
 
 You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that since you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.** 
 
@@ -125,7 +124,6 @@ Typically, you can specify the contents of [routes.yaml][routes_yaml] directly i
     apply:
       facts:
         terminus: facter
-        cache: facter
+        cache: puppetdb_apply
 
-This will disable fact storage and prevent puppet apply from using stale facts.
-
+This will install use the terminus `puppetdb_apply` as a facts cache which really doesn't act as a cache at all, it just monopolizes the cache handling behaviour to intercept facts and store them in PuppetDB.
