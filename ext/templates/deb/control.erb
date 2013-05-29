@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Puppet Labs <info@puppetlabs.com>
 <% if @pe -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rubygem-rake, pe-facter, pe-puppet-agent
+Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rubygem-rake, pe-facter, pe-puppet
 <% else -%>
 Build-Depends: debhelper (>= 7.0.0~), cdbs, rake, facter, puppet
 <% end -%>
@@ -13,7 +13,7 @@ Homepage: http://puppetlabs.com
 Package: <%= @name %>
 Architecture: all
 <% if @pe -%>
-Depends: ${misc:Depends}, pe-java, adduser, pe-puppet-agent (>= 2.7.12)
+Depends: ${misc:Depends}, pe-java, adduser, pe-puppet
 <% else -%>
 Depends: ${misc:Depends},  java6-runtime-headless, adduser, puppet (>= 2.7.12)
 <% end -%>
@@ -23,7 +23,7 @@ Description:PuppetDB Centralized Storage.
 Package: <%= @name %>-terminus
 Architecture: all
 <% if @pe -%>
-Depends:  ${misc:Depends}, pe-puppet-common
+Depends:  ${misc:Depends}, pe-puppet
 <% else -%>
 Depends:  ${misc:Depends}, puppet-common
 <% end -%>
