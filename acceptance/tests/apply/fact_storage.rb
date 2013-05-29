@@ -24,12 +24,10 @@ apply:
     # Wait until all the commands have been processed
     sleep_until_queue_empty database
 
-    step "Run facts face to find facts for each node" do
-      hosts.each do |host|
-        result = on master, "puppet facts find #{host.node_name} --terminus puppetdb"
-        facts = JSON.parse(result.stdout.strip)
-        assert_equal('second test', facts['values']['foo'], "Failed to retrieve facts for '#{host.node_name}' via inventory service!")
-      end
+    step "Run facts face to find facts for master" do
+      result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
+      facts = JSON.parse(result.stdout.strip)
+      assert_equal('second test', facts['values']['foo'], "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
     end
   end
 end
