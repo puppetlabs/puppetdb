@@ -303,6 +303,18 @@
   (sql/do-commands
     "CREATE INDEX idx_resource_events_status ON resource_events(status)"))
 
+(defn increase-puppet-version-field-length
+  "Increase the length of the puppet_version field in the reports table, as we've
+  encountered some version strings that are longer than 40 chars."
+  []
+  (sql/do-commands
+    (condp = (sql-current-connection-database-name)
+      "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
+      "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
+      (throw (IllegalArgumentException.
+               (format "Unsupported database engine '%s'"
+                 (sql-current-connection-database-name)))))))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -315,7 +327,8 @@
    7 drop-classes-and-tags
    8 rename-fact-column
    9 add-reports-tables
-   10 add-event-status-index})
+   10 add-event-status-index
+   11 increase-puppet-version-field-length})
 
 (def desired-schema-version (apply max (keys migrations)))
 
