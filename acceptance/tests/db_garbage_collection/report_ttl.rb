@@ -1,8 +1,12 @@
 require 'json'
+  confd = "#{puppetdb_confdir(database)}/conf.d"
 
 test_name "validate that reports are deleted based on report-ttl setting" do
 
-  with_master_running_on master, "--reports=store,puppetdb --autosign true", :preserve_ssl => true do
+  with_puppet_running_on master, {
+    'master' => {
+      'autosign' => 'true'
+    }} do
     step "Run agents once to generate reports" do
       run_agent_on agents, "--test --server #{master}"
     end
@@ -26,9 +30,9 @@ test_name "validate that reports are deleted based on report-ttl setting" do
 
 
   step "Back up the database.ini file and create a temp one with a ttl" do
-    on database, "cp /etc/puppetdb/conf.d/database.ini /etc/puppetdb/conf.d/database.ini.bak"
+    on database, "cp #{confd}/database.ini #{confd}/database.ini.bak"
     # TODO: this could/should be done via the module once we support it
-    on database, "echo 'report-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
+    on database, "echo 'report-ttl = 1s' >> #{confd}/database.ini"
   end
 
 
@@ -53,7 +57,11 @@ test_name "validate that reports are deleted based on report-ttl setting" do
   end
 
   step "Restore the original database.ini file and restart puppetdb" do
-    on database, "mv /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini ; chown puppetdb:puppetdb /etc/puppetdb/conf.d/database.ini"
+    if database.is_pe?
+      on database, "mv #{confd}/database.ini.bak #{confd}/database.ini ; chown pe-puppetdb:pe-puppetdb #{confd}/database.ini"
+    else
+      on database, "mv #{confd}/database.ini.bak #{confd}/database.ini ; chown puppetdb:puppetdb #{confd}/database.ini"
+    end
     restart_puppetdb database
   end
 
