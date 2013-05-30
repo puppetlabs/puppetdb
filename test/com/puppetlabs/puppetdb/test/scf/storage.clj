@@ -508,7 +508,14 @@
             [{:certname (:certname report)}]))
 
       (is (= (query-to-vec ["SELECT hash FROM reports"])
-            [{:hash report-hash}]))))
+            [{:hash report-hash}])))
+
+    (testing "should store report with long puppet version string"
+      (store-example-report!
+        (assoc report
+          :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+
+
 
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
