@@ -4,6 +4,25 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.3.2
+-----
+
+PuppetDB 1.3.2 is a bugfix release.  Many thanks to the following
+people who contributed patches to this release:
+
+* Chris Price
+
+Bug fixes:
+
+* Size of column `puppet_version` in the database schema is insufficient
+
+  There is a field in the database that is used to store a string
+  representation of the puppet version along with each report.  Previously,
+  this column could contain a maximum of 40 characters, but for
+  certain builds of Puppet Enterprise, the version string could be
+  longer than that.  This change simply increases the maximum length of
+  the column.
+
 1.3.1
 -----
 
