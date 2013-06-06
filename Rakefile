@@ -81,7 +81,7 @@ case @osfamily
   when /redhat/
     @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
   when /suse/
-    @plibdir = @pe ? PE_SITELIBDIR : nil
+    @plibdir = @pe ? PE_SITELIBDIR : (%x(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']").gsub("\n", ''))
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
