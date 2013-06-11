@@ -16,8 +16,8 @@ Architecture: all
 Depends: ${misc:Depends}, pe-java, adduser, pe-puppet
 <% else -%>
 Depends: ${misc:Depends},  java6-runtime-headless, adduser, puppet (>= 2.7.12)
-<% end -%>
 Suggests: postgresql
+<% end -%>
 Description:PuppetDB Centralized Storage.
 
 Package: <%= @name %>-terminus
