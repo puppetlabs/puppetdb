@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/query/v1/status.html"
 ### `GET /v1/status/nodes/<NODE>`
 
 This will return status information for the given node. There must be
-an `Accept` header containing `application/json`.
+an `Accept` header matching `application/json`.
 
 
 ## Response Format
@@ -34,6 +34,6 @@ hash containing an "error" key with a message indicating such.
 
 [Using `curl` from localhost][curl]:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/status/nodes/<node>'
+    curl 'http://localhost:8080/status/nodes/<node>'
 
 Where <node> is the name of the node whose status you wish to check.

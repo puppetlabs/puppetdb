@@ -22,7 +22,7 @@ Oueries are usually issued from code, but you can easily issue them from the com
 
 **Without SSL:**
 
-`curl -H 'Accept: application/json' -X GET http://puppetdb.example.com:8080/v2/resources --data-urlencode query@<filename>`
+`curl -X GET http://puppetdb.example.com:8080/v2/resources --data-urlencode query@<filename>`
 
 This requires that PuppetDB be [configured to accept non-SSL connections][config_jetty]. By default, it will only accept unencrypted traffic from `localhost`.
 
@@ -30,7 +30,7 @@ This requires that PuppetDB be [configured to accept non-SSL connections][config
 
 **With SSL:**
 
-`curl -H 'Accept: application/json' -X GET https://puppetdb.example.com:8081/v2/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
+`curl -X GET https://puppetdb.example.com:8081/v2/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
 
 This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
 

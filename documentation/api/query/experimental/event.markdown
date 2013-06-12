@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/api/query/experimental/event.html"
 ### `GET /experimental/events`
 
 This will return all resource events matching the given query.  (Resource events
-are generated from Puppet reports.)  There must be an `Accept` header containing
+are generated from Puppet reports.)  There must be an `Accept` header matching
 `application/json`.
 
 #### Parameters
@@ -147,4 +147,4 @@ the field, and an inequality query will always return `true`.
 
 [You can use `curl`][curl] to query information about events like so:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/experimental/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]' --data-urlencode 'limit=1000'
+    curl -G 'http://localhost:8080/experimental/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]' --data-urlencode 'limit=1000'
