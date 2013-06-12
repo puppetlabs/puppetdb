@@ -119,7 +119,7 @@ case "$1" in
     esac
     ;;
   status)
-       status_of_proc "$JAVA_BIN" "$NAME" && exit 0 || exit $?
+       status_of_proc -p $PIDFILE "$JAVA_BIN" "$NAME" && exit 0 || exit $?
        ;;
   #reload|force-reload)
     #
