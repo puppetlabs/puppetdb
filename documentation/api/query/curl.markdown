@@ -28,8 +28,8 @@ The instructions below are simplified. For full usage details, see [the curl man
 
 With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/v2/facts/<node>'
-    curl -H "Accept: application/json" 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
+    curl 'http://localhost:8080/v2/facts/<node>'
+    curl 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
 
 If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
 
@@ -45,7 +45,7 @@ Any node managed by puppet agent will already have all of these and you can re-u
 
 > **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
 
-    curl -H "Accept: application/json" 'https://<your.puppetdb.server>:8081/v2/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
+    curl 'https://<your.puppetdb.server>:8081/v2/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
 
 ### Locating Puppet Certificate Files
 
@@ -66,6 +66,6 @@ Many query strings will contain characters like `[` and `]`, which must be URL-e
 
 If you do this with an endpoint that accepts `GET` requests, **you must also use the `-G` or `--get` option.** This is because `curl` defaults to `POST` requests when the `--data-urlencode` option is present.
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
 
 

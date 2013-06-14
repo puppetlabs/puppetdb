@@ -22,7 +22,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
+    result = on database, %Q|curl -G http://localhost:8080/v2/nodes|
     result_node_statuses = JSON.parse(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_statuses.length}'")
   end
@@ -40,7 +40,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   restart_to_gc database
 
   step "Verify that the nodes are still there and still active" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
+    result = on database, %Q|curl -G http://localhost:8080/v2/nodes|
     result_node_statuses = JSON.parse(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Expected query to return '#{agents.length}' active nodes; returned '#{result_node_statuses.length}'")
   end
@@ -53,12 +53,12 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   restart_to_gc database
 
   step "Verify that the nodes were deactivated but not deleted" do
-    result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes|
+    result = on database, %Q|curl -G http://localhost:8080/v2/nodes|
     result_node_statuses = JSON.parse(result.stdout)
     assert_equal(0, result_node_statuses.length, "Expected query to return '0' active nodes; returned '#{result_node_statuses.length}'")
 
     agents.each do |agent|
-      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes/#{agent.node_name}|
+      result = on database, %Q|curl -G http://localhost:8080/v2/nodes/#{agent.node_name}|
       result_node_status = JSON.parse(result.stdout)
 
       assert_equal(agent.node_name, result_node_status['name'], "Didn't get a node back for #{agent.node_name}")
@@ -82,7 +82,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
 
   step "Verify that the nodes were all deleted" do
     agents.each do |agent|
-      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/nodes/#{agent.node_name}|
+      result = on database, %Q|curl -G http://localhost:8080/v2/nodes/#{agent.node_name}|
       result_node_status = JSON.parse(result.stdout)
 
       assert_equal({"error" => "No information is known about #{agent.node_name}"}, result_node_status, "Got a result back for #{agent.node_name} when it shouldn't exist")
@@ -90,20 +90,20 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Verify that all associated data was deleted" do
-    result = on database, "curl -G -H 'Accept: application/json' http://localhost:8080/v2/facts/operatingsystem"
+    result = on database, "curl -G http://localhost:8080/v2/facts/operatingsystem"
     facts = JSON.parse(result.stdout)
 
     assert_equal([], facts, "Got facts when they should all have been deleted")
 
     # We have to supply a query for resources, so use one that will always match
-    result = on database, %q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=","exported",false]'|
+    result = on database, %q|curl -G http://localhost:8080/v2/resources --data 'query=["=","exported",false]'|
     resources = JSON.parse(result.stdout)
 
     assert_equal([], resources, "Got resources when they should all have been deleted")
 
     # Reports can only be retrieved per node, so check one at a time.
     agents.each do |agent|
-      result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/reports --data 'query=["=","certname","#{agent.node_name}"]'|
+      result = on database, %Q|curl -G http://localhost:8080/experimental/reports --data 'query=["=","certname","#{agent.node_name}"]'|
       reports = JSON.parse(result.stdout)
 
       assert_equal([], resources, "Got reports for #{agent.node_name} when they should all have been deleted")

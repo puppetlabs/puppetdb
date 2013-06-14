@@ -19,7 +19,7 @@ To get a list of all available metric names:
 
 * Request `/metrics/mbeans`.
 * Use a `GET` request.
-* Provide an `Accept` header containing `application/json`.
+* Provide an `Accept` header matching `application/json`.
 
 ### Response format
 
@@ -37,7 +37,7 @@ To get the attributes of a particular metric:
 * Request `/metrics/mbean/<name>`, where `<name>` is something that was
   returned in the list of available metrics specified above.
 * Use a `GET` request.
-* Provide an `Accept` header containing `application/json`.
+* Provide an `Accept` header matching `application/json`.
 
 ### Response format
 
@@ -147,4 +147,4 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 [Using `curl` from localhost][curl]:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'
+    curl 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'

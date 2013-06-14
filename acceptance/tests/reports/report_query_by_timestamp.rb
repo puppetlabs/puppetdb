@@ -7,7 +7,7 @@ test_name "basic validation of puppet report query by timestamp" do
   query_start_time = CGI.escape(Time.now.iso8601)
 
   # Query for all of the events after the start time
-  result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/events --data 'query=[">",%20"timestamp",%20"#{query_start_time}"]'|
+  result = on database, %Q|curl -G http://localhost:8080/experimental/events --data 'query=[">",%20"timestamp",%20"#{query_start_time}"]'|
 
   # We expect no results (assuming all of the machines' timestamps are relatively
   #  sane), because we haven't done any agent runs after the specified time.
@@ -27,7 +27,7 @@ test_name "basic validation of puppet report query by timestamp" do
   sleep_until_queue_empty database
 
   # Query for all of the events after the start time
-  result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/events --data 'query=[">",%20"timestamp",%20"#{query_start_time}"]'|
+  result = on database, %Q|curl -G http://localhost:8080/experimental/events --data 'query=[">",%20"timestamp",%20"#{query_start_time}"]'|
 
   # This time, we do expect results because we've done agent runs more recently
   # than the timestamp['
@@ -39,7 +39,7 @@ test_name "basic validation of puppet report query by timestamp" do
   # previous query.
 
   end_time = CGI.escape(Time.now.iso8601)
-  result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/events --data 'query=["and",%20[">",%20"timestamp",%20"#{query_start_time}"],%20["<",%20"timestamp",%20"#{end_time}"]]'|
+  result = on database, %Q|curl -G http://localhost:8080/experimental/events --data 'query=["and",%20[">",%20"timestamp",%20"#{query_start_time}"],%20["<",%20"timestamp",%20"#{end_time}"]]'|
   events2 = JSON.parse(result.stdout)
   assert(events.length == events2.length, "Expected compound event time query to return the same number of results as the previous query")
 

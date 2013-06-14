@@ -18,7 +18,7 @@ The HTTP request must conform to the following format:
 
 * The URL requested is `/facts/<node>`
 * A `GET` is used.
-* There is an `Accept` header containing `application/json`.
+* There is an `Accept` header matching `application/json`.
 
 The supplied `<node>` path component indicates the certname for which
 facts should be retrieved.
@@ -45,13 +45,13 @@ If no facts are known for the supplied node, an HTTP 404 is returned.
 
 [Using `curl` from localhost][curl]:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/facts/<node>'
+    curl 'http://localhost:8080/facts/<node>'
 
 Where `<node>` is the name of the node from which you wish to retrieve facts.
 
 For example:
 
-    curl -X GET -H 'Accept: application/json' http://puppetdb:8080/facts/a.example.com
+    curl -X GET http://puppetdb:8080/facts/a.example.com
 
     {"name": "a.example.com",
       "facts": {

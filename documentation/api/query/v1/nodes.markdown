@@ -13,7 +13,7 @@ endpoint with a JSON-formatted parameter called `query`.
 ## Query format
 
 * The HTTP method must be `GET`.
-* There must be an `Accept` header specifying `application/json`.
+* There must be an `Accept` header matching `application/json`.
 
 The `query` parameter uses a format similar to [resource queries][resource].
 
@@ -54,8 +54,8 @@ in ascending order:
 
 Retrieving all nodes:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/nodes'
+    curl 'http://localhost:8080/nodes'
 
 Retrieving all active nodes:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G 'http://localhost:8080/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
