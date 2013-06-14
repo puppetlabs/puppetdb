@@ -20,14 +20,14 @@ known only for deactivated nodes.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET -H 'Accept: application/json' http://localhost:8080/v2/fact-names
+    curl -X GET http://localhost:8080/v2/fact-names
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 
 
 ## Request
 
-All requests must accept `application/json`.
+All requests `Accept` header must match `application/json`.
 
 ## Response Format
 

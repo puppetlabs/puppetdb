@@ -34,7 +34,7 @@ conform to the following rules:
 * A `POST` is used
 * There is a parameter, `payload`, that contains the entire command object as
   outlined above. (Not to be confused with the `payload` field inside the command object.)
-* There is an `Accept` header that contains `application/json`.
+* There is an `Accept` header that matches `application/json`.
 * The POST body is url-encoded
 * The content-type is `x-www-form-urlencoded`.
 

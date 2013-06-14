@@ -16,7 +16,7 @@ Resources are queried via an HTTP request to the
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response. There must be an
-`Accept` header containing `application/json`.
+`Accept` header matching `application/json`.
 
 #### Parameters
 
@@ -73,7 +73,7 @@ supported* against node status or parameter values.
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header containing
+response. There must be an `Accept` header matching
 `application/json`.
 
 #### Parameters
@@ -89,7 +89,7 @@ response. There must be an `Accept` header containing
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET -H "Accept: application/json" 'http://puppetdb:8080/v2/resources/User'
+    curl -X GET 'http://puppetdb:8080/v2/resources/User'
 
     [{"parameters" : {
         "uid" : "1000,
@@ -128,7 +128,7 @@ response. There must be an `Accept` header containing
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header containing
+response. There must be an `Accept` header matching
 `application/json`.
 
 #### Parameters
@@ -144,7 +144,7 @@ response. There must be an `Accept` header containing
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET -H "Accept: application/json" 'http://puppetdb:8080/v2/resources/User/foo'
+    curl -X GET 'http://puppetdb:8080/v2/resources/User/foo'
 
     [{"parameters" : {
         "uid" : "1000,

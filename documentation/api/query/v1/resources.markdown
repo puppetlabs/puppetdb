@@ -15,7 +15,7 @@ Queries for resources must conform to the following format:
 
 * A `GET` is used.
 * There is a single parameter, `query`.
-* There is an `Accept` header containing `application/json`.
+* There is an `Accept` header matching `application/json`.
 * The `query` parameter is a JSON array of query predicates, in prefix
   form, conforming to the format described below.
 
@@ -104,4 +104,4 @@ following form:
 
 Retrieving the resource `File['/etc/ipsec.conf']`:
 
-    curl -G -H "Accept: application/json" 'http://localhost:8080/resources' --data-urlencode 'query=["and", ["=", "type", "File"], ["=", "title", "/etc/ipsec.conf"]]'
+    curl -G 'http://localhost:8080/resources' --data-urlencode 'query=["and", ["=", "type", "File"], ["=", "title", "/etc/ipsec.conf"]]'

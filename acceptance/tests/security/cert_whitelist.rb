@@ -17,7 +17,7 @@ test_name "certificate whitelisting" do
     create_remote_file database, "#{confd}/whitelist", whitelist
     on database, "chmod 644 #{confd}/whitelist"
     restart_puppetdb database
-    on database, "curl -sL -w '%{http_code}\\n' -H 'Accept: application/json' " +
+    on database, "curl -sL -w '%{http_code}\\n' " +
                  "--cacert #{ssldir}/certs/ca.pem " +
                  "--cert #{ssldir}/certs/#{dbname}.pem " +
                  "--key #{ssldir}/private_keys/#{dbname}.pem "+

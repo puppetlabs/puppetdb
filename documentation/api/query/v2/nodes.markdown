@@ -16,8 +16,8 @@ endpoint with a JSON-formatted parameter called `query`.
 ### `GET /v2/nodes`
 
 This will return all nodes matching the given query. Deactivated nodes
-aren't included in the response. There must be an `Accept` header
-containing `application/json`.
+aren't included in the response. There must be an `Accept` header matching
+`application/json`.
 
 #### Parameters
 
@@ -65,13 +65,13 @@ The array is sorted alphabetically by `name`.
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/v2/nodes'
-    curl -G -H "Accept: application/json" 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl 'http://localhost:8080/v2/nodes'
+    curl -G 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 ### `GET /v2/nodes/<NODE>`
 
 This will return status information for the given node, active or
-not. There must be an `Accept` header containing `application/json`.
+not. There must be an `Accept` header matching `application/json`.
 
 #### Response format
 
@@ -81,8 +81,8 @@ endpoint.
 ### `GET /v2/nodes/<NODE>/facts`
 
 This will return the facts for the given node. Facts from deactivated
-nodes aren't included in the response. There must be an `Accept`
-header containing `application/json`.
+nodes aren't included in the response. There must be an `Accept` header
+matching `application/json`.
 
 #### Parameters
 
@@ -101,7 +101,7 @@ endpoint.
 
 This will return facts with the given name for the given node. Facts
 from deactivated nodes aren't included in the response. There must be
-an `Accept` header containing `application/json`.
+an `Accept` header matching `application/json`.
 
 #### Parameters
 
@@ -121,7 +121,7 @@ endpoint.
 
 This will return facts with the given name and value for the given
 node. Facts from deactivated nodes aren't included in the
-response. There must be an `Accept` header containing
+response. There must be an `Accept` header matching
 `application/json`.
 
 #### Parameters
@@ -141,7 +141,7 @@ endpoint.
 
 This will return the resources for the given node. Resources from
 deactivated nodes aren't included in the response. There must be an
-`Accept` header containing `application/json`.
+`Accept` header matching `application/json`.
 
 #### Parameters
 
@@ -160,7 +160,7 @@ endpoint.
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header containing
+response. There must be an `Accept` header matching
 `application/json`.
 
 This endpoint behaves identically to the
@@ -172,7 +172,7 @@ for this route.
 
 This will return the resource of the indicated type and title for the
 given node. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header containing
+response. There must be an `Accept` header matching
 `application/json`.
 
 This endpoint behaves identically to the

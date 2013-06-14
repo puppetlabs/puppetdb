@@ -75,11 +75,13 @@
   (if-not (string? header)
     true
     (let [[prefix suffix] (.split candidate "/")
+          superwildcard   "*/*"
           wildcard        (str prefix "/*")
           types           (->> (s/split header #",")
                                (map #(.trim %))
                                (set))]
-      (or (types wildcard)
+      (or (types superwildcard)
+          (types wildcard)
           (types candidate)))))
 
 (defn must-accept-type

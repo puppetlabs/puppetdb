@@ -11,8 +11,11 @@
     (testing "should match an exact accept header that includes other types"
       (is (= "text/html" (acceptable-content-type "text/html" "text/html, text/plain"))))
 
-    (testing "should match a wildcard accept header"
+    (testing "should match a right-side wildcard accept header"
       (is (= "text/*" (acceptable-content-type "text/html" "text/*"))))
+
+    (testing "should match a both-sides wildcard accept header"
+      (is (= "*/*" (acceptable-content-type "text/html" "*/*"))))
 
     (testing "should match a wildcard accept header that includes other types"
       (is (= "text/*" (acceptable-content-type "text/html" "text/plain, text/*"))))
