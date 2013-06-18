@@ -1,4 +1,6 @@
 test_name "storeconfigs export and import" do
+  skip_test "Skipping test for PE because slqite3 isn't available" if master.is_pe?
+
   db_path = master.tmpfile('storeconfigs.sqlite3')
   manifest_path = master.tmpfile('storeconfigs.pp')
   args = "--dbadapter sqlite3 --dblocation #{db_path} --storeconfigs_backend active_record --debug"
@@ -24,7 +26,15 @@ test_name "storeconfigs export and import" do
 
   step "run each agent once to populate the database" do
     # dbadapter, dblocation, storeconfigs_backend, routefile
-    with_master_running_on master, "#{args} --manifest #{manifest_path} --autosign true", :preserve_ssl => true do
+    with_puppet_running_on master, {
+      'master' => {
+        'dbadapter' => 'sqlite3',
+        'dblocation' => db_path,
+        'storeconfigs_backend' => 'active_record',
+        'debug' => 'true',
+        'manifest' => manifest_path,
+        'autosign' => 'true'
+      }} do
       hosts.each do |host|
         run_agent_on host, "--test --server #{master}", :acceptable_exit_codes => [0,2]
       end
