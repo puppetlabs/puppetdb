@@ -16,12 +16,7 @@ test_name "basic validation of puppet report query by timestamp" do
 
   # TODO: the module should be setting up the report processors so that we don't
   # have to add it on the CLI here
-  with_puppet_running_on master, {
-    'master' => {
-      'storeconfigs' => 'true',
-      'store_configs_backend' => 'puppetdb',
-      'autosign' => 'true'
-    }} do
+  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --reports=store,puppetdb --autosign true", :preserve_ssl => true do
 
       step "Run agents once to submit reports" do
         run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]

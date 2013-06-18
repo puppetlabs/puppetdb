@@ -2,10 +2,7 @@ require 'json'
 
 test_name "facts should be available through facts terminus" do
 
-  with_puppet_running_on master, {
-    'master' => {
-      'autosign' => 'true',
-    }} do
+  with_master_running_on master, "--autosign true", :preserve_ssl => true do
 
     step "Run agent once to populate database" do
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2]
