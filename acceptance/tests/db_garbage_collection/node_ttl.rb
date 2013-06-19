@@ -15,10 +15,7 @@ end
 
 test_name "validate that nodes are deactivated and deleted based on ttl settings" do
 
-  with_puppet_running_on master, {
-    'master' => {
-      'autosign' => 'true'
-    }} do
+  with_master_running_on master, "--autosign true", :preserve_ssl => true do
     step "Run agents once to activate nodes" do
       run_agent_on agents, "--test --server #{master}"
     end
@@ -35,9 +32,9 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Back up the database.ini file and create a temp one with a node-purge-ttl" do
-    on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini #{puppetdb_confdir(database)}/conf.d/database.ini.bak"
+    on database, "cp -p /etc/puppetdb/conf.d/database.ini /etc/puppetdb/conf.d/database.ini.bak"
     # TODO: this could/should be done via the module once we support it
-    on database, "echo 'node-purge-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+    on database, "echo 'node-purge-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
   end
 
   restart_to_gc database
@@ -49,8 +46,8 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Restore the original database.ini and add a node-ttl" do
-    on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini.bak #{puppetdb_confdir(database)}/conf.d/database.ini"
-    on database, "echo 'node-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+    on database, "cp -p /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini"
+    on database, "echo 'node-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
   end
 
   restart_to_gc database
@@ -74,7 +71,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Add a purge ttl to the database.ini file" do
-    on database, "echo 'node-purge-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+    on database, "echo 'node-purge-ttl = 1s' >> /etc/puppetdb/conf.d/database.ini"
   end
 
   # In case there are any catalogs/facts/reports waiting to be processed, let
@@ -114,7 +111,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Restore the original database.ini file and restart puppetdb" do
-    on database, "mv #{puppetdb_confdir(database)}/conf.d/database.ini.bak #{puppetdb_confdir(database)}/conf.d/database.ini"
+    on database, "mv /etc/puppetdb/conf.d/database.ini.bak /etc/puppetdb/conf.d/database.ini"
     restart_puppetdb database
   end
 

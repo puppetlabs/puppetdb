@@ -74,11 +74,7 @@ MANIFEST
 
   on master, "chmod -R +rX #{tmpdir}"
 
-  with_puppet_running_on master, {
-    'master' => {
-      'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+  with_master_running_on master, "--autosign true --manifest #{manifest_file}", :preserve_ssl => true do
 
     step "Run exporter to populate the database" do
       run_agent_on exporter, "--test --server #{master}", :acceptable_exit_codes => [0,2]
