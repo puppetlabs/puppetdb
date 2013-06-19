@@ -72,7 +72,7 @@ step "Install Puppet" do
   when :package
     install_puppet_from_package(test_config[:os_families])
   end
-  # If our :install_type is :git or :pe, then the harness has already installed
+  # If our :install_type is :git, then the harness has already installed
   # puppet.
 end
 
