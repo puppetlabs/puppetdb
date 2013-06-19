@@ -20,6 +20,7 @@ file { "/tmp/myfile":
   mode => 755,
 
   content => template("foomodule/mytemplate.erb"),
+  tag => "binary_file"
 }
   EOF
 
@@ -36,11 +37,33 @@ file { "/tmp/myfile":
   on master, "chmod -R +rX #{tmpdir}"
   on master, "chmod -R +rX #{moduledir}"
 
-  with_master_running_on master, "--autosign true --manifest #{manifest_file} --modulepath #{moduledir}", :preserve_ssl => true do
+  result = on master, "puppet master --configprint modulepath"
+  resmod = "#{result.stdout.strip}:#{moduledir}"
 
+  with_puppet_running_on(master,
+    'master' => {
+      'autosign' => 'true',
+      'manifest' => manifest_file,
+      'modulepath' => resmod
+    }) do
     step "Run agent to submit catalog" do
-      run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2]
+      run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => (0..4)
     end
 
+  end
+
+  sleep_until_queue_empty database
+
+  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data-urlencode 'query=["=", "tag", "binary_file"]'| do |result|
+    resources = JSON.parse(result.stdout)
+    hosts.each do |host|
+      assert_block("Catalog for #{host} was not stored in PuppetDB") do
+        resources.any? do |resource| 
+          resource["certname"] == host.node_name and
+            resource["type"] == "File" and
+            resource["title"] == "/tmp/myfile"
+        end
+      end
+    end
   end
 end
