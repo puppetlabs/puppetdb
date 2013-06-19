@@ -672,7 +672,7 @@ module PuppetDBExtensions
         inc = 0
         logger.debug 'Waiting for the puppet master to start'
         begin
-          TCPSocket.new(host['ip'] || host.to_s, 8140).close
+          TCPSocket.new(host.to_s, 8140).close
         rescue Errno::ECONNREFUSED
           sleep 1
           inc += 1
