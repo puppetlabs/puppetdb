@@ -54,7 +54,7 @@ file { "/tmp/myfile":
 
   sleep_until_queue_empty database
 
-  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data-urlencode 'query=["=", "tag", "binary_file"]'| do |result|
+  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=",%20"tag",%20"binary_file"]'| do |result|
     resources = JSON.parse(result.stdout)
     hosts.each do |host|
       assert_block("Catalog for #{host} was not stored in PuppetDB") do
