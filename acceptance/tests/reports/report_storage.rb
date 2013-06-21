@@ -19,7 +19,13 @@ MANIFEST
 
   # TODO: the module should be setting up the report processors so that we don't
   # have to add it on the CLI here
-  with_master_running_on master, "--storeconfigs --storeconfigs_backend puppetdb --reports=store,puppetdb --autosign true --manifest #{manifest_file}", :preserve_ssl => true do
+  with_puppet_running_on master, {
+    'master' => {
+      'storeconfigs' => 'true',
+      'store_configs_backend' => 'puppetdb',
+      'autosign' => 'true',
+      'manifest' => manifest_file
+    }} do
 
       step "Run agents once to submit reports" do
         run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
