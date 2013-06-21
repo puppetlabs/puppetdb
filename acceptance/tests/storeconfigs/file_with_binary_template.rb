@@ -54,15 +54,17 @@ file { "/tmp/myfile":
 
   sleep_until_queue_empty database
 
-  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=",%20"tag",%20"binary_file"]'| do |result|
-    resources = JSON.parse(result.stdout)
-    hosts.each do |host|
-      assert_block("Catalog for #{host} was not stored in PuppetDB") do
-        resources.any? do |resource| 
-          resource["certname"] == host.node_name and
-            resource["type"] == "File" and
-            resource["title"] == "/tmp/myfile"
-        end
+  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=",%20"tag",%20"binary_file"]' > binary_file.json|
+  # We redirected this output to a file because if the invalid binary data was printed to the log from 
+  # the curl statement, then Jenkins would try to parse it at the end of the run and fail.
+  scp_from(database, "binary_file.json", ".")
+  resources = JSON.parse(File.read("binary_file.json"))
+  hosts.each do |host|
+    assert_block("Catalog for #{host} was not stored in PuppetDB") do
+      resources.any? do |resource| 
+        resource["certname"] == host.node_name and
+          resource["type"] == "File" and
+          resource["title"] == "/tmp/myfile"
       end
     end
   end
