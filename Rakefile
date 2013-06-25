@@ -7,7 +7,10 @@ JAR_FILE = 'puppetdb.jar'
 RAKE_ROOT = File.dirname(__FILE__)
 
 # Load tasks and variables for packaging automation
-Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |t| load t }
+begin
+  load File.join(RAKE_ROOT, 'ext', 'packaging', 'packaging.rake')
+rescue LoadError
+end
 
 def ln_sfT(src, dest)
   sh "ln -sfT #{src} #{dest}"
