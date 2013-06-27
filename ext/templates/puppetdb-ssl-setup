@@ -104,8 +104,8 @@ pw_file=${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
 if [ -f $pw_file ]; then
   password=`cat $pw_file`
 else
-  password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | head -c 25`
-  tmpdir=`mktemp -t -d tmp.puppetdbXXXXX`
+  password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | cut -c 1-25`
+  tmpdir=`mktemp -t -d tmp.puppetdbXXXXXX`
   rm -rf $tmpdir
   mkdir -p $tmpdir
   cp $myca $tmpdir/ca.pem
