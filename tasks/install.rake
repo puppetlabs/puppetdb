@@ -62,6 +62,10 @@ task :install => [  JAR_FILE  ] do
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/default/#{@name}"
     cp_pr "ext/files/#{@name}.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
+  elsif @osfamily == "openbsd"
+    mkdir_p "#{DESTDIR}/etc/rc.d/"
+    cp_p "ext/files/puppetdb.openbsd.init", "#{DESTDIR}/etc/rc.d/#{@name}.rc"
+    chmod 0755, "#{DESTDIR}/etc/rc.d/#{@name}.rc"
   else
     raise "Unknown or unsupported osfamily: #{@osfamily}"
   end
