@@ -82,6 +82,8 @@ case @osfamily
     @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
   when /suse/
     @plibdir = @pe ? PE_SITELIBDIR : nil
+  when /openbsd/
+    @plibdir = @pe ? PE_SITELIBDIR : '/usr/local/lib/ruby/site_ruby/1.9.1'
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
