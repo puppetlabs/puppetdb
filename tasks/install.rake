@@ -20,16 +20,16 @@ task :install => [  JAR_FILE  ] do
   mkdir_p "#{DESTDIR}/#{@lib_dir}"
   mkdir_p "#{DESTDIR}/#{@sbin_dir}"
   mkdir_p "#{DESTDIR}/etc/logrotate.d/"
-  ln_sfT @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
-  ln_sfT @log_dir, "#{DESTDIR}/#{@install_dir}/log"
+  ln_sf @config_dir, "#{DESTDIR}/#{@lib_dir}/config"
+  ln_sf @log_dir, "#{DESTDIR}/#{@install_dir}/log"
 
   unless @pe
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/state"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/db"
     mkdir_p "#{DESTDIR}/var/lib/puppetdb/mq"
-    ln_sfT "#{@lib_dir}/state", "#{DESTDIR}#{@link}/state"
-    ln_sfT "#{@lib_dir}/db", "#{DESTDIR}#{@link}/db"
-    ln_sfT "#{@lib_dir}/mq", "#{DESTDIR}#{@link}/mq"
+    ln_sf "#{@lib_dir}/state", "#{DESTDIR}#{@link}/state"
+    ln_sf "#{@lib_dir}/db", "#{DESTDIR}#{@link}/db"
+    ln_sf "#{@lib_dir}/mq", "#{DESTDIR}#{@link}/mq"
     mkdir_p "#{DESTDIR}/etc/puppetdb"
   else
     mkdir_p "#{DESTDIR}#{@lib_dir}/state"

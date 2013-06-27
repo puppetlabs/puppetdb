@@ -9,8 +9,8 @@ RAKE_ROOT = File.dirname(__FILE__)
 # Load tasks and variables for packaging automation
 Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |t| load t }
 
-def ln_sfT(src, dest)
-  sh "ln -sfT #{src} #{dest}"
+def ln_sf(src, dest)
+  sh "ln -sf #{src} #{dest}"
 end
 
 def cp_pr(src, dest, options={})
