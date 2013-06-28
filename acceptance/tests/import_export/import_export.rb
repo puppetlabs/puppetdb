@@ -1,4 +1,4 @@
-test_name "storeconfigs export and import" do
+test_name "export and import tools" do
   sbin_loc = puppetdb_sbin_dir(database)
 
   step "clear puppetdb database so that we can control exactly what we will eventually be exporting" do
@@ -41,8 +41,25 @@ test_name "storeconfigs export and import" do
     scp_from(database, export_file2, ".")
   end
 
-  step "verify legacy export data matches new export data" do
+  step "verify original export data matches new export data" do
     compare_export_data(export_file1, export_file2)
   end
 
+  step "clear puppetdb database so that we can import into a clean db" do
+    clear_and_restart_puppetdb(database)
+  end
+
+  step "import data into puppetdb with specific port and host" do
+    on database, "#{sbin_loc}/puppetdb-import -p 8080 -H localhost --infile #{export_file1}"
+    sleep_until_queue_empty(database)
+  end
+
+  step "export data from puppetdb again with specific port and host" do
+    on database, "#{sbin_loc}/puppetdb-export -p 8080 -H localhost --outfile #{export_file2}"
+    scp_from(database, export_file2, ".")
+  end
+
+  step "verify original export data matches new export data" do
+    compare_export_data(export_file1, export_file2)
+  end
 end
