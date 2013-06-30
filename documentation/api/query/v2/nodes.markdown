@@ -21,7 +21,7 @@ aren't included in the response. There must be an `Accept` header matching
 
 #### Parameters
 
-* `query`: Required. A JSON array of query predicates, in prefix form,
+* `query`: Optional. A JSON array of query predicates, in prefix form,
   conforming to the format described below.
 
 The `query` parameter is a similar format to [resource queries][resource].
