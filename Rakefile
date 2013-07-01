@@ -10,7 +10,7 @@ RAKE_ROOT = File.dirname(__FILE__)
 Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |t| load t }
 
 def ln_sf(src, dest)
-  if !file.exist?(dest)
+  if !File.exist?(dest)
     sh "ln -sf #{src} #{dest}"
   end
 end
