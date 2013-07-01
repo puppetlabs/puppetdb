@@ -1,0 +1,18 @@
+[Unit]
+Description=Puppetdb Daemon
+After=syslog.target network.target
+
+[Service]
+Type=simple
+User=puppetdb
+EnvironmentFile=/etc/conf.d/puppetdb
+PIDFile=/var/run/puppetdb.pid
+ExecStart=/usr/bin/java \
+          $JAVA_ARGS \
+          -jar /usr/share/puppetdb/puppetdb.jar \
+          services -c $CONFIG $@
+  
+ExecStop=/bin/kill $MAINPID
+
+[Install]
+WantedBy=multi-user.target
