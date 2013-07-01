@@ -10,7 +10,9 @@ RAKE_ROOT = File.dirname(__FILE__)
 Dir[ File.join(RAKE_ROOT, 'ext', 'packaging', 'tasks', '*.rake') ].sort.each { |t| load t }
 
 def ln_sf(src, dest)
-  sh "ln -sf #{src} #{dest}"
+  if !file.exist?(dest)
+    sh "ln -sf #{src} #{dest}"
+  end
 end
 
 def cp_pr(src, dest, options={})
