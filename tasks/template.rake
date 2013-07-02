@@ -44,4 +44,7 @@ task :template => [ :clean ] do
    mkdir_p "ext/files/dev/redhat"
    erb "ext/templates/dev/redhat/redhat_dev_preinst.erb", "ext/files/dev/redhat/redhat_dev_preinst"
    erb "ext/templates/dev/redhat/redhat_dev_postinst.erb", "ext/files/dev/redhat/redhat_dev_postinst"
+
+   # files for OpenBSD
+   erb "ext/templates/init_openbsd.erb", "ext/files/puppetdb.openbsd.init"
 end

@@ -12,8 +12,10 @@ begin
 rescue LoadError
 end
 
-def ln_sfT(src, dest)
-  sh "ln -sfT #{src} #{dest}"
+def ln_sf(src, dest)
+  if !File.exist?(dest)
+    sh "ln -sf #{src} #{dest}"
+  end
 end
 
 def cp_pr(src, dest, options={})
@@ -85,6 +87,8 @@ case @osfamily
     @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
   when /suse/
     @plibdir = @pe ? PE_SITELIBDIR : nil
+  when /openbsd/
+    @plibdir = @pe ? PE_SITELIBDIR : '/usr/local/lib/ruby/site_ruby/1.9.1'
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
