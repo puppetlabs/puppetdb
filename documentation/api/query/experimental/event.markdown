@@ -31,7 +31,7 @@ The `query` parameter is described by the following grammar:
     match:          "=" | "~"
     inequality:     ">" | ">=" | "<" | "<="
 
-For example, for all events in the report with id
+For example, for all events in the report with hash
 '38ff2aef3ffb7800fe85b322280ade2b867c8d27', the JSON query structure would be:
 
     ["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]
