@@ -44,7 +44,7 @@ the completion time of the report, in descending order:
         "receive-time": "2012-10-29T18:38:04.238Z",
         "configuration-version": "1351535883",
         "start-time": "2012-10-29T18:38:00.000Z",
-        "id": "d4bcb35a-fb7b-45da-84e0-fceb7a1df713",
+        "hash": "bd899b1ee825ec1d2c671fe5541b5c8f4a783472",
         "certname": "foo.local",
         "report-format": 3
         },
@@ -54,7 +54,7 @@ the completion time of the report, in descending order:
         "receive-time": "2012-10-26T22:39:35.305Z",
         "configuration-version": "1351291174",
         "start-time": "2012-10-26T22:39:31.000Z",
-        "id": "5ec13ff5-c6fd-43fb-b5b1-59a00ec8e1f1",
+        "hash": "cd4e5fd8846bac26d15d151664a40e0f2fa600b0",
         "certname": "foo.local",
         "report-format": 3
         }
