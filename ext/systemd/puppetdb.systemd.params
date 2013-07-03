@@ -1,0 +1,9 @@
+##
+## Parameters to be passed to puppetdb.service
+##
+## Default data
+JAVA_ARGS=-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/puppetdb/puppetdb-oom.hprof
+JAVA_BIN=/usr/bin/java
+INSTALL_DIR=/usr/share/puppetdb
+JARFILE=puppetdb.jar
+CONFIG=/etc/puppetdb/conf.d
