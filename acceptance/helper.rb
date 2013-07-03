@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 
 require 'cgi'
-require 'lib/puppet_acceptance/dsl/install_utils'
+require 'puppet_acceptance/dsl/install_utils'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
 require 'json'
 
 module PuppetDBExtensions
-  include PuppetAcceptance::Assertions
+  include Test::Unit::Assertions
 
   GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
 

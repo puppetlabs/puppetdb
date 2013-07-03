@@ -8,4 +8,6 @@ group :test do
   gem 'puppetlabs_spec_helper', '0.4.1', :require => false
 
   gem 'puppet', :require => false
+
+  gem 'puppet_acceptance', :git => 'git://github.com/puppetlabs/puppet-acceptance.git', :require => false
 end
