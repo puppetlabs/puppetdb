@@ -1,6 +1,7 @@
 (ns com.puppetlabs.testutils.logging
   (:require [clojure.tools.logging.impl :as impl]
-            [clojure.tools.logging :only [*logger-factory*]]))
+            [clojure.tools.logging :only [*logger-factory*]])
+  (:import [org.apache.log4j Logger AppenderSkeleton Level]))
 
 (defn- log-entry->map
   [log-entry]
@@ -35,6 +36,19 @@
         (write! [_ lvl ex msg]
           (swap! output-atom conj [(str log-ns) lvl ex msg]))))))
 
+(defn atom-appender
+  "Creates a log4j appender that writes log messages to the supplied atom"
+  [output-atom]
+  (proxy [AppenderSkeleton] []
+    (append [logging-event]
+      (let [throwable-info  (.getThrowableInformation logging-event)
+            ex              (if throwable-info (.getThrowable throwable-info))]
+        (swap! output-atom conj
+          [(.getLoggerName logging-event)
+           (.getLevel logging-event)
+           ex
+           (str (.getMessage logging-event))])))
+    (close [])))
 
 (defmacro with-log-output
   "Sets up a temporary logger to capture all log output to a sequence, and
@@ -49,9 +63,19 @@
 
       (with-log-output logs
         (log/info \"Hello There\")
-        (is (= 1 (num-logs-matching #\"Hello There\" @logs))))
-  "
+        (is (= 1 (count (logs-matching #\"Hello There\" @logs)))))"
   [log-output-var & body]
-  `(let [~log-output-var (atom [])]
+  `(let [~log-output-var  (atom [])
+         root-logger#     (Logger/getRootLogger)
+         orig-appenders#  (vec (enumeration-seq (.getAllAppenders root-logger#)))
+         orig-levels#     (into {} (map #(vector % (.getThreshold %)) orig-appenders#))
+         temp-appender#   (atom-appender ~log-output-var)]
+     (.setName temp-appender# "testutils-temp-log-appender")
+     (doseq [orig-appender# orig-appenders#]
+       (.setThreshold orig-appender# Level/OFF))
+     (.addAppender root-logger# temp-appender#)
      (binding [clojure.tools.logging/*logger-factory* (atom-logger ~log-output-var)]
-       ~@body)))
+       ~@body)
+     (.removeAppender root-logger# temp-appender#)
+     (doseq [orig-appender# orig-appenders#]
+       (.setThreshold orig-appender# (orig-levels# orig-appender#)))))
