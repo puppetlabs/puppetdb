@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
+        [com.puppetlabs.testutils.logging :only [with-log-output]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
@@ -45,3 +46,12 @@
                                  :product-name         "puppetdb"}
                                 globals-overrides))]
        (f))))
+
+(defn with-test-logging
+  "A fixture to temporarily redirect all logging output to an atom, rather than
+  to the usual ConsoleAppender.  Useful for tests that are intentionally triggering
+  error conditions, to prevent them from cluttering up the test output with log
+  messages."
+  [f]
+  (with-log-output logs
+    (f)))

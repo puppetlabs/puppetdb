@@ -7,6 +7,7 @@
             [cheshire.core :as json]
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
+            [com.puppetlabs.testutils.logging :only [with-log-output]]
             [clojure.test]))
 
 (defn test-db-config
@@ -82,21 +83,27 @@
         (prn the-connection))
   "
   [name conn-var & body]
-  `(let [dir#                   (fs/absolute-path (fs/temp-dir))
-         broker-name#           ~name
-         conn-str#              (str "vm://" ~name)
-         ^BrokerService broker# (mq/build-embedded-broker broker-name# dir#)]
+  `(with-log-output broker-logs#
+    (let [dir#                   (fs/absolute-path (fs/temp-dir))
+          broker-name#           ~name
+          conn-str#              (str "vm://" ~name)
+          size-megs#              50
+          ^BrokerService broker# (mq/build-embedded-broker
+                                    broker-name#
+                                    dir#
+                                    {:store-usage size-megs#
+                                     :temp-usage  size-megs#})]
 
-     (.setUseJmx broker# false)
-     (.setPersistent broker# false)
-     (mq/start-broker! broker#)
+       (.setUseJmx broker# false)
+       (.setPersistent broker# false)
+       (mq/start-broker! broker#)
 
-     (try
-       (with-open [~conn-var (mq/connect! conn-str#)]
-         ~@body)
-       (finally
-         (mq/stop-broker! broker#)
-         (fs/delete-dir dir#)))))
+       (try
+         (with-open [~conn-var (mq/connect! conn-str#)]
+           ~@body)
+         (finally
+           (mq/stop-broker! broker#)
+           (fs/delete-dir dir#))))))
 
 (defn call-counter
   "Returns a method that just tracks how many times it's called, and
