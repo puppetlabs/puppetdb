@@ -85,10 +85,10 @@
   [name conn-var & body]
   `(with-log-output broker-logs#
     (let [dir#                   (fs/absolute-path (fs/temp-dir))
-           broker-name#           ~name
-           conn-str#              (str "vm://" ~name)
-           size-megs#              50
-           ^BrokerService broker# (mq/build-embedded-broker
+          broker-name#           ~name
+          conn-str#              (str "vm://" ~name)
+          size-megs#              50
+          ^BrokerService broker# (mq/build-embedded-broker
                                     broker-name#
                                     dir#
                                     {:store-usage size-megs#
