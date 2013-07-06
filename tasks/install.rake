@@ -60,6 +60,7 @@ task :install => [  JAR_FILE  ] do
   elsif @osfamily == "suse"
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/init.d/"
+    cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
     cp_p "ext/files/puppetdb.suse.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   elsif @osfamily == "debian"
