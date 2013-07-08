@@ -1,4 +1,4 @@
-require 'lib/puppet_acceptance/dsl/install_utils'
+require 'puppet_acceptance/dsl/install_utils'
 
 extend PuppetAcceptance::DSL::InstallUtils
 
