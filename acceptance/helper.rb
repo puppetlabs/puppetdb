@@ -7,6 +7,12 @@ require 'set'
 require 'test/unit/assertions'
 require 'json'
 
+puts ''
+puts ''
+puts "I've been included in the harness!!!"
+puts ''
+puts ''
+
 module PuppetDBExtensions
   include Test::Unit::Assertions
 
@@ -15,6 +21,8 @@ module PuppetDBExtensions
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
   def self.initialize_test_config(options, os_families)
+    puts "############"
+    puts "We are in initialize_test_config"
 
     base_dir = File.join(File.dirname(__FILE__), '..')
 
@@ -261,8 +269,8 @@ module PuppetDBExtensions
     if host.is_pe?
       service_name = "pe-postgresql"
       db_name = "pe-puppetdb"
-      db_user = "pe-puppetdb"
-      db_pass = "pe-puppetdb"
+      db_user = "mYpdBu3r"
+      db_pass = '~!@#$%^*-/ aZ'
       manifest = <<-EOS
       # get the pg server up and running
       $version = '9.2'
@@ -294,7 +302,7 @@ module PuppetDBExtensions
       class { 'puppetdb::database::postgresql_db': 
         database_name     => #{db_name},
         database_username => #{db_user},
-        database_password => #{db_pass},
+        database_password => '#{db_pass}',
       }
       EOS
     else
@@ -420,10 +428,14 @@ module PuppetDBExtensions
   end
 
   def clear_database(host)
+    puts "##########"
+    puts "Here are the PuppetDB Extensions config: #{PuppetDBExtensions.config}"
     case PuppetDBExtensions.config[:database]
       when :postgres
         if host.is_pe?
-          on host, 'su pe-postgres -c "/opt/puppet/bin/dropdb pe-puppetdb"'
+          puts "##########"
+          puts "Going to drop puppetdb"
+          on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
         else
           on host, 'su postgres -c "dropdb puppetdb"'
         end

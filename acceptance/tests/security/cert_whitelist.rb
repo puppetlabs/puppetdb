@@ -8,7 +8,10 @@ test_name "certificate whitelisting" do
 
   step "reconfigure PuppetDB to use certificate whitelist" do
     on database, "cp #{confd}/jetty.ini #{confd}/jetty.ini.bak"
-    on database, "grep -q ^certificate-whitelist #{confd}/jetty.ini || echo 'certificate-whitelist = #{confd}/whitelist' >> #{confd}/jetty.ini"
+    on database, "grep -v ^certificate-whitelist #{confd}/jetty.ini > #{confd}/jetty.ini.tmp"
+    on database, "mv -f #{confd}/jetty.ini.tmp #{confd}/jetty.ini"
+    on database, "echo 'certificate-whitelist = #{confd}/whitelist' >> #{confd}/jetty.ini"
+    on database, "cat #{confd}/jetty.ini"
   end
 
   # Execute a curl from the database to itself using HTTPS, using the
@@ -16,6 +19,7 @@ test_name "certificate whitelisting" do
   curl_against_whitelist = proc do |whitelist, expected_status_code|
     create_remote_file database, "#{confd}/whitelist", whitelist
     on database, "chmod 644 #{confd}/whitelist"
+    on database, "cat #{confd}/whitelist"
     restart_puppetdb database
     on database, "curl -sL -w '%{http_code}\\n' -H 'Accept: application/json' " +
                  "--cacert #{ssldir}/certs/ca.pem " +

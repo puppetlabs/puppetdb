@@ -1,0 +1,3 @@
+{
+    :puppetdb_database => 'postgres',
+}
