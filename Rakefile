@@ -64,9 +64,8 @@ end
 
 # We only need the ruby major, minor versions
 @ruby_version = (ENV['RUBY_VER'] || Facter.value(:rubyversion))[0..2]
-unless @ruby_version == '1.8' or @ruby_version == '1.9'
-  STDERR.puts "RUBY_VER needs to be 1.8 or 1.9"
-  exit 1
+unless ['1.8','1.9'].include?(@ruby_version)
+  STDERR.puts "Warning: Existing rake commands are untested on #{@ruby_version} currently supported rubies include 1.8 or 1.9"
 end
 
 PATH = ENV['PATH']
