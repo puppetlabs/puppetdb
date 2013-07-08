@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v2/metrics.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
-to paths under the `/metrics` REST endpoint.
+to paths under the `/v2/metrics` REST endpoint.
 
 ## Listing available metrics
 
@@ -17,7 +17,7 @@ to paths under the `/metrics` REST endpoint.
 
 To get a list of all available metric names:
 
-* Request `/metrics/mbeans`.
+* Request `/v2/metrics/mbeans`.
 * Use a `GET` request.
 * Provide an `Accept` header containing `application/json`.
 
@@ -34,7 +34,7 @@ Responses return a JSON Object mapping a string to a string:
 
 To get the attributes of a particular metric:
 
-* Request `/metrics/mbean/<name>`, where `<name>` is something that was
+* Request `/v2/metrics/mbean/<name>`, where `<name>` is something that was
   returned in the list of available metrics specified above.
 * Use a `GET` request.
 * Provide an `Accept` header containing `application/json`.
@@ -147,4 +147,4 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 [Using `curl` from localhost][curl]:
 
-    curl -H "Accept: application/json" 'http://localhost:8080/metrics/mbean/java.lang:type=Memory'
+    curl -H "Accept: application/json" 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
