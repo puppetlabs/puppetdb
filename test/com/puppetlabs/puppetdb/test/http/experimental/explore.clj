@@ -13,7 +13,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t "application/json")
+(def c-t pl-http/json-response-content-type)
 
 (defn get-request
   [path]

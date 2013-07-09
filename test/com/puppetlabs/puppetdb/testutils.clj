@@ -146,7 +146,7 @@ to the result of the form supplied to this method."
     (response-equal? response expected identity))
   ([response expected body-munge-fn]
     (is (= pl-http/status-ok   (:status response)))
-    (is (= "application/json" (get-in response [:headers "Content-Type"])))
+    (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
     (let [actual  (if (:body response)
       (set (body-munge-fn (json/parse-string (:body response) true)))
       nil)]

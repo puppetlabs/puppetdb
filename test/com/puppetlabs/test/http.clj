@@ -1,5 +1,9 @@
 (ns com.puppetlabs.test.http
+  (:require [clj-http.client :as client]
+            [cheshire.core :as json])
   (:use [com.puppetlabs.http]
+        [com.puppetlabs.jetty]
+        [com.puppetlabs.testutils.logging]
         [clojure.test]
         [ring.mock.request]))
 
@@ -92,3 +96,18 @@
           response {:status status-bad-method}
           message "The POST method is not allowed for /some/test/route?foo=bar"]
       (is (= (default-body request response) message)))))
+
+(deftest utf-8-json-responses
+  (testing "JSON responses should be encoded as utf-8"
+    (let [app (fn [req] (json-response "N�rnberg"))
+          ;; How should I decide what test port to use?
+          srv (run-jetty app {:port 9753 :join? false})]
+      (try
+        (let [resp (client/get "http://localhost:9753")]
+          (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
+          (is (= (-> resp
+                     (:body)
+                     (json/parse-string)))
+              "N�rnberg"))
+        (finally
+          (.stop srv))))))

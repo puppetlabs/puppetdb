@@ -12,7 +12,7 @@
 (use-fixtures :each with-test-db with-http-app)
 
 ;;;; Test the resource listing handlers.
-(def c-t "application/json")
+(def c-t pl-http/json-response-content-type)
 
 (defn get-request
   ([path] (get-request path nil))

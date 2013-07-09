@@ -28,7 +28,7 @@
             req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
         (is (= (:status resp) pl-http/status-ok))
-        (is (= (get-in resp [:headers "Content-Type"]) "application/json"))
+        (is (= (get-in resp [:headers "Content-Type"]) pl-http/json-response-content-type))
         (is (= (instance? java.util.UUID
                           (-> (:body resp)
                               (json/parse-string true)
