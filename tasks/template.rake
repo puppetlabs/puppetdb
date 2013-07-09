@@ -48,4 +48,9 @@ task :template => [ :clean ] do
 
    # files for OpenBSD
    erb "ext/templates/init_openbsd.erb", "ext/files/puppetdb.openbsd.init"
+
+   # files for systemd
+   mkdir_p "ext/files/systemd"
+   erb "ext/templates/puppetdb.service.erb", "ext/files/systemd/#{@name}.service"
+   chmod 0644, "ext/files/systemd/#{@name}.service"
 end
