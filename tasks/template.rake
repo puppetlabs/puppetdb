@@ -45,4 +45,9 @@ task :template => [ :clean ] do
    mkdir_p "ext/files/dev/redhat"
    erb "ext/templates/dev/redhat/redhat_dev_preinst.erb", "ext/files/dev/redhat/redhat_dev_preinst"
    erb "ext/templates/dev/redhat/redhat_dev_postinst.erb", "ext/files/dev/redhat/redhat_dev_postinst"
+
+   # files for systemd
+   mkdir_p "ext/files/systemd"
+   erb "ext/templates/puppetdb.service.erb", "ext/files/systemd/#{@name}.service"
+   chmod 0644, "ext/files/systemd/#{@name}.service"
 end
