@@ -38,10 +38,16 @@ task :template => [ :clean ] do
    # files for rpm
    erb "ext/templates/logrotate.erb", "ext/files/puppetdb.logrotate"
    erb "ext/templates/init_redhat.erb", "ext/files/puppetdb.redhat.init"
+   erb "ext/templates/init_suse.erb", "ext/files/puppetdb.suse.init"
    erb "ext/templates/puppetdb_default.erb", "ext/files/puppetdb.default"
 
    # developer utility files for redhat
    mkdir_p "ext/files/dev/redhat"
    erb "ext/templates/dev/redhat/redhat_dev_preinst.erb", "ext/files/dev/redhat/redhat_dev_preinst"
    erb "ext/templates/dev/redhat/redhat_dev_postinst.erb", "ext/files/dev/redhat/redhat_dev_postinst"
+
+   # files for systemd
+   mkdir_p "ext/files/systemd"
+   erb "ext/templates/puppetdb.service.erb", "ext/files/systemd/#{@name}.service"
+   chmod 0644, "ext/files/systemd/#{@name}.service"
 end

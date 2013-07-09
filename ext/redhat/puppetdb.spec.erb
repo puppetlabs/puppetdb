@@ -25,14 +25,22 @@
 %if 0%{?fedora} >= 17
 %global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
 %else
+%if 0%{?suse_version}
+%global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
+%else
 %global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+%endif
 %endif
 <% end -%>
 
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
+%if 0%{?suse_version}
+%global  _initdir    %{_realsysconfdir}/init.d
+%else
 %global  _initddir   %{_realsysconfdir}/rc.d/init.d
+%endif
 %global _rundir /var/run
 
 <% if @pe -%>
@@ -54,7 +62,12 @@ Release:       <%= @rpmrelease %>%{?dist}
 BuildRoot:     %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Summary:       Puppet Centralized Storage Daemon
+%if 0%{?suse_version}
+License:       Apache-2.0
+%else
 License:       ASL 2.0
+%endif
+
 <% if @pe -%>
 URL:           http://puppetlabs.com/puppet/puppet-enterprise
 Source0:       %{name}-%{realversion}.tar.gz
@@ -63,7 +76,11 @@ URL:           http://github.com/puppetlabs/puppetdb
 Source0:       http://downloads.puppetlabs.com/puppetdb/%{realname}-%{realversion}.tar.gz
 <% end -%>
 
+%if 0%{?suse_version}
+Group:         System/Daemons
+%else
 Group:         System Environment/Daemons
+%endif
 
 <% if @pe -%>
 BuildRequires: pe-facter >= 1.6.2, pe-puppet
@@ -71,10 +88,12 @@ BuildRequires: pe-rubygem-rake
 BuildRequires: pe-ruby
 Requires:      pe-puppet >= 2.7.12
 <% else -%>
-BuildRequires: facter, puppet
+BuildRequires: facter >= 1.6.8
+BuildRequires: puppet >= 2.7.12
 BuildRequires: rubygem-rake
 BuildRequires: ruby
 Requires:      puppet >= 2.7.12
+Requires:      facter >= 1.6.8
 <% end -%>
 BuildArch:     noarch
 %if 0%{?suse_version}
@@ -83,19 +102,26 @@ BuildRequires: unzip
 BuildRequires: sles-release
 Requires:      aaa_base
 Requires:      pwdutils
+Requires:      logrotate
+BuildRequires: java-devel
+Requires:      java
 %else
 BuildRequires: /usr/sbin/useradd
 Requires:      chkconfig
-%endif
 BuildRequires: %{open_jdk}
 Requires:      %{open_jdk}
+%endif
 
 %description
 Puppet Centralized Storage.
 
 %package terminus
 Summary: Puppet terminus files to connect to PuppetDB
+%if 0%{?suse_version}
+Group: System/Libraries
+%else
 Group: Development/Libraries
+%endif
 <% if @pe -%>
 Requires: pe-puppet >= 2.7.12
 <% else -%>
@@ -119,8 +145,12 @@ Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 export NO_BRP_CHECK_BYTECODE_VERSION=true
 %endif
 
+%if 0%{?suse_version}
+mkdir -p %{buildroot}/%{_initddir}
+%else
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
+%endif
 
 <% if @pe -%>
 PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
@@ -207,6 +237,10 @@ fi
 %defattr(-, root, root)
 %doc *.md
 %doc documentation
+%if 0%{?suse_version}
+%dir %{_sysconfdir}/%{realname}
+%dir %{_sysconfdir}/%{realname}/conf.d
+%endif
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/config.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/log4j.properties
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/database.ini
