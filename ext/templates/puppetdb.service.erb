@@ -1,0 +1,17 @@
+[Unit]
+Description=<%= @name %> Daemon
+After=syslog.target network.target
+
+[Service]
+Type=simple
+User=<%= @name %>
+PIDFile=/var/run/<%= @name %>.pid
+ExecStart=<%= @java_bin || "/usr/bin/java"  %> \
+          <%= @java_args || @default_java_args %> \
+          -jar <%= @install_dir || "/usr/share/puppetdb" %>/puppetdb.jar \
+          services -c <%= @config_dir %> $@
+
+ExecStop=/bin/kill $MAINPID
+
+[Install]
+WantedBy=multi-user.target
