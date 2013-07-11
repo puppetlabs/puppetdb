@@ -28,7 +28,7 @@
         (is (= (filter-mbean {:key {:key TimeUnit/SECONDS}})
                {:key {:key "SECONDS"}}))))))
 
-(def c-t "application/json")
+(def c-t pl-http/json-response-content-type)
 
 (defn make-request
   "Return a GET request against path, suitable as an argument to the
