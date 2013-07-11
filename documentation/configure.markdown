@@ -222,7 +222,7 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
 
     $ sudo -u postgres sh
     $ createuser -DRSP puppetdb
-    $ createdb -O puppetdb puppetdb
+    $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
 Ensure you can log in by running:
