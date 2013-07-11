@@ -99,11 +99,14 @@
 
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
-    (let [app (fn [req] (json-response "N�rnberg"))
-          ;; How should I decide what test port to use?
-          srv (run-jetty app {:port 9753 :join? false})]
+    (let [app  (fn [req] (json-response "N�rnberg"))
+          srv  (run-jetty app {:port 0 :join? false}) ; 0 = random port
+          port (-> srv
+                   (.getConnectors)
+                   (first)
+                   (.getLocalPort))]
       (try
-        (let [resp (client/get "http://localhost:9753")]
+        (let [resp (client/get (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp
                      (:body)
