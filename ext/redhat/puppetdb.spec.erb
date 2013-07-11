@@ -6,13 +6,17 @@
 %global open_jdk          pe-java
 <% else -%>
 # Fedora 17 ships with openjdk 1.7.0
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || ( 0%{?suse_version} >= 1200 && %{undefined sles_version} )
 %global open_jdk          java-1.7.0-openjdk
 %else
-%if 0%{?suse_version}
+%if 0%{?sles_version}
 %global open_jdk          java-1_6_0-ibm
 %else
+%if 0%{?suse_version}
+%global open_jdk          java-1_6_0-openjdk
+%else
 %global open_jdk          java-1.6.0-openjdk
+%endif
 %endif
 %endif
 <% end -%>
@@ -103,14 +107,12 @@ BuildRequires: sles-release
 Requires:      aaa_base
 Requires:      pwdutils
 Requires:      logrotate
-BuildRequires: java-devel
-Requires:      java
 %else
 BuildRequires: /usr/sbin/useradd
+%endif
 Requires:      chkconfig
 BuildRequires: %{open_jdk}
 Requires:      %{open_jdk}
-%endif
 
 %description
 Puppet Centralized Storage.
