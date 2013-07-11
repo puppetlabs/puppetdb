@@ -106,7 +106,10 @@
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)
          (rr/header "Content-Type" "application/json")
+         (rr/charset "utf-8")
          (rr/status code))))
+
+(def json-response-content-type "application/json; charset=utf-8")
 
 (defn error-response
   "Returns a Ring response object with the status code specified by `code`.

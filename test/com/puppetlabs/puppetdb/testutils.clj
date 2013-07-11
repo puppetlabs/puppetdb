@@ -2,6 +2,7 @@
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
             [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.jetty :as jetty]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
@@ -105,6 +106,34 @@
            (mq/stop-broker! broker#)
            (fs/delete-dir dir#))))))
 
+(defmacro with-test-jetty
+  "Constructs and starts an embedded Jetty on a random port, and
+  evaluates `body` inside a try/finally block that takes care of
+  tearing down the webserver.
+
+  `app` - The ring application the webserver should serve
+
+  `port-var` - Inside of `body`, the variable named `port-var`
+  contains the port number the webserver is listening on
+
+  Example:
+
+      (let [app (constantly {:status 200 :headers {} :body \"OK\"})]
+        (with-test-jetty app port
+          ;; Hit the embedded webserver
+          (http-client/get (format \"http://localhost:%s\" port))))
+  "
+  [app port-var & body]
+  `(let [srv#      (jetty/run-jetty ~app {:port 0 :join? false})
+         ~port-var (-> srv#
+                       (.getConnectors)
+                       (first)
+                       (.getLocalPort))]
+     (try
+       ~@body
+       (finally
+         (.stop srv#)))))
+
 (defn call-counter
   "Returns a method that just tracks how many times it's called, and
   with what arguments. That information is stored in metadata for the
@@ -153,7 +182,7 @@ to the result of the form supplied to this method."
     (response-equal? response expected identity))
   ([response expected body-munge-fn]
     (is (= pl-http/status-ok   (:status response)))
-    (is (= "application/json" (get-in response [:headers "Content-Type"])))
+    (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
     (let [actual  (if (:body response)
       (set (body-munge-fn (json/parse-string (:body response) true)))
       nil)]

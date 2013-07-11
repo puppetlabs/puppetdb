@@ -14,7 +14,7 @@
         [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
         [com.puppetlabs.puppetdb.testutils.report :only (store-example-report! get-events-map)]))
 
-(def content-type-json "application/json")
+(def content-type-json pl-http/json-response-content-type)
 
 (use-fixtures :each with-test-db with-http-app)
 
