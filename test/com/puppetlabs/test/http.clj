@@ -4,6 +4,7 @@
   (:use [com.puppetlabs.http]
         [com.puppetlabs.jetty]
         [com.puppetlabs.testutils.logging]
+        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]
         [ring.mock.request]))
 
@@ -99,18 +100,11 @@
 
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
-    (let [app  (fn [req] (json-response "N�rnberg"))
-          srv  (run-jetty app {:port 0 :join? false}) ; 0 = random port
-          port (-> srv
-                   (.getConnectors)
-                   (first)
-                   (.getLocalPort))]
-      (try
+    (let [app  (fn [req] (json-response "N�rnberg"))]
+      (with-test-jetty app port
         (let [resp (client/get (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp
                      (:body)
                      (json/parse-string)))
-              "N�rnberg"))
-        (finally
-          (.stop srv))))))
+              "N�rnberg"))))))
