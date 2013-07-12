@@ -343,7 +343,7 @@
 
 
 (def supported-cli-options
-  [["-c" "--config" "Path to config.ini (required)"]
+  [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
    ["-D" "--debug" "Enable debug mode" :default false :flag true]])
 
 (def required-cli-options
