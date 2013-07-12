@@ -166,7 +166,7 @@
 
 
 (def supported-cli-options
-  [["-c" "--config" "Path to config.ini (required)"]
+  [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
    ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
    ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
