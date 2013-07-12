@@ -1,93 +1,218 @@
 #!/bin/bash
 
-# This function wraps sed:
+#############
+# FUNCTIONS #
+#############
+
+# Display usage information and exit
+#
+# This function simply displays the usage information to the screen and exits
+# with exit code 0.
+#
+# Example:
+#
+#   usage
+#
+function usage() {
+  echo "Usage: $0 [-if]"
+  echo "Configuration helper for enabling SSL for PuppetDB."
+  echo
+  echo "This tool will attempt to copy the necessary Puppet SSL PEM files into "\
+       "place for use by the PuppetDB HTTPS service. It also is able to update "\
+       "the necessary PuppetDB configuration files if necessary to point to "\
+       "the location of these files and also configures the host and port for "\
+       "SSL to listen on."
+  echo
+  echo "Options:"
+  echo " -i  Interactive mode"
+  echo " -f  Force configuration file update. By default if the configuration "\
+       "already exists in your jetty.ini or if your configuration is otherwise "\
+       "in a state we believe we shouldn't touch by default, you must use this "\
+       "option to override it"
+  echo " -h  Help"
+  exit 0
+}
+
+# Backs up a file, if it hasn't already been backed up
+#
+# $1 - file to backup
+#
+# Example:
+#
+#   backupfile "/etc/myconfig"
+#
+function backupfile() {
+  # Create the global array 'backedup' if it doesn't already exist
+  if [ -z $backupfile_list ]; then
+    backupfile_list=()
+  fi
+
+  # We check the array 'backedup' to make sure the file isn't already backed up
+  if ! contains ${backupfile_list[@]} $1; then
+    local backup_path="$1.bak.`date +%s`"
+    echo "Backing up $1 to ${backup_path} before making changes"
+    cp -p $1 $backup_path
+
+    # Append to the backedup array, so we don't need to back it up again later
+    backupfile_list+=($1)
+  fi
+}
+
+# This function searches for an element in an array returning 1 if it exists.
+#
+# $1 - array
+# $2 - item to search for
+#
+# Example:
+#
+#   myarray=('element1', 'element2')
+#   if contains ${myarray[@]}, "element1'; then
+#     echo "element1 exists in the array"
+#   fi
+#
+function contains() {
+  local n=$#
+  local value=${!n}
+  for ((i=1;i < $#;i++)); do
+    if [ "${!i}" == "${value}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# This function wraps sed for a line focused search and replace.
+#
 # * Makes sure its atomic by writing to a temp file and moving it _after_
 # * Escapes any forward slashes and ampersands on the RHS for you
-function sedeasy {
+#
+# $1 - regexp to match
+# $2 - line to replace
+# $3 - file to operate on
+#
+# Example:
+#
+#    replaceline "^$mysetting.*" "mysetting = myvalue" /etc/myconfig
+#
+function replaceline {
+  backupfile $3
   tmp=$3.tmp.`date +%s`
   sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
   mv $tmp $3
 }
 
-# Display usage information
-function usage {
-  echo "Usage: $0 [-if]"
-  echo "Configuration helper for enabling SSL for PuppetDB."
-  echo
-  echo "This tool will attempt to create the necessary JKS trust & keystore for" \
-    "PuppetDB SSL to operate from the local Puppet agents certificate, key and"\
-    "CA certificate. It also is able to update the necessary PuppetDB"\
-    "configuration files if necessary to point to the location of these" \
-    "stores, configure the correct passwords and also configures the host and" \
-    "port for SSL to listen on."
-  echo
-  echo "Options:"
-  echo " -i  Interactive mode"
-  echo " -f  Force configuration file update. By default if the configuration"\
-    "already exists in your jetty.ini, you must use this option to override it"
-  echo " -h  Help"
-  exit 0
+# This function comments out a line in a file, based on a regexp
+#
+# $1 = regexp to match
+# $2 = file to operate on
+#
+# Example:
+#
+#    commentline "^$mysetting.*" /etc/myconfig
+#
+function commentline {
+  backupfile $2
+  tmp=$2.tmp.`date +%s`
+  sed "/$1/ s/^/# /" $2 > $tmp
+  mv $tmp $2
 }
 
+# This function appends a line to a file
+#
+# $1 - line to append
+# $2 - file to operate on
+#
+# Example:
+#
+#    appendline "mysetting = myvalue" /etc/myconfig
+#
+function appendline {
+  backupfile $2
+  tmp=$2.tmp.`date +%s`
+  cat $2 > ${tmp}
+  echo $1 >> ${tmp}
+  mv ${tmp} $2
+}
+
+# This function copies the necessary PEM files from Puppet to the PuppetDB
+# SSL directory.
+#
+# This expects various environment variables to have already been set to work.
+function copy_pem_from_puppet {
+  rm -rf $ssl_dir
+  mkdir -p $ssl_dir
+  echo "Copying files: ${orig_ca_file}, ${orig_private_file} and ${orig_public_file} to ${ssl_dir}"
+  cp -pr $orig_ca_file $ca_file
+  cp -pr $orig_private_file $private_file
+  cp -pr $orig_public_file $public_file
+}
+
+########
+# MAIN #
+########
+
+# Gather command line options
 while getopts "ifh" opt;
 do
-    case $opt in
-        i)
-            interactive=true ;;
-        f)
-            force=true ;;
-        h)
-            usage ;;
-        *)
-            usage ;;
-    esac
+  case $opt in
+    i)
+      interactive=true ;;
+    f)
+      force=true ;;
+    h)
+      usage ;;
+    *)
+      usage ;;
+  esac
 done
 
 ${interactive:=false}
 ${force:=false}
 
+# Deal with interactive setups differently to non-interactive
 if $interactive
 then
-    dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    cd $dir
-    answers_file="puppetdb-ssl-setup-answers.txt"
-    if [ -f "$answers_file" ]
-    then
-        echo "Reading answers file '$answers_file'"
-        . $answers_file
-    fi
+  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  cd $dir
+  answers_file="puppetdb-ssl-setup-answers.txt"
+  if [ -f "$answers_file" ]
+  then
+    echo "Reading answers file '$answers_file'"
+    . $answers_file
+  fi
 
-    vars=( agent_confdir agent_vardir puppetdb_confdir )
-    prompts=( "Puppet Agent confdir" "Puppet Agent vardir" "PuppetDB confdir" )
+  vars=( agent_confdir agent_vardir puppetdb_confdir )
+  prompts=( "Puppet Agent confdir" "Puppet Agent vardir" "PuppetDB confdir" )
 
-    for (( i=0; i<${#vars[@]}; i++ ))
-    do
-        read -p "${prompts[$i]} [${!vars[$i]}]: " input
-        export ${vars[$i]}=${input:-${!vars[$i]}}
-    done
+  for (( i=0; i<${#vars[@]}; i++ ))
+  do
+    read -p "${prompts[$i]} [${!vars[$i]}]: " input
+    export ${vars[$i]}=${input:-${!vars[$i]}}
+  done
 
-    cat /dev/null > $answers_file
-    for (( i=0; i<${#vars[@]}; i++ ))
-    do
-        echo "${vars[$i]}=${!vars[$i]}" >> $answers_file
-    done
+  cat /dev/null > $answers_file
+  for (( i=0; i<${#vars[@]}; i++ ))
+  do
+    echo "${vars[$i]}=${!vars[$i]}" >> $answers_file
+  done
 else
-    # This should be run on the host with PuppetDB
-    PATH=/opt/puppet/bin:$PATH
-    agent_confdir=`puppet agent --configprint confdir`
-    agent_vardir=`puppet agent --configprint vardir`
+  # This should be run on the host with PuppetDB
+  PATH=/opt/puppet/bin:$PATH
+  agent_confdir=`puppet agent --configprint confdir`
+  agent_vardir=`puppet agent --configprint vardir`
 
-    if [ -d "/etc/puppetlabs/puppetdb" ] ; then
-      puppetdb_confdir="/etc/puppetlabs/puppetdb"
-      user=pe-puppetdb
-    else
-      puppetdb_confdir="/etc/puppetdb"
-      user=puppetdb
-    fi
+  if [ -d "/etc/puppetlabs/puppetdb" ] ; then
+    puppetdb_confdir="/etc/puppetlabs/puppetdb"
+    user=pe-puppetdb
+  else
+    puppetdb_confdir="/etc/puppetdb"
+    user=puppetdb
+  fi
 fi
 
 set -e
 
+# Variables variables variables
 fqdn=`facter fqdn`
 # use hostname if fqdn is not available
 if [ ! -n "$fqdn" ] ; then
@@ -95,99 +220,174 @@ if [ ! -n "$fqdn" ] ; then
 fi
 
 mycertname=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
-mycert=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
-myca=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
-privkey=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
 
-pw_file=${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
+orig_public_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
+orig_private_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
+orig_ca_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
 
-if [ -f $pw_file ]; then
-  password=`cat $pw_file`
-else
-  password=`export LC_ALL=C; dd if=/dev/urandom count=20 2> /dev/null | tr -cd '[:alnum:]' | cut -c 1-25`
-  tmpdir=`mktemp -t -d tmp.puppetdbXXXXXX`
-  rm -rf $tmpdir
-  mkdir -p $tmpdir
-  cp $myca $tmpdir/ca.pem
-  cp $privkey $tmpdir/privkey.pem
-  cp $mycert $tmpdir/pubkey.pem
+ssl_dir=${puppetdb_confdir}/ssl
 
-  cd $tmpdir
-  keytool -import -alias "PuppetDB CA" -keystore truststore.jks -storepass "$password" -trustcacerts -file ca.pem -noprompt
-  cat privkey.pem pubkey.pem > temp.pem
-  echo "$password" | openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name $fqdn -passout fd:0
-  keytool -importkeystore -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias $fqdn -deststorepass "$password" -srcstorepass "$password"
+pw_file=${ssl_dir}/puppetdb_keystore_pw.txt
+keystore_file=${ssl_dir}/keystore.jks
+truststore_file=${ssl_dir}/truststore.jks
 
-  rm -rf $puppetdb_confdir/ssl
-  mkdir -p $puppetdb_confdir/ssl
-  cp -pr *jks $puppetdb_confdir/ssl
-  echo $password > ${puppetdb_confdir}/ssl/puppetdb_keystore_pw.txt
-fi
+private_file=${ssl_dir}/private.pem
+public_file=${ssl_dir}/public.pem
+ca_file=${ssl_dir}/ca.pem
 
 jettyfile="${puppetdb_confdir}/conf.d/jetty.ini"
+
+# Scan through the old settings to see if any are still set, exiting and
+# prompting the user for the -f switch to force the tool to run anyway.
+if ! ${force}; then
+  old_settings=('key-password' 'trust-password' 'keystore' 'truststore')
+  new_settings=('ssl-key' 'ssl-cert' 'ssl-ca-cert')
+  for old_setting in "${old_settings[@]}"; do
+    if grep -qe "^${old_setting}" $jettyfile; then
+      # If we see both old settings and new, it may point to a problem so alert
+      # the user.
+      for new_setting in "${new_settings[@]}"; do
+        if grep -qe "^${new_setting}" $jettyfile; then
+          echo "Error: Your Jetty configuration file contains legacy entry '${old_setting}' and a new entry '${new_setting}'"
+          echo
+          echo "  By default PuppetDB uses the new settings over the old ones,"
+          echo "  which indicates your setup is probably okay, but removing"
+          echo "  the old settings is recommended for clarity."
+          echo
+          echo "  Use the following to ignore this error and force this tool to repair"
+          echo "  your setup anyway:"
+          echo
+          echo "      $0 -f"
+          echo
+          exit 1
+        fi
+      done
+
+      # Otherwise cowardly refuse to make a change without -f
+      echo "Error: Your Jetty configuration file contains legacy entry '${old_setting}'"
+      echo
+      echo "  PuppetDB now provides a PEM based mechanism for retrieving SSL"
+      echo "  related files as apposed to its legacy Java Keystore mechanism."
+      echo
+      echo "  Your configuration indicates you may have a legacy keystore based setup,"
+      echo "  and if we modify this on our own we may break things. Especially if"
+      echo "  there has been specialized setup in the past, for example"
+      echo "  the keystores may have been created without puppetdb-ssl-setup."
+      echo
+      echo "  Your can however force this tool to overwrite your existing"
+      echo "  configuration with the newer PEM based configuration with:"
+      echo
+      echo "      $0 -f"
+      echo
+      exit 1
+    fi
+  done
+fi
+
+# Deal with pem files
+if [ -f $ca_file -a -f $private_file -a -f $public_file ]; then
+  echo "PEM files in ${ssl_dir} already exists, checking integrity."
+
+  # TODO: lets diff all the files, if there are any differences we should warn/fix
+  if diff -q $orig_ca_file $ca_file > /dev/null; then
+    echo "PEM files match the Puppet ones."
+  else
+    echo "Warning: ${ca_file} does not match the file used by Puppet (${orig_ca_file})"
+  fi
+
+  if $force; then
+    echo "Overwriting existing PEM files due to -f flag"
+    copy_pem_from_puppet
+  fi
+else
+  echo "PEM files in ${ssl_dir} are missing, we will move them into place for you"
+  copy_pem_from_puppet
+fi
+
+# Fix SSL permissions
+chmod 600 ${ssl_dir}/*
+chmod 700 ${ssl_dir}
+chown -R ${user}:${user} ${ssl_dir}
+
 if [ -f "$jettyfile" ] ; then
-  jettyfile_bak="${jettyfile}.bak.`date +%s`"
-  cp -p $jettyfile $jettyfile_bak
-  echo "Backing up ${jettyfile} to ${jettyfile_bak} before making changes"
+  # Check settings are correct and fix or warn
+  settings=(
+    "ssl-host:${fqdn}"
+    "ssl-port:8081"
+    "ssl-key:${private_file}"
+    "ssl-cert:${public_file}"
+    "ssl-ca-cert:${ca_file}"
+  )
 
-  settings=('ssl-host' 'ssl-port' 'key-password' 'trust-password' 'keystore' 'truststore')
-  values=($fqdn 8081 $password $password "${puppetdb_confdir}/ssl/keystore.jks" "${puppetdb_confdir}/ssl/truststore.jks")
+  for i in "${settings[@]}"; do
+    setting="${i%%:*}"
+    value="${i#*:}"
 
-  for (( i=0; i<${#settings[@]}; i++ )); do
-    if grep -qe "^${settings[$i]}" ${jettyfile}; then
-      if grep -qe "^${settings[$i]} = ${values[$i]}$" ${jettyfile}; then
-        echo "Setting ${settings[$i]} in ${jettyfile} already correct."
+    if grep -qe "^${setting}" ${jettyfile}; then
+      if grep -qe "^${setting}[[:space:]]*=[[:space:]]*${value}$" ${jettyfile}; then
+        echo "Setting ${setting} in ${jettyfile} already correct."
       else
         if $force; then
-          sedeasy "^${settings[$i]}.*" "${settings[$i]} = ${values[$i]}" ${jettyfile}
-          echo "Updated setting ${settings[$i]} in ${jettyfile}."
+          replaceline "^${setting}.*" "${setting} = ${value}" ${jettyfile}
+          echo "Updated setting ${setting} in ${jettyfile}."
         else
-          echo "Setting ${settings[$i]} in ${jettyfile} doesn't seem to be correct. This can be remedied with $0 -f."
+          echo "Warning: Setting ${setting} in ${jettyfile} should be ${value}. This can be remedied with $0 -f."
         fi
       fi
     else
-      if grep -qE "^# ${settings[$i]} = <[A-Z]+>$" ${jettyfile}; then
-        sedeasy "^# ${settings[$i]}.*" "${settings[$i]} = ${values[$i]}" ${jettyfile}
-        echo "Updated default settings from package installation for ${settings[$i]} in ${jettyfile}."
+      if grep -qE "^# ${setting} = <[A-Za-z_]+>$" ${jettyfile}; then
+        replaceline "^# ${setting}.*" "${setting} = ${value}" ${jettyfile}
+        echo "Updated default settings from package installation for ${setting} in ${jettyfile}."
       else
         if $force; then
-          cat ${jettyfile} > ${jettyfile}.tmp
-          echo "${settings[$i]} = ${values[$i]}" >> ${jettyfile}.tmp
-          mv ${jettyfile}.tmp ${jettyfile}
-          echo "Added setting ${settings[$i]} to ${jettyfile}."
+          echo "Appending setting ${setting} to ${jettyfile}."
+          appendline "${setting} = ${value}" ${jettyfile}
         else
-          echo "$jettyfile exists, but could not find active ${settings[$i]} setting. Include that setting yourself manually. Or force with $0 -f."
+          echo "Warning: Could not find active ${setting} setting in ${jettyfile}. Include that setting yourself manually. Or force with $0 -f."
         fi
       fi
     fi
   done
-else
-  echo "Unable to find PuppetDB Jetty configuration at ${jettyfile}. Unable to provide automatic configuration for that file."
-fi
 
-chmod 600 ${puppetdb_confdir}/ssl/*
-chmod 700 ${puppetdb_confdir}/ssl
-chown -R ${user}:${user} ${puppetdb_confdir}/ssl
-rm -rf $tmpdir
+  # Check old settings are commented out, and fix or warn
+  settings=('keystore' 'truststore' 'key-password' 'trust-password')
+  for setting in "${settings[@]}"; do
+    if grep -qe "^${setting}" ${jettyfile}; then
+      if $force; then
+        echo "Commenting out setting '${setting}'"
+        commentline "^${setting}" ${jettyfile}
+      else
+        echo "Warning: The setting '${setting}' is not commented out in ${jettyfile}. Allow us to comment it out for you with $0 -f."
+      fi
+    fi
+  done
+
+else
+  echo "Error: Unable to find PuppetDB Jetty configuration at ${jettyfile} so unable to provide automatic configuration for that file."
+  echo
+  echo "   Confirm the file exists in the path specified before running the"
+  echo "   tool again. The file should have been created automatically when" 
+  echo "   the package was installed."
+fi
 
 if $interactive
 then
-    echo "Certificate generation complete.  You will need to make sure that the puppetdb.conf"
-    echo " file on your puppet master looks like this:"
-    echo "    [main]"
-    echo "    server = ${mycertname}"
-    echo "    port   = 8081"
-    echo
-    echo " And that the config.ini (or other .ini) on your puppetdb system contains the"
-    echo "  following:"
-    echo
-    echo "    [jetty]"
-    echo "    #host           = localhost"
-    echo "    port           = 8080"
-    echo "    ssl-host       = ${fqdn}"
-    echo "    ssl-port       = 8081"
-    echo "    keystore       = ${puppetdb_confdir}/ssl/keystore.jks"
-    echo "    truststore     = ${puppetdb_confdir}/ssl/truststore.jks"
-    echo "    key-password   = ${password}"
-    echo "    trust-password = ${password}"
+  echo "Certificate generation complete.  You will need to make sure that the puppetdb.conf"
+  echo "file on your puppet master looks like this:"
+  echo
+  echo "    [main]"
+  echo "    server = ${mycertname}"
+  echo "    port   = 8081"
+  echo
+  echo "And that the config.ini (or other *.ini) on your puppetdb system contains the"
+  echo "following:"
+  echo
+  echo "    [jetty]"
+  echo "    #host       = localhost"
+  echo "    port        = 8080"
+  echo "    ssl-host    = ${fqdn}"
+  echo "    ssl-port    = 8081"
+  echo "    ssl-key     = ${private_file}"
+  echo "    ssl-cert    = ${public_file}"
+  echo "    ssl-ca-cert = ${ca_file}"
 fi

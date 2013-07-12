@@ -217,33 +217,33 @@
   via a java keystore (jks) file.  The configuration map returned by this function
   will have overwritten any existing keystore-related settings to use in-memory
   KeyStore objects, which are constructed based on the values of
-  `:puppet-agent-private-key`, `:puppet-agent-cert`, and `:puppet-ca-cert` from
+  `:ssl-key`, `:ssl-cert`, and `:ssl-ca-cert` from
   the input map.  The output map does not include the `:puppet-*` keys, as they
   are not meaningful to the web server implementation."
-  [{:keys [puppet-agent-private-key puppet-agent-cert puppet-ca-cert] :as jetty}]
-  {:pre  [puppet-agent-private-key
-          puppet-agent-cert
-          puppet-ca-cert]
+  [{:keys [ssl-key ssl-cert ssl-ca-cert] :as jetty}]
+  {:pre  [ssl-key
+          ssl-cert
+          ssl-ca-cert]
    :post [(map? %)
           (instance? KeyStore (:keystore %))
           (string? (:key-password %))
           (instance? KeyStore (:truststore %))
           (not (contains? % :trust-password))
-          (not (contains? % :puppet-agent-private-key))
-          (not (contains? % :puppet-agent-cert))
-          (not (contains? % :puppet-ca-cert))]}
+          (not (contains? % :ssl-key))
+          (not (contains? % :ssl-cert))
+          (not (contains? % :ssl-ca-cert))]}
   (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
         old-ssl-config      (select-keys jetty old-ssl-config-keys)]
     (when (> (count old-ssl-config) 0)
       (log/warn (format "Found settings for both keystore-based and Puppet PEM-based SSL; using PEM-based settings, ignoring %s"
                   (keys old-ssl-config)))))
   (let [truststore  (-> (ssl/keystore)
-                        (ssl/assoc-cert-file! "PuppetDB CA" puppet-ca-cert))
+                        (ssl/assoc-cert-file! "PuppetDB CA" ssl-ca-cert))
         keystore-pw (pl-utils/uuid)
         keystore    (-> (ssl/keystore)
-                        (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" puppet-agent-private-key keystore-pw puppet-agent-cert))]
+                        (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" ssl-key keystore-pw ssl-cert))]
     (-> jetty
-        (dissoc :puppet-agent-private-key :puppet-ca-cert :puppet-agent-cert :trust-password)
+        (dissoc :ssl-key :ssl-ca-cert :ssl-cert :trust-password)
         (assoc :keystore keystore)
         (assoc :key-password keystore-pw)
         (assoc :truststore truststore))))
@@ -255,10 +255,10 @@
   [{:keys [jetty] :as config}]
   {:pre  [(map? config)]
    :post [(map? %)
-          (not (contains? (:jetty %) :puppet-agent-private-key))
-          (not (contains? (:jetty %) :puppet-agent-cert))
-          (not (contains? (:jetty %) :puppet-ca-cert))]}
-  (let [pem-required-keys [:puppet-agent-private-key :puppet-agent-cert :puppet-ca-cert]
+          (not (contains? (:jetty %) :ssl-key))
+          (not (contains? (:jetty %) :ssl-cert))
+          (not (contains? (:jetty %) :ssl-ca-cert))]}
+  (let [pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
         pem-config        (select-keys jetty pem-required-keys)]
     (assoc config :jetty
       (-> (condp = (count pem-config)

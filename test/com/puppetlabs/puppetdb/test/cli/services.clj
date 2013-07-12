@@ -112,15 +112,15 @@
                (select-keys processed-config
                  [:keystore :key-password :truststore :trust-password])))))
     (testing "should fail if some but not all of the PEM-based SSL settings are found"
-      (let [partial-pem-config (merge old-config {:puppet-ca-cert "/some/path"})]
+      (let [partial-pem-config (merge old-config {:ssl-ca-cert "/some/path"})]
         (is (thrown-with-msg? java.lang.IllegalArgumentException
               #"If configuring SSL from Puppet PEM files, you must provide all of the following options"
               (configure-web-server {:jetty partial-pem-config})))))
 
     (let [pem-config (merge old-config
-                        {:puppet-agent-private-key (resource "com/puppetlabs/test/ssl/private_keys/localhost.pem")
-                         :puppet-agent-cert        (resource "com/puppetlabs/test/ssl/certs/localhost.pem")
-                         :puppet-ca-cert           (resource "com/puppetlabs/test/ssl/certs/ca.pem")})]
+                        {:ssl-key     (resource "com/puppetlabs/test/ssl/private_keys/localhost.pem")
+                         :ssl-cert    (resource "com/puppetlabs/test/ssl/certs/localhost.pem")
+                         :ssl-ca-cert (resource "com/puppetlabs/test/ssl/certs/ca.pem")})]
       (testing "should warn if both keystore-based and PEM-based SSL settings are found"
         (with-log-output logs
           (configure-web-server {:jetty pem-config})
@@ -133,9 +133,9 @@
           (is (instance? KeyStore (:truststore processed-config)))
           (is (string? (:key-password processed-config)))
           (is (not (contains? processed-config :trust-password)))
-          (is (not (contains? processed-config :puppet-agent-private-key)))
-          (is (not (contains? processed-config :puppet-agent-cert)))
-          (is (not (contains? processed-config :puppet-ca-cert))))))))
+          (is (not (contains? processed-config :ssl-key)))
+          (is (not (contains? processed-config :ssl-cert)))
+          (is (not (contains? processed-config :ssl-ca-cert))))))))
 
 (deftest product-name-validation
   (doseq [product-name ["puppetdb" "pe-puppetdb"]]
