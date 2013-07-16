@@ -147,12 +147,8 @@ Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 export NO_BRP_CHECK_BYTECODE_VERSION=true
 %endif
 
-%if 0%{?suse_version}
-mkdir -p %{buildroot}/%{_initddir}
-%else
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
-%endif
 
 <% if @pe -%>
 PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
