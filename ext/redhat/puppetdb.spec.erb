@@ -41,11 +41,11 @@
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
 %if 0%{?suse_version}
-%global  _initddir    %{_realsysconfdir}/init.d
+%global  _initddir       %{_realsysconfdir}/init.d
 %else
-%global  _initddir   %{_realsysconfdir}/rc.d/init.d
+%global  _initddir       %{_realsysconfdir}/rc.d/init.d
 %endif
-%global _rundir /var/run
+%global  _rundir         /var/run
 
 <% if @pe -%>
 %global p_vendor pe
