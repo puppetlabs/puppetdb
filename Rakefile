@@ -78,7 +78,7 @@ case @osfamily
   when /debian/
     @plibdir = @pe ? PE_SITELIBDIR : '/usr/lib/ruby/vendor_ruby'
   when /redhat/
-    @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? '/usr/lib/ruby/site_ruby/1.8' : '/usr/share/ruby/vendor_ruby' )
+    @plibdir = @pe ? PE_SITELIBDIR : ( @ruby_version == '1.8' ? %x(ruby -rrbconfig -e 'puts RbConfig::CONFIG["sitelibdir"]').chomp : %x(ruby -rrbconfig -e 'puts RbConfig::CONFIG["vendorlibdir"]').chomp )
   when /suse/
     @plibdir = @pe ? PE_SITELIBDIR : (%x(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']").chomp)
 end
