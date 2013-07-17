@@ -27,13 +27,9 @@
 %global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 <% else -%>
 %if 0%{?fedora} >= 17
-%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+%global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['vendorlibdir']")
 %else
-%if 0%{?suse_version}
 %global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
-%else
-%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
-%endif
 %endif
 <% end -%>
 
