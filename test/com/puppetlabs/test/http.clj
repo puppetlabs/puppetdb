@@ -41,6 +41,23 @@
     (testing "should remove empty segments"
       (is (= ["foo" "bar"] (uri-segments "/foo//bar"))))))
 
+(deftest uri-to-leading-suburis
+  (testing "computing leading uris"
+    (testing "fails on partial urls"
+      (is (thrown? AssertionError (leading-uris "foo/bar"))))
+
+    (testing "fails on empty urls"
+      (is (thrown? AssertionError (leading-uris ""))))
+
+    (testing "works on non-empty full urls"
+      (is (= ["/foo" "/foo/bar" "/foo/bar/baz"] (leading-uris "/foo/bar/baz"))))
+
+    (testing "works with delimiter"
+      (is (= ["|foo" "|foo|bar" "|foo|bar|baz"] (leading-uris "/foo/bar/baz" "|"))))
+
+    (testing "removes empty segments"
+      (is (= ["/foo" "/foo/bar" "/foo/bar/baz"] (leading-uris "/foo//bar//baz/"))))))
+
 (deftest content-type-checking
   (let [test-app (must-accept-type (constantly 10) "foo")]
     (testing "ensuring a given content-type is accepted"
