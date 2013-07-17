@@ -66,9 +66,10 @@
 (defn list-mbeans
   "Returns a JSON array of all MBean names"
   [_]
-  (-> (all-mbean-names)
-      (linkify-names)
-      (pl-http/json-response)))
+  (->> (all-mbean-names)
+       (linkify-names)
+       (into (sorted-map))
+       (pl-http/json-response)))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
