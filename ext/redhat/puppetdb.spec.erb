@@ -41,11 +41,11 @@
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
 %if 0%{?suse_version}
-%global  _initddir    %{_realsysconfdir}/init.d
+%global  _initddir       %{_realsysconfdir}/init.d
 %else
-%global  _initddir   %{_realsysconfdir}/rc.d/init.d
+%global  _initddir       %{_realsysconfdir}/rc.d/init.d
 %endif
-%global _rundir /var/run
+%global  _rundir         /var/run
 
 <% if @pe -%>
 %global p_vendor pe
@@ -107,6 +107,7 @@ BuildRequires: sles-release
 Requires:      aaa_base
 Requires:      pwdutils
 Requires:      logrotate
+Requires:      procps
 %else
 BuildRequires: /usr/sbin/useradd
 Requires:      chkconfig
@@ -147,12 +148,8 @@ Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
 export NO_BRP_CHECK_BYTECODE_VERSION=true
 %endif
 
-%if 0%{?suse_version}
-mkdir -p %{buildroot}/%{_initddir}
-%else
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
-%endif
 
 <% if @pe -%>
 PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
@@ -165,7 +162,6 @@ rake terminus PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
 mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
 touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
-
 
 %clean
 rm -rf $RPM_BUILD_ROOT

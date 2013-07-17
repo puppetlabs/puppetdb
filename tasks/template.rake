@@ -38,6 +38,7 @@ task :template => [ :clean ] do
    # files for rpm
    erb "ext/templates/logrotate.erb", "ext/files/puppetdb.logrotate"
    erb "ext/templates/init_redhat.erb", "ext/files/puppetdb.redhat.init"
+   erb "ext/templates/init_suse.erb", "ext/files/puppetdb.suse.init"
    erb "ext/templates/puppetdb_default.erb", "ext/files/puppetdb.default"
 
    # developer utility files for redhat
