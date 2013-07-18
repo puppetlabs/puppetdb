@@ -10,7 +10,7 @@
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
-        [com.puppetlabs.http :only (uri-segments json-response)]
+        [com.puppetlabs.http :only (leading-uris json-response)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
         [ring.middleware.params :only (wrap-params)]
@@ -52,13 +52,17 @@
     truthy value if the request is authorized. If not supplied, we default
     to authorizing all requests."
   [& options]
-  (let [opts (apply hash-map options)]
+  (let [opts            (apply hash-map options)
+        metrics-for-url (fn [url]
+                          (if (re-find #"/metrics/" url)
+                            "metrics"
+                            (leading-uris url "|")))]
     (-> routes
         (wrap-resource "public")
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
-        (wrap-with-metrics (atom {}) #(first (uri-segments %)))
+        (wrap-with-metrics (atom {}) metrics-for-url)
         (wrap-with-globals (opts :globals))
         (wrap-with-debug-logging))))
