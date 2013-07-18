@@ -2,6 +2,7 @@
   (:require [fs.core :as fs])
   (:use [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
+        [metrics.timers :only (timer)]
         [clojure.test]))
 
 (deftest array?-test
@@ -242,3 +243,13 @@
     (is (pos? (compare-jvm-versions "1.8.0_3" "1.7.0_3-beta3")))
     (is (pos? (compare-jvm-versions "2.7.0_3" "1.7.0_3")))
     (is (pos? (compare-jvm-versions "1.7.0_10" "1.7.0_3")))))
+
+(deftest multitime-macro
+  (testing "should update all supplied timers"
+    (let [timers (mapv timer ["t1" "t2" "t3"])]
+      (doseq [t timers]
+        (.clear t)
+        (is (zero? (.count t))))
+      (is (= 6 (multitime! timers (+ 1 2 3))))
+      (doseq [t timers]
+        (is (= 1 (.count t)))))))
