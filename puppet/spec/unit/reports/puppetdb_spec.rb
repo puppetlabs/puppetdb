@@ -45,14 +45,14 @@ describe processor do
 
   context "#report_to_hash" do
     let (:resource) {
-      resource = mock "resource"
-      resource.stubs(:path).returns("foo")
-      resource.stubs(:file).returns("foo")
-      resource.stubs(:line).returns("foo")
-      resource.stubs(:tags).returns([])
-      resource.stubs(:title).returns("foo")
-      resource.stubs(:type).returns("foo")
-      resource
+      stub("resource",
+        { :pathbuilder => ["foo", "bar", "baz"],
+          :path => "foo",
+          :file => "foo",
+          :line => "foo",
+          :tags => [],
+          :title => "foo",
+          :type => "foo" })
     }
 
     let (:status) {
