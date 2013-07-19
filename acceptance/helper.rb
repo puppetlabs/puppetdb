@@ -350,6 +350,9 @@ module PuppetDBExtensions
     class { 'puppetdb::master::puppetdb_conf':
       server => '#{database.node_name}',
     }
+    class { 'puppetdb::master::report_processor':
+      enable => true,
+    }
     include puppetdb::master::routes
     EOS
     apply_manifest_on(host, manifest)
