@@ -24,6 +24,7 @@
   (:require [clojure.java.jmx :as jmx]
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]
+            [clojure.string :as s]
             [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
@@ -87,7 +88,24 @@
    {:get list-mbeans}
 
    ["mbean" name]
-   {:get (fn [req] (get-mbean name))}))
+   {:get (fn [req]
+           ;; Backwards-compatibility hacks to allow interrogation of
+           ;; "top-level" metrics like "commands" instead of
+           ;; "|v2|commands"...something we documented as supported,
+           ;; but we broke when we went to versioned apis.
+           (let [name' (cond
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
+                        (s/replace name #"type=commands" "type=|v2|commands")
+
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=facts")
+                        (s/replace name #"type=facts" "type=|v2|facts")
+
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=resources")
+                        (s/replace name #"type=resources" "type=|v2|resources")
+
+                        :else
+                        name)]
+             (get-mbean name')))}))
 
 (def metrics-app
   (verify-accepts-json routes))
