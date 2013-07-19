@@ -25,7 +25,9 @@
           :property         "message"
           :new-value        "notify, yo"
           :old-value        ["what" "the" "woah"]
-          :message          "defined 'message' as 'notify, yo'"}
+          :message          "defined 'message' as 'notify, yo'"
+          :file             "foo"
+          :line             1}
          {:test-id          2
           :certname         "foo.local"
           :status           "success"
@@ -35,7 +37,9 @@
           :property         "message"
           :new-value        {"absent" 5}
           :old-value        {"absent" true}
-          :message          "defined 'message' as 'notify, yo'"}
+          :message          "defined 'message' as 'notify, yo'"
+          :file             nil
+          :line             nil}
          {:test-id          3
           :certname         "foo.local"
           :status           "skipped"
@@ -45,5 +49,7 @@
           :property         nil
           :new-value        nil
           :old-value        nil
-          :message          nil}]
+          :message          nil
+          :file             "bar"
+          :line             2}]
           }})

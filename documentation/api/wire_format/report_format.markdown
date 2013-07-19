@@ -76,7 +76,9 @@ A JSON Object of the following form:
      "status": <string>,
      "old-value": <string>,
      "new-value": <string>,
-     "message": <string>
+     "message": <string>,
+     "file": <string>,
+     "line: <integer>
     }
 
 All keys are required.
@@ -100,6 +102,10 @@ to the event.
 
 `"message"` is a descriptive message providing extra information about the event.
 This should be `null` if `status` is `success`.
+
+`"file"` is the manifest in which the resource is defined.
+
+`"line"` is the line number (within `"file"`) where the resource is defined.
 
 ## Gaps with this wire format
 
