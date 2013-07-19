@@ -26,17 +26,21 @@
    :resource-type      :string
    :resource-title     :string
    :property           { :optional? true
-                         :type      :string}
+                         :type      :string }
    :new-value          { :optional? true
                          :type      :jsonable }
    :old-value          { :optional? true
                          :type      :jsonable }
    :message            { :optional? true
-                         :type      :string}})
+                         :type      :string }
+   :file               { :optional? true
+                         :type      :string }
+   :line               { :optional? true
+                         :type      :integer }})
 
 ;; TODO: update this as we add new fields
 ;; TODO: docs
-(def v2-new-event-fields [])
+(def v2-new-event-fields [:file :line])
 
 (defn validate-and-add-v2-event-field!
   ;; TODO: docs

@@ -20,16 +20,16 @@
         (is (= v2-report (validate! 1 v1-report)))))
 
     ;; TODO: uncomment this as soon as we've added :file to v2-new-event-fields
-;    (testing "should fail when a v1 report has a v2 key"
-;      (let [add-key-fn              (fn [event] (assoc event :file "/tmp/foo"))
-;            v1-report               (munge-v2-example-report-to-v1 report)
-;            v1-report-with-v2-key   (update-in
-;                                      v1-report
-;                                      [:resource-events]
-;                                      #(mapv add-key-fn %))]
-;        (is (thrown-with-msg?
-;            IllegalArgumentException #"ResourceEvent has unknown keys: :file.*version 1"
-;            (validate! 1 v1-report-with-v2-key)))))
+    (testing "should fail when a v1 report has a v2 key"
+      (let [add-key-fn              (fn [event] (assoc event :file "/tmp/foo"))
+            v1-report               (munge-v2-example-report-to-v1 report)
+            v1-report-with-v2-key   (update-in
+                                      v1-report
+                                      [:resource-events]
+                                      #(mapv add-key-fn %))]
+        (is (thrown-with-msg?
+            IllegalArgumentException #"ResourceEvent has unknown keys: :file.*version 1"
+            (validate! 1 v1-report-with-v2-key)))))
 
     (testing "should accept a valid v2 report"
       (is (= report (validate! 2 report))))
