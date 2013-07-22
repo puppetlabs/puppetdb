@@ -73,6 +73,7 @@
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]))
@@ -315,23 +316,25 @@
       ;; Only store a catalog if it's newer than the current catalog
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
         (scf-storage/replace-catalog! catalog timestamp)))
-    (log/info (format "[%s] [replace catalog] %s" id certname))))
+    (log/info (format "[%s] [%s] %s" id (command-names :replace-catalog) certname))))
 
-(defmethod process-command! ["replace catalog" 1]
+(defmethod process-command! [(command-names :replace-catalog) 1]
   [{:keys [version payload] :as command} options]
   {:pre [(= version 1)]}
   (when-not (string? payload)
-    (throw (IllegalArgumentException. "Payload for a 'replace catalog' v1 command must be a JSON string.")))
+    (throw (IllegalArgumentException.
+             (format "Payload for a '%s' v1 command must be a JSON string."
+               (command-names :replace-catalog)))))
   (replace-catalog* command options))
 
-(defmethod process-command! ["replace catalog" 2]
+(defmethod process-command! [(command-names :replace-catalog) 2]
   [{:keys [version] :as  command} options]
   {:pre [(= version 2)]}
   (replace-catalog* command options))
 
 ;; Fact replacement
 
-(defmethod process-command! ["replace facts" 1]
+(defmethod process-command! [(command-names :replace-facts) 1]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
         id                       (:id annotations)
@@ -340,11 +343,11 @@
       (scf-storage/maybe-activate-node! name timestamp)
       (if-not (scf-storage/facts-newer-than? name timestamp)
         (scf-storage/replace-facts! facts timestamp)))
-    (log/info (format "[%s] [replace facts] %s" id name))))
+    (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation
 
-(defmethod process-command! ["deactivate node" 1]
+(defmethod process-command! [(command-names :deactivate-node) 1]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (upon-error-throw-fatality (json/parse-string payload))
         id       (:id annotations)]
@@ -352,11 +355,11 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
-    (log/info (format "[%s] [deactivate node] %s" id certname))))
+    (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname))))
 
 ;; Report submission
 
-(defmethod process-command! ["store report" 1]
+(defmethod process-command! [(command-names :store-report) 1]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
@@ -366,8 +369,9 @@
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! name timestamp)
       (scf-storage/add-report! report timestamp))
-    (log/info (format "[%s] [store report (EXPERIMENTAL!)] puppet v%s - %s"
-                id (:puppet-version report) (:certname report)))))
+    (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
+                id (command-names :store-report)
+                (:puppet-version report) (:certname report)))))
 
 ;; ## MQ I/O
 ;;

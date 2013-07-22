@@ -13,6 +13,7 @@
         [com.puppetlabs.puppetdb.examples]
         [com.puppetlabs.testutils.logging]
         [com.puppetlabs.puppetdb.testutils.report :only [munge-example-report-for-storage]]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
@@ -305,8 +306,8 @@
 (deftest replace-catalog
   (doseq [[command-version catalog] {1 (get-in wire-catalogs [1 :empty])
                                      2 (get-in wire-catalogs [2 :empty])}]
-    (testing (str "replace catalog " command-version)
-      (let [command      {:command "replace catalog"
+    (testing (str (command-names :replace-catalog) command-version)
+      (let [command      {:command (command-names :replace-catalog)
                           :version command-version
                           :payload (json/generate-string catalog)}
             catalog-hash (scf-store/catalog-similarity-hash (catalog/parse-catalog catalog command-version))
@@ -335,7 +336,7 @@
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
-        (let [command {:command "replace catalog"
+        (let [command {:command (command-names :replace-catalog)
                        :version command-version
                        :payload "bad stuff"}]
           (testing "with a bad payload should discard the message"
@@ -385,7 +386,7 @@
                  :values {"a" "1"
                           "b" "2"
                           "c" "3"}}
-      command   {:command "replace facts"
+      command   {:command (command-names :replace-facts)
                  :version 1
                  :payload (json/generate-string facts)}
       one-day   (* 24 60 60 1000)
@@ -427,7 +428,7 @@
         (is (empty? (fs/list-dir discard-dir))))))
 
   (deftest replace-facts-bad-payload
-    (let [command {:command "replace facts"
+    (let [command {:command (command-names :replace-facts)
                    :version 1
                    :payload "bad stuff"}]
       (testing "should discard the message"
@@ -484,7 +485,7 @@
         (is (empty? (fs/list-dir discard-dir)))))))
 
 (let [certname "foo.example.com"
-      command {:command "deactivate node"
+      command {:command (command-names :deactivate-node)
                :version 1
                :payload (json/generate-string certname)}]
   (deftest deactivate-node-node-active
@@ -522,7 +523,7 @@
           (is (empty? (fs/list-dir discard-dir))))))))
 
 (let [report       (munge-example-report-for-storage (:basic report-examples/reports))
-      command      {:command "store report"
+      command      {:command (command-names :store-report)
                     :version 1
 ;                    :payload (json/generate-string report)}]
                     :payload report}]

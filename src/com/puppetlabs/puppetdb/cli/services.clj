@@ -65,7 +65,8 @@
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.version :only [version update-info]]))
+        [com.puppetlabs.puppetdb.version :only [version update-info]]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -106,7 +107,7 @@
               (format-period node-ttl))
       (with-transacted-connection db
         (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-          (send-command! "deactivate node" 1 (json/generate-string node)))))
+          (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
