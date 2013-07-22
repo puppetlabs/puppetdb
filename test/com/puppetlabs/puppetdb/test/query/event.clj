@@ -108,16 +108,16 @@
 
     (testing "equality queries"
       (doseq [[field value matches]
-                  [[:resource-type  "Notify"              [1 2 3]
+                  [[:resource-type  "Notify"              [1 2 3]]
                    [:resource-title "notify, yo"          [1]]
                    [:status         "success"             [1 2]]
                    [:property       "message"             [1 2]]
                    [:old-value      ["what" "the" "woah"] [1]]
                    [:new-value      "notify, yo"          [1]]
-                   [:message        "defined 'message' as 'notify, yo'" [1 2]
+                   [:message        "defined 'message' as 'notify, yo'" [1 2]]
                    [:resource-title "bunk"                []]
                    [:certname       "foo.local"           [1 2 3]]
-                   [:certname       "bunk.remote"         []]]]]]
+                   [:certname       "bunk.remote"         []]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
