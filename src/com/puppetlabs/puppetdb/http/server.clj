@@ -56,7 +56,7 @@
         metrics-for-url (fn [url]
                           (if (re-find #"/metrics/" url)
                             "metrics"
-                            (leading-uris url "|")))]
+                            (leading-uris url)))]
     (-> routes
         (wrap-resource "public")
         (wrap-params)

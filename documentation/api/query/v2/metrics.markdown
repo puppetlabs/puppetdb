@@ -99,10 +99,7 @@ PuppetDB automatically collects metrics about every URL it has served
 to clients. You can see things like the average response time on a
 per-url basis, or see how many requests against a particular URL
 resulted in a HTTP 400 response code. Each of the following metrics is
-available for each URL. In the below list of metrics, `<name>` should
-be substituted with a url with the slashes replaced with `|`
-characters. For example: `|v2|resources`, `|v2|resources|User|deepak`
-or `|v2|commands`. The list of automatically generated metrics is
+available for each URL. The list of automatically generated metrics is
 available via the `/v2/metrics/mbeans` endpoint.
 
 Additionally, we also support the following explicit names:

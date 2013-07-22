@@ -311,7 +311,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=|v2|commands,name=service-time")
+  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/commands,name=service-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Enqueueing")
@@ -324,7 +324,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=|v2|resources,name=service-time")
+  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/resources,name=service-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Collection Queries")
