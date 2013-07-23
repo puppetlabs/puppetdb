@@ -34,17 +34,29 @@
    :message            { :optional? true
                          :type      :string}})
 
-(def new-event-fields-for-v2 [])
+;; TODO: update this as we add new fields
+;; TODO: docs
+(def v2-new-event-fields [])
 
-(defn add-nil-v2-event-field!
+(defn validate-and-add-v2-event-field!
   ;; TODO: docs
   [event field]
   (if (contains? event field)
     (throw (IllegalArgumentException.
              (format
-               "Unsupported field '%s' for resource event, for '%s' command v1"
+               "ResourceEvent has unknown keys: %s ('%s' command, version 1)"
                field (command-names :store-report)))))
   (assoc event field nil))
+
+(defn validate-and-add-v2-event-fields!
+  ;; TODO: docs
+  [event]
+  (let [updated-event (reduce
+                        validate-and-add-v2-event-field!
+                        event
+                        v2-new-event-fields)]
+    (validate-against-model! ResourceEvent updated-event)
+    updated-event))
 
 (defmulti validate!
   "Validate a report data structure.  Throws IllegalArgumentException if
@@ -56,11 +68,11 @@
   [_ report]
   (validate-against-model! Report report)
   (assoc report :resource-events
-    (doall
-      (for [resource-event (:resource-events report)]
-        (let [updated-event (reduce
-                              add-nil-v2-event-field!
-                              resource-event
-                              new-event-fields-for-v2)]
-          (validate-against-model! ResourceEvent updated-event)
-          updated-event)))))
+    (mapv validate-and-add-v2-event-fields! (:resource-events report))))
+
+(defmethod validate! 2
+  [_ report]
+  (validate-against-model! Report report)
+  (doseq [resource-event (:resource-events report)]
+    (validate-against-model! ResourceEvent resource-event))
+  report)
