@@ -524,8 +524,7 @@
 
 (let [report       (munge-example-report-for-storage (:basic report-examples/reports))
       command      {:command (command-names :store-report)
-                    :version 1
-;                    :payload (json/generate-string report)}]
+                    :version 2
                     :payload report}]
   (deftest store-report
     (testing "should store the report"

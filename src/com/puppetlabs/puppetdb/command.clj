@@ -377,21 +377,11 @@
   [{:keys [version] :as command} {:keys [db]}]
   {:pre [(= version 1)]}
   (store-report* 1 db command))
-;  [{:keys [payload] :as command} {:keys [db]}]
-;  (let [
-;         id          (:id annotations)
-;       report      (upon-error-throw-fatality
-;                      (report/validate! payload))]
-;        v2-new-event-fields []
-;        certname        (:certname payload)
-;        timestamp   (:received annotations)]
-;    (with-transacted-connection db
-;      (scf-storage/maybe-activate-node! name timestamp)
-;      (scf-storage/add-report! report timestamp))
-;    (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
-;                id (command-names :store-report)
-;                (:puppet-version report) (:certname report)))))
-;    (store-report* db command report)))
+
+(defmethod process-command! [(command-names :store-report) 2]
+  [{:keys [version] :as command} {:keys [db]}]
+  {:pre [(= version 2)]}
+  (store-report* 2 db command))
 
 ;; ## MQ I/O
 ;;

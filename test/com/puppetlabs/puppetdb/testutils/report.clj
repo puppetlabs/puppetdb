@@ -4,12 +4,22 @@
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.puppetdb.query.report :as query]
             [clj-time.coerce :as time-coerce])
-  (:use [com.puppetlabs.puppetdb.testutils.event :only [munge-example-event-for-storage]]))
+  (:use [com.puppetlabs.puppetdb.testutils.event :only [munge-example-event-for-storage
+                                                        munge-v2-example-events-to-v1
+                                                        munge-v1-example-events-to-v2]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn munge-v2-example-report-to-v1
+  [example-report]
+  (update-in example-report [:resource-events] munge-v2-example-events-to-v1))
+
+(defn munge-v1-example-report-to-v2
+  [example-report]
+  (update-in example-report [:resource-events] munge-v1-example-events-to-v2))
 
 (defn munge-example-report-for-storage
   [example-report]
@@ -51,7 +61,7 @@
   [example-report timestamp]
   (let [example-report  (munge-example-report-for-storage example-report)
         report-hash     (scf-store/report-identity-string example-report)]
-    (report/validate! 1 example-report)
+    (report/validate! 2 example-report)
     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
     (scf-store/add-report! example-report timestamp)
     report-hash))
