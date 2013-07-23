@@ -41,7 +41,7 @@ The profile itself can be chosen on the command line when the command is run. Fo
 
 At the moment there are some different built-in profiles you can choose from, and each one is documented below. The default profile is none is specified is `moderate`.
 
-> **Note:** Internally these profiles are represented as rulesets that currently cannot be modified without modifying PuppetDB code. In the future we may provide a way for users to modify these or create new ones themselves as we learn how users want to utilize the tool. If you have specific requirements and the built-in profiles do not suffice, please let us know.
+> **Note:** While we do provide a way to create a custom profile with the `--config` switch this is an advanced interface that we have avoided documenting due to its experimental nature (and the fact that we may change this at any time in the future). If you have have specific requirements and the built-in profiles do not suffice, please let us know and we can help hand-craft a suitable configuration to suite your needs.
 
 ### Profile: full
 

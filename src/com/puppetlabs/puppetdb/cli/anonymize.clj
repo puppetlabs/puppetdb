@@ -164,10 +164,12 @@
   (let [profiles       (string/join ", " (keys anon-profiles))
         specs          [["-o" "--outfile" "Path to output file (required)"]
                         ["-i" "--infile" "Path to input file (required)"]
-                        ["-p" "--profile" (str "Choice of anonymization profile: " profiles) :default "moderate"]]
+                        ["-p" "--profile" (str "Choice of anonymization profile: " profiles) :default "moderate"]
+                        ["-c" "--config" "Configuration file path for extra profile definitions (experimental) (optional)"]]
         required       [:outfile :infile]
-        [{:keys [outfile infile profile]} _] (cli! args specs required)
-        config         (get anon-profiles profile)
+        [{:keys [outfile infile profile config]} _] (cli! args specs required)
+        extra-config   (if (empty? config) {} (read-string (slurp config)))
+        profile-config (get (merge anon-profiles extra-config) profile)
         metadata       (parse-metadata infile)]
 
     (println (str "Anonymizing input data file: " infile " with profile type: " profile " to output file: " outfile))
@@ -181,5 +183,5 @@
 
         ;; Now process each entry
         (doseq [tar-entry (archive/all-entries tar-reader)]
-          (process-tar-entry tar-reader tar-entry tar-writer config))))
+          (process-tar-entry tar-reader tar-entry tar-writer profile-config))))
     (println (str "Anonymization complete. Check output file contents " outfile " to ensure anonymization was adequate before sharing data"))))
