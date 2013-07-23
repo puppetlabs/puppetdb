@@ -127,7 +127,9 @@
                                   resource_events.property,
                                   resource_events.new_value,
                                   resource_events.old_value,
-                                  resource_events.message
+                                  resource_events.message,
+                                  resource_events.file,
+                                  resource_events.line
                                   FROM resource_events
                                   JOIN reports ON resource_events.report = reports.hash
                                   WHERE %s")

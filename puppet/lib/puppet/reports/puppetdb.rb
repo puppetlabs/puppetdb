@@ -45,7 +45,7 @@ Puppet::Reports.register_report(:puppetdb) do
             if ! (status.events.empty?)
               events.concat(
                   status.events.map do |event|
-                    event_to_hash(status.resource_type, status.title, event)
+                    event_to_hash(status, event)
                   end)
             elsif status.skipped == true
               events.concat([resource_status_to_skipped_event_hash(status)])
@@ -67,16 +67,18 @@ Puppet::Reports.register_report(:puppetdb) do
 
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
-  def event_to_hash(resource_type, resource_title, event)
+  def event_to_hash(status, event)
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-      "resource-type"     => resource_type,
-      "resource-title"    => resource_title,
+      "resource-type"     => status.resource_type,
+      "resource-title"    => status.title,
       "property"          => event.property,
       "new-value"         => event.desired_value,
       "old-value"         => event.previous_value,
       "message"           => event.message,
+      "file"              => status.file,
+      "line"              => status.line
     }
   end
 

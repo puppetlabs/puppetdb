@@ -49,7 +49,7 @@ describe processor do
         { :pathbuilder => ["foo", "bar", "baz"],
           :path => "foo",
           :file => "foo",
-          :line => "foo",
+          :line => 1,
           :tags => [],
           :title => "foo",
           :type => "foo" })
@@ -116,7 +116,8 @@ describe processor do
           res_event["new-value"].should == "fooval"
           res_event["old-value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
-
+          res_event["file"].should == "foo"
+          res_event["line"].should == 1
         end
       end
 
