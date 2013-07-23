@@ -80,12 +80,12 @@
   "Compares a rule matcher against a value, returning true if it's a match."
   [test value]
   {:post [(boolean? %)]}
-  (condp instance? test
-    String (if (pattern-string? test)
-             (let [pattern (pattern->regexp test)]
-               (boolean (and (not (nil? value)) (re-find pattern value))))
-             (= test value))
-    clojure.lang.PersistentVector (boolean (some true? (map #(matcher-match? % value) test)))))
+  (cond
+    (string? test) (if (pattern-string? test)
+                     (let [pattern (pattern->regexp test)]
+                       (boolean (and (not (nil? value)) (re-find pattern value))))
+                       (= test value))
+    (vector? test) (boolean (some true? (map #(matcher-match? % value) test)))))
 
 (defn rule-match?
   "Given a single rule map, and a context map returns true if the rule matches.
@@ -120,9 +120,8 @@
     (if (empty? x)
       ;; Default to returning true if there is no match
       true
-      (let [rule (first x)
-            match? (rule-match? rule context)]
-        (if match?
+      (let [rule (first x)]
+        (if (rule-match? rule context)
           (get rule "anonymize")
           (recur (rest x)))))))
 
@@ -131,14 +130,15 @@
 (defn anonymize-leaf-parameter-value
   "Based on the input value, return an appropriate random replacement"
   [value]
-  (case (type value)
-    java.lang.String                  (random-string 30)
-    java.lang.Integer                 (rand-int 300)
-    java.lang.Boolean                 (random-bool)
-    clojure.lang.PersistentVector     (map anonymize-leaf-parameter-value value)
-    (clojure.lang.PersistentArrayMap
-      clojure.lang.PersistentHashMap) { "key" (random-string 30) }
-    (random-string 30)))
+  (cond
+    (string? value)            (random-string 30)
+    (integer? value)           (rand-int 300)
+    (boolean? value)           (random-bool)
+    (vector? value)            (vec (map anonymize-leaf-parameter-value value))
+    (seq? value)               (seq (map anonymize-leaf-parameter-value value))
+    (map? value)               { "key" (random-string 30) }
+    (nil? value)               nil
+    :else (random-string 30)))
 
 (def anonymize-leaf-memoize
   (memoize

@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.anonymizer
   (:use [clojure.test]
-        [com.puppetlabs.puppetdb.anonymizer]))
+        [com.puppetlabs.puppetdb.anonymizer]
+        [com.puppetlabs.utils :only (boolean?)]))
 
 (def anon-true {"context" {} "anonymize" true})
 (def anon-false {"context" {} "anonymize" false})
@@ -126,10 +127,17 @@
 (deftest test-anonymize-leaf-parameter-value
   (testing "should return the same string twice"
     (is (= (anonymize-leaf-memoize :parameter-value "test string") (anonymize-leaf-memoize :parameter-value "test string"))))
-
-  (testing "should return a string 30 characters long"
-    (is (string? (anonymize-leaf-memoize :parameter-value "good old string")))
-    (is (= 30 (count (anonymize-leaf-memoize :parameter-value "good old string"))))))
+  (testing "should return a string 30 chars long when passed a string"
+    (is (= 30 (count (anonymize-leaf-parameter-value "good old string"))))
+    (is (string? (anonymize-leaf-parameter-value "some string"))))
+  (testing "should return a boolean when passed a boolean"
+    (is (boolean? (anonymize-leaf-parameter-value true))))
+  (testing "should return an integer when passed an integer"
+    (is (integer? (anonymize-leaf-parameter-value 100))))
+  (testing "should return a vector when passed a vector"
+    (is (vector? (anonymize-leaf-parameter-value ["asdf" "asdf"]))))
+  (testing "should return a map when passed a map"
+    (is (map? (anonymize-leaf-parameter-value {"foo" "bar"})))))
 
 (deftest test-anonymize-leaf-message
   (testing "should return a string 50 characters long"

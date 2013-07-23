@@ -15,7 +15,7 @@ First of all you should start by [exporting your existing database](./migrate.ht
 
     $ sudo puppetdb-export --outfile ./my-puppetdb-export.tar.gz
 
-This needs to be ran on your PuppetDB instance perferably. See `puppetdb-export -h` for more options for remote execution.
+This needs to be run on your PuppetDB instance preferably. See `puppetdb-export -h` for more options for remote execution.
 
 Once you have the export file, then you can utilise the `puppetdb-anonymize` tool to transform that file:
 
@@ -26,7 +26,7 @@ The anonymization tool can run on any machine with PuppetDB installed so you can
 How does it work?
 -----
 
-The tool itself walks through your entire data set applying different rules to each of the leaf data based on the profile you have chosen. The data structure itself is left intact, while only the data contents are modified. The point here is to maintain the "shape" of the data without exposing the underlying data you may wish to scrub. We do this by always ensuring we replace like for like data were possible, so while a string for example may have been replaced with something random - we make sure that all instances of that original string are replaced with the same random string throughout all your data.
+The tool itself walks through your entire data set applying different rules to each of the leaf data based on the profile you have chosen. The data structure itself is left intact, while only the data contents are modified. The point here is to maintain the "shape" of the data without exposing the underlying data you may wish to scrub. We do this by always ensuring we replace data consistently, so while a string for example may have been replaced with something random - we make sure that all instances of that original string are replaced with the same random string throughout all your data.
 
 By keeping the shape the data can be anonymized based on your needs but still hold some value to the consumer of your anonymized data.
 
@@ -70,10 +70,6 @@ This profile is aimed at hiding security information specifically, but leaving m
 
 * node name: is always anonymized
 * parameter values: we specifically anonymize any values and messages for any parameter name containing the strings: password, pwd, secret, key, private. Everything else is left alone.
-
-### Profile: none
-
-This is provided mainly for testing purposes, by default this does no anonymization but still spends the time going through your content. Of course if you really don't need to anonymize your content, an export on its own is sufficient.
 
 Verifying your Anonymized Data
 -----

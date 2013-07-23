@@ -43,5 +43,10 @@ test_name "anonymize tool - with full anonymization" do
 
   step "export data from puppetdb again" do
     on database, "#{sbin_loc}/puppetdb-export --outfile #{export_file2}"
+    scp_from(database, export_file2, ".")
+  end
+
+  step "verify anonymized data matches new export data" do
+    compare_export_data(anon_file, export_file2)
   end
 end
