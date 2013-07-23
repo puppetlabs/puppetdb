@@ -242,6 +242,14 @@ module PuppetDBExtensions
     end
   end
 
+
+  def is_gem_installed_on?(host, gem)
+    # Include a trailing space when grep'ing to force an exact match of the gem name,
+    # so, for example, when checking for 'rspec' we don't match with 'rspec-core'.
+    result = on host, "gem list #{gem} | grep \"#{gem} \"", :acceptable_exit_codes => [0,1]
+    result.exit_code == 0
+  end
+
   ############################################################################
   # NOTE: the following methods should only be called during run-from-source
   #  acceptance test runs.
@@ -349,6 +357,9 @@ module PuppetDBExtensions
     include puppetdb::master::storeconfigs
     class { 'puppetdb::master::puppetdb_conf':
       server => '#{database.node_name}',
+    }
+    class { 'puppetdb::master::report_processor':
+      enable => true,
     }
     include puppetdb::master::routes
     EOS
