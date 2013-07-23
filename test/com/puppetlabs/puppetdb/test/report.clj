@@ -11,15 +11,15 @@
 
   (deftest test-validate!
     (testing "should accept a valid report"
-      (is (= report (validate! report))))
+      (is (= report (validate! 1 report))))
 
     (testing "should fail when a report is missing a key"
       (is (thrown-with-msg?
             IllegalArgumentException #"Report is missing keys: :certname$"
-            (validate! (dissoc report :certname)))))
+            (validate! 1 (dissoc report :certname)))))
 
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
             IllegalArgumentException #":timestamp should be Datetime"
-            (validate! (assoc-in report [:resource-events 0 :timestamp] "foo")))))))
+            (validate! 1 (assoc-in report [:resource-events 0 :timestamp] "foo")))))))
 

@@ -34,11 +34,33 @@
    :message            { :optional? true
                          :type      :string}})
 
-(defn validate!
+(def new-event-fields-for-v2 [])
+
+(defn add-nil-v2-event-field!
+  ;; TODO: docs
+  [event field]
+  (if (contains? event field)
+    (throw (IllegalArgumentException.
+             (format
+               "Unsupported field '%s' for resource event, for '%s' command v1"
+               field (command-names :store-report)))))
+  (assoc event field nil))
+
+(defmulti validate!
   "Validate a report data structure.  Throws IllegalArgumentException if
   the report is invalid."
-  [report]
+  (fn [command-version _]
+    command-version))
+
+(defmethod validate! 1
+  [_ report]
   (validate-against-model! Report report)
-  (doseq [resource-event (:resource-events report)]
-    (validate-against-model! ResourceEvent resource-event))
-  report)
+  (assoc report :resource-events
+    (doall
+      (for [resource-event (:resource-events report)]
+        (let [updated-event (reduce
+                              add-nil-v2-event-field!
+                              resource-event
+                              new-event-fields-for-v2)]
+          (validate-against-model! ResourceEvent updated-event)
+          updated-event)))))

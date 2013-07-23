@@ -359,19 +359,39 @@
 
 ;; Report submission
 
-(defmethod process-command! [(command-names :store-report) 1]
-  [{:keys [payload annotations]} {:keys [db]}]
+(defn store-report*
+  [version db {:keys [payload annotations]}]
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
-                      (report/validate! payload))
-        name        (:certname report)
+                      (report/validate! version payload))
+        certname    (:certname report)
         timestamp   (:received annotations)]
     (with-transacted-connection db
-      (scf-storage/maybe-activate-node! name timestamp)
+      (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
                 id (command-names :store-report)
                 (:puppet-version report) (:certname report)))))
+
+(defmethod process-command! [(command-names :store-report) 1]
+  [{:keys [version] :as command} {:keys [db]}]
+  {:pre [(= version 1)]}
+  (store-report* 1 db command))
+;  [{:keys [payload] :as command} {:keys [db]}]
+;  (let [
+;         id          (:id annotations)
+;       report      (upon-error-throw-fatality
+;                      (report/validate! payload))]
+;        v2-new-event-fields []
+;        certname        (:certname payload)
+;        timestamp   (:received annotations)]
+;    (with-transacted-connection db
+;      (scf-storage/maybe-activate-node! name timestamp)
+;      (scf-storage/add-report! report timestamp))
+;    (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
+;                id (command-names :store-report)
+;                (:puppet-version report) (:certname report)))))
+;    (store-report* db command report)))
 
 ;; ## MQ I/O
 ;;
