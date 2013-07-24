@@ -52,17 +52,13 @@
     truthy value if the request is authorized. If not supplied, we default
     to authorizing all requests."
   [& options]
-  (let [opts            (apply hash-map options)
-        metrics-for-url (fn [url]
-                          (if (re-find #"/metrics/" url)
-                            "metrics"
-                            (leading-uris url)))]
+  (let [opts (apply hash-map options)]
     (-> routes
         (wrap-resource "public")
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
-        (wrap-with-metrics (atom {}) metrics-for-url)
+        (wrap-with-metrics (atom {}) leading-uris)
         (wrap-with-globals (opts :globals))
         (wrap-with-debug-logging))))
