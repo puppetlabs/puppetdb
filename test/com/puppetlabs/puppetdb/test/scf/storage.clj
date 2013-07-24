@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.scf.storage
   (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
+            [com.puppetlabs.random :as random]
             [com.puppetlabs.puppetdb.report.utils :as reputils]
             [com.puppetlabs.puppetdb.report :as report-val]
             [clojure.java.jdbc :as sql]
@@ -48,7 +49,7 @@
 
     (testing "shouldn't change for identical input"
       (doseq [i (range 10)
-              :let [r (catutils/random-kw-resource)]]
+              :let [r (random/random-kw-resource)]]
         (is (= (resource-identity-hash r)
               (resource-identity-hash r)))))
 
@@ -63,7 +64,7 @@
       ; sure we only care about a population of unique resources, take
       ; any 2 elements from that set, and those 2 resources should
       ; have different hashes.
-      (let [candidates (set (repeatedly 5 catutils/random-kw-resource))
+      (let [candidates (set (repeatedly 5 random/random-kw-resource))
             pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)

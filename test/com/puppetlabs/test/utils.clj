@@ -18,6 +18,23 @@
       (doseq [x ['() [] {} "foo" 123 456.789 1/3]]
         (is (false? (array? x)))))))
 
+(deftest boolean?-test
+  (testing "should return true if true"
+    (is (boolean? true)))
+  (testing "should return true if false"
+    (is (boolean? false)))
+  (testing "should return false if string"
+    (is (not (boolean? "test"))))
+  (testing "should return false if nil"
+    (is (not (boolean? nil)))))
+
+(deftest regexp?-test
+  (testing "should return true if pattern"
+    (is (regexp? (re-pattern "test"))))
+    (is (regexp? #"test"))
+  (testing "should return false if string"
+    (is (not (regexp? "test")))))
+
 (deftest datetime?-test
   (testing "should return false for non-coercible types"
     (is (not (datetime? 2.0))))
