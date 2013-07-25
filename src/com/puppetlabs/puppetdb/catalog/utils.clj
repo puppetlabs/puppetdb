@@ -6,45 +6,7 @@
 (ns com.puppetlabs.puppetdb.catalog.utils
   (:require [clojure.string :as string]
             [com.puppetlabs.puppetdb.catalog :as cat])
-  (:use [clojure.walk :only [keywordize-keys]]))
-
-(defn random-string
-  "Generate a random string of optional length"
-  ([] (random-string (inc (rand-int 10))))
-  ([length]
-     (let [ascii-codes (concat (range 48 58) (range 66 91) (range 97 123))]
-       (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
-
-(defn random-bool [] (rand-nth [true false]))
-
-(defn random-parameters
-  "Generate a random set of parameters."
-  []
-  (into {} (repeatedly (inc (rand-int 10)) #(vector (random-string) (random-string)))))
-
-(defn random-resource
-  "Generate a random resource. Can optionally specify type/title, as
-  well as any attribute overrides.
-
-  Note that is _parameters_ is given as an override, the supplied
-  parameters are merged in with the randomly generated set."
-  ([] (random-resource (random-string) (random-string)))
-  ([type title] (random-resource type title {}))
-  ([type title overrides]
-     (let [extra-params (overrides "parameters")
-           overrides    (dissoc overrides "parameters")
-           r            {"type"       type
-                         "title"      title
-                         "exported"   (random-bool)
-                         "file"       (random-string)
-                         "line"       (rand-int 1000)
-                         "tags"       (set (repeatedly (inc (rand-int 10)) #(string/lower-case (random-string))))
-                         "parameters" (merge (random-parameters) extra-params)}]
-       (merge r overrides))))
-
-;; A version of random-resource that returns resources with keyword
-;; keys instead of strings
-(def random-kw-resource (comp keywordize-keys random-resource))
+  (:use [com.puppetlabs.random :only [random-resource random-kw-resource random-parameters]]))
 
 (defn add-random-resource-to-wire-catalog
   "Adds a random resource to the given wire-format catalog"

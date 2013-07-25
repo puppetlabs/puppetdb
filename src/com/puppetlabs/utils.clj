@@ -45,6 +45,17 @@
     (satisfies? ICoerce x)
     (to-date-time x)))
 
+(defn boolean?
+  "Returns true if the value is a boolean"
+  [value]
+  (instance? Boolean value))
+
+(defn regexp?
+  "Returns true if the type is a regexp pattern"
+  [regexp]
+  {:post [(boolean? %)]}
+  (instance? java.util.regex.Pattern regexp))
+
 ;; ## I/O
 
 (defn lines
