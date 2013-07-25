@@ -18,7 +18,7 @@
   "Compile a resource `query` into an SQL expression using the specified set of
   `operators`."
   [operators query]
-  {:pre  [(vector? query)]
+  {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [[subselect & params] (resource-query->sql operators query)
         sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rp.name, rp.value "
