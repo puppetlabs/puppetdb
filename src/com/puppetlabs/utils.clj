@@ -18,8 +18,7 @@
             [clojure.tools.cli :as cli]
             [digest]
             [fs.core :as fs])
-  (:use [clojure.core.incubator :only (-?> -?>>)]
-        [clojure.java.io :only (reader)]
+  (:use [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
         [clojure.string :only (split)]
         [clojure.stacktrace :only (print-cause-trace)]
@@ -33,9 +32,9 @@
 (defn array?
   "Returns true if `x` is an array"
   [x]
-  (-?> x
-    (class)
-    (.isArray)))
+  (some-> x
+          (class)
+          (.isArray)))
 
 (defn datetime?
   "Predicate returning whether or not the supplied object is
@@ -487,13 +486,13 @@
       nil"
   [dn]
   {:pre [(string? dn)]}
-  (-?>> dn
-        (LdapName.)
-        (.getRdns)
-        (filter #(= "CN" (.getType %)))
-        (first)
-        (.getValue)
-        (str)))
+  (some->> dn
+           (LdapName.)
+           (.getRdns)
+           (filter #(= "CN" (.getType %)))
+           (first)
+           (.getValue)
+           (str)))
 
 (defn cn-for-cert
   "Extract the CN from the DN of an x509 certificate. See `cn-for-dn` for details
