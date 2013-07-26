@@ -30,7 +30,7 @@
                  [clj-stacktrace "0.2.6"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.5.1"]
-                 [org.clojure/java.jmx "0.1"]
+                 [org.clojure/java.jmx "0.2.0"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Configuration file parsing
