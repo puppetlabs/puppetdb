@@ -62,7 +62,7 @@
                  [ring/ring-core "1.1.8"]
                  [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [org.bouncycastle/bcpkix-jdk15on "1.47"]]
+                 [org.bouncycastle/bcpkix-jdk15on "1.49"]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]]}}
