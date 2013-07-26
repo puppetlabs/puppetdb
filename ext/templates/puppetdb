@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#############
+# FUNCTIONS #
+#############
+
+# Display usage then exit
+function usage {
+  cat <<EOD
+usage: puppetdb [--help] <command> [<args>]
+
+The most commonly used puppetdb commands are:
+   anonymize
+   export
+   foreground
+   import
+   ssl-setup
+
+See 'puppetdb <command> -h' for more information on a specific command.
+EOD
+  exit 0
+}
+
+# Execute the subcommand if available.
+#
+# $1 - subcommand
+# $2 - arguments
+#
+# Example:
+#
+#   execsubcommand export -o test.dump -H 1.1.1.1
+#
+function execsubcommand {
+  sub=$1
+  shift
+  args="$@"
+  cmd="puppetdb-${sub}"
+
+  if which ${cmd}; then
+    exec $cmd $args
+  else
+    echo "puppetdb: '${sub}' is not a puppetdb command. See '$0 --help'."
+  fi
+}
+
+########
+# MAIN #
+########
+
+if [ -z $1 ] || [ $1 = "--help" ] || [ $1 = "-h" ]; then
+  usage
+fi
+
+sub=$1
+shift
+args="$@"
+
+execsubcommand $sub $args

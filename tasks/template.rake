@@ -35,6 +35,8 @@ task :template => [ :clean ] do
    cp_pr FileList["ext/templates/deb/*"], "ext/files/debian"
    cp_pr "ext/templates/puppetdb-ssl-setup", "ext/files"
    chmod 0700, "ext/files/puppetdb-ssl-setup"
+   cp_pr "ext/templates/puppetdb", "ext/files"
+   chmod 0700, "ext/files/puppetdb"
    rm_rf FileList["ext/files/debian/*.erb"]
 
    # files for rpm

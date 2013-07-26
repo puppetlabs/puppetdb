@@ -57,12 +57,12 @@ test_name "storeconfigs export and import" do
     db_legacy_export_dir  = "."
     db_legacy_export_file = File.join(db_legacy_export_dir, "legacy_storeconfigs_export.tar.gz")
     scp_to(database, driver_legacy_export_file, db_legacy_export_dir)
-    on database, "puppetdb-import --infile #{db_legacy_export_file}"
+    on database, "puppetdb import --infile #{db_legacy_export_file}"
   end
 
   step "export data from puppetdb" do
     db_new_export_file = "./puppetdb-export.tar.gz"
-    on database, "puppetdb-export --outfile #{db_new_export_file}"
+    on database, "puppetdb export --outfile #{db_new_export_file}"
     scp_from(database, db_new_export_file, ".")
   end
 

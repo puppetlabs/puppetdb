@@ -23,13 +23,13 @@ uses to authenticate clients. The latter contains the key and certificate that
 PuppetDB uses to identify itself to clients.
 
 The short answer: you can often fix these problems by reinitializing your ssl setup
-by running `/usr/sbin/puppetdb-ssl-setup -f`. Note that this script
+by running `/usr/sbin/puppetdb ssl-setup -f`. Note that this script
 must be run *after* a certificate is generated for the puppet agent (that is:
 after the agent has run once and had its certificate request signed). A common
 problem is installing PuppetDB before the Puppet agent has run, and this script
 will solve that problem, and many others.
 
-The long answer: if the `puppetdb-ssl-setup script` doesn't solve your problem
+The long answer: if the `puppetdb ssl-setup` command doesn't solve your problem
 or if you're curious what's going on under the covers, you can manage this
 configuration by hand.  The locations of the truststore and keystore files are set
 with the `keystore` and `truststore` options in the config file. There should
