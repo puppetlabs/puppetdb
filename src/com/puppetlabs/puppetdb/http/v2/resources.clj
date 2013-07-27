@@ -40,9 +40,7 @@
 (def resources-app
   (app
    []
-   (-> query-app
-       (verify-param-exists "query")
-       (verify-accepts-json))
+   (verify-accepts-json query-app)
 
    [type title &]
    (comp query-app (partial http-q/restrict-resource-query-to-type type) (partial http-q/restrict-resource-query-to-title title))

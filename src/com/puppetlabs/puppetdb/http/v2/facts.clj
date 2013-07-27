@@ -35,9 +35,7 @@
 (def facts-app
   (app
    []
-   (-> query-app
-       (verify-param-exists "query")
-       (verify-accepts-json))
+   (verify-accepts-json query-app)
 
    [fact value &]
    (comp query-app (partial http-q/restrict-fact-query-to-name fact) (partial http-q/restrict-fact-query-to-value value))

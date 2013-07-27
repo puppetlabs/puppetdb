@@ -107,10 +107,9 @@
          (is (= (set (map :title resources)) #{"/etc/foobar"}))
          (is (= (count resources) 1)))))
 
-    (testing "/resources without a query should fail"
+    (testing "/resources without a query should not fail"
        (let [response (get-response "resources")]
-         (is (= 400 (:status response)))
-         (is (= "missing query" (:body response)))))
+         (is (= 200 (:status response)))))
 
     (testing "/resources/<type> should return all resources matching the supplied type"
       (check-json-response
@@ -141,10 +140,9 @@
                           ;; Create a tree-structure for facts: node -> name -> value
                           (reduce #(assoc-in %1 [(:certname %2) (:name %2)] (:value %2)) {} facts))]
 
-      (testing "/facts without a query should fail"
+      (testing "/facts without a query should not fail"
         (let [response (get-response "facts")]
-          (is (= 400 (:status response)))
-          (is (= "missing query" (:body response)))))
+          (is (= 200 (:status response)))))
 
       (testing "/facts/<fact> should return all instances of the given fact"
         (check-json-response
