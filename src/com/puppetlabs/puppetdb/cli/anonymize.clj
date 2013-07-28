@@ -148,7 +148,7 @@
 
     ;; Process reports
     (when (re-find (re-pattern report-pattern) path)
-      (let [[_ hostname starttime confversion] (re-matches #".+\/(.+)-(.+)-(.+)\.json" path)
+      (let [[_ hostname starttime confversion] (re-matches #".+\/(.+?)-(\d.+Z)-(.+)\.json" path)
             newpath     (.getPath (io/file export-root-dir "reports" (format "%s-%s-%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config) starttime confversion)))]
         (println (format "Anonymizing report from archive entry '%s' to '%s'" path newpath))
         (archive/add-entry tar-writer "UTF-8" newpath
