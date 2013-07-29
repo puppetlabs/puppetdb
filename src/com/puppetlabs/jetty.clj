@@ -52,6 +52,12 @@
           "SSL_RSA_WITH_3DES_EDE_CBC_SHA"
           "SSL_RSA_WITH_RC4_128_MD5"]))))
 
+;; Which SecureSocket protocols we should explicitly disallow
+(def excluded-protocols
+  [;; http://tools.ietf.org/html/rfc4346#appendix-E
+   "SSLv2Hello"
+   ])
+
 ;; Monkey-patched version of `create-server` that will only create a
 ;; non-SSL connector if the options specifically dictate it.
 
@@ -78,7 +84,8 @@
                         (acceptable-ciphers))]
         (when ciphers
           (doto (.getSslContextFactory connector)
-            (.setIncludeCipherSuites (into-array ciphers))))
+            (.setIncludeCipherSuites (into-array ciphers))
+            (.setExcludeProtocols (into-array excluded-protocols))))
         (.addConnector server connector)))
     server))
 
