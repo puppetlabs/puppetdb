@@ -41,7 +41,7 @@ The profile itself can be chosen on the command line when the command is run. Fo
 
 At the moment there are some different built-in profiles you can choose from, and each one is documented below. The default profile is none is specified is `moderate`.
 
-> **Note:** While we do provide a way to create a custom profile with the `--config` switch this is an advanced interface that we have avoided documenting due to its experimental nature (and the fact that we may change this at any time in the future). If you have have specific requirements and the built-in profiles do not suffice, please let us know and we can help hand-craft a suitable configuration to suite your needs.
+> **Note:** While we do provide a way to create a custom profile with the `--config` switch this is an advanced interface that we have avoided documenting due to its experimental nature (and the fact that we may change this at any time in the future). If you have have specific requirements and the built-in profiles do not suffice, please let us know and we can help hand-craft a suitable configuration to suit your needs.
 
 ### Profile: full
 
