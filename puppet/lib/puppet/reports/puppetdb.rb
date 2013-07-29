@@ -16,7 +16,7 @@ Puppet::Reports.register_report(:puppetdb) do
 
 
   def process
-    submit_command(self.host, report_to_hash, CommandStoreReport, 1)
+    submit_command(self.host, report_to_hash, CommandStoreReport, 2)
   end
 
   private

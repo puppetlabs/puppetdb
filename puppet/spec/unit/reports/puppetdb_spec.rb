@@ -27,7 +27,7 @@ describe processor do
 
       payload = {
           :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
-          :version => 1,
+          :version => 2,
           :payload => subject.send(:report_to_hash)
       }.to_pson
 
