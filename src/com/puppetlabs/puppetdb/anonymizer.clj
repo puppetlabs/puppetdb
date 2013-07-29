@@ -334,7 +334,9 @@
   [events context config]
   {:pre  [(coll? events)]
    :post [(coll? %)]}
-  (map #(anonymize-resource-event % context config) events))
+  (sort-by
+    #(mapv % ["timestamp" "resource-type" "resource-title" "property"])
+    (map #(anonymize-resource-event % context config) events)))
 
 ;; Primary entry points, for anonymizing catalogs and reports
 
