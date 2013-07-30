@@ -75,10 +75,14 @@
             connector (#'jetty/ssl-connector options)
             ciphers   (if-let [txt (options :cipher-suites)]
                         (map trim (split txt #","))
-                        (acceptable-ciphers))]
+                        (acceptable-ciphers))
+            protocols (if-let [txt (options :ssl-protocols)]
+                        (map trim (split txt #",")))]
         (when ciphers
-          (doto (.getSslContextFactory connector)
-            (.setIncludeCipherSuites (into-array ciphers))))
+          (let [fac (.getSslContextFactory connector)]
+            (.setIncludeCipherSuites fac (into-array ciphers))
+            (when protocols
+              (.setIncludeProtocols fac (into-array protocols)))))
         (.addConnector server connector)))
     server))
 
