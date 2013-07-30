@@ -527,17 +527,14 @@
 
 ;; ## Hashing
 
-;; This method lookup is surprisingly expensive (on the order of 10x slower),
-;; so we pay the cost once, and define our own digest in terms of it.
-(let [digest-func (get-method digest/digest :default)]
-  (defn utf8-string->sha1
-    "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
-    string"
-    [s]
-    {:pre  [(string? s)]
-     :post [(string? %)]}
-    (let [bytes (.getBytes s "UTF-8")]
-      (digest-func "sha-1" [bytes]))))
+(defn utf8-string->sha1
+  "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
+  string"
+  [s]
+  {:pre  [(string? s)]
+   :post [(string? %)]}
+  (let [bytes (.getBytes s "UTF-8")]
+    (digest/sha-1 [bytes])))
 
 (defn bounded-memoize
   "Similar to memoize, but the cache will be reset if the number of entries
