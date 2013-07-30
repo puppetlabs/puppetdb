@@ -406,6 +406,8 @@ Optional. A comma-separated list of protocols to allow for incoming SSL connecti
 
 If not supplied, PuppetDB uses the default SSL protocols for your local system.
 
+> **Note:** This setting is only effective when PuppetDB is running with Java version 1.7 or better.
+
 `[repl]` Settings
 -----
 
