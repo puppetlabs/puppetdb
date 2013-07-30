@@ -145,7 +145,7 @@
   [{:keys [classname subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements
-           conn-max-age conn-keep-alive]
+           conn-max-age conn-idle-max-age conn-keep-alive]
     :or   {partition-conn-min  1
            partition-conn-max  50
            partition-count     1
@@ -154,7 +154,8 @@
            ;;  be in the config file and we're manually converting it to a boolean
            log-statements      "true"
            log-slow-statements 10
-           conn-max-age        60
+           conn-max-age        0
+           conn-idle-max-age   60
            conn-keep-alive     240}
     :as   db}]
   ;; Load the database driver class
@@ -167,7 +168,8 @@
                           (.setMaxConnectionsPerPartition partition-conn-max)
                           (.setPartitionCount partition-count)
                           (.setStatisticsEnabled stats)
-                          (.setIdleMaxAgeInMinutes conn-max-age)
+                          (.setMaxConnectionAge conn-max-age, TimeUnit/MINUTES)
+                          (.setIdleMaxAgeInMinutes conn-idle-max-age)
                           (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
