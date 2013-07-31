@@ -20,7 +20,8 @@ deactivated nodes are not included in the response. There must be an
 
 #### URL Parameters
 
-* `query`: Required. A JSON array containing the query in prefix notation.
+* `query`: Optional. A JSON array containing the query in prefix notation. If
+  not provided, all results will be returned.
 
 #### Available Fields
 

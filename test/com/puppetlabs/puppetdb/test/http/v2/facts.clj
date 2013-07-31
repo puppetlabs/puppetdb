@@ -14,13 +14,17 @@
 
 (def c-t pl-http/json-response-content-type)
 
-(defn make-request
+(defn get-request
   "Return a GET request against path, suitable as an argument to a ring
   app. Params supported are content-type and query-string."
-  ([path] (make-request path {}))
+  ([path] (get-request path {}))
   ([path params]
    (let [request (request :get path params)]
      (update-in request [:headers] assoc "Accept" c-t))))
+
+(defn get-response
+  ([]      (get-response nil))
+  ([query] (*app* (get-request "/v2/facts" query))))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -53,6 +57,11 @@
       (scf-store/add-facts! "foo3" facts3 (now))
       (scf-store/add-facts! "foo4" facts3 (now))
       (scf-store/deactivate-node! "foo4"))
+
+    (testing "query without param should not fail"
+      (let [response (get-response)
+            body     (get response :body "null")]
+        (is (= 200 (:status response)))))
 
     (testing "fact queries"
       (testing "well-formed queries"
@@ -172,7 +181,7 @@
                                 ["=" ["node" "active"] false]
                                 []}]
 
-          (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+          (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
             (is (= (headers "Content-Type") c-t))
@@ -180,20 +189,20 @@
                 (pr-str query)))))
 
       (testing "malformed, yo"
-        (let [request (make-request "/v2/facts" {"query" (json/generate-string [])})
+        (let [request (get-request "/v2/facts" {"query" (json/generate-string [])})
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
-        (let [request (make-request "/v2/facts" {"query" (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]])})
+        (let [request (get-request "/v2/facts" {"query" (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]])})
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (defn is-query-result
   [query results]
-  (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+  (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
         {:keys [status body]} (*app* request)]
     (is (= status pl-http/status-ok))
     (is (= (try
@@ -351,7 +360,7 @@
                          ["in" "nothing" ["extract" "certname" ["select-resources"
                                                                                 ["=" "type" "Class"]]]]
                          "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, name, value"}]
-      (let [request (make-request "/v2/facts" {"query" (json/generate-string query)})
+      (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
             {:keys [status body] :as result} (*app* request)]
         (is (= status pl-http/status-bad-request))
         (is (= body msg))))))

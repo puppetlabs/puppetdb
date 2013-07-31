@@ -20,8 +20,9 @@ deactivated nodes are not included in the response. There must be an
 
 #### Parameters
 
-* `query`: Required. A JSON array of query predicates, in prefix form,
-  conforming to the format described below.
+* `query`: Optional. A JSON array of query predicates, in prefix form,
+  conforming to the format described below. If not provided, all results will
+  be returned.
 
 The `query` parameter is described by the following grammar:
 
