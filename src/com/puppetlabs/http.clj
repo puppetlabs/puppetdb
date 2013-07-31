@@ -131,3 +131,26 @@
   (from a `//`, for example) are elided from the result"
   [uri]
   (remove #{""} (.split uri "/")))
+
+(defn leading-uris
+  "Given a URI, return a sequence of all the leading components of
+  that URI.
+
+  Example:
+  (leading-uris \"/foo/bar/baz\")
+  => [\"/foo\", \"/foo/bar\", \"/foo/bar/baz\"]
+
+  (leading-uris \"/foo/bar/baz\" \"|\")
+  => [\"|foo\", \"|foo|bar\", \"|foo|bar|baz\"]
+"
+  ([uri]
+     (leading-uris uri "/"))
+  ([uri delimiter]
+     {:pre  [(.startsWith uri "/")]
+      :post [(coll? %)]}
+     (let [segments (uri-segments uri)
+           f        (fn [[segs strs] u]
+                      (let [segs' (conj segs u)]
+                        [segs'
+                         (conj strs (str delimiter (s/join delimiter segs')))]))]
+       (second (reduce f [[] []] segments)))))

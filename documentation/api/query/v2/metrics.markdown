@@ -95,9 +95,14 @@ Metrics available for each command:
 
 ### HTTP metrics
 
-Each of the following metrics is available for each HTTP endpoint. In
-the below list of metrics, `<name>` should be substituted with a REST
-endpoint name. Example `<name>`s you can use include:
+PuppetDB automatically collects metrics about every URL it has served
+to clients. You can see things like the average response time on a
+per-url basis, or see how many requests against a particular URL
+resulted in a HTTP 400 response code. Each of the following metrics is
+available for each URL. The list of automatically generated metrics is
+available via the `/v2/metrics/mbeans` endpoint.
+
+Additionally, we also support the following explicit names:
 
 * `commands`: Stats relating to the command processing REST
   endpoint. The PuppetDB terminus in Puppet talks to this endpoint to
