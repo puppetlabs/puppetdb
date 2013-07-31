@@ -339,7 +339,7 @@ If not supplied, we default to 60 minutes.
 
 This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
 
-If not supplied, we default to 240 minutes.
+If not supplied, we default to 45 minutes.
 
 ### `conn-lifetime`
 

@@ -155,7 +155,7 @@
            log-statements      "true"
            log-slow-statements 10
            conn-max-age        60
-           conn-keep-alive     240}
+           conn-keep-alive     45}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
