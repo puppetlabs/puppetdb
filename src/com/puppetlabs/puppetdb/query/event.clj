@@ -115,7 +115,7 @@
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
   [query]
-  {:pre  [(vector? query)]
+  {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
         sql (format (str "SELECT reports.certname,

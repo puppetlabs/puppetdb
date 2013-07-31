@@ -58,7 +58,6 @@
             [com.puppetlabs.puppetdb.http.server :as server])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs minutes days]]
-        [clojure.core.incubator :only (-?>)]
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
@@ -231,9 +230,9 @@
              (dissoc (:database %) :gc-interval :report-ttl :node-purge-ttl :node-ttl))
           (period? (get-in % [:command-processing :dlo-compression-threshold]))
           (every? period? (map (:database %) [:node-ttl :node-purge-ttl :report-ttl :gc-interval]))]}
-  (let [maybe-parse-period #(-?> % parse-period)
-        maybe-days #(-?> % days)
-        maybe-minutes #(-?> % minutes)
+  (let [maybe-parse-period #(some-> % parse-period)
+        maybe-days #(some-> % days)
+        maybe-minutes #(some-> % minutes)
         gc-interval-default (minutes 60)
         dlo-compression-default (days 1)
         ;; These defaults have to be actual periods rather than nil, because

@@ -18,8 +18,7 @@
             [clojure.tools.cli :as cli]
             [digest]
             [fs.core :as fs])
-  (:use [clojure.core.incubator :only (-?> -?>>)]
-        [clojure.java.io :only (reader)]
+  (:use [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
         [clojure.string :only (split)]
         [clojure.stacktrace :only (print-cause-trace)]
@@ -33,9 +32,9 @@
 (defn array?
   "Returns true if `x` is an array"
   [x]
-  (-?> x
-    (class)
-    (.isArray)))
+  (some-> x
+          (class)
+          (.isArray)))
 
 (defn datetime?
   "Predicate returning whether or not the supplied object is
@@ -487,13 +486,13 @@
       nil"
   [dn]
   {:pre [(string? dn)]}
-  (-?>> dn
-        (LdapName.)
-        (.getRdns)
-        (filter #(= "CN" (.getType %)))
-        (first)
-        (.getValue)
-        (str)))
+  (some->> dn
+           (LdapName.)
+           (.getRdns)
+           (filter #(= "CN" (.getType %)))
+           (first)
+           (.getValue)
+           (str)))
 
 (defn cn-for-cert
   "Extract the CN from the DN of an x509 certificate. See `cn-for-dn` for details
@@ -528,17 +527,14 @@
 
 ;; ## Hashing
 
-;; This method lookup is surprisingly expensive (on the order of 10x slower),
-;; so we pay the cost once, and define our own digest in terms of it.
-(let [digest-func (get-method digest/digest :default)]
-  (defn utf8-string->sha1
-    "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
-    string"
-    [s]
-    {:pre  [(string? s)]
-     :post [(string? %)]}
-    (let [bytes (.getBytes s "UTF-8")]
-      (digest-func "sha-1" [bytes]))))
+(defn utf8-string->sha1
+  "Compute a SHA-1 hash for the UTF-8 encoded version of the supplied
+  string"
+  [s]
+  {:pre  [(string? s)]
+   :post [(string? %)]}
+  (let [bytes (.getBytes s "UTF-8")]
+    (digest/sha-1 [bytes])))
 
 (defn bounded-memoize
   "Similar to memoize, but the cache will be reset if the number of entries
