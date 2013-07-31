@@ -23,7 +23,7 @@
 (defn report-query->sql
   "Compile a report query into an SQL expression."
   [query]
-  {:pre [(vector? query)]
+  {:pre [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-report-term query)]
     (apply vector (format " WHERE %s" where) params)))

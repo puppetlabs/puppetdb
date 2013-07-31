@@ -17,22 +17,20 @@
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
-  :dependencies [[org.clojure/clojure "1.4.0"]
-                 [cheshire "4.0.2"]
-                 [org.clojure/core.incubator "0.1.0"]
+  :dependencies [[org.clojure/clojure "1.5.1"]
+                 [cheshire "5.2.0"]
                  [org.clojure/core.match "0.2.0-alpha9"]
-                 [org.clojure/core.memoize "0.5.1"]
-                 [org.clojure/math.combinatorics "0.0.2"]
-                 [org.clojure/tools.logging "0.2.3"]
-                 [org.clojure/tools.cli "0.2.1"]
-                 [org.clojure/tools.nrepl "0.2.2"]
-                 [org.clojure/tools.namespace "0.1.3"]
-                 [swank-clojure "1.4.0"]
+                 [org.clojure/math.combinatorics "0.0.4"]
+                 [org.clojure/tools.logging "0.2.6"]
+                 [org.clojure/tools.cli "0.2.2"]
+                 [org.clojure/tools.nrepl "0.2.3"]
+                 [org.clojure/tools.namespace "0.2.4"]
+                 [swank-clojure "1.4.3"]
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
-                 [clj-stacktrace "0.2.4"]
+                 [clj-stacktrace "0.2.6"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
-                 [clj-time "0.3.7"]
-                 [org.clojure/java.jmx "0.1"]
+                 [clj-time "0.5.1"]
+                 [org.clojure/java.jmx "0.2.0"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Configuration file parsing
@@ -40,20 +38,20 @@
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
                  ;; Job scheduling
-                 [overtone/at-at "1.1.1"]
+                 [overtone/at-at "1.2.0"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.3"]
-                 [digest "1.3.0"]
-                 [log4j "1.2.16" :exclusions [javax.mail/mail
+                 [digest "1.4.3"]
+                 [log4j "1.2.17" :exclusions [javax.mail/mail
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
                                               com.sun.jmx/jmxri]]
                  ;; Database connectivity
                  [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]
-                 [org.slf4j/slf4j-log4j12 "1.6.4"]
+                 [org.slf4j/slf4j-log4j12 "1.7.5"]
                  [org.clojure/java.jdbc "0.1.1"]
                  [org.hsqldb/hsqldb "2.2.8"]
-                 [postgresql/postgresql "9.0-801.jdbc4"]
+                 [postgresql/postgresql "9.1-901-1.jdbc4"]
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
                  [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
@@ -61,12 +59,12 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [clj-http "0.5.3"]
-                 [ring/ring-core "1.1.1"]
-                 [ring/ring-jetty-adapter "1.1.1"]
+                 [ring/ring-core "1.1.8"]
+                 [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.1"]]}}
+                   :dependencies [[ring-mock "0.1.5"]]}}
 
   :jar-exclusions [#"leiningen/"]
 
