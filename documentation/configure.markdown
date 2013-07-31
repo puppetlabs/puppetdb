@@ -293,13 +293,6 @@ runs every `gc-interval` minutes.
 
 If unset, the default value is 14 days.
 
-### `log-slow-statements`
-
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
-  
-The default value is 10 seconds. A value of 0 will disable logging of slow queries.
-
-
 ### `classname`
 
 This sets the JDBC class to use. Set this to:
@@ -330,7 +323,29 @@ This is the username to use when connecting. Only used with PostgreSQL.
 
 This is the password to use when connecting. Only used with PostgreSQL.
 
+### `log-slow-statements`
 
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+
+The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+
+### `conn-max-age`
+
+The maximum time (in minutes), for a pooled connection to remain unused before it is closed off.
+
+If not supplied, we default to 60 minutes.
+
+### `conn-keep-alive`
+
+This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+
+If not supplied, we default to 240 minutes.
+
+### `conn-lifetime`
+
+The maximum time (in minutes) a pooled connection should remain open. Any connections older than this setting will be closed off. Connections currently in use will not be affected until they are returned to the pool.
+
+If not supplied, we won't terminate connections based on their age alone.
 
 `[command-processing]` Settings
 -----
@@ -342,7 +357,7 @@ Every change to PuppetDB's data stores arrives via **commands** that are inserte
 ### `threads`
 
 This defines how many command processing threads to use. Each thread can process a single command at a time. [The number of threads can be tuned based on what you see in the performance dashboard.][dashboard]
-  
+
 This setting defaults to half the number of cores in your system.
 
 ### `dlo-compression-threshold`
