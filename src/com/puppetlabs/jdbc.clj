@@ -145,7 +145,7 @@
   [{:keys [classname subprotocol subname username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements
-           conn-max-age conn-keep-alive]
+           conn-max-age conn-lifetime conn-keep-alive]
     :or   {partition-conn-min  1
            partition-conn-max  50
            partition-count     1
@@ -155,7 +155,7 @@
            log-statements      "true"
            log-slow-statements 10
            conn-max-age        60
-           conn-keep-alive     240}
+           conn-keep-alive     45}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
@@ -175,6 +175,7 @@
     ;; configurable without default
     (when username (.setUsername config (str username)))
     (when password (.setPassword config (str password)))
+    (when conn-lifetime (.setMaxConnectionAge config conn-lifetime TimeUnit/MINUTES))
     (when log-statements? (.setLogStatementsEnabled config log-statements?))
     (when log-slow-statements
       (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
