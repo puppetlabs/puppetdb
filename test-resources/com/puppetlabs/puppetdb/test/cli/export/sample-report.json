@@ -10,7 +10,9 @@
       "new-value": "ultraloyal",
       "status": "success",
       "file": "/Users/foo/bar.pp",
-      "line": 11
+      "line": 11,
+      "containment-path": null,
+      "containing-class": null
     },
     {
       "old-value": "vacantly",
@@ -22,7 +24,9 @@
       "new-value": "forecastlehead",
       "status": "success",
       "file": null,
-      "line": null
+      "line": null,
+      "containment-path": ["Foo", "", "Bar[Baz]"],
+      "containing-class": "Foo"
     }
   ],
   "configuration-version": "02ae0b7",

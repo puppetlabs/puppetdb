@@ -78,7 +78,9 @@ A JSON Object of the following form:
      "new-value": <string>,
      "message": <string>,
      "file": <string>,
-     "line: <integer>
+     "line: <integer>,
+     "containment-path": [<string>, <string>, ...],
+     "containing-class": <string>
     }
 
 All keys are required.
@@ -103,9 +105,15 @@ to the event.
 `"message"` is a descriptive message providing extra information about the event.
 This should be `null` if `status` is `success`.
 
-`"file"` is the manifest in which the resource is defined.
+`"file"` is the manifest in which the resource is defined. This field may be `null`.
 
-`"line"` is the line number (within `"file"`) where the resource is defined.
+`"line"` is the line number (within `"file"`) where the resource is defined. This field may be `null`.
+
+`"containment-path"` is a collection of strings where each string is a Puppet type or class
+that represents the containment hierarchy of the resource within the catalog. This field may be `null`.
+
+`"containing-class"` is a string that represents the Puppet class where the resource is defined.
+This field may be `null`.
 
 ## Gaps with this wire format
 
