@@ -54,7 +54,7 @@
       ;; these fields allow NULL, which causes a change in semantics when
       ;; wrapped in a NOT(...) clause, so we have to be very explicit
       ;; about the NULL case.
-      [(field :when #{"property" "message" "file" "line"})]
+      [(field :when #{"property" "message" "file" "line" "containing_class"})]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [value] }
 
@@ -88,7 +88,7 @@
         ;; these fields allow NULL, which causes a change in semantics when
         ;; wrapped in a NOT(...) clause, so we have to be very explicit
         ;; about the NULL case.
-        [(field :when #{"property" "message" "file" "line"})]
+        [(field :when #{"property" "message" "file" "line" "containing_class"})]
         {:where (format "%s AND resource_events.%s IS NOT NULL"
                     (sql-regexp-match (format "resource_events.%s" field))
                     field)
@@ -129,7 +129,9 @@
                                   resource_events.old_value,
                                   resource_events.message,
                                   resource_events.file,
-                                  resource_events.line
+                                  resource_events.line,
+                                  resource_events.containment_path,
+                                  resource_events.containing_class
                                   FROM resource_events
                                   JOIN reports ON resource_events.report = reports.hash
                                   WHERE %s")

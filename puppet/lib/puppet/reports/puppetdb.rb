@@ -21,22 +21,29 @@ Puppet::Reports.register_report(:puppetdb) do
 
   private
 
+  # TODO: It seems unfortunate that we have to access puppet_version and
+  # report_format directly as instance variables.  I've filed the following
+  # ticket / pull req against puppet to expose them via accessors, which
+  # seems more consistent and safer for the long-term.  However, for reasons
+  # relating to backwards compatibility we won't be able to switch over to
+  # the accessors until version 3.x of puppet is our oldest supported version.
+  #
+  # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
+  def report_format
+    @report_format
+  end
+
+  def puppet_version
+    @puppet_version
+  end
+
   ### Convert `self` (an instance of `Puppet::Transaction::Report`) to a hash
   ### suitable for sending over the wire to PuppetDB
   def report_to_hash
-    # TODO: It seems unfortunate that we have to access puppet_version and
-    # report_format directly as instance variables.  I've filed the following
-    # ticket / pull req against puppet to expose them via accessors, which
-    # seems more consistent and safer for the long-term.  However, for reasons
-    # relating to backwards compatibility we won't be able to switch over to
-    # the accessors until version 3.x of puppet is our oldest supported version.
-    #
-    # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
-
     {
       "certname"                => host,
-      "puppet-version"          => @puppet_version,
-      "report-format"           => @report_format,
+      "puppet-version"          => puppet_version,
+      "report-format"           => report_format,
       "configuration-version"   => configuration_version.to_s,
       "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
       "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
@@ -46,7 +53,7 @@ Puppet::Reports.register_report(:puppetdb) do
 
   def build_events_list
     filter_events(resource_statuses.inject([]) do |events, status_entry|
-      resource, status = *status_entry
+      _, status = *status_entry
       if ! (status.events.empty?)
         events.concat(status.events.map { |event| event_to_hash(status, event) })
       elsif status.skipped
@@ -76,36 +83,50 @@ Puppet::Reports.register_report(:puppetdb) do
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
   def event_to_hash(resource_status, event)
-    {
-      "status"            => event.status,
-      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-      "resource-type"     => resource_status.resource_type,
-      "resource-title"    => resource_status.title,
-      "property"          => event.property,
-      "new-value"         => event.desired_value,
-      "old-value"         => event.previous_value,
-      "message"           => event.message,
-      "file"              => resource_status.file,
-      "line"              => resource_status.line
-    }
+    add_report_v4_fields(resource_status,
+      {
+        "status"            => event.status,
+        "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
+        "resource-type"     => resource_status.resource_type,
+        "resource-title"    => resource_status.title,
+        "property"          => event.property,
+        "new-value"         => event.desired_value,
+        "old-value"         => event.previous_value,
+        "message"           => event.message,
+        "file"              => resource_status.file,
+        "line"              => resource_status.line
+      })
   end
 
   ## Given an instance of `Puppet::Resource::Status` and a status string,
   ## this method fabricates a PuppetDB event object with the provided
   ## `"status"`.
   def fabricate_event(resource_status, event_status)
-    {
-      "status"            => event_status,
-      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
-      "resource-type"     => resource_status.resource_type,
-      "resource-title"    => resource_status.title,
-      "property"          => nil,
-      "new-value"         => nil,
-      "old-value"         => nil,
-      "message"           => nil,
-      "file"              => resource_status.file,
-      "line"              => resource_status.line
-    }
+    add_report_v4_fields(resource_status,
+      {
+        "status"            => event_status,
+        "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+        "resource-type"     => resource_status.resource_type,
+        "resource-title"    => resource_status.title,
+        "property"          => nil,
+        "new-value"         => nil,
+        "old-value"         => nil,
+        "message"           => nil,
+        "file"              => resource_status.file,
+        "line"              => resource_status.line
+      })
+  end
+
+  ## Supports backwards compatibility with versions
+  ## of Puppet prior to report format 4
+  def add_report_v4_fields(resource_status, event_hash)
+    if report_format >= 4
+      event_hash.merge({
+        "containment-path" => resource_status.containment_path
+      })
+    else
+      event_hash
+    end
   end
 
   ## Filter out blacklisted events, if we're configured to do so
@@ -121,5 +142,4 @@ Puppet::Reports.register_report(:puppetdb) do
   def config
     Puppet::Util::Puppetdb.config
   end
-
 end

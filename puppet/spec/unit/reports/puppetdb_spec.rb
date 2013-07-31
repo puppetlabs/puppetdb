@@ -16,6 +16,13 @@ describe processor do
   subject {
     s = Puppet::Transaction::Report.new("foo").extend(processor)
     s.configuration_version = 123456789
+
+    # For backwards compatibility with versions of Puppet that don't
+    # have an accessor method for the report_format variable
+    if !s.respond_to?(:report_format)
+      s.stubs(:report_format).returns(s.instance_variable_get(:@report_format))
+    end
+
     s
   }
 
@@ -119,8 +126,21 @@ describe processor do
           res_event["new-value"].should == "fooval"
           res_event["old-value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
-          res_event["file"].should == "foo"
-          res_event["line"].should == 1
+
+          if subject.report_format >= 4
+            res_event["file"].should == "foo"
+            res_event["line"].should == 1
+            res_event["containment-path"].should == ["foo", "bar", "baz"]
+          else
+            res_event.has_key?("file").should == true
+            res_event["file"].should == nil
+
+            res_event.has_key?("line").should == true
+            res_event["line"].should == nil
+
+            res_event.has_key?("containment-path").should == true
+            res_event["containment-path"].should == nil
+          end
         end
       end
 
@@ -311,5 +331,4 @@ describe processor do
       end
     end
   end
-
 end

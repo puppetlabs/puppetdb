@@ -56,6 +56,13 @@
   {:post [(boolean? %)]}
   (instance? java.util.regex.Pattern regexp))
 
+;; String utilities
+
+(defn string-contains?
+  ;; TODO docs
+  [substring s]
+  (>= (.indexOf s substring) 0))
+
 ;; ## I/O
 
 (defn lines

@@ -361,7 +361,7 @@ must be supplied as the value to be matched."
   [resource-hashes]
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
-   :post [(set? resource-hashes)]}
+   :post [(set? %)]}
   (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
         query      (format "SELECT DISTINCT resource FROM resource_params WHERE resource IN (%s)" qmarks)
         sql-params (vec (cons query resource-hashes))]
@@ -740,6 +740,23 @@ must be supplied as the value to be matched."
       {:node    node
        :report  latest-report})))
 
+(defn find-containing-class
+  "Given a containment path from Puppet, find the outermost 'class'."
+  [containment-path]
+  {:pre [(or
+           (nil? containment-path)
+           (and (coll? containment-path) (every? string? containment-path)))]
+   :post [((some-fn nil? string?) %)]}
+  (when-not ((some-fn nil? empty?) containment-path)
+    ;; This is a little wonky.  Puppet only gives us an array of Strings
+    ;; to represent the containment path.  Classes can be differentiated
+    ;; from types because types have square brackets and a title; so, e.g.,
+    ;; "Foo" is a class, but "Foo[Bar]" is a type with a title.
+    (first
+      (filter
+        #(not (or (empty? %) (utils/string-contains? "[" %)))
+        (reverse containment-path)))))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -753,12 +770,14 @@ must be supplied as the value to be matched."
          (utils/datetime? timestamp)
          (utils/boolean? update-latest-report?)]}
   (let [report-hash         (report-identity-string report)
+        containment-path-fn (fn [cp] (if-not (nil? cp) (to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
                                      (update-in [:old-value] db-serialize)
                                      (update-in [:new-value] db-serialize)
-                                     (assoc :report report-hash)
-                                     ((partial utils/mapkeys dashes->underscores)))
+                                     (update-in [:containment-path] containment-path-fn)
+                                     (assoc :containing-class (find-containing-class (% :containment-path)))
+                                     (assoc :report report-hash) ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
