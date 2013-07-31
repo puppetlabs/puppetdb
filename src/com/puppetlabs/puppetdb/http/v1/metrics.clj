@@ -97,7 +97,7 @@
                  ;; went to versioned apis.
                  name' (cond
                         (.startsWith name "com.puppetlabs.puppetdb.http.server:type=metrics")
-                        (s/replace name #"type=commands" "type=/v2/metrics")
+                        (s/replace name #"type=metrics" "type=/v2/metrics")
 
                         (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
                         (s/replace name #"type=commands" "type=/v2/commands")
