@@ -120,11 +120,10 @@ to the result of the form supplied to this method."
               :sourceline nil
               :parameters {}}]
 
-    (testing "query without filter"
+    (testing "query without filter should not fail"
       (let [response (get-response)
             body     (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"missing query" body))))
+        (is (= 200 (:status response)))))
 
     (testing "query with filter"
       (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
