@@ -24,6 +24,7 @@
   (:require [clojure.java.jmx :as jmx]
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]
+            [clojure.string :as s]
             [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
@@ -66,9 +67,10 @@
 (defn list-mbeans
   "Returns a JSON array of all MBean names"
   [_]
-  (-> (all-mbean-names)
-      (linkify-names)
-      (pl-http/json-response)))
+  (->> (all-mbean-names)
+       (linkify-names)
+       (into (sorted-map))
+       (pl-http/json-response)))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
@@ -85,8 +87,30 @@
    ["mbeans"]
    {:get list-mbeans}
 
-   ["mbean" name]
-   {:get (fn [req] (get-mbean name))}))
+   ["mbean" & names]
+   {:get (fn [req]
+           (let [name  (s/join "/" names)
+                 ;; Backwards-compatibility hacks to allow
+                 ;; interrogation of "top-level" metrics like
+                 ;; "commands" instead of "/v2/commands"...something
+                 ;; we documented as supported, but we broke when we
+                 ;; went to versioned apis.
+                 name' (cond
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=metrics")
+                        (s/replace name #"type=metrics" "type=/v2/metrics")
+
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
+                        (s/replace name #"type=commands" "type=/v2/commands")
+
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=facts")
+                        (s/replace name #"type=facts" "type=/v2/facts")
+
+                        (.startsWith name "com.puppetlabs.puppetdb.http.server:type=resources")
+                        (s/replace name #"type=resources" "type=/v2/resources")
+
+                        :else
+                        name)]
+             (get-mbean name')))}))
 
 (def metrics-app
   (verify-accepts-json routes))

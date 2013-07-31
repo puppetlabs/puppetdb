@@ -4,6 +4,7 @@
   (:require [com.puppetlabs.utils :as utils]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
+            [clojure.string :as s]
             [clojure.tools.logging :as log])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]))
@@ -120,20 +121,30 @@
   metric."
   [app prefix storage normalize-uri]
   (fn [req]
-    (let [metric-root (str (normalize-uri (:uri req)))
-          timer-key   [:timers metric-root]]
-      (when-not (get-in @storage timer-key)
+    (let [metric-roots (let [s (normalize-uri (:uri req))]
+                         (if (string? s) [s] s))
+          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
+
+      ;; Create timer objects for each metric the user has requested
+      (doseq [metric-root metric-roots
+              :let [timer-key [:timers metric-root]]
+              :when (not (get-in @storage timer-key))]
         (swap! storage assoc-in timer-key (timer [prefix metric-root "service-time"])))
 
-      (time! (get-in @storage timer-key)
+      (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
+        (utils/multitime! timers
+           (let [response  (app req)
+                 status    (:status response)]
 
-             (let [response  (app req)
-                   status    (:status response)
-                   meter-key [:meters metric-root status]]
-               (when-not (get-in @storage meter-key)
-                 (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s")))
-               (mark! (get-in @storage meter-key))
-               response)))))
+             ;; Create meter objects for each metric the user has
+             ;; requested
+             (doseq [metric-root metric-roots
+                     :let [meter-key [:meters metric-root status]]
+                     :when (not (get-in @storage meter-key))]
+               (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
+               (mark! (get-in @storage meter-key)))
+
+             response))))))
 
 (defmacro wrap-with-metrics
   "Ring middleware that will tack performance counters for each URL.
@@ -159,10 +170,15 @@
   `storage`: An atom that will be used to hold references to all
   created metrics.
 
-  `normalize-uri`: A function that takes a URI, and returns a
-  transformed string. The result will be used to organize the metrics:
-  URI's with the same normalized representation will share timers and
-  meters. To have all URIs share the same metrics, use `identity`."
+  `normalize-uri`: A function that takes a URI, and returns a string
+  or collection of strings. For each string returned, a timer and
+  meter will be created if they don't already exist. To have multiple
+  URLs share the same timer/meter, `normalize-uri` should return some
+  of the same strings for each URL.
+
+  Metric names (and thus, the strings returned by `normalize-uri`
+  cannot contain ':', '=', or ',' characters. They will be replaced
+  with '_'."
   [app storage normalize-uri]
   `(let [prefix# ~(str *ns*)]
      (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))
