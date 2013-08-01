@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 1.3 » Configuration » Using SSL with PostgreSQL"
 layout: default
-canonical: "/puppetdb/latest/postgres_ssl.html"
+canonical: "/puppetdb/latest/postgres\_ssl.html"
 ---
 
 ## Talking to PostgreSQL using SSL/TLS
@@ -45,14 +45,16 @@ These files will need to be copied to the relevant directories as specified by t
 
 You will also need to make sure the setting `ssl` is set to `on` in your `postgresql.conf`. Once this has been done, restart PostgreSQL.
 
-Now continue by creating a truststore as specified in the setup instructions for PuppetDB. If you have installed PuppetDB using a package or you have already used the tool `puppetdb-ssl-setup`, this will most likely already exist in `/etc/puppetdb/ssl`.
+Now you can continue by creating a truststore containing your Puppet CA certificate. If you have been using PuppetDB for a while, you may already have such a file in `/etc/puppetdb/ssl/truststore.jks`. If not the quickest way to create this file is:
+
+    $ sudo keytool -import -alias "My CA" -file $(puppet master --configprint ssldir)/ca/ca_crt.pem -keystore /etc/puppetdb/ssl/truststore.jks
 
 You will then need to tell Java to use this truststore instead of the default system one by specifying values for the properties for `trustStore` and `trustStorePassword`. These properties can be applied by modifying your service settings for PuppetDB and appending the required settings to the JAVA_ARGS variable. In Redhat the path to this file is `/etc/sysconfig/puppetdb`, in Debian `/etc/default/puppetdb`. For example:
 
     # Modify this if you'd like to change the memory allocation, enable JMX, etc
     JAVA_ARGS="-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/puppetdb/puppetdb-oom.hprof -Djavax.net.ssl.trustStore=/etc/puppetdb/ssl/truststore.jks -Djavax.net.ssl.trustStorePassword=<PASSWORD>"
 
-*Note:* Replace `<PASSWORD>` with the password found in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`.
+*Note:* Replace `<PASSWORD>` with the password you used to create the keystore, or the one found in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`.
 
 Once this is done, you need to modify the database JDBC connection URL in your PuppetDB configuration as follows:
 

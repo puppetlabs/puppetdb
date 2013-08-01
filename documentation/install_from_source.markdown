@@ -80,14 +80,14 @@ Run the following command:
 
     $ sudo /usr/sbin/puppetdb-ssl-setup
 
-This will create a keystore and truststore in `/etc/puppetdb/ssl` and will print the password to both files in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`. 
+This will copy the relevant PEM files from your Puppet installation into `/etc/puppetdb/ssl` and can be used to correct your SSL configuration in `jetty.ini` to use those files.
 
 You should now configure HTTPS in PuppetDB's config file(s); [see below](#step-4-configure-https).
 
-Step 3, Option B: Manually Create a Keystore and Truststore
+Step 3, Option B: Manually Generating and Preparing Certificates
 -----
 
-If you will not be using Puppet on your PuppetDB server, you must manually create a certificate, a keystore, and a truststore. This is an involved process, so we highly recommend installing Puppet and using Option A above, even if you will not be using puppet agent to manage the PuppetDB server.
+If you will not be using Puppet on your PuppetDB server, you must manually create a certificate, and copy the relevant files into place. This is more of an involved process, so we highly recommend installing Puppet and using Option A above, even if you will not be using puppet agent to manage the PuppetDB server.
 
 ### On the CA Puppet Master: Create a Certificate
 
@@ -95,99 +95,22 @@ Use `puppet cert generate` to create a certificate and private key for your Pupp
 
     $ sudo puppet cert generate puppetdb.example.com
 
-
 ### Copy the Certificate to the PuppetDB Server
 
 Copy the CA certificate, the PuppetDB certificate, and the PuppetDB private key to your PuppetDB server. Run the following on your CA puppet master server, using your PuppetDB server's hostname:
 
-    $ sudo scp $(puppet master --configprint ssldir)/ca/ca_crt.pem puppetdb.example.com:/tmp/certs/ca_crt.pem
-    $ sudo scp $(puppet master --configprint ssldir)/private_keys/puppetdb.example.com.pem puppetdb.example.com:/tmp/certs/privkey.pem
-    $ sudo scp $(puppet master --configprint ssldir)/certs/puppetdb.example.com.pem puppetdb.example.com:/tmp/certs/pubkey.pem
+    $ sudo scp $(puppet master --configprint ssldir)/ca/ca_crt.pem puppetdb.example.com:/etc/puppetdb/ssl/ca.pem
+    $ sudo scp $(puppet master --configprint ssldir)/private_keys/puppetdb.example.com.pem puppetdb.example.com:/etc/puppetdb/ssl/private.pem
+    $ sudo scp $(puppet master --configprint ssldir)/certs/puppetdb.example.com.pem puppetdb.example.com:/etc/puppetdb/ssl/public.pem
 
 You may now log out of your puppet master server.
 
-### On the PuppetDB Server: Create a Truststore
+### Correct permissions
 
-On your PuppetDB server, navigate to the directory where you copied the certificates and keys:
+On your PuppetDB, ensure the certificates have the correct permissions:
 
-    $ cd /tmp/certs
-
-Now use `keytool` to create a _truststore_ file. A _truststore_ contains the set of CA certs to use for validation.
-
-    # keytool -import -alias "My CA" -file ca_crt.pem -keystore truststore.jks
-    Enter keystore password:
-    Re-enter new password:
-    .
-    .
-    .
-    Trust this certificate? [no]:  y
-    Certificate was added to keystore
-
-Note that you _must_ supply a password. Remember the password you
-used, as you'll need it to configure PuppetDB later. Once imported,
-you can view your certificate:
-
-    # keytool -list -keystore truststore.jks
-    Enter keystore password:
-
-    Keystore type: JKS
-    Keystore provider: SUN
-
-    Your keystore contains 1 entry
-
-    my ca, Mar 30, 2012, trustedCertEntry,
-    Certificate fingerprint (MD5): 99:D3:28:6B:37:13:7A:A2:B8:73:75:4A:31:78:0B:68
-
-Note the MD5 fingerprint; you can use it to verify this is the correct cert:
-
-    # openssl x509 -in ca_crt.pem -fingerprint -md5
-    MD5 Fingerprint=99:D3:28:6B:37:13:7A:A2:B8:73:75:4A:31:78:0B:68
-
-### On the PuppetDB Server: Create a Keystore
-
-In the same directory as the truststore you just created, use `keytool` to create a Java _keystore_.  A _keystore_ file contains
-certificates to use during HTTPS.
-
-    # cat privkey.pem pubkey.pem > temp.pem
-    # openssl pkcs12 -export -in temp.pem -out puppetdb.p12 -name puppetdb.example.com
-    Enter Export Password:
-    Verifying - Enter Export Password:
-    # keytool -importkeystore  -destkeystore keystore.jks -srckeystore puppetdb.p12 -srcstoretype PKCS12 -alias puppetdb.example.com
-    Enter destination keystore password:
-    Re-enter new password:
-    Enter source keystore password:
-
-You can validate this was correct:
-
-    # keytool -list -keystore keystore.jks
-    Enter keystore password:
-
-    Keystore type: JKS
-    Keystore provider: SUN
-
-    Your keystore contains 1 entry
-
-    puppetdb.example.com, Mar 30, 2012, PrivateKeyEntry,
-    Certificate fingerprint (MD5): 7E:2A:B4:4D:1E:6D:D1:70:A9:E7:20:0D:9D:41:F3:B9
-
-Compare to the certificate's fingerprint on the CA puppet master: 
-
-    $ sudo puppet cert fingerprint puppetdb.example.com --digest=md5
-    MD5 Fingerprint=7E:2A:B4:4D:1E:6D:D1:70:A9:E7:20:0D:9D:41:F3:B9
-
-### On the PuppetDB Server: Move the Keystore and Truststore
-
-Take the _truststore_ and _keystore_ you generated in the preceding
-steps and copy them to a permanent home. These
-instructions will assume you are using `/etc/puppetdb/ssl`.
-
-Change the files' ownership to the user PuppetDB will run
-as, and ensure that only that user can read the files:
-
-    $ sudo chown puppetdb:puppetdb /etc/puppetdb/ssl/truststore.jks /etc/puppetdb/ssl/keystore.jks
-    $ sudo chmod 400 /etc/puppetdb/ssl/truststore.jks /etc/puppetdb/ssl/keystore.jks
-
-You can now safely delete the temporary copies of the keystore, truststore, CA certificate, PuppetDB certificate and private key. These can be retrieved or recreated using the original copies stored on the CA puppet master. 
+    $ sudo chown puppetdb:puppetdb /etc/puppetdb/ssl/*.pem
+    $ sudo chmod 0600 /etc/puppetdb/ssl/*.pem
 
 You should now configure HTTPS in PuppetDB's config file(s); [see below](#step-4-configure-https).
 
@@ -205,12 +128,9 @@ The `[jetty]` section should contain the following, with your PuppetDB server's 
     # Required settings:
     ssl-host = puppetdb.example.com
     ssl-port = 8081
-    keystore = /etc/puppetdb/ssl/keystore.jks
-    truststore = /etc/puppetdb/ssl/truststore.jks
-    key-password = <password used when creating the keystore>
-    trust-password = <password used when creating the truststore>
-
-If you [ran the SSL configuration script](#step-3-option-a-run-the-ssl-configuration-script), the password will be in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`. Use this for both the `key-password` and the `trust-password`.
+    ssl-cert = /etc/puppetdb/ssl/public.pem
+    ssl-key = /etc/puppetdb/ssl/private.pem
+    ssl-ca-cert = /etc/puppetdb/ssl/ca.pem
 
 If you don't want to do unsecured HTTP at all, you can omit the `host` and `port` settings. However, this may limit your ability to use PuppetDB for other purposes, including viewing its [performance dashboard][perf_dashboard]. A reasonable compromise is to set `host` to `localhost`, so that unsecured traffic is only allowed from the local box; tunnels can then be used to gain access to the performance dashboard.
 

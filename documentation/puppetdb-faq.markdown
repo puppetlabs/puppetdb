@@ -22,8 +22,8 @@ contains the certificate for your certificate authority, and is what PuppetDB
 uses to authenticate clients. The latter contains the key and certificate that
 PuppetDB uses to identify itself to clients.
 
-The short answer: you can often fix these problems by reinitializing the keystore
-and truststore, by running `/usr/sbin/puppetdb-ssl-setup`. Note that this script
+The short answer: you can often fix these problems by reinitializing your ssl setup
+by running `/usr/sbin/puppetdb-ssl-setup -f`. Note that this script
 must be run *after* a certificate is generated for the puppet agent (that is:
 after the agent has run once and had its certificate request signed). A common
 problem is installing PuppetDB before the Puppet agent has run, and this script

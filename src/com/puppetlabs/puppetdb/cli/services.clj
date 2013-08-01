@@ -43,6 +43,7 @@
 ;;   maintain acceptable performance.
 ;;
 (ns com.puppetlabs.puppetdb.cli.services
+  (:import [java.security KeyStore])
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
@@ -55,13 +56,14 @@
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.http.server :as server])
+            [com.puppetlabs.puppetdb.http.server :as server]
+            [com.puppetlabs.ssl :as ssl])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs minutes days]]
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery missing?)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.version :only [version update-info]]))
@@ -210,14 +212,57 @@
                              (max 1))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
+(defn configure-web-server-ssl-from-pems
+  "Configures the web server's SSL settings based on Puppet PEM files, rather than
+  via a java keystore (jks) file.  The configuration map returned by this function
+  will have overwritten any existing keystore-related settings to use in-memory
+  KeyStore objects, which are constructed based on the values of
+  `:ssl-key`, `:ssl-cert`, and `:ssl-ca-cert` from
+  the input map.  The output map does not include the `:puppet-*` keys, as they
+  are not meaningful to the web server implementation."
+  [{:keys [ssl-key ssl-cert ssl-ca-cert] :as jetty}]
+  {:pre  [ssl-key
+          ssl-cert
+          ssl-ca-cert]
+   :post [(map? %)
+          (instance? KeyStore (:keystore %))
+          (string? (:key-password %))
+          (instance? KeyStore (:truststore %))
+          (missing? % :trust-password :ssl-key :ssl-cert :ssl-ca-cert)]}
+  (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
+        old-ssl-config      (select-keys jetty old-ssl-config-keys)]
+    (when (pos? (count old-ssl-config))
+      (log/warn (format "Found settings for both keystore-based and Puppet PEM-based SSL; using PEM-based settings, ignoring %s"
+                  (keys old-ssl-config)))))
+  (let [truststore  (-> (ssl/keystore)
+                        (ssl/assoc-cert-file! "PuppetDB CA" ssl-ca-cert))
+        keystore-pw (pl-utils/uuid)
+        keystore    (-> (ssl/keystore)
+                        (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" ssl-key keystore-pw ssl-cert))]
+    (-> jetty
+        (dissoc :ssl-key :ssl-ca-cert :ssl-cert :trust-password)
+        (assoc :keystore keystore)
+        (assoc :key-password keystore-pw)
+        (assoc :truststore truststore))))
+
 (defn configure-web-server
   "Update the supplied config map with information about the HTTP webserver to
   start. This will specify client auth, and add a default host/port
   http://puppetdb:8080 if none are supplied (and SSL is not specified)."
-  [config]
+  [{:keys [jetty] :as config}]
   {:pre  [(map? config)]
-   :post [(map? %)]}
-  (assoc-in config [:jetty :client-auth] :need))
+   :post [(map? %)
+          (missing? (:jetty %) :ssl-key :ssl-cert :ssl-ca-cert)]}
+  (let [pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
+        pem-config        (select-keys jetty pem-required-keys)]
+    (assoc config :jetty
+      (-> (condp = (count pem-config)
+            3 (configure-web-server-ssl-from-pems jetty)
+            0 jetty
+            (throw (IllegalArgumentException.
+                     (format "Found SSL config options: %s; If configuring SSL from Puppet PEM files, you must provide all of the following options: %s"
+                        (keys pem-config) pem-required-keys))))
+          (assoc :client-auth :need)))))
 
 (defn configure-gc-params
   "Helper function that munges the supported permutations of our GC-related
