@@ -234,7 +234,7 @@
           (not (contains? % :ssl-ca-cert))]}
   (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
         old-ssl-config      (select-keys jetty old-ssl-config-keys)]
-    (when (> (count old-ssl-config) 0)
+    (when (pos? (count old-ssl-config))
       (log/warn (format "Found settings for both keystore-based and Puppet PEM-based SSL; using PEM-based settings, ignoring %s"
                   (keys old-ssl-config)))))
   (let [truststore  (-> (ssl/keystore)
