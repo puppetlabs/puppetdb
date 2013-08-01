@@ -288,12 +288,20 @@ fi
 if [ -f $ca_file -a -f $private_file -a -f $public_file ]; then
   echo "PEM files in ${ssl_dir} already exists, checking integrity."
 
-  # TODO: lets diff all the files, if there are any differences we should warn/fix
-  if diff -q $orig_ca_file $ca_file > /dev/null; then
-    echo "PEM files match the Puppet ones."
-  else
-    echo "Warning: ${ca_file} does not match the file used by Puppet (${orig_ca_file})"
-  fi
+  filediffs=(
+    "${orig_ca_file}:${ca_file}"
+    "${orig_private_file}:${private_file}"
+    "${orig_public_file}:${public_file}"
+  )
+
+  for i in "${filediffs[@]}"; do
+    orig="${i%%:*}"
+    new="${i#*:}"
+
+    if ! diff -q $orig $new > /dev/null; then
+      echo "Warning: ${new} does not match the file used by Puppet (${orig})"
+    fi
+  done
 
   if $force; then
     echo "Overwriting existing PEM files due to -f flag"
