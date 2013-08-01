@@ -207,16 +207,15 @@
 
       ;; Returns false, as :a is in the collection
       (missing? {:a 'a' :b 'b' :c 'c'} :z :b)"
-  ([coll key]
-    {:pre  [(coll? coll)]
-     :post [(boolean? %)]}
-    (not (contains? coll key)))
-  ([coll key & more-keys]
-    {:pre  [(coll? coll)]
-     :post [(boolean? %)]}
-    (let [comb   (conj more-keys key)
-          result (map #(missing? coll %) comb)]
-      (nil? (some false? result)))))
+  [coll & keys]
+  {:pre  [(coll? coll)]
+   :post [(boolean? %)]}
+  (reduce (fn [_ key]
+            (if (contains? coll key)
+              (reduced false)
+              true))
+          nil
+          keys))
 
 ;; ## Date and Time
 
