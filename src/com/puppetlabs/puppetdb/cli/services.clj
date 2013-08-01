@@ -63,7 +63,7 @@
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery)]
+        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery missing?)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.version :only [version update-info]]))
@@ -228,10 +228,7 @@
           (instance? KeyStore (:keystore %))
           (string? (:key-password %))
           (instance? KeyStore (:truststore %))
-          (not (contains? % :trust-password))
-          (not (contains? % :ssl-key))
-          (not (contains? % :ssl-cert))
-          (not (contains? % :ssl-ca-cert))]}
+          (missing? % :trust-password :ssl-key :ssl-cert :ssl-ca-cert)]}
   (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
         old-ssl-config      (select-keys jetty old-ssl-config-keys)]
     (when (pos? (count old-ssl-config))
@@ -255,9 +252,7 @@
   [{:keys [jetty] :as config}]
   {:pre  [(map? config)]
    :post [(map? %)
-          (not (contains? (:jetty %) :ssl-key))
-          (not (contains? (:jetty %) :ssl-cert))
-          (not (contains? (:jetty %) :ssl-ca-cert))]}
+          (missing? (:jetty %) :ssl-key :ssl-cert :ssl-ca-cert)]}
   (let [pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
         pem-config        (select-keys jetty pem-required-keys)]
     (assoc config :jetty

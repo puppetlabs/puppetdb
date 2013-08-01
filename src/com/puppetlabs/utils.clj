@@ -196,6 +196,28 @@
   "Returns the sequence of values from the map for the entries with the specified keys"
   (comp vals select-keys))
 
+(defn missing?
+  "Inverse of contains? that supports multiple keys. Will return true if all items are
+  missing from the collection, false otherwise.
+
+  Example:
+
+      ;; Returns true, as :z :f :h are all missing
+      (missing? {:a 'a' :b 'b' :c 'c'} :z :f :h)
+
+      ;; Returns false, as :a is in the collection
+      (missing? {:a 'a' :b 'b' :c 'c'} :z :b)"
+  ([coll key]
+    {:pre  [(coll? coll)]
+     :post [(boolean? %)]}
+    (not (contains? coll key)))
+  ([coll key & more-keys]
+    {:pre  [(coll? coll)]
+     :post [(boolean? %)]}
+    (let [comb   (conj more-keys key)
+          result (map #(missing? coll %) comb)]
+      (nil? (some false? result)))))
+
 ;; ## Date and Time
 
 (defn timestamp
