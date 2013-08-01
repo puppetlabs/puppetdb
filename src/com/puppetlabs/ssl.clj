@@ -3,7 +3,6 @@
            (java.security.cert X509Certificate)
            (org.bouncycastle.openssl PEMReader PEMWriter)
            (org.bouncycastle.jce.provider BouncyCastleProvider))
-  (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]
         [clojure.java.io :only (reader writer)]))
 
