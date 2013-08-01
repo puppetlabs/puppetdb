@@ -87,6 +87,19 @@
     (testing "should not remove the key if the value is not nil"
       (is (= testmap (dissoc-if-nil testmap :a))))))
 
+(deftest missing?-test
+  (let [sample {:a "asdf" :b "asdf" :c "asdf"}]
+    (testing "should return true for single key items if they don't exist in the coll"
+      (is (true? (missing? sample :n))))
+    (testing "should return false for single key items if they exist in the coll"
+      (is (false? (missing? sample :c))))
+    (testing "should return true for multiple key items if they all don't exist in the coll"
+      (is (true? (missing? sample :n :f :g :z :h))))
+    (testing "should return false for multiple key items if one item exists in the coll"
+      (is (false? (missing? sample :n :b :f)))
+      (is (false? (missing? sample :a :h :f))))
+    (testing "should return false for multiple key items if all items exist in the coll"
+      (is (false? (missing? sample :a :b :c))))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"

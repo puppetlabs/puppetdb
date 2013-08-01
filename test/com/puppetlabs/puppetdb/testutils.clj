@@ -174,10 +174,20 @@
      (fixture-fn# (fn [] ~@body))))
 
 ; TODO: change order of expected/actual?
-; TODO: docs
 (defn response-equal?
   "Test if the HTTP request is a success, and if the result is equal
-to the result of the form supplied to this method."
+  to the result of the form supplied to this method.  Arguments:
+
+  `response`      - the HTTP response object.  This will be used to validate the
+                    status code, and then the response body will be parsed as a JSON
+                    string for comparison with the expected response.
+  `expected`      - the expected result.  This should not be JSON-serialized as the
+                    body of the HTTP response will be deserialized prior to comparison.
+  `body-munge-fn` - optional.  If this is passed, it should be a function that will
+                    be applied to the HTTP response body *after* JSON deserialization,
+                    but before comparison with the expected result.  This can
+                    be used to filter out fields that aren't relevant to the tests,
+                    etc."
   ([response expected]
     (response-equal? response expected identity))
   ([response expected body-munge-fn]

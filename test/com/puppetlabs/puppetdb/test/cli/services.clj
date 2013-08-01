@@ -1,4 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
+  (:import [java.security KeyStore])
   (:require clojure.string
             [com.puppetlabs.puppetdb.version]
             [com.puppetlabs.utils :as utils])
@@ -6,6 +7,7 @@
         [clojure.test]
         [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
         [clj-time.core :only [days hours minutes secs]]
+        [clojure.java.io :only [resource]]
         [com.puppetlabs.time :only [to-secs to-minutes to-hours to-days period?]]))
 
 (deftest update-checking
@@ -98,7 +100,42 @@
 (deftest http-configuration
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:client-auth false}})]
-      (is (= (get-in config [:jetty :client-auth]) :need)))))
+      (is (= (get-in config [:jetty :client-auth]) :need))))
+  (let [old-config {:keystore       "/some/path"
+                    :key-password   "pw"
+                    :truststore     "/some/other/path"
+                    :trust-password "otherpw"}]
+    (testing "should not muck with keystore/truststore settings if PEM-based SSL
+              settings are not provided"
+      (let [processed-config (:jetty (configure-web-server {:jetty old-config}))]
+        (is (= old-config
+               (select-keys processed-config
+                 [:keystore :key-password :truststore :trust-password])))))
+    (testing "should fail if some but not all of the PEM-based SSL settings are found"
+      (let [partial-pem-config (merge old-config {:ssl-ca-cert "/some/path"})]
+        (is (thrown-with-msg? java.lang.IllegalArgumentException
+              #"If configuring SSL from Puppet PEM files, you must provide all of the following options"
+              (configure-web-server {:jetty partial-pem-config})))))
+
+    (let [pem-config (merge old-config
+                        {:ssl-key     (resource "com/puppetlabs/test/ssl/private_keys/localhost.pem")
+                         :ssl-cert    (resource "com/puppetlabs/test/ssl/certs/localhost.pem")
+                         :ssl-ca-cert (resource "com/puppetlabs/test/ssl/certs/ca.pem")})]
+      (testing "should warn if both keystore-based and PEM-based SSL settings are found"
+        (with-log-output logs
+          (configure-web-server {:jetty pem-config})
+          (is (= 1 (count (logs-matching #"Found settings for both keystore-based and Puppet PEM-based SSL" @logs))))))
+      (testing "should prefer PEM-based SSL settings, override old keystore settings
+                  with instances of java.security.KeyStore, and remove PEM settings
+                  from final jetty config hash"
+        (let [processed-config (:jetty (configure-web-server {:jetty pem-config}))]
+          (is (instance? KeyStore (:keystore processed-config)))
+          (is (instance? KeyStore (:truststore processed-config)))
+          (is (string? (:key-password processed-config)))
+          (is (not (contains? processed-config :trust-password)))
+          (is (not (contains? processed-config :ssl-key)))
+          (is (not (contains? processed-config :ssl-cert)))
+          (is (not (contains? processed-config :ssl-ca-cert))))))))
 
 (deftest product-name-validation
   (doseq [product-name ["puppetdb" "pe-puppetdb"]]

@@ -7,7 +7,7 @@ test_name "puppetdb-ssl-setup" do
   end
 
   step "check to make sure all settings were configured for jetty.ini" do
-    ["ssl-host", "ssl-port", "key-password", "trust-password", "keystore", "truststore"].each do |k|
+    ["ssl-host", "ssl-port", "ssl-key", "ssl-cert", "ssl-ca-cert"].each do |k|
       on database, "grep -e '^#{k} = ' #{confd}/jetty.ini"
     end
   end
