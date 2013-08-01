@@ -73,6 +73,21 @@ describe processor do
       subject.add_resource_status(status)
     end
 
+    it "should include the transaction uuid or nil" do
+      # Prevents subject.send(:report_to_hash) from exploding
+      subject.stubs(:run_duration).returns(-1)
+
+      if subject.report_format >= 4
+        subject.transaction_uuid = 'abc123'
+        result = subject.send(:report_to_hash)
+        result["transaction-uuid"].should == 'abc123'
+      else
+        result = subject.send(:report_to_hash)
+        result.has_key?("transaction-uuid").should == true
+        result["transaction-uuid"].should == nil
+      end
+    end
+
     context "start/end time" do
       before :each do
         subject.add_metric("time", {"total" => 10})

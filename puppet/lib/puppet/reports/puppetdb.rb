@@ -40,15 +40,16 @@ Puppet::Reports.register_report(:puppetdb) do
   ### Convert `self` (an instance of `Puppet::Transaction::Report`) to a hash
   ### suitable for sending over the wire to PuppetDB
   def report_to_hash
-    {
-      "certname"                => host,
-      "puppet-version"          => puppet_version,
-      "report-format"           => report_format,
-      "configuration-version"   => configuration_version.to_s,
-      "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
-      "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-      "resource-events"         => build_events_list
-    }
+    add_v4_fields_to_report(
+      {
+        "certname"                => host,
+        "puppet-version"          => puppet_version,
+        "report-format"           => report_format,
+        "configuration-version"   => configuration_version.to_s,
+        "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
+        "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
+        "resource-events"         => build_events_list
+      })
   end
 
   def build_events_list
@@ -83,7 +84,7 @@ Puppet::Reports.register_report(:puppetdb) do
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
   def event_to_hash(resource_status, event)
-    add_report_v4_fields(resource_status,
+    add_v4_fields_to_event(resource_status,
       {
         "status"            => event.status,
         "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
@@ -102,7 +103,7 @@ Puppet::Reports.register_report(:puppetdb) do
   ## this method fabricates a PuppetDB event object with the provided
   ## `"status"`.
   def fabricate_event(resource_status, event_status)
-    add_report_v4_fields(resource_status,
+    add_v4_fields_to_event(resource_status,
       {
         "status"            => event_status,
         "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
@@ -117,15 +118,21 @@ Puppet::Reports.register_report(:puppetdb) do
       })
   end
 
-  ## Supports backwards compatibility with versions
-  ## of Puppet prior to report format 4
-  def add_report_v4_fields(resource_status, event_hash)
+  ## Backwards compatibility with versions of Puppet prior to report format 4
+  def add_v4_fields_to_report(report_hash)
     if report_format >= 4
-      event_hash.merge({
-        "containment-path" => resource_status.containment_path
-      })
+      report_hash.merge("transaction-uuid" => transaction_uuid)
     else
-      event_hash
+      report_hash.merge("transaction-uuid" => nil)
+    end
+  end
+
+  ## Backwards compatibility with versions of Puppet prior to report format 4
+  def add_v4_fields_to_event(resource_status, event_hash)
+    if report_format >= 4
+      event_hash.merge("containment-path" => resource_status.containment_path)
+    else
+      event_hash.merge("containment-path" => nil)
     end
   end
 

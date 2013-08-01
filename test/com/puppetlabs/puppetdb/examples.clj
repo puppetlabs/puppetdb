@@ -31,6 +31,7 @@
    {:certname         "basic.catalogs.com"
     :puppetdb-version catalog-version
     :api-version      1
+    :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          "123456789"
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
@@ -66,6 +67,7 @@
    {:certname         "invalid.catalogs.com"
     :puppetdb-version catalog-version
     :api-version      1
+    :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "does not exist"}
@@ -116,10 +118,11 @@
           :parameters {}
           :tags       ["node" "default" "class"]
           :type       "Node"}]
-        :tags        ["settings" "default" "node"]
-        :classes     ["settings" "default"]
-        :environment "production"
-        :version     1332533763}}}
+        :tags             ["settings" "default" "node"]
+        :classes          ["settings" "default"]
+        :environment      "production"
+        :version          1332533763
+        :transaction_uuid nil}}}
 
    2 {:empty
       {:metadata      {:api_version 1}
@@ -157,4 +160,5 @@
           :parameters {}
           :tags       ["node" "default" "class"]
           :type       "Node"}]
-        :version     1332533763}}}})
+        :version          1332533763
+        :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}}}})

@@ -18,7 +18,10 @@
    :configuration-version    :string
    :start-time               :datetime
    :end-time                 :datetime
-   :resource-events          :coll})
+   :resource-events          :coll
+   :transaction-uuid         { :optional? true
+                               :type      :string }
+   })
 
 (defmodel ResourceEvent
   {:status             :string

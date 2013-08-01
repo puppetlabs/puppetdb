@@ -9,19 +9,21 @@
   (:use [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.utils :only [dissoc-if-nil]]))
 
-(defn get-catalog-version
-  "Given a node name, returns the Puppet catalog version string for the most
-  recent catalog that we've seen for that node.  Returns `nil` if no catalogs
-  are found for the node."
+(defn get-catalog-info
+  "Given a node name, return a map of Puppet catalog information
+  for the most recent catalog that we've seen for that node.
+  The map contains the following data:
+    - `:catalog_version`
+    - `:transaction_uuid`, which may be nil"
   [node]
   {:pre  [(string? node)]
-   :post [((some-fn string? nil?) %)]}
-  (let [query (str "SELECT catalog_version "
+   :post [((some-fn nil? map?) %)]}
+  (let [query (str "SELECT catalog_version, transaction_uuid "
                "FROM catalogs "
                "INNER JOIN certname_catalogs "
                "ON certname_catalogs.catalog = catalogs.hash "
                "WHERE certname = ?")]
-    (:catalog_version (first (query-to-vec query node)))))
+    (first (query-to-vec query node))))
 
 (defn resource-to-wire-format
   "Given a resource as returned by our resource database query functions,
@@ -90,11 +92,13 @@
                    (seq?    (:edges (:data %)))
                    (map?    (:metadata %))))]
    }
-  ;; the main use of get-catalog-version here is just to do a quick check to
+  ;; the main use of get-catalog-info here is just to do a quick check to
   ;; see if we actually have a catalog for the node
-  (when-let [catalog-version (get-catalog-version node)]
-    { :data          {:name      node
-                      :edges     (get-edges node)
-                      :resources (get-resources node)
-                      :version   catalog-version}
-      :metadata      {:api_version 1 }}))
+  (let [info (get-catalog-info node)]
+    (when-let [catalog-version (:catalog_version info)]
+      { :data          {:name             node
+                        :edges            (get-edges node)
+                        :resources        (get-resources node)
+                        :version          catalog-version
+                        :transaction_uuid (:transaction_uuid info)}
+        :metadata      {:api_version 1 }})))
