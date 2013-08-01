@@ -10145,11 +10145,10 @@
             "type" : "User",
             "file" : "/Users/nicklewis/projects/puppetlabs-modules/dist/account/manifests/user.pp"
         } ],
-        "version" : 1330463446
+        "version" : 1330463446,
+        "transaction_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     },
     "metadata" : {
         "api_version" : 1
     }
 }
-
-

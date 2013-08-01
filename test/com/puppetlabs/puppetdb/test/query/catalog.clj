@@ -11,13 +11,15 @@
 (use-fixtures :each with-test-db)
 
 (deftest catalog-query
-  (let [catalog-str     (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json"))
-        catalog         (json/parse-string catalog-str)
-        certname        (get-in catalog ["data" "name"])
-        catalog-version (str (get-in catalog ["data" "version"]))]
+  (let [catalog-str      (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json"))
+        catalog          (json/parse-string catalog-str)
+        certname         (get-in catalog ["data" "name"])
+        catalog-version  (str (get-in catalog ["data" "version"]))
+        transaction-uuid (str (get-in catalog ["data" "transaction_uuid"]))]
     (testcat/replace-catalog catalog-str)
-    (testing "get-catalog-version"
-      (is (= catalog-version (c/get-catalog-version certname))))
+    (testing "get-catalog-info"
+      (is (= catalog-version  (:catalog_version (c/get-catalog-info certname))))
+      (is (= transaction-uuid (:transaction_uuid (c/get-catalog-info certname)))))
     (testing "catalog-for-node"
       (is (= (testcat/munge-catalog-for-comparison catalog)
              (testcat/munge-catalog-for-comparison (c/catalog-for-node certname)))))))

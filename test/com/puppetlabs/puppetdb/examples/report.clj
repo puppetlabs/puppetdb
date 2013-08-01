@@ -6,6 +6,7 @@
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
     :report-format          3
+    :transaction-uuid       "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"

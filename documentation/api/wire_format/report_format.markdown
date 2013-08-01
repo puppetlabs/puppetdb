@@ -20,11 +20,11 @@ otherwise noted, `null` is not allowed anywhere in the report.
         "configuration-version": <string>,
         "start-time": <datetime>,
         "end-time": <datetime>,
-        "resource-events": [<resource-event>, <resource-event>, ...]
+        "resource-events": [<resource-event>, <resource-event>, ...],
+        "transaction-uuid" : <string>
     }
 
-All keys are mandatory, though values that are lists may be empty
-lists.
+All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
 
 `"certname"` is the certname the report is associated with.
 
@@ -42,6 +42,9 @@ the `datetime` format below.
 
 `"end-time"` is the time at which the puppet run completed; see more details about
 the `datetime` format below.
+
+`"transaction-uuid"` is an identifier string used to match the catalog and report
+that were issued during the same puppet run. This field may be `null`.
 
 ### Encoding
 

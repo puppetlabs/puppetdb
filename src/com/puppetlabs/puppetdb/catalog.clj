@@ -105,9 +105,9 @@
   #{:contains :required-by :notifies :before :subscription-of})
 
 (def ^:const catalog-attributes
-  #{:certname :puppetdb-version :api-version :version :edges :resources})
+  #{:certname :puppetdb-version :api-version :transaction-uuid :version :edges :resources})
 
-;; ## Utiltity functions
+;; ## Utility functions
 
 (defn resource-spec-to-map
   "Convert a textual resource specifier like `\"Class[foo]\"` into a map
@@ -242,7 +242,8 @@
     * Stringifies the `version`
     * Adds a `puppetdb-version` with the current catalog format version
     * Renames `api_version` to `api-version`
-    * Renames `name` to `certname`"
+    * Renames `name` to `certname`
+    * Renames `transaction_uuid` to `transaction-uuid`"
   [catalog]
   {:pre [(map? catalog)]
    :post [(string? (:version %))
@@ -250,11 +251,13 @@
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
-          (number? (:api-version %))]}
+          (number? (:api-version %))
+          ((some-fn nil? string?) (:transaction-uuid %))
+          (= (:transaction-uuid %) (:transaction_uuid catalog))]}
   (-> catalog
     (update-in [:version] str)
     (assoc :puppetdb-version catalog-version)
-    (set/rename-keys {:name :certname :api_version :api-version})))
+    (set/rename-keys {:name :certname :api_version :api-version :transaction_uuid :transaction-uuid})))
 
 (def transform
   "Applies every transformation to the catalog, converting it from wire format

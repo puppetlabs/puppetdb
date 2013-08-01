@@ -328,24 +328,30 @@ must be supplied as the value to be matched."
 
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
-  [hash api-version catalog-version]
+  [hash api-version catalog-version transaction-uuid]
   {:pre [(string? hash)
          (number? api-version)
-         (string? catalog-version)]}
-  (sql/insert-record :catalogs {:hash            hash
-                                :api_version     api-version
-                                :catalog_version catalog-version}))
+         (string? catalog-version)
+         (or (nil? transaction-uuid)
+             (string? transaction-uuid))]}
+  (sql/insert-record :catalogs {:hash             hash
+                                :api_version      api-version
+                                :catalog_version  catalog-version
+                                :transaction_uuid transaction-uuid}))
 
 (defn update-catalog-metadata!
   "Given some catalog metadata, update the db"
-  [hash api-version catalog-version]
+  [hash api-version catalog-version transaction-uuid]
   {:pre [(string? hash)
          (number? api-version)
-         (string? catalog-version)]}
+         (string? catalog-version)
+         (or (nil? transaction-uuid)
+             (string? transaction-uuid))]}
   (sql/update-values :catalogs
                      ["hash=?" hash]
-                     {:api_version     api-version
-                      :catalog_version catalog-version}))
+                     {:api_version      api-version
+                      :catalog_version  catalog-version
+                      :transaction_uuid transaction-uuid}))
 
 (defn catalog-exists?
   "Returns a boolean indicating whether or not the given catalog exists in the db"
@@ -538,7 +544,7 @@ must be supplied as the value to be matched."
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
   similarity hash"
-  [{:keys [api-version version resources edges] :as catalog}]
+  [{:keys [api-version version transaction-uuid resources edges] :as catalog}]
   {:pre [(number? api-version)
          (coll? edges)
          (map? resources)]}
@@ -555,11 +561,11 @@ must be supplied as the value to be matched."
 
               (when exists?
                 (inc! (:duplicate-catalog metrics))
-                (update-catalog-metadata! hash api-version version))
+                (update-catalog-metadata! hash api-version version transaction-uuid))
 
               (when-not exists?
                 (inc! (:new-catalog metrics))
-                (add-catalog-metadata! hash api-version version)
+                (add-catalog-metadata! hash api-version version transaction-uuid)
                 (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
                   (time! (:add-resources metrics)
                          (add-resources! hash resources refs-to-hashes))
@@ -712,7 +718,7 @@ must be supplied as the value to be matched."
   configuration version, timestamps, events).
   "
   [{:keys [certname puppet-version report-format configuration-version
-           start-time end-time resource-events] :as report}]
+           start-time end-time resource-events transaction-uuid] :as report}]
   (-> (sorted-map)
     (assoc :certname certname)
     (assoc :puppet-version puppet-version)
@@ -721,6 +727,7 @@ must be supplied as the value to be matched."
     (assoc :start-time start-time)
     (assoc :end-time end-time)
     (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
+    (assoc :transaction-uuid transaction-uuid)
     (pr-str)
     (utils/utf8-string->sha1)))
 
@@ -763,7 +770,7 @@ must be supplied as the value to be matched."
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
   [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events]
+           start-time end-time resource-events transaction-uuid]
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
@@ -789,7 +796,8 @@ must be supplied as the value to be matched."
             :configuration_version  configuration-version
             :start_time             (to-timestamp start-time)
             :end_time               (to-timestamp end-time)
-            :receive_time           (to-timestamp timestamp)})
+            :receive_time           (to-timestamp timestamp)
+            :transaction_uuid       transaction-uuid})
         (apply sql/insert-records :resource_events resource-event-rows)
         (if update-latest-report?
           (update-latest-report! certname))))))
