@@ -23,6 +23,9 @@ EOD
 
   # Iterate and display commands in the libexec folder
   for f in $files; do
+    if [ ! -e $f ]; then
+      continue
+    fi
     echo "   ${f##*/puppetdb-}"
   done
 
@@ -47,7 +50,7 @@ function execsubcommand {
   shift
   cmd="<%= @libexec_dir -%>/puppetdb-${sub}"
 
-  if [ -x ${cmd} ]; then
+  if [ -e ${cmd} ]; then
     exec "${cmd}" "$@"
   else
     echo "puppetdb: '${sub}' is not a puppetdb command. See '$(basename $0) --help'."
