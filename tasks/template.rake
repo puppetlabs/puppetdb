@@ -16,6 +16,12 @@ task :template => [ :clean ] do
    chmod 0700, "ext/files/puppetdb-export"
    erb "ext/templates/puppetdb-anonymize.erb", "ext/files/puppetdb-anonymize"
    chmod 0700, "ext/files/puppetdb-anonymize"
+   cp_pr "ext/templates/puppetdb-ssl-setup", "ext/files"
+   chmod 0700, "ext/files/puppetdb-ssl-setup"
+   erb "ext/templates/puppetdb.erb", "ext/files/puppetdb"
+   chmod 0700, "ext/files/puppetdb"
+   erb "ext/templates/puppetdb-legacy.erb", "ext/files/puppetdb-legacy"
+   chmod 0700, "ext/files/puppetdb-legacy"
 
    # files for deb
    erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
@@ -33,10 +39,6 @@ task :template => [ :clean ] do
    erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
    erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
    cp_pr FileList["ext/templates/deb/*"], "ext/files/debian"
-   cp_pr "ext/templates/puppetdb-ssl-setup", "ext/files"
-   chmod 0700, "ext/files/puppetdb-ssl-setup"
-   cp_pr "ext/templates/puppetdb", "ext/files"
-   chmod 0700, "ext/files/puppetdb"
    rm_rf FileList["ext/files/debian/*.erb"]
 
    # files for rpm

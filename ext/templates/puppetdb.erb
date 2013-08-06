@@ -7,16 +7,21 @@
 # Display usage then exit
 function usage {
   cat <<EOD
-usage: puppetdb [--help] <command> [<args>]
+usage: $(basename $0) [--help] <command> [<args>]
 
 The most commonly used puppetdb commands are:
-   anonymize
-   export
-   foreground
-   import
-   ssl-setup
+EOD
 
-See 'puppetdb <command> -h' for more information on a specific command.
+  # Iterate and display commands in the libexec folder
+  local files=<%= @libexec_dir -%>/puppetdb-*
+  for f in $files; do
+    local short=$(echo $(basename $f) | sed -e 's/puppetdb-//')
+    echo "   ${short}"
+  done
+
+  cat << EOD
+
+See '$(basename $0) <command> -h' for more information on a specific command.
 EOD
   exit 0
 }
@@ -34,12 +39,12 @@ function execsubcommand {
   sub=$1
   shift
   args="$@"
-  cmd="puppetdb-${sub}"
+  cmd="<%= @libexec_dir -%>/puppetdb-${sub}"
 
-  if which ${cmd}; then
+  if [ -x ${cmd} ]; then
     exec $cmd $args
   else
-    echo "puppetdb: '${sub}' is not a puppetdb command. See '$0 --help'."
+    echo "puppetdb: '${sub}' is not a puppetdb command. See '$(basename $0) --help'."
   fi
 }
 

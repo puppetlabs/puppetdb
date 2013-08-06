@@ -50,6 +50,7 @@
 %global _sysconfdir /etc/puppetlabs
 %define _lib lib
 %define _prefix /opt/puppet
+%define _libexecdir %{_prefix}/libexec
 <% end -%>
 
 <% if @pe -%>
@@ -157,6 +158,7 @@ rake terminus PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT
 
 mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
 mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
+mkdir -p $RPM_BUILD_ROOT/%{_libexecdir}/%{name}
 touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
 
 %clean
@@ -248,6 +250,12 @@ fi
 %{_sbindir}/puppetdb-export
 %{_sbindir}/puppetdb-anonymize
 %{_sbindir}/puppetdb
+%dir %{_libexecdir}/%{name}
+%{_libexecdir}/%{name}/puppetdb-ssl-setup
+%{_libexecdir}/%{name}/puppetdb-foreground
+%{_libexecdir}/%{name}/puppetdb-import
+%{_libexecdir}/%{name}/puppetdb-export
+%{_libexecdir}/%{name}/puppetdb-anonymize
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 <% unless @pe -%>

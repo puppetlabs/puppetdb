@@ -44,6 +44,8 @@ else
   @pe = FALSE
 end
 
+@osfamily = (Facter.value(:osfamily) || "").downcase
+
 if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
     @etc_dir = "/etc/puppetlabs/puppetdb"
@@ -51,6 +53,7 @@ if @pe
     @initscriptname = "/etc/init.d/pe-puppetdb"
     @log_dir = "/var/log/pe-puppetdb"
     @lib_dir = "/opt/puppet/share/puppetdb"
+    @libexec_dir = "/opt/puppet/libexec/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
     @pe_version = ENV['PE_VER'] || '3.0'
@@ -62,6 +65,12 @@ else
     @initscriptname = "/etc/init.d/puppetdb"
     @log_dir = "/var/log/puppetdb"
     @lib_dir = "/var/lib/puppetdb"
+    @libexec_dir = case @osfamily
+      when /redhat/
+        "/usr/libexec/puppetdb"
+      else
+        "/usr/lib/puppetdb"
+      end
     @link = "/usr/share/puppetdb"
     @name = "puppetdb"
     @sbin_dir = "/usr/sbin"
@@ -77,7 +86,6 @@ PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
 PE_SITELIBDIR = "/opt/puppet/lib/ruby/site_ruby/1.9.1"
 
-@osfamily = (Facter.value(:osfamily) || "").downcase
 
 case @osfamily
   when /debian/
