@@ -29,7 +29,7 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
   cp_pr "puppet", "#{workdir}/ext/master"
   mkdir_p "pkg"
   pkg_dir = File.expand_path(File.join(".", "pkg"))
-  sh "cd #{temp}; tar --exclude=.gitignore --exclude=ext/packaging -zcf #{pkg_dir}/#{@name}-#{@version}.tar.gz #{@name}-#{@version}"
+  sh "cd #{temp}; tar --exclude=.gitignore --exclude=ext/packaging -zcf '#{pkg_dir}/#{@name}-#{@version}.tar.gz' #{@name}-#{@version}"
   rm_rf temp
   puts
   puts "Wrote #{`pwd`.strip}/pkg/#{@name}-#{@version}"
