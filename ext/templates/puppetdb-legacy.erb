@@ -1,8 +1,7 @@
 #!/bin/bash
 
-fullcommand=$(basename $0)
-subcommand=$(echo $fullcommand | sed 's/puppetdb-//')
-args=$@
+fullcommand="${0##*/}"
+subcommand="${fullcommand#puppetdb-}"
 echo "WARNING: ${fullcommand} style of executing puppetdb subcommands is deprecated, use 'puppetdb ${subcommand}' instead"
 
-exec puppetdb ${subcommand} ${args}
+exec puppetdb "${subcommand}" "$@"

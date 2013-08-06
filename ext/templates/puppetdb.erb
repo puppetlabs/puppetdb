@@ -6,6 +6,15 @@
 
 # Display usage then exit
 function usage {
+  local libexecdir=<%= @libexec_dir %>
+  local files="${libexecdir}/puppetdb-*"
+
+  # Seems trying to match an asterisk is hard in bash
+  if expr $files : ".*\*.*" > /dev/null; then
+    echo "ERROR: No sub-commands found in ${libexecdir}"
+    exit 1
+  fi
+
   cat <<EOD
 usage: $(basename $0) [--help] <command> [<args>]
 
@@ -13,10 +22,8 @@ The most commonly used puppetdb commands are:
 EOD
 
   # Iterate and display commands in the libexec folder
-  local files=<%= @libexec_dir -%>/puppetdb-*
   for f in $files; do
-    local short=$(echo $(basename $f) | sed -e 's/puppetdb-//')
-    echo "   ${short}"
+    echo "   ${f##*/puppetdb-}"
   done
 
   cat << EOD
@@ -29,7 +36,7 @@ EOD
 # Execute the subcommand if available.
 #
 # $1 - subcommand
-# $2 - arguments
+# $n - arguments
 #
 # Example:
 #
@@ -38,11 +45,10 @@ EOD
 function execsubcommand {
   sub=$1
   shift
-  args="$@"
   cmd="<%= @libexec_dir -%>/puppetdb-${sub}"
 
   if [ -x ${cmd} ]; then
-    exec $cmd $args
+    exec "${cmd}" "$@"
   else
     echo "puppetdb: '${sub}' is not a puppetdb command. See '$(basename $0) --help'."
   fi
@@ -56,8 +62,4 @@ if [ -z $1 ] || [ $1 = "--help" ] || [ $1 = "-h" ]; then
   usage
 fi
 
-sub=$1
-shift
-args="$@"
-
-execsubcommand $sub $args
+execsubcommand "$@"

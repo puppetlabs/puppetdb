@@ -46,17 +46,19 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/repl.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
   cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
-  cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/puppetdb-ssl-setup"
-  cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/puppetdb-foreground"
-  cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/puppetdb-import"
-  cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/puppetdb-export"
-  cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/puppetdb-anonymize"
-  cp_pr "ext/files/puppetdb-ssl-setup", "#{DESTDIR}/#{@libexec_dir}"
-  cp_pr "ext/files/puppetdb-foreground", "#{DESTDIR}/#{@libexec_dir}"
-  cp_pr "ext/files/puppetdb-import", "#{DESTDIR}/#{@libexec_dir}"
-  cp_pr "ext/files/puppetdb-export", "#{DESTDIR}/#{@libexec_dir}"
-  cp_pr "ext/files/puppetdb-anonymize", "#{DESTDIR}/#{@libexec_dir}"
   cp_pr "ext/files/puppetdb", "#{DESTDIR}/#{@sbin_dir}"
+
+  # Copy legacy wrapper for deprecated hyphenated sub-commands
+  legacy_cmds=%w|puppetdb-ssl-setup puppetdb-foreground puppetdb-import puppetdb-export puppetdb-anonymize|
+  legacy_cmds.each do |file|
+    cp_pr "ext/files/puppetdb-legacy", "#{DESTDIR}/#{@sbin_dir}/#{file}"
+  end
+
+  # Copy internal sub-commands to libexec location
+  internal_cmds=legacy_cmds
+  internal_cmds.each do |file|
+    cp_pr "ext/files/#{file}", "#{DESTDIR}/#{@libexec_dir}"
+  end
 
   # figure out which init script to install based on facter
   if @osfamily == "redhat"

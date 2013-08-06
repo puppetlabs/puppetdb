@@ -66,7 +66,7 @@ else
     @log_dir = "/var/log/puppetdb"
     @lib_dir = "/var/lib/puppetdb"
     @libexec_dir = case @osfamily
-      when /redhat/
+      when /redhat/, /suse/, /darwin/, /bsd/
         "/usr/libexec/puppetdb"
       else
         "/usr/lib/puppetdb"
