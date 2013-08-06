@@ -22,7 +22,7 @@ test_name "puppetdb-ssl-setup" do
     end
 
     step "run puppetdb-ssl-setup again to make sure it is idempotent" do
-      on database, "#{sbin_loc}/puppetdb-ssl-setup"
+      on database, "#{sbin_loc}/puppetdb-ssl-setup", :acceptable_exit_codes => [1]
       on database, "diff #{confd}/jetty.ini #{confd}/jetty.ini.bak.ssl_setup_tests"
     end
 
