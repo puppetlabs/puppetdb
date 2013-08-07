@@ -11,6 +11,21 @@ PuppetDB 1.4.0 is a new feature release.
 
 Notable features and improvements:
 
+* (#21732) Allow SSL configuration based on Puppet PEM files (Chris Price & Ken Barber)
+
+  This feature introduces some functions for reading keys and
+  certificates from PEM files, and dynamically constructing java
+  KeyStore instances in memory without requiring a .jks file on
+  disk.
+
+  It also introduces some new configuration options that may
+  be specified in the `jetty` section of the PuppetDB config
+  to initialize the web server SSL settings based on your
+  Puppet PEM files.
+
+  The tool `puppetdb-ssl-setup` has been modified now to handle these new
+  parameters, but leave legacy configuration alone by default.
+
 * (#20801) allow */* wildcard (Marc Fournier)
 
   This allows you to use the default "Accept: */*" header to retrieve JSON
@@ -26,7 +41,10 @@ Notable features and improvements:
 
 * Avoid Array#find in Puppet::Resource::Catalog::Puppetdb#find_resource (Aman Gupta)
 
-  This patch provides performance improvements in the terminus. TODO: more detail.
+  This patch provides performance improvements in the terminus, during the
+  synthesize_edges stage. For example, in cases with 10,000 resource (with
+  single relationships) we saw a reduction from 83 seconds to 6 seconds for a
+  full Puppet run after this patch was applied.
 
 * Portability fixes for OpenBSD (Jasper Lievisse Adriaanse)
 
@@ -62,7 +80,7 @@ Notable features and improvements:
   If the option is not supplied, we use the default set of protocols
   enabled by the local JVM.
 
-* Create new conn-lifetime setting (Chuck Scheweizer & Deepak Giridharagopal)
+* Create new conn-lifetime setting (Chuck Schweizer & Deepak Giridharagopal)
 
   This creates a new option called `conn-lifetime` that governs how long
   idle/active connections stick around.
@@ -83,21 +101,9 @@ Notable features and improvements:
   by removing the validation check and updating the documentation to reflect this
   this new behaviour.
 
-
-* (#21732) Allow SSL configuration based on Puppet PEM files (Chris Price & Ken Barber)
-
-  This feature introduces some functions for reading keys and
-  certificates from PEM files, and dynamically constructing java
-  KeyStore instances in memory without requiring a .jks file on
-  disk.
-
-  It also introduces some new configuration options that may
-  be specified in the `jetty` section of the PuppetDB config
-  to initialize the web server SSL settings based on your
-  Puppet PEM files.
-
-  The tool `puppetdb-ssl-setup` has been modified now to handle these new
-  parameters, but leave legacy configuration alone by default.
+  To reduce the risk of memory bloat, the settings `resource-query-limit` still
+  apply, you should use this to set the maximum amount of resources in a single
+  query to provide safety from such out of memory problems.
 
 Bug fixes:
 
