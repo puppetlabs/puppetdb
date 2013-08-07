@@ -1,3 +1,8 @@
+/**
+ *
+ * Functions taken from original index.html puppetDB dashboard
+ */
+
 // Parse URL arguments
 function getParameter(paramName) {
   var searchString = window.location.search.substring(1),

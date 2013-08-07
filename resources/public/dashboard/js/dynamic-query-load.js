@@ -4,9 +4,30 @@
  * @author Brian Cain
  */
 
+/**************************************************
+ * BEGIN Constants
+ *************************************************/
+
+
+// Map of useful queries that are provided as examples for user
+var QUERY_MAP = {};
+QUERY_MAP['uptimeFact'] = ['["and", ["=", "name", "uptime_seconds"], [">=", "value", 100000], ["<", "value", 1000000]]'];
+QUERY_MAP['factOS'] = ['["=", "name", "operatingsystem"]'];
+QUERY_MAP['nodeKernelLinux'] = ['["=", ["fact", "kernel"], "Linux"]'];
+QUERY_MAP['resourceCert'] = ['["=", "certname", "test.example.com"]'];
+QUERY_MAP['resourceExport'] = ['["and", ["=", "certname", "test.example.com"], ["=", "exported", true]]'];
+QUERY_MAP['factCert'] = ['["=", "certname", "test.example.com"]'];
+QUERY_MAP['reportLoad'] = ['["=", "certname", "example.local"]'];
+QUERY_MAP['eventLoad'] = ['["=", "certname", "example.local"]'];
+
+/**************************************************
+ * END Constants
+ *************************************************/
+
 /**
  *
- * Functions to dynamically load useful queries
+ * Functions to dynamically load useful queries that
+ *  have been saved as previous queries.
  */
 
 function dynamicLoad(versionSelect, endpointSelect, queryText) {
@@ -14,94 +35,23 @@ function dynamicLoad(versionSelect, endpointSelect, queryText) {
   document.getElementById('versionList').selectedIndex=versionSelect;
   buildVersionDropdown();
   document.getElementById('endpointDropdown').selectedIndex=endpointSelect;
-  isTextboxVisible();
+  updateTextboxVisibility();
   //document.getElementById('queryTxt').innerHTML = unescape(queryText);
   $('#queryTxt').val(unescape(queryText));
 }
 
 /**
  *
- * Rest of the functions...
+ * Function used in HTML tags to dynamically load example queries
  */
 
-function uptimeFactLoad(){
+function queryDynamicLoad(versionSelect, endpointSelect, key, startRange, endRange){
   $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
+  document.getElementById('versionList').selectedIndex=parseInt(versionSelect);
   buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=1;
-  isTextboxVisible();
-  $('#queryTxt').val('["and", ["=", "name", "uptime_seconds"], [">=", "value", 100000], ["<", "value", 1000000]]');
-}
-
-function factOSLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=1;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", "name", "operatingsystem"]');
-}
-
-function nodeKernelLinuxLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=3;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", ["fact", "kernel"], "Linux"]');
-}
-
-function resourceCertLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=2;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", "certname", "test.example.com"]');
+  document.getElementById('endpointDropdown').selectedIndex=parseInt(endpointSelect);
+  updateTextboxVisibility();
+  $('#queryTxt').val(QUERY_MAP[key]);
   document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(19,35);
-}
-
-function resourceExportLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=2;
-  isTextboxVisible();
-  $('#queryTxt').val('["and", ["=", "certname", "test.example.com"], ["=", "exported", true]]');
-  document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(27,43);
-}
-
-function factCertLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=1;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=1;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", "certname", "test.example.com"]');
-  document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(19,35);
-}
-
-function reportLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=2;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=1;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", "certname", "example.local"]');
-  document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(19,32);
-}
-
-function eventLoad(){
-  $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=2;
-  buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=2;
-  isTextboxVisible();
-  $('#queryTxt').val('["=", "certname", "example.local"]');
-  document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(19,32);
+  document.getElementById('queryTxt').setSelectionRange(parseInt(startRange),parseInt(endRange));
 }

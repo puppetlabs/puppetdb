@@ -1,8 +1,21 @@
 /**
- * PuppetDB Dashboard javascript
+ * PuppetDB Query Dashboard javascript
  *
  * @author Brian Cain
  */
+
+/**************************************************
+ * BEGIN Constants
+ *************************************************/
+
+var COOKIE_NAME = 'puppetdb-query-cookie';
+var END_POINTS_MAP = {};
+END_POINTS_MAP['v2'] = ['facts','resources','nodes','fact-names','metrics'];
+END_POINTS_MAP['experimental'] = ['reports','events'];
+
+/**************************************************
+ * END Constants
+ *************************************************/
 
 /**
  *
@@ -59,7 +72,7 @@ function getQuery() {
  */
 
 function setCookie(query, version, endPoint) {
-  var $cookieValue = $.cookie('my_cookie'),
+  var $cookieValue = $.cookie(COOKIE_NAME),
       queryCookie = version.value + "\t" + endPoint.value + "\t" + query.value.replace(/\s+/g, '');
 
   if ($cookieValue === undefined) {
@@ -71,7 +84,7 @@ function setCookie(query, version, endPoint) {
   else {
     $cookieValue += queryCookie + "\n";
   }
-  $.cookie('my_cookie', $cookieValue);
+  $.cookie(COOKIE_NAME, $cookieValue);
 }
 
 /**
@@ -80,7 +93,7 @@ function setCookie(query, version, endPoint) {
  */
 
 function getCookie() {
-  var $cookie = $.cookie('my_cookie');
+  var $cookie = $.cookie(COOKIE_NAME);
   // console.log($cookie);
   return $cookie;
 }
@@ -124,6 +137,8 @@ function isExistingQuery(cookie, new_query){
 /**
  *
  * Function that builds a list of links of previous queries stored in the cookie
+ *
+ * Queries are shown from newest used query to oldest
  */
 
 function buildPrevQueries(){
@@ -165,57 +180,23 @@ function buildPrevQueries(){
  */
 
 function getMenuNumber(menuVar){
-  if (menuVar === 'v2'){
-    return 1;
-  }
-  else if(menuVar === 'experimental') {
-    return 2;
-  }
-  else if (menuVar === 'facts') {
-    return 1;
-  }
-  else if (menuVar === 'resources') {
-    return 2;
-  }
-  else if (menuVar === 'nodes') {
-    return 3;
-  }
-  else if (menuVar === 'reports') {
-    return 1;
-  }
-  else if (menuVar === 'events') {
-    return 2;
-  }
-}
+    var keyCount = 1,
+        valResult = 0;
 
-/**
- *
- * Returns the key,value pairs of available APIs from PuppetDB
- *
- * Eventually it would be nice if this function queried puppetDB
- *  and got this information from an HTTP GET json
- */
-
-function getEndPointsMap() {
-  var endPointsMap = {};
-  endPointsMap['v2'] = ['facts','resources','nodes','fact-names','metrics'];
-  endPointsMap['experimental'] = ['reports','events'];
-
-  /*console.log(endPointsMap);
-
-  var keys = [];
-
-  for (var key in endPointsMap){
-    if (endPointsMap.hasOwnProperty(key)){
-      console.log("Key: " + key);
-      console.log("Value: " + endPointsMap[key]);
-      for (var val in endPointsMap[key]){
-        console.log(endPointsMap[key][val]);
+  for (var key in END_POINTS_MAP) {
+    if (menuVar === key) {
+      return keyCount;
+    }
+    else {
+      keyCount += 1;
+    }
+    for (var val in END_POINTS_MAP[key]) {
+      if (menuVar === END_POINTS_MAP[key][val]) {
+        valResult = parseInt(val) + 1;
+        return valResult;
       }
     }
-  }*/
-
-  return endPointsMap;
+  }
 }
 
 /**
@@ -224,26 +205,25 @@ function getEndPointsMap() {
  */
 
 function buildVersionDropdown() {
-  var endPointsMap = getEndPointsMap(),
-      endPointTable = "<select id=\"endpointDropdown\" onchange=\"isTextboxVisible()\">",
+  var endPointTable = "<select id=\"endpointDropdown\" onchange=\"updateTextboxVisibility()\">",
       version = document.getElementById('versionList'),
       dropdownVisible,
       endPointArray;
 
   endPointTable += "<option></option>";
 
-  document.getElementById("epDropdown").innerHTML = "";
+  document.getElementById("epDropdownContainer").innerHTML = "";
 
-  if (endPointsMap.hasOwnProperty(version.value)) {
-    endPointArray = endPointsMap[version.value];
+  if (END_POINTS_MAP.hasOwnProperty(version.value)) {
+    endPointArray = END_POINTS_MAP[version.value];
     for (var val in endPointArray) {
       endPointTable += "<option>" + endPointArray[val] + "</option>";
     }
   }
 
   endPointTable += "</select>";
-  $("#epDropdown").append(endPointTable);
-  isDropdownVisible();
+  $("#epDropdownContainer").append(endPointTable);
+  updateDropdownVisibility();
 }
 
 /**
@@ -252,18 +232,17 @@ function buildVersionDropdown() {
  */
 
 function buildDropdowns() {
-  var endPointsMap = getEndPointsMap();
   var versionTable = "<select id=\"versionList\" onchange=\"buildVersionDropdown()\">";
 
   versionTable += "<option></option>";
-  for (var key in endPointsMap) {
-    if(endPointsMap.hasOwnProperty(key)) {
+  for (var key in END_POINTS_MAP) {
+    if(END_POINTS_MAP.hasOwnProperty(key)) {
       versionTable += "<option>" + key + "</option>";
     }
   }
   versionTable += "</select>";
 
-  $("#versionDropdown").append(versionTable);
+  $("#versionDropdownContainer").append(versionTable);
 }
 
 /**
@@ -274,37 +253,13 @@ function buildDropdowns() {
 function tableResults(url, endPoint, versionNumber) {
   var table = "",
       count = 0,
-      head = "",
+      head = "<thead><tr>",
       body = "",
       formattedElement = "";
 
-  /*if (endPoint.value === 'fact-names' || versionNumber.value === 'v1' && (endPoint.value === 'nodes' || endPoint.value === 'status')) {
-    $.getJSON(url,function(result) {
-      table = "<table class=\"table table-hover\">";
-      head = "<thead><tr><th>#</th><th>Fact Name</th></tr></thead>";
-      body = "<tbody>";
-      $.each(result, function(i, field) {
-        body += "<tr><td>" + i + "</td>" + "<td>" + field + "</td></tr>";
-      });
-      body += "</tbody>";
-      table += head;
-      table += body;
-      table += "</table>";
-    })
-    .fail(function() {
-        console.error("An error has occured") 
-        $("#results").html("<font color=\"red\">**An error has occured See the console for details.**</font>");
-    } )
-    .done(function() {
-      $("#tableResults").append(table);
-    } );
-  }*/
   $.getJSON(url,function(result) {
     table = "<table class=\"table table-hover\">";
     $.each(result, function(i, field) {
-      if (count === 0) {
-        head = "<thead><tr>";
-      }
       body = "<tbody><tr>";
       $.each(field, function(i, elem) {
         formattedElement = formatElement(elem);
@@ -334,13 +289,17 @@ function tableResults(url, endPoint, versionNumber) {
   } );
 }
 
+/**
+ *
+ * This function will be used to make
+ * the tables look less "auto-generated".
+ *
+ * For now it only worries about if an element is null. If
+ *  it's null, just return a blank.
+ */
+
 function formatElement(elem) {
-  if (elem === null) {
-    return "";
-  }
-  else {
-    return elem;
-  }
+  return elem || "";
 }
 
 /**
@@ -348,7 +307,7 @@ function formatElement(elem) {
  * Dropdown visibility and other functions
  */
 
-function isTextboxVisible() {
+function updateTextboxVisibility() {
   var option = document.getElementById('endpointDropdown');
   if (option.value === 'fact-names' || option.value === 'metrics' || option.value === '') {
     document.getElementById('queryTxt').disabled = true;
@@ -360,7 +319,7 @@ function isTextboxVisible() {
   }
 }
 
-function isDropdownVisible() {
+function updateDropdownVisibility() {
   var option = document.getElementById('versionList');
   if (option.value === '') {
     document.getElementById('endpointDropdown').disabled = true;
@@ -369,7 +328,7 @@ function isDropdownVisible() {
   else {
     document.getElementById('endpointDropdown').disabled = false;
   }
-  isTextboxVisible();
+  updateTextboxVisibility();
 }
 
 function generatePlaceholder() {
