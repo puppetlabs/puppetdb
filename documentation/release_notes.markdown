@@ -62,7 +62,7 @@ Notable features and improvements:
   If the option is not supplied, we use the default set of protocols
   enabled by the local JVM.
 
-* Create new conn-lifetime setting (Chuck & Deepak Giridharagopal)
+* Create new conn-lifetime setting (Chuck Scheweizer & Deepak Giridharagopal)
 
   This creates a new option called `conn-lifetime` that governs how long
   idle/active connections stick around.
