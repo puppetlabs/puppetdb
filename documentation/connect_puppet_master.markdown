@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.3 » Connecting Puppet Masters to PuppetDB"
+title: "PuppetDB 1.4 » Connecting Puppet Masters to PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
