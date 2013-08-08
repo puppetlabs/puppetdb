@@ -32,9 +32,9 @@ QUERY_MAP['eventLoad'] = ['["=", "certname", "example.local"]'];
 
 function dynamicLoad(versionSelect, endpointSelect, queryText) {
   $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=versionSelect;
+  document.getElementById('versionList').selectedIndex=getVersionDropdown(versionSelect);
   buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=endpointSelect;
+  document.getElementById('endpointDropdown').selectedIndex=getEndpointDropdown(endpointSelect);
   updateTextboxVisibility();
   //document.getElementById('queryTxt').innerHTML = unescape(queryText);
   $('#queryTxt').val(unescape(queryText));
@@ -47,11 +47,47 @@ function dynamicLoad(versionSelect, endpointSelect, queryText) {
 
 function queryDynamicLoad(versionSelect, endpointSelect, key, startRange, endRange){
   $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=parseInt(versionSelect);
+  document.getElementById('versionList').selectedIndex=getVersionDropdown(versionSelect);
   buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=parseInt(endpointSelect);
+  document.getElementById('endpointDropdown').selectedIndex=getEndpointDropdown(endpointSelect);
   updateTextboxVisibility();
   $('#queryTxt').val(QUERY_MAP[key]);
   document.getElementById('queryTxt').focus();
   document.getElementById('queryTxt').setSelectionRange(parseInt(startRange),parseInt(endRange));
+}
+
+/**
+ *
+ * Takes a string that relates to the PuppetDB Version
+ *
+ * Returns a number that relates to the position of the puppetdb version
+ *  within the dropdown DOM.
+ */
+
+function getVersionDropdown(versionSelect) {
+  var versionDOM = document.getElementById('versionList');
+
+  for (var elem in versionDOM) {
+    if (versionSelect === versionDOM.options[elem].value) {
+      return elem;
+    }
+  }
+}
+
+/**
+ *
+ * Takes a string that relates to the PuppetDB end point
+ *
+ * Returns a number that relates to the position of the 
+ *   endpoint within the dropdown DOM
+ */
+
+function getEndpointDropdown(endpointSelect) {
+  var endpointDOM = document.getElementById('endpointDropdown');
+
+  for (var elem in endpointDOM) {
+    if (endpointSelect === endpointDOM.options[elem].value) {
+      return elem;
+    }
+  }
 }

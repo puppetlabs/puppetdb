@@ -161,8 +161,8 @@ function buildPrevQueries(){
       if ($cookieArr[query] !== '') {
         if (count < 10) {
           splitQuery = $cookieArr[query].split(/\t/);
-          vers = getMenuNumber(splitQuery[0]);
-          endpoint = getMenuNumber(splitQuery[1]);
+          vers = splitQuery[0];
+          endpoint = splitQuery[1];
           userQuery = splitQuery[2];
           queryHTML += "<li><code><a href=\"#\" onclick=\"dynamicLoad('" + vers + "', '" + endpoint + "', '" + escape(userQuery) + "')\">" + $cookieArr[query] + "</a></code></li>";
           count += 1;
