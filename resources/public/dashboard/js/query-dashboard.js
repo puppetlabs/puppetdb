@@ -252,30 +252,28 @@ function buildDropdowns() {
 
 function tableResults(url, endPoint, versionNumber) {
   var table = "",
-      count = 0,
-      head = "<thead><tr>",
       body = "",
+      head = "";
       formattedElement = "";
 
   $.getJSON(url,function(result) {
     table = "<table class=\"table table-hover\">";
+    body = "<tbody><tr>";
+    head = "<thead><tr>";
+
+    for (var header in result[0]){
+      head += "<th>" + header + "</th>";
+    }
+
+    head += "</tr></thead>";
+    table += head;
+
     $.each(result, function(i, field) {
-      body = "<tbody><tr>";
       $.each(field, function(i, elem) {
         formattedElement = formatElement(elem);
-        if (count === 0) {
-          head += "<th>" + i + "</th>";
-        }
         body += "<td>" + formattedElement + "</td>";
       });
-      if (count === 0) {
-        head += "</tr></thead>";
-      }
       body += "</tr></tbody>";
-      if (count === 0) {
-        table += head;
-        count = 1;
-      }
       table += body
     });
     table += "</table>";
