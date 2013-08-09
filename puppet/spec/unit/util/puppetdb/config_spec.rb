@@ -31,7 +31,6 @@ describe Puppet::Util::Puppetdb::Config do
         config = described_class.load
         config.server.should == 'puppetdb'
         config.port.should == 8081
-        config.max_queued_commands.should == 1000
       end
 
     end
@@ -60,12 +59,10 @@ CONF
 [main]
 server = main_server
 port = 1234
-max_queued_commands = 0
 CONF
         config = described_class.load
         config.server.should == 'main_server'
         config.port.should == 1234
-        config.max_queued_commands.should == 0
       end
 
       it "should use the default if no value is specified" do
