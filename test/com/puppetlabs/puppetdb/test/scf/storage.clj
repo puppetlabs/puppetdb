@@ -9,6 +9,7 @@
         [com.puppetlabs.puppetdb.examples.report :only [reports]]
         [com.puppetlabs.puppetdb.testutils.report]
         [com.puppetlabs.puppetdb.testutils.event]
+        [com.puppetlabs.puppetdb.query.report :only [is-latest-report?]]
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [clojure.test]
@@ -516,6 +517,18 @@
         (assoc report
           :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
+  (deftest latest-report
+    (testing "should flag report as 'latest'"
+      (let [node        (:certname report)
+            report-hash (store-example-report! report timestamp)]
+        (is (is-latest-report? node report-hash))
+        (let [new-report-hash (store-example-report!
+                                (-> report
+                                  (assoc :configuration-version "bar")
+                                  (assoc :end-time (now)))
+                                timestamp)]
+          (is (is-latest-report? node new-report-hash))
+          (is (not (is-latest-report? node report-hash)))))))
 
 
   (deftest report-cleanup

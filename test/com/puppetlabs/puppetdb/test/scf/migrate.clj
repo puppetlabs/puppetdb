@@ -89,7 +89,8 @@
                                           (-> basic
                                             (assoc :certname certname)
                                             (assoc :end-time end-time))
-                                          received-time))]
+                                          received-time
+                                          false))]
         ;; first we run all of the schema migrations *prior* to the
         ;; introduction of the `latest_reports` table
         (doseq [i applied]

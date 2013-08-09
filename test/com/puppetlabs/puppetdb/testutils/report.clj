@@ -58,13 +58,23 @@
     (dissoc "receive-time")))
 
 (defn store-example-report!
-  [example-report timestamp]
-  (let [example-report  (munge-example-report-for-storage example-report)
-        report-hash     (scf-store/report-identity-string example-report)]
-    (report/validate! 2 example-report)
-    (scf-store/maybe-activate-node! (:certname example-report) timestamp)
-    (scf-store/add-report! example-report timestamp)
-    report-hash))
+  "Store an example report (from examples/report.clj) for use in tests.  Params:
+
+   - `example-report`: the report (as a map)
+   - `timestamp`: the `received-time` for the report
+   - `update-latest-report?` (optional): if `false`, then the `latest_reports` table
+      will not be updated to reflect the new report.  Defaults to `true`.  This only
+      exists to allow testing of the schema migration code; you should almost never pass
+      a value for this."
+  ([example-report timestamp]
+    (store-example-report! example-report timestamp true))
+  ([example-report timestamp update-latest-report?]
+    (let [example-report  (munge-example-report-for-storage example-report)
+          report-hash     (scf-store/report-identity-string example-report)]
+      (report/validate! 2 example-report)
+      (scf-store/maybe-activate-node! (:certname example-report) timestamp)
+      (scf-store/add-report!* example-report timestamp update-latest-report?)
+      report-hash)))
 
 (defn expected-report
   [example-report]
