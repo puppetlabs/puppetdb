@@ -1,8 +1,144 @@
 ---
-title: "PuppetDB 1.3 » Release Notes"
+title: "PuppetDB 1.4 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
+
+1.4.0
+-----
+
+PuppetDB 1.4.0 is a new feature release.
+
+Notable features and improvements:
+
+* (#21732) Allow SSL configuration based on Puppet PEM files (Chris Price & Ken Barber)
+
+  This feature introduces some functions for reading keys and
+  certificates from PEM files, and dynamically constructing java
+  KeyStore instances in memory without requiring a .jks file on
+  disk.
+
+  It also introduces some new configuration options that may
+  be specified in the `jetty` section of the PuppetDB config
+  to initialize the web server SSL settings based on your
+  Puppet PEM files.
+
+  The tool `puppetdb-ssl-setup` has been modified now to handle these new
+  parameters, but leave legacy configuration alone by default.
+
+* (#20801) allow */* wildcard (Marc Fournier)
+
+  This allows you to use the default "Accept: */*" header to retrieve JSON
+  documents from PuppetDB without needed the extra "Accept: applicaiton/json"
+  header when using tools such as curl.
+
+* (#15369) Terminus for use with puppet apply (Ken Barber)
+
+  This patch provides a new terminus that is suitable for facts storage usage
+  with masterless or `puppet apply` usage. The idea is that it acts as a fact
+  cache terminus, intercepting the first save request and storing the values
+  in PuppetDB.
+
+* Avoid Array#find in Puppet::Resource::Catalog::Puppetdb#find_resource (Aman Gupta)
+
+  This patch provides performance improvements in the terminus, during the
+  synthesize_edges stage. For example, in cases with 10,000 resource (with
+  single relationships) we saw a reduction from 83 seconds to 6 seconds for a
+  full Puppet run after this patch was applied.
+
+* Portability fixes for OpenBSD (Jasper Lievisse Adriaanse)
+
+  This series of patches from Jasper improved the scripts in PuppetDB so they
+  are more portable to BSD based platforms like OpenBSD.
+
+* Initial systemd service files (Niels Abspoel)
+
+* Updated spec file for suse support (Niels Abspoel)
+
+  This change wil make puppetdb rpm building possible on opensuse
+  with the same spec file as redhat.
+
+* (#21611) Allow rake commands to be ran on Ruby 2.0 (Ken Barber)
+
+  This allows rake commands to be ran on Ruby 2.0, for building on Fedora 19
+  to be made possible.
+
+* Add puppetdb-anonymize tool (Ken Barber)
+
+  This patch adds a new tool 'puppetdb-anonymize' which provides users with a
+  way to anonymize/scrub their puppetdb export files so they can be shared
+  with third parties.
+
+* (#21321) Configurable SSL protocols (Deepak Giridharagopal)
+
+  This patch adds an additional configuration option, `ssl-protocols`, to
+  the `[jetty]` section of the configuration file. This lets users specify
+  the exact list of SSL protocols they wish to support, such as in cases
+  where they're running PuppetDB in an environment with strict standards
+  for SSL usage.
+
+  If the option is not supplied, we use the default set of protocols
+  enabled by the local JVM.
+
+* Create new conn-lifetime setting (Chuck Schweizer & Deepak Giridharagopal)
+
+  This creates a new option called `conn-lifetime` that governs how long
+  idle/active connections stick around.
+
+* (#19174) Change query parameter to optional for facts & resources (Ken Barber)
+
+  Previously for the /v2/facts and /v2/resources end-point we had documented that
+  the query parameter was required, however a blank query parameter could be used
+  to return _all_ data, so this assertion wasn't quite accurate. However one
+  could never really drop the query parameter as it was considered mandatory and
+  without it you would get an error.
+
+  To align with the need to return all results at times, and the fact that
+  making a query like '/v2/facts?query=' to do such a thing is wasteful, we have
+  decided to drop the mandatory need for the 'query' parameter.
+
+  This patch allows 'query' to be an optional parameter for /v2/facts & resources
+  by removing the validation check and updating the documentation to reflect this
+  this new behaviour.
+
+  To reduce the risk of memory bloat, the settings `resource-query-limit` still
+  apply, you should use this to set the maximum amount of resources in a single
+  query to provide safety from such out of memory problems.
+
+Bug fixes:
+
+* Fix the -p option for puppetdb-export/import (Ken Barber)
+
+* Capture request metrics on per-url/per-path basis (Deepak Giridharagopal)
+
+  When we migrated to versioned urls, we didn't update our metrics
+  middleware. Originally, we had urls like /resources, /commands, etc.
+  We configured the metrics middlware to only take the first component of
+  the path and create a metric for that, so we had metrics that tracked
+  all requests to /resources, /commands, etc. and all was right with the
+  world.
+
+  When we moved to versioned urls, though, the first path component became
+  /v1, /v2, etc. This fix now allows the user to provide full URL paths to
+  query specific end-points, while still supporting the older mechanism of
+  passing 'commands', 'resources',  and 'metrics'.
+
+* (21450) JSON responses should be UTF-8 (Deepak Giridharagopal)
+
+  JSON is UTF-8, therefore our responses should also be UTF-8.
+
+Other important changes & refactors:
+
+* Upgrade internal components, including clojure (Deepak Giridharagopal)
+
+  - upgrade clojure to 1.5.1
+  - upgrade to latest cheshire, nrepl, libs, tools.namespace, clj-time, jmx,
+    ring, at-at, ring-mock, postgresql, log4j
+
+* Change default db conn keepalive to 45m (Deepak Giridharagopal)
+
+  This better matches up with the standard firewall or load balancer
+  idle connection timeouts in the wild.
 
 1.3.2
 -----
