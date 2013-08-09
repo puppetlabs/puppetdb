@@ -1,397 +1,486 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
-<title>PuppetDB: Dashboard</title>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>PuppetDB: Dashboard</title>
+    <link rel='icon' href='img/favicon.ico' />
 
-<style>
-@import url(https://fonts.googleapis.com/css?family=Lato:400,700);
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
 
-body {
-  background-color: white;
-  font-family: 'Lato', sans-serif;
-}
+    <style type="text/css">
+      @import url(https://fonts.googleapis.com/css?family=Lato:400,700);
 
-.x.axis line {
-  shape-rendering: auto;
-}
+      body {
+        background-color: white;
+        font-family: 'Lato', sans-serif;
+      }
 
-.line {
-  fill: #edf7ff;
-  stroke: #43a2ca;
-  stroke-width: 1.5px;
-}
+      .x.axis line {
+        shape-rendering: auto;
+      }
+
+      .line {
+        fill: #edf7ff;
+        stroke: #43a2ca;
+        stroke-width: 1.5px;
+      }
 
 #metrics {
-  cell-spacing: 0px;
-  cell-padding: 0px;
-  border-collapse: collapse;
-}
+        cell-spacing: 0px;
+        cell-padding: 0px;
+        border-collapse: collapse;
+      }
 
 #metrics td {
-  margin: 0px;
-  padding: 0px 10px;
-}
+        margin: 0px;
+        padding: 0px 10px;
+      }
 
 #metrics tr {
-  border-bottom: 2px solid #eee;
-}
+        border-bottom: 2px solid #eee;
+      }
 
-.counterbox {
-  text-align: center;
-}
+      .counterbox {
+        text-align: center;
+      }
 
-.counterdesc {
-  font-size: 20px;
-  color: #ef8a62;
-  text-align: right;
-  font-weight: 700;
-}
+      .counterdesc {
+        font-size: 20px;
+        color: #ef8a62;
+        text-align: right;
+        font-weight: 700;
+      }
 
-.counteraddendum {
-  font-size: 15px;
-  height: 100%;
-  color: #666;
-  text-align: right;
-}
+      .counteraddendum {
+        font-size: 15px;
+        height: 100%;
+        color: #666;
+        text-align: right;
+      }
 
-.countertext {
-  font-size: 50px;
-  color: #43a2ca;
-  height: 65px;
-}
+      .countertext {
+        font-size: 50px;
+        color: #43a2ca;
+        height: 65px;
+      }
 
-.countertimescale {
-  color: #999;
-  font-variant: small-caps;
-}
+      .countertimescale {
+        color: #999;
+        font-variant: small-caps;
+      }
 
-.axis {
-  font-size: 10px;
-  color: #999;
-}
+      .axis {
+        font-size: 10px;
+        color: #999;
+      }
 
-.axis path, .axis line {
-  fill: none;
-  stroke: #999;
-}
+      .axis path, .axis line {
+        fill: none;
+        stroke: #999;
+      }
 
-.hidden {
-  display: none;
-}
+      .hidden {
+        display: none;
+      }
 
 #version-info {
-  font-size: 15px;
-  color: #666;
-  float: right;
-}
+        font-size: 15px;
+        color: #FFFFFF;
+        float: right;
+      }
 
 #update-link {
-  color: blue;
-}
-</style>
-
-<script src="d3.v2.js"></script>
-<script src="charts.js"></script>
-
-<div id="version-info">
-  PuppetDB <span id="version">(unknown version)</span>
-  <a id="update-link" href="#" class="hidden">(<span id="latest-version"></span> is available!)</a>
-</div>
-
-<table id="metrics">
-</table>
-
-<script>(function() {
-  // Formatting middleware that collapses small values to 0
-  function clampToZero(f, window) {
-    return function(n) {
-      return f(Math.abs(n) < window ? 0 : n);
-    };
-  };
-
-  // Parse URL arguments
-  function getParameter(paramName) {
-    var searchString = window.location.search.substring(1),
-        i, val, params = searchString.split("&");
-
-    for (i=0;i<params.length;i++) {
-      val = params[i].split("=");
-      if (val[0] == paramName) {
-        return unescape(val[1]);
+        color: blue;
       }
-    }
-    return null;
-  };
+    /* Sticky footer styles
+      -------------------------------------------------- */
 
-  function setVersion() {
-    d3.json("/v2/version", function (res) {
-      if (res != null && res.version != null) {
-        d3.select('#version').html('v' + res.version);
+      html,
+      body {
+        height: 100%;
+        /* The html and body elements cannot have any padding or margin. */
       }
-      else {
-        d3.select('#version').html('(unknown version)');
-      }
-    });
-  };
 
-  function checkForUpdates() {
-    d3.json("/v2/version/latest", function (res) {
-      console.log(res);
-      if (res != null && res.newer) {
-        d3.select('#latest-version').html('v' + res.version);
-        d3.select('#update-link').classed('hidden', false);
-        if (res.link) {
-          d3.select('#update-link').property('href', res.link);
+      /* Wrapper for page content to push down footer */
+      #wrap {
+        min-height: 100%;
+        height: auto !important;
+        height: 100%;
+        /* Negative indent footer by it's height */
+        margin: 0 auto -60px;
+      }
+
+      /* Set the fixed height of the footer here */
+      #push,
+      #footer {
+        height: 60px;
+      }
+      #footer {
+        background-color: #f5f5f5;
+      }
+
+      /* Lastly, apply responsive CSS fixes as necessary */
+      @media (max-width: 767px) {
+        #footer {
+          margin-left: -20px;
+          margin-right: -20px;
+          padding-left: 20px;
+          padding-right: 20px;
         }
       }
-      else {
-        d3.select('#update-link').classed('hidden', true);
+
+      /* Custom page CSS
+      -------------------------------------------------- */
+      /* Not required for template or sticky footer method. */
+
+      #wrap > .container {
+        padding-top: 60px;
       }
-    });
-  };
+      .container .credit {
+        margin: 20px 0;
+      }
+     code {
+        font-size: 80%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="navbar-inner">
+          <div class="container">
+            <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="brand" href="index.html">PuppetDB Dashboard</a>
+            <div class="nav-collapse collapse">
+              <ul class="nav">
+                <li class="active"><a href="index.html">Statistics</a></li>
+                <li><a href="query.html">Query</a></li>
+                <li><a href="#about">About</a></li>
+              </ul>
+            <div id="version-info" class="nav pull-right">
+              PuppetDB <span id="version">(unknown version)</span>
+              <a id="update-link" href="#" class="hidden">(<span id="latest-version"></span> is available!)</a>
+            </div>
+            </div><!--/.nav-collapse -->
+          </div>
+        </div>
+      </div>
 
-  var nHistorical = getParameter("nHistorical") || 60;
-  var pollingInterval = getParameter("pollingInterval") || 5000;
-  var width = getParameter("width") || 400;
-  var height = getParameter("height") || 60;
+      <div class="container">
+        <table id="metrics">
+        </table><br/><br/><br/><br/>
+      </div>
+    </div>
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/java.lang:type=Memory")
-  .snag(function(res) { return res["HeapMemoryUsage"]["used"]; })
-  .format(d3.format(",.3s"))
-  .description("JVM Heap")
-  .addendum("bytes")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">Copyright &copy; 2013 Puppet Labs</p>
+      </div>
+    </div>
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=num-nodes")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(","))
-  .description("Nodes")
-  .addendum("in the population")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+    <script src="js/d3.v2.js"></script>
+    <script src="js/charts.js"></script>
+    <script language="JavaScript" type="text/javascript" src="js/bootstrap.min.js"></script>
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=num-resources")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(","))
-  .description("Resources")
-  .addendum("in the population")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+    <script>(function() {
+      // Formatting middleware that collapses small values to 0
+      function clampToZero(f, window) {
+        return function(n) {
+          return f(Math.abs(n) < window ? 0 : n);
+        };
+      };
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.1%"))
-  .description("Resource duplication")
-  .addendum("% of resources stored")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      // Parse URL arguments
+      function getParameter(paramName) {
+        var searchString = window.location.search.substring(1),
+            i, val, params = searchString.split("&");
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.1%"))
-  .description("Catalog duplication")
-  .addendum("% of catalogs encountered")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+        for (i=0;i<params.length;i++) {
+          val = params[i].split("=");
+          if (val[0] == paramName) {
+            return unescape(val[1]);
+          }
+        }
+        return null;
+      };
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands")
-  .snag(function(res) { return res["QueueSize"]; })
-  .format(d3.format(",s"))
-  .description("Command Queue")
-  .addendum("depth")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      function setVersion() {
+        d3.json("/v2/version", function (res) {
+          if (res != null && res.version != null) {
+            d3.select('#version').html('v' + res.version);
+          }
+          else {
+            d3.select('#version').html('(unknown version)');
+          }
+        });
+      };
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processing-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("Command Processing")
-  .addendum("sec/command")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      function checkForUpdates() {
+        d3.json("/v2/version/latest", function (res) {
+          console.log(res);
+          if (res != null && res.newer) {
+            d3.select('#latest-version').html('v' + res.version);
+            d3.select('#update-link').classed('hidden', false);
+            if (res.link) {
+              d3.select('#update-link').property('href', res.link);
+            }
+          }
+          else {
+            d3.select('#update-link').classed('hidden', true);
+          }
+        });
+      };
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processed")
-  .snag(function(res) { return res["FiveMinuteRate"]; })
-  .format(clampToZero(d3.format(",.3s"), 0.001))
-  .description("Command Processing")
-  .addendum("commands/sec")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      var nHistorical = getParameter("nHistorical") || 60;
+      var pollingInterval = getParameter("pollingInterval") || 5000;
+      var width = getParameter("width") || 400;
+      var height = getParameter("height") || 60;
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processed")
-  .snag(function(res) { return res["Count"]; })
-  .format(d3.format(","))
-  .description("Processed")
-  .addendum("since startup")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/java.lang:type=Memory")
+      .snag(function(res) { return res["HeapMemoryUsage"]["used"]; })
+      .format(d3.format(",.3s"))
+      .description("JVM Heap")
+      .addendum("bytes")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=retried")
-  .snag(function(res) { return res["Count"]; })
-  .format(d3.format(","))
-  .description("Retried")
-  .addendum("since startup")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=num-nodes")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(","))
+      .description("Nodes")
+      .addendum("in the population")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=discarded")
-  .snag(function(res) { return res["Count"]; })
-  .format(d3.format(","))
-  .description("Discarded")
-  .addendum("since startup")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=num-resources")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(","))
+      .description("Resources")
+      .addendum("in the population")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=fatal")
-  .snag(function(res) { return res["Count"]; })
-  .format(d3.format(","))
-  .description("Rejected")
-  .addendum("since startup")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(",.1%"))
+      .description("Resource duplication")
+      .addendum("% of resources stored")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/commands,name=service-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("Enqueueing")
-  .addendum("service time, seconds")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(",.1%"))
+      .description("Catalog duplication")
+      .addendum("% of catalogs encountered")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/resources,name=service-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("Collection Queries")
-  .addendum("service time, seconds")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands")
+      .snag(function(res) { return res["QueueSize"]; })
+      .format(d3.format(",s"))
+      .description("Command Queue")
+      .addendum("depth")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=gc-time")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("DB Compaction")
-  .addendum("round trip time, seconds")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processing-time")
+      .snag(function(res) { return res["50thPercentile"] / 1000; })
+      .format(d3.format(",.3s"))
+      .description("Command Processing")
+      .addendum("sec/command")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=compression")
-  .snag(function(res) { return res["50thPercentile"] / 1000; })
-  .format(d3.format(",.3s"))
-  .description("DLO Compression")
-  .addendum("round trip time, seconds")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processed")
+      .snag(function(res) { return res["FiveMinuteRate"]; })
+      .format(clampToZero(d3.format(",.3s"), 0.001))
+      .description("Command Processing")
+      .addendum("commands/sec")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=filesize")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(",.3s"))
-  .description("DLO Size on Disk")
-  .addendum("bytes")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=processed")
+      .snag(function(res) { return res["Count"]; })
+      .format(d3.format(","))
+      .description("Processed")
+      .addendum("since startup")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  counterAndSparkline()
-  .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=messages")
-  .snag(function(res) { return res["Value"]; })
-  .format(d3.format(","))
-  .description("Discarded Messages")
-  .addendum("to be reviewed")
-  .container("#metrics")
-  .nHistorical(nHistorical)
-  .pollingInterval(pollingInterval)
-  .width(width)
-  .height(height)
-  .call();
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=retried")
+      .snag(function(res) { return res["Count"]; })
+      .format(d3.format(","))
+      .description("Retried")
+      .addendum("since startup")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
-  // Check the current version and for updates now, and then every 5 minutes
-  setVersion();
-  checkForUpdates();
-  setInterval(setVersion, 5*60*1000);
-  setInterval(checkForUpdates, 5*60*1000);
-})()</script>
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=discarded")
+      .snag(function(res) { return res["Count"]; })
+      .format(d3.format(","))
+      .description("Discarded")
+      .addendum("since startup")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
 
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command:type=global,name=fatal")
+      .snag(function(res) { return res["Count"]; })
+      .format(d3.format(","))
+      .description("Rejected")
+      .addendum("since startup")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/commands,name=service-time")
+      .snag(function(res) { return res["50thPercentile"] / 1000; })
+      .format(d3.format(",.3s"))
+      .description("Enqueueing")
+      .addendum("service time, seconds")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.http.server:type=/v2/resources,name=service-time")
+      .snag(function(res) { return res["50thPercentile"] / 1000; })
+      .format(d3.format(",.3s"))
+      .description("Collection Queries")
+      .addendum("service time, seconds")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.scf.storage:type=default,name=gc-time")
+      .snag(function(res) { return res["50thPercentile"] / 1000; })
+      .format(d3.format(",.3s"))
+      .description("DB Compaction")
+      .addendum("round trip time, seconds")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=compression")
+      .snag(function(res) { return res["50thPercentile"] / 1000; })
+      .format(d3.format(",.3s"))
+      .description("DLO Compression")
+      .addendum("round trip time, seconds")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=filesize")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(",.3s"))
+      .description("DLO Size on Disk")
+      .addendum("bytes")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      counterAndSparkline()
+      .url("/v2/metrics/mbean/com.puppetlabs.puppetdb.command.dlo:type=global,name=messages")
+      .snag(function(res) { return res["Value"]; })
+      .format(d3.format(","))
+      .description("Discarded Messages")
+      .addendum("to be reviewed")
+      .container("#metrics")
+      .nHistorical(nHistorical)
+      .pollingInterval(pollingInterval)
+      .width(width)
+      .height(height)
+      .call();
+
+      // Check the current version and for updates now, and then every 5 minutes
+      setVersion();
+      checkForUpdates();
+      setInterval(setVersion, 5*60*1000);
+      setInterval(checkForUpdates, 5*60*1000);
+    })()</script>
+  </body>
+</html>
