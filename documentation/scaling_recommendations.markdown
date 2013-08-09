@@ -29,7 +29,7 @@ PuppetDB has two available database backends:
 * Embedded HSQLDB
 * PostgreSQL
 
-The embedded database works with no additional daemons or setup beyond installation, but is only suitable for up to about 100 Puppet nodes. [It also requires a signifiacntly larger Java heap][ram].
+The embedded database works with no additional daemons or setup beyond installation, but is only suitable for up to about 100 Puppet nodes. [It also requires a significantly larger Java heap][ram].
 
 You can increase performance by setting up a PostgreSQL server and [switching PuppetDB to the PostgreSQL backend][postgres]. 
 
