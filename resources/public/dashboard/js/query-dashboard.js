@@ -176,31 +176,6 @@ function buildPrevQueries(){
 
 /**
  *
- * Convert version and endpoint to number that it relates to in menu
- */
-
-function getMenuNumber(menuVar){
-    var keyCount = 1,
-        valResult = 0;
-
-  for (var key in END_POINTS_MAP) {
-    if (menuVar === key) {
-      return keyCount;
-    }
-    else {
-      keyCount += 1;
-    }
-    for (var val in END_POINTS_MAP[key]) {
-      if (menuVar === END_POINTS_MAP[key][val]) {
-        valResult = parseInt(val) + 1;
-        return valResult;
-      }
-    }
-  }
-}
-
-/**
- *
  * Builds endpoint dropdowns
  */
 
