@@ -32,6 +32,7 @@ Puppet::Reports.register_report(:puppetdb) do
     # the accessors until version 3.x of puppet is our oldest supported version.
     #
     # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
+
     {
       "certname"                => host,
       "puppet-version"          => @puppet_version,
@@ -40,7 +41,7 @@ Puppet::Reports.register_report(:puppetdb) do
       "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
       "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
       "resource-events"         =>
-          resource_statuses.inject([]) do |events, status_entry|
+          filter_events(resource_statuses.inject([]) do |events, status_entry|
             resource, status = *status_entry
             if ! (status.events.empty?)
               events.concat(
@@ -51,7 +52,7 @@ Puppet::Reports.register_report(:puppetdb) do
               events.concat([resource_status_to_skipped_event_hash(status)])
             end
             events
-          end
+          end)
     }
   end
 
@@ -96,5 +97,19 @@ Puppet::Reports.register_report(:puppetdb) do
       "message"           => nil,
     }
   end
-  
+
+  ## Filter out blacklisted events, if we're configured to do so
+  def filter_events(events)
+    if config.ignore_blacklisted_events?
+      events.select { |e| ! config.is_event_blacklisted?(e) }
+    else
+      events
+    end
+  end
+
+  ## Helper method for accessing the puppetdb configuration
+  def config
+    Puppet::Util::Puppetdb.config
+  end
+
 end

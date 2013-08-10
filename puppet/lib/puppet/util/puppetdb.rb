@@ -48,6 +48,12 @@ module Puppet::Util::Puppetdb
     time.iso8601
   end
 
+  # Convert a value (usually a string) to a boolean
+  def self.to_bool(val)
+    return true   if val == true   || val =~ (/(true|t|yes|y|1)$/i)
+    return false  if val == false  || val.empty? || val =~ (/(false|f|no|n|0)$/i)
+    raise ArgumentError.new("invalid value for Boolean: \"#{val}\"")
+  end
 
   # Public instance methods
 
