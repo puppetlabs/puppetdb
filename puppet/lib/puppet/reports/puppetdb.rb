@@ -96,8 +96,8 @@ Puppet::Reports.register_report(:puppetdb) do
       "new-value"         => nil,
       "old-value"         => nil,
       "message"           => nil,
-      "file"              => nil,
-      "line"              => -1
+      "file"              => resource_status.file,
+      "line"              => resource_status.line
     }
   end
   
