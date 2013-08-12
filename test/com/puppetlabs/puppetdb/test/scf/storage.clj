@@ -251,32 +251,80 @@
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
       (add-certname! certname)
+
+      (is (false? (cert-facts-exist? "some_certname")))
+      (is (empty? (cert-fact-map "some_certname")))
+      
       (add-facts! certname facts (now))
       (testing "should have entries for each fact"
         (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
-              [{:certname certname :name "domain" :value "mydomain.com"}
-               {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
-               {:certname certname :name "hostname" :value "myhost"}
-               {:certname certname :name "kernel" :value "Linux"}
-               {:certname certname :name "operatingsystem" :value "Debian"}])))
+               [{:certname certname :name "domain" :value "mydomain.com"}
+                {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
+                {:certname certname :name "hostname" :value "myhost"}
+                {:certname certname :name "kernel" :value "Linux"}
+                {:certname certname :name "operatingsystem" :value "Debian"}]))
+
+        (is (true? (cert-facts-exist? "some_certname")))
+        (is (= facts (cert-fact-map "some_certname"))))
+      
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
-              [{:name certname}])))
+               [{:name certname}])))
       (testing "replacing facts"
-        (let [new-facts {"domain" "mynewdomain.com"
-                         "fqdn" "myhost.mynewdomain.com"
-                         "hostname" "myhost"
-                         "kernel" "Linux"
-                         "uptime_seconds" "3600"}]
-          (replace-facts! {"name"  certname "values" new-facts} (now))
-          (testing "should have only the new facts"
-            (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
-                  [{:name "domain" :value "mynewdomain.com"}
-                   {:name "fqdn" :value "myhost.mynewdomain.com"}
-                   {:name "hostname" :value "myhost"}
-                   {:name "kernel" :value "Linux"}
-                   {:name "uptime_seconds" :value "3600"}]))))))))
+        (let [deletes (atom {})
+              updates (atom #{})
+              adds (atom {})
+              sql-insert sql/insert-records
+              sql-update sql/update-values
+              sql-delete sql/delete-rows]
+          ;;Ensuring here that new records are inserted, updated
+          ;;facts are updated (not deleted and inserted) and that
+          ;;the necessary deletes happen
+          (with-redefs [sql/insert-records (fn [table & rows]
+                                             (swap! adds assoc table rows)
+                                             (apply sql-insert table rows))
+                        sql/update-values (fn [table clause values]
+                                            (swap! updates conj values)
+                                            (sql-update table clause values))
+                        sql/delete-rows (fn [table clause]
+                                          (swap! deletes assoc table clause)
+                                          (sql-delete table clause))]
+            (let [new-facts {"domain" "mynewdomain.com"
+                             "fqdn" "myhost.mynewdomain.com"
+                             "hostname" "myhost"
+                             "kernel" "Linux"
+                             "uptime_seconds" "3600"}]
+              (replace-facts! {"name"  certname "values" new-facts} (now))
+              (testing "should have only the new facts"
+                (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
+                       [{:name "domain" :value "mynewdomain.com"}
+                        {:name "fqdn" :value "myhost.mynewdomain.com"}
+                        {:name "hostname" :value "myhost"}
+                        {:name "kernel" :value "Linux"}
+                        {:name "uptime_seconds" :value "3600"}])))
+              (testing "should only delete operatingsystem key"
+                (is (= {:certname_facts ["certname=? and name in (?)" "some_certname" "operatingsystem"]}
+                       @deletes)))
+              (testing "should update existing keys"
+                (is (true? (contains? @updates {:value "mynewdomain.com"})))
+                (is (true? (contains? @updates  {:value "myhost.mynewdomain.com"})))
+                (is (some :timestamp @updates)))
+              (testing "should only insert uptime_seconds"
+                (is (= {:certname_facts [{:value "3600", :name "uptime_seconds", :certname "some_certname"}]}
+                       @adds)))))))
 
+      (testing "replacing all new facts"
+        (delete-facts! certname)
+        (replace-facts! {"name" certname
+                         "values" facts} (now))
+        (is (= facts (cert-fact-map "some_certname"))))
+
+      (testing "replacing all facts with new ones"
+        (delete-facts! certname)
+        (add-facts! certname facts (now))
+        (replace-facts! {"name" certname
+                         "values" {"foo" "bar"}} (now))
+        (is (= {"foo" "bar"} (cert-fact-map "some_certname")))))))
 
 (let [catalog  (:basic catalogs)
       certname (:certname catalog)]
