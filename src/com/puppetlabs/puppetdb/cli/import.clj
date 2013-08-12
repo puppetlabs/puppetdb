@@ -14,7 +14,8 @@
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:use [com.puppetlabs.utils :only (cli!)]
-        [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]))
+        [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")
 
@@ -44,7 +45,7 @@
           (string?  catalog-payload)]}
   (let [result (command/submit-command-via-http!
                   puppetdb-host puppetdb-port
-                  "replace catalog" command-version
+                 (command-names :replace-catalog) command-version
                   catalog-payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
@@ -59,7 +60,7 @@
           (string?  report-payload)]}
   (let [result (command/submit-command-via-http!
                   puppetdb-host puppetdb-port
-                  "store report" command-version
+                  (command-names :store-report) command-version
                   (json/parse-string report-payload))]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
