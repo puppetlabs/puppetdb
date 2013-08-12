@@ -334,13 +334,13 @@
   (sql/do-commands
     "INSERT INTO latest_reports (node, report)
         SELECT reports.certname, reports.hash
-        FROM reports
-           INNER JOIN (
+        FROM reports INNER JOIN (
           SELECT reports.certname, MAX(reports.end_time) as max_end_time
              FROM reports
              GROUP BY reports.certname
-           ) latest ON reports.certname = latest.certname AND reports.end_time = latest.max_end_time
-           ORDER BY reports.certname"))
+        ) latest
+          ON reports.certname = latest.certname
+          AND reports.end_time = latest.max_end_time"))
 
 ;; The available migrations, as a map from migration version to migration
 ;; function.
