@@ -9,7 +9,6 @@ class Config
   def self.load(config_file = nil)
     defaults = { :server              => "puppetdb",
                  :port                => 8081,
-                 :max_queued_commands => 1000,
     }
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -49,12 +48,11 @@ class Config
     main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
     # merge with defaults but filter out anything except the legal settings
     config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :max_queued_commands].include?(k))
+      !([:server, :port].include?(k))
     end
 
     config_hash[:server] = config_hash[:server].strip
     config_hash[:port] = config_hash[:port].to_i
-    config_hash[:max_queued_commands] = config_hash[:max_queued_commands].to_i
 
     self.new(config_hash)
   rescue => detail
@@ -75,10 +73,6 @@ class Config
 
   def port
     config[:port]
-  end
-
-  def max_queued_commands
-    config[:max_queued_commands]
   end
 
   # Private instance methods
