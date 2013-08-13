@@ -1,11 +1,31 @@
 (ns com.puppetlabs.puppetdb.testutils.event
-  (:require [com.puppetlabs.puppetdb.query.event :as query])
+  (:require [com.puppetlabs.puppetdb.query.event :as query]
+            [com.puppetlabs.puppetdb.report :as report])
   (:use [clj-time.coerce :only [to-timestamp]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn munge-v2-example-event-to-v1
+  [example-event]
+  (apply dissoc example-event report/v2-new-event-fields))
+
+(defn munge-v2-example-events-to-v1
+  [example-events]
+  (mapv munge-v2-example-event-to-v1 example-events))
+
+(defn munge-v1-example-event-to-v2
+  [example-event]
+  (reduce
+    #(update-in %1 [%2] (constantly nil))
+    example-event
+    report/v2-new-event-fields))
+
+(defn munge-v1-example-events-to-v2
+  [example-events]
+  (mapv munge-v1-example-event-to-v2 example-events))
 
 (defn munge-example-event-for-storage
   "Helper function to munge our example reports into a format suitable for submission

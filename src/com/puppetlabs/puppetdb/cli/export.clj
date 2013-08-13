@@ -101,7 +101,7 @@
     ;;  version of the `catalog` endpoint... or even to query what the latest
     ;;  version of a command is.  We should improve that.
     {:replace-catalog 2
-     :store-report 1}})
+     :store-report 2}})
 
 (defn get-catalog-for-node
   "Utility function for retrieving catalog data from the PuppetDB web service.

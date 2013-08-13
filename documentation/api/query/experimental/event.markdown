@@ -102,6 +102,14 @@ operators.
 : a description (supplied by the resource provider) of what happened during the
   event.  NOTE: this field may contain `NULL` values; see notes below.
 
+`file`
+: the manifest file in which the resource definition is located.
+  NOTE: this field may contain `NULL` values; see notes below.
+
+`line`
+: the line (of the containing manifest file) at which the resource definition
+  can be found.  NOTE: this field may contain `NULL` values; see notes below.
+
 ##### Notes on fields that allow `NULL` values
 
 In the case of a `skipped` resource event, some of the fields of an event may

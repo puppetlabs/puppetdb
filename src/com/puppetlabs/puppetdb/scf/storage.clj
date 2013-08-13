@@ -690,7 +690,7 @@ must be supplied as the value to be matched."
   property, values, status, timestamp, etc.)
   "
   [{:keys [resource-type resource-title property timestamp status old-value
-           new-value message] :as resource-event}]
+           new-value message file line] :as resource-event}]
   (-> (sort { :resource-type resource-type
               :resource-title resource-title
               :property property
@@ -698,7 +698,9 @@ must be supplied as the value to be matched."
               :status status
               :old-value old-value
               :new-value new-value
-              :message message})
+              :message message
+              :file file
+              :line line})
       (pr-str)
       (utils/utf8-string->sha1)))
 

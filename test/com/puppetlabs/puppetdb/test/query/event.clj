@@ -108,16 +108,20 @@
 
     (testing "equality queries"
       (doseq [[field value matches]
-                  [[:resource-type  "Notify"              [1 2 3]]
-                   [:resource-title "notify, yo"          [1]]
-                   [:status         "success"             [1 2]]
-                   [:property       "message"             [1 2]]
-                   [:old-value      ["what" "the" "woah"] [1]]
-                   [:new-value      "notify, yo"          [1]]
+                  [[:resource-type  "Notify"                            [1 2 3]]
+                   [:resource-title "notify, yo"                        [1]]
+                   [:status         "success"                           [1 2]]
+                   [:property       "message"                           [1 2]]
+                   [:old-value      ["what" "the" "woah"]               [1]]
+                   [:new-value      "notify, yo"                        [1]]
                    [:message        "defined 'message' as 'notify, yo'" [1 2]]
-                   [:resource-title "bunk"                []]
-                   [:certname       "foo.local"           [1 2 3]]
-                   [:certname       "bunk.remote"         []]]]
+                   [:resource-title "bunk"                              []]
+                   [:certname       "foo.local"                         [1 2 3]]
+                   [:certname       "bunk.remote"                       []]
+                   [:file           "foo.pp"                            [1]]
+                   [:file           "bar"                               [3]]
+                   [:line           1                                   [1]]
+                   [:line           2                                   [3]]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
@@ -129,16 +133,20 @@
 
     (testing "'not' queries"
       (doseq [[field value matches]
-              [[:resource-type  "Notify"              []]
-               [:resource-title "notify, yo"          [2 3]]
-               [:status         "success"             [3]]
-               [:property       "message"             [3]]
-               [:old-value      ["what" "the" "woah"] [2 3]]
-               [:new-value      "notify, yo"          [2 3]]
+              [[:resource-type  "Notify"                            []]
+               [:resource-title "notify, yo"                        [2 3]]
+               [:status         "success"                           [3]]
+               [:property       "message"                           [3]]
+               [:old-value      ["what" "the" "woah"]               [2 3]]
+               [:new-value      "notify, yo"                        [2 3]]
                [:message        "defined 'message' as 'notify, yo'" [3]]
-               [:resource-title "bunk"                [1 2 3]]
-               [:certname       "foo.local"           []]
-               [:certname       "bunk.remote"         [1 2 3]]]]
+               [:resource-title "bunk"                              [1 2 3]]
+               [:certname       "foo.local"                         []]
+               [:certname       "bunk.remote"                       [1 2 3]]
+               [:file           "foo.pp"                            [2 3]]
+               [:file           "bar"                               [1 2]]
+               [:line           1                                   [2 3]]
+               [:line           2                                   [1 2]]]]
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
@@ -150,14 +158,16 @@
 
     (testing "regex queries"
       (doseq [[field value matches]
-              [[:resource-type  "otify"               [1 2 3]]
-               [:resource-title "^[Nn]otify,\\s*yo$"  [1]]
-               [:status         "^.ucces."            [1 2]]
-               [:property       "^[Mm][\\w\\s]+"      [1 2]]
-               [:message        "notify, yo"          [1 2]]
-               [:resource-title "^bunk$"              []]
-               [:certname       "^foo\\."             [1 2 3]]
-               [:certname       "^.*\\.mydomain\\.com$" []]]]
+              [[:resource-type  "otify"                 [1 2 3]]
+               [:resource-title "^[Nn]otify,\\s*yo$"    [1]]
+               [:status         "^.ucces."              [1 2]]
+               [:property       "^[Mm][\\w\\s]+"        [1 2]]
+               [:message        "notify, yo"            [1 2]]
+               [:resource-title "^bunk$"                []]
+               [:certname       "^foo\\."               [1 2 3]]
+               [:certname       "^.*\\.mydomain\\.com$" []]
+               [:file           ".*"                    [1 3]]
+               [:file           "\\.pp"                 [1]]]]
         (testing (format "regex query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
@@ -169,14 +179,16 @@
 
     (testing "negated regex queries"
       (doseq [[field value matches]
-              [[:resource-type  "otify"               []]
-               [:resource-title "^[Nn]otify,\\s*yo$"  [2 3]]
-               [:status         "^.ucces."            [3]]
-               [:property       "^[Mm][\\w\\s]+"      [3]]
-               [:message        "notify, yo"          [3]]
-               [:resource-title "^bunk$"              [1 2 3]]
-               [:certname       "^foo\\."             []]
-               [:certname       "^.*\\.mydomain\\.com$" [1 2 3]]]]
+              [[:resource-type  "otify"                 []]
+               [:resource-title "^[Nn]otify,\\s*yo$"    [2 3]]
+               [:status         "^.ucces."              [3]]
+               [:property       "^[Mm][\\w\\s]+"        [3]]
+               [:message        "notify, yo"            [3]]
+               [:resource-title "^bunk$"                [1 2 3]]
+               [:certname       "^foo\\."               []]
+               [:certname       "^.*\\.mydomain\\.com$" [1 2 3]]
+               [:file           ".*"                    [2]]
+               [:file           "\\.pp"                 [2 3]]]]
         (testing (format "negated regex query on field '%s'" field)
           (let [expected  (expected-resource-events
             (utils/select-values basic-events matches)
@@ -190,14 +202,16 @@
       (testing "'or' equality queries"
         (doseq [[terms matches]
                   [[[[:resource-title "notify, yo"]
-                     [:status         "skipped"]]       [1 3]
+                     [:status         "skipped"]]       [1 3]]
                    [[[:resource-type  "bunk"]
                      [:resource-title "notify, yar"]]   [2]]
                    [[[:resource-type  "bunk"]
-                     [:status         "bunk"]]          []]]
+                     [:status         "bunk"]]          []]
                    [[[:new-value      "notify, yo"]
                      [:resource-title "notify, yar"]
-                     [:resource-title "hi"]]            [1 2 3]]]]
+                     [:resource-title "hi"]]            [1 2 3]]
+                   [[[:file           "foo.pp"]
+                     [:line           2]]               [1 3]]]]
           (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
                               report-hash)
@@ -219,7 +233,9 @@
                    [:resource-type  "Notify"]
                    [:certname       "foo.local"]]     [1]]
                  [[[:certname       "foo.local"]
-                   [:resource-type  "Notify"]]        [1 2 3]]]]
+                   [:resource-type  "Notify"]]        [1 2 3]]
+                 [[[:file           "foo.pp"]
+                   [:line           1]]               [1]]]]
           (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
                               report-hash)
@@ -242,7 +258,12 @@
                       ["=" "status" "success"]]
                     ["and"
                       ["=" "resource-type" "Notify"]
-                      ["=" "property" "message"]]]          [1 2]]]]
+                      ["=" "property" "message"]]]          [1 2]]
+                 [["or"
+                    ["and"
+                      ["=" "file" "foo.pp"]
+                      ["=" "line" 1]]
+                    ["=" "line" 2]]                         [1 3]]]]
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
                             report-hash)
@@ -264,7 +285,4 @@
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))))
-
-
-
 
