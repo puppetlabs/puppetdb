@@ -329,7 +329,6 @@
     ["node" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
     ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
   (sql/do-commands
-    "CREATE INDEX idx_latest_reports_node ON latest_reports(node)"
     "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
   (sql/do-commands
     "INSERT INTO latest_reports (node, report)
