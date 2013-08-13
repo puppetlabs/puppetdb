@@ -125,7 +125,7 @@
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
-  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry ^TarGzWriter tar-writer config]
+  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry ^TarGzWriter tar-writer config metadata]
   {:pre  [(instance? TarGzReader tar-reader)
           (instance? TarArchiveEntry tar-entry)
           (instance? TarGzWriter tar-writer)]}
@@ -156,7 +156,7 @@
             (->> tar-reader
               (archive/read-entry-content)
               (json/parse-string)
-              (anon/anonymize-report config))
+              (anon/anonymize-report config (:store-report (:command-versions metadata))))
             {:pretty true}))))))
 
 (defn -main
@@ -183,5 +183,5 @@
 
         ;; Now process each entry
         (doseq [tar-entry (archive/all-entries tar-reader)]
-          (process-tar-entry tar-reader tar-entry tar-writer profile-config))))
+          (process-tar-entry tar-reader tar-entry tar-writer profile-config metadata))))
     (println (str "Anonymization complete. Check output file contents " outfile " to ensure anonymization was adequate before sharing data"))))
