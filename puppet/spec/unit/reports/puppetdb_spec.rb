@@ -210,15 +210,14 @@ describe processor do
             config.stubs(:ignore_blacklisted_events?).returns(false)
             result = subject.send(:report_to_hash)
             result["resource-events"].length.should == 3
-            foo_event = result["resource-events"][0]
-            schedule_event = result["resource-events"][1]
-            notify_event = result["resource-events"][2]
-            foo_event["resource-type"].should == "Foo"
-            foo_event["resource-title"].should == "foo"
-            schedule_event["resource-type"].should == "Schedule"
-            schedule_event["resource-title"].should == "weekly"
-            notify_event["resource-type"].should == "Notify"
-            notify_event["resource-title"].should == "Hello there"
+            [["Foo", "foo"],
+             ["Schedule", "weekly"],
+             ["Notify", "Hello there"]].each do |type, title|
+              matches = result["resource-events"].select do |e|
+                  e["resource-type"] == type and e["resource-title"] == title
+              end
+              matches.length.should be(1), "Expected to find an event with type '#{type}' and title '#{title}'"
+            end
           end
         end
       end
