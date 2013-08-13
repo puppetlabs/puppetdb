@@ -49,10 +49,13 @@ module Puppet::Util::Puppetdb
   end
 
   # Convert a value (usually a string) to a boolean
-  def self.to_bool(val)
-    return true   if val == true   || val =~ (/(true|t|yes|y|1)$/i)
-    return false  if val == false  || val.empty? || val =~ (/(false|f|no|n|0)$/i)
-    raise ArgumentError.new("invalid value for Boolean: \"#{val}\"")
+  def self.to_bool(value)
+    case value
+    when true, "true"; return true
+    when false, "false"; return false
+    else
+      raise ArgumentError.new("invalid value for Boolean: \"#{val}\"")
+    end
   end
 
   # Public instance methods
