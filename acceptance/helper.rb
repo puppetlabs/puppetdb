@@ -7,12 +7,6 @@ require 'set'
 require 'test/unit/assertions'
 require 'json'
 
-puts ''
-puts ''
-puts "I've been included in the harness!!!"
-puts ''
-puts ''
-
 module PuppetDBExtensions
   include Test::Unit::Assertions
 
@@ -21,8 +15,6 @@ module PuppetDBExtensions
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
   def self.initialize_test_config(options, os_families)
-    puts "############"
-    puts "We are in initialize_test_config"
 
     base_dir = File.join(File.dirname(__FILE__), '..')
 
@@ -433,13 +425,9 @@ module PuppetDBExtensions
   end
 
   def clear_database(host)
-    puts "##########"
-    puts "Here are the PuppetDB Extensions config: #{PuppetDBExtensions.config}"
     case PuppetDBExtensions.config[:database]
       when :postgres
         if host.is_pe?
-          puts "##########"
-          puts "Going to drop puppetdb"
           on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
         else
           on host, 'su postgres -c "dropdb puppetdb"'
