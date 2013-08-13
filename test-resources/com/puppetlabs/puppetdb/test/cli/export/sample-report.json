@@ -8,7 +8,9 @@
       "message": "infundibulate acmite uranium disciplinarianism",
       "resource-title": "undoubting",
       "new-value": "ultraloyal",
-      "status": "success"
+      "status": "success",
+      "file": "/Users/foo/bar.pp",
+      "line": 11
     },
     {
       "old-value": "vacantly",
@@ -18,7 +20,9 @@
       "message": "horizontalize noncoincident levity lucifugous nationalism undergirdle khutuktu somatosplanchnic",
       "resource-title": "vitiator",
       "new-value": "forecastlehead",
-      "status": "success"
+      "status": "success",
+      "file": null,
+      "line": null
     }
   ],
   "configuration-version": "02ae0b7",

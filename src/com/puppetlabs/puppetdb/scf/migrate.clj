@@ -315,6 +315,13 @@
                (format "Unsupported database engine '%s'"
                  (sql-current-connection-database-name)))))))
 
+(defn add-file-line-columns-to-events-table
+  "Add 'file' and 'line' columns to the event table."
+  []
+  (sql/do-commands
+    "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
+    "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -328,7 +335,8 @@
    8 rename-fact-column
    9 add-reports-tables
    10 add-event-status-index
-   11 increase-puppet-version-field-length})
+   11 increase-puppet-version-field-length
+   12 add-file-line-columns-to-events-table})
 
 (def desired-schema-version (apply max (keys migrations)))
 

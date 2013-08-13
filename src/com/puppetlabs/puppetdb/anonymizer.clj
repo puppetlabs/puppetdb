@@ -34,9 +34,9 @@
 
 (defn report?
   "Returns true if it looks like a report"
-  [report]
+  [report version]
   ;; Utilise our existing report validation
-  (report/validate! (keywordize-keys report)))
+  (report/validate! version (keywordize-keys report)))
 
 (defn resource?
   "Returns true if it looks like a resource"
@@ -297,12 +297,12 @@
                     "line"  (get resource "line")
                     "type"  (get resource "type")}]
     (-> resource
-      (update-in-nil ["file"] anonymize-leaf :file newcontext config)
-      (update-in-nil ["line"] anonymize-leaf :line newcontext config)
-      (update-in ["parameters"] anonymize-parameters newcontext config)
-      (update-in ["tags"]       anonymize-tags newcontext config)
-      (update-in ["title"]      anonymize-leaf :title newcontext config)
-      (update-in ["type"]       anonymize-leaf :type newcontext config))))
+      (update-in-nil ["file"]       anonymize-leaf :file newcontext config)
+      (update-in-nil ["line"]       anonymize-leaf :line newcontext config)
+      (update-in     ["parameters"] anonymize-parameters newcontext config)
+      (update-in     ["tags"]       anonymize-tags newcontext config)
+      (update-in     ["title"]      anonymize-leaf :title newcontext config)
+      (update-in     ["type"]       anonymize-leaf :type newcontext config))))
 
 (defn anonymize-resources
   "Anonymize a collection of resources"
@@ -320,14 +320,18 @@
                     "title"         (get event "resource-title")
                     "message"       (get event "message")
                     "property-name" (get event "property")
-                    "type"          (get event "resource-type")}]
+                    "type"          (get event "resource-type")
+                    "file"          (get event "file")
+                    "line"          (get event "line")}]
     (-> event
-      (update-in ["resource-title"] anonymize-leaf :title newcontext config)
-      (update-in ["message"]        anonymize-leaf :message newcontext config)
-      (update-in ["property"]       anonymize-leaf :parameter-name newcontext config)
-      (update-in ["new-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
-      (update-in ["old-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
-      (update-in ["resource-type"]  anonymize-leaf :type newcontext config))))
+      (update-in     ["resource-title"] anonymize-leaf :title newcontext config)
+      (update-in     ["message"]        anonymize-leaf :message newcontext config)
+      (update-in     ["property"]       anonymize-leaf :parameter-name newcontext config)
+      (update-in     ["new-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
+      (update-in     ["old-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
+      (update-in     ["resource-type"]  anonymize-leaf :type newcontext config)
+      (update-in-nil ["file"]           anonymize-leaf :file newcontext config)
+      (update-in-nil ["line"]           anonymize-leaf :line newcontext config))))
 
 (defn anonymize-resource-events
   "Anonymize a collection of resource events from a report"
@@ -353,9 +357,9 @@
 
 (defn anonymize-report
   "Anonymize a report"
-  [config report]
-  {:pre  [(report? report)]
-   :post [(report? %)]}
+  [config version report]
+  {:pre  [(report? report version)]
+   :post [(report? % version)]}
   (let [context {"node" (get report "certname")}]
     (-> report
       (update-in ["certname"]        anonymize-leaf :node context config)

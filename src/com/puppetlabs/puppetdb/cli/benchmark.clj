@@ -48,7 +48,8 @@
             [clj-http.util :as util]
             [fs.core :as fs])
   (:use [com.puppetlabs.utils :only (cli! inis-to-map configure-logging! utf8-string->sha1)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
+        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -73,7 +74,8 @@
   "Send the given wire-format `catalog` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port catalog]
-  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port "replace catalog" 1 (json/generate-string catalog))]
+  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
+                 (command-names :replace-catalog) 1 (json/generate-string catalog))]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -81,7 +83,9 @@
   "Send the given wire-format `report` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port report]
-  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port "store report" 1 report)]
+  (let [result (command/submit-command-via-http!
+                 puppetdb-host puppetdb-port
+                 (command-names :store-report) 1 report)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
