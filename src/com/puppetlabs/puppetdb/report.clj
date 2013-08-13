@@ -38,13 +38,11 @@
    :line               { :optional? true
                          :type      :integer }})
 
-;; TODO: update this as we add new fields
-;; TODO: docs
 (def v2-new-event-fields [:file :line])
 
 (defn validate-and-add-v2-event-field!
-  ;; TODO: docs
   [event field]
+  {:pre [(utils/seq-contains? v2-new-event-fields field)]}
   (if (contains? event field)
     (throw (IllegalArgumentException.
              (format
@@ -53,7 +51,6 @@
   (assoc event field nil))
 
 (defn validate-and-add-v2-event-fields!
-  ;; TODO: docs
   [event]
   (let [updated-event (reduce
                         validate-and-add-v2-event-field!

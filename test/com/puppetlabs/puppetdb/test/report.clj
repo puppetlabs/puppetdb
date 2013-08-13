@@ -19,7 +19,6 @@
             v2-report (munge-v1-example-report-to-v2 v1-report)]
         (is (= v2-report (validate! 1 v1-report)))))
 
-    ;; TODO: uncomment this as soon as we've added :file to v2-new-event-fields
     (testing "should fail when a v1 report has a v2 key"
       (let [add-key-fn              (fn [event] (assoc event :file "/tmp/foo"))
             v1-report               (munge-v2-example-report-to-v1 report)
