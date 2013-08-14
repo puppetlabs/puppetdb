@@ -32,9 +32,9 @@ QUERY_MAP['eventLoad'] = ['["=", "certname", "example.local"]'];
 
 function dynamicLoad(versionSelect, endpointSelect, queryText) {
   $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=getVersionDropdown(versionSelect);
+  $('#versionList')[0].selectedIndex=getVersionDropdown(versionSelect);
   buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=getEndpointDropdown(endpointSelect);
+  $('#endpointDropdown')[0].selectedIndex=getEndpointDropdown(endpointSelect);
   updateTextboxVisibility();
   //document.getElementById('queryTxt').innerHTML = unescape(queryText);
   $('#queryTxt').val(unescape(queryText));
@@ -47,13 +47,13 @@ function dynamicLoad(versionSelect, endpointSelect, queryText) {
 
 function queryDynamicLoad(versionSelect, endpointSelect, key, startRange, endRange){
   $('#queryTxt').val('');
-  document.getElementById('versionList').selectedIndex=getVersionDropdown(versionSelect);
+  $('#versionList')[0].selectedIndex=getVersionDropdown(versionSelect);
   buildVersionDropdown();
-  document.getElementById('endpointDropdown').selectedIndex=getEndpointDropdown(endpointSelect);
+  $('#endpointDropdown')[0].selectedIndex=getEndpointDropdown(endpointSelect);
   updateTextboxVisibility();
   $('#queryTxt').val(QUERY_MAP[key]);
-  document.getElementById('queryTxt').focus();
-  document.getElementById('queryTxt').setSelectionRange(parseInt(startRange),parseInt(endRange));
+  $('#queryTxt')[0].focus();
+  $('#queryTxt')[0].setSelectionRange(parseInt(startRange),parseInt(endRange));
 }
 
 /**
@@ -65,7 +65,7 @@ function queryDynamicLoad(versionSelect, endpointSelect, key, startRange, endRan
  */
 
 function getVersionDropdown(versionSelect) {
-  var versionDOM = document.getElementById('versionList');
+  var versionDOM = $('#versionList')[0];
 
   for (var elem in versionDOM) {
     if (versionSelect === versionDOM.options[elem].value) {
@@ -83,7 +83,7 @@ function getVersionDropdown(versionSelect) {
  */
 
 function getEndpointDropdown(endpointSelect) {
-  var endpointDOM = document.getElementById('endpointDropdown');
+  var endpointDOM = $('#endpointDropdown')[0];
 
   for (var elem in endpointDOM) {
     if (endpointSelect === endpointDOM.options[elem].value) {

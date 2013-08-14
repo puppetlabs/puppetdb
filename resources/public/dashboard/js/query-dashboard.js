@@ -10,7 +10,7 @@
 
 var COOKIE_NAME = 'puppetdb-query-cookie';
 var END_POINTS_MAP = {};
-END_POINTS_MAP['v2'] = ['facts','resources','nodes','fact-names','metrics'];
+END_POINTS_MAP['v2'] = ['facts','resources','nodes','metrics'];
 END_POINTS_MAP['experimental'] = ['reports','events'];
 
 /**************************************************
@@ -23,23 +23,23 @@ END_POINTS_MAP['experimental'] = ['reports','events'];
  */
 
 function getQuery() {
-  var query = document.getElementById('queryTxt'),
-      endPoint = document.getElementById('endpointDropdown'),
-      version = document.getElementById('versionList'),
+  var query = $('#queryTxt')[0],
+      endPoint = $('#endpointDropdown')[0],
+      version = $('#versionList')[0],
       url = "";
 
-  document.getElementById("results").innerHTML = "";
-  document.getElementById("demo").innerHTML = "";
-  document.getElementById("tableResults").innerHTML = "";
+  $('#results')[0].innerHTML = "";
+  $('#demo')[0].innerHTML = "";
+  $('#tableResults')[0].innerHTML = "";
 
   if (version.value === '') {
     console.error("ERROR: no version selected");
-    document.getElementById("results").innerHTML = "<font color=\"red\">**An error has occured. No version selected.**</font>";
+    $('#results')[0].innerHTML = "<div class=\"alert fade in\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\">x</button><strong>ALERT!! </strong>An error has occured. No version selected.</div>";
     return;
   }
   else if (endPoint.value === '') {
     console.error("ERROR: no query endpoint selected");
-    document.getElementById("results").innerHTML = "<font color=\"red\">**An error has occured. No endpoint selected.**</font>";
+    $('#results')[0].innerHTML = "<div class=\"alert fade in\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\">x</button><strong>ALERT!! </strong>An error has occured. No end point selected.</div>";
     return;
   }
 
@@ -53,7 +53,7 @@ function getQuery() {
     url += endPoint.value + "?" + $.param({query: query.value});
   }
 
-  document.getElementById("demo").innerHTML="HTTP GET " + url;
+  $('#demo')[0].innerHTML="HTTP GET " + url;
 
   //printResults(url, endPoint);
   setCookie(query, version, endPoint);
@@ -151,7 +151,7 @@ function buildPrevQueries(){
       splitQuery;
 
   if ($cookieVal === undefined) {
-    $('#prevQueries').html("<p>No Previous Queries</p>");
+    $('#prevQueries')[0].html("<p>No Previous Queries</p>");
   }
   else {
     $cookieArr = $cookieVal.split(/\n/);
@@ -181,7 +181,7 @@ function buildPrevQueries(){
 
 function buildVersionDropdown() {
   var endPointTable = "<select id=\"endpointDropdown\" onchange=\"updateTextboxVisibility()\">",
-      version = document.getElementById('versionList'),
+      version = $('#versionList')[0],
       dropdownVisible,
       endPointArray;
 
@@ -255,7 +255,7 @@ function tableResults(url, endPoint, versionNumber) {
   })
   .fail(function() {
       console.error("An error has occured") 
-      $("#results").html("<font color=\"red\">**An error has occured See the console for details.**</font>");
+      $('#results')[0].innerHTML = "<div class=\"alert fade in\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\">x</button><strong>ALERT!! </strong>An error has occured. See console for details.</div>";
   } )
   .done(function() {
     $("#tableResults").append(table);
@@ -281,33 +281,33 @@ function formatElement(elem) {
  */
 
 function updateTextboxVisibility() {
-  var option = document.getElementById('endpointDropdown');
+  var option = $('#endpointDropdown')[0];
   if (option.value === 'fact-names' || option.value === 'metrics' || option.value === '') {
-    document.getElementById('queryTxt').disabled = true;
-    document.getElementById('queryTxt').placeholder = "";
+    $('#queryTxt')[0].disabled = true;
+    $('#queryTxt')[0].placeholder = "";
   }
   else {
-    document.getElementById('queryTxt').disabled = false;
+    $('#queryTxt')[0].disabled = false;
     generatePlaceholder();
   }
 }
 
 function updateDropdownVisibility() {
-  var option = document.getElementById('versionList');
+  var option = $('#versionList')[0];
   if (option.value === '') {
-    document.getElementById('endpointDropdown').disabled = true;
-    document.getElementById('queryTxt').disabled = true;
+    $('#endpointDropdown')[0].disabled = true;
+    $('#queryTxt')[0].disabled = true;
   }
   else {
-    document.getElementById('endpointDropdown').disabled = false;
+    $('#endpointDropdown')[0].disabled = false;
   }
   updateTextboxVisibility();
 }
 
 function generatePlaceholder() {
-  var version = document.getElementById('versionList'),
-      endPointVal = document.getElementById('endpointDropdown');
+  var version = $('#versionList')[0],
+      endPointVal = $('#endpointDropdown')[0];
 
-  document.getElementById('queryTxt').placeholder = "[\"<OPERATOR>\", \"<FIELD>\", \"<VALUE>\"]";
+  $('#queryTxt')[0].placeholder = "[\"<OPERATOR>\", \"<FIELD>\", \"<VALUE>\"]";
 }
 

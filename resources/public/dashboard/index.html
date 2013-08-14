@@ -8,6 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="css/query-dashboard.css" rel="stylesheet">
 
     <style type="text/css">
       @import url(https://fonts.googleapis.com/css?family=Lato:400,700);
@@ -94,56 +95,6 @@
 #update-link {
         color: blue;
       }
-    /* Sticky footer styles
-      -------------------------------------------------- */
-
-      html,
-      body {
-        height: 100%;
-        /* The html and body elements cannot have any padding or margin. */
-      }
-
-      /* Wrapper for page content to push down footer */
-      #wrap {
-        min-height: 100%;
-        height: auto !important;
-        height: 100%;
-        /* Negative indent footer by it's height */
-        margin: 0 auto -60px;
-      }
-
-      /* Set the fixed height of the footer here */
-      #push,
-      #footer {
-        height: 60px;
-      }
-      #footer {
-        background-color: #f5f5f5;
-      }
-
-      /* Lastly, apply responsive CSS fixes as necessary */
-      @media (max-width: 767px) {
-        #footer {
-          margin-left: -20px;
-          margin-right: -20px;
-          padding-left: 20px;
-          padding-right: 20px;
-        }
-      }
-
-      /* Custom page CSS
-      -------------------------------------------------- */
-      /* Not required for template or sticky footer method. */
-
-      #wrap > .container {
-        padding-top: 60px;
-      }
-      .container .credit {
-        margin: 20px 0;
-      }
-     code {
-        font-size: 80%;
-      }
     </style>
   </head>
   <body>
@@ -187,54 +138,15 @@
     <script src="js/d3.v2.js"></script>
     <script src="js/charts.js"></script>
     <script language="JavaScript" type="text/javascript" src="js/bootstrap.min.js"></script>
+    <script src="js/puppetdbversion.js"></script>
 
-    <script>(function() {
+    <script>
+      (function() {
       // Formatting middleware that collapses small values to 0
       function clampToZero(f, window) {
         return function(n) {
           return f(Math.abs(n) < window ? 0 : n);
         };
-      };
-
-      // Parse URL arguments
-      function getParameter(paramName) {
-        var searchString = window.location.search.substring(1),
-            i, val, params = searchString.split("&");
-
-        for (i=0;i<params.length;i++) {
-          val = params[i].split("=");
-          if (val[0] == paramName) {
-            return unescape(val[1]);
-          }
-        }
-        return null;
-      };
-
-      function setVersion() {
-        d3.json("/v2/version", function (res) {
-          if (res != null && res.version != null) {
-            d3.select('#version').html('v' + res.version);
-          }
-          else {
-            d3.select('#version').html('(unknown version)');
-          }
-        });
-      };
-
-      function checkForUpdates() {
-        d3.json("/v2/version/latest", function (res) {
-          console.log(res);
-          if (res != null && res.newer) {
-            d3.select('#latest-version').html('v' + res.version);
-            d3.select('#update-link').classed('hidden', false);
-            if (res.link) {
-              d3.select('#update-link').property('href', res.link);
-            }
-          }
-          else {
-            d3.select('#update-link').classed('hidden', true);
-          }
-        });
       };
 
       var nHistorical = getParameter("nHistorical") || 60;
