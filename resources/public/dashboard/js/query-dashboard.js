@@ -249,8 +249,8 @@ function tableResults(url, endPoint, versionNumber) {
         body += "<td>" + formattedElement + "</td>";
       });
       body += "</tr></tbody>";
-      table += body
     });
+    table += body;
     table += "</table>";
   })
   .fail(function() {
