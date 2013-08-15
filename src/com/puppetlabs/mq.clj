@@ -10,8 +10,8 @@
             [clamq.protocol.consumer :as mq-consumer]
             [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
-            [clojure.tools.logging :as log])
-  (:use [cheshire.custom :only (JSONable)]))
+            [clojure.tools.logging :as log]
+            [cheshire.custom :refer [JSONable]]))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`

@@ -5,13 +5,13 @@
             [com.puppetlabs.utils :as pl-utils]
             [clj-time.format :as time-format]
             [cheshire.core :as json]
-            [fs.core :as fs])
-  (:use [clojure.java.io :only [file make-parents]]
-        [clj-time.core :only [ago after?]]
-        [metrics.gauges :only [gauge]]
-        [metrics.meters :only [meter mark!]]
-        [metrics.timers :only [timer time!]]
-        [com.puppetlabs.time :only [period?]]))
+            [fs.core :as fs]
+            [clojure.java.io :refer [file make-parents]]
+            [clj-time.core :refer [ago after?]]
+            [metrics.gauges :refer [gauge]]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.timers :refer [timer time!]]
+            [com.puppetlabs.time :refer [period?]]))
 
 (def ns-str (str *ns*))
 

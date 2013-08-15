@@ -46,9 +46,9 @@
             [cheshire.core :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
-            [fs.core :as fs])
-  (:use [com.puppetlabs.utils :only (cli! inis-to-map configure-logging! utf8-string->sha1)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
+            [fs.core :as fs]
+            [com.puppetlabs.utils :refer [cli! inis-to-map configure-logging! utf8-string->sha1]]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [migrate!]]))
 
 (def cli-description "Development-only benchmarking tool")
 

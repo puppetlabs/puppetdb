@@ -1,14 +1,14 @@
 (ns com.puppetlabs.puppetdb.cli.anonymize
-  (:use [com.puppetlabs.utils :only (cli!)]
-        [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
-        [com.puppetlabs.puppetdb.cli.import :only [parse-metadata]])
   (:import  [com.puppetlabs.archive TarGzReader TarGzWriter]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as string]
             [com.puppetlabs.archive :as archive]
-            [com.puppetlabs.puppetdb.anonymizer :as anon]))
+            [com.puppetlabs.puppetdb.anonymizer :as anon]
+            [com.puppetlabs.utils :refer [cli!]]
+            [com.puppetlabs.puppetdb.cli.export :refer [export-root-dir export-metadata-file-name]]
+            [com.puppetlabs.puppetdb.cli.import :refer [parse-metadata]]))
 
 (def cli-description "Anonymize puppetdb dump files")
 

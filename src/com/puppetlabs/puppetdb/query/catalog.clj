@@ -5,9 +5,9 @@
 ;;
 
 (ns com.puppetlabs.puppetdb.query.catalog
-  (:require [com.puppetlabs.puppetdb.query.resource :as r])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.utils :only [dissoc-if-nil]]))
+  (:require [com.puppetlabs.puppetdb.query.resource :as r]
+            [com.puppetlabs.jdbc :refer [query-to-vec]]
+            [com.puppetlabs.utils :refer [dissoc-if-nil]]))
 
 (defn get-catalog-version
   "Given a node name, returns the Puppet catalog version string for the most

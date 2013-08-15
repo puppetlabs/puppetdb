@@ -8,16 +8,16 @@
 ;; database.
 
 (ns com.puppetlabs.puppetdb.cli.export
-  (:use [com.puppetlabs.utils :only (cli!)]
-        [clj-time.core :only [now]]
-        [clj-time.coerce :only [to-string]]
-        [com.puppetlabs.concurrent :only [bounded-pmap]]
-        [clj-http.util :only [url-encode]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]
-            [com.puppetlabs.archive :as archive]))
+            [com.puppetlabs.archive :as archive]
+            [com.puppetlabs.utils :refer [cli!]]
+            [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [to-string]]
+            [com.puppetlabs.concurrent :refer [bounded-pmap]]
+            [clj-http.util :refer [url-encode]]))
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 

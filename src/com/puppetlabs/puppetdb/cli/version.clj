@@ -10,9 +10,9 @@
 ;; by the property value.
 
 (ns com.puppetlabs.puppetdb.cli.version
-  (:require [cheshire.core :as json])
-  (:use [com.puppetlabs.puppetdb.version :only [version]]
-        [com.puppetlabs.puppetdb.scf.migrate :only [desired-schema-version]]))
+  (:require [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.version :refer [version]]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]))
 
 (def cli-description "Print info about the current version of PuppetDB")
 

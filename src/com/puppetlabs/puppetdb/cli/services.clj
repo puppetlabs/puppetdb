@@ -57,16 +57,16 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.ssl :as ssl])
-  (:use [clojure.java.io :only [file]]
-        [clj-time.core :only [ago secs minutes days]]
-        [overtone.at-at :only (mk-pool interspaced)]
-        [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery missing?)]
-        [com.puppetlabs.repl :only (start-repl)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.version :only [version update-info]]))
+            [com.puppetlabs.ssl :as ssl]
+            [clojure.java.io :refer [file]]
+            [clj-time.core :refer [ago secs minutes days]]
+            [overtone.at-at :refer [mk-pool interspaced]]
+            [com.puppetlabs.time :refer [to-secs to-millis parse-period format-period period?]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [com.puppetlabs.utils :refer [cli! configure-logging! inis-to-map with-error-delivery missing?]]
+            [com.puppetlabs.repl :refer [start-repl]]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [com.puppetlabs.puppetdb.version :refer [version update-info]]))
 
 (def cli-description "Main PuppetDB daemon")
 

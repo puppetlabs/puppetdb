@@ -4,11 +4,11 @@
 ;; internal PuppetDB format, including validation.
 
 (ns com.puppetlabs.puppetdb.report
-  (:use [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.validation :only [defmodel validate-against-model!]])
   (:require [cheshire.core :as json]
             [com.puppetlabs.utils :as utils]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [clj-time.coerce :refer [to-timestamp]]
+            [com.puppetlabs.validation :refer [defmodel validate-against-model!]]))
 
 (defmodel Report
   {:certname                 :string

@@ -1,8 +1,8 @@
 (ns com.puppetlabs.validation
   (:require [com.puppetlabs.utils :as pl-utils]
             [clojure.string :as string]
-            [clojure.set :as set])
-  (:use [cheshire.custom :only [JSONable]]))
+            [clojure.set :as set]
+            [cheshire.custom :refer [JSONable]]))
 
 (defmacro defmodel
   "Defines a 'model' which can be used for validating maps of data.  Here's an

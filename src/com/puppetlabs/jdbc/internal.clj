@@ -4,10 +4,10 @@
 ;; *subject to change without notice.*
 
 (ns com.puppetlabs.jdbc.internal
-  (:use [clojure.string :only (join)])
   (:import (com.jolbox.bonecp.hooks AbstractConnectionHook))
   (:require [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.string :refer [join]]))
 
 (defn query-param->str
   "Helper method for converting a single parameter from a prepared statement

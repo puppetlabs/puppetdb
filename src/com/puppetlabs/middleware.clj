@@ -5,9 +5,9 @@
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
             [clojure.string :as s]
-            [clojure.tools.logging :as log])
-  (:use [metrics.timers :only (timer time!)]
-        [metrics.meters :only (meter mark!)]))
+            [clojure.tools.logging :as log]
+            [metrics.timers :refer [timer time!]]
+            [metrics.meters :refer [meter mark!]]))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as

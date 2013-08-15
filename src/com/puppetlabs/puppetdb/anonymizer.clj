@@ -1,11 +1,11 @@
 (ns com.puppetlabs.puppetdb.anonymizer
   (:require [com.puppetlabs.puppetdb.catalog :as catalog]
             [com.puppetlabs.puppetdb.report :as report]
-            [clojure.string :as string])
-  (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
-        [com.puppetlabs.utils :only (regexp? boolean?)]
-        [clojure.walk :only (keywordize-keys)]
-        [com.puppetlabs.random]))
+            [clojure.string :as string]
+            [com.puppetlabs.concurrent :refer [bounded-pmap]]
+            [com.puppetlabs.utils :refer [regexp? boolean?]]
+            [clojure.walk :refer [keywordize-keys]]
+            [com.puppetlabs.random :refer :all]))
 
 ;; Validation functions, for use within pre/post conditions
 
