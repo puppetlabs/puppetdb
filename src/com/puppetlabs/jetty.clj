@@ -3,10 +3,10 @@
 (ns com.puppetlabs.jetty
   (:import (org.eclipse.jetty.server Server)
            (org.eclipse.jetty.server.nio SelectChannelConnector))
-  (:require [ring.adapter.jetty :as jetty])
-  (:use [clojure.tools.logging :as log]
-        [clojure.string :only (split trim)]
-        [com.puppetlabs.utils :only (compare-jvm-versions)]))
+  (:require [ring.adapter.jetty :as jetty]
+            [clojure.tools.logging :as log]
+            [clojure.string :refer [split trim]]
+            [com.puppetlabs.utils :refer [compare-jvm-versions]]))
 
 ;; We need to monkey-patch `add-ssl-connector!` in order to set the
 ;; appropriate options for Client Certificate Authentication, and use

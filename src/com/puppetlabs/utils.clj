@@ -17,16 +17,16 @@
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [digest]
-            [fs.core :as fs])
-  (:use [clojure.java.io :only (reader)]
-        [clojure.set :only (difference union)]
-        [clojure.string :only (split)]
-        [clojure.stacktrace :only (print-cause-trace)]
-        [clj-time.core :only [now]]
-        [clj-time.coerce :only [ICoerce to-date-time]]
-        [clj-time.format :only [formatters unparse]]
-        [metrics.timers :only [time! timer]]
-        [slingshot.slingshot :only (try+ throw+)]))
+            [fs.core :as fs]
+            [clojure.java.io :refer [reader]]
+            [clojure.set :refer [difference union]]
+            [clojure.string :refer [split]]
+            [clojure.stacktrace :refer [print-cause-trace]]
+            [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [ICoerce to-date-time]]
+            [clj-time.format :refer [formatters unparse]]
+            [metrics.timers :refer [time! timer]]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
 ;; ## Type checking
 

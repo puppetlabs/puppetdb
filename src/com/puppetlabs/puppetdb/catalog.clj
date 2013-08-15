@@ -93,8 +93,8 @@
             [clojure.set :as set]
             [cheshire.core :as json]
             [digest]
-            [com.puppetlabs.utils :as pl-utils])
-  (:use [clojure.core.match :only [match]]))
+            [com.puppetlabs.utils :as pl-utils]
+            [clojure.core.match :refer [match]]))
 
 (def ^:const catalog-version
   ^{:doc "Constant representing the version number of the PuppetDB

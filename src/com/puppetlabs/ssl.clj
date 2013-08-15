@@ -3,8 +3,8 @@
            (java.security.cert X509Certificate)
            (org.bouncycastle.openssl PEMReader PEMWriter)
            (org.bouncycastle.jce.provider BouncyCastleProvider))
-  (:use [clojure.tools.logging :as log]
-        [clojure.java.io :only (reader writer)]))
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.io :refer [reader writer]]))
 
 ;; Need to make sure that the provider is initialized
 (Security/addProvider (BouncyCastleProvider.))

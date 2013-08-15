@@ -5,8 +5,8 @@
 
 (ns com.puppetlabs.puppetdb.catalog.utils
   (:require [clojure.string :as string]
-            [com.puppetlabs.puppetdb.catalog :as cat])
-  (:use [com.puppetlabs.random :only [random-resource random-kw-resource random-parameters]]))
+            [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.random :refer [random-resource random-kw-resource random-parameters]]))
 
 (defn add-random-resource-to-wire-catalog
   "Adds a random resource to the given wire-format catalog"

@@ -68,14 +68,14 @@
             [cheshire.core :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
-            [clamq.protocol.connection :as mq-conn])
-  (:use [slingshot.slingshot :only [try+ throw+]]
-        [cheshire.custom :only (JSONable)]
-        [clj-http.util :only [url-encode]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [metrics.meters :only (meter mark!)]
-        [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]))
+            [clamq.protocol.connection :as mq-conn]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [cheshire.custom :refer [JSONable]]
+            [clj-http.util :refer [url-encode]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.histograms :refer [histogram update!]]
+            [metrics.timers :refer [timer time!]]))
 
 ;; ## Performance counters
 

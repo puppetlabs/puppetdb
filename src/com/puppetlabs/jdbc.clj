@@ -6,9 +6,8 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.utils :as utils])
-  (:use com.puppetlabs.jdbc.internal))
-
+            [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.jdbc.internal :refer :all]))
 
 (defn valid-jdbc-query?
   "Most SQL queries generated in the PuppetDB code base are represented internally

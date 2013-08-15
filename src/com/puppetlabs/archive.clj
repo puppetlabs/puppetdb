@@ -7,9 +7,9 @@
   (:import [java.io Closeable File OutputStream FileOutputStream IOException InputStream FileInputStream]
            [org.apache.commons.compress.archivers.tar TarArchiveEntry TarArchiveOutputStream TarArchiveInputStream]
            [org.apache.commons.compress.compressors.gzip GzipCompressorOutputStream GzipCompressorInputStream])
-  (:use [clojure.java.io]
-        [clj-time.core :only [now]]
-        [clj-time.coerce :only [to-date]]))
+  (:require [clojure.java.io :refer :all]
+            [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [to-date]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [tar-stream tar-writer gzip-stream]

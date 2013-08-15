@@ -60,11 +60,11 @@
 ;; applying ordering constraints.
 ;;
 (ns com.puppetlabs.puppetdb.query
-  (:require [clojure.string :as string])
-  (:use [com.puppetlabs.utils :only [parse-number keyset]]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
-        [com.puppetlabs.jdbc :only [valid-jdbc-query?]]
-        [clojure.core.match :only [match]]))
+  (:require [clojure.string :as string]
+            [com.puppetlabs.utils :refer [parse-number keyset]]
+            [com.puppetlabs.puppetdb.scf.storage :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+            [com.puppetlabs.jdbc :refer [valid-jdbc-query?]]
+            [clojure.core.match :refer [match]]))
 
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This

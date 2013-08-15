@@ -4,9 +4,9 @@
 ;; randomly modifying existing reports
 
 (ns com.puppetlabs.puppetdb.report.utils
-  (:require [clojure.string :as string])
-  (:use [clojure.walk :only [keywordize-keys]]
-        [com.puppetlabs.random :only [random-string random-resource-event]]))
+  (:require [clojure.string :as string]
+            [clojure.walk :refer [keywordize-keys]]
+            [com.puppetlabs.random :refer [random-string random-resource-event]]))
 
 (defn add-random-event-to-report
   "Add a randomly-generated event to an existing report."
