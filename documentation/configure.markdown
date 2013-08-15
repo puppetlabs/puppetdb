@@ -358,6 +358,12 @@ This sets the hostname to listen on for _unencrypted_ HTTP traffic. If not suppl
 
 This sets what port to use for _unencrypted_ HTTP traffic. If not supplied, we won't listen for unencrypted traffic at all.
 
+### `max-threads`
+
+This sets the maximum number of threads assigned to responding to HTTP and HTTPS requests, effectively changing how many concurrent requests can be made at one time. Defaults to 50.
+
+> **Note:** Due to how our web-server (Jetty 7) behaves, this setting must be higher then the number of CPU's on your system or it will stop processing any HTTP requests.
+
 ### `ssl-host`
 
 This sets the hostname to listen on for _encrypted_ HTTPS traffic. If not supplied, we bind to `localhost`. To listen on all available interfaces, use `0.0.0.0`.
