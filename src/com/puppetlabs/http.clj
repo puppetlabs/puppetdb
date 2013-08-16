@@ -4,10 +4,15 @@
 ;; functions.
 
 (ns com.puppetlabs.http
-  (:import [org.apache.http.impl EnglishReasonPhraseCatalog])
+  (:import [org.apache.http.impl EnglishReasonPhraseCatalog]
+           [java.io IOException Writer])
   (:require [ring.util.response :as rr]
+            [ring.util.io :as rio]
             [cheshire.core :as json]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]
             [clojure.reflect :as r]
+            [com.puppetlabs.utils :as utils]
             [clojure.string :as s]))
 
 
@@ -154,3 +159,35 @@
                         [segs'
                          (conj strs (str delimiter (s/join delimiter segs')))]))]
        (second (reduce f [[] []] segments)))))
+
+(defn stream-json
+  "Serializes the supplied sequence to `buffer`, which is a `Writer`
+  object."
+  [coll buffer]
+  {:pre [(instance? Writer buffer)]}
+  (json/generate-stream coll buffer {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true}))
+
+(defmacro streamed-response
+  "Evaluates `body` in a thread, with a local variable (`writer-var`)
+  bound to a fresh, UTF-8 Writer object.
+
+  Returns an InputStream. The InputStream is connected to the Writer
+  by a pipe. Deadlock is prevented by executing `body` in a separate
+  thread, therefore allowing `body` (the producer) to execute
+  alongside the consumer of the returned InputStream.
+
+  As `body` is executed in a separate thread, it's not possible for
+  the caller to catch exceptions thrown by `body`. Errors are instead
+  logged."
+  [writer-var & body]
+  `(rio/piped-input-stream
+    (fn [ostream#]
+      (with-open [~writer-var (io/writer ostream# :encoding "UTF-8")]
+        (try
+          (do ~@body)
+          (catch IOException e#
+            ;; IOException includes things like broken pipes due to
+            ;; client disconnect, so no need to spam the log normally.
+            (log/debug e# "Error streaming response"))
+          (catch Exception e#
+            (log/error e# "Error streaming response")))))))

@@ -51,11 +51,12 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [cheshire.core :as json]
             [com.puppetlabs.utils :as utils])
   (:use [clojure.set]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
-        [com.puppetlabs.jdbc :only [query-to-vec]]
+        [com.puppetlabs.jdbc :only [query-to-vec with-query-results-cursor]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
                                                     sql-current-connection-database-name
                                                     sql-current-connection-database-version]]))
@@ -296,6 +297,44 @@
   (sql/do-commands
     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
+(defn add-parameter-cache
+  "Creates the new resource_params_cache table, and populates it using
+  the existing parameters in the database."
+  []
+  ;; Create cache table
+  (sql/create-table :resource_params_cache
+                    ["resource" "VARCHAR(40)"]
+                    ["parameters" "TEXT"]
+                    ["PRIMARY KEY (resource)"])
+
+  (log/warn "Building resource parameters cache. This make take a few minutes, but faster resource queries are worth it.")
+
+  ;; Loop over all parameters, and insert a cache entry for each resource
+  (let [query    "SELECT resource, name, value from resource_params ORDER BY resource"
+        collapse (fn [rows]
+                   (let [resource (:resource (first rows))
+                         params   (into {} (map #(vector (:name %) (json/parse-string (:value %))) rows))]
+                     [resource params]))]
+
+    (with-query-results-cursor query [] rs
+      (let [param-sets (->> rs
+                            (partition-by :resource)
+                            (map collapse))]
+        (doseq [[resource params] param-sets]
+          (sql/insert-record :resource_params_cache {:resource resource
+                                                     :parameters   (json/generate-string params)})))))
+
+  ;; Create NULL entries for resources that have no parameters
+  (sql/do-commands
+   "INSERT INTO resource_params_cache
+    SELECT DISTINCT resource, NULL FROM catalog_resources WHERE NOT EXISTS
+    (SELECT 1 FROM resource_params WHERE resource=catalog_resources.resource)")
+
+  (sql/do-commands
+   "ALTER TABLE catalog_resources ADD FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE")
+
+  (sql/do-commands
+   "ALTER TABLE resource_params ADD FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
 
 (defn add-event-status-index
   "Add an index to the `status` column of the event table."
@@ -328,7 +367,8 @@
    8 rename-fact-column
    9 add-reports-tables
    10 add-event-status-index
-   11 increase-puppet-version-field-length})
+   11 increase-puppet-version-field-length
+   12 add-parameter-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
 
