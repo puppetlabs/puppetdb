@@ -359,7 +359,6 @@
         product-name                               (normalize-product-name (get global :product-name "puppetdb"))
         vardir                                     (validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
-        resource-query-limit                       (get global :resource-query-limit 20000)
         ;; TODO: revisit the choice of 20000 as a default value for event queries
         event-query-limit                          (get global :event-query-limit 20000)
         db                                         (pl-jdbc/pooled-datasource database)
@@ -373,7 +372,6 @@
         globals                                    {:scf-db               db
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
-                                                    :resource-query-limit resource-query-limit
                                                     :event-query-limit    event-query-limit
                                                     :update-server        update-server
                                                     :product-name         product-name}]

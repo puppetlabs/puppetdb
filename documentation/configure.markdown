@@ -104,7 +104,6 @@ An example configuration file:
     [global]
     vardir = /var/lib/puppetdb
     logging-config = /var/lib/puppetdb/log4j.properties
-    resource-query-limit = 20000
 
     [database]
     classname = org.postgresql.Driver
@@ -171,12 +170,6 @@ If this setting isn't provided, PuppetDB defaults to logging at INFO level to st
 If you installed from packages, PuppetDB will use the log4j.properties file in the `/etc/puppetdb/` or `/etc/puppetlabs/puppetdb` directory. Otherwise, you can find an example file in the `ext` directory of the source.
 
 You can edit the logging configuration file while PuppetDB is running, and it will automatically react to changes after a few seconds.
-
-### `resource-query-limit`
-
-The maximum number of legal results that a resource query can return.  If you issue a query that would result in more results than this value, the query will simply return an error.  (This can be used to prevent accidental queries that would yield huge numbers of results from consuming undesirable amounts of resources on the server.)
-  
-The default value is 20000.
 
 ### `event-query-limit`
 
