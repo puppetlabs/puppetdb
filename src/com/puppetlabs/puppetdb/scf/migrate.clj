@@ -321,8 +321,8 @@
                             (partition-by :resource)
                             (map collapse))]
         (doseq [[resource params] param-sets]
-          (sql/insert-record :resource_params_cache {:resource resource
-                                                     :parameters   (json/generate-string params)})))))
+          (sql/insert-record :resource_params_cache {:resource   resource
+                                                     :parameters (json/generate-string params)})))))
 
   ;; Create NULL entries for resources that have no parameters
   (sql/do-commands
