@@ -27,6 +27,11 @@
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]
+        (is (= expected actual))))
+
+    (testing "should return reports based on hash"
+      (let [expected  (expected-reports [(assoc basic :hash report-hash)])
+            actual    (reports-query-result ["=" "hash" report-hash])]
         (is (= expected actual))))))
 
 

@@ -59,6 +59,8 @@
   (case path
     "certname" {:where "reports.certname = ?"
                 :params [value] }
+    "hash"     {:where "reports.hash = ?"
+                :params [value]}
     (throw (IllegalArgumentException.
                  (str term " is not a valid query term")))))
 
