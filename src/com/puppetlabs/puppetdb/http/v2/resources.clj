@@ -25,6 +25,7 @@
               (r/with-queried-resources sql params #(pl-http/stream-json % buffer))))
           (rr/response)
           (rr/header "Content-Type" "application/json")
+          (rr/charset "utf-8")
           (rr/status pl-http/status-ok)))
 
     (catch IllegalArgumentException e
