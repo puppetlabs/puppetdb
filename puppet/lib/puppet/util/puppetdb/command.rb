@@ -45,16 +45,26 @@ class Puppet::Util::Puppetdb::Command
         result
       else
         # Newline characters cause an HTTP error, so strip them
-        raise Puppet::Error, "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+        error = "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
+        if config.soft_write_failure
+          Puppet.err "'#{command}'command#{for_whom} failed during submission to PuppetDB: #{error}"
+        else
+          raise Puppet::Error, error
+        end
       end
     rescue => e
-      # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
-      #  we are able to do so (can't call them yet w/o breaking backwards
-      #  compatibility.)  We should either be using a nested exception or calling
-      #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
-      #  we lose context as to where the original exception occurred.
-      puts e, e.backtrace if Puppet[:trace]
-      raise Puppet::Error, "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
+      error = "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
+      if config.soft_write_failure
+        Puppet.err error
+      else
+        # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
+        #  we are able to do so (can't call them yet w/o breaking backwards
+        #  compatibility.)  We should either be using a nested exception or calling
+        #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
+        #  we lose context as to where the original exception occurred.
+        puts e, e.backtrace if Puppet[:trace]
+        raise Puppet::Error, error
+      end
     end
   end
 
@@ -65,9 +75,9 @@ class Puppet::Util::Puppetdb::Command
 
   def self.format_payload(command, version, payload)
     message = {
-        :command => command,
-        :version => version,
-        :payload => payload,
+      :command => command,
+      :version => version,
+      :payload => payload,
     }.to_pson
 
     Puppet::Util::Puppetdb::CharEncoding.utf8_string(message)
@@ -78,8 +88,8 @@ class Puppet::Util::Puppetdb::Command
 
   def headers
     {
-        "Accept" => "application/json",
-        "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept" => "application/json",
+      "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
     }
   end
 
