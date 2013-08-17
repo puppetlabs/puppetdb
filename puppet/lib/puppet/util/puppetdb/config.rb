@@ -21,9 +21,11 @@ class Config
   # Public class methods
 
   def self.load(config_file = nil)
-    defaults = { :server                      => "puppetdb",
-                 :port                        => 8081,
-                 :ignore_blacklisted_events   => true,
+    defaults = {
+      :server                    => "puppetdb",
+      :port                      => 8081,
+      :soft_write_failure        => false,
+      :ignore_blacklisted_events => true,
     }
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -63,13 +65,15 @@ class Config
     main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
     # merge with defaults but filter out anything except the legal settings
     config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :ignore_blacklisted_events].include?(k))
+      !([:server, :port, :ignore_blacklisted_events, :soft_write_failure].include?(k))
     end
 
     config_hash[:server] = config_hash[:server].strip
     config_hash[:port] = config_hash[:port].to_i
     config_hash[:ignore_blacklisted_events] =
-        Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+      Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+    config_hash[:soft_write_failure] =
+      Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
     self.new(config_hash)
   rescue => detail
@@ -102,6 +106,10 @@ class Config
       fetch(event["resource-title"], {}).
       fetch(event["status"], {}).
       fetch(event["property"], false)
+  end
+
+  def soft_write_failure
+    config[:soft_write_failure]
   end
 
   # Private instance methods
