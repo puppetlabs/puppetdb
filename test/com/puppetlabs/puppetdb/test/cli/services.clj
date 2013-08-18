@@ -97,6 +97,14 @@
         (is (period? report-ttl))
         (is (= (days 14) (days (to-days report-ttl))))))))
 
+(deftest jetty7-minimum-threads-test
+  (testing "should return the same number when higher than num-cpus"
+    (is (= 500 (jetty7-minimum-threads 500 1))))
+  (testing "should set the number to min threads when it is higher and return a warning"
+    (with-log-output logs
+      (is (= 4 (jetty7-minimum-threads 1 4)))
+      (is (= 1 (count (logs-matching #"max-threads = 1 is less than the minium allowed on this system for Jetty 7 to operate." @logs)))))))
+
 (deftest http-configuration
   (testing "should enable need-client-auth"
     (let [config (configure-web-server {:jetty {:client-auth false}})]
@@ -135,7 +143,17 @@
           (is (not (contains? processed-config :trust-password)))
           (is (not (contains? processed-config :ssl-key)))
           (is (not (contains? processed-config :ssl-cert)))
-          (is (not (contains? processed-config :ssl-ca-cert))))))))
+          (is (not (contains? processed-config :ssl-ca-cert)))))))
+  (testing "should set max-threads"
+    (let [config (configure-web-server {:jetty {}})]
+      (is (contains? (:jetty config) :max-threads))))
+  (testing "should merge configuration with initial-configs correctly"
+    (let [user-config {:jetty {:truststore "foo"}}
+          config      (configure-web-server user-config)]
+      (is (= config {:jetty {:truststore "foo" :max-threads 50 :client-auth :need}})))
+    (let [user-config {:jetty {:max-threads 500 :truststore "foo"}}
+          config      (configure-web-server user-config)]
+      (is (= config {:jetty {:truststore "foo" :max-threads 500 :client-auth :need}})))))
 
 (deftest product-name-validation
   (doseq [product-name ["puppetdb" "pe-puppetdb"]]
