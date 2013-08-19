@@ -21,7 +21,10 @@
     (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
-  ([route] (*app* (get-request (str "/v2/" route)))))
+  ([route] (let [resp (*app* (get-request (str "/v2/" route)))]
+             (if (string? (:body resp))
+               resp
+               (update-in resp [:body] slurp)))))
 
 (defmacro check-json-response
   "Test if the HTTP request is a success, and if the result is equal

@@ -28,6 +28,12 @@
        {:certname "h1" :catalog "c1"})
 
       (sql/insert-records
+       :resource_params_cache
+       {:resource "1" :parameters nil}
+       {:resource "2" :parameters nil}
+       {:resource "3" :parameters nil})
+
+      (sql/insert-records
        :catalog_resources
        {:catalog "c1" :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
        ;; c2's resource shouldn't be counted, as they don't correspond to an active node
@@ -78,6 +84,12 @@
        :certname_catalogs
        {:certname "h1" :catalog "c1"}
        {:certname "h2" :catalog "c2"})
+
+      (sql/insert-records
+       :resource_params_cache
+       {:resource "1" :parameters nil}
+       {:resource "2" :parameters nil}
+       {:resource "3" :parameters nil})
 
       (sql/insert-records
        :catalog_resources
