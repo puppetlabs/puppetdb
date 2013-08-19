@@ -250,6 +250,12 @@ module PuppetDBExtensions
     result.exit_code == 0
   end
 
+
+  def current_time_on(host)
+    result = on host, %Q|date --rfc-2822|
+    CGI.escape(Time.rfc2822(result.stdout).iso8601)
+  end
+
   ############################################################################
   # NOTE: the following methods should only be called during run-from-source
   #  acceptance test runs.

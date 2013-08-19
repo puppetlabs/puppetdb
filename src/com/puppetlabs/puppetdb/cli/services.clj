@@ -66,7 +66,8 @@
         [com.puppetlabs.utils :only (cli! configure-logging! inis-to-map with-error-delivery missing?)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.version :only [version update-info]]))
+        [com.puppetlabs.puppetdb.version :only [version update-info]]
+        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -107,7 +108,7 @@
               (format-period node-ttl))
       (with-transacted-connection db
         (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-          (send-command! "deactivate node" 1 (json/generate-string node)))))
+          (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
@@ -245,6 +246,32 @@
         (assoc :key-password keystore-pw)
         (assoc :truststore truststore))))
 
+(defn jetty7-minimum-threads
+  "Given a thread count, make sure it meets the minimum count for Jetty 7 to
+  operate. It will return a warning if it does not, and return the minimum
+  instead of the original value.
+
+  This is to work-around a bug/feature in Jetty 7 that blocks the web server
+  when max-threads is less than the number of cpus on a system.
+
+  See: http://projects.puppetlabs.com/issues/22168 for more details.
+
+  This bug is solved in Jetty 9, so this check can probably be removed if we
+  upgrade."
+  ([threads]
+  (jetty7-minimum-threads threads (inc (pl-utils/num-cpus))))
+
+  ([threads min-threads]
+  {:pre [(pos? threads)
+         (pos? min-threads)]
+   :post [(pos? %)]}
+  (if (< threads min-threads)
+    (do
+      (log/warn (format "max-threads = %s is less than the minium allowed on this system for Jetty 7 to operate. This will be automatically increased to the safe minimum: %s"
+                  threads min-threads))
+      min-threads)
+    threads)))
+
 (defn configure-web-server
   "Update the supplied config map with information about the HTTP webserver to
   start. This will specify client auth, and add a default host/port
@@ -253,7 +280,9 @@
   {:pre  [(map? config)]
    :post [(map? %)
           (missing? (:jetty %) :ssl-key :ssl-cert :ssl-ca-cert)]}
-  (let [pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
+  (let [initial-config  {:max-threads 50}
+        merged-jetty    (merge initial-config jetty)
+        pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
         pem-config        (select-keys jetty pem-required-keys)]
     (assoc config :jetty
       (-> (condp = (count pem-config)
@@ -262,7 +291,8 @@
             (throw (IllegalArgumentException.
                      (format "Found SSL config options: %s; If configuring SSL from Puppet PEM files, you must provide all of the following options: %s"
                         (keys pem-config) pem-required-keys))))
-          (assoc :client-auth :need)))))
+          (assoc :client-auth :need)
+          (assoc :max-threads (jetty7-minimum-threads (:max-threads merged-jetty)))))))
 
 (defn configure-gc-params
   "Helper function that munges the supported permutations of our GC-related

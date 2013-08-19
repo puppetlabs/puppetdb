@@ -31,7 +31,7 @@ describe Puppet::Util::Puppetdb::Config do
         config = described_class.load
         config.server.should == 'puppetdb'
         config.port.should == 8081
-        config.max_queued_commands.should == 1000
+        config.ignore_blacklisted_events?.should == true
       end
 
     end
@@ -60,12 +60,12 @@ CONF
 [main]
 server = main_server
 port = 1234
-max_queued_commands = 0
+ignore_blacklisted_events = false
 CONF
         config = described_class.load
         config.server.should == 'main_server'
         config.port.should == 1234
-        config.max_queued_commands.should == 0
+        config.ignore_blacklisted_events?.should == false
       end
 
       it "should use the default if no value is specified" do
@@ -74,6 +74,7 @@ CONF
         config = described_class.load
         config.server.should == 'puppetdb'
         config.port.should == 8081
+        config.ignore_blacklisted_events?.should == true
       end
 
       it "should be insensitive to whitespace" do

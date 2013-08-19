@@ -128,6 +128,11 @@
        item
        (constructor item))))
 
+(defn seq-contains?
+  "True if seq contains elm"
+  [seq elm]
+  (some #(= elm %) seq))
+
 (defn mapvals
   "Return map `m`, with each value transformed by function `f`.
 

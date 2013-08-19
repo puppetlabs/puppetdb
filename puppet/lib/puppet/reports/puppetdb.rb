@@ -16,7 +16,7 @@ Puppet::Reports.register_report(:puppetdb) do
 
 
   def process
-    submit_command(self.host, report_to_hash, CommandStoreReport, 1)
+    submit_command(self.host, report_to_hash, CommandStoreReport, 2)
   end
 
   private
@@ -32,6 +32,7 @@ Puppet::Reports.register_report(:puppetdb) do
     # the accessors until version 3.x of puppet is our oldest supported version.
     #
     # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
+
     {
       "certname"                => host,
       "puppet-version"          => @puppet_version,
@@ -40,18 +41,18 @@ Puppet::Reports.register_report(:puppetdb) do
       "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
       "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
       "resource-events"         =>
-          resource_statuses.inject([]) do |events, status_entry|
+          filter_events(resource_statuses.inject([]) do |events, status_entry|
             resource, status = *status_entry
             if ! (status.events.empty?)
               events.concat(
                   status.events.map do |event|
-                    event_to_hash(status.resource_type, status.title, event)
+                    event_to_hash(status, event)
                   end)
             elsif status.skipped == true
               events.concat([resource_status_to_skipped_event_hash(status)])
             end
             events
-          end
+          end)
     }
   end
 
@@ -67,16 +68,18 @@ Puppet::Reports.register_report(:puppetdb) do
 
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
-  def event_to_hash(resource_type, resource_title, event)
+  def event_to_hash(status, event)
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-      "resource-type"     => resource_type,
-      "resource-title"    => resource_title,
+      "resource-type"     => status.resource_type,
+      "resource-title"    => status.title,
       "property"          => event.property,
       "new-value"         => event.desired_value,
       "old-value"         => event.previous_value,
       "message"           => event.message,
+      "file"              => status.file,
+      "line"              => status.line
     }
   end
 
@@ -94,7 +97,23 @@ Puppet::Reports.register_report(:puppetdb) do
       "new-value"         => nil,
       "old-value"         => nil,
       "message"           => nil,
+      "file"              => resource_status.file,
+      "line"              => resource_status.line
     }
   end
-  
+
+  ## Filter out blacklisted events, if we're configured to do so
+  def filter_events(events)
+    if config.ignore_blacklisted_events?
+      events.select { |e| ! config.is_event_blacklisted?(e) }
+    else
+      events
+    end
+  end
+
+  ## Helper method for accessing the puppetdb configuration
+  def config
+    Puppet::Util::Puppetdb.config
+  end
+
 end

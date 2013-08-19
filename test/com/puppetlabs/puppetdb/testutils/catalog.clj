@@ -4,7 +4,8 @@
   (:use     [com.puppetlabs.utils :only [uuid]]
             [clj-time.core :only [now]]
             [com.puppetlabs.puppetdb.testutils :only [test-db]]
-            [com.puppetlabs.puppetdb.fixtures :only [*db*]]))
+            [com.puppetlabs.puppetdb.fixtures :only [*db*]]
+            [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 
 (defn munge-resource-for-comparison
@@ -44,14 +45,14 @@
     (update-in ["data" "version"] str)))
 
 (defn replace-catalog
-  "Convience function for simulating a `replace catalog` command during testing.
+  "Convenience function for simulating a `replace catalog` command during testing.
 
   Accepts a catalog payload string (in exactly the format that the command accepts),
   and synchronously executes the logic that the command would (without needing
   to drag ActiveMQ into the test stack)."
   [catalog-payload]
   (command/process-command!
-    {:command     "replace catalog"
+    {:command     (command-names :replace-catalog)
      :payload     catalog-payload
      :annotations {:id (uuid)
                    :received (now)}
