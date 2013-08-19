@@ -73,3 +73,15 @@
     (map
       #(merge % {:resource-events (events-for-report-hash (get % :hash))})
       reports)))
+
+(defn is-latest-report?
+  "Given a node and a report hash, return `true` if the report is the most recent one for the node,
+  and `false` otherwise."
+  [node report-hash]
+  {:pre  [(string? node)
+          (string? report-hash)]
+   :post [(utils/boolean? %)]}
+  (= 1 (count (query-to-vec
+                ["SELECT report FROM latest_reports
+                    WHERE node = ? AND report = ?"
+                  node report-hash]))))

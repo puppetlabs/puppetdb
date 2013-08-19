@@ -724,14 +724,34 @@ must be supplied as the value to be matched."
     (pr-str)
     (utils/utf8-string->sha1)))
 
-(defn add-report!
-  "Add a report and all of the associated events to the database."
+(defn update-latest-report!
+  "Given a node name, updates the `latest_reports` table to ensure that it indicates the
+  most recent report for the node."
+  [node]
+  {:pre [(string? node)]}
+  (let [latest-report (:hash (first (query-to-vec
+                                      ["SELECT hash FROM reports
+                                            WHERE certname = ?
+                                            ORDER BY end_time DESC
+                                            LIMIT 1" node])))]
+    (sql/update-or-insert-values
+      :latest_reports
+      ["node = ?" node]
+      {:node    node
+       :report  latest-report})))
+
+(defn add-report!*
+  "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
+  is used to determine whether or not the `update-latest-report!` function will be called as part of
+  the transaction.  This should always be set to `true`, except during some very specific testing
+  scenarios."
   [{:keys [puppet-version certname report-format configuration-version
            start-time end-time resource-events]
     :as report}
-   timestamp]
+   timestamp update-latest-report?]
   {:pre [(map? report)
-         (utils/datetime? timestamp)]}
+         (utils/datetime? timestamp)
+         (utils/boolean? update-latest-report?)]}
   (let [report-hash         (report-identity-string report)
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
@@ -742,8 +762,6 @@ must be supplied as the value to be matched."
                                   resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
-        ;; TODO: should probably do some checking / error-handling around
-        ;; whether or not the report id already exists
         (sql/insert-record :reports
           { :hash                   report-hash
             :puppet_version         puppet-version
@@ -753,7 +771,14 @@ must be supplied as the value to be matched."
             :start_time             (to-timestamp start-time)
             :end_time               (to-timestamp end-time)
             :receive_time           (to-timestamp timestamp)})
-        (apply sql/insert-records :resource_events resource-event-rows)))))
+        (apply sql/insert-records :resource_events resource-event-rows)
+        (if update-latest-report?
+          (update-latest-report! certname))))))
+
+(defn add-report!
+  "Add a report and all of the associated events to the database."
+  [report timestamp]
+  (add-report!* report timestamp true))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
