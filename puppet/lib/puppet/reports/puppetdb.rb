@@ -49,9 +49,14 @@ Puppet::Reports.register_report(:puppetdb) do
       resource, status = *status_entry
       if ! (status.events.empty?)
         events.concat(status.events.map { |event| event_to_hash(status, event) })
-      elsif status.skipped == true
+      elsif status.skipped
         events.concat([fabricate_event(status, "skipped")])
-      elsif status.failed == true
+      elsif status.failed
+        # PP-254:
+        #   We have to fabricate resource events here due to a bug/s in report providers
+        #   that causes them not to include events on a resource status that has failed.
+        #   When PuppetDB is able to make a hard break from older version of Puppet that
+        #   have this bug, we can remove this behavior.
         events.concat([fabricate_event(status, "failure")])
       end
       events
