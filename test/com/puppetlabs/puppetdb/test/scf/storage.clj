@@ -323,7 +323,9 @@
 
       ;; All the params should still be there
       (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
-            [{:c 7}]))))
+            [{:c 7}]))
+      (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params_cache"])
+            [{:c 3}]))))
 
   (deftest catalog-delete-with-gc
     (testing "when deleted and GC'ed, should leave no dangling params or edges"
@@ -334,6 +336,8 @@
       (garbage-collect!)
 
       (is (= (query-to-vec ["SELECT * FROM resource_params"])
+            []))
+      (is (= (query-to-vec ["SELECT * FROM resource_params_cache"])
             []))
       (is (= (query-to-vec ["SELECT * FROM edges"])
             []))))

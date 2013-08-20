@@ -12,6 +12,20 @@
 
 (deftest query-resources
   (sql/insert-records
+   :resource_params_cache
+   {:resource "1" :parameters (db-serialize {"ensure" "file"
+                                             "owner"  "root"
+                                             "group"  "root"})}
+   {:resource "2" :parameters (db-serialize {"random" "true"})}
+   {:resource "3" :parameters nil}
+   {:resource "4" :parameters (db-serialize {"ensure"  "present"
+                                             "content" "#!/usr/bin/make\nall:\n\techo done\n"})}
+   {:resource "5" :parameters (db-serialize {"random" "false"})}
+   {:resource "6" :parameters (db-serialize {"multi" ["one" "two" "three"]})}
+   {:resource "7" :parameters (db-serialize {"hash" {"foo" 5 "bar" 10}})}
+   {:resource "8" :parameters nil})
+
+  (sql/insert-records
    :resource_params
    {:resource "1" :name "ensure"  :value (db-serialize "file")}
    {:resource "1" :name "owner"   :value (db-serialize "root")}

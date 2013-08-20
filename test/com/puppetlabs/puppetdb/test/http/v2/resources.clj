@@ -28,7 +28,10 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v2/resources" query))))
+  ([query] (let [resp (*app* (get-request "/v2/resources" query))]
+             (if (string? (:body resp))
+               resp
+               (update-in resp [:body] slurp)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -42,6 +45,13 @@ to the result of the form supplied to this method."
 
 (deftest resource-list-handler
   (with-transacted-connection *db*
+    (sql/insert-records
+     :resource_params_cache
+     {:resource "1" :parameters (db-serialize {"ensure" "file"
+                                               "owner"  "root"
+                                               "group"  "root"
+                                               "acl"    ["john:rwx" "fred:rwx"]})}
+     {:resource "2" :parameters nil})
     (sql/insert-records
       :resource_params
       {:resource "1" :name "ensure" :value (db-serialize "file")}
@@ -138,14 +148,6 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
         (is-response-equal (get-response query) result)))
 
-    (testing "query exceeding resource-query-limit"
-      (with-http-app {:resource-query-limit 1}
-        (fn []
-          (let [response (get-response ["=" "type" "File"])
-                body     (get response :body "null")]
-            (is (= (:status response) pl-http/status-internal-error))
-            (is (re-find #"more than the maximum number of results" body))))))
-
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (get-response ["and"
                                                  ["=" "type" "File"]
@@ -194,6 +196,4 @@ to the result of the form supplied to this method."
                             [["=" ["parameter" "ensure"] "file"] #{bar1}]
                             [["=" ["parameter" "owner"] "root"] #{bar1}]
                             [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
-      (is-response-equal (get-response query) result))))
-
-  )
+      (is-response-equal (get-response query) result)))))

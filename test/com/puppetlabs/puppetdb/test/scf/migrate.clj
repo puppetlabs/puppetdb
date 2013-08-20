@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.scf.migrate
   (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
+            [com.puppetlabs.puppetdb.scf.storage :refer (db-serialize)]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clj-time.coerce :only [to-timestamp]]
@@ -70,3 +71,45 @@
       (sql/insert-record :schema_migrations
                          {:version (inc migrate/desired-schema-version) :time (to-timestamp (now))})
       (is (thrown? IllegalStateException (migrate!))))))
+
+(deftest migration-14
+  (testing "building parameter cache"
+    (sql/with-connection db
+      (clear-db-for-testing!)
+      ;; Migrate to prior to the cache table
+      (doseq [[i migration] (sort migrations)
+              :while (< i 14)]
+        (migration)
+        (record-migration! i))
+
+      ;; Now add some resource parameters
+      (sql/insert-records
+       :resource_params
+       {:resource "1" :name "ensure"  :value (db-serialize "file")}
+       {:resource "1" :name "owner"   :value (db-serialize "root")}
+       {:resource "1" :name "group"   :value (db-serialize "root")}
+       {:resource "2" :name "random"  :value (db-serialize "true")}
+       ;; resource 3 deliberately left blank
+       {:resource "4" :name "ensure"  :value (db-serialize "present")}
+       {:resource "4" :name "content" :value (db-serialize "#!/usr/bin/make\nall:\n\techo done\n")}
+       {:resource "5" :name "random"  :value (db-serialize "false")}
+       {:resource "6" :name "multi"   :value (db-serialize ["one" "two" "three"])}
+       {:resource "7" :name "hash"    :value (db-serialize (sorted-map  "foo" 5 "bar" 10))})
+
+      ;; Now add the parameter cache
+      (add-parameter-cache)
+      (record-migration! 14)
+
+      ;; Now the cache table should have the json-ified version of
+      ;; each resource as the value
+      (is (= (query-to-vec "SELECT * FROM resource_params_cache ORDER BY resource")
+             [{:resource "1" :parameters (db-serialize {"ensure" "file"
+                                                        "owner"  "root"
+                                                        "group"  "root"})}
+              {:resource "2" :parameters (db-serialize {"random" "true"})}
+              ;; There should be no resource 3
+              {:resource "4" :parameters (db-serialize {"ensure"  "present"
+                                                        "content" "#!/usr/bin/make\nall:\n\techo done\n"})}
+              {:resource "5" :parameters (db-serialize {"random" "false"})}
+              {:resource "6" :parameters (db-serialize {"multi" ["one" "two" "three"]})}
+              {:resource "7" :parameters (db-serialize {"hash" (sorted-map "foo" 5 "bar" 10)})}])))))
