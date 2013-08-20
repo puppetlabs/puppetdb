@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.scf.migrate
   (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
             [com.puppetlabs.puppetdb.scf.storage :refer (db-serialize)]
+            [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clj-time.coerce :only [to-timestamp]]
@@ -102,14 +103,15 @@
 
       ;; Now the cache table should have the json-ified version of
       ;; each resource as the value
-      (is (= (query-to-vec "SELECT * FROM resource_params_cache ORDER BY resource")
-             [{:resource "1" :parameters (db-serialize {"ensure" "file"
-                                                        "owner"  "root"
-                                                        "group"  "root"})}
-              {:resource "2" :parameters (db-serialize {"random" "true"})}
+      (is (= (map #(update-in % [:parameters] json/parse-string)
+                  (query-to-vec "SELECT * FROM resource_params_cache ORDER BY resource"))
+             [{:resource "1" :parameters {"ensure" "file"
+                                          "owner"  "root"
+                                          "group"  "root"}}
+              {:resource "2" :parameters {"random" "true"}}
               ;; There should be no resource 3
-              {:resource "4" :parameters (db-serialize {"ensure"  "present"
-                                                        "content" "#!/usr/bin/make\nall:\n\techo done\n"})}
-              {:resource "5" :parameters (db-serialize {"random" "false"})}
-              {:resource "6" :parameters (db-serialize {"multi" ["one" "two" "three"]})}
-              {:resource "7" :parameters (db-serialize {"hash" (sorted-map "foo" 5 "bar" 10)})}])))))
+              {:resource "4" :parameters {"ensure"  "present"
+                                          "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
+              {:resource "5" :parameters {"random" "false"}}
+              {:resource "6" :parameters {"multi" ["one" "two" "three"]}}
+              {:resource "7" :parameters {"hash" (sorted-map "foo" 5 "bar" 10)}}])))))
