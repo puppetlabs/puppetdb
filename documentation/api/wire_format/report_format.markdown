@@ -43,8 +43,8 @@ the `datetime` format below.
 `"end-time"` is the time at which the puppet run completed; see more details about
 the `datetime` format below.
 
-`"transaction-uuid"` is an identifier string used to match the catalog and report
-that were issued during the same puppet run. This field may be `null`.
+`"transaction-uuid"` is a string used to identify a puppet run.  It can be used to
+match a report with the catalog that was used for the run.  This field may be `null`.
 
 ### Encoding
 
@@ -82,8 +82,7 @@ A JSON Object of the following form:
      "message": <string>,
      "file": <string>,
      "line: <integer>,
-     "containment-path": [<string>, <string>, ...],
-     "containing-class": <string>
+     "containment-path": [<string>, <string>, ...]
     }
 
 All keys are required.
@@ -114,9 +113,6 @@ This should be `null` if `status` is `success`.
 
 `"containment-path"` is a collection of strings where each string is a Puppet type or class
 that represents the containment hierarchy of the resource within the catalog. This field may be `null`.
-
-`"containing-class"` is a string that represents the Puppet class where the resource is defined.
-This field may be `null`.
 
 ## Gaps with this wire format
 

@@ -54,7 +54,7 @@ A catalog is a JSON object with two keys: `"metadata"` and `"data"`. [Version 2 
 
 The value of the `"metadata"` key must be `{ "api_version": 1 }` --- no other value is valid for this version of the format.
 
-The value of the `"data"` key must be a JSON object with five keys: `"name"`, `"version"`, `transaction-uuid`, `"edges"`, and `"resources"`.
+The value of the `"data"` key must be a JSON object with five keys: `"name"`, `"version"`, `"transaction-uuid"`, `"edges"`, and `"resources"`.
 Each of the keys is mandatory unless otherwise noted, although values that are lists may be empty lists.
 
 The value of each key in the data object is as follows:

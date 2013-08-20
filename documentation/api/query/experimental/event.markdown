@@ -111,7 +111,7 @@ operators.
   can be found.  NOTE: this field may contain `NULL` values; see notes below.
 
 `containing-class`
-: the Puppet class where this resource is defined.  NOTE: this field may
+: the Puppet class where this resource is declared.  NOTE: this field may
   contain `NULL` values; see notes below.
 
 ##### Notes on fields that allow `NULL` values
@@ -141,8 +141,8 @@ the field, and an inequality query will always return `true`.
         "status": "success",
         "file": "/home/user/path/to/manifest.pp",
         "line": 6,
-        "containment-path": [ "Stage[main]", "", "Node[default]", "File[/tmp/reportingfoo]" ],
-        "containing-class": null
+        "containment-path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
+        "containing-class": "Foo"
       },
       {
         "certname": "foo.localdomain",
