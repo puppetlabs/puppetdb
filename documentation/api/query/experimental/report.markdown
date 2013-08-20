@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/query/experimental/report.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [operator]: ../v2/operators.html
+[event]: ./event.html
 
 Querying reports is accomplished by making an HTTP request to the `/reports` REST
 endpoint.
@@ -29,7 +30,14 @@ The only available [OPERATOR][] is `=`.
 
 ##### Fields
 
-The only available FIELD is `certname`, which is the name of the node associated with the report.
+`FIELD` may be any of the following.  All fields support only the equality operator.
+
+`certname`
+: the name of the node that the report was received from.
+
+`hash`
+: the id of the report; these ids can be acquired
+  via event queries (see the [`/events`][event] query endpoint).
 
 #### Response format
 

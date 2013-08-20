@@ -62,4 +62,10 @@
       (response-equal?
         (get-response ["=" "certname" (:certname basic)])
         (reports-response [(assoc basic :hash report-hash)])
+        remove-receive-times))
+
+    (testing "should return all reports for a hash"
+      (response-equal?
+        (get-response ["=" "hash" report-hash])
+        (reports-response [(assoc basic :hash report-hash)])
         remove-receive-times))))
