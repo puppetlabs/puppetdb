@@ -6,15 +6,16 @@
 
 (ns com.puppetlabs.puppetdb.query.catalog
   (:require [com.puppetlabs.puppetdb.query.resource :as r])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.utils :only [dissoc-if-nil]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
+        [com.puppetlabs.utils :only [dissoc-if-nil mapkeys]]))
 
 (defn get-catalog-info
   "Given a node name, return a map of Puppet catalog information
   for the most recent catalog that we've seen for that node.
+  Returns `nil` if no catalogs are found for the node.
   The map contains the following data:
-    - `:catalog_version`
-    - `:transaction_uuid`, which may be nil"
+    - `:catalog-version`
+    - `:transaction-uuid`, which may be nil"
   [node]
   {:pre  [(string? node)]
    :post [((some-fn nil? map?) %)]}
@@ -23,7 +24,7 @@
                "INNER JOIN certname_catalogs "
                "ON certname_catalogs.catalog = catalogs.hash "
                "WHERE certname = ?")]
-    (first (query-to-vec query node))))
+    (mapkeys underscores->dashes (first (query-to-vec query node)))))
 
 (defn resource-to-wire-format
   "Given a resource as returned by our resource database query functions,
@@ -95,10 +96,10 @@
   ;; the main use of get-catalog-info here is just to do a quick check to
   ;; see if we actually have a catalog for the node
   (let [info (get-catalog-info node)]
-    (when-let [catalog-version (:catalog_version info)]
+    (when-let [catalog-version (:catalog-version info)]
       { :data          {:name             node
                         :edges            (get-edges node)
                         :resources        (get-resources node)
                         :version          catalog-version
-                        :transaction_uuid (:transaction_uuid info)}
+                        :transaction-uuid (:transaction-uuid info)}
         :metadata      {:api_version 1 }})))

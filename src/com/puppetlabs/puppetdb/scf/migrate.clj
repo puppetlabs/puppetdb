@@ -330,6 +330,8 @@
     "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
     "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)")
   (sql/do-commands
+    ;; It would be nice to change the transaction UUID column to NOT NULL in the future
+    ;; once we stop supporting older versions of Puppet that don't have this field.
     "ALTER TABLE reports ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
     "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
     "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"

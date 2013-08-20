@@ -141,18 +141,12 @@ describe processor do
           res_event["new-value"].should == "fooval"
           res_event["old-value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
+          res_event["file"].should == "foo"
+          res_event["line"].should == 1
 
           if subject.report_format >= 4
-            res_event["file"].should == "foo"
-            res_event["line"].should == 1
             res_event["containment-path"].should == ["foo", "bar", "baz"]
           else
-            res_event.has_key?("file").should == true
-            res_event["file"].should == nil
-
-            res_event.has_key?("line").should == true
-            res_event["line"].should == nil
-
             res_event.has_key?("containment-path").should == true
             res_event["containment-path"].should == nil
           end
