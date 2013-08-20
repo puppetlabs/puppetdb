@@ -37,7 +37,7 @@ The only available [OPERATOR][] is `=`.
 
 `hash`
 : the id of the report; these ids can be acquired
-  via event queries (see the [`/events`][event] query endpoint.
+  via event queries (see the [`/events`][event] query endpoint).
 
 #### Response format
 
