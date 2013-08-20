@@ -54,7 +54,7 @@ the completion time of the report, in descending order:
         "start-time": "2012-10-29T18:38:00.000Z",
         "hash": "bd899b1ee825ec1d2c671fe5541b5c8f4a783472",
         "certname": "foo.local",
-        "report-format": 3,
+        "report-format": 4,
         "transaction-uuid": "030c1717-f175-4644-b048-ac9ea328f221"
         },
       {
@@ -65,7 +65,7 @@ the completion time of the report, in descending order:
         "start-time": "2012-10-26T22:39:31.000Z",
         "hash": "cd4e5fd8846bac26d15d151664a40e0f2fa600b0",
         "certname": "foo.local",
-        "report-format": 3,
+        "report-format": 4,
         "transaction-uuid": null
         }
     ]
