@@ -122,7 +122,7 @@
         :classes          ["settings" "default"]
         :environment      "production"
         :version          1332533763
-        :transaction_uuid nil}}}
+        :transaction-uuid nil}}}
 
    2 {:empty
       {:metadata      {:api_version 1}
@@ -161,4 +161,4 @@
           :tags       ["node" "default" "class"]
           :type       "Node"}]
         :version          1332533763
-        :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}}}})
+        :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}}}})

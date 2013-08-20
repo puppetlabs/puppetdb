@@ -42,7 +42,7 @@
             "file" : "/Users/nicklewis/projects/puppetlabs-modules/site/os/manifests/linux/debian.pp"
         } ],
         "version" : 1330463446,
-        "transaction_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+        "transaction-uuid" : null
     },
     "metadata" : {
         "api_version" : 1
