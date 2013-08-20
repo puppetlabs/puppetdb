@@ -40,20 +40,22 @@ Puppet::Reports.register_report(:puppetdb) do
       "configuration-version"   => configuration_version.to_s,
       "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
       "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-      "resource-events"         =>
-          filter_events(resource_statuses.inject([]) do |events, status_entry|
-            resource, status = *status_entry
-            if ! (status.events.empty?)
-              events.concat(
-                  status.events.map do |event|
-                    event_to_hash(status, event)
-                  end)
-            elsif status.skipped == true
-              events.concat([resource_status_to_skipped_event_hash(status)])
-            end
-            events
-          end)
+      "resource-events"         => build_events_list
     }
+  end
+
+  def build_events_list
+    filter_events(resource_statuses.inject([]) do |events, status_entry|
+      resource, status = *status_entry
+      if ! (status.events.empty?)
+        events.concat(status.events.map { |event| event_to_hash(status, event) })
+      elsif status.skipped == true
+        events.concat([fabricate_event(status, "skipped")])
+      elsif status.failed == true
+        events.concat([fabricate_event(status, "failure")])
+      end
+      events
+    end)
   end
 
   def run_duration
@@ -68,28 +70,27 @@ Puppet::Reports.register_report(:puppetdb) do
 
   ## Convert an instance of `Puppet::Transaction::Event` to a hash
   ## suitable for sending over the wire to PuppetDB
-  def event_to_hash(status, event)
+  def event_to_hash(resource_status, event)
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-      "resource-type"     => status.resource_type,
-      "resource-title"    => status.title,
+      "resource-type"     => resource_status.resource_type,
+      "resource-title"    => resource_status.title,
       "property"          => event.property,
       "new-value"         => event.desired_value,
       "old-value"         => event.previous_value,
       "message"           => event.message,
-      "file"              => status.file,
-      "line"              => status.line
+      "file"              => resource_status.file,
+      "line"              => resource_status.line
     }
   end
 
-
-  ## Given an instance of `Puppet::Resource::Status` with
-  ## a status of 'skipped', this method fabricates a PuppetDB
-  ## event object representing the skipped resource.
-  def resource_status_to_skipped_event_hash(resource_status)
+  ## Given an instance of `Puppet::Resource::Status` and a status string,
+  ## this method fabricates a PuppetDB event object with the provided
+  ## `"status"`.
+  def fabricate_event(resource_status, event_status)
     {
-      "status"            => "skipped",
+      "status"            => event_status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
       "resource-type"     => resource_status.resource_type,
       "resource-title"    => resource_status.title,
