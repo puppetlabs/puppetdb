@@ -73,12 +73,12 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
     describe "#add_transaction_uuid" do
       it "should add the given transaction uuid" do
-        result = subject.add_transaction_uuid(catalog_data_hash, :transaction_uuid => 'abc123')
+        result = subject.add_transaction_uuid(catalog_data_hash, 'abc123')
         result['transaction_uuid'].should == 'abc123'
       end
 
       it "should add nil transaction uuid if none was given" do
-        result = subject.add_transaction_uuid(catalog_data_hash, {})
+        result = subject.add_transaction_uuid(catalog_data_hash, nil)
         result.has_key?('transaction_uuid').should be_true
         result['transaction_uuid'].should be_nil
       end

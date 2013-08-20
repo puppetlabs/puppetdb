@@ -7,9 +7,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb::CommandNames
 
   def save(request)
-    extra_request_data = extract_extra_request_data(request)
-
-    catalog = munge_catalog(request.instance, extra_request_data)
+    catalog = munge_catalog(request.instance, extract_extra_request_data(request))
 
     submit_command(request.key, catalog, CommandReplaceCatalog, 2)
   end
@@ -39,7 +37,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     munge_edges(data)
     synthesize_edges(data, catalog)
     filter_keys(hash)
-    add_transaction_uuid(data, extra_request_data)
+    add_transaction_uuid(data, extra_request_data[:transaction_uuid])
 
     hash
   end
@@ -55,8 +53,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # fundamentally unordered
   UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
 
-  def add_transaction_uuid(hash, extra_request_data)
-    hash['transaction_uuid'] = extra_request_data[:transaction_uuid]
+  def add_transaction_uuid(hash, transaction_uuid)
+    hash['transaction-uuid'] = transaction_uuid
 
     hash
   end

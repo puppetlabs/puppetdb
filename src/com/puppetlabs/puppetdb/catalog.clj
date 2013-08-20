@@ -242,8 +242,7 @@
     * Stringifies the `version`
     * Adds a `puppetdb-version` with the current catalog format version
     * Renames `api_version` to `api-version`
-    * Renames `name` to `certname`
-    * Renames `transaction_uuid` to `transaction-uuid`"
+    * Renames `name` to `certname`"
   [catalog]
   {:pre [(map? catalog)]
    :post [(string? (:version %))
@@ -251,13 +250,11 @@
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
-          (number? (:api-version %))
-          ((some-fn nil? string?) (:transaction-uuid %))
-          (= (:transaction-uuid %) (:transaction_uuid catalog))]}
+          (number? (:api-version %))]}
   (-> catalog
     (update-in [:version] str)
     (assoc :puppetdb-version catalog-version)
-    (set/rename-keys {:name :certname :api_version :api-version :transaction_uuid :transaction-uuid})))
+    (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform
   "Applies every transformation to the catalog, converting it from wire format

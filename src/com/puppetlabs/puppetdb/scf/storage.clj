@@ -332,8 +332,7 @@ must be supplied as the value to be matched."
   {:pre [(string? hash)
          (number? api-version)
          (string? catalog-version)
-         (or (nil? transaction-uuid)
-             (string? transaction-uuid))]}
+         ((some-fn nil? string?) transaction-uuid)]}
   (sql/insert-record :catalogs {:hash             hash
                                 :api_version      api-version
                                 :catalog_version  catalog-version
