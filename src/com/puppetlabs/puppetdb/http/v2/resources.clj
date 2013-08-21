@@ -15,9 +15,10 @@
   If the query can't be parsed, a 400 is returned."
   [query query->sql db]
   (try
-    (let [[sql & params] (-> query
-                             (json/parse-string true)
-                             (query->sql))]
+    (let [[sql & params] (with-transacted-connection db
+                           (-> query
+                               (json/parse-string true)
+                               (query->sql)))]
 
       (-> (pl-http/streamed-response buffer
             (with-transacted-connection db
