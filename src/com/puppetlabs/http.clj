@@ -5,7 +5,8 @@
 
 (ns com.puppetlabs.http
   (:import [org.apache.http.impl EnglishReasonPhraseCatalog])
-  (:require [ring.util.response :as rr]
+  (:require [com.puppetlabs.utils :as utils]
+            [ring.util.response :as rr]
             [cheshire.core :as json]
             [clojure.reflect :as r]
             [clojure.string :as s]))
@@ -102,6 +103,7 @@
   ([body]
      (json-response body status-ok))
   ([body code]
+     (utils/add-common-json-encoders!)
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)

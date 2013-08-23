@@ -63,7 +63,7 @@
 
 (defn -main
   [& args]
-  (utils/set-default-uncaught-exception-handler!)
+  (utils/add-common-json-encoders!)
   (let [subcommand (first args)
         allowed?   (available-subcommands)]
 

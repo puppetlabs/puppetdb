@@ -51,7 +51,7 @@ to the result of the form supplied to this method."
          "resources" {"Class[Main]" {"certname"   (:certname empty-catalog)
                                      "type"       "Class"
                                      "title"      "Main"
-                                     "resource"   "fc22ffa0a8128d5676e1c1d55e04c6f55529f04c"
+                                     "resource"   "4e52e8387f0766e007a450c63ee7a37b9c16a016"
                                      "exported"   false
                                      "file" nil
                                      "line" nil
@@ -61,7 +61,7 @@ to the result of the form supplied to this method."
                      "Class[Settings]" {"certname"   (:certname empty-catalog)
                                         "type"       "Class"
                                         "title"      "Settings"
-                                        "resource"   "cc1869f0f075fc3c3e5828de9e92d65a0bf8d9ff"
+                                        "resource"   "e07ed40565f4d82e468b47b627df444557e132f6"
                                         "exported"   false
                                         "file" nil
                                         "line" nil
@@ -71,7 +71,7 @@ to the result of the form supplied to this method."
                      "Stage[main]" {"certname"   (:certname empty-catalog)
                                     "type"       "Stage"
                                     "title"      "main"
-                                    "resource"   "124522a30c56cb9e4bbc66bae4c2515cda6ec889"
+                                    "resource"   "76c4350dca7f6dc2f900be31b7ac5eecf6c54b4e"
                                     "exported"   false
                                     "file" nil
                                     "line" nil
