@@ -107,6 +107,7 @@
   ([body]
      (json-response body status-ok))
   ([body code]
+     (utils/add-common-json-encoders!)
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)
