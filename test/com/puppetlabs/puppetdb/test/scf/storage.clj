@@ -33,7 +33,11 @@
             (is (= str1 str2)))
           (when-not (= value1 value2)
             (is (not= str1 str2)
-              (str value1 " should not serialize the same as " value2))))))))
+              (str value1 " should not serialize the same as " value2)))))))
+  (let [values ["foo" 0 {"z" 1 "a" 1}]
+        expected ["foo" 0 {"a" 1 "z" 1}]]
+    (testing "should sort beforehand"
+      (is (= (json/parse-string (db-serialize values)) expected)))))
 
 (deftest hash-computation
   (testing "Hashes for resources"
@@ -57,6 +61,10 @@
             (resource-identity-hash {:bar 2 :foo 1})))
       (is (= (resource-identity-hash {:tags #{1 2 3}})
             (resource-identity-hash {:tags #{3 2 1}}))))
+
+    (testing "should return the same value for recursive misordered hashes that are equal"
+      (is (= (resource-identity-hash {:param {:z 3 :a 1 :m 2}})
+             (resource-identity-hash {:param {:a 1 :m 2 :z 3}}))))
 
     (testing "should be different for non-equivalent resources"
       ; Take a population of 5 resource, put them into a set to make

@@ -234,9 +234,7 @@ must be supplied as the value to be matched."
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."
   [value]
-  (json/generate-string (if (map? value)
-                          (into (sorted-map) value)
-                          value)))
+  (json/generate-string (utils/sort-nested-maps value)))
 
 ;; ## Entity manipulation
 
@@ -393,7 +391,7 @@ must be supplied as the value to be matched."
   memoization."
   [type title parameters]
   {:post [(string? %)]}
-  (-> [type title (sort parameters)]
+  (-> [type title (utils/sort-nested-maps parameters)]
       (pr-str)
       (utils/utf8-string->sha1)))
 
@@ -422,7 +420,7 @@ must be supplied as the value to be matched."
   [{:keys [type title parameters exported file line] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (pr-str [type title exported file line (sort parameters)]))
+  (pr-str [type title exported file line (utils/sort-nested-maps parameters)]))
 
 (defn- resource->values
   "Given a catalog-hash, a resource, and a truthy value indicating
@@ -696,8 +694,8 @@ must be supplied as the value to be matched."
               :property property
               :timestamp timestamp
               :status status
-              :old-value old-value
-              :new-value new-value
+              :old-value (utils/sort-nested-maps old-value)
+              :new-value (utils/sort-nested-maps new-value)
               :message message})
       (pr-str)
       (utils/utf8-string->sha1)))

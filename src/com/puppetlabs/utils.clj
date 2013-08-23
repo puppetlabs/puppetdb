@@ -185,6 +185,13 @@
   "Returns the sequence of values from the map for the entries with the specified keys"
   (comp vals select-keys))
 
+(defn sort-nested-maps
+  "For a data structure, recursively sorting any nested maps"
+  [data]
+  (if (coll? data)
+    (clojure.walk/postwalk (fn [m] (if (map? m) (into (sorted-map) m) m)) data)
+    data))
+
 ;; ## Date and Time
 
 (defn timestamp

@@ -69,6 +69,11 @@
     (testing "should not remove the key if the value is not nil"
       (is (= testmap (dissoc-if-nil testmap :a))))))
 
+(deftest sort-nested-maps-test
+  (let [input {:b "asdf" :a {:z "asdf" :k "asdf" :a {:m "asdf" :b "asdf"}}}
+        output {:a {:a {:b "asdf" :m "asdf"} :k "asdf" :z "asdf"} :b "asdf"}]
+    (testing "sorting should match expected output"
+      (is (= (sort-nested-maps input) output)))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"
