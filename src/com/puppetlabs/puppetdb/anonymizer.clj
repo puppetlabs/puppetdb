@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.report :as report]
             [clojure.string :as string])
   (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
-        [com.puppetlabs.utils :only (regexp? boolean? uuid)]
+        [com.puppetlabs.utils :only (regexp? boolean? uuid string-contains?)]
         [clojure.walk :only (keywordize-keys)]
         [com.puppetlabs.random]))
 
@@ -277,6 +277,23 @@
    :post [(coll? %)]}
   (map #(anonymize-edge % context config) edges))
 
+(defn anonymize-containment-path-element
+  "Anonymize a containment path resource reference"
+  [element context config]
+  {:pre  [(string? element)]
+   :post [(string? %)]}
+  (cond
+    (.isEmpty element) ""
+    (string-contains? "[" element) (anonymize-reference element context config)
+    :else (anonymize-leaf element :title (assoc context "type" "Class") config)))
+
+(defn anonymize-containment-path
+  "Anonymize a collection of containment path resource references from an event"
+  [path context config]
+  {:pre  [(coll? path)]
+   :post [(coll? %)]}
+  (map #(anonymize-containment-path-element % context config) path))
+
 (defn update-in-nil
   "Wrapper around update-in that ignores keys with nil"
   [m [k] f & args]
@@ -325,14 +342,15 @@
                     "file"          (get event "file")
                     "line"          (get event "line")}]
     (-> event
-      (update-in     ["resource-title"] anonymize-leaf :title newcontext config)
-      (update-in     ["message"]        anonymize-leaf :message newcontext config)
-      (update-in     ["property"]       anonymize-leaf :parameter-name newcontext config)
-      (update-in     ["new-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
-      (update-in     ["old-value"]      anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
-      (update-in     ["resource-type"]  anonymize-leaf :type newcontext config)
-      (update-in-nil ["file"]           anonymize-leaf :file newcontext config)
-      (update-in-nil ["line"]           anonymize-leaf :line newcontext config))))
+      (update-in     ["resource-title"]   anonymize-leaf :title newcontext config)
+      (update-in     ["message"]          anonymize-leaf :message newcontext config)
+      (update-in     ["property"]         anonymize-leaf :parameter-name newcontext config)
+      (update-in     ["new-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
+      (update-in     ["old-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
+      (update-in     ["resource-type"]    anonymize-leaf :type newcontext config)
+      (update-in-nil ["file"]             anonymize-leaf :file newcontext config)
+      (update-in-nil ["line"]             anonymize-leaf :line newcontext config)
+      (update-in-nil ["containment-path"] anonymize-containment-path newcontext config))))
 
 (defn anonymize-resource-events
   "Anonymize a collection of resource events from a report"
