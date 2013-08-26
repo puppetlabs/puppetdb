@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.report :as report]
             [clojure.string :as string])
   (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
-        [com.puppetlabs.utils :only (regexp? boolean?)]
+        [com.puppetlabs.utils :only (regexp? boolean? uuid)]
         [clojure.walk :only (keywordize-keys)]
         [com.puppetlabs.random]))
 
@@ -151,7 +151,8 @@
         :parameter-value (anonymize-leaf-parameter-value value)
         :message (random-string 50)
         :file (random-pp-path)
-        :line (rand-int 300)))))
+        :line (rand-int 300)
+        :transaction-uuid (uuid)))))
 
 (defn anonymize-leaf
   "Anonymize leaf data, if the context matches a rule"
@@ -351,9 +352,10 @@
    :post [(catalog? %)]}
   (let [context {"node" (get catalog ["data" "name"])}]
     (-> catalog
-      (update-in ["data" "resources"] anonymize-resources context config)
-      (update-in ["data" "edges"]     anonymize-edges context config)
-      (update-in ["data" "name"]      anonymize-leaf :node context config))))
+      (update-in ["data" "resources"]        anonymize-resources context config)
+      (update-in ["data" "edges"]            anonymize-edges context config)
+      (update-in ["data" "name"]             anonymize-leaf :node context config)
+      (update-in ["data" "transaction-uuid"] anonymize-leaf :transaction-uuid context config))))
 
 (defn anonymize-report
   "Anonymize a report"
@@ -362,5 +364,6 @@
    :post [(report? % version)]}
   (let [context {"node" (get report "certname")}]
     (-> report
-      (update-in ["certname"]        anonymize-leaf :node context config)
-      (update-in ["resource-events"] anonymize-resource-events context config))))
+      (update-in ["certname"]         anonymize-leaf :node context config)
+      (update-in ["resource-events"]  anonymize-resource-events context config)
+      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config))))
