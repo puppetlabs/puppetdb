@@ -53,6 +53,7 @@
   []
   {:post [(string? %)]}
   (str "/etc/puppet/modules/" (random-string-alpha 10) "/manifests/" (random-string-alpha 10) ".pp"))
+
 (defn random-parameters
   "Generate a random set of parameters."
   []

@@ -156,6 +156,13 @@
   (testing "should return a number"
     (is (integer? (anonymize-leaf-memoize :line 10)))))
 
+(deftest test-anonymize-leaf-transaction-uuid
+  (testing "should return a string 36 characters long"
+    (is (string? (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f")))
+    (is (= 36 (count (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f")))))
+  (testing "should not return the input string"
+    (is (not (= "0fc3241f-35f7-43c8-bcbb-d79fb626be3f" (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f"))))))
+
 (deftest test-anonymize-leaf
   (testing "should return a random string when type 'node' and rule returns true"
     (let [anon-config {"rules" {"node" [anon-true]}}]

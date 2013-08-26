@@ -69,6 +69,9 @@
           ;; Line numbers without file names does not give away a lot
           {"context" {} "anonymize" false}
         ]
+        "transaction-uuid" [
+          {"context" {} "anonymize" false}
+        ]
       }
     }
     "low" {
@@ -106,6 +109,9 @@
             "/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
            "anonymize" true}
         ]
+        "transaction-uuid" [
+          {"context" {} "anonymize" false}
+        ]
       }
     }
     "none" {
@@ -118,6 +124,7 @@
         "file" [ {"context" {} "anonymize" false} ]
         "message" [ {"context" {} "anonymize" false} ]
         "parameter-value" [ {"context" {} "anonymize" false} ]
+        "transaction-uuid" [ {"context" {} "anonymize" false} ]
       }
     }
   })
