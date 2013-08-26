@@ -291,15 +291,35 @@
 
 (deftest test-anonymize-resource-event
   (testing "should handle a resource event"
-    (let [test-event {"status"         "noop"
-                      "timestamp"      "2013-03-04T19:56:34.000Z"
-                      "resource-title" "foo"
-                      "property"       "ensure"
-                      "message"        "Ensure was absent now present"
-                      "new-value"      "present"
-                      "old-value"      "absent"
-                      "resource-type"  "Package"}]
-      (is (map? (anonymize-resource-event test-event {} {}))))))
+    (let [test-event {"status"           "noop"
+                      "timestamp"        "2013-03-04T19:56:34.000Z"
+                      "resource-title"   "foo"
+                      "property"         "ensure"
+                      "message"          "Ensure was absent now present"
+                      "new-value"        "present"
+                      "old-value"        "absent"
+                      "resource-type"    "Package"
+                      "file"             "/home/user/site.pp"
+                      "line"             1
+                      "containment-path" ["Stage[main]" "Foo" "Notify[hi]"]}
+          anonymized-event (anonymize-resource-event test-event {} {})]
+      (is (map? anonymized-event))
+      (is (= (keys test-event) (keys anonymized-event)))))
+  (testing "should handle a resource event with optionals"
+    (let [test-event {"status"           "noop"
+                      "timestamp"        "2013-03-04T19:56:34.000Z"
+                      "resource-title"   "foo"
+                      "property"         "ensure"
+                      "message"          "Ensure was absent now present"
+                      "new-value"        "present"
+                      "old-value"        "absent"
+                      "resource-type"    "Package"
+                      "file"             nil
+                      "line"             nil
+                      "containment-path" nil}
+          anonymized-event (anonymize-resource-event test-event {} {})]
+      (is (map? anonymized-event))
+      (is (= (keys test-event) (keys anonymized-event))))))
 
 (deftest test-anonymize-resource-events
   (testing "should handle a resource event"
