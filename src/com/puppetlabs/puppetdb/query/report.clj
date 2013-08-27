@@ -39,7 +39,8 @@
                                       configuration_version,
                                       start_time,
                                       end_time,
-                                      receive_time
+                                      receive_time,
+                                      transaction_uuid
                                   FROM reports %s ORDER BY start_time DESC")
                     sql)
         results (map

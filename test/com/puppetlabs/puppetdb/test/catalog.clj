@@ -242,9 +242,10 @@
                    :tags ["file" "class"],
                    :title "/tmp/quux",
                    :type "File"}],
-      :classes []
-      :tags []
-      :version 1330995750},
+      :classes [],
+      :tags [],
+      :version 1330995750,
+      :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"},
      :document_type "Catalog",
      :metadata {:api_version 1}}
 
@@ -334,7 +335,8 @@
                   :tags #{"class" "file"},
                   :title "/tmp/quux",
                   :type "File"}},
-     :version "1330995750"}))
+     :version "1330995750",
+     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}))
 
 (deftest complete-transformation-v2
   (catalog-before-and-after 2
@@ -416,7 +418,8 @@
                    :tags ["file" "class"],
                    :title "/tmp/quux",
                    :type "File"}],
-      :version 1330995750},
+      :version 1330995750,
+      :transaction-uuid nil},
      :document_type "Catalog",
      :metadata {:api_version 1}}
 
@@ -506,4 +509,5 @@
                   :tags #{"class" "file"},
                   :title "/tmp/quux",
                   :type "File"}},
-     :version "1330995750"}))
+     :version "1330995750",
+     :transaction-uuid nil}))

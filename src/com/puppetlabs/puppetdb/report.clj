@@ -18,7 +18,10 @@
    :configuration-version    :string
    :start-time               :datetime
    :end-time                 :datetime
-   :resource-events          :coll})
+   :resource-events          :coll
+   :transaction-uuid         { :optional? true
+                               :type      :string }
+   })
 
 (defmodel ResourceEvent
   {:status             :string
@@ -36,7 +39,10 @@
    :file               { :optional? true
                          :type      :string }
    :line               { :optional? true
-                         :type      :integer }})
+                         :type      :integer }
+   :containment-path   { :optional? true
+                         :type      :coll }
+   })
 
 (def v2-new-event-fields [:file :line])
 
@@ -75,5 +81,9 @@
   [_ report]
   (validate-against-model! Report report)
   (doseq [resource-event (:resource-events report)]
-    (validate-against-model! ResourceEvent resource-event))
+    (validate-against-model! ResourceEvent resource-event)
+    (if (not-every? string? (resource-event :containment-path))
+      (throw (IllegalArgumentException.
+               (format "Containment path should only contain strings: '%s'"
+                       (resource-event :containment-path))))))
   report)
