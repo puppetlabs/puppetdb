@@ -258,11 +258,11 @@
   {:pre  [(edge? edge)]
    :post [(edge? %)]}
   (let [sourcecontext {"node"  (get context "node")
-                       "type"  (get edge ["source" "type"])
-                       "title" (get edge ["source" "title"])}
+                       "type"  (get-in edge ["source" "type"])
+                       "title" (get-in edge ["source" "title"])}
         targetcontext {"node"  (get context "node")
-                       "type"  (get edge ["target" "type"])
-                       "title" (get edge ["target" "title"])}]
+                       "type"  (get-in edge ["target" "type"])
+                       "title" (get-in edge ["target" "title"])}]
     (-> edge
       (update-in ["source" "title"] anonymize-leaf :title sourcecontext config)
       (update-in ["source" "type"]  anonymize-leaf :type sourcecontext config)
