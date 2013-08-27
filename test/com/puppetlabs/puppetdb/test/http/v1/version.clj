@@ -27,7 +27,7 @@
                          "link" "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html"
                          "version" "100.0.0"})
                       version/version (constantly "99.0.0")]
-          (json/parse-string (:body (*app* (get-request "/v2/version/latest")))))))))
+          (json/parse-string (:body (*app* (get-request "/v3/version/latest")))))))))
 
 (deftest latest-version-response
   (testing "should return 'newer'->true if product is not specified"

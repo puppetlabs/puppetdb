@@ -406,7 +406,7 @@ module PuppetDBExtensions
     begin
       Timeout.timeout(timeout) do
         until queue_size == 0
-          result = on host, %Q(curl http://localhost:8080/v2/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
+          result = on host, %Q(curl http://localhost:8080/v3/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
           queue_size = Integer(result.stdout.chomp)
         end
       end
