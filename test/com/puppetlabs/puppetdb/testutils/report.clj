@@ -33,9 +33,10 @@
    :post [(set? %)]}
   (set (map
       #(-> %
-        (update-in ["timestamp"] time-coerce/to-string)
-        (dissoc "report")
-        (dissoc "certname"))
+           (update-in ["timestamp"] time-coerce/to-string)
+           (dissoc "report")
+           (dissoc "certname")
+           (dissoc "configuration-version"))
       events)))
 
 (defn munge-report-for-comparison
