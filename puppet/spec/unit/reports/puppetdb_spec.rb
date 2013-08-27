@@ -124,17 +124,65 @@ describe processor do
         end
       end
 
-      context "skipped resource" do
+      context "skipped resource status" do
         it "should include the resource" do
           status.skipped = true
           result = subject.send(:report_to_hash)
           result["resource-events"].length.should == 1
           event = result["resource-events"][0]
+          event["resource-type"].should == "Foo"
           event["resource-title"].should == "foo"
           event["status"].should == "skipped"
           event["property"].should be_nil
           event["new-val"].should be_nil
           event["old-val"].should be_nil
+          event["message"].should be_nil
+        end
+      end
+
+      context "failed resource status" do
+        before :each do
+          status.stubs(:failed).returns(true)
+        end
+
+        context "with no events" do
+          it "should include a fabricated event" do
+            result = subject.send(:report_to_hash)
+            result["resource-events"].length.should == 1
+            event = result["resource-events"][0]
+            event["status"].should == "failure"
+            event["resource-type"].should == "Foo"
+            event["resource-title"].should == "foo"
+            event["property"].should be_nil
+            event["new-value"].should be_nil
+            event["old-value"].should be_nil
+            event["message"].should be_nil
+            event["file"].should == "foo"
+            event["line"].should == 1
+          end
+        end
+
+        context "with events" do
+          it "should include the actual event" do
+            event = Puppet::Transaction::Event.new
+            event.property = "barprop"
+            event.desired_value = "barval"
+            event.previous_value = "oldbarval"
+            event.message = "barmessage"
+            status.add_event(event)
+
+            result = subject.send(:report_to_hash)
+            result["resource-events"].length.should == 1
+            res_event = result["resource-events"][0]
+            res_event["resource-type"].should == "Foo"
+            res_event["resource-title"].should == "foo"
+            res_event["property"].should == "barprop"
+            res_event["new-value"].should == "barval"
+            res_event["old-value"].should == "oldbarval"
+            res_event["message"].should == "barmessage"
+            res_event["file"].should == "foo"
+            res_event["line"].should == 1
+          end
         end
       end
 
