@@ -139,6 +139,31 @@ function appendline {
 #
 # This expects various environment variables to have already been set to work.
 function copy_pem_from_puppet {
+  orig_files=($orig_ca_file $orig_private_file $orig_public_file)
+  for orig_file in "${orig_files[@]}"; do
+    if [ ! -e $orig_file ]; then
+      echo "Warning: Unable to find all puppet certificates to copy"
+      echo
+      echo "  This tool requires the following certificates to exist:"
+      echo
+      echo "  * $orig_ca_file"
+      echo "  * $orig_private_file"
+      echo "  * $orig_public_file"
+      echo
+      echo "  These files may be missing due to the fact that your hosts Puppet"
+      echo "  certificates may not have been signed yet, probably due to the"
+      echo "  lack of a complete Puppet agent run. Try running puppet first, for"
+      echo "  example:"
+      echo
+      echo "      puppet agent --test"
+      echo
+      echo "  Afterwards re-run this tool then restart PuppetDB to complete the SSL"
+      echo "  setup:"
+      echo
+      echo "      $0 -f"
+      exit 1
+    fi
+  done
   rm -rf $ssl_dir
   mkdir -p $ssl_dir
   echo "Copying files: ${orig_ca_file}, ${orig_private_file} and ${orig_public_file} to ${ssl_dir}"

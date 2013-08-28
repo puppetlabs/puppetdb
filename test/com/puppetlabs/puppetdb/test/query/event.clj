@@ -52,11 +52,12 @@
 (deftest resource-event-queries
   (let [basic         (:basic reports)
         report-hash   (store-example-report! basic (now))
+        conf-version  (:configuration-version basic)
         basic-events  (get-events-map basic)]
 
     (testing "resource event retrieval by report"
       (testing "should return the list of resource events for a given report hash"
-        (let [expected  (expected-resource-events (:resource-events basic) report-hash)
+        (let [expected  (expected-resource-events (:resource-events basic) report-hash conf-version)
               actual    (resource-events-query-result ["=" "report" report-hash])]
           (is (= actual expected)))))
 
@@ -65,14 +66,16 @@
         (let [end-time  "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
                             (utils/select-values basic-events [1 3])
-                            report-hash)
+                            report-hash
+                            conf-version)
               actual      (resource-events-query-result ["<" "timestamp" end-time])]
           (is (= actual expected))))
       (testing "should return the list of resource events that occurred after a given time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               expected    (expected-resource-events
                             (utils/select-values basic-events [2 3])
-                            report-hash)
+                            report-hash
+                            conf-version)
               actual      (resource-events-query-result [">" "timestamp" start-time])]
           (is (= actual expected))))
       (testing "should return the list of resource events that occurred between a given start and end time"
@@ -80,7 +83,8 @@
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
                             (utils/select-values basic-events [3])
-                            report-hash)
+                            report-hash
+                            conf-version)
               actual      (resource-events-query-result
                             ["and"  [">" "timestamp" start-time]
                                     ["<" "timestamp" end-time]])]
@@ -90,7 +94,8 @@
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
                             (utils/select-values basic-events [1 2 3])
-                            report-hash)
+                            report-hash
+                            conf-version)
               actual      (resource-events-query-result
                             ["and"   [">=" "timestamp" start-time]
                                      ["<=" "timestamp" end-time]])]
@@ -125,7 +130,8 @@
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
-                            report-hash)
+                            report-hash
+                            conf-version)
                 query     ["=" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -150,7 +156,8 @@
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
-                            report-hash)
+                            report-hash
+                            conf-version)
                 query     ["not" ["=" (name field) value]]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -171,7 +178,8 @@
         (testing (format "regex query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
-                            report-hash)
+                            report-hash
+                            conf-version)
                 query     ["~" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -191,8 +199,9 @@
                [:file           "\\.pp"                 [2 3]]]]
         (testing (format "negated regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-            (utils/select-values basic-events matches)
-            report-hash)
+                            (utils/select-values basic-events matches)
+                            report-hash
+                            conf-version)
                 query     ["not" ["~" (name field) value]]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -214,7 +223,8 @@
                      [:line           2]]               [1 3]]]]
           (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
-                              report-hash)
+                              report-hash
+                              conf-version)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "or" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
@@ -238,7 +248,8 @@
                    [:line           1]]               [1]]]]
           (let [expected    (expected-resource-events
                               (utils/select-values basic-events matches)
-                              report-hash)
+                              report-hash
+                              conf-version)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
@@ -266,7 +277,8 @@
                     ["=" "line" 2]]                         [1 3]]]]
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
-                            report-hash)
+                            report-hash
+                            conf-version)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))
@@ -281,7 +293,8 @@
                     ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
-                            report-hash)
+                            report-hash
+                            conf-version)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))))

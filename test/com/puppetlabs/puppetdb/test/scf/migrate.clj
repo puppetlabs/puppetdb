@@ -5,12 +5,14 @@
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [now]]
+        [clj-time.core :only [now ago days secs]]
         [clojure.test]
         [clojure.set]
         [com.puppetlabs.utils :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]))
+        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
+        [com.puppetlabs.puppetdb.examples.report]
+        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]))
 
 (def db (test-db))
 
@@ -71,7 +73,48 @@
       (migrate!)
       (sql/insert-record :schema_migrations
                          {:version (inc migrate/desired-schema-version) :time (to-timestamp (now))})
-      (is (thrown? IllegalStateException (migrate!))))))
+      (is (thrown? IllegalStateException (migrate!)))))
+
+  (testing "burgundy migration should populate the new `latest_reports` table correctly"
+    (sql/with-connection db
+      (clear-db-for-testing!)
+      (let [latest-report-migration   13
+            applied                   (range 1 latest-report-migration)
+            basic                     (:basic reports)
+            old-timestamp             (ago (days 1))
+            older-timestamp           (ago (days 2))
+            new-timestamp             (now)
+            node1                     "foocertname"
+            node2                     "barcertname"
+            store-report-fn           (fn [certname end-time received-time]
+                                        (store-example-report!
+                                          (-> basic
+                                            (assoc :certname certname)
+                                            (assoc :end-time end-time))
+                                          received-time
+                                          false))]
+        ;; first we run all of the schema migrations *prior* to the
+        ;; introduction of the `latest_reports` table
+        (doseq [i applied]
+          (apply-migration-for-testing i))
+        ;; now we create a few reports for a few nodes.
+        ;; we'll make the `received-time` older for the newest report,
+        ;; to make sure that `latest_reports` table is being populated
+        ;; by `end-time` and not by `received-time`
+        (store-report-fn node1 new-timestamp (ago (secs 20)))
+        (store-report-fn node1 old-timestamp (now))
+        (store-report-fn node1 older-timestamp (now))
+        (store-report-fn node2 new-timestamp (ago (secs 30)))
+        (store-report-fn node2 old-timestamp (now))
+        (store-report-fn node2 older-timestamp (now))
+        ;; now we finish the migration (which should introduce the `latest_reports`
+        ;; table and populate it.
+        (migrate!)
+        ;; now we can validate the data from the migration.
+        (let [latest_reports (query-to-vec "SELECT latest_reports.*, reports.end_time from latest_reports INNER JOIN reports ON latest_reports.report = reports.hash")]
+          (is (= 2 (count latest_reports)))
+          (doseq [report latest_reports]
+            (is (= (:end_time report) (to-timestamp new-timestamp)))))))))
 
 (deftest migration-14
   (testing "building parameter cache"

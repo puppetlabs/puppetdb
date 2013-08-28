@@ -361,6 +361,25 @@
     "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
     "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL"))
 
+(defn add-latest-reports-table
+  "Add `latest_reports` table for easy lookup of latest report for each node."
+  []
+  (sql/create-table :latest_reports
+    ["node" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
+  (sql/do-commands
+    "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
+  (sql/do-commands
+    "INSERT INTO latest_reports (node, report)
+        SELECT reports.certname, reports.hash
+        FROM reports INNER JOIN (
+          SELECT reports.certname, MAX(reports.end_time) as max_end_time
+             FROM reports
+             GROUP BY reports.certname
+        ) latest
+          ON reports.certname = latest.certname
+          AND reports.end_time = latest.max_end_time"))
+
 ;; The available migrations, as a map from migration version to migration
 ;; function.
 (def migrations
@@ -376,6 +395,7 @@
    10 add-event-status-index
    11 increase-puppet-version-field-length
    12 add-file-line-columns-to-events-table
+   13 add-latest-reports-table
    14 add-parameter-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
