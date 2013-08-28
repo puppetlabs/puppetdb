@@ -1,4 +1,4 @@
-test_name "puppetdb-ssl-setup" do
+test_name "puppetdb-ssl-setup jetty.ini changes" do
   confd = "#{puppetdb_confdir(database)}/conf.d"
   sbin_loc = "#{puppetdb_sbin_dir(database)}"
 
