@@ -41,7 +41,8 @@
             "type" : "Apt::Pin",
             "file" : "/Users/nicklewis/projects/puppetlabs-modules/site/os/manifests/linux/debian.pp"
         } ],
-        "version" : 1330463446
+        "version" : 1330463446,
+        "transaction-uuid" : null
     },
     "metadata" : {
         "api_version" : 1

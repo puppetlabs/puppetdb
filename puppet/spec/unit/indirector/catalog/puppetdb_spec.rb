@@ -71,6 +71,19 @@ describe Puppet::Resource::Catalog::Puppetdb do
       catalog.to_pson_data_hash['data']
     end
 
+    describe "#add_transaction_uuid" do
+      it "should add the given transaction uuid" do
+        result = subject.add_transaction_uuid(catalog_data_hash, 'abc123')
+        result['transaction-uuid'].should == 'abc123'
+      end
+
+      it "should add nil transaction uuid if none was given" do
+        result = subject.add_transaction_uuid(catalog_data_hash, nil)
+        result.has_key?('transaction-uuid').should be_true
+        result['transaction-uuid'].should be_nil
+      end
+    end
+
     describe "#add_parameters_if_missing" do
       it "should create an empty parameters hash if none exists" do
         result = subject.add_parameters_if_missing(catalog_data_hash)
@@ -643,7 +656,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         result.keys.should =~ ['metadata', 'data']
         result['metadata'].keys.should =~ ['api_version']
-        result['data'].keys.should =~ ['name', 'version', 'edges', 'resources']
+        result['data'].keys.should =~ ['name', 'version', 'edges', 'resources', 'transaction-uuid']
       end
     end
   end

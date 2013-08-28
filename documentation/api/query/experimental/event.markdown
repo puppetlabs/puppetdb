@@ -110,6 +110,10 @@ operators.
 : the line (of the containing manifest file) at which the resource definition
   can be found.  NOTE: this field may contain `NULL` values; see notes below.
 
+`containing-class`
+: the Puppet class where this resource is declared.  NOTE: this field may
+  contain `NULL` values; see notes below.
+
 ##### Notes on fields that allow `NULL` values
 
 In the case of a `skipped` resource event, some of the fields of an event may
@@ -134,7 +138,11 @@ the field, and an inequality query will always return `true`.
         "new-value": "file",
         "message": "defined content as '{md5}49f68a5c8493ec2c0bf489821c21fc3b'",
         "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
-        "status": "success"
+        "status": "success",
+        "file": "/home/user/path/to/manifest.pp",
+        "line": 6,
+        "containment-path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
+        "containing-class": "Foo"
       },
       {
         "certname": "foo.localdomain",
@@ -146,7 +154,11 @@ the field, and an inequality query will always return `true`.
         "new-value": "notify, yo",
         "message": "defined 'message' as 'notify, yo'",
         "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
-        "status": "success"
+        "status": "success",
+        "file": "/home/user/path/to/manifest.pp",
+        "line": 10,
+        "containment-path": [ "Stage[main]", "", "Node[default]", "Notify[notify, yo]" ],
+        "containing-class": null
       }
     ]
 

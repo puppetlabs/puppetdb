@@ -20,11 +20,11 @@ otherwise noted, `null` is not allowed anywhere in the report.
         "configuration-version": <string>,
         "start-time": <datetime>,
         "end-time": <datetime>,
-        "resource-events": [<resource-event>, <resource-event>, ...]
+        "resource-events": [<resource-event>, <resource-event>, ...],
+        "transaction-uuid" : <string>
     }
 
-All keys are mandatory, though values that are lists may be empty
-lists.
+All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
 
 `"certname"` is the certname the report is associated with.
 
@@ -42,6 +42,9 @@ the `datetime` format below.
 
 `"end-time"` is the time at which the puppet run completed; see more details about
 the `datetime` format below.
+
+`"transaction-uuid"` is a string used to identify a puppet run.  It can be used to
+match a report with the catalog that was used for the run.  This field may be `null`.
 
 ### Encoding
 
@@ -78,7 +81,8 @@ A JSON Object of the following form:
      "new-value": <string>,
      "message": <string>,
      "file": <string>,
-     "line: <integer>
+     "line: <integer>,
+     "containment-path": [<string>, <string>, ...]
     }
 
 All keys are required.
@@ -103,9 +107,12 @@ to the event.
 `"message"` is a descriptive message providing extra information about the event.
 This should be `null` if `status` is `success`.
 
-`"file"` is the manifest in which the resource is defined.
+`"file"` is the manifest in which the resource is defined. This field may be `null`.
 
-`"line"` is the line number (within `"file"`) where the resource is defined.
+`"line"` is the line number (within `"file"`) where the resource is defined. This field may be `null`.
+
+`"containment-path"` is a collection of strings where each string is a Puppet type or class
+that represents the containment hierarchy of the resource within the catalog. This field may be `null`.
 
 ## Gaps with this wire format
 

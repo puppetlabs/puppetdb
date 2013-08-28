@@ -105,9 +105,9 @@
   #{:contains :required-by :notifies :before :subscription-of})
 
 (def ^:const catalog-attributes
-  #{:certname :puppetdb-version :api-version :version :edges :resources})
+  #{:certname :puppetdb-version :api-version :transaction-uuid :version :edges :resources})
 
-;; ## Utiltity functions
+;; ## Utility functions
 
 (defn resource-spec-to-map
   "Convert a textual resource specifier like `\"Class[foo]\"` into a map

@@ -7,7 +7,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb::CommandNames
 
   def save(request)
-    catalog = munge_catalog(request.instance)
+    catalog = munge_catalog(request.instance, extract_extra_request_data(request))
 
     submit_command(request.key, catalog, CommandReplaceCatalog, 2)
   end
@@ -19,7 +19,13 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # TODO: I think that almost everything below this line should be
   #  private, but I don't want to break all the tests right now...
 
-  def munge_catalog(catalog)
+  def extract_extra_request_data(request)
+    {
+      :transaction_uuid => request.options[:transaction_uuid]
+    }
+  end
+
+  def munge_catalog(catalog, extra_request_data = {})
     hash = catalog.to_pson_data_hash
 
     data = hash['data']
@@ -31,6 +37,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     munge_edges(data)
     synthesize_edges(data, catalog)
     filter_keys(hash)
+    add_transaction_uuid(data, extra_request_data[:transaction_uuid])
 
     hash
   end
@@ -45,6 +52,12 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # Metaparams that may contain arrays, but whose semantics are
   # fundamentally unordered
   UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
+
+  def add_transaction_uuid(hash, transaction_uuid)
+    hash['transaction-uuid'] = transaction_uuid
+
+    hash
+  end
 
   def stringify_titles(hash)
     hash['resources'].each do |resource|

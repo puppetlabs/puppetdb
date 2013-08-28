@@ -6,15 +6,16 @@
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
     :report-format          3
+    :transaction-uuid       "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
-    ;;  a certname on input, but they will have one on output.  To make it
-    ;;  easier to test output, we're included them here.  We also include a
-    ;;  `:test-id` field to make it easier to reference individual events during
-    ;;  testing.  Both of this are munged out by the testutils `store-example-report!`
+    ;;  a certname or containment-class on input, but they will have one on output
+    ;;  To make it easier to test output, we're included them here.  We also include
+    ;;  a `:test-id` field to make it easier to reference individual events during
+    ;;  testing.  All of these are munged out by the testutils `store-example-report!`
     ;;  function before the report is submitted to the test database.
         [{:test-id          1
           :certname         "foo.local"
@@ -27,7 +28,9 @@
           :old-value        ["what" "the" "woah"]
           :message          "defined 'message' as 'notify, yo'"
           :file             "foo.pp"
-          :line             1}
+          :line             1
+          :containment-path nil
+          :containing-class nil}
          {:test-id          2
           :certname         "foo.local"
           :status           "success"
@@ -39,7 +42,9 @@
           :old-value        {"absent" true}
           :message          "defined 'message' as 'notify, yo'"
           :file             nil
-          :line             nil}
+          :line             nil
+          :containment-path []
+          :containing-class nil}
          {:test-id          3
           :certname         "foo.local"
           :status           "skipped"
@@ -51,5 +56,7 @@
           :old-value        nil
           :message          nil
           :file             "bar"
-          :line             2}]
+          :line             2
+          :containment-path ["Foo" "" "Bar[Baz]"]
+          :containing-class "Foo"}]
           }})
