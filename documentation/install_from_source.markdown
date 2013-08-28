@@ -69,7 +69,6 @@ A sample config file is provided in the root of the source repo:  `config.sample
 Other useful commands for developers:
 
 * `lein test` to run the test suite
-* `lein docs` to build docs in `docs/uberdoc.html`
 
 Step 3, Option A: Run the SSL Configuration Script
 -----
