@@ -242,7 +242,8 @@
     * Stringifies the `version`
     * Adds a `puppetdb-version` with the current catalog format version
     * Renames `api_version` to `api-version`
-    * Renames `name` to `certname`"
+    * Renames `name` to `certname`
+    * If we don't have  a `transaction-uuid` key, adds one with a value of `nil`."
   [catalog]
   {:pre [(map? catalog)]
    :post [(string? (:version %))
@@ -250,10 +251,13 @@
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
-          (number? (:api-version %))]}
+          (number? (:api-version %))
+          (contains? % :transaction-uuid)]}
   (-> catalog
     (update-in [:version] str)
     (assoc :puppetdb-version catalog-version)
+    ;; add transaction-uuid key if it doesn't exist
+    (update-in [:transaction-uuid] identity)
     (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform
