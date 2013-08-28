@@ -251,7 +251,8 @@
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
-          (number? (:api-version %))]}
+          (number? (:api-version %))
+          (contains? % :transaction-uuid)]}
   (-> catalog
     (update-in [:version] str)
     (assoc :puppetdb-version catalog-version)
