@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 
 require 'cgi'
-require 'lib/puppet_acceptance/dsl/install_utils'
+require 'puppet_acceptance/dsl/install_utils'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
 require 'json'
 
 module PuppetDBExtensions
-  include PuppetAcceptance::Assertions
+  include Test::Unit::Assertions
 
   GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
 
@@ -261,8 +261,8 @@ module PuppetDBExtensions
     if host.is_pe?
       service_name = "pe-postgresql"
       db_name = "pe-puppetdb"
-      db_user = "pe-puppetdb"
-      db_pass = "pe-puppetdb"
+      db_user = "mYpdBu3r"
+      db_pass = '~!@#$%^*-/ aZ'
       manifest = <<-EOS
       # get the pg server up and running
       $version = '9.2'
@@ -294,7 +294,7 @@ module PuppetDBExtensions
       class { 'puppetdb::database::postgresql_db': 
         database_name     => #{db_name},
         database_username => #{db_user},
-        database_password => #{db_pass},
+        database_password => '#{db_pass}',
       }
       EOS
     else
@@ -423,7 +423,7 @@ module PuppetDBExtensions
     case PuppetDBExtensions.config[:database]
       when :postgres
         if host.is_pe?
-          on host, 'su pe-postgres -c "/opt/puppet/bin/dropdb pe-puppetdb"'
+          on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
         else
           on host, 'su postgres -c "dropdb puppetdb"'
         end
