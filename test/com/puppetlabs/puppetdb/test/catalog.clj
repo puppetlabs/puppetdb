@@ -43,7 +43,9 @@
         (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar"}
                         :metadata {:api_version 1}}]
           (is (= (transform-fn catalog)
-                 {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version catalog-version}))))
+                 {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version catalog-version :transaction-uuid nil}))
+          (is (= (transform-fn (assoc-in catalog [:data :transaction-uuid] "HIYA"))
+                {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version catalog-version :transaction-uuid "HIYA"}))))
 
       (testing "should error on malformed input"
         (is (thrown? AssertionError (transform-fn {})))
