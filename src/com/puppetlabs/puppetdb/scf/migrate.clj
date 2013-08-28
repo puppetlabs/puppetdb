@@ -315,12 +315,27 @@
                (format "Unsupported database engine '%s'"
                  (sql-current-connection-database-name)))))))
 
-(defn add-file-line-columns-to-events-table
-  "Add 'file' and 'line' columns to the event table."
+(defn initial-burgundy-schema-changes
+  "Schema changes for the initial release of Burgundy. These include:
+
+    - Add 'file' and 'line' columns to the event table
+    - A column for the resource's containment path in the resource_events table
+    - A column for the transaction uuid in the reports & catalogs tables"
   []
   (sql/do-commands
     "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
-    "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL"))
+    "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL")
+  (sql/do-commands
+    (format "ALTER TABLE resource_events ADD containment_path %s" (sql-array-type-string "TEXT"))
+    "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
+    "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)")
+  (sql/do-commands
+    ;; It would be nice to change the transaction UUID column to NOT NULL in the future
+    ;; once we stop supporting older versions of Puppet that don't have this field.
+    "ALTER TABLE reports ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
+    "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
+    "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
+    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)"))
 
 (defn add-latest-reports-table
   "Add `latest_reports` table for easy lookup of latest report for each node."
@@ -341,8 +356,7 @@
           ON reports.certname = latest.certname
           AND reports.end_time = latest.max_end_time"))
 
-;; The available migrations, as a map from migration version to migration
-;; function.
+;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
    2 allow-node-deactivation
@@ -355,14 +369,14 @@
    9 add-reports-tables
    10 add-event-status-index
    11 increase-puppet-version-field-length
-   12 add-file-line-columns-to-events-table
-   13 add-latest-reports-table })
+   12 initial-burgundy-schema-changes
+   13 add-latest-reports-table})
 
 (def desired-schema-version (apply max (keys migrations)))
 
 (defn record-migration!
   "Records a migration by storing its version in the schema_migrations table,
-along with the time at which the migration was performed."
+  along with the time at which the migration was performed."
   [version]
   {:pre [(integer? version)]}
   (sql/do-prepared
@@ -396,7 +410,7 @@ along with the time at which the migration was performed."
 
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if database is
-already at the latest schema version."
+  already at the latest schema version."
   []
   (if-let [unexpected (first (difference (applied-migrations) (utils/keyset migrations)))]
     (throw (IllegalStateException.

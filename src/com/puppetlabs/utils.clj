@@ -56,6 +56,15 @@
   {:post [(boolean? %)]}
   (instance? java.util.regex.Pattern regexp))
 
+;; ## String utilities
+
+(defn string-contains?
+  "Returns true if `s` has the `substring` in it"
+  [substring s]
+  {:pre [(string? s)
+         (string? substring)]}
+  (>= (.indexOf s substring) 0))
+
 ;; ## I/O
 
 (defn lines
