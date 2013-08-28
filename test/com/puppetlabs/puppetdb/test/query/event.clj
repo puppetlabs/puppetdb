@@ -304,3 +304,32 @@
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))))
 
+(deftest last-run-resource-event-queries
+  (let [basic1        (:basic reports)
+        report-hash1  (store-example-report! basic1 (now))
+        conf-version1 (:configuration-version basic1)
+        basic2        (:basic2 reports)
+        report-hash2  (store-example-report! basic2 (now))
+        conf-version2 (:configuration-version basic2)]
+
+    (testing "retrieval of events for last run only"
+      (testing "applied to entire query"
+        (let [expected  (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
+              actual    (resource-events-query-result ["=" ["report" "last-run"] true])]
+          (is (= actual expected))))
+      (testing "applied to subquery"
+        (let [events    (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
+              expected  (set (filter #(= (:resource-type %) "File") events))
+              actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" ["report" "last-run"] true]])]
+          (is (= actual expected)))))
+
+    (testing "retrieval of events prior to last run"
+      (testing "applied to entire query"
+        (let [expected  (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
+              actual    (resource-events-query-result ["=" ["report" "last-run"] false])]
+          (is (= actual expected))))
+      (testing "applied to subquery"
+        (let [events    (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
+              expected  (set (filter #(= (:status %) "success") events))
+              actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" ["report" "last-run"] false]])]
+          (is (= actual expected)))))))

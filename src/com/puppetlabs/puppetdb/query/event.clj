@@ -41,26 +41,30 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [db-field (dashes->underscores path)]
+  (let [path-coll (if (coll? path) path [path])
+        db-field  (mapv #(dashes->underscores %) path-coll)]
     (match [db-field]
-      ["certname"]
+      [["certname"]]
       {:where (format "reports.certname = ?")
        :params [value]}
 
-      [(field :when #{"report" "resource_type" "resource_title" "status"})]
+      [["report" "last_run"]]
+      {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)" (if value "IN" "NOT IN"))}
+
+      [[(field :when #{"report" "resource_type" "resource_title" "status"})]]
       {:where (format "resource_events.%s = ?" field)
        :params [value] }
 
       ;; these fields allow NULL, which causes a change in semantics when
       ;; wrapped in a NOT(...) clause, so we have to be very explicit
       ;; about the NULL case.
-      [(field :when #{"property" "message" "file" "line" "containing_class"})]
+      [[(field :when #{"property" "message" "file" "line" "containing_class"})]]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [value] }
 
       ;; these fields require special treatment for NULL (as described above),
       ;; plus a serialization step since the values can be complex data types
-      [(field :when #{"old_value" "new_value"})]
+      [[(field :when #{"old_value" "new_value"})]]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [(db-serialize value)] }
 
@@ -118,25 +122,24 @@
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format (str "SELECT reports.certname,
-                                  reports.configuration_version,
-                                  resource_events.report,
-                                  resource_events.status,
-                                  resource_events.timestamp,
-                                  resource_events.resource_type,
-                                  resource_events.resource_title,
-                                  resource_events.property,
-                                  resource_events.new_value,
-                                  resource_events.old_value,
-                                  resource_events.message,
-                                  resource_events.file,
-                                  resource_events.line,
-                                  resource_events.containment_path,
-                                  resource_events.containing_class
-                                  FROM resource_events
-                                  JOIN reports ON resource_events.report = reports.hash
-                                  WHERE %s")
-              where)]
+        sql (format "SELECT reports.certname,
+                            reports.configuration_version,
+                            resource_events.report,
+                            resource_events.status,
+                            resource_events.timestamp,
+                            resource_events.resource_type,
+                            resource_events.resource_title,
+                            resource_events.property,
+                            resource_events.new_value,
+                            resource_events.old_value,
+                            resource_events.message,
+                            resource_events.file,
+                            resource_events.line,
+                            resource_events.containment_path,
+                            resource_events.containing_class
+                            FROM resource_events
+                            JOIN reports ON resource_events.report = reports.hash
+                            WHERE %s" where)]
     (apply vector sql params)))
 
 (defn limited-query-resource-events
