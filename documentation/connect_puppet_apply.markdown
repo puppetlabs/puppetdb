@@ -98,13 +98,15 @@ You can specify the contents of [puppetdb.conf][puppetdb_conf] directly in your 
     server = puppetdb.example.com
     port = 8081
 
-* PuppetDB's port for secure traffic defaults to 8081.
-* Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
+PuppetDB's port for secure traffic defaults to 8081. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
+
+For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB terminus to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
 If no puppetdb.conf file exists, the following default values will be used:
 
     server = puppetdb
     port = 8081
+    soft_write_failure = false
 
 ### Manage puppet.conf
 

@@ -33,13 +33,25 @@ describe Puppet::Util::Puppetdb::Command do
     context "when the submission fails" do
       let(:httpbad) { Net::HTTPBadRequest.new('1.1', 400, '') }
 
-      it "should issue the HTTP POST and raise an error" do
+      it "should issue the HTTP POST and raise an exception" do
 
         httpbad.stubs(:body).returns 'Strange things are afoot'
         http.expects(:post).returns httpbad
         expect {
           subject.submit
         }.to raise_error(Puppet::Error, /Strange things are afoot/)
+      end
+
+      it 'when soft_write_failure is enabled should just invoke Puppet.err' do
+        subject.expects(:config).at_least_once.returns \
+          OpenStruct.new({:soft_write_failure => true})
+
+        httpbad.stubs(:body).returns 'Strange things are afoot'
+        http.expects(:post).returns httpbad
+        Puppet.expects(:err).with do |msg|
+          msg =~ /Strange things are afoot/
+        end
+        subject.submit
       end
     end
   end
