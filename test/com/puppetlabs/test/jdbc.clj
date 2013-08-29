@@ -18,7 +18,9 @@
                 "approval"   "disapproval"
                 "arrival"    "departure"
                 "artificial" "natural"
-                "ascend"     "descend"})
+                "ascend"     "descend"
+                "blandness"  "zest"
+                "lethargy"   "zest"})
 
 
 (defn with-test-database
@@ -44,7 +46,7 @@
 (deftest query-to-vec
   (testing "query string only"
     (is (= (set (subject/query-to-vec "SELECT key FROM test WHERE key LIKE 'ab%'"))
-           (set (map #(hash-map :key %) ["absence" "abundant"])))))
+           (set (map #(hash-map :key (name %)) [:absence :abundant])))))
   (testing "query with params"
     (doseq [[key value] test-data]
       (let [query  ["SELECT key, value FROM test WHERE key = ?" key]
@@ -57,7 +59,99 @@
 (deftest limited-query-to-vec
   (testing "query does not exceed limit"
     (is (= (set (subject/limited-query-to-vec 100 "SELECT key FROM test WHERE key LIKE 'ab%'"))
-           (set (map #(hash-map :key %) ["absence" "abundant"])))))
+           (set (map #(hash-map :key (name %)) [:absence :abundant])))))
   (testing "query exceeds limit"
     (is (thrown-with-msg? IllegalStateException #"more than the maximum number of results"
           (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
+
+(deftest order-by->sql
+  (testing "should return an empty string if no order-by is provided"
+    (is (= "" (subject/order-by->sql [] nil))))
+  (testing "should return an empty string if order-by list is empty"
+    (is (= "" (subject/order-by->sql [] []))))
+  (testing "should generate a valid SQL 'ORDER BY' clause"
+    (is (= " ORDER BY foo" (subject/order-by->sql [:foo] [{:field "foo"}]))))
+  (testing "should support ordering in descending order"
+    (is (= " ORDER BY foo DESC" (subject/order-by->sql [:foo] [{:field "foo" :order "desc"}]))))
+  (testing "order specifier should be case insensitive"
+    (is (= " ORDER BY foo DESC" (subject/order-by->sql [:foo] [{:field "foo" :order "DESC"}]))))
+  (testing "should support explicitly ordering in ascending order"
+    (is (= " ORDER BY foo" (subject/order-by->sql [:foo] [{:field "foo" :order "ASC"}]))))
+  (testing "should raise an error if order is not ASC or DESC"
+    (is (thrown-with-msg? IllegalArgumentException
+          #"Unsupported value .* for :order; expected one of 'DESC' or 'ASC'"
+          (subject/order-by->sql [:foo] [{:field "foo" :order "foo"}]))))
+  (testing "should fail if order-by field is not in the result columns"
+    (is (thrown-with-msg? IllegalArgumentException
+          #"Unrecognized column 'foo' specified in :order-by; Supported columns are 'bar', 'baz'"
+          (subject/order-by->sql
+            [:bar :baz]
+            [{:field "foo"}]))))
+  (testing "should support multiple order-by fields"
+    (is (= " ORDER BY foo DESC, bar"
+          (subject/order-by->sql
+            [:foo :bar]
+            [{:field "foo" :order "DESC"}
+             {:field "bar"}])))))
+
+(deftest paged-query-to-vec
+  (testing "order by"
+    (let [orig-sql "SELECT key FROM test"]
+      (testing "should not modify SQL unless necessary"
+        (let [validation-fn (fn [[sql & params]]
+                              (is (= orig-sql sql)))]
+          (with-redefs [subject/query-to-vec validation-fn]
+            (testing "should not modify SQL if no order-by is provided"
+              (subject/paged-query-to-vec orig-sql [] {}))
+            (testing "should not modify SQL if order-by list is empty"
+              (subject/paged-query-to-vec orig-sql [] {:order-by []})))))
+      (testing "should return results in the correct order"
+        (is (= (sort (keys test-data))
+               (map #(get % :key)
+                  (subject/paged-query-to-vec orig-sql [:key]
+                    {:order-by [{:field "key"}]})))))
+      (testing "should return results in correct order when DESC is specified"
+        (is (= (reverse (sort (keys test-data)))
+               (map #(get % :key)
+                (subject/paged-query-to-vec orig-sql [:key]
+                  {:order-by [{:field "key" :order "DESC"}]}))))))
+    (testing "should support multiple order-by fields"
+      (is (= [{:key "blandness" :value "zest"}
+              {:key "lethargy"  :value "zest"}
+              {:key "abundant"  :value "scarce"}]
+            (take 3
+              (subject/paged-query-to-vec "SELECT key, value from test"
+                [:key :value] {:order-by [{:field "value" :order "DESC"}
+                                          {:field "key"}]}))))))
+  (testing "limit / offset"
+    (let [orig-sql "SELECT key FROM test"]
+      (testing "SQL not modified if no offset or limit is provided"
+        (let [validation-fn (fn [[sql & params]]
+                              (is (= orig-sql sql)))]
+          (with-redefs [subject/query-to-vec validation-fn]
+            (subject/paged-query-to-vec orig-sql [] {}))))
+      (testing "Results are limited if limit is provided"
+        (let [results (subject/paged-query-to-vec orig-sql [:key]
+                        {:limit 5 :order-by [{:field "key"}]})]
+          (is (= 5 (count results)))))
+      (testing "Results begin at offset if offset is provided"
+        (let [results     (subject/paged-query-to-vec orig-sql [:key]
+                            {:offset 2 :order-by [{:field "key"}]})]
+          (is (= "accept" (-> results first :key)))))
+      (testing "Combination of limit and offset allows paging through entire result set"
+        (let [orig-results        (set (subject/query-to-vec orig-sql))
+              orig-count          (count orig-results)
+              limit               5
+              num-paged-queries   (java.lang.Math/ceil (/ orig-count (float limit)))
+              paged-query-fn      (fn [n]
+                                    (subject/paged-query-to-vec
+                                      orig-sql
+                                      [:key]
+                                      {:limit     limit
+                                       :offset    (* n limit)
+                                       :order-by  [{:field "key"}]}))
+              paged-result        (->> (range num-paged-queries)
+                                    (map paged-query-fn)
+                                    (apply concat))]
+          (is (= (count orig-results) (count paged-result)))
+          (is (= orig-results (set paged-result))))))))
