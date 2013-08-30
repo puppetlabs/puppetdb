@@ -4,8 +4,7 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use clojureql.core
-        [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]))
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]))
 
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`. This is used
@@ -13,10 +12,10 @@
   [node]
   {:pre  [(string? node)]
    :post [(map? %)]}
-  (let [facts (-> (table :certname_facts)
-                  (project [:name, :value])
-                  (select (where (= :certname node))))]
-    (into {} (for [fact @facts]
+  (let [facts (sql/query-to-vec
+                ["SELECT name, value FROM certname_facts WHERE certname = ?"
+                 node])]
+    (into {} (for [fact facts]
                [(:name fact) (:value fact)]))))
 
 (defn flat-facts-by-node
@@ -26,10 +25,9 @@
      ...
      {:certname <node> :name <fact> :value <value>}]"
   [node]
-  (-> (table :certname_facts)
-      (project [:certname :name :value])
-      (select (where (= :certname node)))
-      (deref)))
+  (sql/query-to-vec
+    ["SELECT certname, name, value FROM certname_facts WHERE certname = ?"
+     node]))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
@@ -37,11 +35,9 @@
   []
   {:post [(coll? %)
           (every? string? %)]}
-  (let [facts (-> (table :certname_facts)
-                  (project [:name])
-                  (distinct)
-                  (order-by [:name]))]
-    (map :name @facts)))
+  (let [facts (sql/query-to-vec
+                ["SELECT DISTINCT name FROM certname_facts ORDER BY name"])]
+    (map :name facts)))
 
 (defn query->sql
   "Compile a query into an SQL expression."
