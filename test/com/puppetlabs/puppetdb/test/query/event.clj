@@ -304,7 +304,7 @@
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))))
 
-(deftest last-run-resource-event-queries
+(deftest latest-report-resource-event-queries
   (let [basic1        (:basic reports)
         events1       (get-events-map basic1)
         report-hash1  (store-example-report! basic1 (now))
@@ -315,31 +315,31 @@
         report-hash2  (store-example-report! basic2 (now))
         conf-version2 (:configuration-version basic2)]
 
-    (testing "retrieval of events for last run only"
+    (testing "retrieval of events for latest report only"
       (testing "applied to entire query"
         (let [expected  (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
-              actual    (resource-events-query-result ["=" ["report" "last-run"] true])]
+              actual    (resource-events-query-result ["=" "latest-report" true])]
           (is (= actual expected))))
       (testing "applied to subquery"
         (let [expected  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
-              actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" ["report" "last-run"] true]])]
+              actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" "latest-report" true]])]
           (is (= actual expected)))))
 
-    (testing "retrieval of events prior to last run"
+    (testing "retrieval of events prior to latest report"
       (testing "applied to entire query"
         (let [expected  (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
-              actual    (resource-events-query-result ["=" ["report" "last-run"] false])]
+              actual    (resource-events-query-result ["=" "latest-report" false])]
           (is (= actual expected))))
       (testing "applied to subquery"
         (let [expected  (expected-resource-events (utils/select-values events1 [1 2]) report-hash1 conf-version1)
-              actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" ["report" "last-run"] false]])]
+              actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" "latest-report" false]])]
           (is (= actual expected)))))
 
-    (testing "compound last run"
+    (testing "compound latest report"
       (let [results1  (expected-resource-events (utils/select-values events1 [3]) report-hash1 conf-version1)
             results2  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
             expected  (clojure.set/union results1 results2)
             actual    (resource-events-query-result ["or"
-                                                     ["and" ["=" "status" "skipped"] ["=" ["report" "last-run"] false]]
-                                                     ["and" ["=" "message" "created"] ["=" ["report" "last-run"] true]]])]
+                                                     ["and" ["=" "status" "skipped"] ["=" "latest-report" false]]
+                                                     ["and" ["=" "message" "created"] ["=" "latest-report" true]]])]
         (is (= actual expected))))))

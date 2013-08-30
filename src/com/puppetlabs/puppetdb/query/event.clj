@@ -41,32 +41,30 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [munged-path (->> path
-                      (#(if (coll? %) % [%]))
-                      (mapv dashes->underscores))]
-    (match [munged-path]
-      [["certname"]]
+  (let [path (dashes->underscores path)]
+    (match [path]
+      ["certname"]
       {:where (format "reports.certname = ?")
        :params [value]}
 
-      [["report" "last_run"]]
+      ["latest_report"]
       {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
                       (if value "IN" "NOT IN"))}
 
-      [[(field :when #{"report" "resource_type" "resource_title" "status"})]]
+      [(field :when #{"report" "resource_type" "resource_title" "status"})]
       {:where (format "resource_events.%s = ?" field)
        :params [value] }
 
       ;; these fields allow NULL, which causes a change in semantics when
       ;; wrapped in a NOT(...) clause, so we have to be very explicit
       ;; about the NULL case.
-      [[(field :when #{"property" "message" "file" "line" "containing_class"})]]
+      [(field :when #{"property" "message" "file" "line" "containing_class"})]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [value] }
 
       ;; these fields require special treatment for NULL (as described above),
       ;; plus a serialization step since the values can be complex data types
-      [[(field :when #{"old_value" "new_value"})]]
+      [(field :when #{"old_value" "new_value"})]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [(db-serialize value)] }
 

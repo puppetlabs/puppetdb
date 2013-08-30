@@ -114,9 +114,10 @@ operators.
 : the Puppet class where this resource is declared.  NOTE: this field may
   contain `NULL` values; see notes below.
 
-`[report, last-run]`
-: a boolean flag to filter the results to only the events from the last Puppet run
-on each node.  NOTE: this field is not supported by the regex match operator.
+`latest-report`
+: whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
+value of this field is always boolean (`true` or `false` without quotes), and it
+is not supported by the regex match operator.
 
 ##### Notes on fields that allow `NULL` values
 
