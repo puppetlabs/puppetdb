@@ -58,5 +58,62 @@
           :file             "bar"
           :line             2
           :containment-path ["Foo" "" "Bar[Baz]"]
-          :containing-class "Foo"}]
-          }})
+          :containing-class "Foo"}]}
+
+   :basic2
+   {:certname               "foo.local"
+    :puppet-version         "3.0.1"
+    :report-format          3
+    :transaction-uuid       "5ea3a70b-84c8-426c-813c-dd6492fb829b"
+    :configuration-version  "bja3985a23"
+    :start-time             "2013-08-28T19:00:00-03:00"
+    :end-time               "2013-08-28T19:10:00-03:00"
+    :resource-events
+    ;; NOTE: this is a bit wonky because resource events should *not* contain
+    ;;  a certname on input, but they will have one on output.  To make it
+    ;;  easier to test output, we're included them here.  We also include a
+    ;;  `:test-id` field to make it easier to reference individual events during
+    ;;  testing.  Both of this are munged out by the testutils `store-example-report!`
+    ;;  function before the report is submitted to the test database.
+        [{:test-id          4
+          :certname         "foo.local"
+          :status           "success"
+          :timestamp        "2013-08-28T19:36:34.000Z"
+          :resource-type    "Notify"
+          :resource-title   "Creating tmp directory at /Users/foo/tmp"
+          :property         "message"
+          :new-value        "Creating tmp directory at /Users/foo/tmp"
+          :old-value        "absent"
+          :message          "defined 'message' as 'Creating tmp directory at /Users/foo/tmp'"
+          :file             "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+          :line             8
+          :containment-path nil
+          :containing-class nil}
+         {:test-id          5
+          :certname         "foo.local"
+          :status           "success"
+          :timestamp        "2013-08-28T17:55:45.000Z"
+          :resource-type    "File"
+          :resource-title   "puppet-managed-file"
+          :property         "ensure"
+          :new-value        "present"
+          :old-value        "absent"
+          :message          "created"
+          :file             "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+          :line             17
+          :containment-path []
+          :containing-class nil}
+         {:test-id          6
+          :certname         "foo.local"
+          :status           "success"
+          :timestamp        "2013-08-28T17:55:45.000Z"
+          :resource-type    "File"
+          :resource-title   "tmp-directory"
+          :property         "ensure"
+          :new-value        "directory"
+          :old-value        "absent"
+          :message          "created"
+          :file             "/Users/foo/workspace/puppetlabs/conf/puppet/master/conf/manifests/site.pp"
+          :line             11
+          :containment-path ["Foo" "" "Bar[Baz]"]
+          :containing-class "Foo"}]}})
