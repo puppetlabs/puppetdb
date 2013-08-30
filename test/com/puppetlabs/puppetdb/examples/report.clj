@@ -75,7 +75,7 @@
     ;;  `:test-id` field to make it easier to reference individual events during
     ;;  testing.  Both of this are munged out by the testutils `store-example-report!`
     ;;  function before the report is submitted to the test database.
-        [{:test-id          1
+        [{:test-id          4
           :certname         "foo.local"
           :status           "success"
           :timestamp        "2013-08-28T19:36:34.000Z"
@@ -89,7 +89,7 @@
           :line             8
           :containment-path nil
           :containing-class nil}
-         {:test-id          2
+         {:test-id          5
           :certname         "foo.local"
           :status           "success"
           :timestamp        "2013-08-28T17:55:45.000Z"
@@ -103,7 +103,7 @@
           :line             17
           :containment-path []
           :containing-class nil}
-         {:test-id          3
+         {:test-id          6
           :certname         "foo.local"
           :status           "success"
           :timestamp        "2013-08-28T17:55:45.000Z"

@@ -41,15 +41,17 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [path-coll (if (coll? path) path [path])
-        db-field  (mapv #(dashes->underscores %) path-coll)]
-    (match [db-field]
+  (let [munged-path (->> path
+                      (#(if (coll? %) % [%]))
+                      (mapv dashes->underscores))]
+    (match [munged-path]
       [["certname"]]
       {:where (format "reports.certname = ?")
        :params [value]}
 
       [["report" "last_run"]]
-      {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)" (if value "IN" "NOT IN"))}
+      {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+                      (if value "IN" "NOT IN"))}
 
       [[(field :when #{"report" "resource_type" "resource_title" "status"})]]
       {:where (format "resource_events.%s = ?" field)

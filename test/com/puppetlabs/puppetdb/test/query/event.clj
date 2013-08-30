@@ -306,9 +306,12 @@
 
 (deftest last-run-resource-event-queries
   (let [basic1        (:basic reports)
+        events1       (get-events-map basic1)
         report-hash1  (store-example-report! basic1 (now))
         conf-version1 (:configuration-version basic1)
+
         basic2        (:basic2 reports)
+        events2       (get-events-map basic2)
         report-hash2  (store-example-report! basic2 (now))
         conf-version2 (:configuration-version basic2)]
 
@@ -318,8 +321,7 @@
               actual    (resource-events-query-result ["=" ["report" "last-run"] true])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [events    (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
-              expected  (set (filter #(= (:resource-type %) "File") events))
+        (let [expected  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
               actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" ["report" "last-run"] true]])]
           (is (= actual expected)))))
 
@@ -329,7 +331,15 @@
               actual    (resource-events-query-result ["=" ["report" "last-run"] false])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [events    (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
-              expected  (set (filter #(= (:status %) "success") events))
+        (let [expected  (expected-resource-events (utils/select-values events1 [1 2]) report-hash1 conf-version1)
               actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" ["report" "last-run"] false]])]
-          (is (= actual expected)))))))
+          (is (= actual expected)))))
+
+    (testing "compound last run"
+      (let [results1  (expected-resource-events (utils/select-values events1 [3]) report-hash1 conf-version1)
+            results2  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
+            expected  (clojure.set/union results1 results2)
+            actual    (resource-events-query-result ["or"
+                                                     ["and" ["=" "status" "skipped"] ["=" ["report" "last-run"] false]]
+                                                     ["and" ["=" "message" "created"] ["=" ["report" "last-run"] true]]])]
+        (is (= actual expected))))))
