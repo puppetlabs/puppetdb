@@ -41,11 +41,15 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [db-field (dashes->underscores path)]
-    (match [db-field]
+  (let [path (dashes->underscores path)]
+    (match [path]
       ["certname"]
       {:where (format "reports.certname = ?")
        :params [value]}
+
+      ["latest_report"]
+      {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+                      (if value "IN" "NOT IN"))}
 
       [(field :when #{"report" "resource_type" "resource_title" "status"})]
       {:where (format "resource_events.%s = ?" field)
@@ -118,25 +122,24 @@
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format (str "SELECT reports.certname,
-                                  reports.configuration_version,
-                                  resource_events.report,
-                                  resource_events.status,
-                                  resource_events.timestamp,
-                                  resource_events.resource_type,
-                                  resource_events.resource_title,
-                                  resource_events.property,
-                                  resource_events.new_value,
-                                  resource_events.old_value,
-                                  resource_events.message,
-                                  resource_events.file,
-                                  resource_events.line,
-                                  resource_events.containment_path,
-                                  resource_events.containing_class
-                                  FROM resource_events
-                                  JOIN reports ON resource_events.report = reports.hash
-                                  WHERE %s")
-              where)]
+        sql (format "SELECT reports.certname,
+                            reports.configuration_version,
+                            resource_events.report,
+                            resource_events.status,
+                            resource_events.timestamp,
+                            resource_events.resource_type,
+                            resource_events.resource_title,
+                            resource_events.property,
+                            resource_events.new_value,
+                            resource_events.old_value,
+                            resource_events.message,
+                            resource_events.file,
+                            resource_events.line,
+                            resource_events.containment_path,
+                            resource_events.containing_class
+                            FROM resource_events
+                            JOIN reports ON resource_events.report = reports.hash
+                            WHERE %s" where)]
     (apply vector sql params)))
 
 (defn limited-query-resource-events

@@ -64,7 +64,6 @@
        (query/query-resource-events)
        (set)))
 
-
 (defn resource-events-limited-query-result
   "Utility function that executes a resource events query with a limit, and returns
   a set of results for use in test comparisons."
