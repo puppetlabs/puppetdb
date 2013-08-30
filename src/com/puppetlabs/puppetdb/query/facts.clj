@@ -57,6 +57,6 @@
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
 
 (defn query-facts
-  [[sql & params]]
+  [[sql & params] paging-options]
   {:pre [(string? sql)]}
-  (apply sql/query-to-vec sql params))
+  (sql/paged-query-to-vec (concat [sql] params) [:certname :name :value] paging-options))
