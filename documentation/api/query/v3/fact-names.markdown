@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Querying Fact Names"
+title: "PuppetDB 1.4 » API » v3 » Querying Fact Names"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/fact-names.html"
+canonical: "/puppetdb/latest/api/query/v3/fact-names.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
@@ -20,7 +20,7 @@ known only for deactivated nodes.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v2/fact-names
+    curl -X GET http://localhost:8080/v3/fact-names
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 

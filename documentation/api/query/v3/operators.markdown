@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Query Operators"
+title: "PuppetDB 1.4 » API » v3 » Query Operators"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/operators.html"
+canonical: "/puppetdb/latest/api/query/v3/operators.html"
 ---
 
 [resources]: ./resources.html
@@ -145,13 +145,13 @@ In version 2 of the query API, the available subqueries are:
 
 A `select-resources` subquery may **only** be used as the second argument of an `extract` statement. 
 
-It takes a single argument, which must be a **complete query string** which would be valid for [the `/v2/resources` endpoint][resources]. (Note that `/v2/resources/<TYPE>` and `/v2/resources/<TYPE>/<TITLE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries. 
+It takes a single argument, which must be a **complete query string** which would be valid for [the `/v3/resources` endpoint][resources]. (Note that `/v3/resources/<TYPE>` and `/v3/resources/<TYPE>/<TITLE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries.
 
 #### `select-facts`
 
 A `select-facts` subquery may **only** be used as the second argument of an `extract` statement. 
 
-It takes a single argument, which must be a **complete query string** which would be valid for [the `/v2/facts` endpoint][facts]. (Note that `/v2/facts/<NAME>` and `/v2/facts/<NAME>/<VALUE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries. 
+It takes a single argument, which must be a **complete query string** which would be valid for [the `/v3/facts` endpoint][facts]. (Note that `/v3/facts/<NAME>` and `/v3/facts/<NAME>/<VALUE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries.
 
 ### Subquery Examples
 

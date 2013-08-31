@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Querying Facts"
+title: "PuppetDB 1.4 » API » v3 » Querying Facts"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/facts.html"
+canonical: "/puppetdb/latest/api/query/v3/facts.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
@@ -12,7 +12,7 @@ Querying facts occurs via an HTTP request to the
 
 ## Routes
 
-### `GET /v2/facts`
+### `GET /v3/facts`
 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response. There must be an
@@ -39,7 +39,7 @@ See [the Operators page](./operators.html)
 
 Get the operatingsystem fact for all nodes:
 
-    curl -X GET http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
+    curl -X GET http://puppetdb:8080/v3/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
@@ -47,13 +47,13 @@ Get the operatingsystem fact for all nodes:
 
 Get all facts for a single node:
 
-    curl -X GET http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
+    curl -X GET http://puppetdb:8080/v3/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
-### `GET /v2/facts/<NAME>`
+### `GET /v3/facts/<NAME>`
 
 This will return all facts for all nodes with the indicated
 name. There must be an `Accept` header matching `application/json`.
@@ -69,13 +69,13 @@ name. There must be an `Accept` header matching `application/json`.
 
 #### Examples
 
-    curl -X GET http://puppetdb:8080/v2/facts/operatingsystem
+    curl -X GET http://puppetdb:8080/v3/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
-### `GET /v2/facts/<NAME>/<VALUE>`
+### `GET /v3/facts/<NAME>/<VALUE>`
 
 This will return all facts for all nodes with the indicated name and
 value. There must be an `Accept` header matching `application/json`.
@@ -91,7 +91,7 @@ value. There must be an `Accept` header matching `application/json`.
 
 #### Examples
 
-    curl -X GET http://puppetdb:8080/v2/facts/operatingsystem/Debian
+    curl -X GET http://puppetdb:8080/v3/facts/operatingsystem/Debian
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Debian}]

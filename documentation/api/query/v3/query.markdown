@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Query Structure"
+title: "PuppetDB 1.4 » API » v3 » Query Structure"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/query.html"
+canonical: "/puppetdb/latest/api/query/v3/query.html"
 ---
 
 [prefix]: http://en.wikipedia.org/wiki/Polish_notation
@@ -20,7 +20,7 @@ The query API is implemented as HTTP URLs on the PuppetDB server. By default, it
 
 ## API URLs
 
-The first component of an API URL is the API version, written as `v1`, `v2`, etc. This page describes version 2 of the API, so every URL will begin with `/v2`. After the version, URLs are organized into a number of **endpoints.** 
+The first component of an API URL is the API version, written as `v1`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v3`. After the version, URLs are organized into a number of **endpoints.**
 
 ### Endpoints
 
@@ -38,7 +38,7 @@ A query consists of:
 
 That is, nearly every query will look like a GET request to a URL that resembles the following:
 
-    https://puppetdb:8081/v2/<ENDPOINT>?query=<QUERY STRING>
+    https://puppetdb:8081/v3/<ENDPOINT>?query=<QUERY STRING>
 
 Query strings are optional for some endpoints, required for others, and prohibited for others; see each endpoint's documentation.
 

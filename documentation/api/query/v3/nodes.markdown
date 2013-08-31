@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Querying Nodes"
+title: "PuppetDB 1.4 » API » v3 » Querying Nodes"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/nodes.html"
+canonical: "/puppetdb/latest/api/query/v3/nodes.html"
 ---
 
 [resource]: ./resources.html
@@ -13,7 +13,7 @@ endpoint with a JSON-formatted parameter called `query`.
 
 ## Routes
 
-### `GET /v2/nodes`
+### `GET /v3/nodes`
 
 This will return all nodes matching the given query. Deactivated nodes
 aren't included in the response. There must be an `Accept` header matching
@@ -65,10 +65,10 @@ The array is sorted alphabetically by `name`.
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v2/nodes'
-    curl -G 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl 'http://localhost:8080/v3/nodes'
+    curl -G 'http://localhost:8080/v3/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
-### `GET /v2/nodes/<NODE>`
+### `GET /v3/nodes/<NODE>`
 
 This will return status information for the given node, active or
 not. There must be an `Accept` header matching `application/json`.
@@ -78,7 +78,7 @@ not. There must be an `Accept` header matching `application/json`.
 The response is the same format as for the [/v1/status](../v1/status.html)
 endpoint.
 
-### `GET /v2/nodes/<NODE>/facts`
+### `GET /v3/nodes/<NODE>/facts`
 
 This will return the facts for the given node. Facts from deactivated
 nodes aren't included in the response. There must be an `Accept` header
@@ -88,16 +88,16 @@ matching `application/json`.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v3/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v3/facts](./facts.html)
 endpoint.
 
-### `GET /v2/nodes/<NODE>/facts/<NAME>`
+### `GET /v3/nodes/<NODE>/facts/<NAME>`
 
 This will return facts with the given name for the given node. Facts
 from deactivated nodes aren't included in the response. There must be
@@ -107,17 +107,17 @@ an `Accept` header matching `application/json`.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v3/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v3/facts](./facts.html)
 endpoint.
 
 
-### `GET /v2/nodes/<NODE>/facts/<NAME>/<VALUE>`
+### `GET /v3/nodes/<NODE>/facts/<NAME>/<VALUE>`
 
 This will return facts with the given name and value for the given
 node. Facts from deactivated nodes aren't included in the
@@ -128,16 +128,16 @@ response. There must be an `Accept` header matching
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v3/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v3/facts](./facts.html)
 endpoint.
 
-### `GET /v2/nodes/<NODE>/resources`
+### `GET /v3/nodes/<NODE>/resources`
 
 This will return the resources for the given node. Resources from
 deactivated nodes aren't included in the response. There must be an
@@ -147,16 +147,16 @@ deactivated nodes aren't included in the response. There must be an
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/resources` route. When supplied, the query is
+  parameter for the `/v3/resources` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/resources][resource]
+The response is the same format as for the [/v3/resources][resource]
 endpoint.
 
-### `GET /v2/nodes/<NODE>/resources/<TYPE>`
+### `GET /v3/nodes/<NODE>/resources/<TYPE>`
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated nodes aren't included in the
@@ -164,11 +164,11 @@ response. There must be an `Accept` header matching
 `application/json`.
 
 This endpoint behaves identically to the
-[`/v2/resources/<TYPE>`][resource] endpoint, except the resources
+[`/v3/resources/<TYPE>`][resource] endpoint, except the resources
 returned include _only_ those belonging to the node given in the URL
 for this route.
 
-### `GET /v2/nodes/<NODE>/resources/<TYPE>/<TITLE>`
+### `GET /v3/nodes/<NODE>/resources/<TYPE>/<TITLE>`
 
 This will return the resource of the indicated type and title for the
 given node. Resources from deactivated nodes aren't included in the
@@ -176,6 +176,6 @@ response. There must be an `Accept` header matching
 `application/json`.
 
 This endpoint behaves identically to the
-[`/v2/resources/<TYPE>`][resource] endpoint, except the resources
+[`/v3/resources/<TYPE>`][resource] endpoint, except the resources
 returned include _only_ those belonging to the node given in the URL
 for this route.

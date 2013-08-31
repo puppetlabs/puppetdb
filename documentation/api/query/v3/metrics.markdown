@@ -1,15 +1,15 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Querying Metrics"
+title: "PuppetDB 1.4 » API » v3 » Querying Metrics"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/metrics.html"
+canonical: "/puppetdb/latest/api/query/v3/metrics.html"
 ---
 
-> **Note:** The v2 metrics endpoint is currently exactly the same as the [v1 endpoint](../v1/metrics.html).
+> **Note:** The v3 metrics endpoint is currently exactly the same as the [v1 endpoint](../v1/metrics.html).
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
-to paths under the `/v2/metrics` REST endpoint.
+to paths under the `/v3/metrics` REST endpoint.
 
 ## Listing available metrics
 
@@ -17,7 +17,7 @@ to paths under the `/v2/metrics` REST endpoint.
 
 To get a list of all available metric names:
 
-* Request `/v2/metrics/mbeans`.
+* Request `/v3/metrics/mbeans`.
 * Use a `GET` request.
 * Provide an `Accept` header matching `application/json`.
 
@@ -34,7 +34,7 @@ Responses return a JSON Object mapping a string to a string:
 
 To get the attributes of a particular metric:
 
-* Request `/v2/metrics/mbean/<name>`, where `<name>` is something that was
+* Request `/v3/metrics/mbean/<name>`, where `<name>` is something that was
   returned in the list of available metrics specified above.
 * Use a `GET` request.
 * Provide an `Accept` header matching `application/json`.
@@ -100,7 +100,7 @@ to clients. You can see things like the average response time on a
 per-url basis, or see how many requests against a particular URL
 resulted in a HTTP 400 response code. Each of the following metrics is
 available for each URL. The list of automatically generated metrics is
-available via the `/v2/metrics/mbeans` endpoint.
+available via the `/v3/metrics/mbeans` endpoint.
 
 Additionally, we also support the following explicit names:
 
@@ -152,4 +152,4 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 [Using `curl` from localhost][curl]:
 
-    curl 'http://localhost:8080/v2/metrics/mbean/java.lang:type=Memory'
+    curl 'http://localhost:8080/v3/metrics/mbean/java.lang:type=Memory'

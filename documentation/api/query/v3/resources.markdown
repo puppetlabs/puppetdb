@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Querying Resources"
+title: "PuppetDB 1.4 » API » v3 » Querying Resources"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/resources.html"
+canonical: "/puppetdb/latest/api/query/v3/resources.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
@@ -12,7 +12,7 @@ Resources are queried via an HTTP request to the
 
 ## Routes
 
-### `GET /v2/resources`
+### `GET /v3/resources`
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response. There must be an
@@ -70,7 +70,7 @@ See [the Operators page](./operators.html) for the full list of available operat
 resource queries *do not support* inequality, and regexp matching *is not
 supported* against node status or parameter values.
 
-### `GET /v2/resources/<TYPE>`
+### `GET /v3/resources/<TYPE>`
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
@@ -90,7 +90,7 @@ response. There must be an `Accept` header matching
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v2/resources/User'
+    curl -X GET 'http://puppetdb:8080/v3/resources/User'
 
     [{"parameters" : {
         "uid" : "1000,
@@ -125,7 +125,7 @@ response. There must be an `Accept` header matching
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
 
-### `GET /v2/resources/<TYPE>/<TITLE>`
+### `GET /v3/resources/<TYPE>/<TITLE>`
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
@@ -145,7 +145,7 @@ response. There must be an `Accept` header matching
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v2/resources/User/foo'
+    curl -X GET 'http://puppetdb:8080/v3/resources/User/foo'
 
     [{"parameters" : {
         "uid" : "1000,
