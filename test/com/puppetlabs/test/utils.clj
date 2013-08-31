@@ -274,6 +274,20 @@
     (is (pos? (compare-jvm-versions "2.7.0_3" "1.7.0_3")))
     (is (pos? (compare-jvm-versions "1.7.0_10" "1.7.0_3")))))
 
+(deftest some-pred->>-macro
+  (testing "should thread all the way through if the pred never matches"
+    (is (= 10
+          (some-pred->> nil? 1
+            (* 2)
+            (+ 9)
+            (dec)))))
+  (testing "should break and return the value if the pred matches"
+    (is (= {:a 1}
+          (some-pred->> map? 5
+            (/ 5)
+            (assoc {} :a)
+            (keys))))))
+
 (deftest multitime-macro
   (testing "should update all supplied timers"
     (let [timers (mapv timer ["t1" "t2" "t3"])]

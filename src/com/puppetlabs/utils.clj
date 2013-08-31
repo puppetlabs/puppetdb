@@ -641,6 +641,17 @@
            ~expr
            (cond-let ~bindings ~@more))))))
 
+
+(defmacro some-pred->>
+  "When expr does not satisfy pred, threads it into the first form (via ->>),
+  and when that result does not satisfy pred, through the next etc"
+  [pred expr & forms]
+  (let [g (gensym)
+        pstep (fn [step] `(if (~pred ~g) ~g (->> ~g ~step)))]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (map pstep forms))]
+       ~g)))
+
 ;; Metrics and timing
 
 (defn multitime!*
