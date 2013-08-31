@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.utils :as utils]
             [com.puppetlabs.http :as pl-http]
             [fs.core :as fs]
-            [ring.util.response :as rr])
+            [ring.util.response :as rr]
+            [cheshire.core :as json])
   (:use [com.puppetlabs.middleware]
         [com.puppetlabs.utils :only (keyset)]
         [clojure.test]))
@@ -77,3 +78,67 @@
         (let [req {:ssl-client-cert {:meh "meh"}}]
           (is (= (app req)
                  (assoc req :ssl-client-cn nil))))))))
+
+(deftest verifying-no-paging-params
+  (let [test-string "original test string"
+        app-fn      (fn [req] test-string)
+        wrapped-fn  (verify-no-paging-params app-fn)]
+    (testing "should do nothing if none of the paging params are present"
+      (is (= test-string (wrapped-fn {:params {"key1" "val1" "key2" "val2"}}))))
+    (doseq [params [{"limit" 1} {"offset" 10} {"order-by" (json/generate-string [{"field" "foo"}])}]]
+      (testing "should return an error response if any of the paging params are present"
+        (let [{:keys [status body]} (wrapped-fn {:params params})]
+          (is (= pl-http/status-bad-request status))
+          (is (= (format "Unsupported query parameter '%s'"
+                   (first (keys params)))
+                 body)))))))
+
+(deftest wrapping-paging-options
+  (let [app-fn      (fn [req] (req :paging-options))
+        wrapped-fn  (wrap-with-paging-options app-fn)]
+    (testing "should return an error if order-by is not a valid JSON string"
+      (let [{:keys [status body]}
+              (wrapped-fn {:params {"order-by" "["}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= "Illegal value '[' for :order-by; expected an array of maps."
+              body))))
+
+    (testing "should return an error if order-by is not an array of maps"
+      (let [{:keys [status body]}
+              (wrapped-fn {:params
+                           {"order-by"
+                            (json/generate-string {"field" "foo"})}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= (str "Illegal value '{\"field\":\"foo\"}' for :order-by; "
+                 "expected an array of maps.")))))
+
+    (testing "should return an error if an order-by map is missing 'field'"
+      (let [{:keys [status body]}
+            (wrapped-fn {:params
+                         {"order-by"
+                          (json/generate-string [{"foo" "bar"}])}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= (str "Illegal value '{\"foo\":\"bar\"}' in :order-by; "
+                 "missing required key 'field'.")))))
+
+    (testing "should return an error if an order-by map has unknown keys"
+      (let [{:keys [status body]}
+            (wrapped-fn {:params
+                         {"order-by"
+                          (json/generate-string [{"field" "foo"
+                                                  "bar" "baz"}])}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= (str "Illegal value '{\"field\": \"foo\", \"bar\": \"baz\"}' "
+                 "in :order-by; unknown key 'bar'.")))))
+
+    (testing "should make paging options available on the request"
+      (is (= (wrapped-fn
+               {:params
+                  {"limit" 10
+                   "offset" 10
+                   "order-by" (json/generate-string [{"field" "foo"
+                                                      "order" "desc"}])
+                   "foo" "bar"}})
+            {:limit 10
+             :offset 10
+             :order-by [{:field "foo" :order "desc"}]})))))

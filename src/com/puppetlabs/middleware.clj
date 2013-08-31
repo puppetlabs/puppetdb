@@ -5,9 +5,11 @@
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
             [clojure.string :as s]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.middleware.paging :as paging])
   (:use [metrics.timers :only (timer time!)]
-        [metrics.meters :only (meter mark!)]))
+        [metrics.meters :only (meter mark!)]
+        [clojure.walk :only (keywordize-keys)]))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -65,6 +67,23 @@
     (let [new-req (assoc req :globals globals)]
       (app new-req))))
 
+(defn wrap-with-paging-options
+  "Ring middleware that will add to each request a :paging-options attribute:
+  a map optionally containing :limit, :offset, and :order-by keys used to
+  implement result paging for the query.  The value for :order-by will be
+  a list of maps, containing information about the fields to order the result
+  by.  Each order-by map contains a key :field, and an optional key :order
+  (whose value may be either 'asc' or 'desc', and defaults to 'asc')."
+  [app]
+  (fn [{:keys [params] :as req}]
+    (app (assoc req :paging-options
+           (-> params
+             (select-keys ["limit" "offset" "order-by"])
+             (keywordize-keys)
+             (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
+             (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+             (paging/parse-order-by))))))
+
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
   provided `content-type`. If the content type isn't acceptable, a 406 Not
@@ -90,6 +109,17 @@
     (if (params param)
       (app req)
       (pl-http/error-response (str "missing " param)))))
+
+(defn verify-no-paging-params
+  "Ring middleware that verifies that none of the query parameters relating
+  to paging ('limit', 'offset', 'order-by') are present.  This is used to
+  provide a fail-fast indicator to users that the paging options are not
+  supported on versions of the query API prior to v3."
+  [app]
+  (fn [{:keys [params] :as req}]
+    (if-let [param (some #(if (contains? params %) %) ["limit" "offset" "order-by"])]
+      (pl-http/error-response (str "Unsupported query parameter '" param "'"))
+      (app req))))
 
 (def verify-accepts-json
   "Ring middleware which requires a request for `app` to accept
