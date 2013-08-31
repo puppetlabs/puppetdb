@@ -32,12 +32,16 @@
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
   ascending. This includes facts which are known only for deactivated nodes."
-  []
-  {:post [(coll? %)
-          (every? string? %)]}
-  (let [facts (sql/query-to-vec
-                ["SELECT DISTINCT name FROM certname_facts ORDER BY name"])]
-    (map :name facts)))
+  ([]
+    (fact-names {}))
+  ([paging-options]
+    {:post [(coll? %)
+            (every? string? %)]}
+    (let [facts (sql/paged-query-to-vec
+                  ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
+                  [:name]
+                  paging-options)]
+      (map :name facts))))
 
 (defn query->sql
   "Compile a query into an SQL expression."

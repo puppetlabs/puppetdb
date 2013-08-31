@@ -19,4 +19,6 @@
     {:get get-fact-names}))
 
 (def fact-names-app
-  (verify-accepts-json routes))
+  (-> routes
+      verify-accepts-json
+      verify-no-paging-params))
