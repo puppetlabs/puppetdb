@@ -331,6 +331,14 @@ This defines how many command processing threads to use. Each thread can process
   
 This setting defaults to half the number of cores in your system.
 
+### `store-usage`
+
+This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for persistent message storage.
+
+### `temp-usage`
+
+This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for temporary message storage.
+
 `[jetty]` (HTTP) Settings
 -----
 
