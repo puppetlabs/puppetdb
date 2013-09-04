@@ -9,5 +9,5 @@ group :test do
 
   gem 'puppet', :require => false
 
-  gem 'puppet_acceptance', :git => 'git://github.com/puppetlabs/puppet-acceptance.git', :require => false
+  gem 'beaker', '0.0.0'
 end

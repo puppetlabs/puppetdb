@@ -1,3 +1,3 @@
 {
-    :puppetdb_database => 'postgres',
+  :puppetdb_database => 'postgres',
 }

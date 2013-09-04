@@ -1,6 +1,6 @@
 test_name "general collection should get all exported resources except the host's" do
 
-  names = hosts.map(&:reachable_name)
+  names = hosts.map(&:name)
 
   manifest = names.map do |name|
     <<-PIECE

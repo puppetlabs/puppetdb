@@ -1,5 +1,5 @@
 test_name "storeconfigs export and import" do
-  skip_test "Skipping test for PE because slqite3 isn't available" if master.is_pe?
+  skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
 
   db_path = master.tmpfile('storeconfigs.sqlite3')
   manifest_path = master.tmpfile('storeconfigs.pp')
@@ -18,10 +18,6 @@ test_name "storeconfigs export and import" do
     #on master, "mkdir -p #{db_path}"
     on master, "chown puppet:puppet #{db_path}"
     on master, "chmod -R 777 #{db_path}"
-  end
-
-  step "install activerecord and sqlite3 on the master" do
-    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc"
   end
 
   step "run each agent once to populate the database" do
@@ -71,9 +67,5 @@ test_name "storeconfigs export and import" do
 
   step "verify legacy export data matches new export data - catalog data only" do
     compare_export_data(driver_legacy_export_file, driver_new_export_file, :metadata => false, :reports => false)
-  end
-
-  teardown do
-    on master, "gem uninstall activerecord activesupport"
   end
 end

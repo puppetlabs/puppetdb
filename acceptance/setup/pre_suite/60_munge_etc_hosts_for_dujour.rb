@@ -1,5 +1,3 @@
-test_config = PuppetDBExtensions.config
-
 step "Create a fake entry in /etc/hosts to prevent test nodes from checking in with dujour" do
   manifest_path = database.tmpfile("puppetdb_manifest.pp")
   manifest_content = <<-EOS
