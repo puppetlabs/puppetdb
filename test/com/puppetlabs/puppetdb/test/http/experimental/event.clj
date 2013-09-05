@@ -66,6 +66,19 @@
   [resource-events report-hash configuration-version]
   (set (map #(expected-resource-event-response % report-hash configuration-version) resource-events)))
 
+(defn paged-results
+  [query]
+  (reduce
+    (fn [coll n]
+      (let [request (get-request "/experimental/events" query
+                      {:limit 1 :offset (* 1 n)})
+            {:keys [status body]} (*app* request)
+            result  (json/parse-string body true)]
+        (is (>= 1 (count result)))
+        (concat coll result)))
+    []
+    (range 3)))
+
 (deftest query-by-report
   (let [basic         (:basic reports)
         report-hash   (store-example-report! basic (now))
@@ -86,13 +99,6 @@
                 body     (get response :body "null")]
             (is (= (:status response) pl-http/status-internal-error))
             (is (re-find #"more than the maximum number of results" body))))))
-
-    (testing "overriding event-query-limit with a query parameter"
-      (with-http-app {:event-query-limit 1}
-        (fn []
-          (let [response (get-response ["=" "report" report-hash] {"limit" 500})
-                expected (expected-resource-events-response (:resource-events basic) report-hash conf-version)]
-            (response-equal? response expected munge-event-values)))))
 
     ;; NOTE: more exhaustive testing for these queries can be found in
     ;; `com.puppetlabs.puppetdb.test.query.event`
@@ -142,4 +148,12 @@
                           (utils/select-values basic-events matches)
                           report-hash
                           conf-version)]
-          (response-equal? response expected munge-event-values))))))
+          (response-equal? response expected munge-event-values))))
+
+    (testing "should support paging through events"
+      (let [results (paged-results ["=" "report" report-hash])]
+        (is (= (count (:resource-events basic)) (count results)))
+        (is (= (expected-resource-events-response
+                 (:resource-events basic)
+                 report-hash conf-version)
+              (set (munge-event-values results))))))))

@@ -4,7 +4,7 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
+  (:use [com.puppetlabs.jdbc :only [paged-query-to-vec
                                     underscores->dashes
                                     dashes->underscores
                                     valid-jdbc-query?
@@ -147,11 +147,19 @@
    events which match.  Throws an exception if the query would
    return more than `limit` results.  (A value of `0` for `limit` means
    that the query should not be limited.)"
-  [limit [query & params]]
+  [limit paging-options [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [limited-query (add-limit-clause limit query)
-        results       (limited-query-to-vec limit (apply vector limited-query params))]
+  (let [limited-query   (add-limit-clause limit query)
+        result-columns  [:certname :configuration-version :report :status
+                         :timestamp :resource-type :resource-title :property
+                         :old-value :new-value :message :file :line
+                         :containment-path :containing-class]
+        results         (paged-query-to-vec
+                          limit
+                          (apply vector limited-query params)
+                          result-columns
+                          paging-options)]
     (map
       #(-> (utils/mapkeys underscores->dashes %)
          (update-in [:old-value] json/parse-string)
@@ -161,9 +169,9 @@
 (defn query-resource-events
   "Take a query and its parameters, and return a vector of matching resource
   events."
-  [[sql & params]]
+  [paging-options [sql & params]]
   {:pre [(string? sql)]}
-  (limited-query-resource-events 0 (apply vector sql params)))
+  (limited-query-resource-events 0 paging-options (apply vector sql params)))
 
 (defn events-for-report-hash
   "Given a particular report hash, this function returns all events for that
@@ -171,8 +179,10 @@
   [report-hash]
   {:pre [(string? report-hash)]
    :post [(vector? %)]}
-  (let [query ["=" "report" report-hash]]
+  (let [query          ["=" "report" report-hash]
+        ;; we aren't actually supporting paging through this code path for now
+        paging-options {}]
     (vec
-      (-> query
+      (->> query
         (query->sql)
-        (query-resource-events)))))
+        (query-resource-events paging-options)))))

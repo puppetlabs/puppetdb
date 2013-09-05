@@ -63,14 +63,14 @@
 
   If the query would return more than `limit` results, `status-internal-error`
   is returned."
-  [limit query db]
+  [limit query paging-options db]
   {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
           (query/query->sql)
-          ((partial query/limited-query-resource-events limit))
+          ((partial query/limited-query-resource-events limit paging-options))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -79,21 +79,16 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(defn- get-limit-from-params
-  [params]
-  (if-let [limit (params "limit")]
-    (pl-utils/parse-int limit)))
-
 (def routes
   (app
     [""]
-    {:get (fn [{:keys [params globals]}]
-            (let [limit (or (get-limit-from-params params)
-                            (:event-query-limit globals))]
-              (produce-body limit (params "query") (:scf-db globals))))}))
+    {:get (fn [{:keys [params globals paging-options]}]
+            (let [limit (:event-query-limit globals)]
+              (produce-body limit (params "query") paging-options (:scf-db globals))))}))
 
 (def events-app
   "Ring app for querying events"
   (-> routes
     verify-accepts-json
-    (verify-param-exists "query")))
+    (verify-param-exists "query")
+    wrap-with-paging-options))
