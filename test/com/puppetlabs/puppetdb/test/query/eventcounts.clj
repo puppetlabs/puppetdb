@@ -60,4 +60,90 @@
                            :noops 0
                            :skips 1}}
               actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource")]
+          (is (= actual expected)))))
+
+    (testing "counts-filter"
+      (testing "= operator"
+        (let [expected  #{{:containing_class nil
+                           :failures 0
+                           :successes 2
+                           :noops 0
+                           :skips 0}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" ["=" "successes" 2])]
+          (is (= actual expected))))
+
+      (testing "> operator"
+        (let [expected  #{{:resource_type "Notify"
+                           :resource_title "notify, yo"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "notify, yar"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">" "successes" 0])]
+          (is (= actual expected))))
+
+      (testing ">= operator"
+        (let [expected  #{{:resource_type "Notify"
+                           :resource_title "notify, yo"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "notify, yar"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "hi"
+                           :failures 0
+                           :successes 0
+                           :noops 0
+                           :skips 1}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">=" "successes" 0])]
+          (is (= actual expected))))
+
+      (testing "< operator"
+        (let [expected  #{{:resource_type "Notify"
+                           :resource_title "notify, yo"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "notify, yar"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<" "skips" 1])]
+          (is (= actual expected))))
+
+      (testing "<= operator"
+        (let [expected  #{{:resource_type "Notify"
+                           :resource_title "notify, yo"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "notify, yar"
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:resource_type "Notify"
+                           :resource_title "hi"
+                           :failures 0
+                           :successes 0
+                           :noops 0
+                           :skips 1}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<=" "skips" 1])]
           (is (= actual expected)))))))
