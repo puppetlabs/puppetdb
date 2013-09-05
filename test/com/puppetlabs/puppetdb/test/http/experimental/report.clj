@@ -20,11 +20,14 @@
 ;; TODO: this might be able to be abstracted out and consolidated with the similar
 ;; versions that currently reside in test.http.resource and test.http.event
 (defn get-request
-  [path query]
-  (let [request (request :get path
-                     {"query" (if (string? query) query (json/generate-string query))})
-        headers (:headers request)]
-    (assoc request :headers (assoc headers "Accept" content-type-json))))
+  ([path query]
+    (get-request path query {}))
+  ([path query extra-query-params]
+    (let [request (request :get path
+                    (assoc extra-query-params
+                      "query" (if (string? query) query (json/generate-string query))))
+          headers (:headers request)]
+      (assoc request :headers (assoc headers "Accept" content-type-json)))))
 
 (defn get-response
   [query] (*app* (get-request "/experimental/reports" query)))
@@ -52,6 +55,19 @@
   ;; for test comparison
   (map #(dissoc % :receive-time) reports))
 
+(defn paged-results
+  [query]
+  (reduce
+    (fn [coll n]
+      (let [request (get-request "/experimental/reports" query
+                      {:limit 1 :offset (* 1 n)})
+            {:keys [status body]} (*app* request)
+            result  (json/parse-string body true)]
+        (is (>= 1 (count result)))
+        (concat coll result)))
+    []
+    (range 2)))
+
 (deftest query-by-certname
   (let [basic         (:basic reports)
         report-hash   (store-example-report! basic (now))]
@@ -69,3 +85,16 @@
         (get-response ["=" "hash" report-hash])
         (reports-response [(assoc basic :hash report-hash)])
         remove-receive-times))))
+
+(deftest query-with-paging
+  (testing "should support paging through reports"
+    (let [basic1         (:basic reports)
+          basic1-hash   (store-example-report! basic1 (now))
+          basic2        (:basic2 reports)
+          basic2-hash   (store-example-report! basic2 (now))
+          results (paged-results ["=" "certname" (:certname basic1)])]
+      (is (= 2 (count results)))
+      (is (= (reports-response
+                [(assoc basic1 :hash basic1-hash)
+                 (assoc basic2 :hash basic2-hash)])
+            (set (remove-receive-times results)))))))

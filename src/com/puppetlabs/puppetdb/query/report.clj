@@ -3,7 +3,7 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
+  (:use [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]))
 
 ;; ## Report query functions
@@ -30,23 +30,29 @@
 
 (defn query-reports
   "Take a query and its parameters, and return a vector of matching reports."
-  [[sql & params]]
-  {:pre [(string? sql)]}
-  (let [query   (format (str "SELECT hash,
-                                      certname,
-                                      puppet_version,
-                                      report_format,
-                                      configuration_version,
-                                      start_time,
-                                      end_time,
-                                      receive_time,
-                                      transaction_uuid
-                                  FROM reports %s ORDER BY start_time DESC")
-                    sql)
-        results (map
-                    #(utils/mapkeys underscores->dashes %)
-                    (query-to-vec (apply vector query params)))]
-    results))
+  ([sql-and-params] (query-reports {} sql-and-params))
+  ([paging-options [sql & params]]
+    {:pre [(string? sql)]}
+    (let [query   (format (str "SELECT hash,
+                                        certname,
+                                        puppet_version,
+                                        report_format,
+                                        configuration_version,
+                                        start_time,
+                                        end_time,
+                                        receive_time,
+                                        transaction_uuid
+                                    FROM reports %s ORDER BY start_time DESC")
+                      sql)
+          result-columns [:hash :certname :puppet-version :report-format
+                          :configuration-version :start-time :end-time
+                          :receive-time :transaction-uuid]
+          results (map
+                      #(utils/mapkeys underscores->dashes %)
+                      (paged-query-to-vec (apply vector query params)
+                        result-columns
+                        paging-options))]
+      results)))
 
 
 (defmethod compile-report-term :equality
