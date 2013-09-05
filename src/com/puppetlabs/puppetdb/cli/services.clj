@@ -272,6 +272,21 @@
       min-threads)
     threads)))
 
+(defn build-whitelist-authorizer
+  "Build a function that will authorize requests based on the supplied
+  certificate whitelist (see `cn-whitelist->authorizer` for more
+  details). Rejected requests are logged."
+  [whitelist]
+  {:pre  [(string? whitelist)]
+   :post [(fn? %)]}
+  (let [allowed? (pl-utils/cn-whitelist->authorizer whitelist)]
+    (fn [{:keys [ssl-client-cn] :as req}]
+      (if (allowed? req)
+        true
+        (do
+          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
+          false)))))
+
 (defn configure-web-server
   "Update the supplied config map with information about the HTTP webserver to
   start. This will specify client auth, and add a default host/port
@@ -487,7 +502,7 @@
                                            (load-from-mq mq-addr mq-endpoint discard-dir db))))))
           updater       (future (maybe-check-for-updates product-name update-server db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
-                                            (pl-utils/cn-whitelist->authorizer wl)
+                                            (build-whitelist-authorizer wl)
                                             (constantly true))
                               app         (server/build-app :globals globals :authorized? authorized?)]
                           (log/info "Starting query server")
