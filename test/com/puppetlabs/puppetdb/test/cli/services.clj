@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.cli.services
   (:import [java.security KeyStore])
   (:require clojure.string
+            [fs.core :refer (absolute-path temp-file)]
             [com.puppetlabs.puppetdb.version]
             [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.puppetdb.cli.services]
@@ -205,3 +206,14 @@
                      (.mkdir)
                      (.setWritable true))]
       (is (= (validate-vardir filename) filename)))))
+
+(deftest whitelisting
+  (testing "should log on reject"
+    (let [wl (temp-file)]
+      (.deleteOnExit wl)
+      (spit wl "foobar")
+      (let [f (build-whitelist-authorizer (absolute-path wl))]
+        (is (true? (f {:ssl-client-cn "foobar"})))
+        (with-log-output logz
+          (is (false? (f {:ssl-client-cn "badguy"})))
+          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
