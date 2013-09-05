@@ -14,13 +14,13 @@
   If the query can't be parsed, a 400 is returned.
 
   If the query would return more than `limit` results, `status-internal-error` is returned."
-  [limit query db]
+  [limit query paging-options db]
   {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
-          (r/v2-query->sql)
+          (r/v2-query->sql paging-options)
           ((partial r/limited-query-resources limit))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -34,10 +34,15 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals]}]
-                  (produce-body (:resource-query-limit globals) (params "query") (:scf-db globals)))
+                  (produce-body
+                    (:resource-query-limit globals)
+                    (params "query")
+                    {}
+                    (:scf-db globals)))
                 http-q/restrict-query-to-active-nodes)}))
 
-(def resources-app
+(defn build-resources-app
+  [query-app]
   (app
    []
    (verify-accepts-json query-app)
@@ -47,3 +52,8 @@
 
    [type &]
    (comp query-app (partial http-q/restrict-resource-query-to-type type))))
+
+(def resources-app
+  (build-resources-app (verify-no-paging-params query-app)))
+
+

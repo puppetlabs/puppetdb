@@ -17,15 +17,16 @@
 (defn query->sql
   "Compile a resource `query` into an SQL expression using the specified set of
   `operators`."
-  [operators query]
-  {:pre  [(sequential? query)]
-   :post [(valid-jdbc-query? %)]}
-  (let [[subselect & params] (resource-query->sql operators query)
-        sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rp.name, rp.value "
-                         "FROM (%s) subquery1 "
-                         "LEFT OUTER JOIN resource_params rp ON rp.resource = subquery1.resource")
-                    subselect)]
-    (apply vector sql params)))
+  ([operators query] (query->sql operators query {}))
+  ([operators query paging-options]
+   {:pre  [(sequential? query)]
+    :post [(valid-jdbc-query? %)]}
+    (let [[subselect & params] (resource-query->sql operators query paging-options)
+          sql (format (str "SELECT subquery1.certname, subquery1.resource, subquery1.type, subquery1.title, subquery1.tags, subquery1.exported, subquery1.sourcefile, subquery1.sourceline, rp.name, rp.value "
+                        "FROM (%s) subquery1 "
+                        "LEFT OUTER JOIN resource_params rp ON rp.resource = subquery1.resource")
+                subselect)]
+      (apply vector sql params))))
 
 (def v1-query->sql
   (partial query->sql resource-operators-v1))
@@ -55,4 +56,4 @@
    and their parameters which match."
   [[sql & params]]
   {:pre [(string? sql)]}
-  (limited-query-resources 0 (apply vector sql params)))
+    (limited-query-resources 0 (apply vector sql params)))

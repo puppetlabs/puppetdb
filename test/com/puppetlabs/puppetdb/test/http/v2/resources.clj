@@ -15,17 +15,20 @@
 
 (defn get-request
   ([path] (get-request path nil))
-  ([path query]
-     (let [request (if query
-                     (request :get path
-                              {"query" (if (string? query) query (json/generate-string query))})
-                     (request :get path))
-           headers (:headers request)]
+  ([path query] (get-request path query nil))
+  ([path query params]
+    (let [query-map (if query
+                      {"query" (if (string? query) query (json/generate-string query))}
+                      {})
+          param-map (merge query-map (if params params {}))
+          request (request :get path param-map)
+          headers (:headers request)]
        (assoc request :headers (assoc headers "Accept" c-t)))))
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v2/resources" query))))
+  ([query] (get-response query nil))
+  ([query params] (*app* (get-request "/v2/resources" query params))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -117,3 +120,10 @@ to the result of the form supplied to this method."
       (is-response-equal (get-response query) result))))
 
   )
+
+(deftest resource-query-paging
+  (testing "should not support paging-related query parameters"
+    (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
+      (let [ {:keys [status body]} (get-response nil {k v})]
+        (is (= status pl-http/status-bad-request))
+        (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
