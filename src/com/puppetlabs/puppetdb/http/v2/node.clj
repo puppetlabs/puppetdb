@@ -6,18 +6,18 @@
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only (app)]
-        [com.puppetlabs.middleware :only (verify-accepts-json)]
+        [com.puppetlabs.middleware :only (verify-accepts-json verify-no-paging-params)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn search-nodes
   "Produce a response body for a request to search for nodes based on
   `query`. If no `query` is supplied, all nodes will be returned."
-  [query db]
+  [query paging-options db]
   (try
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
             sql   (node/v2-query->sql query)
-            nodes (node/query-nodes sql)]
+            nodes (node/query-nodes sql paging-options)]
         (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -37,8 +37,8 @@
   (app
     []
     {:get (comp
-            (fn [{:keys [params globals]}]
-              (search-nodes (params "query") (:scf-db globals)))
+            (fn [{:keys [params globals paging-options]}]
+              (search-nodes (params "query") paging-options (:scf-db globals)))
             http-q/restrict-query-to-active-nodes)}
 
     [node]
@@ -52,4 +52,6 @@
     (comp r/resources-app (partial http-q/restrict-query-to-node node))))
 
 (def node-app
-  (verify-accepts-json routes))
+  (-> routes
+      verify-accepts-json
+      verify-no-paging-params))

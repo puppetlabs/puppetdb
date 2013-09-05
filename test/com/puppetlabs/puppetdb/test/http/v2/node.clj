@@ -1,13 +1,11 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.node
   (:require [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.utils :only (keyset)]
-        [clj-time.core :only [now]]
-        com.puppetlabs.puppetdb.examples
-        com.puppetlabs.puppetdb.fixtures))
+        com.puppetlabs.puppetdb.fixtures
+        [com.puppetlabs.puppetdb.testutils.node :only [store-example-nodes]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -15,12 +13,14 @@
 
 (defn get-request
   ([path] (get-request path nil))
-  ([path query]
-     (let [request (if query
-                     (request :get path
-                              {"query" (json/generate-string query)})
-                     (request :get path))
-           headers (:headers request)]
+  ([path query] (get-request path query nil))
+  ([path query params]
+    (let [query-map (if query
+                      {"query" (if (string? query) query (json/generate-string query))}
+                      {})
+          param-map (merge query-map (if params params {}))
+          request (request :get path param-map)
+          headers (:headers request)]
        (assoc request :headers (assoc headers "Accept" c-t)))))
 
 (defn get-response
@@ -41,26 +41,7 @@
         (str query))))
 
 (deftest node-queries
-  (let [web1 "web1.example.com"
-        web2 "web2.example.com"
-        puppet "puppet.example.com"
-        db "db.example.com"
-        catalog (:empty catalogs)
-        web1-catalog (update-in catalog [:resources] conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
-        puppet-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
-        db-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
-    (scf-store/add-certname! web1)
-    (scf-store/add-certname! web2)
-    (scf-store/add-certname! puppet)
-    (scf-store/add-certname! db)
-    (scf-store/add-facts! web1 {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000} (now))
-    (scf-store/add-facts! web2 {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000} (now))
-    (scf-store/add-facts! puppet {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000} (now))
-    (scf-store/add-facts! db {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"} (now))
-    (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
-    (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (now))
-    (scf-store/replace-catalog! (assoc db-catalog :certname db) (now))
-
+  (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (testing "status objects should reflect fact/catalog activity"
       (let [status-for-node #(first (json/parse-string (:body (get-response ["=" "name" %])) true))]
         (testing "when node is active"
@@ -129,3 +110,11 @@
 
                                 [web1]}]
         (is-query-result query expected)))))
+
+(deftest node-query-paging
+  (testing "should not support paging-related query parameters"
+    (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
+      (let [request (get-request "/v2/nodes" nil {k v})
+            {:keys [status body]} (*app* request)]
+        (is (= status pl-http/status-bad-request))
+        (is (= body (format "Unsupported query parameter '%s'" (name k))))))))

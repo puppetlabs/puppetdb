@@ -9,7 +9,7 @@
   (:use [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
         [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2]]
-        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection valid-jdbc-query?]]
+        [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec with-transacted-connection valid-jdbc-query?]]
         [com.puppetlabs.utils :only [keyset parse-number]]))
 
 (defn query->sql
@@ -37,11 +37,13 @@
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."
-  [filter-expr]
+  ([filter-expr] (query-nodes filter-expr nil))
+  ([filter-expr paging-options]
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(vector? %)
           (every? #(= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)) %)]}
-  (query-to-vec filter-expr))
+  (let [result-columns [:name :deactivated :catalog_timestamp :facts_timestamp :report-timestamp]]
+    (paged-query-to-vec filter-expr result-columns paging-options))))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))
