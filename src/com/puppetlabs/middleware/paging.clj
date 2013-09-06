@@ -14,7 +14,7 @@
     (map? x)
     (contains? x :status)
     (contains? x :body)
-    (not (= (x :status) 200))))
+    (not= (x :status) 200)))
 
 (defn parse-order-by-json
   "Parses a JSON order-by string.  Returns the parsed string, or a Ring

@@ -33,7 +33,7 @@
   ([sql-and-params] (query-reports {} sql-and-params))
   ([paging-options [sql & params]]
     {:pre [(string? sql)]}
-    (let [query   (format (str "SELECT hash,
+    (let [query   (format "SELECT hash,
                                         certname,
                                         puppet_version,
                                         report_format,
@@ -42,7 +42,7 @@
                                         end_time,
                                         receive_time,
                                         transaction_uuid
-                                    FROM reports %s ORDER BY start_time DESC")
+                                    FROM reports %s ORDER BY start_time DESC"
                       sql)
           result-columns [:hash :certname :puppet-version :report-format
                           :configuration-version :start-time :end-time

@@ -42,7 +42,7 @@
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(vector? %)
           (every? #(= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)) %)]}
-  (let [result-columns [:name :deactivated :catalog_timestamp :facts_timestamp :report-timestamp]]
+  (let [result-columns [:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp]]
     (paged-query-to-vec filter-expr result-columns paging-options))))
 
 (def v1-query->sql
