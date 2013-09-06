@@ -11,6 +11,7 @@ canonical: "/puppetdb/latest/api/query/v3/query.html"
 [operators]: ./operators.html
 [tutorial]: ../tutorial.html
 [curl]: ../curl.html
+[paging]: ./paging.html
 
 ## Summary
 
@@ -27,6 +28,12 @@ The first component of an API URL is the API version, written as `v1`, `v3`, etc
 Conceptually, an endpoint represents a reservoir of some type of PuppetDB object. Each version of the PuppetDB API defines a set number of endpoints.
 
 See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings. 
+
+## Paging
+
+Most PuppetDB query endpoints support paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Query Structure
 

@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/query/v3/fact-names.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
@@ -24,6 +25,11 @@ known only for deactivated nodes.
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Request
 

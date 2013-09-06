@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/query/v3/resources.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Resources are queried via an HTTP request to the
 `/resources` REST endpoint.
@@ -164,6 +165,12 @@ response. There must be an `Accept` header matching
       "type" : "User",
       "certname" : "host1.mydomain.com"
     }]
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Response format
 

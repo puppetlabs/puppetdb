@@ -7,6 +7,8 @@ canonical: "/puppetdb/latest/api/query/experimental/event.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [report]: ./report.html
 [operator]: ../v2/operators.html
+[paging]: ./paging.html
+
 
 ## Routes
 
@@ -167,6 +169,12 @@ the field, and an inequality query will always return `true`.
       }
     ]
 
+
+#### Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 #### Example
 

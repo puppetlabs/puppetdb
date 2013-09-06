@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/query/v3/nodes.html"
 
 [resource]: ./resources.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Nodes can be queried by making an HTTP request to the `/nodes` REST
 endpoint with a JSON-formatted parameter called `query`.
@@ -179,3 +180,10 @@ This endpoint behaves identically to the
 [`/v3/resources/<TYPE>`][resource] endpoint, except the resources
 returned include _only_ those belonging to the node given in the URL
 for this route.
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
+

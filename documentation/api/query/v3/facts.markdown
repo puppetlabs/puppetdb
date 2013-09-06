@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/query/v3/facts.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Querying facts occurs via an HTTP request to the
 `/facts` REST endpoint.
@@ -95,6 +96,12 @@ value. There must be an `Accept` header matching `application/json`.
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Debian}]
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Response Format
 
