@@ -2,8 +2,9 @@
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.query.paging :as paging])
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
@@ -15,11 +16,14 @@
   returned, and a 500 if something else goes wrong."
   [query paging-options db]
   (try
-    (with-transacted-connection db
-      (let [query   (if query (json/parse-string query true))
-            sql     (f/query->sql query)
-            facts   (f/query-facts sql paging-options)]
-        (query-result-response facts)))
+    (let [[sql & params] (with-transacted-connection db
+                           (-> query
+                               (json/parse-string true)
+                               (f/query->sql)))]
+      (pl-http/json-response*
+       (pl-http/streamed-response buffer
+        (with-transacted-connection db
+          (f/with-queried-facts sql paging-options params #(pl-http/stream-json % buffer))))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
