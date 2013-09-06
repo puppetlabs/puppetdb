@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http]
+            [ring.util.response :as rr]
             [cheshire.core :as json])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
@@ -13,17 +14,18 @@
   something else goes wrong."
   [query db]
   (try
-    (with-transacted-connection db
-      (let [query (if query (json/parse-string query true))
-            sql   (f/query->sql query)
-            facts (f/query-facts sql)]
-        (pl-http/json-response facts)))
+    (let [[sql & params] (with-transacted-connection db
+                           (-> query
+                               (json/parse-string true)
+                               (f/query->sql)))]
+      (pl-http/json-response*
+       (pl-http/streamed-response buffer
+        (with-transacted-connection db
+          (f/with-queried-facts sql params #(pl-http/stream-json % buffer))))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+      (pl-http/error-response e))))
 
 (def query-app
   (app
