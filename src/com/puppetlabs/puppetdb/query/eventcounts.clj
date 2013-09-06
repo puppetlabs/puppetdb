@@ -59,6 +59,28 @@
     (compile-term event-count-ops counts-filter)
     {:where nil :params []}))
 
+(defn- get-count-by-sql
+  ;; TODO docs
+  [sql count-by group-by]
+  (condp = count-by
+    "resource"  sql
+    "node"      (format "SELECT DISTINCT certname, status, %s FROM (%s) distinct_events" group-by sql)
+    (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
+
+(defn- get-event-count-sql
+  ;; TODO docs
+  [event-sql group-by]
+  (format "SELECT %s,
+              SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
+              SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
+              SUM(CASE WHEN status = 'noop' THEN 1 ELSE 0 END) AS noops,
+              SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skips
+            FROM (%s) events
+            GROUP BY %s"
+          group-by
+          event-sql
+          group-by))
+
 (defn- get-filtered-sql
   ;; TODO docs
   [sql where]
@@ -66,26 +88,20 @@
     (format "SELECT * FROM (%s) count_results WHERE %s" sql where)
     sql))
 
-(def sql-string "SELECT %s,
-                  SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
-                  SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
-                  SUM(CASE WHEN status = 'noop' THEN 1 ELSE 0 END) AS noops,
-                  SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skips
-                FROM (%s) events
-                GROUP BY %s")
-
 (defn query->sql
   ;; TODO docs
-  [query summarize-by counts-filter]
+  [query summarize-by counts-filter count-by]
   {:pre  [(vector? query)
           ((some-fn nil? vector?) counts-filter)
-          (string? summarize-by)]
+          (string? summarize-by)
+          (string? count-by)]
    :post [(valid-jdbc-query? %)]}
   (let [group-by                        (get-group-by summarize-by)
         {counts-filter-where  :where
          counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
         [event-sql & event-params]      (events/query->sql query)
-        event-count-sql                 (format sql-string group-by event-sql group-by)
+        count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+        event-count-sql                 (get-event-count-sql count-by-sql group-by)
         filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
     (apply vector filtered-sql (concat event-params counts-filter-params))))
 

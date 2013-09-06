@@ -15,7 +15,7 @@
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
-              (event-counts-query-result ["these" "are" "unused"] "illegal-summarize-by"))))
+              (event-counts-query-result ["these" "are" "unused"] "illegal-summarize-by" nil nil))))
 
       (testing "containing-class"
         (let [expected #{{:containing_class nil
@@ -28,7 +28,7 @@
                           :successes 0
                           :noops 0
                           :skips 1}}
-              actual   (event-counts-query-result ["=" "certname" "foo.local"] "containing-class")]
+              actual   (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" nil nil)]
           (is (= actual expected))))
 
       (testing "certname"
@@ -37,7 +37,7 @@
                            :successes 2
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "certname")]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "certname" nil nil)]
           (is (= actual expected))))
 
       (testing "resource"
@@ -59,7 +59,7 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource")]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" nil nil)]
           (is (= actual expected)))))
 
     (testing "counts-filter"
@@ -69,7 +69,7 @@
                            :successes 2
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" ["=" "successes" 2])]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" ["=" "successes" 2] nil)]
           (is (= actual expected))))
 
       (testing "> operator"
@@ -85,7 +85,7 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">" "successes" 0])]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">" "successes" 0] nil)]
           (is (= actual expected))))
 
       (testing ">= operator"
@@ -107,7 +107,7 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">=" "successes" 0])]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" [">=" "successes" 0] nil)]
           (is (= actual expected))))
 
       (testing "< operator"
@@ -123,7 +123,7 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<" "skips" 1])]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<" "skips" 1] nil)]
           (is (= actual expected))))
 
       (testing "<= operator"
@@ -145,5 +145,39 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<=" "skips" 1])]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "resource" ["<=" "skips" 1] nil)]
+          (is (= actual expected)))))
+
+    (testing "count-by"
+      (testing "rejects unsupported values"
+        (is (thrown-with-msg?
+              IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
+              (event-counts-query-result ["=" "certname" "foo.local"] "certname" nil "illegal-count-by"))))
+
+      (testing "resource"
+        (let [expected  #{{:containing_class nil
+                           :failures 0
+                           :successes 2
+                           :noops 0
+                           :skips 0}
+                          {:containing_class "Foo"
+                           :failures 0
+                           :successes 0
+                           :noops 0
+                           :skips 1}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" nil "resource")]
+          (is (= actual expected))))
+
+      (testing "node"
+        (let [expected  #{{:containing_class nil
+                           :failures 0
+                           :successes 1
+                           :noops 0
+                           :skips 0}
+                          {:containing_class "Foo"
+                           :failures 0
+                           :successes 0
+                           :noops 0
+                           :skips 1}}
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "containing-class" nil "node")]
           (is (= actual expected)))))))
