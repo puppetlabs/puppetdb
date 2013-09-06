@@ -3,7 +3,9 @@
 
 (defn event-counts-query-result
   ;; TODO docs
-  [query summarize-by counts-filter count-by]
-    (->> (event-counts/query->sql query summarize-by counts-filter (or count-by "resource"))
+  ([query summarize-by]
+    (event-counts-query-result query summarize-by {}))
+  ([query summarize-by extra-query-params]
+    (->> (event-counts/query->sql query summarize-by extra-query-params)
          (event-counts/query-event-counts)
-         (set)))
+         (set))))

@@ -64,7 +64,8 @@
   [sql count-by group-by]
   (condp = count-by
     "resource"  sql
-    "node"      (format "SELECT DISTINCT certname, status, %s FROM (%s) distinct_events" group-by sql)
+    "node"      (let [field-string (if (= group-by "certname") "" (str ", " group-by))]
+                  (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
     (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
 
 (defn- get-event-count-sql
@@ -90,20 +91,23 @@
 
 (defn query->sql
   ;; TODO docs
-  [query summarize-by counts-filter count-by]
-  {:pre  [(vector? query)
-          ((some-fn nil? vector?) counts-filter)
-          (string? summarize-by)
-          (string? count-by)]
-   :post [(valid-jdbc-query? %)]}
-  (let [group-by                        (get-group-by summarize-by)
-        {counts-filter-where  :where
-         counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-        [event-sql & event-params]      (events/query->sql query)
-        count-by-sql                    (get-count-by-sql event-sql count-by group-by)
-        event-count-sql                 (get-event-count-sql count-by-sql group-by)
-        filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
-    (apply vector filtered-sql (concat event-params counts-filter-params))))
+  ([query summarize-by]
+    (query->sql query summarize-by {}))
+  ([query summarize-by {:keys [counts-filter count-by]}]
+    {:pre  [(sequential? query)
+            (string? summarize-by)
+            ((some-fn nil? sequential?) counts-filter)
+            ((some-fn nil? string?) count-by)]
+     :post [(valid-jdbc-query? %)]}
+    (let [count-by                        (or count-by "resource")
+          group-by                        (get-group-by summarize-by)
+          {counts-filter-where  :where
+           counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
+          [event-sql & event-params]      (events/query->sql query)
+          count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+          event-count-sql                 (get-event-count-sql count-by-sql group-by)
+          filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
+      (apply vector filtered-sql (concat event-params counts-filter-params)))))
 
 (defn query-event-counts
   ;; TODO docs
