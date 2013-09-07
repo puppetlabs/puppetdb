@@ -51,8 +51,9 @@
                     sql)
           results (map
                       #(utils/mapkeys underscores->dashes %)
+                    (:results
                       (paged-query-to-vec (apply vector query params)
-                        paging-options))]
+                          paging-options)))]
       results)))
 
 

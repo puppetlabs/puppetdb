@@ -39,9 +39,9 @@
     {:post [(coll? %)
             (every? string? %)]}
     (validate-order-by! [:name] paging-options)
-    (let [facts (sql/paged-query-to-vec
-                  ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
-                  paging-options)]
+    (let [facts (:results (sql/paged-query-to-vec
+                    ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
+                    paging-options))]
       (map :name facts))))
 
 (defn query->sql
@@ -61,5 +61,6 @@
   [[sql & params] paging-options]
   {:pre [(string? sql)]}
   (validate-order-by! [:certname :name :value] paging-options)
-  (sql/paged-query-to-vec (concat [sql] params)
-    paging-options))
+  (:results
+    (sql/paged-query-to-vec (concat [sql] params)
+      paging-options)))

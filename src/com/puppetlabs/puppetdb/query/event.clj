@@ -161,10 +161,11 @@
 
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
-        results         (paged-query-to-vec
-                          limit
-                          (apply vector limited-query params)
-                          paging-options)]
+        results         (:results
+                          (paged-query-to-vec
+                            limit
+                            (apply vector limited-query params)
+                            paging-options))]
     (map
       #(-> (utils/mapkeys underscores->dashes %)
          (update-in [:old-value] json/parse-string)

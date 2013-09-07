@@ -101,21 +101,24 @@
       (testing "should return results in the correct order"
         (is (= (sort (keys test-data))
                (map #(get % :key)
-                  (subject/paged-query-to-vec orig-sql
-                    {:order-by [{:field "key"}]})))))
+                 (:results
+                    (subject/paged-query-to-vec orig-sql
+                      {:order-by [{:field "key"}]}))))))
       (testing "should return results in correct order when DESC is specified"
         (is (= (reverse (sort (keys test-data)))
                (map #(get % :key)
-                (subject/paged-query-to-vec orig-sql
-                  {:order-by [{:field "key" :order "DESC"}]}))))))
+                 (:results
+                  (subject/paged-query-to-vec orig-sql
+                    {:order-by [{:field "key" :order "DESC"}]})))))))
     (testing "should support multiple order-by fields"
       (is (= [{:key "blandness" :value "zest"}
               {:key "lethargy"  :value "zest"}
               {:key "abundant"  :value "scarce"}]
             (take 3
-              (subject/paged-query-to-vec "SELECT key, value from test"
-                {:order-by [{:field "value" :order "DESC"}
-                            {:field "key"}]}))))))
+              (:results
+                (subject/paged-query-to-vec "SELECT key, value from test"
+                  {:order-by [{:field "value" :order "DESC"}
+                              {:field "key"}]})))))))
   (testing "limit / offset"
     (let [orig-sql "SELECT key FROM test"]
       (testing "SQL not modified if no offset or limit is provided"
@@ -124,12 +127,14 @@
           (with-redefs [subject/query-to-vec validation-fn]
             (subject/paged-query-to-vec orig-sql {}))))
       (testing "Results are limited if limit is provided"
-        (let [results (subject/paged-query-to-vec orig-sql
-                        {:limit 5 :order-by [{:field "key"}]})]
+        (let [results (:results
+                        (subject/paged-query-to-vec orig-sql
+                          {:limit 5 :order-by [{:field "key"}]}))]
           (is (= 5 (count results)))))
       (testing "Results begin at offset if offset is provided"
-        (let [results     (subject/paged-query-to-vec orig-sql
-                            {:offset 2 :order-by [{:field "key"}]})]
+        (let [results     (:results
+                            (subject/paged-query-to-vec orig-sql
+                              {:offset 2 :order-by [{:field "key"}]}))]
           (is (= "accept" (-> results first :key)))))
       (testing "Combination of limit and offset allows paging through entire result set"
         (let [orig-results        (set (subject/query-to-vec orig-sql))
@@ -137,11 +142,12 @@
               limit               5
               num-paged-queries   (java.lang.Math/ceil (/ orig-count (float limit)))
               paged-query-fn      (fn [n]
-                                    (subject/paged-query-to-vec
-                                      orig-sql
-                                      {:limit     limit
-                                       :offset    (* n limit)
-                                       :order-by  [{:field "key"}]}))
+                                    (:results
+                                      (subject/paged-query-to-vec
+                                        orig-sql
+                                        {:limit     limit
+                                         :offset    (* n limit)
+                                         :order-by  [{:field "key"}]})))
               paged-result        (->> (range num-paged-queries)
                                     (map paged-query-fn)
                                     (apply concat))]

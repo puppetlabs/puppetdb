@@ -188,7 +188,11 @@
 
 (defn paged-query-to-vec
   "Given a query and a map of paging options, adds the necessary SQL for
-  implementing the paging, executes the query, and returns a vector of results."
+  implementing the paging, executes the query, and returns a map containing
+  the results and metadata.
+
+  The return value will contain a key `:results`, whose value is a vector of
+  the query results."
   ([query paging-options] (paged-query-to-vec 0 query paging-options))
   ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
     {:pre [(integer? fail-limit)
@@ -197,11 +201,14 @@
            ((some-fn nil? integer?) offset)
            ((some-fn nil? sequential?) order-by)
            (every? map? order-by)]
-     :post [(vector? %)]}
+     :post [(map? %)
+            (vector? (:results %))]}
     (let [sql-and-params (if (string? query) [query] query)
           [sql & params] sql-and-params
           paged-sql      (paged-sql sql paging-options)]
-      (limited-query-to-vec fail-limit (apply vector paged-sql params)))))
+      {:results (limited-query-to-vec
+                  fail-limit
+                  (apply vector paged-sql params))})))
 
 (defn table-count
   "Returns the number of rows in the supplied table"

@@ -46,8 +46,8 @@
    :post [(vector? %)
           (every? #(= (set node-columns) (keyset %)) %)]}
     (validate-order-by! node-columns paging-options)
-    (paged-query-to-vec filter-expr
-      paging-options)))
+    (:results (paged-query-to-vec filter-expr
+                paging-options))))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))
