@@ -113,4 +113,6 @@
              (get-mbean name')))}))
 
 (def metrics-app
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {})))

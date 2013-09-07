@@ -30,4 +30,6 @@
 
 (def status-app
   "Moustache app for retrieving status information"
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {})))

@@ -11,6 +11,8 @@
   (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
+(def query-params ["limit" "offset" "order-by"])
+
 (defn is-error-response?
   "Utility function; given an object, checks to see if the object represents
   an errored Ring response.  Returns true if so, false for any other input."

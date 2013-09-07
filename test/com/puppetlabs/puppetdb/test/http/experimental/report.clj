@@ -7,7 +7,7 @@
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
-        [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
+        [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success!)]
         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
         [clj-time.coerce :only [to-date-time to-string]]
         [clj-time.core :only [now]]))
@@ -61,7 +61,8 @@
     (fn [coll n]
       (let [request (get-request "/experimental/reports" query
                       {:limit 1 :offset (* 1 n)})
-            {:keys [status body]} (*app* request)
+            {:keys [status body] :as resp} (*app* request)
+            _       (assert-success! resp)
             result  (json/parse-string body true)]
         (is (>= 1 (count result)))
         (concat coll result)))

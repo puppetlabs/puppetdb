@@ -22,4 +22,6 @@
       (produce-body node (:scf-db globals)))))
 
 (def catalog-app
-  (verify-accepts-json routes))
+  (-> routes
+      verify-accepts-json
+      (validate-query-params {})))

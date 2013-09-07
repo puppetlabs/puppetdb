@@ -38,4 +38,6 @@
       (retrieve-facts-for-node node (:scf-db globals)))))
 
 (def facts-app
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {:optional ["query"]})))

@@ -4,6 +4,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
         [com.puppetlabs.puppetdb.testutils.node :only [store-example-nodes]]))
 
 (use-fixtures :each with-test-db with-http-app)
@@ -33,7 +34,8 @@
     (fn [coll n]
       (let [request (get-request "/v3/nodes"
                       (json/generate-string query) {:limit 1 :offset (* 1 n)})
-            {:keys [status body]} (*app* request)
+            {:keys [status body] :as resp} (*app* request)
+            _       (assert-success! resp)
             result  (json/parse-string body true)]
         (is (>= 1 (count result)))
         (concat coll result)))

@@ -9,6 +9,7 @@
         ring.mock.request
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
         [com.puppetlabs.puppetdb.examples]))
 
 (use-fixtures :each with-test-db with-http-app)
@@ -34,7 +35,7 @@
                          (json/parse-string body# true)
                          (catch JsonParseException e#
                            body#)))]
-       (is (= pl-http/status-ok (:status response#)))
+       (assert-success! response#)
        (is (= c-t (get-in response# [:headers "Content-Type"])))
        (do ~@the-body))))
 

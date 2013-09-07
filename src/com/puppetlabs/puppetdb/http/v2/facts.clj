@@ -45,4 +45,5 @@
    (comp query-app (partial http-q/restrict-fact-query-to-name fact))))
 
 (def facts-app
-  (build-facts-app (verify-no-paging-params query-app)))
+  (build-facts-app
+    (validate-query-params query-app {:optional ["query"]})))

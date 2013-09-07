@@ -54,6 +54,6 @@
    (comp query-app (partial http-q/restrict-resource-query-to-type type))))
 
 (def resources-app
-  (build-resources-app (verify-no-paging-params query-app)))
+  (build-resources-app (validate-query-params query-app {:optional ["query"]})))
 
 

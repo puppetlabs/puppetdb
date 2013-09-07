@@ -60,6 +60,24 @@
       (is (= 0 (quotient 1 0)))
       (is (= 10 (quotient 1 0 10))))))
 
+(deftest excludes?-test
+  (testing "should return true if coll does not contain key"
+    (is (excludes? {:foo 1} :bar)))
+  (testing "should return false if coll does contain key"
+    (is (not (excludes? {:foo 1} :foo)))))
+
+(deftest contains-some-test
+  (testing "should return nil if coll doesn't contain any of the keys"
+    (is (= nil (contains-some {:foo 1} [:bar :baz :bam]))))
+  (testing "should return the first key that coll does contain"
+    (is (= :baz (contains-some {:foo 1 :baz 2 :bam 3} [:bar :baz :bam])))))
+
+(deftest excludes-some-test
+  (testing "should return nil if coll does `contain?` all of the keys"
+    (is (= nil (excludes-some {:bar 1 :baz 2} [:bar :baz]))))
+  (testing "should return the first key that coll does *not* `contain?`"
+    (is (= :baz (excludes-some {:bar 1 :foo 2} [:foo :baz :bam])))))
+
 (deftest mapvals-test
   (testing "should default to applying a function to all of the keys"
     (is (= {:a 2 :b 3} (mapvals inc {:a 1 :b 2}))))

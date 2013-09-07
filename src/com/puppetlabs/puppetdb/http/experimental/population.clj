@@ -20,4 +20,6 @@
             (get-exported-resources (:scf-db globals)))}))
 
 (def population-app
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {})))

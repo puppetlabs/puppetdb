@@ -142,6 +142,23 @@
   [seq elm]
   (some #(= elm %) seq))
 
+(def excludes?
+  "Inverse of `contains?`.  Returns false if key is present in the given collectoin,
+  otherwise returns true."
+  (complement contains?))
+
+(defn contains-some
+  "If coll `contains?` any of the keys in ks, returns the first such
+  key.  Otherwise returns nil."
+  [coll ks]
+  (some #(if (contains? coll %) %) ks))
+
+(defn excludes-some
+  "If coll `excludes?` any of the keys in ks, returns the first such
+  key.  Otherwise returns nil."
+  [coll ks]
+  (some #(if (excludes? coll %) %) ks))
+
 (defn mapvals
   "Return map `m`, with each value transformed by function `f`.
 

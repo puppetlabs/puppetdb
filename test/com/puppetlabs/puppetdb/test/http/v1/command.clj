@@ -27,7 +27,7 @@
             checksum (pl-utils/utf8-string->sha1 payload)
             req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
-        (is (= (:status resp) pl-http/status-ok))
+        (assert-success! resp)
         (is (= (get-in resp [:headers "Content-Type"]) pl-http/json-response-content-type))
         (is (= (instance? java.util.UUID
                           (-> (:body resp)
@@ -44,7 +44,7 @@
     (testing "should not do checksum verification if no checksum is provided"
       (let [req (make-request {:payload "my payload!"})
             resp (*app* req)]
-        (is (= (:status resp) pl-http/status-ok))))
+        (assert-success! resp)))
 
     (testing "should return 400 when checksums don't match"
       (let [req  (make-request {:payload "Testing" :checksum "something bad"})

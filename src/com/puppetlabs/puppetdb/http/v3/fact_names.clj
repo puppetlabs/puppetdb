@@ -1,9 +1,10 @@
 (ns com.puppetlabs.puppetdb.http.v3.fact-names
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
-            [com.puppetlabs.http :as pl-http])
+            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http.paging :as paging])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [net.cgrand.moustache :only [app]]
-        [com.puppetlabs.middleware :only [verify-accepts-json wrap-with-paging-options]]))
+        [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]))
 
 (defn get-fact-names
   "Produces a response body containing the list of known facts."
@@ -21,4 +22,5 @@
 (def fact-names-app
   (-> routes
     verify-accepts-json
+    (validate-query-params {:optional paging/query-params})
     wrap-with-paging-options))

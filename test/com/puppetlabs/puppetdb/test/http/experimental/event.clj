@@ -11,7 +11,7 @@
         com.puppetlabs.puppetdb.fixtures
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string to-long]]
-        [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
+        [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success!)]
         [com.puppetlabs.puppetdb.testutils.report :only (store-example-report! get-events-map)]))
 
 (def content-type-json pl-http/json-response-content-type)
@@ -72,7 +72,8 @@
     (fn [coll n]
       (let [request (get-request "/experimental/events" query
                       {:limit 1 :offset (* 1 n)})
-            {:keys [status body]} (*app* request)
+            {:keys [status body] :as resp} (*app* request)
+            _       (assert-success! resp)
             result  (json/parse-string body true)]
         (is (>= 1 (count result)))
         (concat coll result)))

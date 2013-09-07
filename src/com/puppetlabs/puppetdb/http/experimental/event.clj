@@ -50,7 +50,8 @@
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.event :as query]
             [cheshire.core :as json]
-            [ring.util.response :as rr])
+            [ring.util.response :as rr]
+            [com.puppetlabs.puppetdb.http.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -90,5 +91,6 @@
   "Ring app for querying events"
   (-> routes
     verify-accepts-json
-    (verify-param-exists "query")
+    (validate-query-params {:required ["query"]
+                            :optional paging/query-params})
     wrap-with-paging-options))

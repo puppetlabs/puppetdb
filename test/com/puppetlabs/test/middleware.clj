@@ -79,19 +79,21 @@
           (is (= (app req)
                  (assoc req :ssl-client-cn nil))))))))
 
-(deftest verifying-no-paging-params
+(deftest validating-query-params
   (let [test-string "original test string"
         app-fn      (fn [req] test-string)
-        wrapped-fn  (verify-no-paging-params app-fn)]
-    (testing "should do nothing if none of the paging params are present"
-      (is (= test-string (wrapped-fn {:params {"key1" "val1" "key2" "val2"}}))))
-    (doseq [params [{"limit" 1} {"offset" 10} {"order-by" (json/generate-string [{"field" "foo"}])}]]
-      (testing "should return an error response if any of the paging params are present"
-        (let [{:keys [status body]} (wrapped-fn {:params params})]
-          (is (= pl-http/status-bad-request status))
-          (is (= (format "Unsupported query parameter '%s'"
-                   (first (keys params)))
-                 body)))))))
+        wrapped-fn  (validate-query-params app-fn
+                      {:required ["foo" "bar"] :optional ["baz" "bam"]})]
+    (testing "should do nothing if the params are valid"
+      (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
+    (testing "should return an error response if a required parameter is missing"
+      (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= "Missing required query parameter 'bar'" body))))
+    (testing "should return an error response if unknown parameters are present"
+      (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})]
+        (is (= pl-http/status-bad-request status))
+        (is (= "Unsupported query parameter 'wazzup'" body))))))
 
 (deftest wrapping-paging-options
   (let [app-fn      (fn [req] (req :paging-options))

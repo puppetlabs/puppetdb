@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only (app)]
-        [com.puppetlabs.middleware :only (verify-accepts-json verify-no-paging-params)]
+        [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
 (defn search-nodes
@@ -54,4 +54,4 @@
 (def node-app
   (-> routes
       verify-accepts-json
-      verify-no-paging-params))
+      (validate-query-params {:optional ["query"]})))
