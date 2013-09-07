@@ -5,7 +5,7 @@
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
-        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;

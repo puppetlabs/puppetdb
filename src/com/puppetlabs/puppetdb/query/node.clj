@@ -11,7 +11,7 @@
         [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2]]
         [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec with-transacted-connection valid-jdbc-query?]]
         [com.puppetlabs.utils :only [keyset parse-number]]
-        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will

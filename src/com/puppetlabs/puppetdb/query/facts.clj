@@ -5,7 +5,7 @@
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]
-        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`. This is used

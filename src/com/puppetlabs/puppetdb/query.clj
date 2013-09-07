@@ -65,7 +65,7 @@
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? paged-sql]]
         [clojure.core.match :only [match]]
-        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This

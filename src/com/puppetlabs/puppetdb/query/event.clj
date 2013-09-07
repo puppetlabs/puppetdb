@@ -13,7 +13,7 @@
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).

@@ -1,5 +1,9 @@
-;; TODO: docs
-(ns com.puppetlabs.middleware.paging
+;; ## Paging query parameter manipulation
+;;
+;; Functions that aid in the validation and processing of the
+;; query parameters related to paging PuppetDB queries
+
+(ns com.puppetlabs.puppetdb.http.paging
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
