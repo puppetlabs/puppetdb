@@ -96,16 +96,28 @@
           (rr/response)
           (rr/status status-not-acceptable)))))
 
+(defn add-headers
+  "Given a Ring response and a map of additional HTTP headers, returns
+  an updated Ring response with the headers added."
+  [response headers]
+  (reduce
+    (fn [r [h v]] (rr/header r h v))
+    response
+    headers))
+
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
   ([body]
      (json-response body status-ok))
   ([body code]
+     (json-response body code {}))
+  ([body code headers]
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)
          (rr/header "Content-Type" "application/json")
+         (add-headers headers)
          (rr/charset "utf-8")
          (rr/status code))))
 

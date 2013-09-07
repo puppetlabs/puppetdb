@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql])
   (:use [clojure.test]
-        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]))
+        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
+        [com.puppetlabs.utils :only [excludes?]]))
 
 (def test-data {"absence"    "presence"
                 "abundant"   "scarce"
@@ -152,4 +153,27 @@
                                     (map paged-query-fn)
                                     (apply concat))]
           (is (= (count orig-results) (count paged-result)))
-          (is (= orig-results (set paged-result))))))))
+          (is (= orig-results (set paged-result)))))))
+
+  (testing "count"
+    (let [orig-sql            "SELECT key FROM test"
+          orig-results        (set (subject/query-to-vec orig-sql))
+          orig-count          (count orig-results)
+          limit               5
+          paged-query-fn      (fn [paging-options]
+                                (subject/paged-query-to-vec
+                                  orig-sql
+                                  paging-options))]
+      (testing "count should not be returned if the option is not present"
+        (let [results (paged-query-fn {:limit limit})]
+          (is (= limit (count (:results results))))
+          (is (excludes? results :count))))
+      (testing "count should not be returned if the option is false"
+        (let [results (paged-query-fn {:limit limit :count? false})]
+          (is (= limit (count (:results results))))
+          (is (excludes? results :count))))
+      (testing "count should be returned if the option is true"
+        (let [results (paged-query-fn {:limit limit :count? true})]
+          (is (= limit (count (:results results))))
+          (is (contains? results :count))
+          (is (= orig-count (:count results))))))))

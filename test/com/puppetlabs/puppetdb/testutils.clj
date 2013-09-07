@@ -3,12 +3,14 @@
   (:require [com.puppetlabs.mq :as mq]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.jetty :as jetty]
+            [com.puppetlabs.puppetdb.http.paging :as paging]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
+            [com.puppetlabs.utils :only [parse-int excludes?]]
             [clojure.test]))
 
 (defn test-db-config
@@ -206,3 +208,25 @@
   (when-not (= pl-http/status-ok status)
     (println "RESPONSE BODY:\n" body)
     (is (= pl-http/status-ok status))))
+
+(defn paged-results
+  [request-fn app-fn path limit total-count validate-count?]
+  (reduce
+    (fn [coll n]
+      (let [params  {:limit limit :offset (* limit n)}
+            request (request-fn path
+                      (if validate-count?
+                        (assoc params :count? true)
+                        params))
+            {:keys [status body headers] :as resp} (app-fn request)
+            _       (assert-success! resp)
+            result  (json/parse-string body)]
+        (is (>= limit (count result)))
+        (if validate-count?
+          (do
+            (is (contains? headers paging/count-header))
+            (is (= total-count (parse-int (headers paging/count-header)))))
+          (is (excludes? headers paging/count-header)))
+        (concat coll result)))
+    []
+    (range (java.lang.Math/ceil (/ total-count (float limit))))))

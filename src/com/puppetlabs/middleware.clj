@@ -79,10 +79,11 @@
   (fn [{:keys [params] :as req}]
     (app (assoc req :paging-options
            (-> params
-             (select-keys ["limit" "offset" "order-by"])
+             (select-keys ["limit" "offset" "order-by" "count?"])
              (keywordize-keys)
              (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
              (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+             (paging/parse-count)
              (paging/parse-order-by))))))
 
 (defn verify-accepts-content-type

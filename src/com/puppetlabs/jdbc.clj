@@ -186,6 +186,26 @@
           limit-clause
           offset-clause))))
 
+(defn count-sql
+  "Takes a sql string and returns a modified sql string that will select
+  the count of results that would be returned by the original sql."
+  [sql]
+  {:pre   [(string? sql)]
+   :post  [(string? %)]}
+  (format "SELECT COUNT(*) AS result_count FROM (%s)" sql))
+
+(defn get-result-count
+  "Takes a sql string, executes a `COUNT` statement against the database,
+  and returns the number of results that the original query would have returned."
+  [[sql & params]]
+  {:pre [(string? sql)]
+   :post [(integer? %)]}
+  (let [count-sql (count-sql sql)]
+    (-> (apply vector count-sql params)
+        query-to-vec
+        first
+        :result_count)))
+
 (defn paged-query-to-vec
   "Given a query and a map of paging options, adds the necessary SQL for
   implementing the paging, executes the query, and returns a map containing
@@ -205,10 +225,18 @@
             (vector? (:results %))]}
     (let [sql-and-params (if (string? query) [query] query)
           [sql & params] sql-and-params
-          paged-sql      (paged-sql sql paging-options)]
-      {:results (limited-query-to-vec
-                  fail-limit
-                  (apply vector paged-sql params))})))
+          paged-sql      (paged-sql sql paging-options)
+          result         {:results
+                            (limited-query-to-vec
+                              fail-limit
+                              (apply vector paged-sql params))}]
+      ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
+      ;; which would allow us to get the results and the count via a
+      ;; single query (rather than two separate ones).  Need to do
+      ;; some benchmarking to see which is faster.
+      (if (:count? paging-options)
+        (assoc result :count (get-result-count sql-and-params))
+        result))))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
