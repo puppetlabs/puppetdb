@@ -12,7 +12,8 @@
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-regexp-match]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
         [clojure.core.match :only [match]]
-        [clj-time.coerce :only [to-timestamp]]))
+        [clj-time.coerce :only [to-timestamp]]
+        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
@@ -150,15 +151,16 @@
   [limit paging-options [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
+
+  (let [columns [:certname :configuration-version :report :status
+                 :timestamp :resource-type :resource-title :property
+                 :old-value :new-value :message :file :line
+                 :containment-path :containing-class]]
+    (validate-order-by! columns paging-options))
   (let [limited-query   (add-limit-clause limit query)
-        result-columns  [:certname :configuration-version :report :status
-                         :timestamp :resource-type :resource-title :property
-                         :old-value :new-value :message :file :line
-                         :containment-path :containing-class]
         results         (paged-query-to-vec
                           limit
                           (apply vector limited-query params)
-                          result-columns
                           paging-options)]
     (map
       #(-> (utils/mapkeys underscores->dashes %)

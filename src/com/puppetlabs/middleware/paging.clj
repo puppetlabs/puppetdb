@@ -2,8 +2,9 @@
 (ns com.puppetlabs.middleware.paging
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json])
-  (:use     [com.puppetlabs.utils :only [some-pred->> keyset]]
+            [cheshire.core :as json]
+            [clojure.string :as string])
+  (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
 (defn is-error-response?
@@ -96,3 +97,17 @@
       (validate-no-invalid-order-by-fields)
       (assoc paging-options :order-by))
     paging-options))
+
+(defn validate-order-by!
+  "Given a list of keywords representing legal fields for ordering a query, and a map of
+   paging options, validate that the order-by data in the paging options complies with
+   the list of fields.  Throws an exception if validation fails."
+  [columns paging-options]
+  {:pre [(sequential? columns)
+         (every? keyword? columns)
+         ((some-fn nil? map?) paging-options)]}
+  (doseq [field (map :field (:order-by paging-options))]
+    (when-not (seq-contains? columns field)
+      (throw (IllegalArgumentException.
+        (str "Unrecognized column '" field "' specified in :order-by; "
+          "Supported columns are '" (string/join "', '" columns) "'"))))))

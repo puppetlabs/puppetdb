@@ -10,7 +10,8 @@
         [clojure.core.match :only [match]]
         [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2]]
         [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec with-transacted-connection valid-jdbc-query?]]
-        [com.puppetlabs.utils :only [keyset parse-number]]))
+        [com.puppetlabs.utils :only [keyset parse-number]]
+        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -42,8 +43,10 @@
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(vector? %)
           (every? #(= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)) %)]}
-  (let [result-columns [:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp]]
-    (paged-query-to-vec filter-expr result-columns paging-options))))
+  (let [columns [:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp]]
+    (validate-order-by! columns paging-options))
+  (paged-query-to-vec filter-expr
+    paging-options)))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))

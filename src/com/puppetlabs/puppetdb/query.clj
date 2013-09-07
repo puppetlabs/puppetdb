@@ -64,7 +64,8 @@
   (:use [com.puppetlabs.utils :only [parse-number keyset]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? paged-sql]]
-        [clojure.core.match :only [match]]))
+        [clojure.core.match :only [match]]
+        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
 
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This
@@ -213,10 +214,12 @@
   ([ops query] (resource-query->sql ops query {}))
   ([ops query paging-options]
    {:post [valid-jdbc-query? %]}
+    (let [columns (map keyword (keys resource-columns))]
+      (validate-order-by! columns paging-options))
     (let [{:keys [where params]} (compile-term ops query)
-          sql (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (column-map->sql resource-columns) where)
-          result-columns (map keyword (keys resource-columns))
-          paged-sql (paged-sql sql result-columns paging-options)]
+          sql       (format "SELECT %s FROM catalog_resources JOIN certname_catalogs USING(catalog) WHERE %s" (column-map->sql resource-columns) where)
+          paged-sql (paged-sql sql
+                      paging-options)]
       (apply vector paged-sql params))))
 
 (defn fact-query->sql

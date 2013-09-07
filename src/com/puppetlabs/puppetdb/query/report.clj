@@ -4,7 +4,8 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec underscores->dashes valid-jdbc-query?]]
-        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]))
+        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
+        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;
@@ -33,6 +34,10 @@
   ([sql-and-params] (query-reports {} sql-and-params))
   ([paging-options [sql & params]]
     {:pre [(string? sql)]}
+    (let [columns [:hash :certname :puppet-version :report-format
+                   :configuration-version :start-time :end-time
+                   :receive-time :transaction-uuid]]
+      (validate-order-by! columns paging-options))
     (let [query   (format "SELECT hash,
                                         certname,
                                         puppet_version,
@@ -44,13 +49,9 @@
                                         transaction_uuid
                                     FROM reports %s ORDER BY start_time DESC"
                       sql)
-          result-columns [:hash :certname :puppet-version :report-format
-                          :configuration-version :start-time :end-time
-                          :receive-time :transaction-uuid]
           results (map
                       #(utils/mapkeys underscores->dashes %)
                       (paged-query-to-vec (apply vector query params)
-                        result-columns
                         paging-options))]
       results)))
 

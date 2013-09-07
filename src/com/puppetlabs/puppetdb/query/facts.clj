@@ -4,7 +4,8 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]))
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]
+        [com.puppetlabs.middleware.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`. This is used
@@ -37,9 +38,9 @@
   ([paging-options]
     {:post [(coll? %)
             (every? string? %)]}
+    (validate-order-by! [:name] paging-options)
     (let [facts (sql/paged-query-to-vec
                   ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
-                  [:name]
                   paging-options)]
       (map :name facts))))
 
@@ -59,4 +60,6 @@
 (defn query-facts
   [[sql & params] paging-options]
   {:pre [(string? sql)]}
-  (sql/paged-query-to-vec (concat [sql] params) [:certname :name :value] paging-options))
+  (validate-order-by! [:certname :name :value] paging-options)
+  (sql/paged-query-to-vec (concat [sql] params)
+    paging-options))
