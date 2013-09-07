@@ -272,13 +272,13 @@
   returning a PuppetDB-suitable representation."
   (fn [catalog version]
     (match [catalog version]
-           [(_ :when string?) _]
+           [(_ :guard string?) _]
            String
 
-           [(_ :when map?) (_ :when number?)]
+           [(_ :guard map?) (_ :guard number?)]
            version
 
-           [(_ :when map?) (_ :when (complement number?))]
+           [(_ :guard map?) (_ :guard (complement number?))]
            (throw (IllegalArgumentException. (format "Catalog version '%s' is not a legal version number" version)))
 
            ;; At this point, catalog can't be a string or a map (regardless of

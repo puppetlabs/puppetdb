@@ -47,20 +47,20 @@
       {:where (format "reports.certname = ?")
        :params [value]}
 
-      [(field :when #{"report" "resource_type" "resource_title" "status"})]
+      [(field :guard #{"report" "resource_type" "resource_title" "status"})]
       {:where (format "resource_events.%s = ?" field)
        :params [value] }
 
       ;; these fields allow NULL, which causes a change in semantics when
       ;; wrapped in a NOT(...) clause, so we have to be very explicit
       ;; about the NULL case.
-      [(field :when #{"property" "message" "file" "line"})]
+      [(field :guard #{"property" "message" "file" "line"})]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [value] }
 
       ;; these fields require special treatment for NULL (as described above),
       ;; plus a serialization step since the values can be complex data types
-      [(field :when #{"old_value" "new_value"})]
+      [(field :guard #{"old_value" "new_value"})]
       {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
        :params [(db-serialize value)] }
 
@@ -81,14 +81,14 @@
         {:where (sql-regexp-match "reports.certname")
          :params [pattern]}
 
-        [(field :when #{"report" "resource_type" "resource_title" "status"})]
+        [(field :guard #{"report" "resource_type" "resource_title" "status"})]
         {:where  (sql-regexp-match (format "resource_events.%s" field))
          :params [pattern] }
 
         ;; these fields allow NULL, which causes a change in semantics when
         ;; wrapped in a NOT(...) clause, so we have to be very explicit
         ;; about the NULL case.
-        [(field :when #{"property" "message" "file" "line"})]
+        [(field :guard #{"property" "message" "file" "line"})]
         {:where (format "%s AND resource_events.%s IS NOT NULL"
                     (sql-regexp-match (format "resource_events.%s" field))
                     field)

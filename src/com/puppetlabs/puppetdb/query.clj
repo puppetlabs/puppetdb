@@ -260,12 +260,12 @@
            :where (format "certname_catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
 
          ;; param joins.
-         [["parameter" (name :when string?)]]
+         [["parameter" (name :guard string?)]]
          {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
           :params [name (db-serialize value)]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
+         [(metadata :guard #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
            {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
 
@@ -309,7 +309,7 @@
           :params [pattern]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
+         [(metadata :guard #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
          {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
           :params [pattern]}
 
@@ -393,7 +393,7 @@
   {:post [(map? %)
           (string? (:where %))]}
   (match [path]
-         [["fact" (name :when string?)]]
+         [["fact" (name :guard string?)]]
          {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
           :params [name (str value)]}
          [["node" "active"]]
@@ -412,7 +412,7 @@
          ["name"]
          {:where "certnames.name = ?"
           :params [value]}
-         [["fact" (name :when string?)]]
+         [["fact" (name :guard string?)]]
          {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
           :params [name (str value)]}
          [["node" "active"]]
@@ -435,7 +435,7 @@
            {:where (sql-regexp-match "certnames.name")
             :params [pattern]}
 
-           [["fact" (name :when string?)]]
+           [["fact" (name :guard string?)]]
            {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s)" (sql-regexp-match "cf.value"))
             :params [name pattern]}
 
@@ -448,7 +448,7 @@
           (string? (:where %))]}
   (if-let [number (parse-number (str value))]
     (match [path]
-           [["fact" (name :when string?)]]
+           [["fact" (name :guard string?)]]
            {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
             :params [name number]}
 
