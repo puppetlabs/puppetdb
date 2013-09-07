@@ -104,7 +104,7 @@
 
 
 
-  (defn resource-event-ops
+(defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [op]
@@ -117,30 +117,37 @@
       (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
       (= op "~") compile-resource-event-regexp)))
 
+(def event-columns
+  {"certname"               "reports"
+   "configuration_version"  "reports"
+   "report"                 "resource_events"
+   "status"                 "resource_events"
+   "timestamp"              "resource_events"
+   "resource_type"          "resource_events"
+   "resource_title"         "resource_events"
+   "property"               "resource_events"
+   "new_value"              "resource_events"
+   "old_value"              "resource_events"
+   "message"                "resource_events"
+   "file"                   "resource_events"
+   "line"                   "resource_events"
+   "containment_path"       "resource_events"
+   "containing_class"       "resource_events"})
+
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
   [query]
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format "SELECT reports.certname,
-                            reports.configuration_version,
-                            resource_events.report,
-                            resource_events.status,
-                            resource_events.timestamp,
-                            resource_events.resource_type,
-                            resource_events.resource_title,
-                            resource_events.property,
-                            resource_events.new_value,
-                            resource_events.old_value,
-                            resource_events.message,
-                            resource_events.file,
-                            resource_events.line,
-                            resource_events.containment_path,
-                            resource_events.containing_class
-                            FROM resource_events
-                            JOIN reports ON resource_events.report = reports.hash
-                            WHERE %s" where)]
+        sql (format "SELECT %s
+                        FROM resource_events
+                        JOIN reports ON resource_events.report = reports.hash
+                        WHERE %s"
+              (string/join ", "
+                (map (fn [[column table]] (str table "." column))
+                  event-columns))
+              where)]
     (apply vector sql params)))
 
 (defn limited-query-resource-events
@@ -152,11 +159,7 @@
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
 
-  (let [columns [:certname :configuration-version :report :status
-                 :timestamp :resource-type :resource-title :property
-                 :old-value :new-value :message :file :line
-                 :containment-path :containing-class]]
-    (validate-order-by! columns paging-options))
+  (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
         results         (paged-query-to-vec
                           limit

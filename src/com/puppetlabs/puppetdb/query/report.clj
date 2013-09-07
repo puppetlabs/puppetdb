@@ -29,26 +29,26 @@
   (let [{:keys [where params]} (compile-report-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
+(def report-columns
+  ["hash"
+   "certname"
+   "puppet_version"
+   "report_format"
+   "configuration_version"
+   "start_time"
+   "end_time"
+   "receive_time"
+   "transaction_uuid"])
+
 (defn query-reports
   "Take a query and its parameters, and return a vector of matching reports."
   ([sql-and-params] (query-reports {} sql-and-params))
   ([paging-options [sql & params]]
     {:pre [(string? sql)]}
-    (let [columns [:hash :certname :puppet-version :report-format
-                   :configuration-version :start-time :end-time
-                   :receive-time :transaction-uuid]]
-      (validate-order-by! columns paging-options))
-    (let [query   (format "SELECT hash,
-                                        certname,
-                                        puppet_version,
-                                        report_format,
-                                        configuration_version,
-                                        start_time,
-                                        end_time,
-                                        receive_time,
-                                        transaction_uuid
-                                    FROM reports %s ORDER BY start_time DESC"
-                      sql)
+    (validate-order-by! report-columns paging-options)
+    (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
+                    (string/join ", " report-columns)
+                    sql)
           results (map
                       #(utils/mapkeys underscores->dashes %)
                       (paged-query-to-vec (apply vector query params)

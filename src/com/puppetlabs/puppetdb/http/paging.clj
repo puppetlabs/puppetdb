@@ -108,7 +108,7 @@
    the list of fields.  Throws an exception if validation fails."
   [columns paging-options]
   {:pre [(sequential? columns)
-         (every? keyword? columns)
+         (every? (some-fn string? keyword?) columns)
          ((some-fn nil? map?) paging-options)]}
   (doseq [field (map :field (:order-by paging-options))]
     (when-not (seq-contains? columns field)

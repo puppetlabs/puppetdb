@@ -13,6 +13,9 @@
         [com.puppetlabs.utils :only [keyset parse-number]]
         [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
+(def node-columns
+  [:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp])
+
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
@@ -42,11 +45,10 @@
   ([filter-expr paging-options]
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(vector? %)
-          (every? #(= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)) %)]}
-  (let [columns [:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp]]
-    (validate-order-by! columns paging-options))
-  (paged-query-to-vec filter-expr
-    paging-options)))
+          (every? #(= (set node-columns) (keyset %)) %)]}
+    (validate-order-by! node-columns paging-options)
+    (paged-query-to-vec filter-expr
+      paging-options)))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))
