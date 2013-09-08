@@ -11,24 +11,12 @@
         com.puppetlabs.puppetdb.fixtures
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string to-long]]
-        [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success!)]
+        [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
         [com.puppetlabs.puppetdb.testutils.report :only (store-example-report! get-events-map)]))
 
 (def content-type-json pl-http/json-response-content-type)
 
 (use-fixtures :each with-test-db with-http-app)
-
-;; TODO: these might be able to be abstracted out and consolidated with the similar version
-;; that currently resides in test.http.resource
-(defn get-request
-  ([path query]
-    (get-request path query {}))
-  ([path query extra-query-params]
-    (let [request (request :get path
-                    (assoc extra-query-params
-                      "query" (if (string? query) query (json/generate-string query))))
-          headers (:headers request)]
-      (assoc request :headers (assoc headers "Accept" content-type-json)))))
 
 (defn get-response
   ([query]
@@ -65,20 +53,6 @@
 (defn expected-resource-events-response
   [resource-events report-hash configuration-version]
   (set (map #(expected-resource-event-response % report-hash configuration-version) resource-events)))
-
-(defn paged-results
-  [query]
-  (reduce
-    (fn [coll n]
-      (let [request (get-request "/experimental/events" query
-                      {:limit 1 :offset (* 1 n)})
-            {:keys [status body] :as resp} (*app* request)
-            _       (assert-success! resp)
-            result  (json/parse-string body true)]
-        (is (>= 1 (count result)))
-        (concat coll result)))
-    []
-    (range 3)))
 
 (deftest query-by-report
   (let [basic         (:basic reports)
@@ -151,10 +125,19 @@
                           conf-version)]
           (response-equal? response expected munge-event-values))))
 
-    (testing "should support paging through events"
-      (let [results (paged-results ["=" "report" report-hash])]
-        (is (= (count (:resource-events basic)) (count results)))
-        (is (= (expected-resource-events-response
-                 (:resource-events basic)
-                 report-hash conf-version)
-              (set (munge-event-values results))))))))
+
+    (doseq [[label count?] [["without" false]
+                            ["with" true]]]
+      (testing (str "should support paging through events " label " counts")
+        (let [results (paged-results
+                        {:app-fn  *app*
+                         :path    "/experimental/events"
+                         :query   ["=" "report" report-hash]
+                         :limit   1
+                         :total   (count (:resource-events basic))
+                         :count?  count?})]
+          (is (= (count (:resource-events basic)) (count results)))
+          (is (= (expected-resource-events-response
+                   (:resource-events basic)
+                   report-hash conf-version)
+                (set (munge-event-values results)))))))))

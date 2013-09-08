@@ -161,16 +161,16 @@
 
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
-        results         (:results
-                          (paged-query-to-vec
-                            limit
-                            (apply vector limited-query params)
-                            paging-options))]
-    (map
-      #(-> (utils/mapkeys underscores->dashes %)
-         (update-in [:old-value] json/parse-string)
-         (update-in [:new-value] json/parse-string))
-      results)))
+        results         (paged-query-to-vec
+                          limit
+                          (apply vector limited-query params)
+                          paging-options)]
+    (assoc results :results
+      (map
+        #(-> (utils/mapkeys underscores->dashes %)
+           (update-in [:old-value] json/parse-string)
+           (update-in [:new-value] json/parse-string))
+        (:results results)))))
 
 (defn query-resource-events
   "Take a query and its parameters, and return a vector of matching resource
@@ -191,4 +191,5 @@
     (vec
       (->> query
         (query->sql)
-        (query-resource-events paging-options)))))
+        (query-resource-events paging-options)
+        (:results)))))
