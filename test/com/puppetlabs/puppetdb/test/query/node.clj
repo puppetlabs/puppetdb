@@ -14,7 +14,7 @@
   "Search for nodes based on an uncompiled query."
   [filter-expr]
   (let [query (node/v2-query->sql filter-expr)]
-    (mapv :name (node/query-nodes query))))
+    (mapv :name (:results (node/query-nodes query)))))
 
 (deftest query-nodes
   (let [names     #{"node_a" "node_b" "node_c" "node_d" "node_e"}

@@ -43,11 +43,11 @@
   ([filter-expr] (query-nodes filter-expr nil))
   ([filter-expr paging-options]
   {:pre  [(valid-jdbc-query? filter-expr)]
-   :post [(vector? %)
-          (every? #(= (set node-columns) (keyset %)) %)]}
+   :post [(map? %)
+          (vector? (:results %))
+          (every? #(= (set node-columns) (keyset %)) (:results %))]}
     (validate-order-by! node-columns paging-options)
-    (:results (paged-query-to-vec filter-expr
-                paging-options))))
+    (paged-query-to-vec filter-expr paging-options)))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))
