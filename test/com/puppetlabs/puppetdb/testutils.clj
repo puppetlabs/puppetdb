@@ -11,7 +11,10 @@
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
             [com.puppetlabs.utils :only [parse-int excludes?]]
-            [clojure.test]))
+            [clojure.test]
+            [ring.mock.request]))
+
+(def c-t "application/json")
 
 (defn test-db-config
   "This is a placeholder function; it is supposed to return a map containing
@@ -206,27 +209,42 @@
   code is 200 OK.  If not, print the body and fail."
   [{:keys [status body] :as resp}]
   (when-not (= pl-http/status-ok status)
-    (println "RESPONSE BODY:\n" body)
+    (println "ERROR RESPONSE BODY:\n" body)
     (is (= pl-http/status-ok status))))
 
+(defn get-request
+  "Return a GET request against path, suitable as an argument to a ring
+  app."
+  ([path] (get-request path nil))
+  ([path query] (get-request path query {}))
+  ([path query params]
+    (let [request (request :get path
+                    (if query
+                      (assoc params
+                        "query" (if (string? query) query (json/generate-string query)))
+                      params))
+          headers (:headers request)]
+      (assoc request :headers (assoc headers "Accept" c-t)))))
+
 (defn paged-results
-  [request-fn app-fn path limit total-count validate-count?]
+  [{:keys [app-fn path query params limit total count?]}]
   (reduce
     (fn [coll n]
-      (let [params  {:limit limit :offset (* limit n)}
-            request (request-fn path
-                      (if validate-count?
+      (let [params  (merge params
+                      {:limit limit :offset (* limit n)})
+            request (get-request path query
+                      (if count?
                         (assoc params :count? true)
                         params))
             {:keys [status body headers] :as resp} (app-fn request)
             _       (assert-success! resp)
-            result  (json/parse-string body)]
+            result  (json/parse-string body true)]
         (is (>= limit (count result)))
-        (if validate-count?
+        (if count?
           (do
             (is (contains? headers paging/count-header))
-            (is (= total-count (parse-int (headers paging/count-header)))))
+            (is (= total (parse-int (headers paging/count-header)))))
           (is (excludes? headers paging/count-header)))
         (concat coll result)))
     []
-    (range (java.lang.Math/ceil (/ total-count (float limit))))))
+    (range (java.lang.Math/ceil (/ total (float limit))))))
