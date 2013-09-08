@@ -49,12 +49,11 @@
     (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
                     (string/join ", " report-columns)
                     sql)
-          results (map
-                      #(utils/mapkeys underscores->dashes %)
-                    (:results
-                      (paged-query-to-vec (apply vector query params)
-                          paging-options)))]
-      results)))
+          results (paged-query-to-vec
+                    (apply vector query params)
+                    paging-options)]
+      (update-in results [:results]
+        (fn [rs] (map #(utils/mapkeys underscores->dashes %) rs))))))
 
 
 (defmethod compile-report-term :equality
@@ -80,7 +79,12 @@
    :post [(or (nil? %)
               (seq? %))]}
   (let [query ["=" "certname" node]
-        reports (-> query (report-query->sql) (query-reports))]
+        reports (-> query
+                  (report-query->sql)
+                  (query-reports)
+                  ;; We don't support paging in this code path, so we
+                  ;; can just pull the results out of the return value
+                  (:results))]
     (map
       #(merge % {:resource-events (events-for-report-hash (get % :hash))})
       reports)))

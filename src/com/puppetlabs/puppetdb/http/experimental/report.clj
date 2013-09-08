@@ -69,7 +69,7 @@
           (json/parse-string true)
           (query/report-query->sql)
           ((partial query/query-reports paging-options))
-          (pl-http/json-response)))
+          (paging/json-paged-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
