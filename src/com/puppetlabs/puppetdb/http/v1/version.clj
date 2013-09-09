@@ -61,4 +61,4 @@
   "A moustache app for retrieving current and latest version information."
   (-> routes
     verify-accepts-json
-    (validate-query-params {})))
+    (validate-no-query-params)))

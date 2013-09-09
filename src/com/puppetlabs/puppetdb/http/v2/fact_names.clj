@@ -21,4 +21,4 @@
 (def fact-names-app
   (-> routes
       verify-accepts-json
-      (validate-query-params {})))
+      (validate-no-query-params)))

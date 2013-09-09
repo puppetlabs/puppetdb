@@ -125,6 +125,14 @@
         :else
         (app req))))
 
+(defn validate-no-query-params
+  "Ring middleware that verifies that there are no query params on the request.
+  Convenience method for endpoints that do not support any query params.  If the
+  validation fails, a 400 Bad Request is returned, with an explanation of the
+  invalid parameters."
+  [app]
+  (validate-query-params app {}))
+
 (def verify-accepts-json
   "Ring middleware which requires a request for `app` to accept
   application/json as a content type. If the request doesn't accept

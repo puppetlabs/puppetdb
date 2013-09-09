@@ -32,4 +32,4 @@
   "Moustache app for retrieving status information"
   (-> routes
     verify-accepts-json
-    (validate-query-params {})))
+    (validate-no-query-params)))
