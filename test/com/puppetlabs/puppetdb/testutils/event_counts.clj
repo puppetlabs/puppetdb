@@ -1,5 +1,5 @@
-(ns com.puppetlabs.puppetdb.testutils.eventcounts
-  (:require [com.puppetlabs.puppetdb.query.eventcounts :as event-counts]))
+(ns com.puppetlabs.puppetdb.testutils.event-counts
+  (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts]))
 
 (defn event-counts-query-result
   ;; TODO docs

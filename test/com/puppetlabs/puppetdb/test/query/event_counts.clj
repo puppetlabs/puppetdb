@@ -1,9 +1,9 @@
-(ns com.puppetlabs.puppetdb.test.query.eventcounts
+(ns com.puppetlabs.puppetdb.test.query.event-counts
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report! get-events-map]]
-        com.puppetlabs.puppetdb.testutils.eventcounts
+        com.puppetlabs.puppetdb.testutils.event-counts
         [clj-time.core :only [now]]))
 
 (use-fixtures :each with-test-db)

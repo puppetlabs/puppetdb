@@ -1,7 +1,7 @@
 ;; TODO docs
-(ns com.puppetlabs.puppetdb.http.experimental.eventcounts
+(ns com.puppetlabs.puppetdb.http.experimental.event-counts
   (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.eventcounts :as event-counts]
+            [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [cheshire.core :as json])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
             [com.puppetlabs.middleware :only [verify-param-exists verify-accepts-json]]

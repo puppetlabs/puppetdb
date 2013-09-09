@@ -3,7 +3,7 @@
         [com.puppetlabs.puppetdb.http.experimental.planetarium-catalog :only (planetarium-catalog-app)]
         [com.puppetlabs.puppetdb.http.experimental.population :only (population-app)]
         [com.puppetlabs.puppetdb.http.experimental.event :only (events-app)]
-        [com.puppetlabs.puppetdb.http.experimental.eventcounts :only (event-counts-app)]
+        [com.puppetlabs.puppetdb.http.experimental.event-counts :only (event-counts-app)]
         [com.puppetlabs.puppetdb.http.experimental.report :only (reports-app)]
         [net.cgrand.moustache :only (app)]))
 

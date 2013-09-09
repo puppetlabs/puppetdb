@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.eventcounts
+(ns com.puppetlabs.puppetdb.test.http.experimental.event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json])
   (:use clojure.test
