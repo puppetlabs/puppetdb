@@ -59,15 +59,17 @@
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
-  [query]
-  (->> (query/query->sql query)
-       (query/query-resource-events)
-       (set)))
+  ([query] (resource-events-query-result query nil))
+  ([query paging-options]
+    (->> (query/query->sql query)
+         (query/query-resource-events paging-options)
+         (set))))
 
 (defn resource-events-limited-query-result
   "Utility function that executes a resource events query with a limit, and returns
   a set of results for use in test comparisons."
-  [limit query]
-  (->> (query/query->sql query)
-       (query/limited-query-resource-events limit)
-       (set)))
+  ([limit query] (resource-events-limited-query-result limit query nil))
+  ([limit query paging-options]
+    (->> (query/query->sql query)
+         (query/limited-query-resource-events limit paging-options)
+         (set))))

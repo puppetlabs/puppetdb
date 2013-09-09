@@ -59,5 +59,12 @@
             {:keys [status body]} (*app* request)
             result (json/parse-string body)]
         (is (= status pl-http/status-ok))
-        (is (= result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]))))))
+        (is (= result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]))))
+
+    (testing "should not support paging-related query parameters"
+      (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
+        (let [request (make-request "/v2/fact-names" {k v})
+              {:keys [status body]} (*app* request)]
+          (is (= status pl-http/status-bad-request))
+          (is (= body (format "Unsupported query parameter '%s'" (name k)))))))))
 

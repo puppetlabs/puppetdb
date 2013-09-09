@@ -6,12 +6,15 @@
 (ns com.puppetlabs.puppetdb.query.node
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string])
-  (:use clojureql.core
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
+  (:use [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
         [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2]]
-        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection valid-jdbc-query?]]
-        [com.puppetlabs.utils :only [keyset parse-number]]))
+        [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec with-transacted-connection valid-jdbc-query?]]
+        [com.puppetlabs.utils :only [keyset parse-number]]
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
+
+(def node-columns
+  [:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp])
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -37,11 +40,14 @@
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."
-  [filter-expr]
+  ([filter-expr] (query-nodes filter-expr nil))
+  ([filter-expr paging-options]
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(vector? %)
-          (every? #(= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset %)) %)]}
-  (query-to-vec filter-expr))
+          (every? #(= (set node-columns) (keyset %)) %)]}
+    (validate-order-by! node-columns paging-options)
+    (paged-query-to-vec filter-expr
+      paging-options)))
 
 (def v1-query->sql
   (partial query->sql node-operators-v1))

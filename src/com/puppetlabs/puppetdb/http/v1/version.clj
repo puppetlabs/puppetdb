@@ -59,4 +59,6 @@
 
 (def version-app
   "A moustache app for retrieving current and latest version information."
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-no-query-params)))

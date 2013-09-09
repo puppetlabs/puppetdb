@@ -123,6 +123,86 @@
      {:pre [((some-fn string? vector?) sql-query-and-params)]}
      (limited-query-to-vec 0 sql-query-and-params)))
 
+(defn order-by-term->sql
+  "Given a list of legal result columns and a map containing a single order-by term,
+  return the SQL string representing this term for use in an ORDER BY clause."
+  [{:keys [field order]}]
+  {:pre [(string? field)
+         (re-find #"^[\w_]+$" field)
+         ((some-fn string? nil?) order)]
+   :post [(string? %)]}
+  (let [order (string/lower-case (or order "asc"))]
+    (when-not (#{"asc" "desc"} order)
+      (throw (IllegalArgumentException.
+               (str "Unsupported value " order
+                 " for :order; expected one of 'DESC' or 'ASC'"))))
+    (format "%s%s"
+      field
+      (if (= order "desc") " DESC" ""))))
+
+(defn order-by->sql
+  "Given a list of legal result columns an array of maps (where each map is
+  an order-by term), return the SQL string representing the ORDER BY clause
+  for the specified terms"
+  [order-by]
+  {:pre [((some-fn nil? sequential?) order-by)
+         (every? map? order-by)]
+   :post [(string? %)]}
+  (if (empty? order-by)
+    ""
+    (format " ORDER BY %s"
+      (string/join ", "
+        (map order-by-term->sql order-by)))))
+
+(defn paged-sql
+  "Given a sql string and a map of paging options, return a modified SQL string
+  that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
+  options can contain any of the following keys:
+
+  * :limit  (int)
+  * :offset (int)
+  * :order-by (array of maps; each map is an order-by term, consisting of
+      required key :field and optional key :order.  Legal values for :order
+      include 'asc' or 'desc'.)
+
+  Note that if no paging options are specified, the original SQL will be
+  returned completely unmodified."
+  [sql {:keys [limit offset order-by]}]
+  {:pre [(string? sql)
+         ((some-fn nil? integer?) limit)
+         ((some-fn nil? integer?) offset)
+         ((some-fn nil? sequential?) order-by)
+         (every? map? order-by)]
+   :post [(string? %)]}
+  (if (every? (some-fn nil? (every-pred coll? empty?))
+        [limit offset order-by])
+    sql
+    (let [limit-clause                (if limit (format " LIMIT %s" limit) "")
+          offset-clause               (if offset (format " OFFSET %s" offset) "")
+          order-by-clause  (order-by->sql order-by)]
+      (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+          sql
+          order-by-clause
+          limit-clause
+          offset-clause))))
+
+(defn paged-query-to-vec
+  "Given a query and a map of paging options, adds the necessary SQL for
+  implementing the paging, executes the query, and returns a vector of results."
+  ([query paging-options] (paged-query-to-vec 0 query paging-options))
+  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
+    {:pre [(integer? fail-limit)
+           ((some-fn string? sequential?) query)
+           ((some-fn nil? integer?) limit)
+           ((some-fn nil? integer?) offset)
+           ((some-fn nil? sequential?) order-by)
+           (every? map? order-by)]
+     :post [(vector? %)]}
+    (let [sql-and-params (if (string? query) [query] query)
+          [sql & params] sql-and-params
+          paged-sql      (paged-sql sql paging-options)]
+      (limited-query-to-vec fail-limit (apply vector paged-sql params)))))
+
 (defn table-count
   "Returns the number of rows in the supplied table"
   [table]

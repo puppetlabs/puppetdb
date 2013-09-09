@@ -50,7 +50,8 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.http.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
@@ -61,13 +62,13 @@
   with the query results.  The result format conforms to that documented above.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query db]
+  [query paging-options db]
   (try
     (with-transacted-connection db
       (-> query
           (json/parse-string true)
           (query/report-query->sql)
-          (query/query-reports)
+          ((partial query/query-reports paging-options))
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -79,13 +80,16 @@
 (def routes
   (app
     [""]
-    {:get (fn [{:keys [params globals]}]
+    {:get (fn [{:keys [params globals paging-options]}]
             (produce-body
               (params "query")
+              paging-options
               (:scf-db globals)))}))
 
 (def reports-app
   "Ring app for querying reports"
   (-> routes
     verify-accepts-json
-    (verify-param-exists "query")))
+    (validate-query-params {:required ["query"]
+                            :optional paging/query-params})
+    wrap-with-paging-options))

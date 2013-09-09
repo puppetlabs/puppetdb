@@ -4,7 +4,7 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
+  (:use [com.puppetlabs.jdbc :only [paged-query-to-vec
                                     underscores->dashes
                                     dashes->underscores
                                     valid-jdbc-query?
@@ -12,7 +12,8 @@
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-regexp-match]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
         [clojure.core.match :only [match]]
-        [clj-time.coerce :only [to-timestamp]]))
+        [clj-time.coerce :only [to-timestamp]]
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
@@ -103,7 +104,7 @@
 
 
 
-  (defn resource-event-ops
+(defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [op]
@@ -116,30 +117,37 @@
       (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
       (= op "~") compile-resource-event-regexp)))
 
+(def event-columns
+  {"certname"               "reports"
+   "configuration_version"  "reports"
+   "report"                 "resource_events"
+   "status"                 "resource_events"
+   "timestamp"              "resource_events"
+   "resource_type"          "resource_events"
+   "resource_title"         "resource_events"
+   "property"               "resource_events"
+   "new_value"              "resource_events"
+   "old_value"              "resource_events"
+   "message"                "resource_events"
+   "file"                   "resource_events"
+   "line"                   "resource_events"
+   "containment_path"       "resource_events"
+   "containing_class"       "resource_events"})
+
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
   [query]
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format "SELECT reports.certname,
-                            reports.configuration_version,
-                            resource_events.report,
-                            resource_events.status,
-                            resource_events.timestamp,
-                            resource_events.resource_type,
-                            resource_events.resource_title,
-                            resource_events.property,
-                            resource_events.new_value,
-                            resource_events.old_value,
-                            resource_events.message,
-                            resource_events.file,
-                            resource_events.line,
-                            resource_events.containment_path,
-                            resource_events.containing_class
-                            FROM resource_events
-                            JOIN reports ON resource_events.report = reports.hash
-                            WHERE %s" where)]
+        sql (format "SELECT %s
+                        FROM resource_events
+                        JOIN reports ON resource_events.report = reports.hash
+                        WHERE %s"
+              (string/join ", "
+                (map (fn [[column table]] (str table "." column))
+                  event-columns))
+              where)]
     (apply vector sql params)))
 
 (defn limited-query-resource-events
@@ -147,11 +155,16 @@
    events which match.  Throws an exception if the query would
    return more than `limit` results.  (A value of `0` for `limit` means
    that the query should not be limited.)"
-  [limit [query & params]]
+  [limit paging-options [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [limited-query (add-limit-clause limit query)
-        results       (limited-query-to-vec limit (apply vector limited-query params))]
+
+  (validate-order-by! (keys event-columns) paging-options)
+  (let [limited-query   (add-limit-clause limit query)
+        results         (paged-query-to-vec
+                          limit
+                          (apply vector limited-query params)
+                          paging-options)]
     (map
       #(-> (utils/mapkeys underscores->dashes %)
          (update-in [:old-value] json/parse-string)
@@ -161,9 +174,9 @@
 (defn query-resource-events
   "Take a query and its parameters, and return a vector of matching resource
   events."
-  [[sql & params]]
+  [paging-options [sql & params]]
   {:pre [(string? sql)]}
-  (limited-query-resource-events 0 (apply vector sql params)))
+  (limited-query-resource-events 0 paging-options (apply vector sql params)))
 
 (defn events-for-report-hash
   "Given a particular report hash, this function returns all events for that
@@ -171,8 +184,10 @@
   [report-hash]
   {:pre [(string? report-hash)]
    :post [(vector? %)]}
-  (let [query ["=" "report" report-hash]]
+  (let [query          ["=" "report" report-hash]
+        ;; we aren't actually supporting paging through this code path for now
+        paging-options {}]
     (vec
-      (-> query
+      (->> query
         (query->sql)
-        (query-resource-events)))))
+        (query-resource-events paging-options)))))

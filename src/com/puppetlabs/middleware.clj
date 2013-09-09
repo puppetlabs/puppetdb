@@ -5,9 +5,12 @@
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
             [clojure.string :as s]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.puppetdb.http.paging :as paging]
+            [clojure.set :as set])
   (:use [metrics.timers :only (timer time!)]
-        [metrics.meters :only (meter mark!)]))
+        [metrics.meters :only (meter mark!)]
+        [clojure.walk :only (keywordize-keys)]))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -65,6 +68,23 @@
     (let [new-req (assoc req :globals globals)]
       (app new-req))))
 
+(defn wrap-with-paging-options
+  "Ring middleware that will add to each request a :paging-options attribute:
+  a map optionally containing :limit, :offset, and :order-by keys used to
+  implement result paging for the query.  The value for :order-by will be
+  a list of maps, containing information about the fields to order the result
+  by.  Each order-by map contains a key :field, and an optional key :order
+  (whose value may be either 'asc' or 'desc', and defaults to 'asc')."
+  [app]
+  (fn [{:keys [params] :as req}]
+    (app (assoc req :paging-options
+           (-> params
+             (select-keys ["limit" "offset" "order-by"])
+             (keywordize-keys)
+             (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
+             (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+             (paging/parse-order-by))))))
+
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
   provided `content-type`. If the content type isn't acceptable, a 406 Not
@@ -80,16 +100,38 @@
       (rr/status (rr/response (str "must accept " content-type))
                  pl-http/status-not-acceptable))))
 
-(defn verify-param-exists
-  "Ring middleware that checks the existence of the given `param` in the
-  request. If the param isn't specified, a 400 Not Found error is returned,
-  explaining that the param is missing."
-  [app param]
-  {:pre (string? param)}
-  (fn [{:keys [params] :as req}]
-    (if (params param)
-      (app req)
-      (pl-http/error-response (str "missing " param)))))
+(defn validate-query-params
+  "Ring middleware that verifies that the query params in the request
+  are legal based on the map `param-specs`, which contains a list of
+  `:required` and `:optional` query parameters.  If the validation fails,
+  a 400 Bad Request is returned, with an explanation of the invalid
+  parameters."
+  [app param-specs]
+  {:pre [(map? param-specs)
+         (= #{} (utils/keyset (dissoc param-specs :required :optional)))
+         (every? string? (:required param-specs))
+         (every? string? (:optional param-specs))]}
+    (fn [{:keys [params] :as req}]
+      (utils/cond-let [p]
+        (utils/excludes-some params (:required param-specs))
+        (pl-http/error-response (str "Missing required query parameter '" p "'"))
+
+        (let [diff (set/difference (utils/keyset params)
+                      (set (:required param-specs))
+                      (set (:optional param-specs)))]
+          (when-not (empty? diff) diff))
+        (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
+
+        :else
+        (app req))))
+
+(defn validate-no-query-params
+  "Ring middleware that verifies that there are no query params on the request.
+  Convenience method for endpoints that do not support any query params.  If the
+  validation fails, a 400 Bad Request is returned, with an explanation of the
+  invalid parameters."
+  [app]
+  (validate-query-params app {}))
 
 (def verify-accepts-json
   "Ring middleware which requires a request for `app` to accept

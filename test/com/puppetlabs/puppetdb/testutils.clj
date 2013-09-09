@@ -198,3 +198,11 @@
       nil)]
       (is (= expected actual)
         (str response)))))
+
+(defn assert-success!
+  "Given a Ring response, verify that the status
+  code is 200 OK.  If not, print the body and fail."
+  [{:keys [status body] :as resp}]
+  (when-not (= pl-http/status-ok status)
+    (println "RESPONSE BODY:\n" body)
+    (is (= pl-http/status-ok status))))
