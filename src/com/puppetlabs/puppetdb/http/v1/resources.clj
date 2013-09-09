@@ -108,4 +108,4 @@
   "Ring app for querying resources"
   (-> routes
     verify-accepts-json
-    (verify-param-exists "query")))
+    (validate-query-params {:required ["query"]})))

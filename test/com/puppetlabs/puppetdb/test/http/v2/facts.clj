@@ -364,3 +364,11 @@
             {:keys [status body] :as result} (*app* request)]
         (is (= status pl-http/status-bad-request))
         (is (= body msg))))))
+
+(deftest fact-query-paging
+  (testing "should not support paging-related query parameters"
+    (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
+      (let [request (get-request "/v2/facts" {k v})
+            {:keys [status body]} (*app* request)]
+        (is (= status pl-http/status-bad-request))
+        (is (= body (format "Unsupported query parameter '%s'" (name k))))))))

@@ -61,4 +61,6 @@
 
 (def node-app
   "Ring app for querying nodes."
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {:optional ["query"]})))

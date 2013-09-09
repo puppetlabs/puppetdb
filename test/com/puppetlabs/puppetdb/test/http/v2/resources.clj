@@ -1,15 +1,12 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.resources
   (:require [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             ring.middleware.params)
   (:use clojure.test
         ring.mock.request
-        [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array add-facts! deactivate-node!]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.puppetdb.testutils.resources :only [store-example-resources]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -18,17 +15,20 @@
 
 (defn get-request
   ([path] (get-request path nil))
-  ([path query]
-     (let [request (if query
-                     (request :get path
-                              {"query" (if (string? query) query (json/generate-string query))})
-                     (request :get path))
-           headers (:headers request)]
+  ([path query] (get-request path query nil))
+  ([path query params]
+    (let [query-map (if query
+                      {"query" (if (string? query) query (json/generate-string query))}
+                      {})
+          param-map (merge query-map (if params params {}))
+          request (request :get path param-map)
+          headers (:headers request)]
        (assoc request :headers (assoc headers "Accept" c-t)))))
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v2/resources" query))))
+  ([query] (get-response query nil))
+  ([query params] (*app* (get-request "/v2/resources" query params))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -41,85 +41,8 @@ to the result of the form supplied to this method."
                 nil)) (str response)))
 
 (deftest resource-list-handler
-  (with-transacted-connection *db*
-    (sql/insert-records
-      :resource_params
-      {:resource "1" :name "ensure" :value (db-serialize "file")}
-      {:resource "1" :name "owner"  :value (db-serialize "root")}
-      {:resource "1" :name "group"  :value (db-serialize "root")}
-      {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
-    (sql/insert-records
-      :certnames
-      {:name "one.local"}
-      {:name "two.local"})
-    (sql/insert-records
-      :catalogs
-      {:hash "foo" :api_version 1 :catalog_version "12"}
-      {:hash "bar" :api_version 1 :catalog_version "14"})
-    (sql/insert-records
-      :certname_catalogs
-      {:certname "one.local" :catalog "foo"}
-      {:certname "two.local" :catalog "bar"})
-    (add-facts! "one.local"
-                {"operatingsystem" "Debian"
-                 "kernel" "Linux"
-                 "uptime_seconds" 50000}
-                (now))
-    (add-facts! "two.local"
-                {"operatingsystem" "Ubuntu"
-                 "kernel" "Linux"
-                 "uptime_seconds" 10000
-                 "message" "hello"}
-                (now))
-    (sql/insert-records :catalog_resources
-                        {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
-                        {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
 
-  (let [foo1 {:certname   "one.local"
-              :resource   "1"
-              :type       "File"
-              :title      "/etc/passwd"
-              :tags       ["one" "two"]
-              :exported   false
-              :sourcefile nil
-              :sourceline nil
-              :parameters {:ensure "file"
-                           :owner  "root"
-                           :group  "root"
-                           :acl    ["john:rwx" "fred:rwx"]}}
-        foo2 {:certname   "one.local"
-              :resource   "2"
-              :type       "Notify"
-              :title      "hello"
-              :tags       []
-              :exported   false
-              :sourcefile nil
-              :sourceline nil
-              :parameters {}}
-        bar1 {:certname   "two.local"
-              :resource   "1"
-              :type       "File"
-              :title      "/etc/passwd"
-              :tags       ["one" "two"]
-              :exported   false
-              :sourcefile nil
-              :sourceline nil
-              :parameters {:ensure "file"
-                           :owner  "root"
-                           :group  "root"
-                           :acl    ["john:rwx" "fred:rwx"]}}
-        bar2 {:certname   "two.local"
-              :resource   "2"
-              :type       "Notify"
-              :title      "hello"
-              :tags       []
-              :exported   true
-              :sourcefile nil
-              :sourceline nil
-              :parameters {}}]
-
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (get-response)
             body     (get response :body "null")]
@@ -197,3 +120,10 @@ to the result of the form supplied to this method."
       (is-response-equal (get-response query) result))))
 
   )
+
+(deftest resource-query-paging
+  (testing "should not support paging-related query parameters"
+    (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
+      (let [ {:keys [status body]} (get-response nil {k v})]
+        (is (= status pl-http/status-bad-request))
+        (is (= body (format "Unsupported query parameter '%s'" (name k))))))))

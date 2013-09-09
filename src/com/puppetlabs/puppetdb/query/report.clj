@@ -3,8 +3,9 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
-        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]))
+  (:use [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec underscores->dashes valid-jdbc-query?]]
+        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
+        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;
@@ -28,25 +29,31 @@
   (let [{:keys [where params]} (compile-report-term query)]
     (apply vector (format " WHERE %s" where) params)))
 
+(def report-columns
+  ["hash"
+   "certname"
+   "puppet_version"
+   "report_format"
+   "configuration_version"
+   "start_time"
+   "end_time"
+   "receive_time"
+   "transaction_uuid"])
+
 (defn query-reports
   "Take a query and its parameters, and return a vector of matching reports."
-  [[sql & params]]
-  {:pre [(string? sql)]}
-  (let [query   (format (str "SELECT hash,
-                                      certname,
-                                      puppet_version,
-                                      report_format,
-                                      configuration_version,
-                                      start_time,
-                                      end_time,
-                                      receive_time,
-                                      transaction_uuid
-                                  FROM reports %s ORDER BY start_time DESC")
+  ([sql-and-params] (query-reports {} sql-and-params))
+  ([paging-options [sql & params]]
+    {:pre [(string? sql)]}
+    (validate-order-by! report-columns paging-options)
+    (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
+                    (string/join ", " report-columns)
                     sql)
-        results (map
-                    #(utils/mapkeys underscores->dashes %)
-                    (query-to-vec (apply vector query params)))]
-    results))
+          results (map
+                      #(utils/mapkeys underscores->dashes %)
+                      (paged-query-to-vec (apply vector query params)
+                        paging-options))]
+      results)))
 
 
 (defmethod compile-report-term :equality

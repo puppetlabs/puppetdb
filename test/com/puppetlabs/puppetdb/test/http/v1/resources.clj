@@ -101,7 +101,7 @@ to the result of the form supplied to this method."
       (let [response (get-response)
             body     (get response :body "null")]
         (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"missing query" body))))
+        (is (= "Missing required query parameter 'query'" body))))
 
     (testing "query with filter"
       (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]

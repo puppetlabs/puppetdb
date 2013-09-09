@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/api/query/experimental/report.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [operator]: ../v2/operators.html
 [event]: ./event.html
+[paging]: ./paging.html
 
 Querying reports is accomplished by making an HTTP request to the `/reports` REST
 endpoint.
@@ -69,6 +70,13 @@ the completion time of the report, in descending order:
         "transaction-uuid": null
         }
     ]
+
+
+#### Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 #### Example
 
