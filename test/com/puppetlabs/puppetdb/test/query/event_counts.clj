@@ -31,13 +31,13 @@
               actual   (event-counts-query-result ["=" "certname" "foo.local"] "containing-class")]
           (is (= actual expected))))
 
-      (testing "certname"
+      (testing "node"
         (let [expected  #{{:certname "foo.local"
                            :failures 0
                            :successes 2
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "certname")]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "node")]
           (is (= actual expected))))
 
       (testing "resource"
@@ -152,7 +152,7 @@
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
-              (event-counts-query-result ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
+              (event-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
         (let [expected  #{{:containing_class nil
@@ -174,5 +174,5 @@
                            :successes 1
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result ["=" "certname" "foo.local"] "certname" {:count-by "node"})]
+              actual    (event-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "node"})]
           (is (= actual expected)))))))

@@ -45,7 +45,7 @@
         (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
     (testing "count-by rejects unsupported values"
-      (let [response  (get-response ["=" "certname" "foo.local"] "certname" {"count-by" "illegal-count-by"})
+      (let [response  (get-response ["=" "certname" "foo.local"] "node" {"count-by" "illegal-count-by"})
             body      (get response :body "null")]
         (is (= (:status response) pl-http/status-bad-request))
         (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
