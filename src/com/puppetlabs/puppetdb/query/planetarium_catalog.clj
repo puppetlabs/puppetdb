@@ -36,7 +36,10 @@
                    (map? (:resources %))
                    (set? (:edges %))))]}
   (when (seq (catalogs-for-certname node))
-    (let [resources       (r/query-resources (r/v2-query->sql ["=" "certname" node]))
+    (let [resources       (-> ["=" "certname" node]
+                            (r/v2-query->sql)
+                            (r/query-resources)
+                            (:results))
           resource-counts (if (seq resources)
                             @(-> (table :catalog_resources)
                                  (select (where (in :resource (map :resource resources))))

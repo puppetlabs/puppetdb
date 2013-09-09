@@ -192,19 +192,18 @@
   [sql]
   {:pre   [(string? sql)]
    :post  [(string? %)]}
-  (format "SELECT COUNT(*) AS result_count FROM (%s)" sql))
+  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
   and returns the number of results that the original query would have returned."
-  [[sql & params]]
-  {:pre [(string? sql)]
+  [[count-sql & params]]
+  {:pre [(string? count-sql)]
    :post [(integer? %)]}
-  (let [count-sql (count-sql sql)]
-    (-> (apply vector count-sql params)
-        query-to-vec
-        first
-        :result_count)))
+  (-> (apply vector count-sql params)
+      query-to-vec
+      first
+      :result_count))
 
 (defn paged-query-to-vec
   "Given a query and a map of paging options, adds the necessary SQL for
@@ -223,8 +222,7 @@
            (every? map? order-by)]
      :post [(map? %)
             (vector? (:results %))]}
-    (let [sql-and-params (if (string? query) [query] query)
-          [sql & params] sql-and-params
+    (let [[sql & params] (if (string? query) [query] query)
           paged-sql      (paged-sql sql paging-options)
           result         {:results
                             (limited-query-to-vec
@@ -235,7 +233,8 @@
       ;; single query (rather than two separate ones).  Need to do
       ;; some benchmarking to see which is faster.
       (if (:count? paging-options)
-        (assoc result :count (get-result-count sql-and-params))
+        (assoc result :count
+          (get-result-count (apply vector (count-sql sql) params)))
         result))))
 
 (defn table-count
