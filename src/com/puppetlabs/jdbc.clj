@@ -211,7 +211,9 @@
   the results and metadata.
 
   The return value will contain a key `:results`, whose value is a vector of
-  the query results."
+  the query results.  If the paging options indicate that a 'total record
+  count' should be returned, then the map will also include a key `:count`,
+  whose value is an integer indicating the total number of results available."
   ([query paging-options] (paged-query-to-vec 0 query paging-options))
   ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
     {:pre [(integer? fail-limit)

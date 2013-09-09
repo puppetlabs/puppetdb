@@ -22,8 +22,15 @@
         [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn query->sql
-  "Compile a resource `query` into an SQL expression using the specified set of
-  `operators`."
+  "Compile a resource `query` and an optional `paging-options` map, using the
+  specified set of `operators`, into the SQL expressions necessary to retrieve
+  the required data.
+
+  The return value is a map.  It contains a key `:results-query`, which contains
+  the SQL needed to retrieve the matching resources.  If the `paging-options`
+  indicate that the user would also like a total count of available results,
+  then the return value will also contain a key `:count-query` whose value
+  contains the SQL necessary to retrieve the count data."
   ([operators query] (query->sql operators query {}))
   ([operators query paging-options]
    {:pre  [(sequential? query)]
@@ -62,11 +69,17 @@
   (partial query->sql resource-operators-v2))
 
 (defn limited-query-resources
-  "Take a limit, a query, and its parameters, and return a vector of resources
-   and their parameters which match.  Throws an exception if the query would
-   return more than `limit` results.  (A value of `0` for `limit` means
-   that the query should not be limited.)"
-  [limit {:keys [results-query count-query] :as secondarg}]
+  "Take a limit, and a map of SQL queries as produced by `query->sql`, return
+  a map containing the results of the query, as well as optional metadata.
+
+  The returned map will contain a key `:results`, whose value is vector of
+  resources which match the query.  If the paging-options used to generate
+  the queries indicate that a total result count should also be returned, then
+  the map will contain an additional key `:count`, whose value is an integer.
+
+   Throws an exception if the query would return more than `limit` results.  (A
+   value of `0` for `limit` means that the query should not be limited.)"
+  [limit {:keys [results-query count-query] :as queries-map}]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
   (let [[query & params] results-query
@@ -85,8 +98,9 @@
       results)))
 
 (defn query-resources
-  "Take a query and its parameters, and return a vector of resources
-   and their parameters which match."
+  "Takes a map of SQL queries as produced by `query->sql`, and returns a map
+  containing the query results and metadata.  For more detail on the return value,
+  see `limited-query-resources`"
   [queries-map]
   {:pre [(map? queries-map)
          (valid-jdbc-query? (:results-query queries-map))]}

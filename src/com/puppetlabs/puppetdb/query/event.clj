@@ -151,13 +151,22 @@
     (apply vector sql params)))
 
 (defn limited-query-resource-events
-  "Take a limit, a query, and its parameters, and return a vector of resource
-   events which match.  Throws an exception if the query would
-   return more than `limit` results.  (A value of `0` for `limit` means
-   that the query should not be limited.)"
+  "Take a limit, paging-options map, a query, and its parameters,
+  and return a map containing the results and metadata.
+
+  The returned map will contain a key `:results`, whose value is vector of
+  resource events which match the query.  If the paging-options indicate
+  that a total result count should also be returned, then the map will
+  contain an additional key `:count`, whose value is an integer.
+
+  Throws an exception if the query would return more than `limit` results.
+  (A value of `0` for `limit` means that the query should not be limited.)"
   [limit paging-options [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
-   :post [(or (zero? limit) (<= (count %) limit))]}
+   :post [(or (zero? limit) (<= (count %) limit))
+          (map? %)
+          (contains? % :results)
+          (sequential? (:results %))]}
 
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
@@ -173,8 +182,9 @@
         (:results results)))))
 
 (defn query-resource-events
-  "Take a query and its parameters, and return a vector of matching resource
-  events."
+  "Take a paging-options map, a query, and its parameters, and return a map
+  containing matching resource events and metadata.  For more information about
+  the return value, see `limited-query-resource-events`."
   [paging-options [sql & params]]
   {:pre [(string? sql)]}
   (limited-query-resource-events 0 paging-options (apply vector sql params)))
