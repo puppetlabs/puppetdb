@@ -1,12 +1,22 @@
 (ns com.puppetlabs.puppetdb.test.query.event-counts
+  (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report! get-events-map]]
-        com.puppetlabs.puppetdb.testutils.event-counts
         [clj-time.core :only [now]]))
 
 (use-fixtures :each with-test-db)
+
+(defn- event-counts-query-result
+  "Utility function that executes an event-counts query and
+  returns a set of results for use in test comparison."
+  ([query summarize-by]
+    (event-counts-query-result query summarize-by {}))
+  ([query summarize-by extra-query-params]
+    (-> (event-counts/query->sql query summarize-by extra-query-params)
+        (event-counts/query-event-counts)
+        (set))))
 
 (deftest resource-event-count-queries
   (store-example-report! (:basic reports) (now))

@@ -6,7 +6,8 @@
         [clojure.core.match :only [match]]))
 
 (defn- compile-event-count-equality
-  ;; TODO docs
+  "Compile an = predicate for event-count query.  The `path` represents
+  the field to query against, and `value` is the value of the field."
   [& [path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
@@ -21,7 +22,8 @@
       :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
 
 (defn- compile-event-count-inequality
-  ;; TODO docs
+  "Compile an inequality for an event-counts query (> < >= <=).  The `path`
+  represents the field to query against, and the `value` is the value of the field."
   [& [op path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
@@ -44,8 +46,12 @@
       (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
 
 (defn- get-group-by
-  ;; TODO docs
+  "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
+  Supported values are `node`, `containing-class`, and `resource` (default), otherwise an
+  IllegalArgumentException is thrown."
   [summarize-by]
+  {:pre  [(string? summarize-by)]
+   :post [(string? %)]}
   (condp = summarize-by
     "node" "certname"
     "containing-class" "containing_class"
@@ -53,15 +59,25 @@
     (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
 
 (defn- get-counts-filter-where-clause
-  ;; TODO docs
+  "Given a `counts-filter` query, return the appropriate SQL where clause and parameters.
+  Returns a noop map if the `counts-filter` is nil."
   [counts-filter]
+  {:pre  [((some-fn nil? sequential?) counts-filter)]
+   :post [(map? %)]}
   (if counts-filter
     (compile-term event-count-ops counts-filter)
     {:where nil :params []}))
 
 (defn- get-count-by-sql
-  ;; TODO docs
+  "Given the events `sql`, a value to `count-by`, and a value to `group-by`,
+  return the appropriate SQL string that counts and groups the `sql` results.
+  Supported `count-by` values are `resource` (default) and `node`, otherwise
+  an IllegalArgumentException is thrown."
   [sql count-by group-by]
+  {:pre  [(string? sql)
+          (string? count-by)
+          (string? group-by)]
+   :post [(string? %)]}
   (condp = count-by
     "resource"  sql
     "node"      (let [field-string (if (= group-by "certname") "" (str ", " group-by))]
@@ -69,8 +85,12 @@
     (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
 
 (defn- get-event-count-sql
-  ;; TODO docs
+  "Given the `event-sql` and value to `group-by`, return a SQL string that
+  will sum the results of `event-sql` grouped by the provided value."
   [event-sql group-by]
+  {:pre  [(string? event-sql)
+          (string? group-by)]
+   :post [(string? %)]}
   (format "SELECT %s,
               SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
               SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
@@ -83,14 +103,20 @@
           group-by))
 
 (defn- get-filtered-sql
-  ;; TODO docs
+  "Given a `sql` string and optional `where` clause, return the appropriate filtered
+  SQL string.  If the `where` clause is nil, `sql` is returned."
   [sql where]
+  {:pre  [(string? sql)
+          ((some-fn nil? string?) where)]
+   :post [(string? %)]}
   (if where
     (format "SELECT * FROM (%s) count_results WHERE %s" sql where)
     sql))
 
 (defn query->sql
-  ;; TODO docs
+  "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
+  A second `counts-filter` query may be provided to further reduce the results, and
+  the value to `count-by` may also be specified (defaults to `resource`)."
   ([query summarize-by]
     (query->sql query summarize-by {}))
   ([query summarize-by {:keys [counts-filter count-by]}]
@@ -110,7 +136,8 @@
       (apply vector filtered-sql (concat event-params counts-filter-params)))))
 
 (defn query-event-counts
-  ;; TODO docs
+  "Given a SQL query and its parameters, return a vector of matching results."
   [[sql & params]]
-  {:pre [(string? sql)]}
+  {:pre  [(string? sql)]
+   :post [(vector? %)]}
   (query-to-vec (apply vector sql params)))

@@ -8,8 +8,16 @@
             [net.cgrand.moustache :only [app]]))
 
 (defn produce-body
-  ;; TODO docs
+  "Given a database connection, a query, a value to summarize by, and optionally
+  a query to filter the counts and a value to count by, return a Ring response
+  with the the query results.  The result format conforms to that documented above.
+
+  If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
   [{:strs [query summarize-by counts-filter count-by] :as query-params} db]
+  {:pre [(string? query)
+         (string? summarize-by)
+         ((some-fn nil? string?) counts-filter)
+         ((some-fn nil? string?) count-by)]}
   (try
     (let [query         (json/parse-string query true)
           counts-filter (if counts-filter (json/parse-string counts-filter true))]
