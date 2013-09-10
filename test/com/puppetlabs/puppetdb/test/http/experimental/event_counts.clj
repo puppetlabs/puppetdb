@@ -36,28 +36,28 @@
     (*app* (get-request "/experimental/event-counts" query summarize-by extra-query-params))))
 
 (deftest query-event-counts
-  (let [_ (store-example-report! (:basic reports) (now))]
+  (store-example-report! (:basic reports) (now))
 
-    (testing "summarize-by rejects unsupported values"
-      (let [response  (get-response ["=" "certname" "foo.local"] "illegal-summarize-by")
-            body      (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
+  (testing "summarize-by rejects unsupported values"
+    (let [response  (get-response ["=" "certname" "foo.local"] "illegal-summarize-by")
+          body      (get response :body "null")]
+      (is (= (:status response) pl-http/status-bad-request))
+      (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
-    (testing "count-by rejects unsupported values"
-      (let [response  (get-response ["=" "certname" "foo.local"] "node" {"count-by" "illegal-count-by"})
-            body      (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
+  (testing "count-by rejects unsupported values"
+    (let [response  (get-response ["=" "certname" "foo.local"] "node" {"count-by" "illegal-count-by"})
+          body      (get response :body "null")]
+      (is (= (:status response) pl-http/status-bad-request))
+      (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
 
-    (testing "nontrivial query using all the optional parameters"
-      (let [expected  #{{:containing_class "Foo"
-                         :failures 0
-                         :successes 0
-                         :noops 0
-                         :skips 1}}
-            response  (get-response ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                     "containing-class"
-                                     {"count-by"      "node"
-                                      "counts-filter" ["<" "successes" 1]})]
-        (response-equal? response expected)))))
+  (testing "nontrivial query using all the optional parameters"
+    (let [expected  #{{:containing_class "Foo"
+                       :failures 0
+                       :successes 0
+                       :noops 0
+                       :skips 1}}
+          response  (get-response ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
+                                   "containing-class"
+                                   {"count-by"      "node"
+                                    "counts-filter" ["<" "successes" 1]})]
+      (response-equal? response expected))))

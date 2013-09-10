@@ -9,12 +9,7 @@
 
 (defn produce-body
   ;; TODO docs
-  [{query         "query"
-    summarize-by  "summarize-by"
-    counts-filter "counts-filter"
-    count-by      "count-by"
-    :as query-params}
-   db]
+  [{:strs [query summarize-by counts-filter count-by] :as query-params} db]
   (try
     (let [query         (json/parse-string query true)
           counts-filter (if counts-filter (json/parse-string counts-filter true))]
