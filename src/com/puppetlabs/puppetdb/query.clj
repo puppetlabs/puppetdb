@@ -64,7 +64,7 @@
   (:use [com.puppetlabs.utils :only [parse-number keyset]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
-        [com.puppetlabs.puppetdb.http.paging :only [requires-paging?]]
+        [com.puppetlabs.puppetdb.query.paging :only [requires-paging?]]
         [clojure.core.match :only [match]]))
 
 (defn execute-paged-query*

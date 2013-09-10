@@ -3,7 +3,7 @@
   (:require [com.puppetlabs.mq :as mq]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.jetty :as jetty]
-            [com.puppetlabs.puppetdb.http.paging :as paging]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]

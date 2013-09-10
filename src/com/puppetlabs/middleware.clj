@@ -6,7 +6,7 @@
             [ring.util.response :as rr]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.puppetdb.http.paging :as paging]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]

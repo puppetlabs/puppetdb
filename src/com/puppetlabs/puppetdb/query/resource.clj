@@ -19,7 +19,7 @@
                                               resource-operators-v1
                                               resource-operators-v2
                                               resource-columns]]
-        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the

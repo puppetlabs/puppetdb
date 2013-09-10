@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.v3.resources
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
-            [com.puppetlabs.puppetdb.http.paging :as paging]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resource :as r]
             [cheshire.core :as json])

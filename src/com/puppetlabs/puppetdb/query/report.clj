@@ -6,7 +6,7 @@
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query :only [execute-query]]
         [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
-        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;

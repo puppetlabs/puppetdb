@@ -51,7 +51,7 @@
             [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.http.paging :as paging])
+            [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]

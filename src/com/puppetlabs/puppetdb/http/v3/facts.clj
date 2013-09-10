@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.http.paging :as paging])
+            [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]

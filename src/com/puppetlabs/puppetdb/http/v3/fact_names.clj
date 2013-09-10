@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.v3.fact-names
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
-            [com.puppetlabs.puppetdb.http.paging :as paging])
+            [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]

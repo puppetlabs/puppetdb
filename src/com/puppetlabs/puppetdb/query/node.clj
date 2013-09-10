@@ -11,7 +11,7 @@
         [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2 execute-query]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection valid-jdbc-query?]]
         [com.puppetlabs.utils :only [keyset parse-number]]
-        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 (def node-columns
   [:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp])
