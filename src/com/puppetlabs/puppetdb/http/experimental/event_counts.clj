@@ -4,7 +4,7 @@
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [cheshire.core :as json])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
-            [com.puppetlabs.middleware :only [verify-param-exists verify-accepts-json]]
+            [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params]]
             [net.cgrand.moustache :only [app]]))
 
 (defn produce-body
@@ -40,5 +40,5 @@
   "Ring app for querying for summary information about resource events."
   (-> routes
       verify-accepts-json
-      (verify-param-exists "query")
-      (verify-param-exists "summarize-by")))
+      (validate-query-params {:required ["query" "summarize-by"]
+                              :optional ["counts-filter" "count-by"]})))
