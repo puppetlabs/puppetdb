@@ -10,7 +10,11 @@
 
 (use-fixtures :each with-test-db)
 
-(deftest query-resources
+(defn query-resources
+  [query]
+  (:result (s/query-resources query)))
+
+(deftest test-query-resources
   (sql/insert-records
    :resource_params
    {:resource "1" :name "ensure"  :value (db-serialize "file")}
@@ -217,7 +221,7 @@
                    ["=" "tag" "vivid"]]
                   [foo4]
                   ])]
-        (is (= (set (s/query-resources (s/v2-query->sql input))) (set expect))
+        (is (= (set (query-resources (s/v2-query->sql input))) (set expect))
             (str "  " input " =>\n  " expect))))))
 
 
@@ -225,35 +229,35 @@
   (testing "combine terms without arguments"
     (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (s/query-resources (s/v2-query->sql [op]))))
+            (query-resources (s/v2-query->sql [op]))))
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-            (s/query-resources (s/v2-query->sql [op]))))))
+            (query-resources (s/v2-query->sql [op]))))))
 
   (testing "'not' term without arguments in v1"
     (doseq [op ["not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (s/query-resources (s/v1-query->sql [op]))))))
+            (query-resources (s/v1-query->sql [op]))))))
 
   (testing "'not' term without arguments in v2"
     (doseq [op ["not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
-            (s/query-resources (s/v2-query->sql [op]))))))
+            (query-resources (s/v2-query->sql [op]))))))
 
   (testing "bad query operators"
     (doseq [in [["if"] ["-"] [{}] [["="]]]]
       (is (thrown-with-msg? IllegalArgumentException #"query operator .* is unknown"
-            (s/query-resources (s/v2-query->sql in))))))
+            (query-resources (s/v2-query->sql in))))))
 
   (testing "wrong number of arguments to ="
     (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
       (is (thrown-with-msg? IllegalArgumentException
             (re-pattern (format "= requires exactly two arguments, but %d were supplied"
                              (dec (count in))))
-            (s/query-resources (s/v2-query->sql in))))))
+            (query-resources (s/v2-query->sql in))))))
 
   (testing "invalid columns"
     (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-          (s/query-resources (s/v2-query->sql ["=" "foobar" "anything"])))))
+          (query-resources (s/v2-query->sql ["=" "foobar" "anything"])))))
 
   (testing "bad types in input"
     (doseq [path (list [] {} [{}] 12 true false 0.12)]
@@ -262,4 +266,4 @@
                           ["=" ["bar" path] "foo"])]
         (is (thrown-with-msg? IllegalArgumentException
               #"is not a queryable object"
-              (s/query-resources (s/v2-query->sql input))))))))
+              (query-resources (s/v2-query->sql input))))))))

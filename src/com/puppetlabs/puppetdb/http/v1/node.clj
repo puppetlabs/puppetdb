@@ -45,7 +45,7 @@
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
             sql   (node/v1-query->sql query)
-            nodes (mapv :name (node/query-nodes sql))]
+            nodes (mapv :name (:result (node/query-nodes sql)))]
         (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))

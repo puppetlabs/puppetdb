@@ -3,9 +3,10 @@
 (ns com.puppetlabs.puppetdb.query.report
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec paged-query-to-vec underscores->dashes valid-jdbc-query?]]
+  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
+        [com.puppetlabs.puppetdb.query :only [execute-query]]
         [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
-        [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;
@@ -49,11 +50,11 @@
     (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
                     (string/join ", " report-columns)
                     sql)
-          results (map
-                      #(utils/mapkeys underscores->dashes %)
-                      (paged-query-to-vec (apply vector query params)
-                        paging-options))]
-      results)))
+          results (execute-query
+                    (apply vector query params)
+                    paging-options)]
+      (update-in results [:result]
+        (fn [rs] (map #(utils/mapkeys underscores->dashes %) rs))))))
 
 
 (defmethod compile-report-term :equality
@@ -79,7 +80,12 @@
    :post [(or (nil? %)
               (seq? %))]}
   (let [query ["=" "certname" node]
-        reports (-> query (report-query->sql) (query-reports))]
+        reports (-> query
+                  (report-query->sql)
+                  (query-reports)
+                  ;; We don't support paging in this code path, so we
+                  ;; can just pull the results out of the return value
+                  (:result))]
     (map
       #(merge % {:resource-events (events-for-report-hash (get % :hash))})
       reports)))
