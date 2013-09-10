@@ -174,9 +174,6 @@
          ((some-fn nil? sequential?) order-by)
          (every? map? order-by)]
    :post [(string? %)]}
-  (if (every? (some-fn nil? (every-pred coll? empty?))
-        [limit offset order-by])
-    sql
     (let [limit-clause                (if limit (format " LIMIT %s" limit) "")
           offset-clause               (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
@@ -184,7 +181,7 @@
           sql
           order-by-clause
           limit-clause
-          offset-clause))))
+          offset-clause)))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
@@ -204,25 +201,6 @@
       query-to-vec
       first
       :result_count))
-
-(defn paged-query-to-vec
-  "Given a query and a map of paging options, adds the necessary SQL for
-  implementing the paging, executes the query, and returns a vector
-  containing the query results."
-  ([query paging-options] (paged-query-to-vec 0 query paging-options))
-  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
-    {:pre [(integer? fail-limit)
-           ((some-fn string? sequential?) query)
-           ((some-fn nil? integer?) limit)
-           ((some-fn nil? integer?) offset)
-           ((some-fn nil? sequential?) order-by)
-           (every? map? order-by)]
-     :post [(vector? %)]}
-    (let [[sql & params] (if (string? query) [query] query)
-          paged-sql      (paged-sql sql paging-options)]
-      (limited-query-to-vec
-        fail-limit
-        (apply vector paged-sql params)))))
 
 (defn table-count
   "Returns the number of rows in the supplied table"

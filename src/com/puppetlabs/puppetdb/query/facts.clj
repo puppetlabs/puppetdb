@@ -59,8 +59,7 @@
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
 
 (defn query-facts
-  [[sql & params] paging-options]
+  [[sql & params :as query] paging-options]
   {:pre [(string? sql)]}
   (validate-order-by! [:certname :name :value] paging-options)
-  (execute-query (concat [sql] params)
-    paging-options))
+  (execute-query query paging-options))

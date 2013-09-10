@@ -136,3 +136,13 @@
       (throw (IllegalArgumentException.
         (str "Unrecognized column '" field "' specified in :order-by; "
           "Supported columns are '" (string/join "', '" columns) "'"))))))
+
+(defn requires-paging?
+  "Given a paging-options map, return true if the query requires paging
+  and false if it does not."
+  [{:keys [limit offset order-by count?] :as paging-options}]
+  (not
+    (and
+      (every? nil? [limit offset])
+      ((some-fn nil? (every-pred coll? empty?)) order-by)
+      (not count?))))
