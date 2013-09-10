@@ -44,8 +44,8 @@
   ([filter-expr paging-options]
   {:pre  [(valid-jdbc-query? filter-expr)]
    :post [(map? %)
-          (vector? (:results %))
-          (every? #(= (set node-columns) (keyset %)) (:results %))]}
+          (vector? (:result %))
+          (every? #(= (set node-columns) (keyset %)) (:result %))]}
     (validate-order-by! node-columns paging-options)
     (execute-query filter-expr paging-options)))
 

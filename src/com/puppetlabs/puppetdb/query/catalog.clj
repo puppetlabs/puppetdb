@@ -53,7 +53,7 @@
     (-> ["=" "certname" node]
       (r/v2-query->sql)
       (r/query-resources)
-      (:results))))
+      (:result))))
 
 (defn get-edges
   "Fetch the edges for the current catalog for the given `node`.  Edges are returned

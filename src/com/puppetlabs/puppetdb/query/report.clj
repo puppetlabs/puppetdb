@@ -53,7 +53,7 @@
           results (execute-query
                     (apply vector query params)
                     paging-options)]
-      (update-in results [:results]
+      (update-in results [:result]
         (fn [rs] (map #(utils/mapkeys underscores->dashes %) rs))))))
 
 
@@ -85,7 +85,7 @@
                   (query-reports)
                   ;; We don't support paging in this code path, so we
                   ;; can just pull the results out of the return value
-                  (:results))]
+                  (:result))]
     (map
       #(merge % {:resource-events (events-for-report-hash (get % :hash))})
       reports)))

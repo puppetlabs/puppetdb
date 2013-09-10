@@ -71,7 +71,7 @@
   implementing the paging, executes the query, and returns a map containing
   the results and metadata.
 
-  The return value will contain a key `:results`, whose value is a vector of
+  The return value will contain a key `:result`, whose value is a vector of
   the query results.  If the paging options indicate that a 'total record
   count' should be returned, then the map will also include a key `:count`,
   whose value is an integer indicating the total number of results available."
@@ -79,10 +79,10 @@
   ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
    {:pre [((some-fn string? sequential?) query)]
     :post [(map? %)
-           (vector? (:results %))
+           (vector? (:result %))
            ((some-fn nil? integer?) (:count %))]}
    (let [[sql & params] (if (string? query) [query] query)
-         result {:results (paged-query-to-vec fail-limit query paging-options)}]
+         result {:result (paged-query-to-vec fail-limit query paging-options)}]
      ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
      ;; which would allow us to get the results and the count via a
      ;; single query (rather than two separate ones).  Need to do

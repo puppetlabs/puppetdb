@@ -72,7 +72,7 @@
   "Take a limit, and a map of SQL queries as produced by `query->sql`, return
   a map containing the results of the query, as well as optional metadata.
 
-  The returned map will contain a key `:results`, whose value is vector of
+  The returned map will contain a key `:result`, whose value is vector of
   resources which match the query.  If the paging-options used to generate
   the queries indicate that a total result count should also be returned, then
   the map will contain an additional key `:count`, whose value is an integer.
@@ -87,7 +87,7 @@
         results       (limited-query-to-vec limit (apply vector limited-query params))
         metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
         metadata      (apply juxt metadata_cols)
-        results       {:results
+        results       {:result
                         (vec
                           (for [[resource params] (group-by metadata results)]
                              (assoc (zipmap metadata_cols resource) :parameters

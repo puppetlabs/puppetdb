@@ -150,7 +150,7 @@
   "Take a limit, paging-options map, a query, and its parameters,
   and return a map containing the results and metadata.
 
-  The returned map will contain a key `:results`, whose value is vector of
+  The returned map will contain a key `:result`, whose value is vector of
   resource events which match the query.  If the paging-options indicate
   that a total result count should also be returned, then the map will
   contain an additional key `:count`, whose value is an integer.
@@ -161,8 +161,8 @@
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))
           (map? %)
-          (contains? % :results)
-          (sequential? (:results %))]}
+          (contains? % :result)
+          (sequential? (:result %))]}
 
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
@@ -170,12 +170,12 @@
                           limit
                           (apply vector limited-query params)
                           paging-options)]
-    (assoc results :results
+    (assoc results :result
       (map
         #(-> (utils/mapkeys underscores->dashes %)
            (update-in [:old-value] json/parse-string)
            (update-in [:new-value] json/parse-string))
-        (:results results)))))
+        (:result results)))))
 
 (defn query-resource-events
   "Take a paging-options map, a query, and its parameters, and return a map
@@ -198,4 +198,4 @@
       (->> query
         (query->sql)
         (query-resource-events paging-options)
-        (:results)))))
+        (:result)))))

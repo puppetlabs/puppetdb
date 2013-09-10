@@ -37,13 +37,13 @@
     (fact-names {}))
   ([paging-options]
     {:post [(map? %)
-            (coll? (:results %))
-            (every? string? (:results %))]}
+            (coll? (:result %))
+            (every? string? (:result %))]}
     (validate-order-by! [:name] paging-options)
     (let [facts (execute-query
                   ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
                   paging-options)]
-      (update-in facts [:results] #(map :name %)))))
+      (update-in facts [:result] #(map :name %)))))
 
 (defn query->sql
   "Compile a query into an SQL expression."

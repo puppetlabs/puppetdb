@@ -12,7 +12,7 @@
 
 (defn query-resources
   [query]
-  (:results (s/query-resources query)))
+  (:result (s/query-resources query)))
 
 (deftest test-query-resources
   (sql/insert-records

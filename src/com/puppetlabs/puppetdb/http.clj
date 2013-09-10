@@ -31,8 +31,8 @@
   returns a Ring HTTP response object."
   [query-result]
   {:pre [(map? query-result)
-         (contains? query-result :results)]
+         (contains? query-result :result)]
    :post [(rr/response? %)]}
   (->
-    (json-response (:results query-result))
-    (add-headers (dissoc query-result :results))))
+    (json-response (:result query-result))
+    (add-headers (dissoc query-result :result))))
