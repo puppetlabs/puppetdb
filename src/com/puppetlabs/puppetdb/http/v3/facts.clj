@@ -6,7 +6,8 @@
             [com.puppetlabs.puppetdb.http.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn query-facts
   "Accepts a `query` and a `db` connection, and returns facts matching the
@@ -18,7 +19,7 @@
       (let [query   (if query (json/parse-string query true))
             sql     (f/query->sql query)
             facts   (f/query-facts sql paging-options)]
-        (paging/json-paged-response facts)))
+        (query-result-response facts)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

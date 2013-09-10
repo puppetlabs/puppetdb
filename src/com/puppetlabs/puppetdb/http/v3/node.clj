@@ -8,7 +8,8 @@
             [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only (app)]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn search-nodes
   "Produce a response body for a request to search for nodes based on
@@ -19,7 +20,7 @@
       (let [query (if query (json/parse-string query true))
             sql   (node/v2-query->sql query)
             nodes (node/query-nodes sql paging-options)]
-        (paging/json-paged-response nodes)))
+        (query-result-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

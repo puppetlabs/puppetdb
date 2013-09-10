@@ -136,16 +136,3 @@
       (throw (IllegalArgumentException.
         (str "Unrecognized column '" field "' specified in :order-by; "
           "Supported columns are '" (string/join "', '" columns) "'"))))))
-
-(defn json-paged-response
-  "Given a paged query result map, returns a Ring response with the results
-  serialized as JSON.  If the total result count is available, sets the
-  X-Records header in the response accordingly."
-  [paged-results]
-  (let [headers (if (contains? paged-results :count)
-                  {count-header (:count paged-results)}
-                  {})]
-    (pl-http/json-response
-      (:results paged-results)
-      pl-http/status-ok
-      headers)))

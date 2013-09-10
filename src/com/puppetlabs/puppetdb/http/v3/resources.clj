@@ -6,7 +6,8 @@
             [cheshire.core :as json])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn produce-body
   "Given a `limit`, a query, and database connection, return a Ring
@@ -23,7 +24,7 @@
         (json/parse-string true)
         (r/v2-query->sql paging-options)
         ((partial r/limited-query-resources limit))
-        (paging/json-paged-response)))
+        (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
