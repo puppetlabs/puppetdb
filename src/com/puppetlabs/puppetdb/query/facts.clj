@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 execute-query]]
         [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
@@ -40,7 +40,7 @@
             (coll? (:results %))
             (every? string? (:results %))]}
     (validate-order-by! [:name] paging-options)
-    (let [facts (sql/paged-query-to-vec
+    (let [facts (execute-query
                   ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
                   paging-options)]
       (update-in facts [:results] #(map :name %)))))
@@ -62,5 +62,5 @@
   [[sql & params] paging-options]
   {:pre [(string? sql)]}
   (validate-order-by! [:certname :name :value] paging-options)
-  (sql/paged-query-to-vec (concat [sql] params)
+  (execute-query (concat [sql] params)
     paging-options))

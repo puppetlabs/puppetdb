@@ -207,13 +207,8 @@
 
 (defn paged-query-to-vec
   "Given a query and a map of paging options, adds the necessary SQL for
-  implementing the paging, executes the query, and returns a map containing
-  the results and metadata.
-
-  The return value will contain a key `:results`, whose value is a vector of
-  the query results.  If the paging options indicate that a 'total record
-  count' should be returned, then the map will also include a key `:count`,
-  whose value is an integer indicating the total number of results available."
+  implementing the paging, executes the query, and returns a vector
+  containing the query results."
   ([query paging-options] (paged-query-to-vec 0 query paging-options))
   ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
     {:pre [(integer? fail-limit)
@@ -222,22 +217,12 @@
            ((some-fn nil? integer?) offset)
            ((some-fn nil? sequential?) order-by)
            (every? map? order-by)]
-     :post [(map? %)
-            (vector? (:results %))]}
+     :post [(vector? %)]}
     (let [[sql & params] (if (string? query) [query] query)
-          paged-sql      (paged-sql sql paging-options)
-          result         {:results
-                            (limited-query-to-vec
-                              fail-limit
-                              (apply vector paged-sql params))}]
-      ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
-      ;; which would allow us to get the results and the count via a
-      ;; single query (rather than two separate ones).  Need to do
-      ;; some benchmarking to see which is faster.
-      (if (:count? paging-options)
-        (assoc result :count
-          (get-result-count (apply vector (count-sql sql) params)))
-        result))))
+          paged-sql      (paged-sql sql paging-options)]
+      (limited-query-to-vec
+        fail-limit
+        (apply vector paged-sql params)))))
 
 (defn table-count
   "Returns the number of rows in the supplied table"

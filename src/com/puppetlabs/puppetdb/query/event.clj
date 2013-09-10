@@ -4,13 +4,9 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
             [cheshire.core :as json])
-  (:use [com.puppetlabs.jdbc :only [paged-query-to-vec
-                                    underscores->dashes
-                                    dashes->underscores
-                                    valid-jdbc-query?
-                                    add-limit-clause]]
+  (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-regexp-match]]
-        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2]]
+        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2 execute-query]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.http.paging :only [validate-order-by!]]))
@@ -170,7 +166,7 @@
 
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
-        results         (paged-query-to-vec
+        results         (execute-query
                           limit
                           (apply vector limited-query params)
                           paging-options)]

@@ -2,40 +2,11 @@
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql])
   (:use [clojure.test]
-        [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
-        [com.puppetlabs.utils :only [excludes?]]))
-
-(def test-data {"absence"    "presence"
-                "abundant"   "scarce"
-                "accept"     "refuse"
-                "accurate"   "inaccurate"
-                "admit"      "deny"
-                "advance"    "retreat"
-                "advantage"  "disadvantage"
-                "alive"      "dead"
-                "always"     "never"
-                "ancient"    "modern"
-                "answer"     "question"
-                "approval"   "disapproval"
-                "arrival"    "departure"
-                "artificial" "natural"
-                "ascend"     "descend"
-                "blandness"  "zest"
-                "lethargy"   "zest"})
+        [com.puppetlabs.puppetdb.testutils :only [test-db]]
+        [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database]]))
 
 
-(defn with-test-database
-  [function]
-  (sql/with-connection (test-db)
-    (clear-db-for-testing!))
-  (subject/with-transacted-connection (test-db)
-    (sql/create-table :test
-                      [:key   "VARCHAR(256)" "PRIMARY KEY"]
-                      [:value "VARCHAR(256)" "NOT NULL"])
-    (apply (partial sql/insert-values :test [:key :value]) (map identity test-data))
-    (function)))
-
-(use-fixtures :each with-test-database)
+(use-fixtures :each with-antonym-test-database)
 
 (deftest pool-construction
   (testing "can construct pool with numeric usernames and passwords"
@@ -49,7 +20,7 @@
     (is (= (set (subject/query-to-vec "SELECT key FROM test WHERE key LIKE 'ab%'"))
            (set (map #(hash-map :key (name %)) [:absence :abundant])))))
   (testing "query with params"
-    (doseq [[key value] test-data]
+    (doseq [[key value] antonym-data]
       (let [query  ["SELECT key, value FROM test WHERE key = ?" key]
             result [{:key key :value value}]]
         (is (= (subject/query-to-vec query) result)
@@ -100,26 +71,23 @@
             (testing "should not modify SQL if order-by list is empty"
               (subject/paged-query-to-vec orig-sql {:order-by []})))))
       (testing "should return results in the correct order"
-        (is (= (sort (keys test-data))
+        (is (= (sort (keys antonym-data))
                (map #(get % :key)
-                 (:results
-                    (subject/paged-query-to-vec orig-sql
-                      {:order-by [{:field "key"}]}))))))
-      (testing "should return results in correct order when DESC is specified"
-        (is (= (reverse (sort (keys test-data)))
-               (map #(get % :key)
-                 (:results
                   (subject/paged-query-to-vec orig-sql
-                    {:order-by [{:field "key" :order "DESC"}]})))))))
+                    {:order-by [{:field "key"}]})))))
+      (testing "should return results in correct order when DESC is specified"
+        (is (= (reverse (sort (keys antonym-data)))
+               (map #(get % :key)
+                (subject/paged-query-to-vec orig-sql
+                  {:order-by [{:field "key" :order "DESC"}]}))))))
     (testing "should support multiple order-by fields"
       (is (= [{:key "blandness" :value "zest"}
               {:key "lethargy"  :value "zest"}
               {:key "abundant"  :value "scarce"}]
             (take 3
-              (:results
-                (subject/paged-query-to-vec "SELECT key, value from test"
-                  {:order-by [{:field "value" :order "DESC"}
-                              {:field "key"}]})))))))
+              (subject/paged-query-to-vec "SELECT key, value from test"
+                {:order-by [{:field "value" :order "DESC"}
+                            {:field "key"}]}))))))
   (testing "limit / offset"
     (let [orig-sql "SELECT key FROM test"]
       (testing "SQL not modified if no offset or limit is provided"
@@ -128,14 +96,12 @@
           (with-redefs [subject/query-to-vec validation-fn]
             (subject/paged-query-to-vec orig-sql {}))))
       (testing "Results are limited if limit is provided"
-        (let [results (:results
-                        (subject/paged-query-to-vec orig-sql
-                          {:limit 5 :order-by [{:field "key"}]}))]
+        (let [results (subject/paged-query-to-vec orig-sql
+                        {:limit 5 :order-by [{:field "key"}]})]
           (is (= 5 (count results)))))
       (testing "Results begin at offset if offset is provided"
-        (let [results     (:results
-                            (subject/paged-query-to-vec orig-sql
-                              {:offset 2 :order-by [{:field "key"}]}))]
+        (let [results     (subject/paged-query-to-vec orig-sql
+                            {:offset 2 :order-by [{:field "key"}]})]
           (is (= "accept" (-> results first :key)))))
       (testing "Combination of limit and offset allows paging through entire result set"
         (let [orig-results        (set (subject/query-to-vec orig-sql))
@@ -143,37 +109,13 @@
               limit               5
               num-paged-queries   (java.lang.Math/ceil (/ orig-count (float limit)))
               paged-query-fn      (fn [n]
-                                    (:results
-                                      (subject/paged-query-to-vec
-                                        orig-sql
-                                        {:limit     limit
-                                         :offset    (* n limit)
-                                         :order-by  [{:field "key"}]})))
+                                    (subject/paged-query-to-vec
+                                      orig-sql
+                                      {:limit     limit
+                                       :offset    (* n limit)
+                                       :order-by  [{:field "key"}]}))
               paged-result        (->> (range num-paged-queries)
                                     (map paged-query-fn)
                                     (apply concat))]
           (is (= (count orig-results) (count paged-result)))
-          (is (= orig-results (set paged-result)))))))
-
-  (testing "count"
-    (let [orig-sql            "SELECT key FROM test"
-          orig-results        (set (subject/query-to-vec orig-sql))
-          orig-count          (count orig-results)
-          limit               5
-          paged-query-fn      (fn [paging-options]
-                                (subject/paged-query-to-vec
-                                  orig-sql
-                                  paging-options))]
-      (testing "count should not be returned if the option is not present"
-        (let [results (paged-query-fn {:limit limit})]
-          (is (= limit (count (:results results))))
-          (is (excludes? results :count))))
-      (testing "count should not be returned if the option is false"
-        (let [results (paged-query-fn {:limit limit :count? false})]
-          (is (= limit (count (:results results))))
-          (is (excludes? results :count))))
-      (testing "count should be returned if the option is true"
-        (let [results (paged-query-fn {:limit limit :count? true})]
-          (is (= limit (count (:results results))))
-          (is (contains? results :count))
-          (is (= orig-count (:count results))))))))
+          (is (= orig-results (set paged-result))))))))

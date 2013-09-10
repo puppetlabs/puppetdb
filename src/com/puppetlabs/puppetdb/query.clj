@@ -63,8 +63,34 @@
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.utils :only [parse-number keyset]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
-        [com.puppetlabs.jdbc :only [valid-jdbc-query? query-to-vec]]
+        [com.puppetlabs.jdbc :only [valid-jdbc-query? query-to-vec paged-query-to-vec count-sql get-result-count]]
         [clojure.core.match :only [match]]))
+
+(defn execute-query
+  "Given a query and a map of paging options, adds the necessary SQL for
+  implementing the paging, executes the query, and returns a map containing
+  the results and metadata.
+
+  The return value will contain a key `:results`, whose value is a vector of
+  the query results.  If the paging options indicate that a 'total record
+  count' should be returned, then the map will also include a key `:count`,
+  whose value is an integer indicating the total number of results available."
+  ([query paging-options] (execute-query 0 query paging-options))
+  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
+   {:pre [((some-fn string? sequential?) query)]
+    :post [(map? %)
+           (vector? (:results %))
+           ((some-fn nil? integer?) (:count %))]}
+   (let [[sql & params] (if (string? query) [query] query)
+         result {:results (paged-query-to-vec fail-limit query paging-options)}]
+     ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
+     ;; which would allow us to get the results and the count via a
+     ;; single query (rather than two separate ones).  Need to do
+     ;; some benchmarking to see which is faster.
+     (if (:count? paging-options)
+       (assoc result :count
+         (get-result-count (apply vector (count-sql sql) params)))
+       result))))
 
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This
