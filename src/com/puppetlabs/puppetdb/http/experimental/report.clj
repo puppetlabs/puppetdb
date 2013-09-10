@@ -51,10 +51,11 @@
             [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.http.paging :as paging])
+            [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 
 (defn produce-body
@@ -69,7 +70,7 @@
           (json/parse-string true)
           (query/report-query->sql)
           ((partial query/query-reports paging-options))
-          (pl-http/json-response)))
+          (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

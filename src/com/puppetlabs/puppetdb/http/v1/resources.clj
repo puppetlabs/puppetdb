@@ -90,6 +90,7 @@
           (json/parse-string true)
           (r/v1-query->sql)
           ((partial r/limited-query-resources limit))
+          (:result)
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))

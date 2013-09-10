@@ -1,38 +1,24 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.facts
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.testutils :as testutils])
   (:use clojure.test
-        ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
-
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t "application/json")
-
-(defn get-request
-  "Return a GET request against path, suitable as an argument to a ring
-  app. Params supported are content-type and query-string."
-  ([path] (get-request path {}))
-  ([path params]
-    (let [request (request :get path params)]
-      (update-in request [:headers] assoc "Accept" c-t))))
-
 (defn paged-results
-  [query]
-  (reduce
-    (fn [coll n]
-      (let [request (get-request "/v3/facts"
-                      {:query (json/generate-string query) :limit 2 :offset (* 2 n)})
-            {:keys [status body]} (*app* request)
-            result  (json/parse-string body)]
-        (is (>= 2 (count result)))
-        (concat coll result)))
-    []
-    (range 3)))
+  [query limit total count?]
+  (testutils/paged-results
+    {:app-fn  *app*
+     :path    "/v3/facts"
+     :query   query
+     :limit   limit
+     :total   total
+     :include-count-header  count?}))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -52,11 +38,16 @@
       (scf-store/add-facts! "foo1" facts1 (now))
       (scf-store/add-facts! "foo2" facts2 (now)))
 
-    (testing "should support paging through facts"
-      (let [results (paged-results ["=" "certname" "foo1"])]
-        (is (= (count facts1) (count results)))
-        (is (= (set (map (fn [[k v]] {"certname" "foo1"
-                               "name" k
-                               "value" v})
-                        facts1))
-              (set results)))))))
+    (doseq [[label counts?] [["without" false]
+                             ["with" true]]]
+      (testing (str "should support paging through facts " label " counts")
+        (let [results (paged-results
+                        ["=" "certname" "foo1"]
+                        2 (count facts1) counts?)]
+          (is (= (count facts1) (count results)))
+          (is (= (set (map (fn [[k v]]
+                             {:certname "foo1"
+                              :name     k
+                              :value    v})
+                          facts1))
+                (set results))))))))

@@ -3,7 +3,7 @@
 ;; Functions that aid in the validation and processing of the
 ;; query parameters related to paging PuppetDB queries
 
-(ns com.puppetlabs.puppetdb.http.paging
+(ns com.puppetlabs.puppetdb.query.paging
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
@@ -11,7 +11,8 @@
   (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
-(def query-params ["limit" "offset" "order-by"])
+(def query-params ["limit" "offset" "order-by" "include-count-header"])
+(def count-header "X-Records")
 
 (defn is-error-response?
   "Utility function; given an object, checks to see if the object represents
@@ -104,6 +105,24 @@
       (assoc paging-options :order-by))
     paging-options))
 
+(defn parse-count
+  "Parse the optional `include-count-header` query parameter in the paging options map,
+  and return an updated map with the correct boolean value."
+  [paging-options]
+  (if (contains? paging-options :include-count-header)
+    (let [val (:include-count-header paging-options)]
+      (-> paging-options
+        (dissoc :include-count-header)
+        (assoc :count?
+          (cond
+            ;; If the original query string contains the query param w/o a
+            ;; a value, it will show up here as nil.  We assume that in that
+            ;; case, the caller intended to use it as a flag.
+            (= val nil)                  true
+            (Boolean/parseBoolean val)   true
+            :else                        false))))
+    (assoc paging-options :count? false)))
+
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of
    paging options, validate that the order-by data in the paging options complies with
@@ -117,3 +136,13 @@
       (throw (IllegalArgumentException.
         (str "Unrecognized column '" field "' specified in :order-by; "
           "Supported columns are '" (string/join "', '" columns) "'"))))))
+
+(defn requires-paging?
+  "Given a paging-options map, return true if the query requires paging
+  and false if it does not."
+  [{:keys [limit offset order-by count?] :as paging-options}]
+  (not
+    (and
+      (every? nil? [limit offset])
+      ((some-fn nil? (every-pred coll? empty?)) order-by)
+      (not count?))))

@@ -6,7 +6,7 @@
             [ring.util.response :as rr]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.puppetdb.http.paging :as paging]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]
@@ -79,10 +79,11 @@
   (fn [{:keys [params] :as req}]
     (app (assoc req :paging-options
            (-> params
-             (select-keys ["limit" "offset" "order-by"])
+             (select-keys ["limit" "offset" "order-by" "include-count-header"])
              (keywordize-keys)
              (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
              (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+             (paging/parse-count)
              (paging/parse-order-by))))))
 
 (defn verify-accepts-content-type

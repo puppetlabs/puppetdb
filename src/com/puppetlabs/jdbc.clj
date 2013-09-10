@@ -174,9 +174,6 @@
          ((some-fn nil? sequential?) order-by)
          (every? map? order-by)]
    :post [(string? %)]}
-  (if (every? (some-fn nil? (every-pred coll? empty?))
-        [limit offset order-by])
-    sql
     (let [limit-clause                (if limit (format " LIMIT %s" limit) "")
           offset-clause               (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
@@ -184,24 +181,26 @@
           sql
           order-by-clause
           limit-clause
-          offset-clause))))
+          offset-clause)))
 
-(defn paged-query-to-vec
-  "Given a query and a map of paging options, adds the necessary SQL for
-  implementing the paging, executes the query, and returns a vector of results."
-  ([query paging-options] (paged-query-to-vec 0 query paging-options))
-  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
-    {:pre [(integer? fail-limit)
-           ((some-fn string? sequential?) query)
-           ((some-fn nil? integer?) limit)
-           ((some-fn nil? integer?) offset)
-           ((some-fn nil? sequential?) order-by)
-           (every? map? order-by)]
-     :post [(vector? %)]}
-    (let [sql-and-params (if (string? query) [query] query)
-          [sql & params] sql-and-params
-          paged-sql      (paged-sql sql paging-options)]
-      (limited-query-to-vec fail-limit (apply vector paged-sql params)))))
+(defn count-sql
+  "Takes a sql string and returns a modified sql string that will select
+  the count of results that would be returned by the original sql."
+  [sql]
+  {:pre   [(string? sql)]
+   :post  [(string? %)]}
+  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
+
+(defn get-result-count
+  "Takes a sql string, executes a `COUNT` statement against the database,
+  and returns the number of results that the original query would have returned."
+  [[count-sql & params]]
+  {:pre [(string? count-sql)]
+   :post [(integer? %)]}
+  (-> (apply vector count-sql params)
+      query-to-vec
+      first
+      :result_count))
 
 (defn table-count
   "Returns the number of rows in the supplied table"

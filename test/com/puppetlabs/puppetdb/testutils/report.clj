@@ -95,6 +95,9 @@
   [query]
   (vec (->> (query/report-query->sql query)
          (query/query-reports)
+         ;; We're not testing paging functionality so we can just pull the
+         ;; results out directly
+         (:result)
          ;; the example reports don't have a receive time (because this is
          ;; calculated by the server), so we remove this field from the response
          ;; for test comparison

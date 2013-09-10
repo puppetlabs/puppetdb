@@ -63,6 +63,7 @@
   ([query paging-options]
     (->> (query/query->sql query)
          (query/query-resource-events paging-options)
+         (:result)
          (set))))
 
 (defn resource-events-limited-query-result
@@ -72,4 +73,5 @@
   ([limit query paging-options]
     (->> (query/query->sql query)
          (query/limited-query-resource-events limit paging-options)
+         (:result)
          (set))))

@@ -11,7 +11,7 @@
   (let [db (:scf-db globals)
         facts (with-transacted-connection db
                 (f/fact-names))]
-    (pl-http/json-response facts)))
+    (pl-http/json-response (:result facts))))
 
 (def routes
   (app
