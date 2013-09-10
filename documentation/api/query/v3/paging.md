@@ -42,7 +42,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 This query parameter can be used to restrict the result set to a maximum number of results.
 The value should be an integer.
 
-### `count?`
+### `include-count-header`
 
 This query parameter is used to indicate whether or not you wish to receive a count of how many total records would have been returned, had the query not been limited using the `limit` parameter.  The value should be a boolean, and defaults to `false`.
 

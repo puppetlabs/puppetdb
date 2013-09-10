@@ -11,7 +11,7 @@
   (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
-(def query-params ["limit" "offset" "order-by" "count?"])
+(def query-params ["limit" "offset" "order-by" "include-count-header"])
 (def count-header "X-Records")
 
 (defn is-error-response?
@@ -106,19 +106,21 @@
     paging-options))
 
 (defn parse-count
-  "Parse the optional `count?` query parameter in the paging options map,
+  "Parse the optional `include-count-header` query parameter in the paging options map,
   and return an updated map with the correct boolean value."
   [paging-options]
-  (if (contains? paging-options :count?)
-    (update-in paging-options [:count?]
-      (fn [count?]
-        (cond
-          ;; If the original query string contains the query param w/o a
-          ;; a value, it will show up here as nil.  We assume that in that
-          ;; case, the caller intended to use it as a flag.
-          (= count? nil)                  true
-          (Boolean/parseBoolean count?)   true
-          :else                           false)))
+  (if (contains? paging-options :include-count-header)
+    (let [val (:include-count-header paging-options)]
+      (-> paging-options
+        (dissoc :include-count-header)
+        (assoc :count?
+          (cond
+            ;; If the original query string contains the query param w/o a
+            ;; a value, it will show up here as nil.  We assume that in that
+            ;; case, the caller intended to use it as a flag.
+            (= val nil)                  true
+            (Boolean/parseBoolean val)   true
+            :else                        false))))
     (assoc paging-options :count? false)))
 
 (defn validate-order-by!

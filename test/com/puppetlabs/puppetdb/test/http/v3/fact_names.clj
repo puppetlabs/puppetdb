@@ -30,5 +30,5 @@
                          :path    "/v3/fact-names"
                          :limit   2
                          :total   (count facts)
-                         :count?  count?})]
+                         :include-count-header  count?})]
           (is (= results (sort (keys facts)))))))))

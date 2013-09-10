@@ -135,7 +135,7 @@
                          :query   ["=" "report" report-hash]
                          :limit   1
                          :total   (count (:resource-events basic))
-                         :count?  count?})]
+                         :include-count-header  count?})]
           (is (= (count (:resource-events basic)) (count results)))
           (is (= (expected-resource-events-response
                    (:resource-events basic)
