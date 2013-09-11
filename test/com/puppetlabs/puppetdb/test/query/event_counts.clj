@@ -3,7 +3,7 @@
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report! get-events-map]]
+        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
         [clj-time.core :only [now]]))
 
 (use-fixtures :each with-test-db)
