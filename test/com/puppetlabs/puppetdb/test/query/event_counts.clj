@@ -16,6 +16,7 @@
   ([query summarize-by extra-query-params]
     (-> (event-counts/query->sql query summarize-by extra-query-params)
         (event-counts/query-event-counts)
+        (:result)
         (set))))
 
 (deftest resource-event-count-queries

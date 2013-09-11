@@ -1,8 +1,8 @@
 (ns com.puppetlabs.puppetdb.query.event-counts
   (:require [com.puppetlabs.puppetdb.query.event :as events]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? query-to-vec dashes->underscores]]
-        [com.puppetlabs.puppetdb.query :only [compile-term]]
+  (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores]]
+        [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]
         [clojure.core.match :only [match]]))
 
 (defn- compile-event-count-equality
@@ -137,7 +137,10 @@
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
-  [[sql & params]]
-  {:pre  [(string? sql)]
-   :post [(vector? %)]}
-  (query-to-vec (apply vector sql params)))
+  ([sql-and-params]
+    (query-event-counts {} sql-and-params))
+  ([paging-options [sql & params]]
+   {:pre  [(string? sql)]
+    :post [(map? %)
+           (vector? (:result %))]}
+   (execute-query (apply vector sql params) paging-options)))
