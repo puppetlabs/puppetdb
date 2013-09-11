@@ -2,10 +2,12 @@
 (ns com.puppetlabs.puppetdb.http.experimental.event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
-            [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params]]
-            [net.cgrand.moustache :only [app]]))
+            [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]
+            [net.cgrand.moustache :only [app]]
+            [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn produce-body
   "Given a database connection, a query, a value to summarize by, and optionally
@@ -13,7 +15,7 @@
   with the the query results.  The result format conforms to that documented above.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [{:strs [query summarize-by counts-filter count-by] :as query-params} db]
+  [{:strs [query summarize-by counts-filter count-by] :as query-params} paging-options db]
   {:pre [(string? query)
          (string? summarize-by)
          ((some-fn nil? string?) counts-filter)
@@ -24,8 +26,8 @@
       (with-transacted-connection db
         (-> query
             (event-counts/query->sql summarize-by {:counts-filter counts-filter :count-by count-by})
-            (event-counts/query-event-counts)
-            (pl-http/json-response))))
+            ((partial event-counts/query-event-counts paging-options))
+            (query-result-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
@@ -36,12 +38,14 @@
 (def routes
   (app
     [""]
-    {:get (fn [{:keys [params globals]}]
-            (produce-body params (:scf-db globals)))}))
+    {:get (fn [{:keys [params globals paging-options]}]
+            (produce-body params paging-options (:scf-db globals)))}))
 
 (def event-counts-app
   "Ring app for querying for summary information about resource events."
   (-> routes
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
-                              :optional ["counts-filter" "count-by"]})))
+                              :optional (concat ["counts-filter" "count-by"]
+                                          paging/query-params) })
+      wrap-with-paging-options))
