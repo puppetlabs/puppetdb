@@ -1,5 +1,5 @@
 ;; TODO docs
-(ns com.puppetlabs.puppetdb.http.experimental.aggregate-event-counts
+(ns com.puppetlabs.puppetdb.http.v3.aggregate-event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [cheshire.core :as json])
