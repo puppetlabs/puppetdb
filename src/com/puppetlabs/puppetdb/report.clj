@@ -16,6 +16,7 @@
    :puppet-version           :string
    :report-format            :integer
    :configuration-version    :string
+   :status                   :string
    :start-time               :datetime
    :end-time                 :datetime
    :resource-events          :coll})

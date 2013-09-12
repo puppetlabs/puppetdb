@@ -715,7 +715,7 @@ must be supplied as the value to be matched."
   configuration version, timestamps, events).
   "
   [{:keys [certname puppet-version report-format configuration-version
-           start-time end-time resource-events] :as report}]
+           status start-time end-time resource-events] :as report}]
   (-> (sorted-map)
     (assoc :certname certname)
     (assoc :puppet-version puppet-version)
@@ -723,6 +723,7 @@ must be supplied as the value to be matched."
     (assoc :configuration-version configuration-version)
     (assoc :start-time start-time)
     (assoc :end-time end-time)
+    (assoc :status status)
     (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
     (pr-str)
     (utils/utf8-string->sha1)))
@@ -749,7 +750,7 @@ must be supplied as the value to be matched."
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
   [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events]
+           status start-time end-time resource-events]
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
@@ -771,6 +772,7 @@ must be supplied as the value to be matched."
             :certname               certname
             :report_format          report-format
             :configuration_version  configuration-version
+            :status                 status
             :start_time             (to-timestamp start-time)
             :end_time               (to-timestamp end-time)
             :receive_time           (to-timestamp timestamp)})
