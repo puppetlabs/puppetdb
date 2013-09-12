@@ -15,7 +15,7 @@
     (event-counts-query-result query summarize-by {}))
   ([query summarize-by extra-query-params]
     (-> (event-counts/query->sql query summarize-by extra-query-params)
-        (event-counts/query-event-counts)
+        (event-counts/query-event-counts summarize-by)
         (:result)
         (set))))
 
@@ -29,12 +29,14 @@
             (event-counts-query-result ["these" "are" "unused"] "illegal-summarize-by"))))
 
     (testing "containing-class"
-      (let [expected #{{:containing_class nil
+      (let [expected #{{:subject-type "containing-class"
+                        :subject {:title nil}
                         :failures 0
                         :successes 2
                         :noops 0
                         :skips 0}
-                       {:containing_class "Foo"
+                       {:subject-type "containing-class"
+                        :subject {:title "Foo"}
                         :failures 0
                         :successes 0
                         :noops 0
@@ -43,7 +45,8 @@
         (is (= actual expected))))
 
     (testing "node"
-      (let [expected  #{{:certname "foo.local"
+      (let [expected  #{{:subject-type "node"
+                         :subject {:title "foo.local"}
                          :failures 0
                          :successes 2
                          :noops 0
@@ -52,20 +55,20 @@
         (is (= actual expected))))
 
     (testing "resource"
-      (let [expected  #{{:resource_type "Notify"
-                         :resource_title "notify, yo"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "notify, yar"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "hi"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "hi"}
                          :failures 0
                          :successes 0
                          :noops 0
@@ -75,7 +78,8 @@
 
   (testing "counts-filter"
     (testing "= operator"
-      (let [expected  #{{:containing_class nil
+      (let [expected  #{{:subject-type "containing-class"
+                         :subject {:title nil}
                          :failures 0
                          :successes 2
                          :noops 0
@@ -84,14 +88,14 @@
         (is (= actual expected))))
 
     (testing "> operator"
-      (let [expected  #{{:resource_type "Notify"
-                         :resource_title "notify, yo"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "notify, yar"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures 0
                          :successes 1
                          :noops 0
@@ -100,20 +104,20 @@
         (is (= actual expected))))
 
     (testing ">= operator"
-      (let [expected  #{{:resource_type "Notify"
-                         :resource_title "notify, yo"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "notify, yar"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "hi"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "hi"}
                          :failures 0
                          :successes 0
                          :noops 0
@@ -122,14 +126,14 @@
         (is (= actual expected))))
 
     (testing "< operator"
-      (let [expected  #{{:resource_type "Notify"
-                         :resource_title "notify, yo"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "notify, yar"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures 0
                          :successes 1
                          :noops 0
@@ -138,20 +142,20 @@
         (is (= actual expected))))
 
     (testing "<= operator"
-      (let [expected  #{{:resource_type "Notify"
-                         :resource_title "notify, yo"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "notify, yar"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures 0
                          :successes 1
                          :noops 0
                          :skips 0}
-                        {:resource_type "Notify"
-                         :resource_title "hi"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "hi"}
                          :failures 0
                          :successes 0
                          :noops 0
@@ -166,12 +170,14 @@
             (event-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "illegal-count-by"}))))
 
     (testing "resource"
-      (let [expected  #{{:containing_class nil
+      (let [expected  #{{:subject-type "containing-class"
+                         :subject {:title nil}
                          :failures 0
                          :successes 2
                          :noops 0
                          :skips 0}
-                        {:containing_class "Foo"
+                        {:subject-type "containing-class"
+                         :subject {:title "Foo"}
                          :failures 0
                          :successes 0
                          :noops 0
@@ -180,7 +186,8 @@
         (is (= actual expected))))
 
     (testing "node"
-      (let [expected  #{{:certname "foo.local"
+      (let [expected  #{{:subject-type "node"
+                         :subject {:title "foo.local"}
                          :failures 0
                          :successes 1
                          :noops 0
