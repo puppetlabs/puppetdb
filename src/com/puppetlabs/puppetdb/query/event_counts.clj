@@ -182,7 +182,5 @@
    {:pre  [(string? sql)]
     :post [(map? %)
            (vector? (:result %))]}
-    (update-in
-      (execute-query (apply vector sql params) paging-options)
-      [:result]
-      (partial munge-subjects summarize-by))))
+    (-> (execute-query (apply vector sql params) paging-options)
+      (update-in [:result] (partial munge-subjects summarize-by)))))
