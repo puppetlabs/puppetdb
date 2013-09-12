@@ -24,7 +24,7 @@
                          :path    "/v3/nodes"
                          :limit   1
                          :total   (count expected)
-                         :include-count-header  count?})]
+                         :include-total  count?})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                 (set (map :name results)))))))))

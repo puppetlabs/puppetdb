@@ -79,7 +79,7 @@
   (fn [{:keys [params] :as req}]
     (app (assoc req :paging-options
            (-> params
-             (select-keys ["limit" "offset" "order-by" "include-count-header"])
+             (select-keys ["limit" "offset" "order-by" "include-total"])
              (keywordize-keys)
              (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
              (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
