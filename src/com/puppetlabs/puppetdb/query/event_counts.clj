@@ -3,6 +3,7 @@
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores]]
         [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]
+        [com.puppetlabs.utils :only [contains-some]]
         [clojure.core.match :only [match]]))
 
 (defn- compile-event-count-equality
@@ -113,6 +114,44 @@
     (format "SELECT * FROM (%s) count_results WHERE %s" sql where)
     sql))
 
+(defn- create-subject-map
+  "Helper function to transform the event count subject data from the raw format that we get back from the
+  database into the more structured format that the API specifies."
+  [summarize-by result]
+  {:pre [(contains? #{"node" "resource" "containing-class"} summarize-by)
+         (map? result)
+         (or
+           (contains? result :certname)
+           (every? #(contains? result %) [:resource_type :resource_title])
+           (contains? result :containing_class))]
+   :pose [(map? %)
+          (not (contains-some % [:certname :resource_type :resource_title :containing_class]))
+          (map? (:subject %))
+          (contains? #{"node" "resource" "containing-class"} (:subject-type %))]}
+  (condp = summarize-by
+    "node"              (-> result
+                          (assoc :subject-type "node")
+                          (assoc :subject {:title (:certname result)})
+                          (dissoc :certname))
+
+    "resource"          (-> result
+                          (assoc :subject-type "resource")
+                          (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
+                          (dissoc :resource_type :resource_title))
+
+    "containing-class"  (-> result
+                          (assoc :subject-type "containing-class")
+                          (assoc :subject {:title (:containing_class result)})
+                          (dissoc :containing_class))))
+
+(defn- create-subject-maps
+  "Helper function to transform the event count subject data from the raw format that we get back from the
+  database into the more structured format that the API specifies."
+  [summarize-by results]
+  {:pre [(vector? results)]
+   :post [(vector? %)]}
+  (mapv (partial create-subject-map summarize-by) results))
+
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
@@ -137,10 +176,13 @@
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
-  ([sql-and-params]
-    (query-event-counts {} sql-and-params))
-  ([paging-options [sql & params]]
+  ([sql-and-params summarize-by]
+    (query-event-counts {} summarize-by sql-and-params))
+  ([paging-options summarize-by [sql & params]]
    {:pre  [(string? sql)]
     :post [(map? %)
            (vector? (:result %))]}
-   (execute-query (apply vector sql params) paging-options)))
+    (update-in
+      (execute-query (apply vector sql params) paging-options)
+      [:result]
+      (partial create-subject-maps summarize-by))))
