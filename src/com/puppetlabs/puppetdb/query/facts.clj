@@ -56,7 +56,19 @@
       (apply vector sql params))
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
 
+(defn with-queried-facts
+  "Execute `func` against the rows returned from fact query `query`
+  with query parameters `params`."
+  [query params func]
+  {:pre [(string? query)
+         (or (coll? params) (nil? params))
+         (fn? func)]}
+  (sql/with-query-results-cursor query params rs
+    (func rs)))
+
 (defn query-facts
   [[sql & params]]
   {:pre [(string? sql)]}
-  (apply sql/query-to-vec sql params))
+  (let [results (atom [])]
+    (with-queried-facts sql params #(reset! results (vec %)))
+    @results))

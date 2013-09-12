@@ -19,15 +19,10 @@
                            (-> query
                                (json/parse-string true)
                                (query->sql)))]
-
-      (-> (pl-http/streamed-response buffer
-            (with-transacted-connection db
-              (r/with-queried-resources sql params #(pl-http/stream-json % buffer))))
-          (rr/response)
-          (rr/header "Content-Type" "application/json")
-          (rr/charset "utf-8")
-          (rr/status pl-http/status-ok)))
-
+      (pl-http/json-response*
+       (pl-http/streamed-response buffer
+        (with-transacted-connection db
+          (r/with-queried-resources sql params #(pl-http/stream-json % buffer))))))
     (catch IllegalArgumentException e
       ;; Query compilation error
       (pl-http/error-response e))

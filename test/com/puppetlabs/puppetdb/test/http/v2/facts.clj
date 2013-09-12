@@ -185,7 +185,7 @@
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
             (is (= (headers "Content-Type") c-t))
-            (is (= result (json/parse-string body true))
+            (is (= result (json/parse-string (slurp body) true))
                 (pr-str query)))))
 
       (testing "malformed, yo"
@@ -206,7 +206,7 @@
         {:keys [status body]} (*app* request)]
     (is (= status pl-http/status-ok))
     (is (= (try
-             (json/parse-string body true)
+             (json/parse-string (slurp body) true)
              (catch Throwable e
                body)) results) query)))
 
