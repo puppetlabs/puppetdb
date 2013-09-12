@@ -143,7 +143,7 @@
                    "offset"   10
                    "order-by" (json/generate-string [{"field" "foo"
                                                       "order" "desc"}])
-                   "include-count-header"   "true"
+                   "include-total"   "true"
                    "foo"      "bar"}})
             {:limit     10
              :offset    10

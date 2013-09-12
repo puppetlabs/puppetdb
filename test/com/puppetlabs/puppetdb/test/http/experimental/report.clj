@@ -73,7 +73,7 @@
                                :query   ["=" "certname" (:certname basic1)]
                                :limit   1
                                :total   2
-                               :include-count-header  count?})]
+                               :include-total  count?})]
           (is (= 2 (count results)))
           (is (= (reports-response
                     [(assoc basic1 :hash basic1-hash)

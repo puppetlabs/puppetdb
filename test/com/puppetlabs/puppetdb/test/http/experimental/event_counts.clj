@@ -95,7 +95,7 @@
                        :params  {:summarize-by "resource"}
                        :limit   1
                        :total   (count expected)
-                       :include-count-header count?})]
+                       :include-total count?})]
         (is (= (count expected) (count results)))
         (is (= expected
               (set results)))))))

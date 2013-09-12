@@ -42,7 +42,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 This query parameter can be used to restrict the result set to a maximum number of results.
 The value should be an integer.
 
-### `include-count-header`
+### `include-total`
 
 This query parameter is used to indicate whether or not you wish to receive a count of how many total records would have been returned, had the query not been limited using the `limit` parameter.  The value should be a boolean, and defaults to `false`.
 
@@ -54,7 +54,7 @@ NOTE: setting this flag to `true` will introduce a minor performance hit on the 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v3/facts --data-urlencode 'limit=5'
+    curl -X GET http://localhost:8080/v3/facts --data-urlencode 'limit=5' --data-urlencode 'include-total=true'
 
 ### `offset`
 
