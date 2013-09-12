@@ -114,7 +114,7 @@
     (format "SELECT * FROM (%s) count_results WHERE %s" sql where)
     sql))
 
-(defn- create-subject-map
+(defn- munge-subject
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize-by result]
@@ -124,10 +124,10 @@
            (contains? result :certname)
            (every? #(contains? result %) [:resource_type :resource_title])
            (contains? result :containing_class))]
-   :pose [(map? %)
+   :post [(map? %)
           (not (contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
-          (contains? #{"node" "resource" "containing-class"} (:subject-type %))]}
+          (= summarize-by (:subject-type %))]}
   (condp = summarize-by
     "node"              (-> result
                           (assoc :subject-type "node")
@@ -144,13 +144,13 @@
                           (assoc :subject {:title (:containing_class result)})
                           (dissoc :containing_class))))
 
-(defn- create-subject-maps
+(defn- munge-subjects
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize-by results]
   {:pre [(vector? results)]
    :post [(vector? %)]}
-  (mapv (partial create-subject-map summarize-by) results))
+  (mapv (partial munge-subject summarize-by) results))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
@@ -185,4 +185,4 @@
     (update-in
       (execute-query (apply vector sql params) paging-options)
       [:result]
-      (partial create-subject-maps summarize-by))))
+      (partial munge-subjects summarize-by))))
