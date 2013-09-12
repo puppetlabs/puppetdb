@@ -12,7 +12,8 @@
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
-        [clj-http.util :only [url-encode]])
+        [clj-http.util :only [url-encode]]
+        [com.puppetlabs.puppetdb.catalog :only [catalog-version]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -100,7 +101,7 @@
     ;;  on which version of the `replace catalog` matches up with the current
     ;;  version of the `catalog` endpoint... or even to query what the latest
     ;;  version of a command is.  We should improve that.
-    {:replace-catalog 2
+    {:replace-catalog catalog-version
      :store-report 2}})
 
 (defn get-catalog-for-node
