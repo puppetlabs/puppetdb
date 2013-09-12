@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.event
+(ns com.puppetlabs.puppetdb.test.http.v3.event
   (:require [com.puppetlabs.puppetdb.report :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.http :as pl-http]
@@ -22,7 +22,7 @@
   ([query]
     (get-response query {}))
   ([query extra-query-params]
-    (*app* (get-request "/experimental/events" query extra-query-params))))
+    (*app* (get-request "/v3/events" query extra-query-params))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -131,7 +131,7 @@
       (testing (str "should support paging through events " label " counts")
         (let [results (paged-results
                         {:app-fn  *app*
-                         :path    "/experimental/events"
+                         :path    "/v3/events"
                          :query   ["=" "report" report-hash]
                          :limit   1
                          :total   (count (:resource-events basic))

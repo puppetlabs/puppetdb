@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.report
+(ns com.puppetlabs.puppetdb.test.http.v3.report
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.report :as report]
@@ -16,7 +16,7 @@
 (use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
-  [query] (*app* (get-request "/experimental/reports" query)))
+  [query] (*app* (get-request "/v3/reports" query)))
 
 (defn report-response
   [report]
@@ -69,7 +69,7 @@
       (testing (str "should support paging through reports " label " counts")
         (let [results       (paged-results
                               {:app-fn  *app*
-                               :path    "/experimental/reports"
+                               :path    "/v3/reports"
                                :query   ["=" "certname" (:certname basic1)]
                                :limit   1
                                :total   2

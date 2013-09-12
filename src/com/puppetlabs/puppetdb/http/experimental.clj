@@ -1,32 +1,12 @@
 (ns com.puppetlabs.puppetdb.http.experimental
-  (:use [com.puppetlabs.puppetdb.http.experimental.catalog :only (catalog-app)]
-        [com.puppetlabs.puppetdb.http.experimental.planetarium-catalog :only (planetarium-catalog-app)]
+  (:use [com.puppetlabs.puppetdb.http.experimental.planetarium-catalog :only (planetarium-catalog-app)]
         [com.puppetlabs.puppetdb.http.experimental.population :only (population-app)]
-        [com.puppetlabs.puppetdb.http.experimental.event :only (events-app)]
-        [com.puppetlabs.puppetdb.http.experimental.event-counts :only (event-counts-app)]
-        [com.puppetlabs.puppetdb.http.experimental.aggregate-event-counts :only (aggregate-event-counts-app)]
-        [com.puppetlabs.puppetdb.http.experimental.report :only (reports-app)]
         [net.cgrand.moustache :only (app)]))
 
 (def experimental-app
   (app
-    ["catalog" &]
-    {:any catalog-app}
-
     ["planetarium-catalog" &]
     {:any planetarium-catalog-app}
 
     ["population" &]
-    {:any population-app}
-
-    ["events" &]
-    {:any events-app}
-
-    ["event-counts" &]
-    {:any event-counts-app}
-
-    ["aggregate-event-counts" &]
-    {:any aggregate-event-counts-app}
-
-    ["reports" &]
-    {:any reports-app}))
+    {:any population-app}))

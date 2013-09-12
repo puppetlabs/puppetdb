@@ -46,7 +46,7 @@
 ;;    }
 ;;]`
 
-(ns com.puppetlabs.puppetdb.http.experimental.report
+(ns com.puppetlabs.puppetdb.http.v3.report
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.report :as query]
             [ring.util.response :as rr]

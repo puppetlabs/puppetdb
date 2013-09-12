@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.experimental.catalog
+(ns com.puppetlabs.puppetdb.http.v3.catalog
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalog :as c]

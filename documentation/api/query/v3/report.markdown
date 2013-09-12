@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.4 » API » Experimental » Querying Reports"
+title: "PuppetDB 1.4 » API » v3 » Querying Reports"
 layout: default
-canonical: "/puppetdb/latest/api/query/experimental/report.html"
+canonical: "/puppetdb/latest/api/query/v3/report.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
@@ -14,7 +14,7 @@ endpoint.
 
 ## Routes
 
-### `GET /experimental/reports`
+### `GET /v3/reports`
 
 #### Parameters
 
@@ -82,4 +82,4 @@ on [paging][paging].
 
 [You can use `curl`][curl] to query information about reports like so:
 
-    curl -G 'http://localhost:8080/experimental/reports' --data-urlencode 'query=["=", "certname", "example.local"]'
+    curl -G 'http://localhost:8080/v3/reports' --data-urlencode 'query=["=", "certname", "example.local"]'
