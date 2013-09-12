@@ -121,4 +121,14 @@
                        :skips 1
                        :total 1}
             actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "node"})]
-        (is (= actual expected))))))
+        (is (= actual expected)))))
+
+  (testing "when nothing matches, should return zeroes rather than nils"
+    (let [expected  {:successes 0
+                      :failures 0
+                      :noops 0
+                      :skips 0
+                      :total 0}
+
+          actual    (aggregate-counts-query-result ["<" "timestamp" 0] "resource")]
+      (is (= actual expected)))))
