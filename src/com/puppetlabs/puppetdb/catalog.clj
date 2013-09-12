@@ -99,7 +99,7 @@
 (def ^:const catalog-version
   ^{:doc "Constant representing the version number of the PuppetDB
   catalog format"}
-  (Integer. 2))
+  (Integer. 3))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -256,8 +256,6 @@
   (-> catalog
     (update-in [:version] str)
     (assoc :puppetdb-version catalog-version)
-    ;; add transaction-uuid key if it doesn't exist
-    (update-in [:transaction-uuid] identity)
     (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform
@@ -308,6 +306,15 @@
       (parse-catalog (inc version))))
 
 (defmethod parse-catalog 2
+  [catalog version]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (-> catalog
+    (assoc-in [:data :transaction-uuid] nil)
+    (parse-catalog (inc version))))
+
+(defmethod parse-catalog 3
   [catalog version]
   {:pre [(map? catalog)
          (number? version)]
