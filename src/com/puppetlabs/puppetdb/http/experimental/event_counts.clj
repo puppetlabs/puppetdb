@@ -26,7 +26,7 @@
       (with-transacted-connection db
         (-> query
             (event-counts/query->sql summarize-by {:counts-filter counts-filter :count-by count-by})
-            ((partial event-counts/query-event-counts paging-options))
+            ((partial event-counts/query-event-counts paging-options summarize-by))
             (query-result-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))

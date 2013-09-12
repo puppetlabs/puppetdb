@@ -30,7 +30,8 @@
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
-    (let [expected  #{{:containing_class "Foo"
+    (let [expected  #{{:subject-type "containing-class"
+                       :subject {:title "Foo"}
                        :failures 0
                        :successes 0
                        :noops 0
@@ -45,20 +46,20 @@
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
     (testing (str "should support paging through event-counts " label " counts")
-      (let [expected  #{{:resource_type   "Notify"
-                         :resource_title  "notify, yar"
+      (let [expected  #{{:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yar"}
                          :failures        0
                          :successes       1
                          :noops           0
                          :skips           0}
-                        {:resource_type   "Notify"
-                         :resource_title  "notify, yo"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "notify, yo"}
                          :failures        0
                          :successes       1
                          :noops           0
                          :skips           0}
-                        {:resource_type   "Notify"
-                         :resource_title  "hi"
+                        {:subject-type "resource"
+                         :subject {:type "Notify" :title "hi"}
                          :failures        0
                          :successes       0
                          :noops           0
