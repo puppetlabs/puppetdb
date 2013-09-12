@@ -332,6 +332,11 @@
   {:pre [(= version 2)]}
   (replace-catalog* command options))
 
+(defmethod process-command! [(command-names :replace-catalog) 3]
+  [{:keys [version] :as  command} options]
+  {:pre [(= version 3)]}
+  (replace-catalog* command options))
+
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 1]

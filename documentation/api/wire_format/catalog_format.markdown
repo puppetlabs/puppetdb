@@ -17,6 +17,7 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format.html"
 [title]: /puppet/2.7/reference/lang_resources.html#title
 [type]: /puppet/2.7/reference/lang_resources.html#type
 [attributes]: /puppet/2.7/reference/lang_resources.html#attributes
+[replace3]: ../commands.html#replace-catalog-version-3
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1
 
@@ -78,7 +79,9 @@ The value of each key in the data object is as follows:
 
 `"transaction-uuid"`
 : String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
-This field may be `null`.
+This field may be `null`.  (Note: support for this field was introduced in
+[Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
+a `null` value.
 
 ### Data Type: `<string>`
 

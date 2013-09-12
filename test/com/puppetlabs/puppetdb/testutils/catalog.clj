@@ -5,7 +5,8 @@
             [clj-time.core :only [now]]
             [com.puppetlabs.puppetdb.testutils :only [test-db]]
             [com.puppetlabs.puppetdb.fixtures :only [*db*]]
-            [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
+            [com.puppetlabs.puppetdb.command.constants :only [command-names]]
+            [com.puppetlabs.puppetdb.catalog :only [catalog-version]]))
 
 
 (defn munge-resource-for-comparison
@@ -56,5 +57,5 @@
      :payload     catalog-payload
      :annotations {:id (uuid)
                    :received (now)}
-     :version     2}
+     :version     catalog-version}
     {:db          *db*}))
