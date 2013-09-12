@@ -106,7 +106,7 @@ effective as of the time the command is *processed*.
 ### "store report", version 1
 
 The payload is expected to be a report, containing events that occurred on Puppet
-resources.  It is structured as a JSON object, confirming to the
+resources.  It is structured as a JSON object, conforming to the
 [report wire format][report].
 
 
@@ -116,5 +116,5 @@ This version of the command introduces support for the `transaction-uuid`,
 `file`, `line`, and `containment-path` fields.
 
 The payload is expected to be a report, containing events that occurred on Puppet
-resources.  It is structured as a JSON object, confirming to the
+resources.  It is structured as a JSON object, conforming to the
 [report wire format][report].
