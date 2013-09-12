@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.event-counts
+(ns com.puppetlabs.puppetdb.test.http.v3.event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json])
   (:use clojure.test
@@ -15,14 +15,14 @@
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
-    (let [response  (get-response "/experimental/event-counts"
+    (let [response  (get-response "/v3/event-counts"
                                   ["=" "certname" "foo.local"] "illegal-summarize-by" {} true)
           body      (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
       (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
-    (let [response  (get-response "/experimental/event-counts"
+    (let [response  (get-response "/v3/event-counts"
                                   ["=" "certname" "foo.local"] "node"
                                   {"count-by" "illegal-count-by"} true)
           body      (get response :body "null")]
@@ -36,7 +36,7 @@
                        :successes 0
                        :noops 0
                        :skips 1}}
-          response  (get-response "/experimental/event-counts"
+          response  (get-response "/v3/event-counts"
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   "containing-class"
                                   {"count-by"      "node"
@@ -66,7 +66,7 @@
                          :skips           1}}
             results (paged-results
                       {:app-fn  *app*
-                       :path    "/experimental/event-counts"
+                       :path    "/v3/event-counts"
                        :query   [">" "timestamp" 0]
                        :params  {:summarize-by "resource"}
                        :limit   1

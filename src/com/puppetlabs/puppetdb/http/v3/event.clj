@@ -45,7 +45,7 @@
 ;;    }
 ;;  ]`
 
-(ns com.puppetlabs.puppetdb.http.experimental.event
+(ns com.puppetlabs.puppetdb.http.v3.event
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.event :as query]
