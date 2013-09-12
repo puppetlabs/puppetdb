@@ -3,7 +3,7 @@
   (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? query-to-vec]]))
 
 (defn- get-aggregate-sql
-  ;; TODO docs
+  "Given the `event-count-sql`, return a SQL string that will aggregate the results."
   [event-count-sql]
   {:pre  [(string? event-count-sql)]
    :post [(string? %)]}
@@ -15,7 +15,8 @@
            FROM (%s) event_counts" event-count-sql))
 
 (defn query->sql
-  ;; TODO docs
+  "Convert an aggregate-event-counts `query` and a value to `summarize-by` into a SQL string.
+  Since all inputs are forwarded to `event-counts/query->sql`, look there for proper documentation."
   ([query summarize-by]
    (query->sql query summarize-by {}))
   ([query summarize-by extra-query-params]
@@ -27,10 +28,18 @@
          aggregate-sql        (get-aggregate-sql count-sql)]
      (apply vector aggregate-sql params))))
 
-(defn query-aggregate-event-counts
+(defn- perform-query
   "Given a SQL query and its parameters, return a vector of matching results."
   [[sql & params]]
   {:pre  [(string? sql)]
-   :post [(vector? %)]}
+   :post [(vector? %)
+          (= (count %) 1)]}
   (query-to-vec (apply vector sql params)))
+
+(defn query-aggregate-event-counts
+  "Given a SQL query and its parameters, return the single matching result map."
+  [[sql & params :as query-and-params]]
+  {:pre  [(string? sql)]
+   :post [(map? %)]}
+  (first (perform-query query-and-params)))
 

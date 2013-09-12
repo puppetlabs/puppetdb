@@ -5,7 +5,6 @@
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
-        [com.puppetlabs.puppetdb.testutils :only (response-equal?)]
         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
         [clj-time.core :only [now]]))
 
@@ -51,13 +50,15 @@
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
-    (let [expected  #{{:successes 0
-                       :failures 0
-                       :noops 0
-                       :skips 1
-                       :total 1}}
+    (let [expected  {:successes 0
+                     :failures 0
+                     :noops 0
+                     :skips 1
+                     :total 1}
           response  (get-response ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                    "containing-class"
                                    {"count-by"      "node"
-                                    "counts-filter" ["<" "successes" 1]})]
-      (response-equal? response expected))))
+                                    "counts-filter" ["<" "successes" 1]})
+          actual    (json/parse-string (:body response) true)]
+      (is (= (:status response) pl-http/status-ok))
+      (is (= actual expected)))))
