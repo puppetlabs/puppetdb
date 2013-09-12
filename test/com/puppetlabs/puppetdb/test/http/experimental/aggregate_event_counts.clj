@@ -2,49 +2,31 @@
   (:require [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json])
   (:use clojure.test
-        ring.mock.request
+        [clj-time.core :only [now]]
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.report
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
-        [clj-time.core :only [now]]))
+        [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
+        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]))
 
 (use-fixtures :each with-test-db with-http-app)
-
-(def content-type-json pl-http/json-response-content-type)
-
-(defn- json-encode-counts-filter
-  [params]
-  (if-let [counts-filter (params "counts-filter")]
-    (assoc params "counts-filter" (json/generate-string counts-filter))
-    params))
-
-(defn- get-request
-  [path query summarize-by extra-query-params]
-  (let [params  (-> extra-query-params
-                    (assoc "query" (json/generate-string query))
-                    (assoc "summarize-by" summarize-by)
-                    (json-encode-counts-filter))
-        request (request :get path params)
-        headers (:headers request)]
-    (assoc request :headers (assoc headers "Accept" content-type-json))))
-
-(defn- get-response
-  ([query summarize-by]
-    (get-response query summarize-by {}))
-  ([query summarize-by extra-query-params]
-    (*app* (get-request "/experimental/aggregate-event-counts" query summarize-by extra-query-params))))
 
 (deftest query-aggregate-event-counts
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
-    (let [response  (get-response ["=" "certname" "foo.local"] "illegal-summarize-by")
+    (let [response  (get-response "/experimental/aggregate-event-counts"
+                                  ["=" "certname" "foo.local"]
+                                  "illegal-summarize-by"
+                                  {} true)
           body      (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
       (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
-    (let [response  (get-response ["=" "certname" "foo.local"] "node" {"count-by" "illegal-count-by"})
+    (let [response  (get-response "/experimental/aggregate-event-counts"
+                                  ["=" "certname" "foo.local"]
+                                  "node"
+                                  {"count-by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
@@ -55,10 +37,10 @@
                      :noops 0
                      :skips 1
                      :total 1}
-          response  (get-response ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
+          response  (get-response "/experimental/aggregate-event-counts"
+                                  ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                    "containing-class"
                                    {"count-by"      "node"
                                     "counts-filter" ["<" "successes" 1]})
           actual    (json/parse-string (:body response) true)]
-      (is (= (:status response) pl-http/status-ok))
       (is (= actual expected)))))
