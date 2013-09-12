@@ -38,6 +38,7 @@
                                       report_format,
                                       configuration_version,
                                       start_time,
+                                      status,
                                       end_time,
                                       receive_time
                                   FROM reports %s ORDER BY start_time DESC")

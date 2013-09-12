@@ -354,6 +354,12 @@
                (format "Unsupported database engine '%s'"
                  (sql-current-connection-database-name)))))))
 
+(defn add-report-status
+  "Add 'status' column to the report table."
+  []
+  (sql/do-commands
+    "ALTER TABLE reports ADD COLUMN status VARCHAR(20) DEFAULT NULL"))
+
 (defn add-file-line-columns-to-events-table
   "Add 'file' and 'line' columns to the event table."
   []
@@ -396,7 +402,8 @@
    11 increase-puppet-version-field-length
    12 add-file-line-columns-to-events-table
    13 add-latest-reports-table
-   14 add-parameter-cache})
+   14 add-parameter-cache
+   15 add-report-status})
 
 (def desired-schema-version (apply max (keys migrations)))
 
