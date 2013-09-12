@@ -11,7 +11,7 @@
   (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
-(def query-params ["limit" "offset" "order-by" "include-count-header"])
+(def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")
 
 (defn is-error-response?
@@ -106,13 +106,13 @@
     paging-options))
 
 (defn parse-count
-  "Parse the optional `include-count-header` query parameter in the paging options map,
+  "Parse the optional `include-total` query parameter in the paging options map,
   and return an updated map with the correct boolean value."
   [paging-options]
-  (if (contains? paging-options :include-count-header)
-    (let [val (:include-count-header paging-options)]
+  (if (contains? paging-options :include-total)
+    (let [val (:include-total paging-options)]
       (-> paging-options
-        (dissoc :include-count-header)
+        (dissoc :include-total)
         (assoc :count?
           (cond
             ;; If the original query string contains the query param w/o a

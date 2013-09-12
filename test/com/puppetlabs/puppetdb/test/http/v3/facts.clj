@@ -18,7 +18,7 @@
      :query   query
      :limit   limit
      :total   total
-     :include-count-header  count?}))
+     :include-total  count?}))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"

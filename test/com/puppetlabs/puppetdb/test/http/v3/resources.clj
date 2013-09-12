@@ -23,7 +23,7 @@
                          :path    "/v3/resources"
                          :limit   2
                          :total   (count expected)
-                         :include-count-header  count?})]
+                         :include-total  count?})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                 (set results))))))))
