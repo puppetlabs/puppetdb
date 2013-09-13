@@ -34,7 +34,7 @@
    :post [((some-fn string? nil?) %)]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/catalog/%s"
+                                   "http://%s:%s/v3/catalog/%s"
                                    host port node)
                                  { :accept :json})]
     (when (= status 200) body)))
@@ -48,7 +48,7 @@
    :post [vector? %]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/events?query=%s"
+                                   "http://%s:%s/v3/events?query=%s"
                                    host port (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash))))]
     (when
       (= status 200)
@@ -67,7 +67,7 @@
    :post [seq? %]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/reports?query=%s"
+                                   "http://%s:%s/v3/reports?query=%s"
                                    host port (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
                                  { :accept :json})]
     (when
