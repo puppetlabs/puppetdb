@@ -1,5 +1,5 @@
-(ns com.puppetlabs.puppetdb.test.query.resource
-  (:require [com.puppetlabs.puppetdb.query.resource :as s]
+(ns com.puppetlabs.puppetdb.test.query.resources
+  (:require [com.puppetlabs.puppetdb.query.resources :as s]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string])
   (:use clojure.test

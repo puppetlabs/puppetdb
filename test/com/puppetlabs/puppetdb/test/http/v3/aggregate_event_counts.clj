@@ -4,9 +4,9 @@
   (:use clojure.test
         [clj-time.core :only [now]]
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.report
+        com.puppetlabs.puppetdb.examples.reports
         [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]))
+        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
 
 (use-fixtures :each with-test-db with-http-app)
 

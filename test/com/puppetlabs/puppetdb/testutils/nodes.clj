@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.testutils.node
+(ns com.puppetlabs.puppetdb.testutils.nodes
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store])
   (:use [com.puppetlabs.puppetdb.examples]
         [clj-time.core :only [now]]))

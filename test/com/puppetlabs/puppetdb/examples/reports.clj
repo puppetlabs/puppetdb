@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.examples.report
+(ns com.puppetlabs.puppetdb.examples.reports
   (:require [clj-time.coerce :as coerce]))
 
 (def reports

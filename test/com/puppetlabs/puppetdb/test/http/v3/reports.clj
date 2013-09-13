@@ -1,14 +1,14 @@
-(ns com.puppetlabs.puppetdb.test.http.v3.report
+(ns com.puppetlabs.puppetdb.test.http.v3.reports
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.report :as report]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.report
+        com.puppetlabs.puppetdb.examples.reports
         [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
+        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
         [clj-time.coerce :only [to-date-time to-string]]
         [clj-time.core :only [now]]))
 

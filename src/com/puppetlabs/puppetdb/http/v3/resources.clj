@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.resource :as r]
+            [com.puppetlabs.puppetdb.query.resources :as r]
             [cheshire.core :as json])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]

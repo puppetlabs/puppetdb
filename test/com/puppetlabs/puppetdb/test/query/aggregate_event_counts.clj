@@ -2,8 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.report
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]
+        com.puppetlabs.puppetdb.examples.reports
+        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
         [clj-time.core :only [now]]))
 
 (use-fixtures :each with-test-db)

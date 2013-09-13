@@ -1,6 +1,6 @@
-(ns com.puppetlabs.puppetdb.test.http.v3.catalog
+(ns com.puppetlabs.puppetdb.test.http.v3.catalogs
   (:require [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.testutils.catalog :as testcat])
+            [com.puppetlabs.puppetdb.testutils.catalogs :as testcat])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
          ring.mock.request
@@ -18,7 +18,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([node] (*app* (get-request (str "/v3/catalog/" node)))))
+  ([node] (*app* (get-request (str "/v3/catalogs/" node)))))
 
 
 (deftest catalog-retrieval

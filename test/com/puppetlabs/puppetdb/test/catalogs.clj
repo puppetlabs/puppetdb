@@ -1,5 +1,5 @@
-(ns com.puppetlabs.puppetdb.test.catalog
-  (:use [com.puppetlabs.puppetdb.catalog]
+(ns com.puppetlabs.puppetdb.test.catalogs
+  (:use [com.puppetlabs.puppetdb.catalogs]
         [com.puppetlabs.puppetdb.catalog.utils]
         [com.puppetlabs.puppetdb.examples]
         [clojure.test]))

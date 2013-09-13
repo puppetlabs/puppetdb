@@ -10,7 +10,7 @@
 ;;                   <dependency-spec>}}
 (ns com.puppetlabs.puppetdb.query.planetarium-catalog
   (:refer-clojure :exclude  [case compile conj! distinct disj! drop sort take])
-  (:require [com.puppetlabs.puppetdb.query.resource :as r])
+  (:require [com.puppetlabs.puppetdb.query.resources :as r])
   (:use [com.puppetlabs.jdbc]
         [com.puppetlabs.puppetdb.scf.storage :only [catalogs-for-certname]]
         clojureql.core))

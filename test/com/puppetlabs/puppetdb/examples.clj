@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.examples
-  (:use [com.puppetlabs.puppetdb.catalog :only [catalog-version]]))
+  (:use [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
 
 (def catalogs
   {:empty

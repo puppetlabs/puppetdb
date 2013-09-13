@@ -4,8 +4,8 @@
 ;;  `documentation/api/wire_format/catalog_format.markdown`.
 ;;
 
-(ns com.puppetlabs.puppetdb.query.catalog
-  (:require [com.puppetlabs.puppetdb.query.resource :as r])
+(ns com.puppetlabs.puppetdb.query.catalogs
+  (:require [com.puppetlabs.puppetdb.query.resources :as r])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
         [com.puppetlabs.utils :only [dissoc-if-nil mapkeys]]))
 

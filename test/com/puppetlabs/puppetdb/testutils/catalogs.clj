@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.testutils.catalog
+(ns com.puppetlabs.puppetdb.testutils.catalogs
   (:require [com.puppetlabs.puppetdb.command :as command]
             [cheshire.core :as json])
   (:use     [com.puppetlabs.utils :only [uuid]]
@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.testutils :only [test-db]]
             [com.puppetlabs.puppetdb.fixtures :only [*db*]]
             [com.puppetlabs.puppetdb.command.constants :only [command-names]]
-            [com.puppetlabs.puppetdb.catalog :only [catalog-version]]))
+            [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
 
 
 (defn munge-resource-for-comparison

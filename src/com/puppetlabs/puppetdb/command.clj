@@ -59,8 +59,8 @@
 (ns com.puppetlabs.puppetdb.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
-            [com.puppetlabs.puppetdb.catalog :as cat]
-            [com.puppetlabs.puppetdb.report :as report]
+            [com.puppetlabs.puppetdb.catalogs :as cat]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]

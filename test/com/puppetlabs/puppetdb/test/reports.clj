@@ -1,9 +1,9 @@
-(ns com.puppetlabs.puppetdb.test.report
+(ns com.puppetlabs.puppetdb.test.reports
   (:use [clojure.test]
         [clj-time.coerce :only [to-timestamp]]
-        [com.puppetlabs.puppetdb.examples.report]
-        [com.puppetlabs.puppetdb.report]
-        [com.puppetlabs.puppetdb.testutils.report
+        [com.puppetlabs.puppetdb.examples.reports]
+        [com.puppetlabs.puppetdb.reports]
+        [com.puppetlabs.puppetdb.testutils.reports
           :only [munge-example-report-for-storage
                  munge-v2-example-report-to-v1
                  munge-v1-example-report-to-v2]])
