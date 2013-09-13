@@ -1,11 +1,11 @@
-(ns com.puppetlabs.puppetdb.test.http.v3.node
+(ns com.puppetlabs.puppetdb.test.http.v3.nodes
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.testutils :only [assert-success! get-request paged-results]]
-        [com.puppetlabs.puppetdb.testutils.node :only [store-example-nodes]]))
+        [com.puppetlabs.puppetdb.testutils.nodes :only [store-example-nodes]]))
 
 (use-fixtures :each with-test-db with-http-app)
 

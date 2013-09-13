@@ -4,7 +4,7 @@
 ;; `com.puppetlabs.puppetdb.query`, basically by munging the results into the
 ;; right format and picking out the desired columns.
 ;;
-(ns com.puppetlabs.puppetdb.query.resource
+(ns com.puppetlabs.puppetdb.query.resources
   (:require [cheshire.core :as json]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec

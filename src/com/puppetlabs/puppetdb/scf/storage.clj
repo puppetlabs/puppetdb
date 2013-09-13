@@ -19,8 +19,8 @@
 ;; up, it's important to run `garbage-collect!`.
 
 (ns com.puppetlabs.puppetdb.scf.storage
-  (:require [com.puppetlabs.puppetdb.catalog :as cat]
-            [com.puppetlabs.puppetdb.report :as report]
+  (:require [com.puppetlabs.puppetdb.catalogs :as cat]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]

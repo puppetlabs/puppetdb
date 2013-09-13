@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.anonymizer
-  (:require [com.puppetlabs.puppetdb.catalog :as catalog]
-            [com.puppetlabs.puppetdb.report :as report]
+  (:require [com.puppetlabs.puppetdb.catalogs :as catalog]
+            [com.puppetlabs.puppetdb.reports :as report]
             [clojure.string :as string])
   (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
         [com.puppetlabs.utils :only (regexp? boolean? uuid string-contains?)]

@@ -1,11 +1,11 @@
 ;; ## SQL/query-related functions for reports
 
-(ns com.puppetlabs.puppetdb.query.report
+(ns com.puppetlabs.puppetdb.query.reports
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query :only [execute-query]]
-        [com.puppetlabs.puppetdb.query.event :only [events-for-report-hash]]
+        [com.puppetlabs.puppetdb.query.events :only [events-for-report-hash]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 ;; ## Report query functions

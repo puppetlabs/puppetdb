@@ -1,6 +1,6 @@
 ;; ## SQL/query-related functions for events
 
-(ns com.puppetlabs.puppetdb.query.event
+(ns com.puppetlabs.puppetdb.query.events
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
             [cheshire.core :as json])

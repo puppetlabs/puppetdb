@@ -1,5 +1,5 @@
-(ns com.puppetlabs.puppetdb.test.http.v3.event
-  (:require [com.puppetlabs.puppetdb.report :as report]
+(ns com.puppetlabs.puppetdb.test.http.v3.events
+  (:require [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -7,12 +7,12 @@
   (:use clojure.test
         [clojure.walk :only [stringify-keys]]
         ring.mock.request
-        com.puppetlabs.puppetdb.examples.report
+        com.puppetlabs.puppetdb.examples.reports
         com.puppetlabs.puppetdb.fixtures
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string to-long]]
         [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
-        [com.puppetlabs.puppetdb.testutils.report :only (store-example-report! get-events-map)]))
+        [com.puppetlabs.puppetdb.testutils.reports :only (store-example-report! get-events-map)]))
 
 (def content-type-json pl-http/json-response-content-type)
 

@@ -1,6 +1,6 @@
-(ns com.puppetlabs.puppetdb.test.query.node
+(ns com.puppetlabs.puppetdb.test.query.nodes
   (:require [clojure.set :as set]
-            [com.puppetlabs.puppetdb.query.node :as node]
+            [com.puppetlabs.puppetdb.query.nodes :as node]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
         [clj-time.core :only [now]]

@@ -34,7 +34,7 @@
    :post [((some-fn string? nil?) %)]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/v3/catalog/%s"
+                                   "http://%s:%s/v3/catalogs/%s"
                                    host port node)
                                  { :accept :json})]
     (when (= status 200) body)))

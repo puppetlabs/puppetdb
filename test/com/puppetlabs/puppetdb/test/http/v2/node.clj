@@ -5,7 +5,7 @@
         ring.mock.request
         [com.puppetlabs.utils :only (keyset)]
         com.puppetlabs.puppetdb.fixtures
-        [com.puppetlabs.puppetdb.testutils.node :only [store-example-nodes]]))
+        [com.puppetlabs.puppetdb.testutils.nodes :only [store-example-nodes]]))
 
 (use-fixtures :each with-test-db with-http-app)
 

@@ -45,10 +45,10 @@
 ;;    }
 ;;  ]`
 
-(ns com.puppetlabs.puppetdb.http.v3.event
+(ns com.puppetlabs.puppetdb.http.v3.events
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.utils :as pl-utils]
-            [com.puppetlabs.puppetdb.query.event :as query]
+            [com.puppetlabs.puppetdb.query.events :as query]
             [cheshire.core :as json]
             [ring.util.response :as rr]
             [com.puppetlabs.puppetdb.query.paging :as paging])

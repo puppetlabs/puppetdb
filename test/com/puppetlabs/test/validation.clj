@@ -1,7 +1,7 @@
 (ns com.puppetlabs.test.validation
   (:use clojure.test
         com.puppetlabs.validation
-        com.puppetlabs.puppetdb.examples.report))
+        com.puppetlabs.puppetdb.examples.reports))
 
 (deftest defining-models
   (defmodel TestModel
