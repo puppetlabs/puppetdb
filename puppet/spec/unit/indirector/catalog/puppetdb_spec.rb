@@ -33,7 +33,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       command_payload = subject.munge_catalog(catalog)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
-        :version => 2,
+        :version => 3,
         :payload => command_payload,
       }.to_pson
 

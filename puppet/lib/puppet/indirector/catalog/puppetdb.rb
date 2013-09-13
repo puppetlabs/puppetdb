@@ -9,7 +9,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     catalog = munge_catalog(request.instance, extract_extra_request_data(request))
 
-    submit_command(request.key, catalog, CommandReplaceCatalog, 2)
+    submit_command(request.key, catalog, CommandReplaceCatalog, 3)
   end
 
   def find(request)
