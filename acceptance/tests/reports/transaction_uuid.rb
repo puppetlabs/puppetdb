@@ -27,13 +27,14 @@ test_name "validate matching transaction UUIDs in agent report and catalog" do
     catalog = JSON.parse(result.stdout)
 
     report_uuid = report['transaction-uuid']
-    catalog_uuid = catalog['data']['transaction_uuid']
+    catalog_uuid = catalog['data']['transaction-uuid']
     report_format = report['report-format']
 
     if report_format < 4
       assert_equal(nil, report_uuid, 'Transaction UUID should be nil in reports before format 4')
       assert_equal(nil, catalog_uuid, 'Transaction UUID should be nil in catalogs before format 4')
     else
+      assert_not_nil(report_uuid, 'Transaction UUID should not be nil')
       assert_equal(report_uuid, catalog_uuid, 'Most recent report & catalog should have the same transaction UUID')
     end
   end
