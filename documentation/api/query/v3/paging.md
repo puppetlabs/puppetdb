@@ -35,7 +35,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v3/facts --datrlencode 'order-by=[{"field": "value", "order": "desc"}, {"field": "name"}]'
+    curl -X GET http://localhost:8080/v3/facts --data-urlencode 'order-by=[{"field": "value", "order": "desc"}, {"field": "name"}]'
 
 ### `limit`
 
