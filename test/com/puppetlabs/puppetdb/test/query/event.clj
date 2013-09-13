@@ -117,17 +117,21 @@
                    [:resource-title   "notify, yo"                        [1]]
                    [:status           "success"                           [1 2]]
                    [:property         "message"                           [1 2]]
+                   [:property         nil                                 [3]]
                    [:old-value        ["what" "the" "woah"]               [1]]
                    [:new-value        "notify, yo"                        [1]]
                    [:message          "defined 'message' as 'notify, yo'" [1 2]]
+                   [:message          nil                                 [3]]
                    [:resource-title   "bunk"                              []]
                    [:certname         "foo.local"                         [1 2 3]]
                    [:certname         "bunk.remote"                       []]
                    [:file             "foo.pp"                            [1]]
                    [:file             "bar"                               [3]]
-                   [:line             1                                   [1]]
+                   [:file             nil                                 [2]]
                    [:line             2                                   [3]]
-                   [:containing-class "Foo"                               [3]]]]
+                   [:line             nil                                 [2]]
+                   [:containing-class "Foo"                               [3]]
+                   [:containing-class nil                                 [1 2]]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
@@ -144,17 +148,22 @@
                [:resource-title   "notify, yo"                        [2 3]]
                [:status           "success"                           [3]]
                [:property         "message"                           [3]]
+               [:property         nil                                 [1 2]]
                [:old-value        ["what" "the" "woah"]               [2 3]]
                [:new-value        "notify, yo"                        [2 3]]
                [:message          "defined 'message' as 'notify, yo'" [3]]
+               [:message          nil                                 [1 2]]
                [:resource-title   "bunk"                              [1 2 3]]
                [:certname         "foo.local"                         []]
                [:certname         "bunk.remote"                       [1 2 3]]
                [:file             "foo.pp"                            [2 3]]
                [:file             "bar"                               [1 2]]
+               [:file             nil                                 [1 3]]
                [:line             1                                   [2 3]]
                [:line             2                                   [1 2]]
-               [:containing-class "Foo"                               [1 2]]]]
+               [:line             nil                                 [1 3]]
+               [:containing-class "Foo"                               [1 2]]
+               [:containing-class nil                                 [3]]]]
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
                             (utils/select-values basic-events matches)
@@ -340,6 +349,6 @@
             results2  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
             expected  (clojure.set/union results1 results2)
             actual    (resource-events-query-result ["or"
-                                                     ["and" ["=" "status" "skipped"] ["=" "latest-report" false]]
-                                                     ["and" ["=" "message" "created"] ["=" "latest-report" true]]])]
+                                                      ["and" ["=" "status" "skipped"] ["=" "latest-report" false]]
+                                                      ["and" ["=" "message" "created"] ["=" "latest-report" true]]])]
         (is (= actual expected))))))
