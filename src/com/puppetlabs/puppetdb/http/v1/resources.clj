@@ -74,6 +74,15 @@
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
+(defn munge-result-rows
+  "Munge the result rows so that they will be compatible with the v1 API specification"
+  [rows]
+  (map (fn [r] (-> r
+                 (assoc :sourceline (:line r))
+                 (assoc :sourcefile (:file r))
+                 (dissoc :file :line)))
+    rows))
+
 (defn produce-body
   "Given a `limit`, a query, and database connection, return a Ring
   response with the query results. The result format conforms to that documented
@@ -91,6 +100,7 @@
           (r/v1-query->sql)
           ((partial r/limited-query-resources limit))
           (:result)
+          (munge-result-rows)
           (pl-http/json-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))

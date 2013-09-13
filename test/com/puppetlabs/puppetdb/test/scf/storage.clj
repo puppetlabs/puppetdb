@@ -206,11 +206,11 @@
                  {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
 
         (testing "with all metadata"
-          (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.sourcefile, cr.sourceline FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
+          (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
             (is (= (map #(assoc % :tags (sort (:tags %))) result)
-                  [{:type "Class" :title "foobar" :tags [] :exported false :sourcefile nil :sourceline nil}
-                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/foo" :sourceline 10}
-                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}])))))))
+                  [{:type "Class" :title "foobar" :tags [] :exported false :file nil :line nil}
+                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :file "/tmp/foo" :line 10}
+                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :file "/tmp/bar" :line 20}])))))))
 
   (deftest catalog-replacement
     (testing "should noop if replaced by themselves"

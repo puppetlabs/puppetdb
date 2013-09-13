@@ -43,7 +43,7 @@
       {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
       {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
       {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-      {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
+      {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
 
   {:foo1 {:certname   "one.local"
           :resource   "1"
@@ -51,8 +51,8 @@
           :title      "/etc/passwd"
           :tags       ["one" "two"]
           :exported   false
-          :sourcefile nil
-          :sourceline nil
+          :file nil
+          :line nil
           :parameters {:ensure "file"
                        :owner  "root"
                        :group  "root"
@@ -63,8 +63,8 @@
           :title      "hello"
           :tags       []
           :exported   false
-          :sourcefile nil
-          :sourceline nil
+          :file nil
+          :line nil
           :parameters {}}
    :bar1 {:certname   "two.local"
           :resource   "1"
@@ -72,8 +72,8 @@
           :title      "/etc/passwd"
           :tags       ["one" "two"]
           :exported   false
-          :sourcefile nil
-          :sourceline nil
+          :file nil
+          :line nil
           :parameters {:ensure "file"
                        :owner  "root"
                        :group  "root"
@@ -84,6 +84,6 @@
           :title      "hello"
           :tags       []
           :exported   true
-          :sourcefile nil
-          :sourceline nil
+          :file "/foo/bar"
+          :line 22
           :parameters {}}})

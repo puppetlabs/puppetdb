@@ -61,7 +61,7 @@ to the result of the form supplied to this method."
     (sql/insert-records :catalog_resources
                         {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
+                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
 
   (let [foo1 {:certname   "one.local"
               :resource   "1"
@@ -93,8 +93,8 @@ to the result of the form supplied to this method."
               :title      "hello"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "/foo/bar"
+              :sourceline 22
               :parameters {}}]
 
     (testing "query without filter"
@@ -122,6 +122,16 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query by source file"
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            result #{bar2}]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query by source file"
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            result #{bar2}]
         (is-response-equal (get-response query) result)))
 
     (testing "query exceeding resource-query-limit"

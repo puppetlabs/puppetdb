@@ -41,25 +41,25 @@
     {:certname "example.local" :catalog "foo"}
     {:certname "subset.local" :catalog "bar"})
   (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "a" :sourceline 1}
-    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "a" :sourceline 2}
-    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "c" :sourceline 1}
-    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :sourcefile "d" :sourceline 1}
-    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 2}
-    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "e" :sourceline 1}
-    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "f" :sourceline 1}
-    {:catalog "foo" :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :sourcefile "f" :sourceline 1}
-    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :sourcefile "b" :sourceline 1}
-    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "c" :sourceline 2}
-    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :sourcefile "d" :sourceline 3})
+    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
+    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
+    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
+    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
+    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
+    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
+    {:catalog "foo" :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
+    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
+    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
   (let [foo1 {:certname   "example.local"
               :resource   "1"
               :type       "File"
               :title      "/etc/passwd"
               :tags       []
               :exported   true
-              :sourcefile "a"
-              :sourceline 1
+              :file "a"
+              :line 1
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -69,8 +69,8 @@
               :title      "/etc/passwd"
               :tags       []
               :exported   true
-              :sourcefile "b"
-              :sourceline 1
+              :file "b"
+              :line 1
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -80,8 +80,8 @@
               :title      "hello"
               :tags       []
               :exported   true
-              :sourcefile "a"
-              :sourceline 2
+              :file "a"
+              :line 2
               :parameters {"random" "true"}}
         foo3 {:certname   "example.local"
               :resource   "3"
@@ -89,8 +89,8 @@
               :title      "no-params"
               :tags       []
               :exported   true
-              :sourcefile "c"
-              :sourceline 1
+              :file "c"
+              :line 1
               :parameters {}}
         bar3 {:certname   "subset.local"
               :resource   "3"
@@ -98,8 +98,8 @@
               :title      "no-params"
               :tags       []
               :exported   false
-              :sourcefile "c"
-              :sourceline 2
+              :file "c"
+              :line 2
               :parameters {}}
         foo4 {:certname   "example.local"
               :resource   "4"
@@ -107,8 +107,8 @@
               :title      "/etc/Makefile"
               :tags       ["vivid"]
               :exported   false
-              :sourcefile "d"
-              :sourceline 1
+              :file "d"
+              :line 1
               :parameters {"ensure"  "present"
                            "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
         foo5 {:certname   "example.local"
@@ -117,8 +117,8 @@
               :title      "booyah"
               :tags       []
               :exported   false
-              :sourcefile "d"
-              :sourceline 2
+              :file "d"
+              :line 2
               :parameters {"random" "false"}}
         bar5 {:certname   "subset.local"
               :resource   "5"
@@ -126,8 +126,8 @@
               :title      "booyah"
               :tags       []
               :exported   false
-              :sourcefile "d"
-              :sourceline 3
+              :file "d"
+              :line 3
               :parameters {"random" "false"}}
         foo6 {:certname   "example.local"
               :resource   "6"
@@ -135,8 +135,8 @@
               :title      "multivalue"
               :tags       []
               :exported   false
-              :sourcefile "e"
-              :sourceline 1
+              :file "e"
+              :line 1
               :parameters {"multi" ["one" "two" "three"]}}
         foo7 {:certname   "example.local"
               :resource   "7"
@@ -144,8 +144,8 @@
               :title      "hashvalue"
               :tags       []
               :exported   false
-              :sourcefile "f"
-              :sourceline 1
+              :file "f"
+              :line 1
               :parameters {"hash" {"foo" 5 "bar" 10}}}
         foo8 {:certname   "example.local"
               :resource   "8"
@@ -153,8 +153,8 @@
               :title      "semver"
               :tags       ["1.3.7+build.11.e0f985a"]
               :exported   false
-              :sourcefile "f"
-              :sourceline 1
+              :file "f"
+              :line 1
               :parameters {}}
         ]
     ;; ...and, finally, ready for testing.
@@ -179,9 +179,9 @@
                   ["=" ["parameter" "multi"] ["one" "three" "two"]] []
                   ["=" ["parameter" "multi"] "three"] []
                   ;; metadata
-                  ["=" "sourcefile" "c"] [foo3 bar3]
-                  ["=" "sourceline" 3] [bar5]
-                  ["and" ["=" "sourcefile" "c"] ["=" "sourceline" 1]] [foo3]
+                  ["=" "file" "c"] [foo3 bar3]
+                  ["=" "line" 3] [bar5]
+                  ["and" ["=" "file" "c"] ["=" "line" 1]] [foo3]
                   ;; hash parameter matching
                   ["=" ["parameter" "hash"] {"foo" 5 "bar" 10}] [foo7]
                   ["=" ["parameter" "hash"] {"bar" 10 "foo" 5}] [foo7]
