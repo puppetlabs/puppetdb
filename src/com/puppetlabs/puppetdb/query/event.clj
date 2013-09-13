@@ -56,7 +56,7 @@
       ;; wrapped in a NOT(...) clause, so we have to be very explicit
       ;; about the NULL case.
       [(field :when #{"property" "message" "file" "line" "containing_class"})]
-      (if value
+      (if-not (nil? value)
         {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
          :params [value] }
         {:where (format "resource_events.%s IS NULL" field)
