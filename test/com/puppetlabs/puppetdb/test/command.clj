@@ -3,8 +3,8 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.catalog :as catalog]
-            [com.puppetlabs.puppetdb.examples.report :as report-examples])
+            [com.puppetlabs.puppetdb.catalogs :as catalog]
+            [com.puppetlabs.puppetdb.examples.reports :as report-examples])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
@@ -12,7 +12,7 @@
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.examples]
         [com.puppetlabs.testutils.logging]
-        [com.puppetlabs.puppetdb.testutils.report :only [munge-example-report-for-storage]]
+        [com.puppetlabs.puppetdb.testutils.reports :only [munge-example-report-for-storage]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [clj-time.coerce :only [to-timestamp]]
         [clojure.test]

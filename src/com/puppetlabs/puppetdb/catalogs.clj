@@ -87,7 +87,7 @@
 ;;                     <dependency-spec>,
 ;;                     ...)}
 ;;
-(ns com.puppetlabs.puppetdb.catalog
+(ns com.puppetlabs.puppetdb.catalogs
   (:require [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.set :as set]

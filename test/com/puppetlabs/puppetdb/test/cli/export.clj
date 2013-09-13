@@ -1,10 +1,10 @@
 (ns com.puppetlabs.puppetdb.test.cli.export
-  (:require [com.puppetlabs.puppetdb.query.catalog :as c]
-            [com.puppetlabs.puppetdb.query.report :as r]
-            [com.puppetlabs.puppetdb.query.event :as e]
+  (:require [com.puppetlabs.puppetdb.query.catalogs :as c]
+            [com.puppetlabs.puppetdb.query.reports :as r]
+            [com.puppetlabs.puppetdb.query.events :as e]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.testutils.catalog :as testcat]
-            [com.puppetlabs.puppetdb.testutils.report :as testrep])
+            [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
+            [com.puppetlabs.puppetdb.testutils.reports :as testrep])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
          [com.puppetlabs.puppetdb.fixtures]))

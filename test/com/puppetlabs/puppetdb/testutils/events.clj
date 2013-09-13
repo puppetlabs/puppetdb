@@ -1,6 +1,6 @@
-(ns com.puppetlabs.puppetdb.testutils.event
-  (:require [com.puppetlabs.puppetdb.query.event :as query]
-            [com.puppetlabs.puppetdb.report :as report])
+(ns com.puppetlabs.puppetdb.testutils.events
+  (:require [com.puppetlabs.puppetdb.query.events :as query]
+            [com.puppetlabs.puppetdb.reports :as report])
   (:use [clj-time.coerce :only [to-timestamp]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

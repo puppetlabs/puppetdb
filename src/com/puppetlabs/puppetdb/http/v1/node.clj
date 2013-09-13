@@ -31,7 +31,7 @@
 (ns com.puppetlabs.puppetdb.http.v1.node
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.node :as node]
+            [com.puppetlabs.puppetdb.query.nodes :as node]
             [ring.util.response :as rr])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware

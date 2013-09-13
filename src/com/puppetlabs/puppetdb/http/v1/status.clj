@@ -4,7 +4,7 @@
 ;; spec](../spec/status.md).
 (ns com.puppetlabs.puppetdb.http.v1.status
   (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.node :as n]
+            [com.puppetlabs.puppetdb.query.nodes :as n]
             [ring.util.response :as rr])
   (:use com.puppetlabs.middleware
         [net.cgrand.moustache :only (app)]

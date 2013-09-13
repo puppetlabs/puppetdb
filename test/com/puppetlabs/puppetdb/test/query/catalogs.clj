@@ -1,8 +1,8 @@
-(ns com.puppetlabs.puppetdb.test.query.catalog
-  (:require [com.puppetlabs.puppetdb.examples          :as examples]
-            [com.puppetlabs.puppetdb.query.catalog     :as c]
-            [com.puppetlabs.puppetdb.testutils.catalog :as testcat]
-            [cheshire.core                             :as json])
+(ns com.puppetlabs.puppetdb.test.query.catalogs
+  (:require [com.puppetlabs.puppetdb.examples           :as examples]
+            [com.puppetlabs.puppetdb.query.catalogs     :as c]
+            [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
+            [cheshire.core                              :as json])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
         [clj-time.core :only [now]]

@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.query.event-counts
-  (:require [com.puppetlabs.puppetdb.query.event :as events]
+  (:require [com.puppetlabs.puppetdb.query.events :as events]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores]]
         [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]

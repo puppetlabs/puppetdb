@@ -1,14 +1,14 @@
-(ns com.puppetlabs.puppetdb.test.query.event
+(ns com.puppetlabs.puppetdb.test.query.events
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.report :as report]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.event :as event-query]
+            [com.puppetlabs.puppetdb.query.events :as event-query]
             [com.puppetlabs.utils :as utils])
   (:use clojure.test
          com.puppetlabs.puppetdb.fixtures
-         com.puppetlabs.puppetdb.examples.report
-         [com.puppetlabs.puppetdb.testutils.report :only [store-example-report! get-events-map]]
-         com.puppetlabs.puppetdb.testutils.event
+         com.puppetlabs.puppetdb.examples.reports
+         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report! get-events-map]]
+         com.puppetlabs.puppetdb.testutils.events
          [clj-time.coerce :only [to-string to-timestamp to-long]]
          [clj-time.core :only [now ago days]]))
 

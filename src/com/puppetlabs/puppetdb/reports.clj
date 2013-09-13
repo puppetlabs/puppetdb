@@ -3,7 +3,7 @@
 ;; Functions that handle conversion of reports from wire format to
 ;; internal PuppetDB format, including validation.
 
-(ns com.puppetlabs.puppetdb.report
+(ns com.puppetlabs.puppetdb.reports
   (:use [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.validation :only [defmodel validate-against-model!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]])

@@ -1,9 +1,9 @@
-(ns com.puppetlabs.puppetdb.test.query.report
-  (:require [com.puppetlabs.puppetdb.query.report :as query])
+(ns com.puppetlabs.puppetdb.test.query.reports
+  (:require [com.puppetlabs.puppetdb.query.reports :as query])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.report
-        com.puppetlabs.puppetdb.testutils.report
+        com.puppetlabs.puppetdb.examples.reports
+        com.puppetlabs.puppetdb.testutils.reports
         [com.puppetlabs.time :only [to-secs]]
         [clj-time.core :only [now ago days]]))
 

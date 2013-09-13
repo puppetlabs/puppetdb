@@ -1,12 +1,12 @@
-(ns com.puppetlabs.puppetdb.testutils.report
+(ns com.puppetlabs.puppetdb.testutils.reports
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.puppetdb.report :as report]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils]
-            [com.puppetlabs.puppetdb.query.report :as query]
+            [com.puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce])
-  (:use [com.puppetlabs.puppetdb.testutils.event :only [munge-example-event-for-storage
-                                                        munge-v2-example-events-to-v1
-                                                        munge-v1-example-events-to-v2]]))
+  (:use [com.puppetlabs.puppetdb.testutils.events :only [munge-example-event-for-storage
+                                                         munge-v2-example-events-to-v1
+                                                         munge-v1-example-events-to-v2]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that

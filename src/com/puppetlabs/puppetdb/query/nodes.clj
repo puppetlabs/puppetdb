@@ -3,7 +3,7 @@
 ;; This implements the node query operations according to the [node query
 ;; spec](../spec/node.md).
 ;;
-(ns com.puppetlabs.puppetdb.query.node
+(ns com.puppetlabs.puppetdb.query.nodes
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-array-query-string sql-as-numeric]]
