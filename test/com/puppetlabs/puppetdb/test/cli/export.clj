@@ -4,12 +4,12 @@
             [com.puppetlabs.puppetdb.query.events :as e]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [com.puppetlabs.puppetdb.testutils.reports :as testrep])
+            [com.puppetlabs.puppetdb.testutils.reports :as testrep]
+            [com.puppetlabs.puppetdb.cli.export :as export])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
-         [com.puppetlabs.puppetdb.fixtures]))
-
-
+         [com.puppetlabs.puppetdb.fixtures]
+         [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
 
 (use-fixtures :each with-test-db)
 
@@ -32,4 +32,9 @@
 
         (let [exported-report (first (r/reports-for-node "myhost.localdomain"))]
           (is (= (testrep/munge-report-for-comparison original-report)
-                 (testrep/munge-report-for-comparison exported-report))))))))
+                 (testrep/munge-report-for-comparison exported-report)))))))
+
+  (testing "Export metadata"
+    (is (= {:replace-catalog catalog-version
+            :store-report 2}
+          (:command-versions export/export-metadata)))))

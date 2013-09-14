@@ -13,7 +13,7 @@
         [clj-time.coerce :only [to-string]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
         [clj-http.util :only [url-encode]]
-        [com.puppetlabs.puppetdb.catalog :only [catalog-version]])
+        [com.puppetlabs.puppetdb.catalogs :only [catalog-version]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -85,7 +85,7 @@
           (integer? port)]
    :post ((some-fn nil? seq?) %)}
   (let [{:keys [status body]} (client/get
-                                (format "http://%s:%s/v2/nodes" host port)
+                                (format "http://%s:%s/v3/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
       (map :name
