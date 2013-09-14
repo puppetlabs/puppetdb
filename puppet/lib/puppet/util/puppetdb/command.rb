@@ -7,7 +7,7 @@ require 'puppet/util/puppetdb/char_encoding'
 class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb::CommandNames
 
-  Url                = "/v2/commands"
+  Url                = "/v3/commands"
 
   # Public instance methods
 

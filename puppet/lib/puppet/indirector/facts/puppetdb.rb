@@ -16,7 +16,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def find(request)
     begin
-      response = http_get(request, "/v2/nodes/#{CGI.escape(request.key)}/facts", headers)
+      response = http_get(request, "/v3/nodes/#{CGI.escape(request.key)}/facts", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
@@ -78,7 +78,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     query_param = CGI.escape(query.to_pson)
 
     begin
-      response = http_get(request, "/v2/nodes?query=#{query_param}", headers)
+      response = http_get(request, "/v3/nodes?query=#{query_param}", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
