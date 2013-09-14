@@ -23,7 +23,7 @@ test_name "validate matching transaction UUIDs in agent report and catalog" do
     report = JSON.parse(result.stdout)[0]
 
     # Query for the most recent catalog for this node
-    result = on database, %Q|curl -G http://localhost:8080/v3/catalog/#{agent.node_name}|
+    result = on database, %Q|curl -G http://localhost:8080/v3/catalogs/#{agent.node_name}|
     catalog = JSON.parse(result.stdout)
 
     report_uuid = report['transaction-uuid']
