@@ -23,7 +23,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     query_param = CGI.escape(expr.to_pson)
 
     begin
-      response = http_get(request, "/v2/resources?query=#{query_param}", headers)
+      response = http_get(request, "/v3/resources?query=#{query_param}", headers)
       log_x_deprecation_header(response)
 
       unless response.is_a? Net::HTTPSuccess
