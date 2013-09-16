@@ -12,11 +12,7 @@
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the v2 API specification"
   [rows]
-  (map (fn [r] (-> r
-                 (assoc :sourceline (:line r))
-                 (assoc :sourcefile (:file r))
-                 (dissoc :file :line)))
-    rows))
+  (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) rows))
 
 (defn produce-body
   "Given a `limit`, a query, and database connection, return a Ring
