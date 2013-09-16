@@ -347,15 +347,15 @@
       "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
 (defn add-latest-reports-table
-  "Add `latest_reports` table for easy lookup of latest report for each node."
+  "Add `latest_reports` table for easy lookup of latest report for each certname."
   []
   (sql/create-table :latest_reports
-    ["node" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+    ["certname" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
     ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
   (sql/do-commands
     "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
   (sql/do-commands
-    "INSERT INTO latest_reports (node, report)
+    "INSERT INTO latest_reports (certname, report)
         SELECT reports.certname, reports.hash
         FROM reports INNER JOIN (
           SELECT reports.certname, MAX(reports.end_time) as max_end_time

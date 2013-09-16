@@ -35,13 +35,13 @@
             actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "containing-class")]
         (is (= actual expected))))
 
-    (testing "node"
+    (testing "certname"
       (let [expected  {:successes 1
                        :failures 0
                        :noops 0
                        :skips 1
                        :total 1}
-            actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "node")]
+            actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "certname")]
         (is (= actual expected))))
 
     (testing "resource"
@@ -103,7 +103,7 @@
     (testing "rejects unsupported values"
       (is (thrown-with-msg?
             IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
-            (aggregate-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "illegal-count-by"}))))
+            (aggregate-counts-query-result ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
     (testing "resource"
       (let [expected  {:successes 1
@@ -114,13 +114,13 @@
             actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "containing-class" {:count-by "resource"})]
         (is (= actual expected))))
 
-    (testing "node"
+    (testing "certname"
       (let [expected  {:successes 1
                        :failures 0
                        :noops 0
                        :skips 1
                        :total 1}
-            actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "node" {:count-by "node"})]
+            actual    (aggregate-counts-query-result ["=" "certname" "foo.local"] "certname" {:count-by "certname"})]
         (is (= actual expected)))))
 
   (testing "when nothing matches, should return zeroes rather than nils"
