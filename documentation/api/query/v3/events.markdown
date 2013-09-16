@@ -1,12 +1,12 @@
 ---
 title: "PuppetDB 1.4 » API » v3 » Querying Events"
 layout: default
-canonical: "/puppetdb/latest/api/query/v3/event.html"
+canonical: "/puppetdb/latest/api/query/v3/events.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[report]: ./report.html
-[operator]: ../v2/operators.html
+[report]: ./reports.html
+[operator]: ../v3/operators.html
 [paging]: ./paging.html
 
 
