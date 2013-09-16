@@ -129,8 +129,8 @@ to the result of the form supplied to this method."
             result #{bar2}]
         (is-response-equal (get-response query) result)))
 
-    (testing "query by source file"
-      (let [query ["=" "sourcefile" "/foo/bar"]
+    (testing "query by source line"
+      (let [query ["=" "sourceline" 22]
             result #{bar2}]
         (is-response-equal (get-response query) result)))
 

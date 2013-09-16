@@ -45,11 +45,7 @@ to the result of the form supplied to this method."
   "Munge example resource output from latest API format to v2 format"
   [example-resources]
   (mapvals
-    (fn [resource]
-      (-> resource
-        (assoc :sourcefile (:file resource))
-        (assoc :sourceline (:line resource))
-        (dissoc :file :line)))
+    #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
     example-resources))
 
 (deftest resource-list-handler
