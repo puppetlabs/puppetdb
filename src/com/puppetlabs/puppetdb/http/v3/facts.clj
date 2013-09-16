@@ -11,8 +11,8 @@
 
 (defn query-facts
   "Accepts a `query` and a `db` connection, and returns facts matching the
-  query. If the query can't be parsed or is invalid, a 400 error will be returned, and a 500 if
-  something else goes wrong."
+  query. If the query can't be parsed or is invalid, a 400 error will be
+  returned, and a 500 if something else goes wrong."
   [query paging-options db]
   (try
     (with-transacted-connection db
@@ -41,7 +41,9 @@
     (verify-accepts-json query-app)
 
     [fact value &]
-    (comp query-app (partial http-q/restrict-fact-query-to-name fact) (partial http-q/restrict-fact-query-to-value value))
+    (comp query-app
+          (partial http-q/restrict-fact-query-to-name fact)
+          (partial http-q/restrict-fact-query-to-value value))
 
     [fact &]
     (comp query-app (partial http-q/restrict-fact-query-to-name fact))))
