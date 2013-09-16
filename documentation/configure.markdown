@@ -343,6 +343,14 @@ This setting defaults to half the number of cores in your system.
 
 This setting specifies the maximum duration to keep messages in the dead-letter office before archiving them. This process will check for compressible messages on startup and after every `gc-interval`, but will only perform the archive once per `dlo-compression-threshold`. The same format can be used as for the `node-ttl` setting above. If set to 0 seconds, this behavior will be disabled. The default value is 1 day.
 
+### `store-usage`
+
+This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for persistent message storage.
+
+### `temp-usage`
+
+This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for temporary message storage.
+
 `[jetty]` (HTTP) Settings
 -----
 
