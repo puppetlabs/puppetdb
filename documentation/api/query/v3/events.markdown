@@ -6,7 +6,7 @@ canonical: "/puppetdb/latest/api/query/v3/events.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [report]: ./reports.html
-[operator]: ../v3/operators.html
+[operators]: ./operators.html
 [paging]: ./paging.html
 
 
@@ -56,7 +56,7 @@ For more information on the available values for `FIELD`, see the [fields](#fiel
 
 ##### Operators
 
-See [the Operators page](./operators.html) for the full list of available operators.
+See [the Operators page][operators] for the full list of available operators.
 Note that inequality operators (`<`, `>`, `<=`, `>=`) are only supported against
 the `timestamp` FIELD.
 

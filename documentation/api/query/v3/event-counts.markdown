@@ -21,14 +21,15 @@ See the [`events`][events] endpoint for additional documentation as this endpoin
 
 #### Parameters
 
-* `query`: Requried. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
+* `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
+This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
 
 * `summarize-by`: Required. A string specifying which type of object you'd like to see counts for.
 Supported values are `resource`, `containing-class`, and `certname`.
 
 * `count-by`: Optional. A string specifying what type of object is counted when building up the
 counts of `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default)
-and `node`.
+and `certname`.
 
 * `counts-filter`: Optional. A JSON array of query predicates in the usual prefix form. This query
 is applied to the final event counts output. Supported operators are `=`, `>`, `<`, `>=`, and `<=`.
@@ -94,7 +95,7 @@ When summarizing by `resource`, the `subject` will contain a `type` and `title` 
       }
     ]
 
-When summarizing by `containing-class`, the `subject` will contain a `type` and `title` key:
+When summarizing by `containing-class`, the `subject` will contain a `title` key:
 
     [
       {
@@ -127,5 +128,5 @@ You can use [`curl`][curl] to query information about resource event counts like
     curl -G 'http://localhost:8080/v3/event-counts' \
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
             --data-urlencode 'summarize-by=resource' \
-            --data-urlencode 'count-by=node' \
+            --data-urlencode 'count-by=certname' \
             --data-urlencode 'counts-filter=[">", "failures", 0]'
