@@ -315,12 +315,14 @@
                (format "Unsupported database engine '%s'"
                  (sql-current-connection-database-name)))))))
 
-(defn initial-burgundy-schema-changes
+(defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
 
     - Add 'file' and 'line' columns to the event table
     - A column for the resource's containment path in the resource_events table
-    - A column for the transaction uuid in the reports & catalogs tables"
+    - A column for the transaction uuid in the reports & catalogs tables
+    - Renames the `sourcefile` and `sourceline` columns on the `catalog_resources`
+      table to `file` and `line` for consistency."
   []
   (sql/do-commands
     "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
@@ -335,7 +337,14 @@
     "ALTER TABLE reports ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
     "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
     "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
-    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)"))
+    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
+  (sql/do-commands
+    (if (= (sql-current-connection-database-name) "PostgreSQL")
+      "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
+      "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
+    (if (= (sql-current-connection-database-name) "PostgreSQL")
+      "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
+      "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
 (defn add-latest-reports-table
   "Add `latest_reports` table for easy lookup of latest report for each node."
@@ -369,7 +378,7 @@
    9 add-reports-tables
    10 add-event-status-index
    11 increase-puppet-version-field-length
-   12 initial-burgundy-schema-changes
+   12 burgundy-schema-changes
    13 add-latest-reports-table})
 
 (def desired-schema-version (apply max (keys migrations)))

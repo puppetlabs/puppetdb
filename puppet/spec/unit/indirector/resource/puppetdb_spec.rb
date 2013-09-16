@@ -58,8 +58,8 @@ describe Puppet::Resource::Puppetdb do
       }
 
       def make_resource_hash(name, certname="localhost", exported=true)
-        metadata = { :sourcefile => '/etc/puppet/manifests/site.pp',
-                     :sourceline => 10,
+        metadata = { :file => '/etc/puppet/manifests/site.pp',
+                     :line => 10,
                      :exported   => exported,
                      :certname   => certname,
                      :hash       => 'foobarbaz', }

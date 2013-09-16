@@ -6,7 +6,8 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.testutils.resources :only [store-example-resources]]))
+        [com.puppetlabs.puppetdb.testutils.resources :only [store-example-resources]]
+        [com.puppetlabs.utils :only [mapvals]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -40,9 +41,15 @@ to the result of the form supplied to this method."
                 (set (json/parse-string (:body response) true))
                 nil)) (str response)))
 
-(deftest resource-list-handler
+(defn expected-results
+  "Munge example resource output from latest API format to v2 format"
+  [example-resources]
+  (mapvals
+    #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
+    example-resources))
 
-  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+(deftest resource-list-handler
+  (let [{:keys [foo1 foo2 bar1 bar2]} (expected-results (store-example-resources))]
     (testing "query without filter should not fail"
       (let [response (get-response)
             body     (get response :body "null")]
@@ -60,6 +67,31 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
         (is-response-equal (get-response query) result)))
+
+    (testing "query by source file / line"
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            result #{bar2}]
+        (is-response-equal (get-response query) result))
+      (let [query ["~" "sourcefile" "foo"]
+            result #{bar2}]
+        (is-response-equal (get-response query) result))
+      (let [query ["=" "sourceline" 22]
+            result #{bar2}]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query by new field names file/line"
+      (let [query ["=" "line" 22]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "line is not a queryable object for resources" (:body response))))
+      (let [query ["~" "file" "foo"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "file cannot be the target of a regexp match" (:body response))))
+      (let [query ["=" "file" "/foo/bar"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "file is not a queryable object for resources" (:body response)))))
 
     (testing "query exceeding resource-query-limit"
       (with-http-app {:resource-query-limit 1}
@@ -117,9 +149,7 @@ to the result of the form supplied to this method."
                             [["=" ["parameter" "ensure"] "file"] #{bar1}]
                             [["=" ["parameter" "owner"] "root"] #{bar1}]
                             [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
-      (is-response-equal (get-response query) result))))
-
-  )
+      (is-response-equal (get-response query) result)))))
 
 (deftest resource-query-paging
   (testing "should not support paging-related query parameters"

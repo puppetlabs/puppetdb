@@ -86,8 +86,8 @@ look something like this:
         "groups" : "developers",
         "ensure" : "present"
       },
-      "sourceline" : 111,
-      "sourcefile" : "/etc/puppet/manifests/user.pp",
+      "line" : 111,
+      "file" : "/etc/puppet/manifests/user.pp",
       "exported" : false,
       "tags" : [ "firewall", "default", "node", "nick", "role::base", "users", "virtual", "user", "account", "base", "role::firewall::office", "role", "role::firewall", "class", "account::user", "office", "virtual::users", "allstaff" ],
       "title" : "nick",
@@ -100,8 +100,8 @@ Our results are an array of "resources", where each resource is an object with
 a particular set of keys.
 
 parameters: this field is itself an object, containing all the parameters and values of the resource
-sourceline: the line the resource was declared on
-sourcefile: the file the resource was specified in
+line: the line the resource was declared on
+file: the file the resource was specified in
 exported: true if the resource was exported by this node, or false otherwise
 tags: all the tags on the resource
 title: the resource title
@@ -126,8 +126,8 @@ there's an operator to help us:
       ["=", "title", "nick"],
       ["not",
         ["and",
-          ["=", "sourceline", "/etc/puppet/manifests/user.pp"],
-          ["=", "sourcefile", 111]]]]
+          ["=", "file", "/etc/puppet/manifests/user.pp"],
+          ["=", "line", 111]]]]
 
 The `"not"` operator wraps another clause, and returns results for which the
 clause is *not* true. In this case, we want resources which aren't defined on
@@ -136,7 +136,7 @@ line 111 of /etc/puppet/manifests/user.pp.
 ### Resource Attributes
 
 So far we've seen that we can query for resources based on their `certname`,
-`type`, `title`, `sourcefile`, and `sourceline`. There are a few more available:
+`type`, `title`, `file`, and `line`. There are a few more available:
 
     ["and",
       ["=", "tag", "foo"],

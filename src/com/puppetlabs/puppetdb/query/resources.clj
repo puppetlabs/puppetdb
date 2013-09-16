@@ -18,6 +18,7 @@
         [com.puppetlabs.puppetdb.query :only [resource-query->sql
                                               resource-operators-v1
                                               resource-operators-v2
+                                              resource-operators-v3
                                               resource-columns]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
@@ -45,8 +46,8 @@
           paged-subselect      (paged-sql subselect paging-options)
           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
                                   "subquery1.type, subquery1.title, subquery1.tags, "
-                                  "subquery1.exported, subquery1.sourcefile, "
-                                  "subquery1.sourceline, rp.name, rp.value "
+                                  "subquery1.exported, subquery1.file, "
+                                  "subquery1.line, rp.name, rp.value "
                             "FROM (%s) subquery1 "
                             "LEFT OUTER JOIN resource_params rp "
                                 "ON rp.resource = subquery1.resource")
@@ -68,6 +69,9 @@
 (def v2-query->sql
   (partial query->sql resource-operators-v2))
 
+(def v3-query->sql
+  (partial query->sql resource-operators-v3))
+
 (defn limited-query-resources
   "Take a limit, and a map of SQL queries as produced by `query->sql`, return
   a map containing the results of the query, as well as optional metadata.
@@ -85,7 +89,7 @@
   (let [[query & params] results-query
         limited-query (add-limit-clause limit query)
         results       (limited-query-to-vec limit (apply vector limited-query params))
-        metadata_cols [:certname :resource :type :title :tags :exported :sourcefile :sourceline]
+        metadata_cols [:certname :resource :type :title :tags :exported :file :line]
         metadata      (apply juxt metadata_cols)
         results       {:result
                         (vec
