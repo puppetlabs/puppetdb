@@ -134,6 +134,20 @@ to the result of the form supplied to this method."
             result #{bar2}]
         (is-response-equal (get-response query) result)))
 
+    (testing "query by new field names file/line"
+      (let [query ["=" "line" 22]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "line is not a queryable object for resources" (:body response))))
+      (let [query ["~" "file" "foo"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "[\"~\" \"file\" \"foo\"] is not well-formed: query operator '~' is unknown" (:body response))))
+      (let [query ["=" "file" "/foo/bar"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "file is not a queryable object for resources" (:body response)))))
+
     (testing "query exceeding resource-query-limit"
       (with-http-app {:resource-query-limit 1}
         (fn []

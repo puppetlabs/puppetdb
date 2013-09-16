@@ -133,12 +133,12 @@
   dispatches to the function implementing it."
   [ops [op & args :as term]]
   (when-not (sequential? term)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" (vec term)))))
   (when-not op
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" (vec term)))))
   (if-let [f (ops op)]
     (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" term op)))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" (vec term) op)))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -317,7 +317,7 @@
     (apply vector sql params)))
 
 (defn compile-resource-equality-v3
-  "Compile an = operator for a v2 resource query. `path` represents the field
+  "Compile an = operator for a v3 resource query. `path` represents the field
   to query against, and `value` is the value."
   [& [path value :as args]]
   {:post [(map? %)
@@ -365,6 +365,10 @@
           (:where %)]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+  ;; If they passed in any of the new names for the renamed resource-columns, we fail
+  ;; because this is v2.
+  (when (contains? (valset v3-renamed-resource-columns) path)
+    (throw (IllegalArgumentException. (format "%s is not a queryable object for resources" path))))
   (compile-resource-equality-v3 (get v3-renamed-resource-columns path path) value))
 
 (defn compile-resource-equality-v1
@@ -420,6 +424,10 @@
   [& [path value :as args]]
   {:post [(map? %)
           (:where %)]}
+  ;; If they passed in any of the new names for the renamed resource-columns, we fail
+  ;; because this is v2.
+  (when (contains? (valset v3-renamed-resource-columns) path)
+    (throw (IllegalArgumentException. (format "%s cannot be the target of a regexp match" path))))
   (compile-resource-regexp-v3 (get v3-renamed-resource-columns path path) value))
 
 (defn compile-fact-equality
@@ -606,12 +614,12 @@
   (condp = (string/lower-case op)
     "=" compile-resource-equality-v3
     "~" compile-resource-regexp-v3
-    "and" (partial compile-and resource-operators-v2)
-    "or" (partial compile-or resource-operators-v2)
-    "not" (partial compile-not-v2 resource-operators-v2)
-    "extract" (partial compile-extract 3 resource-operators-v2)
-    "in" (partial compile-in :resource 3 resource-operators-v2)
-    "select-resources" (partial resource-query->sql resource-operators-v2)
+    "and" (partial compile-and resource-operators-v3)
+    "or" (partial compile-or resource-operators-v3)
+    "not" (partial compile-not-v2 resource-operators-v3)
+    "extract" (partial compile-extract 3 resource-operators-v3)
+    "in" (partial compile-in :resource 3 resource-operators-v3)
+    "select-resources" (partial resource-query->sql resource-operators-v3)
     "select-facts" (partial fact-query->sql fact-operators-v2)
     nil))
 

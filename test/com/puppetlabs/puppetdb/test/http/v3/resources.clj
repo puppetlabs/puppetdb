@@ -50,6 +50,19 @@ to the result of the form supplied to this method."
         (is-response-equal (get-response query) result))
       (let [query ["=" "line" 22]
             result #{bar2}]
-        (is-response-equal (get-response query) result)))))
+        (is-response-equal (get-response query) result)))
 
+    (testing "query by old field names sourcefile/sourceline"
+      (let [query ["=" "sourceline" 22]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "sourceline is not a queryable object for resources" (:body response))))
+      (let [query ["~" "sourcefile" "foo"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "sourcefile cannot be the target of a regexp match" (:body response))))
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "sourcefile is not a queryable object for resources" (:body response)))))))
 
