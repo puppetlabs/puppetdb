@@ -116,7 +116,7 @@ operators.
 : the Puppet class where this resource is declared.  NOTE: this field may
   contain `NULL` values; see notes below.
 
-`latest-report`
+`latest-report?`
 : whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
 value of this field is always boolean (`true` or `false` without quotes), and it
 is not supported by the regex match operator.
