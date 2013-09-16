@@ -53,8 +53,8 @@ to the result of the form supplied to this method."
                                      "title"      "Main"
                                      "resource"   "fc22ffa0a8128d5676e1c1d55e04c6f55529f04c"
                                      "exported"   false
-                                     "sourcefile" nil
-                                     "sourceline" nil
+                                     "file" nil
+                                     "line" nil
                                      "count"      1
                                      "tags"       ["class" "main"]
                                      "parameters" {"name" "main"}}
@@ -63,8 +63,8 @@ to the result of the form supplied to this method."
                                         "title"      "Settings"
                                         "resource"   "cc1869f0f075fc3c3e5828de9e92d65a0bf8d9ff"
                                         "exported"   false
-                                        "sourcefile" nil
-                                        "sourceline" nil
+                                        "file" nil
+                                        "line" nil
                                         "count"      1
                                         "tags"       ["class" "settings"]
                                         "parameters" {}}
@@ -73,8 +73,8 @@ to the result of the form supplied to this method."
                                     "title"      "main"
                                     "resource"   "124522a30c56cb9e4bbc66bae4c2515cda6ec889"
                                     "exported"   false
-                                    "sourcefile" nil
-                                    "sourceline" nil
+                                    "file" nil
+                                    "line" nil
                                     "count"      1
                                     "tags"       ["main" "stage"]
                                     "parameters" {}}}

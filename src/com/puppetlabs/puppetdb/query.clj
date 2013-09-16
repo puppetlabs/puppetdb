@@ -60,8 +60,9 @@
 ;; applying ordering constraints.
 ;;
 (ns com.puppetlabs.puppetdb.query
-  (:require [clojure.string :as string])
-  (:use [com.puppetlabs.utils :only [parse-number keyset]]
+  (:require [clojure.string :as string]
+            [clojure.set :as set])
+  (:use [com.puppetlabs.utils :only [parse-number keyset valset]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
         [com.puppetlabs.puppetdb.query.paging :only [requires-paging?]]
@@ -132,12 +133,12 @@
   dispatches to the function implementing it."
   [ops [op & args :as term]]
   (when-not (sequential? term)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" term))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" (vec term)))))
   (when-not op
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" term))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" (vec term)))))
   (if-let [f (ops op)]
     (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" term op)))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" (vec term) op)))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -208,8 +209,13 @@
                        "title"      "catalog_resources"
                        "tags"       "catalog_resources"
                        "exported"   "catalog_resources"
-                       "sourcefile" "catalog_resources"
-                       "sourceline" "catalog_resources"})
+                       "file"       "catalog_resources"
+                       "line"       "catalog_resources"})
+
+;; This map's keys are the names of fields from the resource table that were
+;; renamed in v3 of the query API.  The values are the new names of the fields.
+(def v3-renamed-resource-columns {"sourcefile" "file"
+                                  "sourceline" "line"})
 
 ;; This map's keys are the queryable fields for nodes, and the values are the
 ;;  corresponding table names where the fields reside
@@ -224,20 +230,36 @@
     (for [[field table] col-map]
       (str table "." field))))
 
+(defmulti queryable-fields
+  "This function takes a query type (:resource, :fact, :node) and a query
+   API version number, and returns a set of strings which are the names the
+   fields that are legal to query"
+  (fn [query-type query-api-version] query-type))
 
-(def queryable-fields
-  {:resource (keyset resource-columns)
-   :fact     (keyset fact-columns)
-   :node     (keyset node-columns)})
+(defmethod queryable-fields :resource
+  [_ query-api-version]
+  (condp = query-api-version
+    3 (keyset resource-columns)
+    2 (-> (keyset resource-columns)
+        (set/union (keyset v3-renamed-resource-columns))
+        (set/difference (valset v3-renamed-resource-columns)))))
+
+(defmethod queryable-fields :fact
+  [_ _]
+  (keyset fact-columns))
+
+(defmethod queryable-fields :node
+  [_ _]
+  (keyset node-columns))
 
 (def subquery->type
   {"select-resources" :resource
-   "select-facts" :fact})
+   "select-facts"     :fact})
 
 (defn compile-extract
   "Compile an `extract` operator, selecting the given `field` from the compiled
   result of `subquery`, which must be a kind of `select` operator."
-  [ops field subquery]
+  [query-api-version ops field subquery]
   {:pre [(string? field)
          (coll? subquery)]
    :post [(map? %)
@@ -246,8 +268,8 @@
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
       (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
-    (when-not (get-in queryable-fields [subquery-type field])
-      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (queryable-fields subquery-type)))))))
+    (when-not (get (queryable-fields subquery-type query-api-version) field)
+      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (string/join ", " (sort (queryable-fields subquery-type query-api-version)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
@@ -255,13 +277,13 @@
   "Compile an `in` operator, selecting rows for which the value of
   `field` appears in the result given by `subquery`, which must be an `extract`
   composed with a `select`."
-  [kind ops field subquery]
+  [kind query-api-version ops field subquery]
   {:pre [(string? field)
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
-  (when-not (get-in queryable-fields [kind field])
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (queryable-fields kind)))))))
+  (when-not (get (queryable-fields kind query-api-version) field)
+    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
     (throw (IllegalArgumentException. (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
@@ -294,8 +316,8 @@
         sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
     (apply vector sql params)))
 
-(defn compile-resource-equality-v2
-  "Compile an = operator for a v2 resource query. `path` represents the field
+(defn compile-resource-equality-v3
+  "Compile an = operator for a v3 resource query. `path` represents the field
   to query against, and `value` is the value."
   [& [path value :as args]]
   {:post [(map? %)
@@ -325,13 +347,29 @@
           :params [name (db-serialize value)]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "sourcefile" "sourceline"})]
+         [(metadata :when #{"catalog" "resource" "type" "title" "tags" "exported" "file" "line"})]
            {:where  (format "catalog_resources.%s = ?" metadata)
             :params [value]}
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
                        (str path " is not a queryable object for resources")))))
+
+(defn compile-resource-equality-v2
+  "Compile an = operator for a v2 resource query. `path` represents the field
+  to query against, and `value` is the value. This mostly just defers to
+  `compile-resource-equality-v3`, with a little bit of logic to handle the one
+  term that differs."
+  [& [path value :as args]]
+  {:post [(map? %)
+          (:where %)]}
+  (when-not (= (count args) 2)
+    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+  ;; If they passed in any of the new names for the renamed resource-columns, we fail
+  ;; because this is v2.
+  (when (contains? (valset v3-renamed-resource-columns) path)
+    (throw (IllegalArgumentException. (format "%s is not a queryable object for resources" path))))
+  (compile-resource-equality-v3 (get v3-renamed-resource-columns path path) value))
 
 (defn compile-resource-equality-v1
   "Compile an = operator for a v1 resource query. `path` represents the field
@@ -351,8 +389,8 @@
   (let [path (if (= path ["node" "name"]) "certname" path)]
     (compile-resource-equality-v2 path value)))
 
-(defn compile-resource-regexp
-  "Compile an '~' predicate for a resource query, which does regexp matching.
+(defn compile-resource-regexp-v3
+  "Compile an '~' predicate for a v3 resource query, which does regexp matching.
   This is done by leveraging the correct database-specific regexp syntax to
   return only rows where the supplied `path` match the given `pattern`."
   [path pattern]
@@ -369,13 +407,28 @@
           :params [pattern]}
 
          ;; metadata match.
-         [(metadata :when #{"catalog" "resource" "type" "title" "exported" "sourcefile" "sourceline"})]
+         [(metadata :when #{"type" "title" "exported" "file"})]
          {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
           :params [pattern]}
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
                         (str path " cannot be the target of a regexp match")))))
+
+(defn compile-resource-regexp-v2
+  "Compile an '~' predicate for a v2 resource query, which does regexp matching.
+  This is done by leveraging the correct database-specific regexp syntax to
+  return only rows where the supplied `path` match the given `pattern`.  This
+  mostly just defers to `compile-resource-regexp-v2`, with a little bit of logic to
+  handle the terms that differ."
+  [& [path value :as args]]
+  {:post [(map? %)
+          (:where %)]}
+  ;; If they passed in any of the new names for the renamed resource-columns, we fail
+  ;; because this is v2.
+  (when (contains? (valset v3-renamed-resource-columns) path)
+    (throw (IllegalArgumentException. (format "%s cannot be the target of a regexp match" path))))
+  (compile-resource-regexp-v3 (get v3-renamed-resource-columns path path) value))
 
 (defn compile-fact-equality
   "Compile an = predicate for a fact query. `path` represents the field to
@@ -544,15 +597,32 @@
   [op]
   (condp = (string/lower-case op)
     "=" compile-resource-equality-v2
-    "~" compile-resource-regexp
+    "~" compile-resource-regexp-v2
     "and" (partial compile-and resource-operators-v2)
     "or" (partial compile-or resource-operators-v2)
     "not" (partial compile-not-v2 resource-operators-v2)
-    "extract" (partial compile-extract resource-operators-v2)
-    "in" (partial compile-in :resource resource-operators-v2)
+    "extract" (partial compile-extract 2 resource-operators-v2)
+    "in" (partial compile-in :resource 2 resource-operators-v2)
     "select-resources" (partial resource-query->sql resource-operators-v2)
     "select-facts" (partial fact-query->sql fact-operators-v2)
     nil))
+
+(defn resource-operators-v3
+  "Maps v3 resource query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [op]
+  (condp = (string/lower-case op)
+    "=" compile-resource-equality-v3
+    "~" compile-resource-regexp-v3
+    "and" (partial compile-and resource-operators-v3)
+    "or" (partial compile-or resource-operators-v3)
+    "not" (partial compile-not-v2 resource-operators-v3)
+    "extract" (partial compile-extract 3 resource-operators-v3)
+    "in" (partial compile-in :resource 3 resource-operators-v3)
+    "select-resources" (partial resource-query->sql resource-operators-v3)
+    "select-facts" (partial fact-query->sql fact-operators-v2)
+    nil))
+
 
 (defn fact-operators-v2
   "Maps v2 fact query operators to the functions implementing them. Returns nil
@@ -570,8 +640,8 @@
       (= op "and") (partial compile-and fact-operators-v2)
       (= op "or") (partial compile-or fact-operators-v2)
       (= op "not") (partial compile-not-v2 fact-operators-v2)
-      (= op "extract") (partial compile-extract fact-operators-v2)
-      (= op "in") (partial compile-in :fact fact-operators-v2)
+      (= op "extract") (partial compile-extract 2 fact-operators-v2)
+      (= op "in") (partial compile-in :fact 2 fact-operators-v2)
       ;; select-resources uses a different set of operators-v2, of course
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))
@@ -603,7 +673,7 @@
       (= op "and") (partial compile-and node-operators-v2)
       (= op "or") (partial compile-or node-operators-v2)
       (= op "not") (partial compile-not-v1 node-operators-v2)
-      (= op "extract") (partial compile-extract node-operators-v2)
-      (= op "in") (partial compile-in :node node-operators-v2)
+      (= op "extract") (partial compile-extract 2 node-operators-v2)
+      (= op "in") (partial compile-in :node 2 node-operators-v2)
       (= op "select-resources") (partial resource-query->sql resource-operators-v2)
       (= op "select-facts") (partial fact-query->sql fact-operators-v2))))

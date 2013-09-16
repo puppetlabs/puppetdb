@@ -22,7 +22,7 @@
     (with-transacted-connection db
       (-> query
         (json/parse-string true)
-        (r/v2-query->sql paging-options)
+        (r/v3-query->sql paging-options)
         ((partial r/limited-query-resources limit))
         (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e

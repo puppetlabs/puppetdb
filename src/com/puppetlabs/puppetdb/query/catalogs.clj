@@ -31,15 +31,14 @@
   munges the resource into a map that complies with our wire format.  This
   basically involves removing extraneous fields (`certname`, the puppetdb resource
   hash), and removing the `file` and `line` fields if they are `nil`."
-  [{:keys [sourceline sourcefile] :as resource}]
+  [resource]
   {:pre  [(map? resource)]
    :post [(map? %)
-          (empty? (select-keys % [:sourceline :sourcefile :certname :resource]))]}
+          (empty? (select-keys % [:certname :resource]))]}
   (-> resource
-    (dissoc :certname :resource :sourceline :sourcefile)
+    (dissoc :certname :resource)
     ;; All of the sample JSON catalogs I've seen do not include the `file`/`line`
     ;; fields if we don't have actual values for them.
-    (assoc :line (:sourceline resource) :file (:sourcefile resource))
     (dissoc-if-nil :line :file)))
 
 (defn get-resources

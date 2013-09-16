@@ -437,7 +437,7 @@ must be supplied as the value to be matched."
   The result map has the following format:
 
     {:hashes [[<catalog hash> <resource hash>] ...]
-     :metadata [[<resouce hash> <type> <title> <exported?> <sourcefile> <sourceline>] ...]
+     :metadata [[<resouce hash> <type> <title> <exported?> <file> <line>] ...]
      :parameters [[<resource hash> <name> <value>] ...]
      :tags [[<resource hash> <tag>] ...]}
 
@@ -465,7 +465,7 @@ must be supplied as the value to be matched."
         resource-values (for [[ref resource] refs-to-resources
                               :let [hash (refs-to-hashes ref)]]
                           (resource->values catalog-hash resource hash (persisted? hash)))
-        lookup-table    [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
+        lookup-table    [[:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,file,line) VALUES (?,?,?,?,?,?,?,?)"]
                          [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table

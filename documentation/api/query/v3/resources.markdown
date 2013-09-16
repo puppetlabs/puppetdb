@@ -53,10 +53,10 @@ The `query` parameter is described by the following grammar:
 `exported`
 : whether or not the resource is exported
 
-`sourcefile`
+`file`
 : the manifest file the resource was declared in
 
-`sourceline`
+`line`
 : the line of the manifest on which the resource was declared
 
 For example, for file resources, tagged "magical", on any host except
@@ -102,8 +102,8 @@ response. There must be an `Accept` header matching
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 10,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 10,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "foo",
@@ -118,8 +118,8 @@ response. There must be an `Accept` header matching
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 20,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 20,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "bar",
@@ -157,8 +157,8 @@ response. There must be an `Accept` header matching
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 10,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 10,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "foo",
@@ -183,8 +183,8 @@ following form:
      "title":      "/etc/hosts",
      "exported":   "true",
      "tags":       ["foo", "bar"],
-     "sourcefile": "/etc/puppet/manifests/site.pp",
-     "sourceline": "1",
+     "file": "/etc/puppet/manifests/site.pp",
+     "line": "1",
      "parameters": {<parameter>: <value>,
                    <parameter>: <value>,
                    ...}}
