@@ -327,21 +327,21 @@
     (testing "retrieval of events for latest report only"
       (testing "applied to entire query"
         (let [expected  (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
-              actual    (resource-events-query-result ["=" "latest-report" true])]
+              actual    (resource-events-query-result ["=" "latest-report?" true])]
           (is (= actual expected))))
       (testing "applied to subquery"
         (let [expected  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
-              actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" "latest-report" true]])]
+              actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" "latest-report?" true]])]
           (is (= actual expected)))))
 
     (testing "retrieval of events prior to latest report"
       (testing "applied to entire query"
         (let [expected  (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
-              actual    (resource-events-query-result ["=" "latest-report" false])]
+              actual    (resource-events-query-result ["=" "latest-report?" false])]
           (is (= actual expected))))
       (testing "applied to subquery"
         (let [expected  (expected-resource-events (utils/select-values events1 [1 2]) report-hash1 conf-version1)
-              actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" "latest-report" false]])]
+              actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" "latest-report?" false]])]
           (is (= actual expected)))))
 
     (testing "compound latest report"
@@ -349,6 +349,6 @@
             results2  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
             expected  (clojure.set/union results1 results2)
             actual    (resource-events-query-result ["or"
-                                                      ["and" ["=" "status" "skipped"] ["=" "latest-report" false]]
-                                                      ["and" ["=" "message" "created"] ["=" "latest-report" true]]])]
+                                                      ["and" ["=" "status" "skipped"] ["=" "latest-report?" false]]
+                                                      ["and" ["=" "message" "created"] ["=" "latest-report?" true]]])]
         (is (= actual expected))))))
