@@ -50,7 +50,9 @@
     (verify-accepts-json query-app)
 
     [type title &]
-    (comp query-app (partial http-q/restrict-resource-query-to-type type) (partial http-q/restrict-resource-query-to-title title))
+    (comp query-app
+          (partial http-q/restrict-resource-query-to-type type)
+          (partial http-q/restrict-resource-query-to-title title))
 
     [type &]
     (comp query-app (partial http-q/restrict-resource-query-to-type type))))

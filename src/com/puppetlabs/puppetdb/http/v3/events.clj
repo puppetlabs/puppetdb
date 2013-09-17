@@ -1,50 +1,3 @@
-;; ## Request Format
-;;
-;; The single available route is '/events?query=<query>'.
-;; The `query` parameter is a JSON array of query predicates in
-;  prefix form.
-;;
-;; This query can be used to retrieve all of the events for a report.
-;;
-;; ### Predicates
-;;
-;; #### =
-;;
-;; Events for report with report `38ff2aef3ffb7800fe85b322280ade2b867c8d27`:
-;;
-;;    ["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]
-;;
-;;
-;; ## Response Format
-;;
-;; The response is a JSON array of events that matched the input parameters.
-;; The events are sorted by their timestamps, in descending order:
-;;
-;;`[
-;;    {
-;;      "old-value": "absent",
-;;      "property": "ensure",
-;;      "timestamp": "2012-10-30T19:01:05.000Z",
-;;      "resource-type": "File",
-;;      "resource-title": "/tmp/reportingfoo",
-;;      "new-value": "file",
-;;      "message": "defined content as '{md5}49f68a5c8493ec2c0bf489821c21fc3b'",
-;;      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
-;;      "status": "success"
-;;    },
-;;    {
-;;      "old-value": "absent",
-;;      "property": "message",
-;;      "timestamp": "2012-10-30T19:01:05.000Z",
-;;      "resource-type": "Notify",
-;;      "resource-title": "notify, yo",
-;;      "new-value": "notify, yo",
-;;      "message": "defined 'message' as 'notify, yo'",
-;;      "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
-;;      "status": "success"
-;;    }
-;;  ]`
-
 (ns com.puppetlabs.puppetdb.http.v3.events
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.utils :as pl-utils]
@@ -59,7 +12,7 @@
 
 (defn produce-body
   "Given a `limit`, a query and a database connection, return a Ring response
-  with the query results.  The result format conforms to that documented above.
+  with the query results.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned.
 

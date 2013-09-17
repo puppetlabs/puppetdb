@@ -4,11 +4,11 @@ title: "PuppetDB 1.4 » API » Query » Curl Tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
-[Facts]: ./v2/facts.html
-[Nodes]: ./v2/nodes.html
-[fact-names]: ./v2/fact-names.html
-[Resources]: ./v2/resources.html
-[Metrics]: ./v2/metrics.html
+[Facts]: ./v3/facts.html
+[Nodes]: ./v3/nodes.html
+[fact-names]: ./v3/fact-names.html
+[Resources]: ./v3/resources.html
+[Metrics]: ./v3/metrics.html
 [curl]: http://curl.haxx.se/docs/manpage.html
 [dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
 [whitelist]: ../../configure.html#certificate-whitelist
