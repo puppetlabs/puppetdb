@@ -77,14 +77,17 @@
   (whose value may be either 'asc' or 'desc', and defaults to 'asc')."
   [app]
   (fn [{:keys [params] :as req}]
-    (app (assoc req :paging-options
-           (-> params
-             (select-keys ["limit" "offset" "order-by" "include-total"])
-             (keywordize-keys)
-             (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
-             (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
-             (paging/parse-count)
-             (paging/parse-order-by))))))
+    (try
+      (app (assoc req :paging-options
+             (-> params
+               (select-keys ["limit" "offset" "order-by" "include-total"])
+               (keywordize-keys)
+               (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
+               (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+               (paging/parse-count)
+               (paging/parse-order-by))))
+      (catch IllegalArgumentException e
+        (pl-http/error-response e)))))
 
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
