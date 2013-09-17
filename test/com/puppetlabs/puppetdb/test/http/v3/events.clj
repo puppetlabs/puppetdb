@@ -135,7 +135,8 @@
                          :query   ["=" "report" report-hash]
                          :limit   1
                          :total   (count (:resource-events basic))
-                         :include-total  count?})]
+                         :include-total  count?
+                         :params  {:order-by (json/generate-string [{"field" "status"}])}})]
           (is (= (count (:resource-events basic)) (count results)))
           (is (= (expected-resource-events-response
                    (:resource-events basic)
