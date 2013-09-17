@@ -23,7 +23,7 @@
 
   (testing "count-by rejects unsupported values"
     (let [response  (get-response "/v3/event-counts"
-                                  ["=" "certname" "foo.local"] "node"
+                                  ["=" "certname" "foo.local"] "certname"
                                   {"count-by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
@@ -39,7 +39,7 @@
           response  (get-response "/v3/event-counts"
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   "containing-class"
-                                  {"count-by"      "node"
+                                  {"count-by"      "certname"
                                    "counts-filter" ["<" "successes" 1]})]
       (response-equal? response expected)))
 

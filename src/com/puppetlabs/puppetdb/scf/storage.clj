@@ -741,9 +741,9 @@ must be supplied as the value to be matched."
                                             LIMIT 1" node])))]
     (sql/update-or-insert-values
       :latest_reports
-      ["node = ?" node]
-      {:node    node
-       :report  latest-report})))
+      ["certname = ?" node]
+      {:certname      node
+       :report        latest-report})))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."

@@ -48,13 +48,13 @@
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
-  Supported values are `node`, `containing-class`, and `resource` (default), otherwise an
+  Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
   IllegalArgumentException is thrown."
   [summarize-by]
   {:pre  [(string? summarize-by)]
    :post [(string? %)]}
   (condp = summarize-by
-    "node" "certname"
+    "certname" "certname"
     "containing-class" "containing_class"
     "resource" "resource_type, resource_title"
     (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
@@ -72,7 +72,7 @@
 (defn- get-count-by-sql
   "Given the events `sql`, a value to `count-by`, and a value to `group-by`,
   return the appropriate SQL string that counts and groups the `sql` results.
-  Supported `count-by` values are `resource` (default) and `node`, otherwise
+  Supported `count-by` values are `resource` (default) and `certname`, otherwise
   an IllegalArgumentException is thrown."
   [sql count-by group-by]
   {:pre  [(string? sql)
@@ -81,7 +81,7 @@
    :post [(string? %)]}
   (condp = count-by
     "resource"  sql
-    "node"      (let [field-string (if (= group-by "certname") "" (str ", " group-by))]
+    "certname"  (let [field-string (if (= group-by "certname") "" (str ", " group-by))]
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
     (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
 
@@ -118,7 +118,7 @@
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize-by result]
-  {:pre [(contains? #{"node" "resource" "containing-class"} summarize-by)
+  {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
          (map? result)
          (or
            (contains? result :certname)
@@ -129,8 +129,8 @@
           (map? (:subject %))
           (= summarize-by (:subject-type %))]}
   (condp = summarize-by
-    "node"              (-> result
-                          (assoc :subject-type "node")
+    "certname"          (-> result
+                          (assoc :subject-type "certname")
                           (assoc :subject {:title (:certname result)})
                           (dissoc :certname))
 
