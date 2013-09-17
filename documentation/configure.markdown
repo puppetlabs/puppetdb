@@ -225,9 +225,14 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-Ensure you can log in by running:
+Try to log in by running as root:
 
-    $ psql -h localhost puppetdb puppetdb
+    # psql -h localhost puppetdb puppetdb
+
+If you receive a message like `psql: FATAL: Ident authentication failed for user "puppetdb"` then you need to change the PostgreSQL authentication method to "md5." Use your favorite editor to open the `pg_hba.conf` (default path:  `/var/lib/pgsql/data/pg_hba.conf`) and change all values of `METHOD` at the bottom to "md5" and save the file.  Then restart PostgreSQL and attempt to log in again:
+
+    # service postgresql restart
+    # psql -h localhost puppetdb puppetdb
 
 To configure PuppetDB to use this database, put the following in the `[database]` section:
 
