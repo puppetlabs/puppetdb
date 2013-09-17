@@ -5,35 +5,24 @@
 
 (ns com.puppetlabs.puppetdb.query.paging
   (:import  [com.fasterxml.jackson.core JsonParseException])
-  (:require [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.string :as string])
-  (:use     [com.puppetlabs.utils :only [some-pred->> keyset seq-contains?]]
+  (:use     [com.puppetlabs.utils :only [keyset seq-contains?]]
             [clojure.walk :only (keywordize-keys)]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")
-
-(defn is-error-response?
-  "Utility function; given an object, checks to see if the object represents
-  an errored Ring response.  Returns true if so, false for any other input."
-  [x]
-  (and
-    (map? x)
-    (contains? x :status)
-    (contains? x :body)
-    (not= (x :status) 200)))
 
 (defn parse-order-by-json
   "Parses a JSON order-by string.  Returns the parsed string, or a Ring
   error response with a useful error message if there was a parse failure."
   [order-by]
   (try
-    (json/parse-string order-by)
+    (json/parse-string order-by true)
     (catch JsonParseException e
-      (pl-http/error-response
+      (throw (IllegalArgumentException.
         (str "Illegal value '" order-by "' for :order-by; expected "
-          "an array of maps.")))))
+          "an array of maps."))))))
 
 (defn validate-order-by-data-structure
   "Validates an order-by data structure.  The value must be `nil`, an empty list,
@@ -43,9 +32,9 @@
   (if (or (empty? order-by)
           ((every-pred sequential? #(every? map? %)) order-by))
     order-by
-    (pl-http/error-response
+    (throw (IllegalArgumentException.
       (str "Illegal value '" order-by "' for :order-by; expected "
-        "an array of maps."))))
+        "an array of maps.")))))
 
 (defn validate-required-order-by-fields
   "Validates that each map in the order-by list contains the required
@@ -55,9 +44,9 @@
   (if-let [bad-order-by (some
                           (fn [x] (when-not (contains? x :field) x))
                           order-by)]
-    (pl-http/error-response
+    (throw (IllegalArgumentException.
       (str "Illegal value '" bad-order-by "' in :order-by; "
-         "missing required key 'field'."))
+         "missing required key 'field'.")))
     order-by))
 
 (defn validate-no-invalid-order-by-fields
@@ -68,9 +57,9 @@
   (if-let [bad-order-by (some
                           (fn [x] (when (keys (dissoc x :field :order)) x))
                           order-by)]
-    (pl-http/error-response
-      (str "Illegal value '" bad-order-by "' in :order-by; "
-        "unknown key '" (first (keys (dissoc bad-order-by :field :order))) "'."))
+    (throw (IllegalArgumentException.
+             (str "Illegal value '" bad-order-by "' in :order-by; "
+              "unknown key '" (first (keys (dissoc bad-order-by :field :order))) "'.")))
     order-by))
 
 (defn parse-order-by
@@ -92,13 +81,10 @@
   an informative error message as to the cause of the failure."
   [paging-options]
   {:post [(map? %)
-          (or
-            (is-error-response? %)
-            (= (keyset %) (keyset paging-options)))]}
+          (= (keyset %) (keyset paging-options))]}
   (if-let [order-by (paging-options :order-by)]
-    (some-pred->> is-error-response? order-by
+    (->> order-by
       (parse-order-by-json)
-      (keywordize-keys)
       (validate-order-by-data-structure)
       (validate-required-order-by-fields)
       (validate-no-invalid-order-by-fields)
