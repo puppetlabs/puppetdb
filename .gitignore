@@ -11,3 +11,4 @@ pom.xml
 test-resources/config/local.clj
 ext/packaging/*
 /scripts
+Gemfile.lock
