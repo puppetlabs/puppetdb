@@ -1,12 +1,12 @@
 ---
 title: "PuppetDB 1.4 » API » v3 » Querying Reports"
 layout: default
-canonical: "/puppetdb/latest/api/query/v3/report.html"
+canonical: "/puppetdb/latest/api/query/v3/reports.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[operator]: ../v2/operators.html
-[event]: ./event.html
+[operator]: ../v3/operators.html
+[event]: ./events.html
 [paging]: ./paging.html
 
 Querying reports is accomplished by making an HTTP request to the `/reports` REST

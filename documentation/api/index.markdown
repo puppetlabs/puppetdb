@@ -30,8 +30,8 @@ PuppetDB 1.3 (and later) supports versions 1 and 2 of the query API. Version 1 i
 
 PuppetDB's data can be queried with a REST API.
 
-* [Specification of the General Query Structure](./query/v2/query.html)
-* [Available Operators](./query/v2/operators.html)
+* [Specification of the General Query Structure](./query/v3/query.html)
+* [Available Operators](./query/v3/operators.html)
 * [Query Tutorial](./query/tutorial.html)
 * [Curl Tips](./query/curl.html)
 
@@ -43,13 +43,13 @@ The available query endpoints are documented in the pages linked below.
 
 Version 3 of the query API adds new endpoints, and introduces paging and sorting operations.  The following endpoints will continue to work for the foreseeable future.
 
-* [Facts Endpoint](./query/v2/facts.html)
-* [Resources Endpoint](./query/v2/resources.html)
-* [Nodes Endpoint](./query/v2/nodes.html)
-* [Fact-Names Endpoint](./query/v2/fact-names.html)
-* [Metrics Endpoint](./query/v2/metrics.html)
-* [Reports Endpoint](./query/v3/report.html)
-* [Events Endpoint](./query/v3/event.html)
+* [Facts Endpoint](./query/v3/facts.html)
+* [Resources Endpoint](./query/v3/resources.html)
+* [Nodes Endpoint](./query/v3/nodes.html)
+* [Fact-Names Endpoint](./query/v3/fact-names.html)
+* [Metrics Endpoint](./query/v3/metrics.html)
+* [Reports Endpoint](./query/v3/reports.html)
+* [Events Endpoint](./query/v3/events.html)
 * [Event Counts Endpoint](./query/v3/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
 
