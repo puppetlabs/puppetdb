@@ -99,5 +99,5 @@
    :post [(utils/boolean? %)]}
   (= 1 (count (query-to-vec
                 ["SELECT report FROM latest_reports
-                    WHERE node = ? AND report = ?"
+                    WHERE certname = ? AND report = ?"
                   node report-hash]))))
