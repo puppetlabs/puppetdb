@@ -18,7 +18,7 @@
   error response with a useful error message if there was a parse failure."
   [order-by]
   (try
-    (json/parse-string order-by)
+    (json/parse-string order-by true)
     (catch JsonParseException e
       (throw (IllegalArgumentException.
         (str "Illegal value '" order-by "' for :order-by; expected "
@@ -85,7 +85,6 @@
   (if-let [order-by (paging-options :order-by)]
     (->> order-by
       (parse-order-by-json)
-      (map keywordize-keys)
       (validate-order-by-data-structure)
       (validate-required-order-by-fields)
       (validate-no-invalid-order-by-fields)
