@@ -1,8 +1,9 @@
 (ns com.puppetlabs.puppetdb.query.event-counts
   (:require [com.puppetlabs.puppetdb.query.events :as events]
             [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores]]
+  (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores underscores->dashes]]
         [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]
         [com.puppetlabs.utils :only [contains-some]]
         [clojure.core.match :only [match]]))
 
@@ -52,11 +53,11 @@
   IllegalArgumentException is thrown."
   [summarize-by]
   {:pre  [(string? summarize-by)]
-   :post [(string? %)]}
+   :post [(vector? %)]}
   (condp = summarize-by
-    "certname" "certname"
-    "containing-class" "containing_class"
-    "resource" "resource_type, resource_title"
+    "certname" ["certname"]
+    "containing-class" ["containing_class"]
+    "resource" ["resource_type" "resource_title"]
     (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
 
 (defn- get-counts-filter-where-clause
@@ -77,20 +78,27 @@
   [sql count-by group-by]
   {:pre  [(string? sql)
           (string? count-by)
-          (string? group-by)]
+          (vector? group-by)]
    :post [(string? %)]}
   (condp = count-by
     "resource"  sql
-    "certname"  (let [field-string (if (= group-by "certname") "" (str ", " group-by))]
+    "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
     (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
+
+(defn- event-counts-columns
+  [group-by]
+  {:pre [(vector? group-by)]}
+  (concat
+    ["failures" "successes" "noops" "skips"]
+    (map underscores->dashes group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
   will sum the results of `event-sql` grouped by the provided value."
   [event-sql group-by]
   {:pre  [(string? event-sql)
-          (string? group-by)]
+          (vector? group-by)]
    :post [(string? %)]}
   (format "SELECT %s,
               SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
@@ -99,9 +107,9 @@
               SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skips
             FROM (%s) events
             GROUP BY %s"
-          group-by
+          (string/join ", " group-by)
           event-sql
-          group-by))
+          (string/join ", " group-by)))
 
 (defn- get-filtered-sql
   "Given a `sql` string and optional `where` clause, return the appropriate filtered
@@ -182,5 +190,7 @@
    {:pre  [(string? sql)]
     :post [(map? %)
            (vector? (:result %))]}
+    (let [group-by (get-group-by summarize-by)]
+      (validate-order-by! (event-counts-columns group-by) paging-options))
     (-> (execute-query (apply vector sql params) paging-options)
       (update-in [:result] (partial munge-subjects summarize-by)))))
