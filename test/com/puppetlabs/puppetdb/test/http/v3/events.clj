@@ -141,4 +141,17 @@
           (is (= (expected-resource-events-response
                    (:resource-events basic)
                    report-hash conf-version)
-                (set (munge-event-values results)))))))))
+                (set (munge-event-values results)))))))
+
+    (testing "order-by field names"
+      (testing "should accept dashes"
+        (let [expected  (expected-resource-events-response (:resource-events basic) report-hash conf-version)
+              response  (get-response [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
+          (is (= (:status response) pl-http/status-ok))
+          (response-equal? response expected munge-event-values)))
+
+      (testing "should reject underscores"
+        (let [response  (get-response [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})
+              body      (get response :body "null")]
+          (is (= (:status response) pl-http/status-bad-request))
+          (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
