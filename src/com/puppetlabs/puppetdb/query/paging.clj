@@ -8,6 +8,7 @@
   (:require [cheshire.core :as json]
             [clojure.string :as string])
   (:use     [com.puppetlabs.utils :only [keyset seq-contains?]]
+            [com.puppetlabs.jdbc :only [underscores->dashes]]
             [clojure.walk :only (keywordize-keys)]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
@@ -117,11 +118,13 @@
   {:pre [(sequential? columns)
          (every? (some-fn string? keyword?) columns)
          ((some-fn nil? map?) paging-options)]}
-  (doseq [field (map :field (:order-by paging-options))]
-    (when-not (seq-contains? columns field)
-      (throw (IllegalArgumentException.
-        (str "Unrecognized column '" field "' specified in :order-by; "
-          "Supported columns are '" (string/join "', '" columns) "'"))))))
+  (let [columns (map underscores->dashes columns)]
+    (doseq [field (map :field (:order-by paging-options))]
+      (when-not (seq-contains? columns field)
+        (throw (IllegalArgumentException.
+          (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
+                  field
+                  (string/join "', '" columns))))))))
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging
