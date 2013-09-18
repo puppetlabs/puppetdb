@@ -374,7 +374,7 @@
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
-    (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
+    (log/info (format "[%s] [%s] puppet v%s - %s"
                 id (command-names :store-report)
                 (:puppet-version report) (:certname report)))))
 
