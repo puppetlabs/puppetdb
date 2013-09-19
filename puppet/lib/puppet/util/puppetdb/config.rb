@@ -1,22 +1,9 @@
 require 'puppet/util/puppetdb/command_names'
+require 'puppet/util/puppetdb/blacklist'
 
 module Puppet::Util::Puppetdb
 class Config
   include Puppet::Util::Puppetdb::CommandNames
-
-  BlacklistedEvent = Struct.new(:resource_type, :resource_title, :status, :property)
-
-  # Initialize our blacklist of events to filter out of reports.  This is needed
-  # because older versions of puppet always generate a swath of (meaningless)
-  # 'skipped' Schedule events on every agent run.  As of puppet 3.3, these
-  # events should no longer be generated, but this is here for backward compat.
-  BlacklistedEvents =
-      [BlacklistedEvent.new("Schedule", "never", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "puppet", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "hourly", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "daily", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "weekly", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "monthly", "skipped", nil)]
 
   # Public class methods
 
@@ -98,27 +85,18 @@ class Config
   end
 
   def is_event_blacklisted?(event)
-    blacklisted_events.fetch(event["resource-type"], {}).
-      fetch(event["resource-title"], {}).
-      fetch(event["status"], {}).
-      fetch(event["property"], false)
+   @blacklist.is_event_blacklisted? event
   end
 
   # Private instance methods
   private
 
   attr_reader :config
-  attr_reader :blacklisted_events
 
-  def initialize_blacklisted_events(events = BlacklistedEvents)
-    @blacklisted_events = events.reduce({}) do |m, e|
-      m[e.resource_type] ||= {}
-      m[e.resource_type][e.resource_title] ||= {}
-      m[e.resource_type][e.resource_title][e.status] ||= {}
-      m[e.resource_type][e.resource_title][e.status][e.property] = true
-      m
-    end
+  Blacklist = Puppet::Util::Puppetdb::Blacklist
+
+  def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
+    @blacklist = Blacklist.new(events)
   end
-
 end
 end

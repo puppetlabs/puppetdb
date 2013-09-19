@@ -11,8 +11,6 @@ processor = Puppet::Reports.report(:puppetdb)
 
 describe processor do
 
-  BlacklistedEvent = Puppet::Util::Puppetdb::Config::BlacklistedEvent
-
   subject {
     s = Puppet::Transaction::Report.new("foo").extend(processor)
     s.configuration_version = 123456789
@@ -187,6 +185,8 @@ describe processor do
       end
 
       context "blacklisted events" do
+        BlacklistedEvent = Puppet::Util::Puppetdb::Blacklist::BlacklistedEvent
+
         let (:config) {
           Puppet::Util::Puppetdb.config
         }
