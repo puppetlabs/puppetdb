@@ -352,3 +352,20 @@
                                                       ["and" ["=" "status" "skipped"] ["=" "latest-report?" false]]
                                                       ["and" ["=" "message" "created"] ["=" "latest-report?" true]]])]
         (is (= actual expected))))))
+
+
+(deftest distinct-resource-event-queries
+  (let [basic1        (:basic reports)
+        events1       (get-events-map basic1)
+        report-hash1  (store-example-report! basic1 (now))
+        conf-version1 (:configuration-version basic1)
+
+        basic3        (:basic3 reports)
+        events3       (get-events-map basic3)
+        report-hash3  (store-example-report! basic3 (now))
+        conf-version3 (:configuration-version basic3)]
+    (testing "retrieval of events for distinct resources only"
+      (let [expected  (expected-resource-events (:resource-events basic3) report-hash3 conf-version3)
+            actual    (resource-events-query-result ["=" "certname" "foo.local"] {} {:distinct-resources? true})]
+        (is (= (count events3) (count actual)))
+        (is (= actual expected))))))

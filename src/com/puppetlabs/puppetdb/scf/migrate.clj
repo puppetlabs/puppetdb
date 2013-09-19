@@ -322,7 +322,8 @@
     - A column for the resource's containment path in the resource_events table
     - A column for the transaction uuid in the reports & catalogs tables
     - Renames the `sourcefile` and `sourceline` columns on the `catalog_resources`
-      table to `file` and `line` for consistency."
+      table to `file` and `line` for consistency.
+    - Add index to 'property' column in resource_events table"
   []
   (sql/do-commands
     "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
@@ -330,7 +331,8 @@
   (sql/do-commands
     (format "ALTER TABLE resource_events ADD containment_path %s" (sql-array-type-string "TEXT"))
     "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
-    "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)")
+    "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
+    "CREATE INDEX idx_resource_events_property ON resource_events(property)")
   (sql/do-commands
     ;; It would be nice to change the transaction UUID column to NOT NULL in the future
     ;; once we stop supporting older versions of Puppet that don't have this field.

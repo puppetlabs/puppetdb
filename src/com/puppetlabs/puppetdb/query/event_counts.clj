@@ -166,7 +166,7 @@
   the value to `count-by` may also be specified (defaults to `resource`)."
   ([query summarize-by]
     (query->sql query summarize-by {}))
-  ([query summarize-by {:keys [counts-filter count-by]}]
+  ([query summarize-by {:keys [counts-filter count-by] :as query-options}]
     {:pre  [(sequential? query)
             (string? summarize-by)
             ((some-fn nil? sequential?) counts-filter)
@@ -176,7 +176,9 @@
           group-by                        (get-group-by summarize-by)
           {counts-filter-where  :where
            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-          [event-sql & event-params]      (events/query->sql query)
+          [event-sql & event-params]      (events/query->sql
+                                            (select-keys query-options [:distinct-resources?])
+                                            query)
           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
           event-count-sql                 (get-event-count-sql count-by-sql group-by)
           filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
