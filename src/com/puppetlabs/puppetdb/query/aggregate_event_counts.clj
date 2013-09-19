@@ -20,12 +20,12 @@
   Since all inputs are forwarded to `event-counts/query->sql`, look there for proper documentation."
   ([query summarize-by]
    (query->sql query summarize-by {}))
-  ([query summarize-by extra-query-params]
+  ([query summarize-by query-options]
    {:pre  [(sequential? query)
            (string? summarize-by)
-           (map? extra-query-params)]
+           (map? query-options)]
     :post [(valid-jdbc-query? %)]}
-   (let [[count-sql & params] (event-counts/query->sql query summarize-by extra-query-params)
+   (let [[count-sql & params] (event-counts/query->sql query summarize-by query-options)
          aggregate-sql        (get-aggregate-sql count-sql)]
      (apply vector aggregate-sql params))))
 

@@ -74,3 +74,31 @@
                        :include-total count?})]
         (is (= (count expected) (count results)))
         (is (= expected (set results)))))))
+
+(deftest query-distinct-event-counts
+  (store-example-report! (:basic reports) (now))
+  (store-example-report! (:basic3 reports) (now))
+  (testing "should only count the most recent event for each resource"
+    (let [expected  #{{:subject-type "resource"
+                       :subject {:type "Notify" :title "notify, yo"}
+                       :failures 0
+                       :successes 1
+                       :noops 0
+                       :skips 0}
+                      {:subject-type "resource"
+                       :subject {:type "Notify" :title "notify, yar"}
+                       :failures 1
+                       :successes 0
+                       :noops 0
+                       :skips 0}
+                      {:subject-type "resource"
+                       :subject {:type "Notify" :title "hi"}
+                       :failures 0
+                       :successes 0
+                       :noops 0
+                       :skips 1}}
+          response  (get-response "/v3/event-counts"
+                      ["=" "certname" "foo.local"]
+                      "resource"
+                      {"distinct-resources" true})]
+      (response-equal? response expected))))

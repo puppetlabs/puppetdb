@@ -18,11 +18,14 @@
          ((some-fn nil? string?) counts-filter)
          ((some-fn nil? string?) count-by)]}
   (try
-    (let [query         (json/parse-string query true)
-          counts-filter (if counts-filter (json/parse-string counts-filter true))]
+    (let [query               (json/parse-string query true)
+          counts-filter       (if counts-filter (json/parse-string counts-filter true))
+          distinct-resources? (pl-http/parse-boolean-query-param query-params "distinct-resources")]
       (with-transacted-connection db
         (-> query
-            (aggregate-event-counts/query->sql summarize-by {:counts-filter counts-filter :count-by count-by})
+            (aggregate-event-counts/query->sql summarize-by
+              {:counts-filter counts-filter :count-by count-by
+               :distinct-resources? distinct-resources?})
             (aggregate-event-counts/query-aggregate-event-counts)
             (pl-http/json-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -43,4 +46,4 @@
   (-> routes
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
-                              :optional ["counts-filter" "count-by"]})))
+                              :optional ["counts-filter" "count-by" "distinct-resources"]})))
