@@ -119,7 +119,9 @@ You will need to create a template for puppet.conf based on your existing config
 
 ### Manage routes.yaml
 
-Typically, you can specify the contents of [routes.yaml][routes_yaml] directly in your manifests; if you are already using it for some other purpose, you will need to manage it with a template based on your existing configuration. Ensure that the following keys are present:
+Typically, you can specify the contents of [routes.yaml][routes_yaml] directly in your manifests; if you are already using it for some other purpose, you will need to manage it with a template based on your existing configuration. The path to this Puppet configuration file can be found with the command `puppet master --configprint route_file`.
+
+Ensure that the following keys are present:
 
     ---
     apply:
