@@ -21,9 +21,10 @@
   (when-not (= (count args) 3)
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
 
-  (let [timestamp-fields {"timestamp"         "resource_events.timestamp"
-                          "run-start-time"    "reports.start_time"
-                          "run-end-time"      "reports.end_time"}]
+  (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
+                          "run-start-time"      "reports.start_time"
+                          "run-end-time"        "reports.end_time"
+                          "report-receive-time" "reports.receive_time"}]
     (match [path]
       [(field :when (utils/keyset timestamp-fields))]
       (if-let [timestamp (to-timestamp value)]
@@ -121,8 +122,9 @@
 (def event-columns
   {"certname"               ["reports"]
    "configuration_version"  ["reports"]
-   "start_time"             ["reports" "report_start_time"]
-   "end_time"               ["reports" "report_end_time"]
+   "start_time"             ["reports" "run_start_time"]
+   "end_time"               ["reports" "run_end_time"]
+   "receive_time"           ["reports" "report_receive_time"]
    "report"                 ["resource_events"]
    "status"                 ["resource_events"]
    "timestamp"              ["resource_events"]
@@ -240,4 +242,5 @@
         (:result)
         (map #(-> %
                 (dissoc :run-start-time)
-                (dissoc :run-end-time)))))))
+                (dissoc :run-end-time)
+                (dissoc :report-receive-time)))))))

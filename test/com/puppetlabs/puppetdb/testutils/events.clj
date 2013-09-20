@@ -47,6 +47,7 @@
     (assoc-in [:configuration-version] (:configuration-version report))
     (assoc-in [:run-start-time] (to-timestamp (:start-time report)))
     (assoc-in [:run-end-time] (to-timestamp (:end-time report)))
+    (assoc-in [:report-receive-time] (to-timestamp (:receive-time report)))
     ;; we need to convert the datetime fields from the examples to timestamp objects
     ;; in order to compare them.
     (update-in [:timestamp] to-timestamp)
