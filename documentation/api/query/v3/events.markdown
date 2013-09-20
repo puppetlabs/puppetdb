@@ -81,6 +81,21 @@ operators.
   supports the inequality operators.  All values should be specified as ISO-8601
   compatible date/time strings.
 
+`run-start-time`
+: the timestamp (from the puppet agent) at which the puppet run began.  This field
+  supports the inequality operators.  All values should be specified as ISO-8601
+  compatible date/time strings.
+
+`run-end-time`
+: the timestamp (from the puppet agent) at which the puppet run finished.  This field
+  supports the inequality operators.  All values should be specified as ISO-8601
+  compatible date/time strings.
+
+`report-receive-time`
+: the timestamp (from the PuppetDB server) at which the puppet report was
+  received.  This field supports the inequality operators.  All values should be
+  specified as ISO-8601 compatible date/time strings.
+
 `resource-type`
 : the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
 
@@ -149,7 +164,10 @@ the field, and an inequality query will always return `true`.
         "file": "/home/user/path/to/manifest.pp",
         "line": 6,
         "containment-path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
-        "containing-class": "Foo"
+        "containing-class": "Foo",
+        "run-start-time": "2012-10-30T19:00:00.000Z",
+        "run-end-time": "2012-10-30T19:05:00.000Z",
+        "report-receive-time": "2012-10-30T19:06:00.000Z"
       },
       {
         "certname": "foo.localdomain",
@@ -165,7 +183,10 @@ the field, and an inequality query will always return `true`.
         "file": "/home/user/path/to/manifest.pp",
         "line": 10,
         "containment-path": [ "Stage[main]", "", "Node[default]", "Notify[notify, yo]" ],
-        "containing-class": null
+        "containing-class": null,
+        "run-start-time": "2012-10-30T19:00:00.000Z",
+        "run-end-time": "2012-10-30T19:05:00.000Z",
+        "report-receive-time": "2012-10-30T19:06:00.000Z"
       }
     ]
 

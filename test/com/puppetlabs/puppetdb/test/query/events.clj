@@ -50,14 +50,14 @@
           (query/compile-term event-query/resource-event-ops [">" "resource_type" "foo"])))))
 
 (deftest resource-event-queries
-  (let [basic         (:basic reports)
-        report-hash   (store-example-report! basic (now))
-        conf-version  (:configuration-version basic)
-        basic-events  (get-events-map basic)]
+  (let [basic             (store-example-report! (:basic reports) (now))
+        report-hash       (:hash basic)
+        basic-events      (get-in reports [:basic :resource-events])
+        basic-events-map  (get-events-map (:basic reports))]
 
     (testing "resource event retrieval by report"
       (testing "should return the list of resource events for a given report hash"
-        (let [expected  (expected-resource-events (:resource-events basic) report-hash conf-version)
+        (let [expected  (expected-resource-events basic-events basic)
               actual    (resource-events-query-result ["=" "report" report-hash])]
           (is (= actual expected)))))
 
@@ -65,26 +65,23 @@
       (testing "should return the list of resource events that occurred before a given time"
         (let [end-time  "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events [1 3])
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map [1 3])
+                            basic)
               actual      (resource-events-query-result ["<" "timestamp" end-time])]
           (is (= actual expected))))
       (testing "should return the list of resource events that occurred after a given time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events [2 3])
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map [2 3])
+                            basic)
               actual      (resource-events-query-result [">" "timestamp" start-time])]
           (is (= actual expected))))
       (testing "should return the list of resource events that occurred between a given start and end time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events [3])
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map [3])
+                            basic)
               actual      (resource-events-query-result
                             ["and"  [">" "timestamp" start-time]
                                     ["<" "timestamp" end-time]])]
@@ -93,16 +90,15 @@
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events [1 2 3])
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map [1 2 3])
+                            basic)
               actual      (resource-events-query-result
                             ["and"   [">=" "timestamp" start-time]
                                      ["<=" "timestamp" end-time]])]
           (is (= actual expected)))))
 
     (testing "when querying with a limit"
-      (let [num-events (count (:resource-events basic))]
+      (let [num-events (count basic-events)]
         (testing "should succeed if the number of returned events is less than the limit"
           (is (= num-events
                 (count (resource-events-limited-query-result (inc num-events) ["=" "report" report-hash])))))
@@ -134,9 +130,8 @@
                    [:containing-class nil                                 [1 2]]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 query     ["=" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -166,9 +161,8 @@
                [:containing-class nil                                 [3]]]]
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 query     ["not" ["=" (name field) value]]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -189,9 +183,8 @@
                [:containing-class "[fF]oo"                [3]]]]
         (testing (format "regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 query     ["~" (name field) value]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -212,9 +205,8 @@
                [:containing-class "[fF]oo"                [1 2]]]]
         (testing (format "negated regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 query     ["not" ["~" (name field) value]]
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -235,9 +227,8 @@
                    [[[:file           "foo.pp"]
                      [:line           2]]               [1 3]]]]
           (let [expected    (expected-resource-events
-                              (utils/select-values basic-events matches)
-                              report-hash
-                              conf-version)
+                              (utils/select-values basic-events-map matches)
+                              basic)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "or" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
@@ -261,9 +252,8 @@
                    [:line             1]]             [1]]
                  [[[:containing-class "Foo"]]         [3]]]]
           (let [expected    (expected-resource-events
-                              (utils/select-values basic-events matches)
-                              report-hash
-                              conf-version)
+                              (utils/select-values basic-events-map matches)
+                              basic)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
                 actual      (resource-events-query-result query)]
@@ -290,9 +280,8 @@
                       ["=" "line" 1]]
                     ["=" "line" 2]]                         [1 3]]]]
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))
@@ -306,47 +295,46 @@
                     ["=" "status" "skipped"]
                     ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events matches)
-                            report-hash
-                            conf-version)
+                            (utils/select-values basic-events-map matches)
+                            basic)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
               (format "Results didn't match for query '%s'" query)))))))
 
 (deftest latest-report-resource-event-queries
-  (let [basic1        (:basic reports)
-        events1       (get-events-map basic1)
-        report-hash1  (store-example-report! basic1 (now))
-        conf-version1 (:configuration-version basic1)
+  (let [basic1        (store-example-report! (:basic reports) (now))
+        report-hash1  (:hash basic1)
+        events1       (get-in reports [:basic :resource-events])
+        events1-map   (get-events-map (:basic reports))
 
-        basic2        (:basic2 reports)
-        events2       (get-events-map basic2)
-        report-hash2  (store-example-report! basic2 (now))
-        conf-version2 (:configuration-version basic2)]
+        basic2        (store-example-report! (:basic2 reports) (now))
+        report2-hash  (:hash basic2)
+        events2       (get-in reports [:basic2 :resource-events])
+        events2-map   (get-events-map (:basic2 reports))]
 
     (testing "retrieval of events for latest report only"
       (testing "applied to entire query"
-        (let [expected  (expected-resource-events (:resource-events basic2) report-hash2 conf-version2)
+        (let [expected  (expected-resource-events events2 basic2)
               actual    (resource-events-query-result ["=" "latest-report?" true])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [expected  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
+        (let [expected  (expected-resource-events (utils/select-values events2-map [5 6]) basic2)
               actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" "latest-report?" true]])]
           (is (= actual expected)))))
 
     (testing "retrieval of events prior to latest report"
       (testing "applied to entire query"
-        (let [expected  (expected-resource-events (:resource-events basic1) report-hash1 conf-version1)
+        (let [expected  (expected-resource-events events1 basic1)
               actual    (resource-events-query-result ["=" "latest-report?" false])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [expected  (expected-resource-events (utils/select-values events1 [1 2]) report-hash1 conf-version1)
+        (let [expected  (expected-resource-events (utils/select-values events1-map [1 2]) basic1)
               actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" "latest-report?" false]])]
           (is (= actual expected)))))
 
     (testing "compound latest report"
-      (let [results1  (expected-resource-events (utils/select-values events1 [3]) report-hash1 conf-version1)
-            results2  (expected-resource-events (utils/select-values events2 [5 6]) report-hash2 conf-version2)
+      (let [results1  (expected-resource-events (utils/select-values events1-map [3]) basic1)
+            results2  (expected-resource-events (utils/select-values events2-map [5 6]) basic2)
             expected  (clojure.set/union results1 results2)
             actual    (resource-events-query-result ["or"
                                                       ["and" ["=" "status" "skipped"] ["=" "latest-report?" false]]
@@ -355,17 +343,12 @@
 
 
 (deftest distinct-resource-event-queries
-  (let [basic1        (:basic reports)
-        events1       (get-events-map basic1)
-        report-hash1  (store-example-report! basic1 (now))
-        conf-version1 (:configuration-version basic1)
-
-        basic3        (:basic3 reports)
-        events3       (get-events-map basic3)
-        report-hash3  (store-example-report! basic3 (now))
-        conf-version3 (:configuration-version basic3)]
+  (let [basic1        (store-example-report! (:basic reports) (now))
+        basic3        (store-example-report! (:basic3 reports) (now))
+        report-hash3  (:hash basic3)
+        events3       (get-in reports [:basic3 :resource-events])]
     (testing "retrieval of events for distinct resources only"
-      (let [expected  (expected-resource-events (:resource-events basic3) report-hash3 conf-version3)
+      (let [expected  (expected-resource-events events3 basic3)
             actual    (resource-events-query-result ["=" "certname" "foo.local"] {} {:distinct-resources? true})]
         (is (= (count events3) (count actual)))
         (is (= actual expected))))))

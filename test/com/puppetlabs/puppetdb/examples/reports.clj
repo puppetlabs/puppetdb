@@ -124,8 +124,8 @@
     :report-format          3
     :transaction-uuid       "e1e561ba-212f-11e3-9d58-60a44c233a9d"
     :configuration-version  "a81jasj123"
-    :start-time             "2011-01-02T12:00:00-03:00"
-    :end-time               "2011-01-02T12:10:00-03:00"
+    :start-time             "2011-01-03T12:00:00-03:00"
+    :end-time               "2011-01-03T12:10:00-03:00"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -136,7 +136,7 @@
     [{:test-id          7
       :certname         "foo.local"
       :status           "success"
-      :timestamp        "2011-01-02T12:00:00-03:00"
+      :timestamp        "2011-01-03T12:00:00-03:00"
       :resource-type    "Notify"
       :resource-title   "notify, yo"
       :property         "message"
@@ -150,7 +150,7 @@
      {:test-id          8
       :certname         "foo.local"
       :status           "failure"
-      :timestamp        "2011-01-02T12:00:00-03:00"
+      :timestamp        "2011-01-03T12:00:00-03:00"
       :resource-type    "Notify"
       :resource-title   "notify, yar"
       :property         "message"
@@ -164,7 +164,7 @@
      {:test-id          9
       :certname         "foo.local"
       :status           "skipped"
-      :timestamp        "2011-01-02T12:00:00-03:00"
+      :timestamp        "2011-01-03T12:00:00-03:00"
       :resource-type    "Notify"
       :resource-title   "hi"
       :property         nil

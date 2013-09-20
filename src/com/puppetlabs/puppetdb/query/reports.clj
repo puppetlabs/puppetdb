@@ -90,6 +90,22 @@
       #(merge % {:resource-events (events-for-report-hash (get % :hash))})
       reports)))
 
+(defn report-for-hash
+  "Convenience function; given a report hash, return the corresponding report object
+  (without events)."
+  [hash]
+  {:pre  [(string? hash)]
+   :post [(or (nil? %)
+            (map? %))]}
+  (let [query ["=" "hash" hash]]
+    (-> query
+      (report-query->sql)
+      (query-reports)
+      ;; We don't support paging in this code path, so we
+      ;; can just pull the results out of the return value
+      (:result)
+      (first))))
+
 (defn is-latest-report?
   "Given a node and a report hash, return `true` if the report is the most recent one for the node,
   and `false` otherwise."
