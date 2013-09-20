@@ -38,12 +38,14 @@
   (map #(utils/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
 (defn expected-resource-event-response
-  [resource-event report-hash configuration-version]
+  [resource-event report]
   (-> resource-event
     ;; the examples don't include the report hash or config version,
     ;; so we munge them into place
-    (assoc-in [:report] report-hash)
-    (assoc-in [:configuration-version] configuration-version)
+    (assoc-in [:report] (:hash report))
+    (assoc-in [:configuration-version] (:configuration-version report))
+    (assoc-in [:run-start-time] (to-string (:start-time report)))
+    (assoc-in [:run-end-time] (to-string (:end-time report)))
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.
@@ -51,20 +53,19 @@
     (dissoc :test-id)))
 
 (defn expected-resource-events-response
-  [resource-events report-hash configuration-version]
-  (set (map #(expected-resource-event-response % report-hash configuration-version) resource-events)))
+  [resource-events report]
+  (set (map #(expected-resource-event-response % report) resource-events)))
 
 (deftest query-by-report
-  (let [basic         (:basic reports)
-        report-hash   (store-example-report! basic (now))
-        conf-version  (:configuration-version basic)
+  (let [report-hash   (store-example-report! (:basic reports) (now))
+        basic         (assoc (:basic reports) :hash report-hash)
         basic-events  (get-events-map basic)]
 
     ;; TODO: test invalid requests
 
     (testing "should return the list of resource events for a given report hash"
       (let [response (get-response ["=" "report" report-hash])
-            expected (expected-resource-events-response (:resource-events basic) report-hash conf-version)]
+            expected (expected-resource-events-response (:resource-events basic) basic)]
         (response-equal? response expected munge-event-values)))
 
     (testing "query exceeding event-query-limit"
@@ -85,8 +86,7 @@
           (let [response (get-response ["<" "timestamp" end-time])
                 expected (expected-resource-events-response
                             (utils/select-values basic-events [1 3])
-                            report-hash
-                            conf-version)]
+                            basic)]
             (response-equal? response expected munge-event-values)))
 
         (testing "should support compound timestamp queries"
@@ -94,8 +94,7 @@
                                               ["<" "timestamp" end-time]])
                 expected (expected-resource-events-response
                             (utils/select-values basic-events [3])
-                            report-hash
-                            conf-version)]
+                            basic)]
             (response-equal? response expected munge-event-values)))))
 
     (testing "compound queries"
@@ -121,8 +120,7 @@
         (let [response  (get-response query)
               expected  (expected-resource-events-response
                           (utils/select-values basic-events matches)
-                          report-hash
-                          conf-version)]
+                          basic)]
           (response-equal? response expected munge-event-values))))
 
 
@@ -140,12 +138,12 @@
           (is (= (count (:resource-events basic)) (count results)))
           (is (= (expected-resource-events-response
                    (:resource-events basic)
-                   report-hash conf-version)
+                   basic)
                 (set (munge-event-values results)))))))
 
     (testing "order-by field names"
       (testing "should accept dashes"
-        (let [expected  (expected-resource-events-response (:resource-events basic) report-hash conf-version)
+        (let [expected  (expected-resource-events-response (:resource-events basic) basic)
               response  (get-response [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
           (is (= (:status response) pl-http/status-ok))
           (response-equal? response expected munge-event-values)))
@@ -157,17 +155,42 @@
           (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
 
 (deftest query-distinct-resources
-  (let [basic         (:basic reports)
-        report-hash   (store-example-report! basic (now))
-        conf-version  (:configuration-version basic)
+  (let [report-hash   (store-example-report! (:basic reports) (now))
+        basic         (assoc (:basic reports) :hash report-hash)
         basic-events  (get-events-map basic)
 
-        basic3        (:basic3 reports)
-        report-hash3  (store-example-report! basic3 (now))
-        conf-version3 (:configuration-version basic3)
+        report-hash3  (store-example-report! (:basic3 reports) (now))
+        basic3        (assoc (:basic3 reports) :hash report-hash3)
         basic-events3 (get-events-map basic3)]
     (testing "should return only one event for a given resource"
-      (let [expected  (expected-resource-events-response (:resource-events basic3) report-hash3 conf-version3)
+      (let [expected  (expected-resource-events-response (:resource-events basic3) basic3)
             response  (get-response ["=", "certname", "foo.local"] {:distinct-resources true})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))))
+
+(deftest query-by-report-timestamp
+  (let [report-hash   (store-example-report! (:basic reports) (now))
+        basic         (assoc (:basic reports) :hash report-hash)
+        basic-events  (get-events-map basic)
+
+        report-hash3  (store-example-report! (:basic3 reports) (now))
+        basic3        (assoc (:basic3 reports) :hash report-hash3)
+        basic-events3 (get-events-map basic3)]
+
+    (testing "query by report start time"
+      (let [expected  (expected-resource-events-response (:resource-events basic) basic)
+            response  (get-response ["<", "run-start-time" "2011-01-02T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query by report end time"
+      (let [expected  (expected-resource-events-response (:resource-events basic3) basic3)
+            response  (get-response [">", "run-end-time" "2011-01-02T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query by end time w/no results"
+      (let [expected  #{}
+            response  (get-response [">", "run-end-time" "2011-01-04T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
