@@ -520,13 +520,13 @@
   (deftest latest-report
     (testing "should flag report as 'latest'"
       (let [node        (:certname report)
-            report-hash (store-example-report! report timestamp)]
+            report-hash (:hash (store-example-report! report timestamp))]
         (is (is-latest-report? node report-hash))
-        (let [new-report-hash (store-example-report!
-                                (-> report
-                                  (assoc :configuration-version "bar")
-                                  (assoc :end-time (now)))
-                                timestamp)]
+        (let [new-report-hash (:hash (store-example-report!
+                                        (-> report
+                                          (assoc :configuration-version "bar")
+                                          (assoc :end-time (now)))
+                                        timestamp))]
           (is (is-latest-report? node new-report-hash))
           (is (not (is-latest-report? node report-hash)))))))
 
@@ -534,9 +534,9 @@
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-example-report! report1 timestamp)
+            report1-hash  (:hash (store-example-report! report1 timestamp))
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-example-report! report2 timestamp)
+            report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
@@ -546,9 +546,9 @@
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-example-report! report1 timestamp)
+            report1-hash  (:hash (store-example-report! report1 timestamp))
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-example-report! report2 timestamp)
+            report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      #{}

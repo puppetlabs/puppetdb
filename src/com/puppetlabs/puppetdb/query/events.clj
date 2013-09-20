@@ -20,15 +20,20 @@
           (string? (:where %))]}
   (when-not (= (count args) 3)
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
-  (match [path]
-    ["timestamp"]
-    (if-let [timestamp (to-timestamp value)]
-      {:where (format "resource_events.timestamp %s ?" op)
-       :params [(to-timestamp value)]}
-      (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
 
-    :else (throw (IllegalArgumentException.
-                   (str op " operator does not support object '" path "' for resource events")))))
+  (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
+                          "run-start-time"      "reports.start_time"
+                          "run-end-time"        "reports.end_time"
+                          "report-receive-time" "reports.receive_time"}]
+    (match [path]
+      [(field :when (utils/keyset timestamp-fields))]
+      (if-let [timestamp (to-timestamp value)]
+        {:where (format "%s %s ?" (timestamp-fields field) op)
+         :params [(to-timestamp value)]}
+        (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
+
+      :else (throw (IllegalArgumentException.
+                     (str op " operator does not support object '" path "' for resource events"))))))
 
 (defn compile-resource-event-equality
   "Compile an = predicate for resource event query. `path` represents the field to
@@ -115,21 +120,24 @@
       (= op "~") compile-resource-event-regexp)))
 
 (def event-columns
-  {"certname"               "reports"
-   "configuration_version"  "reports"
-   "report"                 "resource_events"
-   "status"                 "resource_events"
-   "timestamp"              "resource_events"
-   "resource_type"          "resource_events"
-   "resource_title"         "resource_events"
-   "property"               "resource_events"
-   "new_value"              "resource_events"
-   "old_value"              "resource_events"
-   "message"                "resource_events"
-   "file"                   "resource_events"
-   "line"                   "resource_events"
-   "containment_path"       "resource_events"
-   "containing_class"       "resource_events"})
+  {"certname"               ["reports"]
+   "configuration_version"  ["reports"]
+   "start_time"             ["reports" "run_start_time"]
+   "end_time"               ["reports" "run_end_time"]
+   "receive_time"           ["reports" "report_receive_time"]
+   "report"                 ["resource_events"]
+   "status"                 ["resource_events"]
+   "timestamp"              ["resource_events"]
+   "resource_type"          ["resource_events"]
+   "resource_title"         ["resource_events"]
+   "property"               ["resource_events"]
+   "new_value"              ["resource_events"]
+   "old_value"              ["resource_events"]
+   "message"                ["resource_events"]
+   "file"                   ["resource_events"]
+   "line"                   ["resource_events"]
+   "containment_path"       ["resource_events"]
+   "containing_class"       ["resource_events"]})
 
 ;; This is the template for the SELECT statement that we use in the common case.
 (def default-select
@@ -172,7 +180,10 @@
                                   default-select)
         sql                     (format select-template
                                   (string/join ", "
-                                    (map (fn [[column table]] (str table "." column))
+                                    (map
+                                      (fn [[column [table alias]]]
+                                        (str table "." column
+                                          (if alias (format " AS %s" alias) "")))
                                       event-columns))
                                   where)]
     (apply vector sql params)))
@@ -228,4 +239,8 @@
       (->> query
         (query->sql nil)
         (query-resource-events paging-options)
-        (:result)))))
+        (:result)
+        (map #(-> %
+                (dissoc :run-start-time)
+                (dissoc :run-end-time)
+                (dissoc :report-receive-time)))))))

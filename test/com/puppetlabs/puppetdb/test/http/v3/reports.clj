@@ -43,7 +43,7 @@
 
 (deftest query-by-certname
   (let [basic         (:basic reports)
-        report-hash   (store-example-report! basic (now))]
+        report-hash   (:hash (store-example-report! basic (now)))]
 
     ;; TODO: test invalid requests
 
@@ -61,9 +61,9 @@
 
 (deftest query-with-paging
   (let [basic1        (:basic reports)
-        basic1-hash   (store-example-report! basic1 (now))
+        basic1-hash   (:hash (store-example-report! basic1 (now)))
         basic2        (:basic2 reports)
-        basic2-hash   (store-example-report! basic2 (now))]
+        basic2-hash   (:hash (store-example-report! basic2 (now)))]
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")

@@ -75,7 +75,7 @@
       (report/validate! 2 example-report)
       (scf-store/maybe-activate-node! (:certname example-report) timestamp)
       (scf-store/add-report!* example-report timestamp update-latest-report?)
-      report-hash)))
+      (query/report-for-hash report-hash))))
 
 (defn expected-report
   [example-report]
