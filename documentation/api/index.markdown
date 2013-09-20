@@ -52,6 +52,7 @@ Version 3 of the query API adds new endpoints, and introduces paging and sorting
 * [Events Endpoint](./query/v3/events.html)
 * [Event Counts Endpoint](./query/v3/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
+* [Server Time Endpoint](./query/v3/server-time.html)
 
 #### Version 2
 
