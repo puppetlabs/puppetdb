@@ -155,3 +155,19 @@
               body      (get response :body "null")]
           (is (= (:status response) pl-http/status-bad-request))
           (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
+
+(deftest query-distinct-resources
+  (let [basic         (:basic reports)
+        report-hash   (store-example-report! basic (now))
+        conf-version  (:configuration-version basic)
+        basic-events  (get-events-map basic)
+
+        basic3        (:basic3 reports)
+        report-hash3  (store-example-report! basic3 (now))
+        conf-version3 (:configuration-version basic3)
+        basic-events3 (get-events-map basic3)]
+    (testing "should return only one event for a given resource"
+      (let [expected  (expected-resource-events-response (:resource-events basic3) report-hash3 conf-version3)
+            response  (get-response ["=", "certname", "foo.local"] {:distinct-resources true})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))))

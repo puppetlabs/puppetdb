@@ -9,6 +9,7 @@
             [clojure.string :as string])
   (:use     [com.puppetlabs.utils :only [keyset seq-contains?]]
             [com.puppetlabs.jdbc :only [underscores->dashes]]
+            [com.puppetlabs.http :only [parse-boolean-query-param]]
             [clojure.walk :only (keywordize-keys)]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
@@ -96,19 +97,10 @@
   "Parse the optional `include-total` query parameter in the paging options map,
   and return an updated map with the correct boolean value."
   [paging-options]
-  (if (contains? paging-options :include-total)
-    (let [val (:include-total paging-options)]
-      (-> paging-options
-        (dissoc :include-total)
-        (assoc :count?
-          (cond
-            ;; If the original query string contains the query param w/o a
-            ;; a value, it will show up here as nil.  We assume that in that
-            ;; case, the caller intended to use it as a flag.
-            (= val nil)                  true
-            (Boolean/parseBoolean val)   true
-            :else                        false))))
-    (assoc paging-options :count? false)))
+  (let [count? (parse-boolean-query-param paging-options :include-total)]
+    (-> paging-options
+      (dissoc :include-total)
+      (assoc :count? count?))))
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of

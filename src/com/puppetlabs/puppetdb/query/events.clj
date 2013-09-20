@@ -101,8 +101,6 @@
         :else (throw (IllegalArgumentException.
                        (str path " is not a queryable object for resource events"))))))
 
-
-
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
   if the operator isn't known."
@@ -133,20 +131,50 @@
    "containment_path"       "resource_events"
    "containing_class"       "resource_events"})
 
+;; This is the template for the SELECT statement that we use in the common case.
+(def default-select
+  "SELECT %s
+      FROM resource_events
+      JOIN reports ON resource_events.report = reports.hash
+      WHERE %s")
+
+
+;; This is the template for the SELECT statement that we use if we are filtering
+;;  out duplicate events that occurred on the same resource (per node).
+(def distinct-select
+  "SELECT %s
+      FROM resource_events
+      JOIN reports ON resource_events.report = reports.hash
+      JOIN (SELECT reports.certname,
+                   resource_events.resource_type,
+                   resource_events.resource_title,
+                   resource_events.property,
+                   MAX(resource_events.timestamp) AS timestamp
+               FROM resource_events
+               JOIN reports ON resource_events.report = reports.hash
+               WHERE %s
+               GROUP BY certname, resource_type, resource_title, property) latest_events
+           ON reports.certname = latest_events.certname
+            AND resource_events.resource_type = latest_events.resource_type
+            AND resource_events.resource_title = latest_events.resource_title
+            AND ((resource_events.property = latest_events.property) OR
+                 (resource_events.property IS NULL AND latest_events.property IS NULL))
+            AND resource_events.timestamp = latest_events.timestamp")
+
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [query]
+  [query-options query]
   {:pre  [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
-  (let [{:keys [where params]} (compile-term resource-event-ops query)
-        sql (format "SELECT %s
-                        FROM resource_events
-                        JOIN reports ON resource_events.report = reports.hash
-                        WHERE %s"
-              (string/join ", "
-                (map (fn [[column table]] (str table "." column))
-                  event-columns))
-              where)]
+  (let [{:keys [where params]}  (compile-term resource-event-ops query)
+        select-template         (if (:distinct-resources? query-options)
+                                  distinct-select
+                                  default-select)
+        sql                     (format select-template
+                                  (string/join ", "
+                                    (map (fn [[column table]] (str table "." column))
+                                      event-columns))
+                                  where)]
     (apply vector sql params)))
 
 (defn limited-query-resource-events
@@ -166,7 +194,6 @@
           (map? %)
           (contains? % :result)
           (sequential? (:result %))]}
-
   (validate-order-by! (keys event-columns) paging-options)
   (let [limited-query   (add-limit-clause limit query)
         results         (execute-query
@@ -199,6 +226,6 @@
         paging-options {}]
     (vec
       (->> query
-        (query->sql)
+        (query->sql nil)
         (query-resource-events paging-options)
         (:result)))))

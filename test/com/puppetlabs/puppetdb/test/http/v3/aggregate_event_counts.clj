@@ -5,6 +5,7 @@
         [clj-time.core :only [now]]
         com.puppetlabs.puppetdb.fixtures
         com.puppetlabs.puppetdb.examples.reports
+        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
         [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
 
@@ -44,3 +45,19 @@
                                     "counts-filter" ["<" "successes" 1]})
           actual    (json/parse-string (:body response) true)]
       (is (= actual expected)))))
+
+(deftest query-distinct-event-counts
+  (store-example-report! (:basic reports) (now))
+  (store-example-report! (:basic3 reports) (now))
+  (testing "should only count the most recent event for each resource"
+    (let [expected  {:successes 1
+                     :skips 1
+                     :failures 1
+                     :noops 0
+                     :total 3}
+          response  (get-response "/v3/aggregate-event-counts"
+                      ["=" "certname" "foo.local"]
+                      "resource"
+                      {"distinct-resources" true})]
+      (assert-success! response)
+      (is (= expected (json/parse-string (:body response) true))))))

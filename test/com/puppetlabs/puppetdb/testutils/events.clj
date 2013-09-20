@@ -60,8 +60,9 @@
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
   ([query] (resource-events-query-result query nil))
-  ([query paging-options]
-    (->> (query/query->sql query)
+  ([query paging-options] (resource-events-query-result query paging-options nil))
+  ([query paging-options query-options]
+    (->> (query/query->sql query-options query)
          (query/query-resource-events paging-options)
          (:result)
          (set))))
@@ -71,7 +72,7 @@
   a set of results for use in test comparisons."
   ([limit query] (resource-events-limited-query-result limit query nil))
   ([limit query paging-options]
-    (->> (query/query->sql query)
+    (->> (query/query->sql nil query)
          (query/limited-query-resource-events limit paging-options)
          (:result)
          (set))))
