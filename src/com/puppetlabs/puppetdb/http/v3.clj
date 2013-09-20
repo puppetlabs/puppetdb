@@ -11,6 +11,7 @@
         [com.puppetlabs.puppetdb.http.v3.reports :only (reports-app)]
         [com.puppetlabs.puppetdb.http.v3.event-counts :only (event-counts-app)]
         [com.puppetlabs.puppetdb.http.v3.aggregate-event-counts :only (aggregate-event-counts-app)]
+        [com.puppetlabs.puppetdb.http.v3.server-time :only (server-time-app)]
         [net.cgrand.moustache :only (app)]))
 
 (def v3-app
@@ -49,4 +50,7 @@
     {:any aggregate-event-counts-app}
 
     ["reports" &]
-    {:any reports-app}))
+    {:any reports-app}
+
+    ["server-time" &]
+    {:any server-time-app}))
