@@ -7,7 +7,7 @@
 
 (defn server-time-response
   [req]
-  (pl-http/json-response (to-string (now))))
+  (pl-http/json-response {:server-time (to-string (now))}))
 
 (def routes
   (app

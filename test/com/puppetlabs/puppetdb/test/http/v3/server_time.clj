@@ -17,7 +17,11 @@
     (let [test-time (ago (secs 1))
           response  (get-response)]
       (assert-success! response)
-      (let [server-time (from-string (json/parse-string (:body response)))]
+      (let [server-time (-> response
+                          :body
+                          (json/parse-string true)
+                          :server-time
+                          from-string)]
         (is (> (in-secs (interval test-time server-time)) 0))
         (is (> 5 (in-secs (interval test-time server-time))))))))
 
