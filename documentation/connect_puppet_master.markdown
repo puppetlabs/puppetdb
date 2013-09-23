@@ -104,7 +104,9 @@ More information about Puppet report processors in general can be found
 
 ### 3. Edit routes.yaml
 
-The [routes.yaml][routes_yaml] file will probably not exist yet. Create it if necessary, and add the following: 
+The [routes.yaml][routes_yaml] file will probably not exist yet. The path to this Puppet configuration file can be found with the command `puppet master --configprint route_file`.
+
+Create it if necessary, and add the following:
 
     ---
     master:
