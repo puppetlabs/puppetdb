@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [com.puppetlabs.puppetdb.http.server :as server])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
@@ -372,3 +373,58 @@
             {:keys [status body]} (*app* request)]
         (is (= status pl-http/status-bad-request))
         (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
+
+(defn test-app
+  ([read-write-db]
+     (test-app read-write-db read-write-db))
+  ([read-db write-db]
+     (server/build-app
+      :globals {:scf-read-db          read-db
+                :scf-write-db         write-db
+                :command-mq           *mq*
+                :event-query-limit    20000
+                :product-name         "puppetdb"})))
+
+(defn with-shutdown-after [dbs f]
+  (f)
+  (doseq [db dbs]
+    (sql/do-commands "SHUTDOWN")))
+
+(deftest ^{:postgres false} two-database-fact-query-config
+  (let [read-db (init-db (create-db-map) true)
+        write-db (init-db (create-db-map) false)]
+    (with-shutdown-after [read-db write-db]
+      (fn []
+        (let [one-db-app (test-app write-db)
+              two-db-app (test-app read-db write-db)
+              facts1 {"domain" "testing.com"
+                      "hostname" "foo1"
+                      "kernel" "Linux"
+                      "operatingsystem" "Debian"
+                      "some_version" "1.3.7+build.11.e0f985a"
+                      "uptime_seconds" "4000"}]
+
+          (with-transacted-connection write-db
+            (scf-store/add-certname! "foo1")
+            (scf-store/add-facts! "foo1" facts1 (now)))
+
+          (testing "queries only use the read database"
+            (let [request (get-request "/v2/facts" {"query" (json/generate-string nil)})
+                  {:keys [status body headers]} (two-db-app request)]
+              (is (= status pl-http/status-ok))
+              (is (= (headers "Content-Type") c-t))
+              (is (empty? (json/parse-string body true)))))
+
+          (testing "config with only a single database returns results"
+            (let [request (get-request "/v2/facts" {"query" (json/generate-string nil)})
+                  {:keys [status body headers]} (one-db-app request)]
+              (is (= status pl-http/status-ok))
+              (is (= (headers "Content-Type") c-t))
+              (is (= [{:certname "foo1" :name "domain" :value "testing.com"}
+                      {:certname "foo1" :name "hostname" :value "foo1"}
+                      {:certname "foo1" :name "kernel" :value "Linux"}
+                      {:certname "foo1" :name "operatingsystem" :value "Debian"}
+                      {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
+                      {:certname "foo1" :name "uptime_seconds" :value "4000"}]
+                     (json/parse-string body true))))))))))
+

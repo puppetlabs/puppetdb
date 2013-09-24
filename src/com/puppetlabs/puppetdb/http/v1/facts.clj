@@ -35,7 +35,7 @@
   (app
     [node &]
     (fn [{:keys [globals]}]
-      (retrieve-facts-for-node node (:scf-db globals)))))
+      (retrieve-facts-for-node node (:scf-read-db globals)))))
 
 (def facts-app
   (-> routes

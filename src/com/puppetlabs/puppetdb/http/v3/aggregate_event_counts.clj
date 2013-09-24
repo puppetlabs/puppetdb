@@ -39,7 +39,7 @@
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
-            (produce-body params (:scf-db globals)))}))
+            (produce-body params (:scf-read-db globals)))}))
 
 (def aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."

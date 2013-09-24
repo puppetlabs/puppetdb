@@ -19,7 +19,7 @@
   (app
     [node]
     (fn [{:keys [globals]}]
-      (produce-body node (:scf-db globals)))))
+      (produce-body node (:scf-read-db globals)))))
 
 (def catalog-app
   (-> routes

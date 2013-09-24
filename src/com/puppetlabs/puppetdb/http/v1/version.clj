@@ -34,7 +34,7 @@
                                 "version" (version)
                                 "link"    nil})
 
-        (update-info update-server (:scf-db globals))
+        (update-info update-server (:scf-read-db globals))
         (pl-http/json-response result)
 
         :else

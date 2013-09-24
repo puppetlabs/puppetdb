@@ -350,6 +350,78 @@ The maximum time (in minutes) a pooled connection should remain open. Any connec
 
 If not supplied, we won't terminate connections based on their age alone.
 
+`[read-database]` Settings
+-----
+
+The `[read-database]` section configures PuppetDB's _read-database_ settings, useful when running a PostgreSQL [Hot Standby](http://wiki.postgresql.org/wiki/Hot_Standby) cluster.  Currently only configuring a Postgres read-database is supported.  See the Postgres docs [here](http://wiki.postgresql.org/wiki/Hot_Standby) for details on configuring the cluster.  The `[read-database]` portion of the configuration is in addition to the `[database]` settings.  If `[read-database]` is specified, `[database]` must also be specified.
+
+To configure PuppetDB to use a read-only database from the cluster, put the following in the `[read-database]` section:
+
+    classname = org.postgresql.Driver
+    subprotocol = postgresql
+    subname = //<HOST>:<PORT>/<DATABASE>
+    username = <USERNAME>
+    password = <PASSWORD>
+
+Replace `<HOST>` with the DB server's hostname. Replace `<PORT>` with the port on which PostgreSQL is listening. Replace `<DATABASE>` with the name of the database you've created for use with PuppetDB.
+
+#### Using SSL With PostgreSQL
+
+It's possible to use SSL to protect connections to the database. There are several extra steps and considerations when doing so; see the
+[PostgreSQL SSL setup page][postgres_ssl] for complete details.
+
+The main difference in the config file is that you must be sure to add `?ssl=true` to the `subname` setting:
+
+    subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
+
+### `classname`
+
+This sets the JDBC class to use. This should be `org.postgresql.Driver`.
+
+### `subprotocol`
+
+Set this to `postgresql`.
+
+### `subname`
+
+This describes where to find the database. Set this to:
+
+* `//<HOST>:<PORT>/<DATABASE>` when using PostgreSQL, replacing `<HOST>` with the DB server's hostname, `<PORT>` with the port on which PostgreSQL is listening, and `<DATABASE>` with the name of the database
+    * Append `?ssl=true` to this if your PostgreSQL server is using SSL.
+
+### `username`
+
+This is the username to use when connecting.
+
+### `password`
+
+This is the password to use when connecting.
+
+### `log-slow-statements`
+
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+
+The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+
+### `conn-max-age`
+
+The maximum time (in minutes), for a pooled connection to remain unused before it is closed off.
+
+If not supplied, we default to 60 minutes.
+
+### `conn-keep-alive`
+
+This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+
+If not supplied, we default to 45 minutes.
+
+### `conn-lifetime`
+
+The maximum time (in minutes) a pooled connection should remain open. Any connections older than this setting will be closed off. Connections currently in use will not be affected until they are returned to the pool.
+
+If not supplied, we won't terminate connections based on their age alone.
+
+
 `[command-processing]` Settings
 -----
 

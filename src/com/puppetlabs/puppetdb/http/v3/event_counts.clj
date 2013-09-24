@@ -42,7 +42,7 @@
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
-            (produce-body params paging-options (:scf-db globals)))}))
+            (produce-body params paging-options (:scf-read-db globals)))}))
 
 (def event-counts-app
   "Ring app for querying for summary information about resource events."

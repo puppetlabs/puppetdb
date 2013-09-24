@@ -116,7 +116,7 @@
             (produce-body
               (:resource-query-limit globals)
               (params "query")
-              (:scf-db globals)))}))
+              (:scf-read-db globals)))}))
 
 (def resources-app
   "Ring app for querying resources"

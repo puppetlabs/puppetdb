@@ -17,7 +17,7 @@
   (app
     ["exported-resources"]
     {:get (fn [{:keys [globals]}]
-            (get-exported-resources (:scf-db globals)))}))
+            (get-exported-resources (:scf-read-db globals)))}))
 
 (def population-app
   (-> routes

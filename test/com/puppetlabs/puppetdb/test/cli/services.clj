@@ -53,7 +53,27 @@
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
         (is (= (select-keys (:database config) #{:classname :subprotocol :subname})
-               expected))))))
+               expected))))
+    
+    (testing "the read-db defaulted to the specified write-db"
+      (let [config (configure-database {:database {:classname "something"}})]
+        (is (= (get-in config [:read-database :classname]) "something"))
+        (is (nil? (get-in config [:read-database :subprotocol])))
+        (is (nil? (get-in config [:read-database :subname])))))
+    
+    (testing "the read-db defaulted to the hsql write-db-default"
+      (let [config (configure-database {:global {:vardir "/var/lib/puppetdb"}})
+            expected {:classname "org.hsqldb.jdbcDriver"
+                      :subprotocol "hsqldb"
+                      :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
+        (is (= (select-keys (:read-database config) #{:classname :subprotocol :subname})
+               expected))))
+
+    (testing "the read-db should be specified by a read-database property"
+      (let [config (configure-database {:read-database {:classname "something"}})]
+        (is (= (get-in config [:read-database :classname]) "something"))
+        (is (nil? (get-in config [:read-database :subprotocol])))
+        (is (nil? (get-in config [:read-database :subname])))))))
 
 (deftest garbage-collection
   (testing "gc-interval"
