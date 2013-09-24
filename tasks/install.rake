@@ -3,6 +3,8 @@
 # DESTDIR is defined in the top-level Rakefile
 # JAR_FILE is defined in the ext/tar.rake file
 #
+
+
 desc "Install PuppetDB (DESTDIR and PE_BUILD optional arguments)"
 task :install => [  JAR_FILE  ] do
   unless File.exists?("ext/files/config.ini")
@@ -53,11 +55,22 @@ task :install => [  JAR_FILE  ] do
 
   # figure out which init script to install based on facter
   if @osfamily == "redhat"
-    mkdir_p "#{DESTDIR}/etc/sysconfig"
-    mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
-    cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
-    cp_p "ext/files/puppetdb.redhat.init", "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
-    chmod 0755, "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
+    @operatingsystem = Facter.value(:operatingsystem).downcase
+    @operatingsystemrelease = `cat /etc/redhat-release | awk '{print $3}'`.chomp
+    puts "operatingsystem is #{@operatingsystem}"
+    puts "operatingsystemrelease is #{@operatingsystemrelease}"
+    if (@operatingsystem == "fedora" && @operatingsystemrelease.to_i >= 17) || (@operatingsystem =~ /redhat|centos/ && @operatingsystemrelease.to_f >= 7 )
+      #systemd!
+      mkdir_p "#{DESTDIR}/usr/lib/systemd/system"
+      cp_p "ext/files/systemd/#{@name}.service", "#{DESTDIR}/usr/lib/systemd/system"
+      chmod 0644, "#{DESTDIR}/usr/lib/systemd/system/#{@name}.service"
+    else
+      mkdir_p "#{DESTDIR}/etc/sysconfig"
+      mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
+      cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+      cp_p "ext/files/puppetdb.redhat.init", "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
+      chmod 0755, "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
+    end
   elsif @osfamily == "suse"
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/init.d/"
