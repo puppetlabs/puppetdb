@@ -242,14 +242,12 @@ module PuppetDBExtensions
     end
   end
 
-
   def is_gem_installed_on?(host, gem)
     # Include a trailing space when grep'ing to force an exact match of the gem name,
     # so, for example, when checking for 'rspec' we don't match with 'rspec-core'.
     result = on host, "gem list #{gem} | grep \"#{gem} \"", :acceptable_exit_codes => [0,1]
     result.exit_code == 0
   end
-
 
   def current_time_on(host)
     result = on host, %Q|date --rfc-2822|
@@ -406,7 +404,7 @@ module PuppetDBExtensions
     begin
       Timeout.timeout(timeout) do
         until queue_size == 0
-          result = on host, %Q(curl http://localhost:8080/v2/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
+          result = on host, %Q(curl http://localhost:8080/v3/metrics/mbean/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
           queue_size = Integer(result.stdout.chomp)
         end
       end

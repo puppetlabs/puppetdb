@@ -12,7 +12,8 @@
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-string]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
-        [clj-http.util :only [url-encode]])
+        [clj-http.util :only [url-encode]]
+        [com.puppetlabs.puppetdb.catalogs :only [catalog-version]])
   (:require [cheshire.core :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -33,7 +34,7 @@
    :post [((some-fn string? nil?) %)]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/catalog/%s"
+                                   "http://%s:%s/v3/catalogs/%s"
                                    host port node)
                                  { :accept :json})]
     (when (= status 200) body)))
@@ -47,14 +48,14 @@
    :post [vector? %]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/events?query=%s"
+                                   "http://%s:%s/v3/events?query=%s"
                                    host port (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash))))]
     (when
       (= status 200)
       (sort-by
         #(mapv % [:timestamp :resource-type :resource-title :property])
         (map
-          #(dissoc % :report :certname :configuration-version)
+          #(dissoc % :report :certname :configuration-version :containing-class)
           (json/parse-string body true))))))
 
 (defn reports-for-node
@@ -66,7 +67,7 @@
    :post [seq? %]}
   (let [{:keys [status body]} (client/get
                                  (format
-                                   "http://%s:%s/experimental/reports?query=%s"
+                                   "http://%s:%s/v3/reports?query=%s"
                                    host port (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
                                  { :accept :json})]
     (when
@@ -84,7 +85,7 @@
           (integer? port)]
    :post ((some-fn nil? seq?) %)}
   (let [{:keys [status body]} (client/get
-                                (format "http://%s:%s/v2/nodes" host port)
+                                (format "http://%s:%s/v3/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
       (map :name
@@ -100,7 +101,7 @@
     ;;  on which version of the `replace catalog` matches up with the current
     ;;  version of the `catalog` endpoint... or even to query what the latest
     ;;  version of a command is.  We should improve that.
-    {:replace-catalog 2
+    {:replace-catalog catalog-version
      :store-report 2}})
 
 (defn get-catalog-for-node

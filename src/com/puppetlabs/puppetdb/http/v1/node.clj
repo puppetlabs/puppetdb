@@ -31,7 +31,7 @@
 (ns com.puppetlabs.puppetdb.http.v1.node
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.node :as node]
+            [com.puppetlabs.puppetdb.query.nodes :as node]
             [ring.util.response :as rr])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
@@ -45,7 +45,7 @@
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
             sql   (node/v1-query->sql query)
-            nodes (mapv :name (node/query-nodes sql))]
+            nodes (mapv :name (:result (node/query-nodes sql)))]
         (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -61,4 +61,6 @@
 
 (def node-app
   "Ring app for querying nodes."
-  (verify-accepts-json routes))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {:optional ["query"]})))

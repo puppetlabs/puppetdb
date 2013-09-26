@@ -2,14 +2,14 @@
   (:require [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [com.puppetlabs.random :as random]
             [com.puppetlabs.puppetdb.report.utils :as reputils]
-            [com.puppetlabs.puppetdb.report :as report-val]
+            [com.puppetlabs.puppetdb.reports :as report-val]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
-        [com.puppetlabs.puppetdb.examples.report :only [reports]]
-        [com.puppetlabs.puppetdb.testutils.report]
-        [com.puppetlabs.puppetdb.testutils.event]
-        [com.puppetlabs.puppetdb.query.report :only [is-latest-report?]]
+        [com.puppetlabs.puppetdb.examples.reports :only [reports]]
+        [com.puppetlabs.puppetdb.testutils.reports]
+        [com.puppetlabs.puppetdb.testutils.events]
+        [com.puppetlabs.puppetdb.query.reports :only [is-latest-report?]]
         [com.puppetlabs.puppetdb.scf.storage]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [clojure.test]
@@ -206,11 +206,11 @@
                  {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
 
         (testing "with all metadata"
-          (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.sourcefile, cr.sourceline FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
+          (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
             (is (= (map #(assoc % :tags (sort (:tags %))) result)
-                  [{:type "Class" :title "foobar" :tags [] :exported false :sourcefile nil :sourceline nil}
-                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/foo" :sourceline 10}
-                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :sourcefile "/tmp/bar" :sourceline 20}])))))))
+                  [{:type "Class" :title "foobar" :tags [] :exported false :file nil :line nil}
+                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :file "/tmp/foo" :line 10}
+                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :file "/tmp/bar" :line 20}])))))))
 
   (deftest catalog-replacement
     (testing "should noop if replaced by themselves"
@@ -524,13 +524,13 @@
   (deftest latest-report
     (testing "should flag report as 'latest'"
       (let [node        (:certname report)
-            report-hash (store-example-report! report timestamp)]
+            report-hash (:hash (store-example-report! report timestamp))]
         (is (is-latest-report? node report-hash))
-        (let [new-report-hash (store-example-report!
-                                (-> report
-                                  (assoc :configuration-version "bar")
-                                  (assoc :end-time (now)))
-                                timestamp)]
+        (let [new-report-hash (:hash (store-example-report!
+                                        (-> report
+                                          (assoc :configuration-version "bar")
+                                          (assoc :end-time (now)))
+                                        timestamp))]
           (is (is-latest-report? node new-report-hash))
           (is (not (is-latest-report? node report-hash)))))))
 
@@ -538,9 +538,9 @@
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-example-report! report1 timestamp)
+            report1-hash  (:hash (store-example-report! report1 timestamp))
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-example-report! report2 timestamp)
+            report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
@@ -550,9 +550,9 @@
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
       (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (store-example-report! report1 timestamp)
+            report1-hash  (:hash (store-example-report! report1 timestamp))
             report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (store-example-report! report2 timestamp)
+            report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      #{}

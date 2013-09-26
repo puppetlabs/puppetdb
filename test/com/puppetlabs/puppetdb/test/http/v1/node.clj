@@ -9,6 +9,7 @@
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
         com.puppetlabs.puppetdb.fixtures
+        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
         [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
@@ -34,7 +35,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response expected]
-  (is (= pl-http/status-ok   (:status response)))
+  (assert-success! response)
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (let [actual (if (:body response)
                    (set (json/parse-string (:body response) true))

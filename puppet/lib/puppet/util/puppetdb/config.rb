@@ -1,29 +1,18 @@
 require 'puppet/util/puppetdb/command_names'
+require 'puppet/util/puppetdb/blacklist'
 
 module Puppet::Util::Puppetdb
 class Config
   include Puppet::Util::Puppetdb::CommandNames
 
-  BlacklistedEvent = Struct.new(:resource_type, :resource_title, :status, :property)
-
-  # Initialize our blacklist of events to filter out of reports.  This is needed
-  # because older versions of puppet always generate a swath of (meaningless)
-  # 'skipped' Schedule events on every agent run.  As of puppet 3.3, these
-  # events should no longer be generated, but this is here for backward compat.
-  BlacklistedEvents =
-      [BlacklistedEvent.new("Schedule", "never", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "puppet", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "hourly", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "daily", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "weekly", "skipped", nil),
-       BlacklistedEvent.new("Schedule", "monthly", "skipped", nil)]
-
   # Public class methods
 
   def self.load(config_file = nil)
-    defaults = { :server                      => "puppetdb",
-                 :port                        => 8081,
-                 :ignore_blacklisted_events   => true,
+    defaults = {
+      :server                    => "puppetdb",
+      :port                      => 8081,
+      :soft_write_failure        => false,
+      :ignore_blacklisted_events => true,
     }
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -63,13 +52,15 @@ class Config
     main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
     # merge with defaults but filter out anything except the legal settings
     config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :ignore_blacklisted_events].include?(k))
+      !([:server, :port, :ignore_blacklisted_events, :soft_write_failure].include?(k))
     end
 
     config_hash[:server] = config_hash[:server].strip
     config_hash[:port] = config_hash[:port].to_i
     config_hash[:ignore_blacklisted_events] =
-        Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+      Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+    config_hash[:soft_write_failure] =
+      Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
     self.new(config_hash)
   rescue => detail
@@ -98,27 +89,22 @@ class Config
   end
 
   def is_event_blacklisted?(event)
-    blacklisted_events.fetch(event["resource-type"], {}).
-      fetch(event["resource-title"], {}).
-      fetch(event["status"], {}).
-      fetch(event["property"], false)
+   @blacklist.is_event_blacklisted? event
+  end
+
+  def soft_write_failure
+    config[:soft_write_failure]
   end
 
   # Private instance methods
   private
 
   attr_reader :config
-  attr_reader :blacklisted_events
 
-  def initialize_blacklisted_events(events = BlacklistedEvents)
-    @blacklisted_events = events.reduce({}) do |m, e|
-      m[e.resource_type] ||= {}
-      m[e.resource_type][e.resource_title] ||= {}
-      m[e.resource_type][e.resource_title][e.status] ||= {}
-      m[e.resource_type][e.resource_title][e.status][e.property] = true
-      m
-    end
+  Blacklist = Puppet::Util::Puppetdb::Blacklist
+
+  def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
+    @blacklist = Blacklist.new(events)
   end
-
 end
 end

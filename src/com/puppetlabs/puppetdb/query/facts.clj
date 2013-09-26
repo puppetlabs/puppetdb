@@ -4,8 +4,8 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use clojureql.core
-        [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2]]))
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 execute-query]]
+        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
   "Fetch the facts for the given node, as a map of `{fact value}`. This is used
@@ -13,10 +13,10 @@
   [node]
   {:pre  [(string? node)]
    :post [(map? %)]}
-  (let [facts (-> (table :certname_facts)
-                  (project [:name, :value])
-                  (select (where (= :certname node))))]
-    (into {} (for [fact @facts]
+  (let [facts (sql/query-to-vec
+                ["SELECT name, value FROM certname_facts WHERE certname = ?"
+                 node])]
+    (into {} (for [fact facts]
                [(:name fact) (:value fact)]))))
 
 (defn flat-facts-by-node
@@ -26,22 +26,24 @@
      ...
      {:certname <node> :name <fact> :value <value>}]"
   [node]
-  (-> (table :certname_facts)
-      (project [:certname :name :value])
-      (select (where (= :certname node)))
-      (deref)))
+  (sql/query-to-vec
+    ["SELECT certname, name, value FROM certname_facts WHERE certname = ?"
+     node]))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
   ascending. This includes facts which are known only for deactivated nodes."
-  []
-  {:post [(coll? %)
-          (every? string? %)]}
-  (let [facts (-> (table :certname_facts)
-                  (project [:name])
-                  (distinct)
-                  (order-by [:name]))]
-    (map :name @facts)))
+  ([]
+    (fact-names {}))
+  ([paging-options]
+    {:post [(map? %)
+            (coll? (:result %))
+            (every? string? (:result %))]}
+    (validate-order-by! [:name] paging-options)
+    (let [facts (execute-query
+                  ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
+                  paging-options)]
+      (update-in facts [:result] #(map :name %)))))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -57,6 +59,7 @@
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
 
 (defn query-facts
-  [[sql & params]]
+  [[sql & params :as query] paging-options]
   {:pre [(string? sql)]}
-  (apply sql/query-to-vec sql params))
+  (validate-order-by! [:certname :name :value] paging-options)
+  (execute-query query paging-options))

@@ -19,8 +19,8 @@
 ;; up, it's important to run `garbage-collect!`.
 
 (ns com.puppetlabs.puppetdb.scf.storage
-  (:require [com.puppetlabs.puppetdb.catalog :as cat]
-            [com.puppetlabs.puppetdb.report :as report]
+  (:require [com.puppetlabs.puppetdb.catalogs :as cat]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -328,24 +328,28 @@ must be supplied as the value to be matched."
 
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db"
-  [hash api-version catalog-version]
+  [hash api-version catalog-version transaction-uuid]
   {:pre [(string? hash)
          (number? api-version)
-         (string? catalog-version)]}
-  (sql/insert-record :catalogs {:hash            hash
-                                :api_version     api-version
-                                :catalog_version catalog-version}))
+         (string? catalog-version)
+         ((some-fn nil? string?) transaction-uuid)]}
+  (sql/insert-record :catalogs {:hash             hash
+                                :api_version      api-version
+                                :catalog_version  catalog-version
+                                :transaction_uuid transaction-uuid}))
 
 (defn update-catalog-metadata!
   "Given some catalog metadata, update the db"
-  [hash api-version catalog-version]
+  [hash api-version catalog-version transaction-uuid]
   {:pre [(string? hash)
          (number? api-version)
-         (string? catalog-version)]}
+         (string? catalog-version)
+         ((some-fn nil? string?) transaction-uuid)]}
   (sql/update-values :catalogs
                      ["hash=?" hash]
-                     {:api_version     api-version
-                      :catalog_version catalog-version}))
+                     {:api_version      api-version
+                      :catalog_version  catalog-version
+                      :transaction_uuid transaction-uuid}))
 
 (defn catalog-exists?
   "Returns a boolean indicating whether or not the given catalog exists in the db"
@@ -361,7 +365,7 @@ must be supplied as the value to be matched."
   [resource-hashes]
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
-   :post [(set? resource-hashes)]}
+   :post [(set? %)]}
   (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
         query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
         sql-params (vec (cons query resource-hashes))]
@@ -464,7 +468,7 @@ must be supplied as the value to be matched."
                               :let [hash (refs-to-hashes ref)]]
                           (resource->values catalog-hash resource hash (persisted? hash)))
         lookup-table    [[:parameters_cache "INSERT INTO resource_params_cache (resource, parameters) VALUES (?, ?)"]
-                         [:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,sourcefile,sourceline) VALUES (?,?,?,?,?,?,?,?)"]
+                         [:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,file,line) VALUES (?,?,?,?,?,?,?,?)"]
                          [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table
@@ -541,7 +545,7 @@ must be supplied as the value to be matched."
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
   similarity hash"
-  [{:keys [api-version version resources edges] :as catalog}]
+  [{:keys [api-version version transaction-uuid resources edges] :as catalog}]
   {:pre [(number? api-version)
          (coll? edges)
          (map? resources)]}
@@ -558,11 +562,11 @@ must be supplied as the value to be matched."
 
               (when exists?
                 (inc! (:duplicate-catalog metrics))
-                (update-catalog-metadata! hash api-version version))
+                (update-catalog-metadata! hash api-version version transaction-uuid))
 
               (when-not exists?
                 (inc! (:new-catalog metrics))
-                (add-catalog-metadata! hash api-version version)
+                (add-catalog-metadata! hash api-version version transaction-uuid)
                 (let [refs-to-hashes (zipmap (keys resources) resource-hashes)]
                   (time! (:add-resources metrics)
                          (add-resources! hash resources refs-to-hashes))
@@ -715,7 +719,7 @@ must be supplied as the value to be matched."
   configuration version, timestamps, events).
   "
   [{:keys [certname puppet-version report-format configuration-version
-           start-time end-time resource-events] :as report}]
+           start-time end-time resource-events transaction-uuid] :as report}]
   (-> (sorted-map)
     (assoc :certname certname)
     (assoc :puppet-version puppet-version)
@@ -724,6 +728,7 @@ must be supplied as the value to be matched."
     (assoc :start-time start-time)
     (assoc :end-time end-time)
     (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
+    (assoc :transaction-uuid transaction-uuid)
     (pr-str)
     (utils/utf8-string->sha1)))
 
@@ -739,9 +744,26 @@ must be supplied as the value to be matched."
                                             LIMIT 1" node])))]
     (sql/update-or-insert-values
       :latest_reports
-      ["node = ?" node]
-      {:node    node
-       :report  latest-report})))
+      ["certname = ?" node]
+      {:certname      node
+       :report        latest-report})))
+
+(defn find-containing-class
+  "Given a containment path from Puppet, find the outermost 'class'."
+  [containment-path]
+  {:pre [(or
+           (nil? containment-path)
+           (and (coll? containment-path) (every? string? containment-path)))]
+   :post [((some-fn nil? string?) %)]}
+  (when-not ((some-fn nil? empty?) containment-path)
+    ;; This is a little wonky.  Puppet only gives us an array of Strings
+    ;; to represent the containment path.  Classes can be differentiated
+    ;; from types because types have square brackets and a title; so, e.g.,
+    ;; "Foo" is a class, but "Foo[Bar]" is a type with a title.
+    (first
+      (filter
+        #(not (or (empty? %) (utils/string-contains? "[" %)))
+        (reverse containment-path)))))
 
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -749,19 +771,21 @@ must be supplied as the value to be matched."
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
   [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events]
+           start-time end-time resource-events transaction-uuid]
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
          (utils/datetime? timestamp)
          (utils/boolean? update-latest-report?)]}
   (let [report-hash         (report-identity-string report)
+        containment-path-fn (fn [cp] (if-not (nil? cp) (to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
                                      (update-in [:old-value] db-serialize)
                                      (update-in [:new-value] db-serialize)
-                                     (assoc :report report-hash)
-                                     ((partial utils/mapkeys dashes->underscores)))
+                                     (update-in [:containment-path] containment-path-fn)
+                                     (assoc :containing-class (find-containing-class (% :containment-path)))
+                                     (assoc :report report-hash) ((partial utils/mapkeys dashes->underscores)))
                                   resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
@@ -773,7 +797,8 @@ must be supplied as the value to be matched."
             :configuration_version  configuration-version
             :start_time             (to-timestamp start-time)
             :end_time               (to-timestamp end-time)
-            :receive_time           (to-timestamp timestamp)})
+            :receive_time           (to-timestamp timestamp)
+            :transaction_uuid       transaction-uuid})
         (apply sql/insert-records :resource_events resource-event-rows)
         (if update-latest-report?
           (update-latest-report! certname))))))

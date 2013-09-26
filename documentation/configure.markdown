@@ -218,8 +218,18 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-Ensure you can log in by running:
+Next you will most likely need to modify the `pg_hba.conf` file to allow for md5 authentication from at least localhost. To locate the file you can either issue a `locate pg_hba.conf` command (if your distribution supports it) or consult your distribution's documentation for the PostgreSQL `confdir`.
 
+The following example `pg_hba.conf` file allows md5 authentication from localhost for both IPv4 and IPv6 connections:
+
+    # TYPE  DATABASE   USER   CIDR-ADDRESS  METHOD
+    local   all        all                  md5
+    host    all        all    127.0.0.1/32  md5
+    host    all        all    ::1/128       md5
+
+Restart PostgreSQL and ensure you can log in by running:
+
+    $ sudo service postgresql restart
     $ psql -h localhost puppetdb puppetdb
 
 To configure PuppetDB to use this database, put the following in the `[database]` section:

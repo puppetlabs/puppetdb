@@ -11,11 +11,16 @@ processor = Puppet::Reports.report(:puppetdb)
 
 describe processor do
 
-  BlacklistedEvent = Puppet::Util::Puppetdb::Config::BlacklistedEvent
-
   subject {
     s = Puppet::Transaction::Report.new("foo").extend(processor)
     s.configuration_version = 123456789
+
+    # For backwards compatibility with versions of Puppet that don't
+    # have an accessor method for the report_format variable
+    if !s.respond_to?(:report_format)
+      s.stubs(:report_format).returns(s.instance_variable_get(:@report_format))
+    end
+
     s
   }
 
@@ -64,6 +69,21 @@ describe processor do
 
     before :each do
       subject.add_resource_status(status)
+    end
+
+    it "should include the transaction uuid or nil" do
+      # Prevents subject.send(:report_to_hash) from exploding
+      subject.stubs(:run_duration).returns(-1)
+
+      if subject.report_format >= 4
+        subject.transaction_uuid = 'abc123'
+        result = subject.send(:report_to_hash)
+        result["transaction-uuid"].should == 'abc123'
+      else
+        result = subject.send(:report_to_hash)
+        result.has_key?("transaction-uuid").should == true
+        result["transaction-uuid"].should == nil
+      end
     end
 
     context "start/end time" do
@@ -121,6 +141,13 @@ describe processor do
           res_event["message"].should == "foomessage"
           res_event["file"].should == "foo"
           res_event["line"].should == 1
+
+          if subject.report_format >= 4
+            res_event["containment-path"].should == ["foo", "bar", "baz"]
+          else
+            res_event.has_key?("containment-path").should == true
+            res_event["containment-path"].should == nil
+          end
         end
       end
 
@@ -187,6 +214,8 @@ describe processor do
       end
 
       context "blacklisted events" do
+        BlacklistedEvent = Puppet::Util::Puppetdb::Blacklist::BlacklistedEvent
+
         let (:config) {
           Puppet::Util::Puppetdb.config
         }
@@ -311,5 +340,4 @@ describe processor do
       end
     end
   end
-
 end

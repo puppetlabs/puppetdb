@@ -59,8 +59,8 @@
 (ns com.puppetlabs.puppetdb.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
-            [com.puppetlabs.puppetdb.catalog :as cat]
-            [com.puppetlabs.puppetdb.report :as report]
+            [com.puppetlabs.puppetdb.catalogs :as cat]
+            [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
@@ -332,6 +332,11 @@
   {:pre [(= version 2)]}
   (replace-catalog* command options))
 
+(defmethod process-command! [(command-names :replace-catalog) 3]
+  [{:keys [version] :as  command} options]
+  {:pre [(= version 3)]}
+  (replace-catalog* command options))
+
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 1]
@@ -369,7 +374,7 @@
     (with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
-    (log/info (format "[%s] [%s (EXPERIMENTAL!)] puppet v%s - %s"
+    (log/info (format "[%s] [%s] puppet v%s - %s"
                 id (command-names :store-report)
                 (:puppet-version report) (:certname report)))))
 

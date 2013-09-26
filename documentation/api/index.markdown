@@ -30,8 +30,8 @@ PuppetDB 1.3 (and later) supports versions 1 and 2 of the query API. Version 1 i
 
 PuppetDB's data can be queried with a REST API.
 
-* [Specification of the General Query Structure](./query/v2/query.html)
-* [Available Operators](./query/v2/operators.html)
+* [Specification of the General Query Structure](./query/v3/query.html)
+* [Available Operators](./query/v3/operators.html)
 * [Query Tutorial](./query/tutorial.html)
 * [Curl Tips](./query/curl.html)
 
@@ -39,9 +39,24 @@ The available query endpoints are documented in the pages linked below.
 
 ### Query Endpoints
 
+#### Version 3
+
+Version 3 of the query API adds new endpoints, and introduces paging and sorting operations.  The following endpoints will continue to work for the foreseeable future.
+
+* [Facts Endpoint](./query/v3/facts.html)
+* [Resources Endpoint](./query/v3/resources.html)
+* [Nodes Endpoint](./query/v3/nodes.html)
+* [Fact-Names Endpoint](./query/v3/fact-names.html)
+* [Metrics Endpoint](./query/v3/metrics.html)
+* [Reports Endpoint](./query/v3/reports.html)
+* [Events Endpoint](./query/v3/events.html)
+* [Event Counts Endpoint](./query/v3/event-counts.html)
+* [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
+* [Server Time Endpoint](./query/v3/server-time.html)
+
 #### Version 2
 
-Version 2 of the query API adds new endpoints, and introduces subqueries and regular expression operators for more efficient requests and better insight into your data. The following endpoints will continue to work for the foreseeable future. 
+Version 2 of the query API adds new endpoints, and introduces subqueries and regular expression operators for more efficient requests and better insight into your data.  It isn't deprecated, but we encourage you to use version 3 if possible.
 
 * [Facts Endpoint](./query/v2/facts.html)
 * [Resources Endpoint](./query/v2/resources.html)
@@ -49,9 +64,9 @@ Version 2 of the query API adds new endpoints, and introduces subqueries and reg
 * [Fact-Names Endpoint](./query/v2/fact-names.html)
 * [Metrics Endpoint](./query/v2/metrics.html)
 
-#### Version 1
+#### Version 1 (DEPRECATED)
 
-Version 1 of the query API works with PuppetDB 1.1 and 1.0. It isn't deprecated, but we encourage you to use version 2 if you can.
+Version 1 of the query API works with PuppetDB 1.1 and 1.0. It is deprecated and will be removed in a future release.
 
 In PuppetDB 1.0, you could access the version 1 endpoints without the `/v1/` prefix. This still works but **is now deprecated,** and we currently plan to remove support in PuppetDB 2.0. Please change your version 1 applications to use the `/v1/` prefix.
 
@@ -60,13 +75,6 @@ In PuppetDB 1.0, you could access the version 1 endpoints without the `/v1/` pre
 * [Nodes Endpoint](./query/v1/nodes.html)
 * [Status Endpoint](./query/v1/status.html)
 * [Metrics Endpoint](./query/v1/metrics.html)
-
-#### Experimental
-
-These endpoints are not yet set in stone, and their behavior may change at any time without regard for normal versioning rules. We invite you to play with them, but you should be ready to adjust your application on your next upgrade. 
-
-* [Report Endpoint](./query/experimental/report.html)
-* [Event Endpoint](./query/experimental/event.html)
 
 Commands
 -----

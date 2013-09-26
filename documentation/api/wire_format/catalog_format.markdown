@@ -17,6 +17,7 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format.html"
 [title]: /puppet/2.7/reference/lang_resources.html#title
 [type]: /puppet/2.7/reference/lang_resources.html#type
 [attributes]: /puppet/2.7/reference/lang_resources.html#attributes
+[replace3]: ../commands.html#replace-catalog-version-3
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1
 
@@ -44,6 +45,7 @@ A catalog is a JSON object with two keys: `"metadata"` and `"data"`. [Version 2 
      "data": {
         "name": <string>,
         "version": <string>,
+        "transaction-uuid": <string>,
         "edges":
             [<edge>, <edge>, ...],
         "resources":
@@ -53,18 +55,18 @@ A catalog is a JSON object with two keys: `"metadata"` and `"data"`. [Version 2 
 
 The value of the `"metadata"` key must be `{ "api_version": 1 }` --- no other value is valid for this version of the format.
 
-The value of the `"data"` key must be a JSON object with four keys: `"name"`, `"version"`, `"edges"`, and `"resources"`. Each of the keys is mandatory, although values that are lists may be empty lists. The value of each key in the data object is as follows:
+The value of the `"data"` key must be a JSON object with five keys: `"name"`, `"version"`, `"transaction-uuid"`, `"edges"`, and `"resources"`.
+Each of the keys is mandatory unless otherwise noted, although values that are lists may be empty lists.
+
+The value of each key in the data object is as follows:
 
 `"name"`
-
 : String. The name of the node for which the catalog was compiled.
 
 `"version"`
-
 : String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](/references/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
 
 `"edges"`
-
 : List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between any two resources in the catalog, which may have been made with [chaining arrows][chain], [metaparameters][], or [the `require` function][require].
 
   > **Notes:**
@@ -73,9 +75,13 @@ The value of the `"data"` key must be a JSON object with four keys: `"name"`, `"
   > * This key is significantly different from its equivalent in Puppet's internal catalog format, which only encodes containment edges.
 
 `"resources"`
-
 : List of [`<resource>` objects](#data-type-resource). Contains **every** resource in the catalog.
 
+`"transaction-uuid"`
+: String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
+This field may be `null`.  (Note: support for this field was introduced in
+[Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
+a `null` value.
 
 ### Data Type: `<string>`
 
@@ -221,7 +227,7 @@ In general, for communication between master and agent, it's useful to have the 
 ### Differences from Current Wire Format
 
 1. The format is fully documented here.
-2.  Information that previously had to be deduced by Puppet is now codified inside of the wire format. All possible aliases for a resource are listed as attributes of that resource. The list of edges now contains edges of all types, not just containment edges. And that list of edges is normalized to refer to the `Type` and `Title` of a resource, as opposed to referring to it by any of its aliases.
+2. Information that previously had to be deduced by Puppet is now codified inside of the wire format. All possible aliases for a resource are listed as attributes of that resource. The list of edges now contains edges of all types, not just containment edges. And that list of edges is normalized to refer to the `Type` and `Title` of a resource, as opposed to referring to it by any of its aliases.
 3. The new format is explicitly versioned. This format is version 1.0.0, unambiguously.
 4. Catalogs will be explictly transformed into this format. Currently, the behavior of `#to_pson` is simply expected to "Do The Right Thing" in terms of serialization.
 

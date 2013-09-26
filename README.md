@@ -42,20 +42,20 @@ The PuppetDB API
 * [Curl Tips](./documentation/api/query/curl.markdown)
 * [Commands](./documentation/api/commands.markdown)
 * Querying
-  * [Introduction](./documentation/api/query/v2/query.markdown)
+  * [Introduction](./documentation/api/query/v3/query.markdown)
   * [Tutorial](./documentation/api/query/tutorial.markdown)
-  * [Operators](./documentation/api/query/v2/operators.markdown)
-  * [Querying Nodes](./documentation/api/query/v2/nodes.markdown)
-  * [Querying Facts](./documentation/api/query/v2/facts.markdown)
-  * [Querying Fact Names](./documentation/api/query/v2/fact-names.markdown)
-  * [Querying Resources](./documentation/api/query/v2/resources.markdown)
-  * [Querying Metrics](./documentation/api/query/v2/metrics.markdown)
-  * [Querying Reports (experimental)](./documentation/api/query/experimental/report.markdown)
-  * [Querying Events (experimental)](./documentation/api/query/experimental/event.markdown)
+  * [Operators](./documentation/api/query/v3/operators.markdown)
+  * [Querying Nodes](./documentation/api/query/v3/nodes.markdown)
+  * [Querying Facts](./documentation/api/query/v3/facts.markdown)
+  * [Querying Fact Names](./documentation/api/query/v3/fact-names.markdown)
+  * [Querying Resources](./documentation/api/query/v3/resources.markdown)
+  * [Querying Metrics](./documentation/api/query/v3/metrics.markdown)
+  * [Querying Reports](./documentation/api/query/v3/reports.markdown)
+  * [Querying Events](./documentation/api/query/v3/events.markdown)
 * Wire Formats
   * [Catalog Format](./documentation/api/wire_format/catalog_format.markdown)
   * [Facts Format](./documentation/api/wire_format/facts_format.markdown)
-  * [Report Format (experimental)](./documentation/api/wire_format/report_format.markdown)
+  * [Report Format](./documentation/api/wire_format/report_format.markdown)
 
 
 # Special thanks to

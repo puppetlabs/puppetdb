@@ -29,4 +29,5 @@
     (-> enqueue-command
         verify-accepts-json
         verify-checksum
-        (verify-param-exists "payload"))))
+        (validate-query-params {:required ["payload"]
+                                :optional ["checksum"]}))))

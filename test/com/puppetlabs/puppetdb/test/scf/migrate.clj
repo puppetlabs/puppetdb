@@ -11,8 +11,8 @@
         [com.puppetlabs.utils :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
-        [com.puppetlabs.puppetdb.examples.report]
-        [com.puppetlabs.puppetdb.testutils.report :only [store-example-report!]]))
+        [com.puppetlabs.puppetdb.examples.reports]
+        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
 
 (def db (test-db))
 

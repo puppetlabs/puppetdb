@@ -156,6 +156,13 @@
   (testing "should return a number"
     (is (integer? (anonymize-leaf-memoize :line 10)))))
 
+(deftest test-anonymize-leaf-transaction-uuid
+  (testing "should return a string 36 characters long"
+    (is (string? (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f")))
+    (is (= 36 (count (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f")))))
+  (testing "should not return the input string"
+    (is (not (= "0fc3241f-35f7-43c8-bcbb-d79fb626be3f" (anonymize-leaf-memoize :transaction-uuid "0fc3241f-35f7-43c8-bcbb-d79fb626be3f"))))))
+
 (deftest test-anonymize-leaf
   (testing "should return a random string when type 'node' and rule returns true"
     (let [anon-config {"rules" {"node" [anon-true]}}]
@@ -284,15 +291,35 @@
 
 (deftest test-anonymize-resource-event
   (testing "should handle a resource event"
-    (let [test-event {"status"         "noop"
-                      "timestamp"      "2013-03-04T19:56:34.000Z"
-                      "resource-title" "foo"
-                      "property"       "ensure"
-                      "message"        "Ensure was absent now present"
-                      "new-value"      "present"
-                      "old-value"      "absent"
-                      "resource-type"  "Package"}]
-      (is (map? (anonymize-resource-event test-event {} {}))))))
+    (let [test-event {"status"           "noop"
+                      "timestamp"        "2013-03-04T19:56:34.000Z"
+                      "resource-title"   "foo"
+                      "property"         "ensure"
+                      "message"          "Ensure was absent now present"
+                      "new-value"        "present"
+                      "old-value"        "absent"
+                      "resource-type"    "Package"
+                      "file"             "/home/user/site.pp"
+                      "line"             1
+                      "containment-path" ["Stage[main]" "Foo" "Notify[hi]"]}
+          anonymized-event (anonymize-resource-event test-event {} {})]
+      (is (map? anonymized-event))
+      (is (= (keys test-event) (keys anonymized-event)))))
+  (testing "should handle a resource event with optionals"
+    (let [test-event {"status"           "noop"
+                      "timestamp"        "2013-03-04T19:56:34.000Z"
+                      "resource-title"   "foo"
+                      "property"         "ensure"
+                      "message"          "Ensure was absent now present"
+                      "new-value"        "present"
+                      "old-value"        "absent"
+                      "resource-type"    "Package"
+                      "file"             nil
+                      "line"             nil
+                      "containment-path" nil}
+          anonymized-event (anonymize-resource-event test-event {} {})]
+      (is (map? anonymized-event))
+      (is (= (keys test-event) (keys anonymized-event))))))
 
 (deftest test-anonymize-resource-events
   (testing "should handle a resource event"

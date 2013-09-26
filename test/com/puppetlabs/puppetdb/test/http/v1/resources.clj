@@ -71,7 +71,7 @@ to the result of the form supplied to this method."
     (sql/insert-records :catalog_resources
                         {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
-                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array [])}))
+                        {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
 
   (let [foo1 {:certname   "one.local"
               :resource   "1"
@@ -103,15 +103,15 @@ to the result of the form supplied to this method."
               :title      "hello"
               :tags       []
               :exported   true
-              :sourcefile nil
-              :sourceline nil
+              :sourcefile "/foo/bar"
+              :sourceline 22
               :parameters {}}]
 
     (testing "query without filter"
       (let [response (get-response)
             body     (get response :body "null")]
         (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"missing query" body))))
+        (is (= "Missing required query parameter 'query'" body))))
 
     (testing "query with filter"
       (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
@@ -133,6 +133,30 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
         (is-response-equal (get-response query) result)))
+
+    (testing "query by source file"
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            result #{bar2}]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query by source line"
+      (let [query ["=" "sourceline" 22]
+            result #{bar2}]
+        (is-response-equal (get-response query) result)))
+
+    (testing "query by new field names file/line"
+      (let [query ["=" "line" 22]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "line is not a queryable object for resources" (:body response))))
+      (let [query ["~" "file" "foo"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "[\"~\" \"file\" \"foo\"] is not well-formed: query operator '~' is unknown" (:body response))))
+      (let [query ["=" "file" "/foo/bar"]
+            response (get-response query)]
+        (is (= pl-http/status-bad-request (:status response)))
+        (is (= "file is not a queryable object for resources" (:body response)))))
 
     (testing "querying against inactive nodes"
       (deactivate-node! "one.local")

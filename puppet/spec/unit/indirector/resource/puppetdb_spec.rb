@@ -58,8 +58,8 @@ describe Puppet::Resource::Puppetdb do
       }
 
       def make_resource_hash(name, certname="localhost", exported=true)
-        metadata = { :sourcefile => '/etc/puppet/manifests/site.pp',
-                     :sourceline => 10,
+        metadata = { :file => '/etc/puppet/manifests/site.pp',
+                     :line => 10,
                      :exported   => exported,
                      :certname   => certname,
                      :hash       => 'foobarbaz', }
@@ -80,7 +80,7 @@ describe Puppet::Resource::Puppetdb do
 
         Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
           path, query_string = uri.split('?query=')
-          path == '/v2/resources' and PSON.load(CGI.unescape(query_string)) == query
+          path == '/v3/resources' and PSON.load(CGI.unescape(query_string)) == query
         end.returns response
       end
 

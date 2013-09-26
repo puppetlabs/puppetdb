@@ -7,6 +7,7 @@
   (:require [clojure.tools.logging :as log])
   (:use [com.puppetlabs.puppetdb.http.v1 :only (v1-app)]
         [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
+        [com.puppetlabs.puppetdb.http.v3 :only (v3-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
@@ -16,20 +17,36 @@
         [ring.middleware.params :only (wrap-params)]
         [ring.util.response :only (redirect header)]))
 
+(defn deprecated-app
+  [app msg request]
+  (let [result (app request)]
+    (log/warn msg)
+    (header result "X-Deprecation" msg)))
+
 (defn backward-compatible-v1-app
   [request]
-  (let [result (v1-app request)
-        warning (format "Use of unversioned APIs is deprecated; please use /v1%s" (:uri request))]
-    (log/warn warning)
-    (header result "X-Deprecation" warning)))
+  (deprecated-app
+    v1-app
+    (format "Use of unversioned APIs is deprecated; please use /v1%s" (:uri request))
+    request))
+
+(defn deprecated-v1-app
+  [request]
+  (deprecated-app
+    v1-app
+    "v1 query API is deprecated and will be removed in an upcoming release.  Please upgrade to v3."
+    request))
 
 (def routes
   (app
     ["v1" &]
-    {:any v1-app}
+    {:any deprecated-v1-app}
 
     ["v2" &]
     {:any v2-app}
+
+    ["v3" &]
+    {:any v3-app}
 
     ["experimental" &]
     {:any experimental-app}

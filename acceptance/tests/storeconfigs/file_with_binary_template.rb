@@ -54,7 +54,7 @@ file { "/tmp/myfile":
 
   sleep_until_queue_empty database
 
-  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v2/resources --data 'query=["=",%20"tag",%20"binary_file"]' > binary_file.json|
+  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v3/resources --data 'query=["=",%20"tag",%20"binary_file"]' > binary_file.json|
   # We redirected this output to a file because if the invalid binary data was printed to the log from 
   # the curl statement, then Jenkins would try to parse it at the end of the run and fail.
   scp_from(database, "binary_file.json", ".")

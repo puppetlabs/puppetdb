@@ -191,3 +191,22 @@
             (log/debug e# "Error streaming response"))
           (catch Exception e#
             (log/error e# "Error streaming response")))))))
+
+(defn parse-boolean-query-param
+  "Utility method for parsing a query parameter whose value is expected to be
+  a boolean.  In the case where the HTTP request contains the query parameter but
+  not a value for it (e.g. `http://foo.com?mybool`), assumes the user intended
+  to use the parameter as a flag, and thus return `true`.  If the key doesn't
+  exist in the params map, return `false`.  In all other cases, attempt
+  to parse the value of the param as a Boolean, and return the result."
+  [params k]
+  (if (contains? params k)
+    (let [val (params k)]
+      (cond
+        ;; If the original query string contains the query param w/o a
+        ;; a value, it will show up here as nil.  We assume that in that
+        ;; case, the caller intended to use it as a flag.
+        (= val nil)                  true
+        (Boolean/parseBoolean val)   true
+        :else                        false))
+    false))
