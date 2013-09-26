@@ -20,7 +20,10 @@
   error response with a useful error message if there was a parse failure."
   [order-by]
   (try
-    (json/parse-string order-by true)
+    ;; If we don't force realization of parse-string right here, then
+    ;; we will return a lazy sequence, which upon realization later
+    ;; might throw an uncaught JsonParseException.
+    (doall (json/parse-string order-by true))
     (catch JsonParseException e
       (throw (IllegalArgumentException.
         (str "Illegal value '" order-by "' for :order-by; expected "
