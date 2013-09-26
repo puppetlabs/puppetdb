@@ -176,4 +176,62 @@
       :containment-path ["Foo" "" "Bar[Baz]"]
       :containing-class "Foo"}]}
 
+   :basic4
+   {:certname               "foo.local"
+    :puppet-version         "3.0.1"
+    :report-format          3
+    :transaction-uuid       "e1e561ba-212f-11e3-9d58-60a44c233a9d"
+    :configuration-version  "a81jasj123"
+    :start-time             "2011-01-03T12:00:00-03:00"
+    :end-time               "2011-01-03T12:10:00-03:00"
+    :resource-events
+    ;; NOTE: this is a bit wonky because resource events should *not* contain
+    ;;  a certname or containment-class on input, but they will have one on output
+    ;;  To make it easier to test output, we're included them here.  We also include
+    ;;  a `:test-id` field to make it easier to reference individual events during
+    ;;  testing.  All of these are munged out by the testutils `store-example-report!`
+    ;;  function before the report is submitted to the test database.
+    [{:test-id          10
+      :certname         "foo.local"
+      :status           "success"
+      :timestamp        "2011-01-03T12:00:00-03:00"
+      :resource-type    "Notify"
+      :resource-title   "notify, yo"
+      :property         "message"
+      :new-value        "notify, yo"
+      :old-value        ["what" "the" "woah"]
+      :message          "defined 'message' as 'notify, yo'"
+      :file             "aaa.pp"
+      :line             1
+      :containment-path nil
+      :containing-class nil}
+     {:test-id          11
+      :certname         "foo.local"
+      :status           "success"
+      :timestamp        "2012-01-03T12:00:00-03:00"
+      :resource-type    "Notify"
+      :resource-title   "notify, yar"
+      :property         "message"
+      :new-value        {"absent" 5}
+      :old-value        {"absent" true}
+      :message          "defined 'message' as 'notify, yo'"
+      :file             "bbb.pp"
+      :line             2
+      :containment-path []
+      :containing-class nil}
+     {:test-id          12
+      :certname         "foo.local"
+      :status           "skipped"
+      :timestamp        "2013-01-03T12:00:00-03:00"
+      :resource-type    "Notify"
+      :resource-title   "hi"
+      :property         nil
+      :new-value        nil
+      :old-value        nil
+      :message          nil
+      :file             "ccc.pp"
+      :line             3
+      :containment-path ["Foo" "" "Bar[Baz]"]
+      :containing-class "Foo"}]}
+
    })

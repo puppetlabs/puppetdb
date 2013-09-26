@@ -53,11 +53,19 @@
     (update-in [:timestamp] to-timestamp)
     (dissoc :test-id)))
 
+(defn raw-expected-resource-events
+  "Given a sequence of resource events from the example data, plus a report,
+  coerce the events into the format that we expected to be returned from a real query.
+  Unlike the more typical `expected-resource-events`, this does not put the events
+  into a set, which makes this function useful for testing the order of results."
+  [example-resource-events report]
+  (map #(expected-resource-event % report) example-resource-events))
+
 (defn expected-resource-events
-  "Given a sequence of resource events from the example data, plus a report hash,
+  "Given a sequence of resource events from the example data, plus a report,
   coerce the events into the format that we expect to be returned from a real query."
   [example-resource-events report]
-  (set (map #(expected-resource-event % report) example-resource-events)))
+  (set (raw-expected-resource-events example-resource-events report)))
 
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
@@ -79,3 +87,12 @@
          (query/limited-query-resource-events limit paging-options)
          (:result)
          (set))))
+
+(defn raw-resource-events-query-result
+  "Utility function that executes a resource events query with paging options and
+  simply returns the map with the query results and any metadata for use in test
+  comparisons. This does not do anything to the results from the query."
+  ([query paging-options] (raw-resource-events-query-result query paging-options nil))
+  ([query paging-options query-options]
+   (->> (query/query->sql query-options query)
+        (query/query-resource-events paging-options))))
