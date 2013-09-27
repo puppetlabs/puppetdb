@@ -43,10 +43,10 @@ To retrieve all of the events within a given time period:
     ["and", ["<", "timestamp", "2011-01-01T12:01:00-03:00"],
             [">", "timestamp", "2011-01-01T12:00:00-03:00"]]
 
-To retrieve all of the 'failed' events for nodes named 'foo.*' and resources of
+To retrieve all of the 'failure' events for nodes named 'foo.*' and resources of
 type 'Service':
 
-    ["and", ["=", "status", "failed"],
+    ["and", ["=", "status", "failure"],
             ["~", "certname", "^foo\\."],
             ["=", "resource-type", "Service"]]
 
@@ -74,7 +74,7 @@ operators.
   via event queries or via the [`/reports`][report] query endpoint.
 
 `status`
-: the status of the event; legal values are `success`, `failed`, `noop`, and `skipped`.
+: the status of the event; legal values are `success`, `failure`, `noop`, and `skipped`.
 
 `timestamp`
 : the timestamp (from the puppet agent) at which the event occurred.  This field
