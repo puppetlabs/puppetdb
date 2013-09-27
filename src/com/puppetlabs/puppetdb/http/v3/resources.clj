@@ -16,21 +16,20 @@
   If the query can't be parsed, a 400 is returned."
   [query paging-options db]
   (try
-    (let [queries        (with-transacted-connection db
-                           (-> query
-                             (json/parse-string true)
-                               (r/v3-query->sql paging-options)))
-          [sql & params] (:results-query queries)
-          count-query    (:count-query queries)
-          query-result   {:result (pl-http/streamed-response buffer
-                           (with-transacted-connection db
-                             (r/with-queried-resources sql params
-                               #(pl-http/stream-json % buffer))))}
-          query-result   (if count-query
-                           (assoc query-result :count (get-result-count count-query))
-                           query-result)]
+    (let [{[sql & params] :results-query
+           count-query   :count-query} (with-transacted-connection db
+                                         (-> query
+                                           (json/parse-string true)
+                                             (r/v3-query->sql paging-options)))
+          result       (pl-http/streamed-response buffer
+                         (with-transacted-connection db
+                           (r/with-queried-resources sql params
+                             #(pl-http/stream-json % buffer))))
+          query-result (if count-query
+                         {:result result :count (get-result-count count-query)}
+                         {:result result})]
       (-> (:result query-result)
-          (rr/response)
+          rr/response
           (add-headers (dissoc query-result :result))
           (rr/header "Content-Type" "application/json")
           (rr/charset "utf-8")
