@@ -82,8 +82,8 @@
              (-> params
                (select-keys ["limit" "offset" "order-by" "include-total"])
                (keywordize-keys)
-               (update-in [:limit] #(if (string? %) (utils/parse-int %) %))
-               (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+               (paging/parse-limit)
+               (paging/parse-offset)
                (paging/parse-count)
                (paging/parse-order-by))))
       (catch IllegalArgumentException e
