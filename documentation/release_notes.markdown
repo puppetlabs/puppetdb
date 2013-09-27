@@ -225,7 +225,7 @@ Notable features:
 
   The query endpoint `experimental/event` has been augmented to support a
   much more interesting set of queries against report data.  You can now query
-  for events by status (e.g. `success`, `failed`, `noop`), timestamp ranges,
+  for events by status (e.g. `success`, `failure`, `noop`), timestamp ranges,
   resource types/titles/property name, etc.  This should make the report
   storage feature of PuppetDB *much* more valuable!
 
