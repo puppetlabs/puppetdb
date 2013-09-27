@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.4 » Release Notes"
+title: "PuppetDB 1.5 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
