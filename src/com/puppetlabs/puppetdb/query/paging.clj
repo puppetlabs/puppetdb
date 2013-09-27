@@ -7,7 +7,7 @@
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [cheshire.core :as json]
             [clojure.string :as string])
-  (:use     [com.puppetlabs.utils :only [keyset seq-contains?]]
+  (:use     [com.puppetlabs.utils :only [keyset seq-contains? parse-int]]
             [com.puppetlabs.jdbc :only [underscores->dashes]]
             [com.puppetlabs.http :only [parse-boolean-query-param]]
             [clojure.walk :only (keywordize-keys)]))
@@ -104,6 +104,44 @@
     (-> paging-options
       (dissoc :include-total)
       (assoc :count? count?))))
+
+(defn validate-limit
+  "Validates that the limit string is a positive non-zero integer. Returns the integer
+  form if validation was successful, otherwise an IllegalArgumentException is thrown."
+  [limit]
+  {:pre  [(string? limit)]
+   :post [(and (integer? %) (> % 0))]}
+  (let [l (parse-int limit)]
+    (if ((some-fn nil? neg? zero?) l)
+      (throw (IllegalArgumentException.
+               (format "Illegal value '%s' for :limit; expected a positive non-zero integer." limit)))
+      l)))
+
+(defn parse-limit
+  "Parse the optional `limit` query parameter in the paging options map,
+  and return an updated map with the correct integer value.
+  Throws an exception if the provided limit is not a positive non-zero integer."
+  [paging-options]
+  (update-in paging-options [:limit] #(if (nil? %) nil (validate-limit %))))
+
+(defn validate-offset
+  "Validates that the offset string is a non-negative integer. Returns the integer
+  form if validation was successful, otherwise an IllegalArgumentException is thrown."
+  [offset]
+  {:pre  [(string? offset)]
+   :post [(and (integer? %) (>= % 0))]}
+  (let [o (parse-int offset)]
+    (if ((some-fn nil? neg?) o)
+      (throw (IllegalArgumentException.
+               (format "Illegal value '%s' for :offset; expected a non-negative integer." offset)))
+      o)))
+
+(defn parse-offset
+  "Parse the optional `offset` query parameter in the paging options map,
+  and return an updated map with the correct integer value.
+  Throws an exception if the provided offset is not a non-negative integer."
+  [paging-options]
+  (update-in paging-options [:offset] #(if (nil? %) nil (validate-offset %))))
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of

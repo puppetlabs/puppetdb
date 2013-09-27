@@ -139,8 +139,8 @@
     (testing "should make paging options available on the request"
       (is (= (wrapped-fn
                {:params
-                  {"limit"    10
-                   "offset"   10
+                  {"limit"    "10"
+                   "offset"   "10"
                    "order-by" (json/generate-string [{"field" "foo"
                                                       "order" "desc"}])
                    "include-total"   "true"
