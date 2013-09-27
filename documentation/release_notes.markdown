@@ -4,6 +4,142 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.5.0
+-----
+
+PuppetDB 1.5.0 is a new feature release.  (For detailed information about
+any of the API changes, please see the official documentation for PuppetDB 1.5.)
+
+Notable features and improvements:
+
+* (#21520) Configuration for soft failure when PuppetDB is unavailable
+
+  This feature adds a new option 'soft_write_failure' to the puppetdb
+  configuration.  If enabled the terminus behavior is changed so that if a
+  command or write fails, instead of throwing an exception and causing the agent
+  to stop it will simply log an error to the puppet master log.
+
+* New v3 query API
+
+  New `/v3` URLs are available for all query endpoints.  The `reports` and
+  `events` endpoints, which were previously considered `experimental`, have
+  been moved into `/v3`.  Most of the other endpoints are 100% backwards-compatible
+  with `/v2`, but now offer additional functionality.  There are few minor
+  backwards-incompatible changes, detailed in the comments about individual
+  endpoints below.
+
+* Query paging
+
+  This feature adds a set of new HTTP query parameters that can be used with most
+  of the query endpoints (`fact_names`, `facts`, `resources`, `nodes`, `events`,
+  `reports`, `event-counts`) to allow paging through large result sets over
+  multiple queries.  The available HTTP query parameters are:
+
+     * `limit`: an integer specifying the maximum number of results to
+        return.
+     * `order-by`: a list of fields to sort by, in ascending or descending order.
+        The legal set of fields varies by endpoint; see the documentation for
+        individual endpoints for more info.
+     * `offset`: an integer specifying the first result in the result set that
+        should be returned.  This can be used in combination with `limit`
+        and `order-by` to page through a result set over multiple queries.
+     * `include-total`: a boolean flag which, if set, will cause the HTTP response
+       to contain an `X-Records` header indicating the total number of results that are
+       available that match the query.  (Mainly useful in combination with `limit`.)
+
+* New features available on `events` endpoint
+
+    * The `events` data now contains `file` and `line` fields.  These indicate
+      the location in the manifests where the resource was declared.  They can
+      be used as input to an `events` query.
+    * Add new `configuration-version` field, which contains the value that Puppet
+      supplied during the agent run.
+    * New `containing-class` field: if the resource is declared inside of a
+      Puppet class, this field will contain the name of that class.
+    * New `containment-path` field: this field is an array showing the full
+      path to the resource from the root of the catalog (contains an ordered
+      list of names of the classes/types that the resource is contained within).
+    * New queryable timestamp fields:
+        * `run-start-time`: the time (on the agent node) that the run began
+        * `run-end-time`: the time (on the agent node) that the run completed
+        * `report-receive-time`: the time (on the puppetdb node)
+    * Restrict results to only include events that occurred in the latest report
+      for a given node: `["=", "latest-report?", true]`
+
+* New `event-counts` endpoint
+
+    `v3` of the query API contains a new `event-counts` endpoint, which can be
+    used to retrieve count data for an event query.  The basic input to the
+    endpoint is an event query, just as you'd provide to the `events` endpoint,
+    but rather than returning the actual events, this endpoint returns counts
+    of `successes`, `failures`, `skips`, and `noops` for the events that match
+    the query.  The counts may be aggregated on a per-resource, per-class,
+    or per-node basis.
+
+* New `aggregate-event-counts` endpoint
+
+  This endpoint is similar to the `event-counts` endpoint, but rather than
+  aggregating the counts on a per-node, per-resource, or per-class basis,
+  it returns aggregate counts across your entire population.
+
+* New `server-time` endpoint
+
+  This endpoint simply returns a timestamp indicating the current time on
+  the PuppetDB server.  This can be used as input to time-based queries
+  against timestamp fields that are populated by PuppetDB.
+
+* Minor changes to `resources` endpoint for `v3`:
+
+  The `sourcefile` and `sourceline` fields have been renamed to `file` and `line`,
+  for consistency with other parts of the API.
+
+* Minor changes relating to reports storage and query
+
+  * `store report` command has been bumped up to version `2`.
+  * Report data now includes a new `transaction-uuid` field; this is generated
+    by Puppet (as of Puppet 3.3) and can be used to definitively correlate a report
+    with the catalog that was used for the run.  This field is queryable on the
+    `reports` endpoint.
+  * Reports now support querying by the field `hash`; this allows you to retrieve
+    data about a given report based on the report hash for an event returned
+    by the `events` endpoint.
+
+* Minor changes relating to catalog storage
+
+  * `store catalog` command has been bumped to version `3`.
+  * Catalog data now includes the new `transaction-uuid` field; see notes above.
+
+Bug fixes:
+
+* PuppetDB report processor was truncating microseconds from report timestamps;
+  all timestamp fields should now retain full precision.
+
+* Record resource failures even if Puppet doesn't generate an event for them in the
+  report: in rare cases, Puppet will generate a report that indicates a failure
+  on a resource but doesn't actually provide a failure event.  Prior to PuppetDB
+  1.5, the PuppetDB report processor was only checking for the existence of
+  events, so these resources would not show up in the PuppetDB report.  This is
+  really a bug in Puppet (which should be fixed as of Puppet 3.3), but the PuppetDB
+  report processor is now smart enough to detect this case and synthesize a failure
+  event for the resource, so that the failure is at least visible in the PuppetDB
+  report data.
+
+* Filter out the well-known "Skipped Schedule" events: in versions of Puppet prior
+  to 3.3, every single agent report would include six events whose status was
+  `skipped` and whose resource type was `Schedule`.  (The titles were `never`,
+  `puppet`, `hourly`, `daily`, `weekly`, and `monthly`.)  These events were not
+  generally useful and caused a great deal of pollution in the PuppetDB database.
+  They are no longer generated as of Puppet 3.3, but for compatibility with
+  older versions of Puppet, the report terminus in PuppetDB 1.5 will filter
+  these events out before storing the report in PuppetDB.
+
+* Log a message when a request is blocked due to the certificate whitelist:
+  prior to 1.5, when a query or command was rejected due to PuppetDB's certificate
+  whitelist configuration, there was no logging on the server that could be used
+  to troubleshoot the cause of the rejection.  We now log a message, in hopes of
+  making it easier for administrators to track down the cause of connectivity
+  issues in this scenario.
+
 1.4.0
 -----
 
