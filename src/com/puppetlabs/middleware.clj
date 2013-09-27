@@ -83,7 +83,7 @@
                (select-keys ["limit" "offset" "order-by" "include-total"])
                (keywordize-keys)
                (paging/parse-limit)
-               (update-in [:offset] #(if (string? %) (utils/parse-int %) %))
+               (paging/parse-offset)
                (paging/parse-count)
                (paging/parse-order-by))))
       (catch IllegalArgumentException e

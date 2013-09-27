@@ -13,8 +13,7 @@
                     "/v3/facts"
                     "/v3/nodes"
                     "/v3/reports"
-                    "/v3/resources"
-                    ]]
+                    "/v3/resources"]]
 
     (testing (str endpoint " 'order-by' should properly handle malformed JSON input")
       (let [malformed-JSON  "[{\"field\":\"status\" \"order\":\"DESC\"}]"
@@ -25,15 +24,27 @@
         (is (= (:status response) pl-http/status-bad-request))
         (is (re-find #"Illegal value '.*' for :order-by" body))))
 
-    (testing (str endpoint " 'limit' should only accept non-negative integers")
-      (doseq [invalid-limit [-1
+    (testing (str endpoint " 'limit' should only accept positive non-zero integers")
+      (doseq [invalid-limit [0
+                             -1
                              1.1
                              "\"1\""
-                             "\"abc\""
-                             ]]
+                             "\"abc\""]]
         (let [response  (*app* (get-request endpoint
                                             ["these" "are" "unused"]
                                             {:limit invalid-limit}))
               body      (get response :body "null")]
           (is (= (:status response) pl-http/status-bad-request))
-          (is (re-find #"Illegal value '.*' for :limit; expected a non-negative integer" body)))))))
+          (is (re-find #"Illegal value '.*' for :limit; expected a positive non-zero integer" body)))))
+
+    (testing (str endpoint " 'offset' should only accept positive integers")
+      (doseq [invalid-offset [-1
+                              1.1
+                              "\"1\""
+                              "\"abc\""]]
+        (let [response  (*app* (get-request endpoint
+                                           ["these" "are" "unused"]
+                                           {:offset invalid-offset}))
+              body      (get response :body "null")]
+          (is (= (:status response) pl-http/status-bad-request))
+          (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))))
