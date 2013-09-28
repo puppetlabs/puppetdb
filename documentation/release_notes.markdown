@@ -62,7 +62,7 @@ Notable features and improvements:
     * New queryable timestamp fields:
         * `run-start-time`: the time (on the agent node) that the run began
         * `run-end-time`: the time (on the agent node) that the run completed
-        * `report-receive-time`: the time (on the puppetdb node)
+        * `report-receive-time`: the time (on the puppetdb node) that the report was received by PuppetDB
     * Restrict results to only include events that occurred in the latest report
       for a given node: `["=", "latest-report?", true]`
 
@@ -88,7 +88,7 @@ Notable features and improvements:
   the PuppetDB server.  This can be used as input to time-based queries
   against timestamp fields that are populated by PuppetDB.
 
-* Minor changes to `resources` endpoint for `v3`:
+* Minor changes to `resources` endpoint for `v3`
 
   The `sourcefile` and `sourceline` fields have been renamed to `file` and `line`,
   for consistency with other parts of the API.
