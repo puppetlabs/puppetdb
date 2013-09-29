@@ -11,6 +11,7 @@ export PATH=/opt/puppet/bin:$PATH
 find  <%= @config_dir -%> -type f | xargs chmod 640
 chown -R <%= @name -%>:<%= @name -%> <%= @etc_dir %>
 chown -R <%= @name -%>:<%= @name -%> <%= @install_dir %>
+chown -R <%= @name -%>:<%= @name -%> <%= @lib_dir %>
 <% unless  @pe -%>
 chown -R <%= @name -%>:<%= @name -%> <%= @link  %>
 <% end -%>

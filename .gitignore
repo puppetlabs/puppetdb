@@ -12,3 +12,8 @@ test-resources/config/local.clj
 ext/packaging/*
 /scripts
 Gemfile.lock
+/log/
+Vagrantfile
+.vagrant
+*.tar.gz
+.blimpy.d

@@ -1,8 +1,5 @@
-test_config = PuppetDBExtensions.config
-os = test_config[:os_families][database.name]
-
-
 if (test_config[:install_type] == :package)
+  os = test_config[:os_families][database.name]
 
   step "Add development repository on PuppetDB server" do
     case os
