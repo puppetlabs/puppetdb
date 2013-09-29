@@ -21,10 +21,6 @@ test_name "storeconfigs export and import" do
     on master, "chmod -R 777 #{db_path}"
   end
 
-  step "install activerecord and sqlite3 on the master" do
-    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc"
-  end
-
   step "run each agent once to populate the database" do
     # dbadapter, dblocation, storeconfigs_backend, routefile
     with_puppet_running_on master, {
@@ -72,9 +68,5 @@ test_name "storeconfigs export and import" do
 
   step "verify legacy export data matches new export data - catalog data only" do
     compare_export_data(driver_legacy_export_file, driver_new_export_file, :metadata => false, :reports => false)
-  end
-
-  teardown do
-    on master, "gem uninstall activerecord activesupport"
   end
 end

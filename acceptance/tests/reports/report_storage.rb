@@ -22,14 +22,13 @@ MANIFEST
   with_puppet_running_on master, {
     'master' => {
       'storeconfigs' => 'true',
-      'store_configs_backend' => 'puppetdb',
+      'storeconfigs_backend' => 'puppetdb',
       'autosign' => 'true',
       'manifest' => manifest_file
     }} do
-
-      step "Run agents once to submit reports" do
-        run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-      end
+    step "Run agents once to submit reports" do
+      run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
+    end
   end
 
   # Wait until all the commands have been processed

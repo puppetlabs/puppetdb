@@ -8,4 +8,6 @@ group :test do
   gem 'puppetlabs_spec_helper', '0.4.1', :require => false
 
   gem 'puppet', :require => false
+
+  gem 'beaker', '0.0.0'
 end
