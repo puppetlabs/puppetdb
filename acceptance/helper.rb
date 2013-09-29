@@ -1,16 +1,15 @@
-#!/usr/bin/env ruby
-
 require 'cgi'
-require 'lib/puppet_acceptance/dsl/install_utils'
+require 'beaker/dsl/install_utils'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
 require 'json'
+require 'inifile'
 
 module PuppetDBExtensions
-  include PuppetAcceptance::Assertions
+  include Test::Unit::Assertions
 
-  GitReposDir = PuppetAcceptance::DSL::InstallUtils::SourcePath
+  GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
 
@@ -18,8 +17,8 @@ module PuppetDBExtensions
 
     base_dir = File.join(File.dirname(__FILE__), '..')
 
-    install_type =
-        get_option_value(options[:type], [:git, :manual, :pe], "install type")
+    install_type = get_option_value(options[:puppetdb_install_type],
+      [:git, :package, :pe], "install type", "PUPPETDB_INSTALL_TYPE", :git)
 
     install_mode =
         get_option_value(options[:puppetdb_install_mode],
@@ -47,7 +46,7 @@ module PuppetDBExtensions
 
     use_proxies =
         get_option_value(options[:puppetdb_use_proxies],
-          [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :true)
+          [:true, :false], "'use proxies'", "PUPPETDB_USE_PROXIES", :false)
 
     purge_after_run =
         get_option_value(options[:puppetdb_purge_after_run],
@@ -62,25 +61,40 @@ module PuppetDBExtensions
           "PUPPETDB_PACKAGE_REPO_URL",
           "http://neptune.puppetlabs.lan/dev/puppetdb/master")
 
+    puppetdb_repo_puppet = get_option_value(options[:puppetdb_repo_puppet],
+      nil, "git repo for puppet source installs", "PUPPETDB_REPO_PUPPET", nil)
+
+    puppetdb_repo_hiera = get_option_value(options[:puppetdb_repo_hiera],
+      nil, "git repo for hiera source installs", "PUPPETDB_REPO_HIERA", nil)
+
+    puppetdb_repo_facter = get_option_value(options[:puppetdb_repo_facter],
+      nil, "git repo for facter source installs", "PUPPETDB_REPO_FACTER", nil)
+
+    puppetdb_repo_puppetdb = get_option_value(options[:puppetdb_repo_puppetdb],
+      nil, "git repo for puppetdb source installs", "PUPPETDB_REPO_PUPPETDB", nil)
 
     @config = {
-        :base_dir => base_dir,
-        :acceptance_data_dir => File.join(base_dir, "acceptance", "data"),
-        :os_families => os_families,
-        :install_type => install_type == :manual ? :package : install_type,
-        :install_mode => install_mode,
-        :database => database,
-        :validate_package_version => validate_package_version == :true,
-        :expected_rpm_version => expected_rpm_version,
-        :expected_deb_version => expected_deb_version,
-        :use_proxies => use_proxies == :true,
-        :purge_after_run => purge_after_run == :true,
-        :package_repo_url => package_repo_url,
+      :base_dir => base_dir,
+      :acceptance_data_dir => File.join(base_dir, "acceptance", "data"),
+      :os_families => os_families,
+      :install_type => install_type,
+      :install_mode => install_mode,
+      :database => database,
+      :validate_package_version => validate_package_version == :true,
+      :expected_rpm_version => expected_rpm_version,
+      :expected_deb_version => expected_deb_version,
+      :use_proxies => use_proxies == :true,
+      :purge_after_run => purge_after_run == :true,
+      :package_repo_url => package_repo_url,
+      :repo_puppet => puppetdb_repo_puppet,
+      :repo_hiera => puppetdb_repo_hiera,
+      :repo_facter => puppetdb_repo_facter,
+      :repo_puppetdb => puppetdb_repo_puppetdb,
     }
 
     pp_config = PP.pp(@config, "")
 
-    PuppetAcceptance::Log.notify "PuppetDB Acceptance Configuration:\n\n#{pp_config}\n\n"
+    Beaker::Log.notify "PuppetDB Acceptance Configuration:\n\n#{pp_config}\n\n"
   end
 
   class << self
@@ -89,7 +103,7 @@ module PuppetDBExtensions
 
 
   def self.get_option_value(value, legal_values, description,
-      env_var_name = nil, default_value = nil)
+    env_var_name = nil, default_value = nil)
 
     # we give precedence to any value explicitly specified in an options file,
     #  but we also allow environment variables to be used for
@@ -104,6 +118,14 @@ module PuppetDBExtensions
     end
 
     value
+  end
+
+  # Return the configuration hash initialized at the start with
+  # initialize_test_config
+  #
+  # @return [Hash] configuration hash
+  def test_config
+    PuppetDBExtensions.config
   end
 
   def get_os_family(host)
@@ -207,7 +229,7 @@ module PuppetDBExtensions
         end
       expected_version = get_package_version(host)
 
-      PuppetAcceptance::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
+      Beaker::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
       if installed_version != expected_version
         raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{expected_version}'"
       end
@@ -253,7 +275,7 @@ module PuppetDBExtensions
   ############################################################################
 
   def install_postgres(host)
-    PuppetAcceptance::Log.notify "Installing postgres on #{host}"
+    Beaker::Log.notify "Installing postgres on #{host}"
 
 
     ############################################################################
@@ -266,8 +288,8 @@ module PuppetDBExtensions
     if host.is_pe?
       service_name = "pe-postgresql"
       db_name = "pe-puppetdb"
-      db_user = "pe-puppetdb"
-      db_pass = "pe-puppetdb"
+      db_user = "mYpdBu3r"
+      db_pass = '~!@#$%^*-/ aZ'
       manifest = <<-EOS
       # get the pg server up and running
       $version = '9.2'
@@ -299,7 +321,7 @@ module PuppetDBExtensions
       class { 'puppetdb::database::postgresql_db': 
         database_name     => #{db_name},
         database_username => #{db_user},
-        database_password => #{db_pass},
+        database_password => '#{db_pass}',
       }
       EOS
     else
@@ -351,11 +373,14 @@ module PuppetDBExtensions
     on host, "#{LeinCommandPrefix} rake sourceterminus"
 
     manifest = <<-EOS
-    include puppetdb::master::storeconfigs
-    class { 'puppetdb::master::puppetdb_conf':
-      server => '#{database.node_name}',
-    }
-    include puppetdb::master::routes
+      include puppetdb::master::storeconfigs
+      class { 'puppetdb::master::puppetdb_conf':
+        server => '#{database.node_name}',
+      }
+      include puppetdb::master::routes
+      class { 'puppetdb::master::report_processor':
+        enable => true,
+      }
     EOS
     apply_manifest_on(host, manifest)
   end
@@ -406,7 +431,7 @@ module PuppetDBExtensions
   def apply_manifest_on(host, manifest_content)
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     create_remote_file(host, manifest_path, manifest_content)
-    PuppetAcceptance::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
+    Beaker::Log.notify "Applying manifest on #{host}:\n\n#{manifest_content}"
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 
@@ -428,7 +453,7 @@ module PuppetDBExtensions
     case PuppetDBExtensions.config[:database]
       when :postgres
         if host.is_pe?
-          on host, 'su pe-postgres -c "/opt/puppet/bin/dropdb pe-puppetdb"'
+          on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
         else
           on host, 'su postgres -c "dropdb puppetdb"'
         end
@@ -579,91 +604,36 @@ module PuppetDBExtensions
 
 
   ############################################################################
-  # NOTE: This code should be merged into the harness before long, and when
-  #   that happens, we should get rid of this and use their version.
+  # NOTE: This code was merged into beaker, however it does not work as desired.
+  #   We need to get the version in beaker working as expected and then we can
+  #   remove this version.
   #
   #   Temp copy of Justins new Puppet Master Methods
   ############################################################################
-
-  class IniFile
-    attr_accessor :contents
-    def initialize file_as_string
-      @contents = parse( file_as_string )
-      @contents['main'] ||= {}
-      @contents['master'] ||= {}
-      @contents['agent'] ||= {}
-    end
-
-    def method_missing( meth, *args )
-      if @contents.respond_to? meth
-        @contents.send( meth, *args )
-      else
-        super
-      end
-    end
-
-    def parse file_as_string
-      accumulator = Hash.new
-      accumulator[:global] = Hash.new
-      section = :global
-      file_as_string.each_line do |line|
-        case line
-        when /^\s*\[\S+\]/
-          # We've got a section header
-          match = line.match(/^\s*\[(\S+)\].*/)
-          section = match[1]
-          accumulator[section] = Hash.new
-        when /^\s*\S+\s*=\s*\S/
-          # add a key value pair to the current section
-          # will add it to the :global section if before a section header
-          # note: in line comments are not support in puppet.conf
-          raw_key, raw_value = line.split( '=' )
-          key = raw_key.strip
-          value = raw_value.strip
-          accumulator[section][key] = value
-        end
-        # comments, whitespace and lines without an '=' pass through
-      end
-
-      return accumulator
-    end
-
-    def to_s
-      string = ''
-      @contents.each_pair do |header, values|
-        if header == :global
-          values.each_pair do |key, value|
-            next if value.nil?
-            string << "#{key} = #{value}\n"
-          end
-          string << "\n"
-        else
-          string << "[#{header}]\n"
-          values.each_pair do |key, value|
-            next if value.nil?
-            string << " #{key} = #{value}\n"
-          end
-          string << "\n"
-        end
-      end
-      return string
-    end
-  end
 
   def puppet_conf_for host
     puppetconf = on( host, "cat #{host['puppetpath']}/puppet.conf" ).stdout
     IniFile.new( puppetconf )
   end
 
+  # Restore puppet.conf from backup, if puppet.conf.bak exists.
+  #
+  # @api private
+  def restore_puppet_conf host
+    on host, "if [ -f #{host['puppetpath']}/puppet.conf.bak ]; then " +
+               "cat #{host['puppetpath']}/puppet.conf.bak > " +
+               "#{host['puppetpath']}/puppet.conf; " +
+               "rm -rf #{host['puppetpath']}/puppet.conf.bak; " +
+             "fi"
+  end
+
   def with_puppet_running_on host, conf_opts, testdir = host.tmpdir(File.basename(@path)), &block
     new_conf = puppet_conf_for( host )
-    new_conf.contents.each_key do |key|
-      new_conf.contents[key].merge!( conf_opts.delete( key ) ) if conf_opts[key]
+    new_conf.each_section do |key|
+      new_conf[key].merge!( conf_opts.delete( key ) ) if conf_opts[key]
     end
-    new_conf.contents.merge!( conf_opts )
+    new_conf.merge!( conf_opts )
     create_remote_file host, "#{testdir}/puppet.conf", new_conf.to_s
-    # puts "#########################"
-    # puts "New conf = #{new_conf.to_s}"
 
     begin
       on host, "cp #{host['puppetpath']}/puppet.conf #{host['puppetpath']}/puppet.conf.bak"
@@ -677,7 +647,10 @@ module PuppetDBExtensions
         inc = 0
         logger.debug 'Waiting for the puppet master to start'
         begin
-          TCPSocket.new(host['ip'] || host.to_s, 8140).close
+          h = host['ip'] || host.to_s
+          p = 8140
+          logger.debug "Attempt to connect to #{h} on port #{p}: #{inc}"
+          TCPSocket.new(h, p).close
         rescue Errno::ECONNREFUSED
           sleep 1
           inc += 1
@@ -688,15 +661,12 @@ module PuppetDBExtensions
 
       yield self if block_given?
     ensure
-      on host, "if [ -f #{host['puppetpath']}/puppet.conf.bak ]; then " +
-                 "cat #{host['puppetpath']}/puppet.conf.bak > " +
-                 "#{host['puppetpath']}/puppet.conf; " +
-                 "rm -rf #{host['puppetpath']}/puppet.conf.bak; " +
-               "fi"
       if host.is_pe?
+        restore_puppet_conf host
         on host, '/etc/init.d/pe-httpd restart'
       else
         on host, 'kill $(cat `puppet master --configprint pidfile`)'
+        restore_puppet_conf host
       end
     end
   end
@@ -786,7 +756,102 @@ module PuppetDBExtensions
   # End Object diff functions
   ##############################################################################
 
+  def install_puppet_from_package
+    os_families = test_config[:os_families]
+    hosts.each do |host|
+      os = os_families[host.name]
+
+      case os
+      when :debian
+        on host, "apt-get install -y puppet puppetmaster-common"
+      when :redhat
+        on host, "yum install -y puppet"
+      else
+        raise ArgumentError, "Unsupported OS '#{os}'"
+      end
+    end
+  end
+
+  def install_puppet_from_source
+    os_families = test_config[:os_families]
+
+    extend Beaker::DSL::InstallUtils
+
+    source_path = Beaker::DSL::InstallUtils::SourcePath
+    git_uri     = Beaker::DSL::InstallUtils::GitURI
+    github_sig  = Beaker::DSL::InstallUtils::GitHubSig
+
+    tmp_repositories = []
+
+    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/ and k != 'repo_puppetdb' }.flatten].values
+
+    repos.each do |uri|
+      raise(ArgumentError, "#{uri} is not recognized.") unless(uri =~ git_uri)
+      tmp_repositories << extract_repo_info_from(uri)
+    end
+
+    repositories = order_packages(tmp_repositories)
+
+    hosts.each_with_index do |host, index|
+      os = os_families[host.name]
+
+      case os
+      when :redhat
+        on host, "yum install -y git-core ruby"
+      when :debian
+        on host, "apt-get install -y git ruby"
+      else
+        raise "OS #{os} not supported"
+      end
+
+      on host, "echo #{github_sig} >> $HOME/.ssh/known_hosts"
+
+      repositories.each do |repository|
+        step "Install #{repository[:name]}"
+        install_from_git host, source_path, repository
+      end
+
+      on host, "getent group puppet || groupadd puppet"
+      on host, "getent passwd puppet || useradd puppet -g puppet -G puppet"
+      on host, "mkdir -p /var/run/puppet"
+      on host, "chown puppet:puppet /var/run/puppet"
+    end
+  end
+
+  def install_puppet_conf
+    hosts.each do |host|
+      puppetconf = File.join(host['puppetpath'], 'puppet.conf')
+
+      on host, "mkdir -p #{host['puppetpath']}"
+
+      conf = IniFile.new
+      conf['agent'] = {
+        'server' => master,
+      }
+      conf['master'] = {
+        'pidfile' => '/var/run/puppet/master.pid',
+      }
+      create_remote_file host, puppetconf, conf.to_s
+    end
+  end
+
+  def install_puppet
+    # If our :install_type is :pe then the harness has already installed puppet.
+    case test_config[:install_type]
+    when :package
+      install_puppet_from_package
+      install_puppet_conf
+    when :git
+      if test_config[:repo_puppet] then
+        install_puppet_from_source
+      else
+        install_puppet_from_package
+      end
+      install_puppet_conf
+    end
+  end
+
 end
 
 # oh dear.
-PuppetAcceptance::TestCase.send(:include, PuppetDBExtensions)
+Beaker::TestCase.send(:include, PuppetDBExtensions)

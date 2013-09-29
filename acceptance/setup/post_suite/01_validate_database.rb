@@ -1,5 +1,3 @@
-test_config = PuppetDBExtensions.config
-
 step "Verify we've been talking to the correct database" do
 
   # The goal here is just to try to make sure we've tested

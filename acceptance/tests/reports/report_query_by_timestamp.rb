@@ -38,7 +38,7 @@ MANIFEST
   with_puppet_running_on master, {
     'master' => {
       'storeconfigs' => 'true',
-      'store_configs_backend' => 'puppetdb',
+      'storeconfigs_backend' => 'puppetdb',
       'autosign' => 'true',
       'manifest' => manifest_file
     }} do
