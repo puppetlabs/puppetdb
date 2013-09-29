@@ -13,7 +13,8 @@ if [ ! -f "<%= @etc_dir -%>/ssl/puppetdb_keystore_pw.txt" ] ; then
 
 
   find  <%= @config_dir -%> -type f | xargs chmod 640
-  chown -R <%= @name -%>:<%= @name -%> <%= @etc_dir -%>
+  chown -R <%= @name -%>:<%= @name -%> <%= @etc_dir %>
+  chown -R <%= @name -%>:<%= @name -%> <%= @lib_dir %>
   chown -R <%= @name -%>:<%= @name -%> <%= @install_dir %>
   <% unless  @pe -%>
   chown -R <%= @name -%>:<%= @name -%> <%= @link  %>

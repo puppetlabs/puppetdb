@@ -1,5 +1,3 @@
-test_config = PuppetDBExtensions.config
-
 PROXY_URL = "http://modi.puppetlabs.lan:3128"
 
 def setup_apt_proxy()
@@ -74,5 +72,5 @@ if (test_config[:use_proxies])
   end
 
 else
-  PuppetAcceptance::Log.notify "Skipping proxy setup ; test run configured not to use proxies via :puppetdb_use_proxies setting."
+  Beaker::Log.notify "Skipping proxy setup ; test run configured not to use proxies via :puppetdb_use_proxies setting."
 end

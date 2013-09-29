@@ -1,17 +1,15 @@
 test_name "submit a catalog that contains a file built from a binary template" do
 
-  test_config = PuppetDBExtensions.config
-
-# This test came about as a result of ticket #14873 .  The issue was that
-# if a node had a file whose contents were provided by a template, and if
-# the template produced certain kinds of binary data, we were not
-# handling our UTF-8 sanitizing properly.  This was resulting in a checksum
-# failure between the Ruby terminus and the Clojure puppetdb service, because
-# they were not seeing the same string.
-#
-# A successful catalog submission containing a sampling of bytes that were
-# known to cause this problem indicates that the checksums are now matching
-# properly.
+  # This test came about as a result of ticket #14873 .  The issue was that
+  # if a node had a file whose contents were provided by a template, and if
+  # the template produced certain kinds of binary data, we were not
+  # handling our UTF-8 sanitizing properly.  This was resulting in a checksum
+  # failure between the Ruby terminus and the Clojure puppetdb service, because
+  # they were not seeing the same string.
+  #
+  # A successful catalog submission containing a sampling of bytes that were
+  # known to cause this problem indicates that the checksums are now matching
+  # properly.
 
   manifest = <<-EOF
 file { "/tmp/myfile":

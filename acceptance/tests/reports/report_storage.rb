@@ -22,14 +22,13 @@ MANIFEST
   with_puppet_running_on master, {
     'master' => {
       'storeconfigs' => 'true',
-      'store_configs_backend' => 'puppetdb',
+      'storeconfigs_backend' => 'puppetdb',
       'autosign' => 'true',
       'manifest' => manifest_file
     }} do
-
-      step "Run agents once to submit reports" do
-        run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-      end
+    step "Run agents once to submit reports" do
+      run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
+    end
   end
 
   # Wait until all the commands have been processed
@@ -39,7 +38,6 @@ MANIFEST
   agents.each do |agent|
     # Query for all of the reports for this node:
     result = on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/experimental/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
-
     reports = JSON.parse(result.stdout)
 
     # We are assuming we only care about the most recent report, and they should
