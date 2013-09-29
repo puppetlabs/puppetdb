@@ -132,11 +132,11 @@ namespace :test do
     type = ENV["BEAKER_TYPE"] || "git"
 
     beaker = "beaker " +
-       "-c #{RAKE_ROOT}/acceptance/config/#{config}.cfg " +
+       "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
        "--type #{type} " +
        "--debug " +
        "--tests acceptance/tests/ " +
-       "--options-file acceptance/options/#{options}.rb"
+       "--options-file 'acceptance/options/#{options}.rb'"
     beaker += " --preserve-hosts" if preserve_hosts
     beaker += " --no-color" unless color
     beaker += " --xml" if xml
