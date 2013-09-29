@@ -1,15 +1,13 @@
-test_config = PuppetDBExtensions.config
-
 step "Install other dependencies on database" do
   os = test_config[:os_families][database.name]
 
   case os
   when :redhat
     # Our teardown script does some heinous magic with unzip to dig
-    #  into the puppetdb jar.  Redhat doesn't ship with unzip.
+    # into the puppetdb jar.  Redhat doesn't ship with unzip.
     on database, "yum install -y unzip"
   when :debian
-    on database, "apt-get install unzip"
+    on database, "apt-get install -y unzip"
   end
 
 
@@ -42,13 +40,15 @@ step "Install rubygems and sqlite3 on master" do
   case os
   when :redhat
     if master['platform'].include? 'el-5'
-      on master, "yum install -y rubygems sqlite-devel"
+      on master, "yum install -y rubygems sqlite-devel rubygem-activerecord"
       on master, "gem install sqlite3"
     else
-      on master, "yum install -y rubygems ruby-sqlite3"
+      on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
     end
   when :debian
     on master, "apt-get install -y rubygems libsqlite3-ruby"
+    # this is to work around the absense of a decent package in lucid
+    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc"
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end

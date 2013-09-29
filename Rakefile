@@ -128,6 +128,28 @@ namespace :test do
     # the two packaging builds in parallel.
     sh "sh ./ext/test/build_packages.sh"
   end
+
+  desc "Run beaker based acceptance tests"
+  task :beaker do
+    config = ENV["BEAKER_CONFIG"] || "vbox-el6-64mda"
+    options = ENV["BEAKER_OPTIONS"] || "postgres"
+    preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] == "true" ? true : false
+    color = ENV["BEAKER_COLOR"] == "false" ? false : true
+    xml = ENV["BEAKER_XML"] == "true" ? true : false
+    type = ENV["BEAKER_TYPE"] || "git"
+
+    beaker = "beaker " +
+       "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
+       "--type #{type} " +
+       "--debug " +
+       "--tests acceptance/tests/ " +
+       "--options-file 'acceptance/options/#{options}.rb'"
+    beaker += " --preserve-hosts" if preserve_hosts
+    beaker += " --no-color" unless color
+    beaker += " --xml" if xml
+
+    sh beaker
+  end
 end
 
 # The first package build tasks in puppetdb were rake deb and rake srpm (due to
