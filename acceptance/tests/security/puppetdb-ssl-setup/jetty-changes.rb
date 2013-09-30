@@ -1,4 +1,4 @@
-test_name "puppetdb-ssl-setup jetty.ini changes" do
+test_name "puppetdb ssl-setup jetty.ini changes" do
   confd = "#{puppetdb_confdir(database)}/conf.d"
   sbin_loc = "#{puppetdb_sbin_dir(database)}"
 
@@ -12,18 +12,18 @@ test_name "puppetdb-ssl-setup jetty.ini changes" do
     end
   end
 
-  step "run puppetdb-ssl-setup again to make sure it is idempotent" do
+  step "run puppetdb ssl-setup again to make sure it is idempotent" do
     on database, "#{sbin_loc}/puppetdb ssl-setup"
     on database, "diff #{confd}/jetty.ini #{confd}/jetty.ini.bak.ssl_setup_tests"
   end
 
-  step "purposely modify jetty.ini ssl-host and make sure puppetdb-ssl-setup -f fixes it" do
+  step "purposely modify jetty.ini ssl-host and make sure puppetdb ssl-setup -f fixes it" do
     on database, "sed -i 's/^ssl-host = .*/ssl-host = foobarbaz/' #{confd}/jetty.ini"
     on database, "#{sbin_loc}/puppetdb ssl-setup -f"
     on database, "grep -e '^ssl-host = foobarbaz' #{confd}/jetty.ini", :acceptable_exit_codes => [1]
   end
 
-  step "purposely modify jetty.ini ssl-host and make sure puppetdb-ssl-setup does not touch it" do
+  step "purposely modify jetty.ini ssl-host and make sure puppetdb ssl-setup does not touch it" do
     on database, "sed -i 's/^ssl-host = .*/ssl-host = foobarbaz/' #{confd}/jetty.ini"
     on database, "#{sbin_loc}/puppetdb ssl-setup"
     on database, "grep -e '^ssl-host = foobarbaz' #{confd}/jetty.ini"
