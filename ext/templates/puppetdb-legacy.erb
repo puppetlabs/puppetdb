@@ -1,0 +1,7 @@
+#!/bin/bash
+
+fullcommand="${0##*/}"
+subcommand="${fullcommand#puppetdb-}"
+echo "WARNING: ${fullcommand} style of executing puppetdb subcommands is deprecated, use 'puppetdb ${subcommand}' instead"
+
+exec puppetdb "${subcommand}" "$@"

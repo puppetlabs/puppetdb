@@ -13,13 +13,13 @@ Using the tool
 
 First of all you should start by [exporting your existing database](./migrate.html#exporting-data-from-an-existing-puppetdb-database) using the `puppetdb-export` tool:
 
-    $ sudo puppetdb-export --outfile ./my-puppetdb-export.tar.gz
+    $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz
 
 This needs to be run on your PuppetDB instance preferably. See `puppetdb-export -h` for more options for remote execution.
 
 Once you have the export file, then you can utilise the `puppetdb-anonymize` tool to transform that file:
 
-    $ sudo puppetdb-anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz
+    $ sudo puppetdb anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz
 
 The anonymization tool can run on any machine with PuppetDB installed so you can avoid putting load on your production systems by running it on your own desktop or another server if you like.
 
@@ -37,7 +37,7 @@ Anonymizing all data is often not that useful so we have provided you with a num
 
 The profile itself can be chosen on the command line when the command is run. For example, you can choose the `low` profile as an option like so:
 
-    $ sudo puppetdb-anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
+    $ sudo puppetdb anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
 
 At the moment there are some different built-in profiles you can choose from, and each one is documented below. The default profile is none is specified is `moderate`.
 

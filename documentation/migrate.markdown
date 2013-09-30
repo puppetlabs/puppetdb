@@ -18,13 +18,13 @@ Once you've run this command and generated an export tarball, you should follow 
 Exporting data from an existing PuppetDB database
 ------
 
-If you've been trying out PuppetDB using the embedded database and are ready to move to a production environment backed by PostgreSQL, or if you'd simply like to move your data from one PostgreSQL database to another one, you can use the `puppetdb-export` command (which is available in your `/usr/sbin` directory for versions of PuppetDB >= 1.2).  All you'll need to do is run a command like this:
+If you've been trying out PuppetDB using the embedded database and are ready to move to a production environment backed by PostgreSQL, or if you'd simply like to move your data from one PostgreSQL database to another one, you can use the `puppetdb export` command (which is available in your `/usr/sbin` directory for versions of PuppetDB >= 1.2).  All you'll need to do is run a command like this:
 
-    $ sudo puppetdb-export --outfile ./my-puppetdb-export.tar.gz
+    $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz
 
 This command is intended to be run on the PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration). If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
-    $ sudo puppetdb-export --help
+    $ sudo puppetdb export --help
 
 While its not required it is recommended you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
 
@@ -33,16 +33,16 @@ The generated tarball will contain a backup of all of your current catalog data 
 Exporting data from a version of PuppetDB prior to 1.2
 ------
 
-The `puppetdb-export` and `puppetdb-import` tools were added to PuppetDB in version 1.2.  If you need to export data from an older version of PuppetDB, the easiest way to do so is to upgrade your existing PuppetDB to at least version 1.2 and then use the `puppetdb-export` tool.
+The `puppetdb export` and `puppetdb import` tools were added to PuppetDB in version 1.2.  If you need to export data from an older version of PuppetDB, the easiest way to do so is to upgrade your existing PuppetDB to at least version 1.2 and then use the `puppetdb export` tool.
 
 Importing data to a new PuppetDB database
 ------
 
 Once you have an export tarball and a new PuppetDB server up and running that you would like to import your data into, use the `puppetdb-import` command to do so.  (This command is available in your `/usr/sbin` directory in versions of PuppetDB >= 1.2.) The syntax will look something like this:
 
-    $ sudo puppetdb-import --infile ./my-puppetdb-export.tar.gz
+    $ sudo puppetdb import --infile ./my-puppetdb-export.tar.gz
 
 This command is intended to be run on the new PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration).  If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
-    $ sudo puppetdb-import --help
+    $ sudo puppetdb import --help
 
