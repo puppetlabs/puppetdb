@@ -140,6 +140,16 @@ Bug fixes:
   making it easier for administrators to track down the cause of connectivity
   issues in this scenario.
 
+* (#22122) Better log messages when puppetdb-ssl-setup is run before Puppet
+  certificates are available.
+
+* (#22159) Fix a bug relating to anonymizing catalog edges in exported PuppetDB
+  data.
+
+* (#22168) Add ability to configure maximum number of threads for Jetty (having too
+  low of a value for this setting on systems with large numbers of cores could
+  prevent Jetty from handling requests).
+
 1.4.0
 -----
 
