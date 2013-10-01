@@ -693,14 +693,16 @@ must be supplied as the value to be matched."
        (sql/delete-rows :certname_facts
                         (into [(str "certname=? and name " (in-clause fact-names)) certname]  fact-names)))))
 
-(defn cert-fact-map [certname]
+(defn cert-fact-map
+  "Return all facts and their values for a given certname as a map"
+  [certname]
   (sql/with-query-results result-set
     ["SELECT name, value FROM certname_facts WHERE certname=?" certname]
     (zipmap (map :name result-set)
             (map :value result-set))))
 
 (defn diff-existing-facts
-  "Returns a vector three fact maps, facts to be added,
+  "Returns a vector with three fact maps, facts to be added,
    facts to be updated and facts to be deleted"
   [certname new-facts old-facts]
   (let [[just-new just-old _] (data/diff new-facts old-facts)
@@ -731,6 +733,8 @@ must be supplied as the value to be matched."
     (boolean (seq result-set))))
 
 (defn replace-facts!
+  "Updates the facts of an existing node, or adds all new facts if no
+   existing facts are found"
   [{:strs [name values]} timestamp]
   {:pre [(string? name)
          (every? string? (keys values))
