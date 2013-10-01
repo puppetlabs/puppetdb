@@ -37,11 +37,38 @@
   (let [values ["foo" 0 {"z" 1 "a" 1}]
         expected ["foo" 0 {"a" 1 "z" 1}]]
     (testing "should sort beforehand"
-      (is (= (json/parse-string (db-serialize values)) expected)))))
+      (is (= (json/parse-string (db-serialize values)) expected))))
+  (let [sample {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
+    (testing "serialized value should be sorted and predictable"
+      (is (= (db-serialize sample)
+             "{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":26},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}")))))
 
 (deftest hash-computation
-  (testing "Hashes for resources"
+  (testing "generic-identity-string"
+    (testing "should return the expected string in a sorted and predictable way"
+      (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
+            output (generic-identity-string ["Type" "title" {:foo input}])]
+        (is (= output
+               "[\"Type\" \"title\" {:foo {:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}}]"))))
+    (testing "should return the same value for recursive misordered hashes that are equal"
+      (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
+            sorted   (into (sorted-map) unsorted)]
+        (is (= (generic-identity-string {:foo sorted})
+               (generic-identity-string {:foo unsorted}))))))
 
+  (testing "generic-identity-hash"
+    (testing "should return the expected string in a sorted and predictable way"
+      (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
+            output (generic-identity-hash ["Type" "title" {:foo input}])]
+        (is (= output
+               "8f878277f87f536ae42834e00f0964ddb9d91d9b"))))
+    (testing "should return the same value for recursive misordered hashes that are equal"
+      (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
+            sorted   (into (sorted-map) unsorted)]
+        (is (= (generic-identity-hash {:foo sorted})
+               (generic-identity-hash {:foo unsorted}))))))
+
+  (testing "resource-identity-hash"
     (testing "should error on bad input"
       (is (thrown? AssertionError (resource-identity-hash nil)))
       (is (thrown? AssertionError (resource-identity-hash []))))
@@ -54,24 +81,13 @@
       (doseq [i (range 10)
               :let [r (catutils/random-kw-resource)]]
         (is (= (resource-identity-hash r)
-              (resource-identity-hash r)))))
+               (resource-identity-hash r)))))
 
     (testing "shouldn't change for equivalent input"
       (is (= (resource-identity-hash {:foo 1 :bar 2})
             (resource-identity-hash {:bar 2 :foo 1})))
       (is (= (resource-identity-hash {:tags #{1 2 3}})
             (resource-identity-hash {:tags #{3 2 1}}))))
-
-    (testing "should return the same value for recursive misordered hashes that are equal"
-      (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
-            sorted   (into (sorted-map) unsorted)]
-        (is (= (resource-identity-hash-serialize "Type" "title" {:foo sorted})
-               (resource-identity-hash-serialize "Type" "title" {:foo unsorted})))))
-
-    (testing "should return the expected string in a sorted and predictable way"
-      (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
-            output (resource-identity-hash-serialize "Type" "title" {:foo input})]
-        (is (= output "[\"Type\" \"title\" {:foo {:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}}]" "{:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}"))))
 
     (testing "should be different for non-equivalent resources"
       ; Take a population of 5 resource, put them into a set to make
@@ -82,7 +98,91 @@
             pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)
-                (resource-identity-hash r2))))))))
+                (resource-identity-hash r2))))))
+
+    (testing "should return the same predictable string"
+      (is (= (resource-identity-hash {:foo 1 :bar 2})
+             "1817eb6ef61db848af73e9c0da7701c73532a825"))))
+
+  (testing "edge-identity-string"
+    (let [sample {:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]
+
+      (testing "shouldn't change for identical input"
+        (is (= (edge-identity-string sample)
+               (edge-identity-string sample))))
+
+      (testing "should return the same predictable string"
+        (is (= (edge-identity-string sample)
+               "{:source {:title \"foo\", :type \"Type\"}, :target {:title \"/tmp\", :type \"File\"}}")))))
+
+  (testing "catalog-similarity-hash"
+    (let [sample {:certname  "foobar.baz"
+                  :resources {:foo {:type "Type" :title "foo" :parameters {:a 1 :c 3 :b {:z 26 :c 3}} :file "/tmp" :line 3 :tags ["foo" "bar"]}}
+                  :edges     [{:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]}]
+
+      (testing "shouldn't change for identical input"
+        (is (= (catalog-similarity-hash sample)
+               (catalog-similarity-hash sample))))
+
+      (testing "should return the same predictable string"
+        (is (= (catalog-similarity-hash sample)
+               "ff8062c7eb7f5c73f5f91b859e982493771bca3b")))))
+
+  (testing "resource-event-identity-string"
+    (let [sample {:resource-type  "Type"
+                  :resource-title "foo"
+                  :property       "name"
+                  :timestamp      "foo"
+                  :status         "skipped"
+                  :old-value      "baz"
+                  :new-value      "foo"
+                  :message        "Name changed from baz to foo"}]
+
+      (testing "shouldn't change for identical input"
+        (is (= (resource-event-identity-string sample)
+               (resource-event-identity-string sample))))
+
+      (testing "should return the same predictable string"
+        (is (= (resource-event-identity-string sample)
+               "7fb9c027010cd8faafb56c0f28046950c2e41e2e")))))
+
+  (testing "catalog-resource-identity-string"
+    (let [sample {:type "Type"
+                  :title "title"
+                  :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
+                  :exported false
+                  :file "/tmp/zzz"
+                  :line 15}]
+
+      (testing "should return sorted predictable string output"
+        (is (= (catalog-resource-identity-string sample)
+               "[\"Type\" \"title\" false \"/tmp/zzz\" 15 {:a 1, :c 3, :d {:b 2, :c [:a :b :c]}}]")))
+
+      (testing "should return the same value twice"
+        (is (= (catalog-resource-identity-string sample)
+               (catalog-resource-identity-string sample))))))
+
+  (testing "report-identity-string"
+    (let [sample {:certname "foobar.baz"
+                  :puppet-version "3.2.1"
+                  :report-format 1
+                  :configuration-version "asdffdsa"
+                  :start-time "2012-03-01-12:31:11.123"
+                  :end-time   "2012-03-01-12:31:31.123"
+                  :resource-events [
+                    {:type "Type"
+                     :title "title"
+                     :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
+                     :exported false :file "/tmp/zzz"
+                     :line 15}]}]
+
+      (testing "should return sorted predictable string output"
+        (is (= (report-identity-string sample)
+               "8bcc9e5385d8047e9bc641ed7a0dc56651cf97ac")))
+
+      (testing "should return the same value twice"
+        (is (= (report-identity-string sample)
+               (report-identity-string sample)))))))
 
 (deftest catalog-dedupe
   (testing "Catalogs with the same metadata but different content should have different hashes"

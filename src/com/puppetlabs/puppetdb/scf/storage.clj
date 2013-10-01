@@ -367,12 +367,23 @@ must be supplied as the value to be matched."
       sql-params
       (set (map :resource result-set)))))
 
-(defn resource-identity-hash-serialize
-  "Serialize a resource into a format that can be hashed"
-  [type title parameters]
+(defn generic-identity-string
+  "Serialize a data structure into a format that can be hashed for uniqueness
+  comparisons. See `generic-identity-hash` for a usage that generates a hash
+  instead."
+  [data]
   {:post [(string? %)]}
-  (-> [type title (utils/sort-nested-maps parameters)]
+  (-> (utils/sort-nested-maps data)
       (pr-str)))
+
+(defn generic-identity-hash
+  "Convert a data structure into a serialized format then grab a sha1 hash for
+  it so that can be used for quick comparisons for storage duplication tests."
+  [data]
+  {:post [(string? %)]}
+  (-> data
+    (generic-identity-string)
+    (utils/utf8-string->sha1)))
 
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
@@ -398,7 +409,7 @@ must be supplied as the value to be matched."
   memoization."
   [type title parameters]
   {:post [(string? %)]}
-  (utils/utf8-string->sha1 (resource-identity-hash-serialize type title parameters)))
+  (generic-identity-hash [type title parameters]))
 
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona
@@ -425,7 +436,7 @@ must be supplied as the value to be matched."
   [{:keys [type title parameters exported file line] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (pr-str [type title exported file line (utils/sort-nested-maps parameters)]))
+  (generic-identity-string [type title exported file line parameters]))
 
 (defn- resource->values
   "Given a catalog-hash, a resource, and a truthy value indicating
@@ -473,23 +484,12 @@ must be supplied as the value to be matched."
        (apply sql/do-prepared the-sql param-sets)))))
 
 (defn edge-identity-string
-  "Compute a stably-sorted string for the given edge that will
-  uniquely identify it within a population."
-  [edge]
-  {:pre  [(map? edge)]
-   :post [(string? %)]}
-  (-> (into (sorted-map) edge)
-      (assoc :source (into (sorted-map) (:source edge)))
-      (assoc :target (into (sorted-map) (:target edge)))
-      (pr-str)))
-
-(defn edge-identity-hash
-  "Compute a hash for a given edge that will uniquely identify it
+  "Compute a string for a given edge that will uniquely identify it
   within a population."
   [edge]
   {:pre  [(map? edge)]
    :post [(string? %)]}
-  (utils/utf8-string->sha1 (edge-identity-string edge)))
+  (generic-identity-string edge))
 
 (defn add-edges!
   "Persist the given edges in the database
@@ -525,18 +525,16 @@ must be supplied as the value to be matched."
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
   [{:keys [certname resources edges] :as catalog}]
+  {:post [(string? %)]}
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
   ;; but I figure that for safety's sake, it's better to be very
   ;; explicit about the exact attributes of a catalog that we care
   ;; about when we think about "uniqueness".
-  (-> (sorted-map)
-      (assoc :certname certname)
-      (assoc :resources (sort (for [[ref resource] resources]
-                                (catalog-resource-identity-string resource))))
-      (assoc :edges (sort (map edge-identity-string edges)))
-      (pr-str)
-      (utils/utf8-string->sha1)))
+  (generic-identity-hash {:certname  certname
+                          :resources (sort (for [[ref resource] resources]
+                                             (catalog-resource-identity-string resource)))
+                          :edges     (sort (map edge-identity-string edges))}))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
@@ -684,9 +682,8 @@ must be supplied as the value to be matched."
           (delete-facts! name)
           (add-facts! name values timestamp))))
 
-
 (defn resource-event-identity-string
-  "Compute a hash for a resource event
+  "Compute a string suitable for hashing a resource event
 
   This hash is useful for situations where you'd like to determine
   whether or not two resource events are identical (resource type, resource title,
@@ -694,16 +691,15 @@ must be supplied as the value to be matched."
   "
   [{:keys [resource-type resource-title property timestamp status old-value
            new-value message] :as resource-event}]
-  (-> (sort { :resource-type resource-type
-              :resource-title resource-title
-              :property property
-              :timestamp timestamp
-              :status status
-              :old-value (utils/sort-nested-maps old-value)
-              :new-value (utils/sort-nested-maps new-value)
-              :message message})
-      (pr-str)
-      (utils/utf8-string->sha1)))
+  (generic-identity-hash
+    { :resource-type resource-type
+      :resource-title resource-title
+      :property property
+      :timestamp timestamp
+      :status status
+      :old-value old-value
+      :new-value new-value
+      :message message}))
 
 (defn report-identity-string
   "Compute a hash for a report's content
@@ -714,16 +710,14 @@ must be supplied as the value to be matched."
   "
   [{:keys [certname puppet-version report-format configuration-version
            start-time end-time resource-events] :as report}]
-  (-> (sorted-map)
-    (assoc :certname certname)
-    (assoc :puppet-version puppet-version)
-    (assoc :report-format report-format)
-    (assoc :configuration-version configuration-version)
-    (assoc :start-time start-time)
-    (assoc :end-time end-time)
-    (assoc :resource-events (sort (map resource-event-identity-string resource-events)))
-    (pr-str)
-    (utils/utf8-string->sha1)))
+  (generic-identity-hash
+    {:certname certname
+     :puppet-version puppet-version
+     :report-format report-format
+     :configuration-version configuration-version
+     :start-time start-time
+     :end-time end-time
+     :resource-events (sort (map resource-event-identity-string resource-events))}))
 
 (defn add-report!
   "Add a report and all of the associated events to the database."
