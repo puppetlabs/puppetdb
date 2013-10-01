@@ -186,16 +186,16 @@
   (comp vals select-keys))
 
 (defn sort-nested-maps
-  "For a data structure, recursively sorting any nested maps"
+  "For a data structure, recursively sort any nested maps descending into
+  lists/vectors and sets as well."
   [data]
-  (if (coll? data)
-    (clojure.walk/postwalk
-      (fn [m]
-        (if (map? m)
-          (into (sorted-map) m)
-          m))
-      data)
-    data))
+  (cond
+    (map? data)
+      (into (sorted-map) (for [[k v] data]
+                           [k (sort-nested-maps v)]))
+    (or (sequential? data) (set? data))
+      (map sort-nested-maps data)
+    :else data))
 
 ;; ## Date and Time
 

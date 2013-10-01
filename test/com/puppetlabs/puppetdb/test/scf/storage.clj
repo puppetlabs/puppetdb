@@ -49,7 +49,7 @@
       (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
             output (generic-identity-string ["Type" "title" {:foo input}])]
         (is (= output
-               "[\"Type\" \"title\" {:foo {:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}}]"))))
+               "(\"Type\" \"title\" {:foo {:a {:a {:b \"asdf\", :m \"asdf\"}, :k (:z {:a 1, :z 26} :c), :z \"asdf\"}, :b \"asdf\"}})"))))
     (testing "should return the same value for recursive misordered hashes that are equal"
       (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
             sorted   (into (sorted-map) unsorted)]
@@ -61,7 +61,7 @@
       (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
             output (generic-identity-hash ["Type" "title" {:foo input}])]
         (is (= output
-               "8f878277f87f536ae42834e00f0964ddb9d91d9b"))))
+               "f5f74cba1d920f93e63053aeb8e817d2bdc1cb37"))))
     (testing "should return the same value for recursive misordered hashes that are equal"
       (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
             sorted   (into (sorted-map) unsorted)]
@@ -102,7 +102,7 @@
 
     (testing "should return the same predictable string"
       (is (= (resource-identity-hash {:foo 1 :bar 2})
-             "1817eb6ef61db848af73e9c0da7701c73532a825"))))
+             "0fa71fb41771e19e8ee850a662274f8929c70639"))))
 
   (testing "edge-identity-string"
     (let [sample {:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]
@@ -126,7 +126,7 @@
 
       (testing "should return the same predictable string"
         (is (= (catalog-similarity-hash sample)
-               "ff8062c7eb7f5c73f5f91b859e982493771bca3b")))))
+               "dbeef54aa7e7c7f3475d30eaa26354f59e2c1597")))))
 
   (testing "resource-event-identity-string"
     (let [sample {:resource-type  "Type"
@@ -156,7 +156,7 @@
 
       (testing "should return sorted predictable string output"
         (is (= (catalog-resource-identity-string sample)
-               "[\"Type\" \"title\" false \"/tmp/zzz\" 15 {:a 1, :c 3, :d {:b 2, :c [:a :b :c]}}]")))
+               "(\"Type\" \"title\" false \"/tmp/zzz\" 15 {:a 1, :c 3, :d {:b 2, :c (:a :b :c)}})")))
 
       (testing "should return the same value twice"
         (is (= (catalog-resource-identity-string sample)

@@ -78,7 +78,7 @@
       (testing "all maps levels of output should be sorted"
         (is (sorted? output))
         (is (sorted? (:a output)))
-        (is (sorted? (get-in output [:a :k 1])))
+        (is (sorted? (get (vec (get-in output [:a :k])) 1)))
         (is (sorted? (get-in output [:a :a]))))))
   (testing "with a string"
     (let [input "string here"
