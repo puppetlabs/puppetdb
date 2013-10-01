@@ -2,7 +2,8 @@
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http])
+            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.utils :as pl-utils])
   (:use clojure.test
         ring.mock.request
         [clj-time.core :only [now]]
@@ -34,8 +35,9 @@ to the result of the form supplied to this method."
              (-> body
                (update-in ["edges"] set)
                (assoc "resources" (into {} (for [[ref resource] resources]
-                                             [ref (update-in resource ["tags"] sort)]))))))
-         body)))
+                                             [ref (update-in resource ["tags"] sort)])))
+               (pl-utils/sort-nested-maps)))
+         (pl-utils/sort-nested-maps body)))))
 
 (deftest catalog-retrieval
   (let [basic-catalog (:basic catalogs)

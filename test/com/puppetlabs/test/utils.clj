@@ -69,6 +69,27 @@
     (testing "should not remove the key if the value is not nil"
       (is (= testmap (dissoc-if-nil testmap :a))))))
 
+(deftest sort-nested-maps-test
+  (testing "with nested structure"
+    (let [input {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
+          output (sort-nested-maps input)]
+      (testing "after sorting, maps should still match"
+        (is (= input output)))
+      (testing "all maps levels of output should be sorted"
+        (is (sorted? output))
+        (is (sorted? (:a output)))
+        (is (sorted? (get (vec (get-in output [:a :k])) 1)))
+        (is (sorted? (get-in output [:a :a]))))))
+  (testing "with a string"
+    (let [input "string here"
+          output (sort-nested-maps input)]
+      (testing "should match"
+        (is (= input output)))))
+  (testing "with a list"
+    (let [input '(:a :b :c)
+          output (sort-nested-maps input)]
+      (testing "should still match"
+        (is (= input output))))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"
