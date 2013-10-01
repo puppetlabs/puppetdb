@@ -367,6 +367,13 @@ must be supplied as the value to be matched."
       sql-params
       (set (map :resource result-set)))))
 
+(defn resource-identity-hash-serialize
+  "Serialize a resource into a format that can be hashed"
+  [type title parameters]
+  {:post [(string? %)]}
+  (-> [type title (utils/sort-nested-maps parameters)]
+      (pr-str)))
+
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
   _for storage deduplication only_.
@@ -391,9 +398,7 @@ must be supplied as the value to be matched."
   memoization."
   [type title parameters]
   {:post [(string? %)]}
-  (-> [type title (utils/sort-nested-maps parameters)]
-      (pr-str)
-      (utils/utf8-string->sha1)))
+  (utils/utf8-string->sha1 (resource-identity-hash-serialize type title parameters)))
 
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona

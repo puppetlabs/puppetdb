@@ -63,8 +63,15 @@
             (resource-identity-hash {:tags #{3 2 1}}))))
 
     (testing "should return the same value for recursive misordered hashes that are equal"
-      (is (= (resource-identity-hash {:param {:z 3 :a 1 :m 2}})
-             (resource-identity-hash {:param {:a 1 :m 2 :z 3}}))))
+      (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
+            sorted   (into (sorted-map) unsorted)]
+        (is (= (resource-identity-hash-serialize "Type" "title" {:foo sorted})
+               (resource-identity-hash-serialize "Type" "title" {:foo unsorted})))))
+
+    (testing "should return the expected string in a sorted and predictable way"
+      (let [input  {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}
+            output (resource-identity-hash-serialize "Type" "title" {:foo input})]
+        (is (= output "[\"Type\" \"title\" {:foo {:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}}]" "{:a {:a {:b \"asdf\", :m \"asdf\"}, :k [:z {:a 1, :z 26} :c], :z \"asdf\"}, :b \"asdf\"}"))))
 
     (testing "should be different for non-equivalent resources"
       ; Take a population of 5 resource, put them into a set to make
