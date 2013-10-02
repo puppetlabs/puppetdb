@@ -11,13 +11,13 @@ There are times when sharing your PuppetDB data is required, however due to the 
 Using the tool
 -----
 
-First of all you should start by [exporting your existing database](./migrate.html#exporting-data-from-an-existing-puppetdb-database) using the `puppetdb-export` tool:
+First of all you should start by [exporting your existing database](./migrate.html#exporting-data-from-an-existing-puppetdb-database) using the `puppetdb export` tool:
 
     $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz
 
-This needs to be run on your PuppetDB instance preferably. See `puppetdb-export -h` for more options for remote execution.
+This needs to be run on your PuppetDB instance preferably. See `puppetdb export -h` for more options for remote execution.
 
-Once you have the export file, then you can utilise the `puppetdb-anonymize` tool to transform that file:
+Once you have the export file, then you can utilise the `puppetdb anonymize` tool to transform that file:
 
     $ sudo puppetdb anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz
 
