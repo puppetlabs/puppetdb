@@ -48,8 +48,6 @@ if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
     @etc_dir = "/etc/puppetlabs/puppetdb"
     @config_dir = "/etc/puppetlabs/puppetdb/conf.d"
-    @initscriptname = "/etc/init.d/pe-puppetdb"
-    @log_dir = "/var/log/pe-puppetdb"
     @lib_dir = "/opt/puppet/share/puppetdb"
     @name ="pe-puppetdb"
     @sbin_dir = "/opt/puppet/sbin"
@@ -59,13 +57,14 @@ else
     @install_dir = "/usr/share/puppetdb"
     @etc_dir = "/etc/puppetdb"
     @config_dir = "/etc/puppetdb/conf.d"
-    @initscriptname = "/etc/init.d/puppetdb"
-    @log_dir = "/var/log/puppetdb"
     @lib_dir = "/var/lib/puppetdb"
     @link = "/usr/share/puppetdb"
     @name = "puppetdb"
     @sbin_dir = "/usr/sbin"
 end
+
+@initscriptname = "/etc/init.d/#{@name}"
+@log_dir = "/var/log/#{@name}"
 
 # We only need the ruby major, minor versions
 @ruby_version = (ENV['RUBY_VER'] || Facter.value(:rubyversion))[0..2]
