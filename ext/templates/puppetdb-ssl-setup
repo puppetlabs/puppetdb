@@ -297,7 +297,7 @@ if ! ${force}; then
       echo "  Your configuration indicates you may have a legacy keystore based setup,"
       echo "  and if we modify this on our own we may break things. Especially if"
       echo "  there has been specialized setup in the past, for example"
-      echo "  the keystores may have been created without puppetdb-ssl-setup."
+      echo "  the keystores may have been created without `puppetdb ssl-setup`."
       echo
       echo "  Your can however force this tool to overwrite your existing"
       echo "  configuration with the newer PEM based configuration with:"

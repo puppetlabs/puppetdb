@@ -198,7 +198,7 @@ if [ "$1" = "1" ]; then
   /sbin/chkconfig --add %{name}
 fi
 
-<%= @sbin_dir -%>/puppetdb-ssl-setup
+<%= @sbin_dir -%>/puppetdb ssl-setup
 
 <%= ERB.new(File.read("ext/templates/directory_perms.erb")).result %>
 
