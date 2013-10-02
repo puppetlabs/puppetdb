@@ -15,4 +15,4 @@ chown -R <%= @name -%>:<%= @name -%> <%= @lib_dir %>
 <% unless  @pe -%>
 chown -R <%= @name -%>:<%= @name -%> <%= @link  %>
 <% end -%>
-chown -R <%= @name -%>:<%= @name -%> /var/log/<%= @name %>
+chown -R <%= @name -%>:<%= @name -%> <%= @log_dir -%>
