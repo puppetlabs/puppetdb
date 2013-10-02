@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.4 » API » v2 » Query Structure"
+title: "PuppetDB 1.5 » API » v2 » Query Structure"
 layout: default
 canonical: "/puppetdb/latest/api/query/v2/query.html"
 ---
