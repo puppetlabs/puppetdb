@@ -91,17 +91,25 @@
   [example-reports]
   (map expected-report example-reports))
 
+(defn raw-reports-query-result
+  "TODO docs"
+  [query paging-options]
+  (letfn [(munge-fn
+            [reports]
+            (map #(dissoc % :receive-time) reports))]
+    ;; the example reports don't have a receive time (because this is
+    ;; calculated by the server), so we remove this field from the response
+    ;; for test comparison
+    (update-in (->> (query/report-query->sql query)
+                    (query/query-reports paging-options))
+               [:result]
+               munge-fn)))
+
 (defn reports-query-result
-  [query]
-  (vec (->> (query/report-query->sql query)
-         (query/query-reports)
-         ;; We're not testing paging functionality so we can just pull the
-         ;; results out directly
-         (:result)
-         ;; the example reports don't have a receive time (because this is
-         ;; calculated by the server), so we remove this field from the response
-         ;; for test comparison
-         (map #(dissoc % :receive-time)))))
+  ([query]
+   (reports-query-result query nil))
+  ([query paging-options]
+   (:result (raw-reports-query-result query paging-options))))
 
 (defn get-events-map
   [example-report]

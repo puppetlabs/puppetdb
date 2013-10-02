@@ -374,16 +374,29 @@
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
               (resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "invalid-field"}]}))))
 
-      (doseq [[field-type field] [["numerical fields"    "line"]
-                                  ["alphabetical fields" "file"]
-                                  ["timestamp fields"    "timestamp"]]]
+      (testing "numerical fields"
         (doseq [[order expected-events] [["ASC"  [10 11 12]]
                                          ["DESC" [12 11 10]]]]
-          (testing field-type
-            (testing order
-              (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
-                    actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field field :order order}]}))]
-                (is (= actual expected)))))))
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "line" :order order}]}))]
+              (is (= actual expected))))))
+
+      (testing "alphabetical fields"
+        (doseq [[order expected-events] [["ASC"  [10 11 12]]
+                                         ["DESC" [12 11 10]]]]
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "file" :order order}]}))]
+              (is (= actual expected))))))
+
+      (testing "timestamp fields"
+        (doseq [[order expected-events] [["ASC"  [10 11 12]]
+                                         ["DESC" [12 11 10]]]]
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "timestamp" :order order}]}))]
+              (is (= actual expected))))))
 
       (testing "multiple fields"
         (doseq [[[status-order title-order] expected-events] [[["DESC" "ASC"] [11 10 12]]
