@@ -677,11 +677,6 @@ must be supplied as the value to be matched."
                      {:certname certname :timestamp (to-timestamp timestamp)})
   (insert-facts! certname facts))
 
-(defn in-clause [coll]
-  (str "in ("
-       (str/join "," (repeat (count coll) "?"))
-       ")"))
-
 (defn delete-facts!
   "Delete all the facts (1 arg) or just the fact-names (2 args) for the given certname."
   ([certname]
@@ -691,7 +686,7 @@ must be supplied as the value to be matched."
      {:pre [(string? certname)]}
      (when (seq fact-names)
        (sql/delete-rows :certname_facts
-                        (into [(str "certname=? and name " (in-clause fact-names)) certname]  fact-names)))))
+                        (into [(str "certname=? and name " (jdbc/in-clause fact-names)) certname]  fact-names)))))
 
 (defn cert-fact-map
   "Return all facts and their values for a given certname as a map"

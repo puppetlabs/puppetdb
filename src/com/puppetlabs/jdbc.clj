@@ -6,7 +6,8 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.utils :as utils])
+            [com.puppetlabs.utils :as utils]
+            [clojure.string :as str])
   (:use com.puppetlabs.jdbc.internal))
 
 
@@ -301,3 +302,12 @@
   pool."
   [options]
   {:datasource (make-connection-pool options)})
+
+(defn in-clause
+  "Create a prepared statement in clause, with a ? for every item in coll"
+  [coll]
+  {:pre [(seq coll)]}
+  (str "in ("
+       (str/join "," (repeat (count coll) "?"))
+       ")"))
+

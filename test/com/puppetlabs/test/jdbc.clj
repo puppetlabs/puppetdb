@@ -66,3 +66,16 @@
           (subject/order-by->sql
             [[:foo :descending]
              [:bar :ascending]])))))
+
+(deftest in-cluase
+  (testing "single item in collection"
+    (is (= "in (?)" (subject/in-clause ["foo"]))))
+  (testing "many items in a collection"
+    (is (= "in (?,?,?,?,?)" (subject/in-clause (repeat 5 "foo")))))
+  (testing "fails on empty collection (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause []))))
+  (testing "fails on nil (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause nil)))))
+
