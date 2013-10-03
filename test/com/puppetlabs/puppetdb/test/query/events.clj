@@ -401,10 +401,11 @@
       (testing "multiple fields"
         (doseq [[[status-order title-order] expected-events] [[["DESC" "ASC"] [11 10 12]]
                                                               [["ASC" "DESC"] [12 10 11]]]]
-          (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
-                actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "status" :order status-order}
-                                                                                                    {:field "resource-title" :order title-order}]}))]
-            (is (= actual expected))))))
+          (testing (format "status %s resource-title %s" status-order title-order)
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "status" :order status-order}
+                                                                                                      {:field "resource-title" :order title-order}]}))]
+              (is (= actual expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [10 11 12]]

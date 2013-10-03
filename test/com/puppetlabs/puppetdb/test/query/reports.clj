@@ -22,7 +22,15 @@
       (assoc-in [:basic  :start-time] (-> 1 days ago))
       (assoc-in [:basic2 :start-time] (-> 4 days ago))
       (assoc-in [:basic3 :start-time] (-> 3 days ago))
-      (assoc-in [:basic4 :start-time] (-> 2 days ago))))
+      (assoc-in [:basic4 :start-time] (-> 2 days ago))
+      (assoc-in [:basic  :puppet-version] "3.0.1")
+      (assoc-in [:basic2 :puppet-version] "3.0.1")
+      (assoc-in [:basic3 :puppet-version] "4.1.0")
+      (assoc-in [:basic4 :puppet-version] "4.1.0")
+      (assoc-in [:basic  :configuration-version] "bbb")
+      (assoc-in [:basic2 :configuration-version] "aaa")
+      (assoc-in [:basic3 :configuration-version] "xxx")
+      (assoc-in [:basic4 :configuration-version] "yyy")))
 
 ;; Begin tests
 
@@ -99,6 +107,15 @@
           (testing order
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "start-time" :order order}]})]
+              (is (= actual expected))))))
+
+      (testing "multiple fields"
+        (doseq [[[puppet-version-order conf-version-order] expecteds] [[["ASC" "DESC"] [report1 report2 report4 report3]]
+                                                                       [["DESC" "ASC"] [report3 report4 report2 report1]]]]
+          (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
+            (let [expected (expected-reports expecteds)
+                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "puppet-version" :order puppet-version-order}
+                                                                                          {:field "configuration-version" :order conf-version-order}]})]
               (is (= actual expected)))))))
 
     (testing "offset"
