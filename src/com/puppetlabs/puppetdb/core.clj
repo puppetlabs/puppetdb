@@ -74,8 +74,8 @@
 
     (let [module (str ns-prefix subcommand)
           args   (rest args)]
-      (require (symbol module))
       (try
+        (require (symbol module))
         (apply (resolve (symbol module "-main")) args)
         (System/exit 0)
         (catch Throwable e
