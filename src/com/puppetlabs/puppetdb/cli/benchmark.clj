@@ -39,7 +39,7 @@
 (ns com.puppetlabs.puppetdb.cli.benchmark
   (:import (java.io File))
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.puppetdb.catalog :as cat]
+            [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.http :as pl-http]
