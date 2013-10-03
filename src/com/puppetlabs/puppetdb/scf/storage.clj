@@ -662,7 +662,9 @@ must be supplied as the value to be matched."
             (dissociate-all-catalogs-for-certname! certname)
             (associate-catalog-with-certname! catalog-hash certname timestamp)))))
 
-(defn insert-facts! [certname facts]
+(defn insert-facts!
+  "Given a certname and map of fact/value keypairs, insert them into the facts table"
+  [certname facts]
   (let [default-row {:certname certname}
         rows        (for [[fact value] facts]
                       (assoc default-row :name fact :value value))]
