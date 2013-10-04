@@ -388,7 +388,8 @@
 (defn with-shutdown-after [dbs f]
   (f)
   (doseq [db dbs]
-    (sql/do-commands "SHUTDOWN")))
+    (sql/with-connection db
+      (sql/do-commands "SHUTDOWN"))))
 
 (deftest ^{:postgres false} two-database-fact-query-config
   (let [read-db (init-db (create-db-map) true)
