@@ -262,7 +262,7 @@
            stats log-statements log-slow-statements
            conn-max-age conn-lifetime conn-keep-alive read-only?]
     :or   {partition-conn-min  1
-           partition-conn-max  50
+           partition-conn-max  25
            partition-count     1
            stats               true
            ;; setting this to a String value, because that's what it would
