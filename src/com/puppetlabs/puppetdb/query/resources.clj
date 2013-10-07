@@ -40,8 +40,7 @@
            (or
              (not (:count? paging-options))
              (valid-jdbc-query? (:count-query %)))]}
-    (let [columns (map keyword (keys resource-columns))]
-      (validate-order-by! columns paging-options))
+    (validate-order-by! (keys resource-columns) paging-options)
     (let [[subselect & params] (resource-query->sql operators query)
           paged-subselect      (paged-sql subselect paging-options)
           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
