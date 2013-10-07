@@ -10,9 +10,16 @@
 
 (use-fixtures :each with-test-db)
 
+(defn- raw-query-resources
+  [query paging-options]
+  (->> (s/v3-query->sql query paging-options)
+       (s/limited-query-resources 0 paging-options)))
+
 (defn query-resources
-  [query]
-  (:result (s/query-resources query)))
+  ([query]
+    (:result (s/query-resources query)))
+  ([query paging-options]
+    (:result (raw-query-resources query paging-options))))
 
 (deftest test-query-resources
   (sql/insert-records
@@ -283,4 +290,94 @@
               #"is not a queryable object"
               (query-resources (s/v3-query->sql input))))))))
 
+(deftest paging-results
+  (sql/insert-records
+   :resource_params
+   {:resource "1" :name "ensure"  :value (db-serialize "file")}
+   {:resource "1" :name "owner"   :value (db-serialize "root")}
+   {:resource "4" :name "ensure"  :value (db-serialize "present")}
+   {:resource "1" :name "group"   :value (db-serialize "root")}
+   {:resource "3" :name "hash"    :value (db-serialize {"foo" 5 "bar" 10})}
+   {:resource "2" :name "random"  :value (db-serialize "true")}
+   {:resource "3" :name "multi"   :value (db-serialize ["one" "two" "three"])}
+   {:resource "4" :name "content" :value (db-serialize "contents")}
+   {:resource "2" :name "enabled" :value (db-serialize "false")})
 
+  (sql/insert-records :certnames
+    {:name "foo.local"})
+  (sql/insert-records :catalogs
+    {:hash "foo" :api_version 1 :catalog_version "12"})
+  (sql/insert-records :certname_catalogs
+    {:certname "foo.local" :catalog "foo"})
+  (sql/insert-records :catalog_resources
+    {:catalog "foo" :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+    {:catalog "foo" :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
+    {:catalog "foo" :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+    {:catalog "foo" :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+
+  (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :parameters {"ensure" "file" "group" "root" "owner" "root"}}
+        r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :parameters {"enabled" "false" "random" "true"}}
+        r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
+        r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :parameters {"content" "contents" "ensure" "present"}}]
+
+    (testing "include total results count"
+      (let [expected 4
+            actual   (:count (raw-query-resources ["=" ["node" "active"] true] {:count? true}))]
+        (is (= actual expected))))
+
+    (testing "limit results"
+    (doseq [[limit expected] [[0 0] [2 2] [100 4]]]
+      (let [results (query-resources ["=" ["node" "active"] true] {:limit limit})
+            actual  (count results)]
+        (is (= actual expected)))))
+
+    (testing "order-by"
+      (testing "rejects invalid fields"
+        (is (thrown-with-msg?
+              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+              (query-resources [] {:order-by [{:field "invalid-field"}]}))))
+
+      (testing "defaults to ascending"
+        (let [expected [r1 r3 r4 r2]
+              actual   (query-resources ["=" ["node" "active"] true] {:order-by [{:field "line"}]})]
+          (is (= actual expected))))
+
+      (testing "alphabetical fields"
+        (doseq [[order expected] [["ASC"  [r1 r2 r3 r4]]
+                                  ["DESC" [r4 r3 r2 r1]]]]
+          (testing order
+            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "title" :order order}]})]
+              (is (= actual expected))))))
+
+      (testing "numerical fields"
+        (doseq [[order expected] [["ASC"  [r1 r3 r4 r2]]
+                                  ["DESC" [r2 r4 r3 r1]]]]
+          (testing order
+            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "line" :order order}]})]
+              (is (= actual expected))))))
+
+      (testing "multiple fields"
+        (doseq [[[file-order line-order] expected] [[["ASC" "DESC"]  [r2 r1 r3 r4]]
+                                                    [["ASC" "ASC"]   [r1 r2 r3 r4]]
+                                                    [["DESC" "ASC"]  [r4 r3 r1 r2]]
+                                                    [["DESC" "DESC"] [r4 r3 r2 r1]]]]
+          (testing (format "file %s line %s" file-order line-order)
+            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "file" :order file-order}
+                                                                                   {:field "line" :order line-order}]})]
+              (is (= actual expected)))))))
+
+    (testing "offset"
+      (doseq [[order expected-sequences] [["ASC"  [[0 [r1 r2 r3 r4]]
+                                                   [1 [r2 r3 r4]]
+                                                   [2 [r3 r4]]
+                                                   [3 [r4]]
+                                                   [4 []]]]
+                                          ["DESC" [[0 [r4 r3 r2 r1]]
+                                                   [1 [r3 r2 r1]]
+                                                   [2 [r2 r1]]
+                                                   [3 [r1]]
+                                                   [4 []]]]]]
+        (testing order
+          (doseq [[offset expected] expected-sequences]
+            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "title" :order order}] :offset offset})]
+              (is (= actual expected)))))))))
