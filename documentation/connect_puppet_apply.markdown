@@ -23,6 +23,7 @@ PuppetDB can also be used with standalone Puppet deployments where each node run
 
 * Send the node's catalog to PuppetDB
 * Query PuppetDB when compiling catalogs that collect [exported resources][exported]
+* Send reports to PuppetDB (optional)
 
 **Note that standalone deployments can only store catalogs and cannot use the inventory service.** This is due to a limitation in Puppet.
 
@@ -114,6 +115,9 @@ You will need to create a template for puppet.conf based on your existing config
     [main]
       storeconfigs = true
       storeconfigs_backend = puppetdb
+      # Optional settings to submit reports to PuppetDB:
+      report = true
+      reports = puppetdb
 
 > Note: The `thin_storeconfigs` and `async_storeconfigs` settings should be absent or set to `false`.
 
