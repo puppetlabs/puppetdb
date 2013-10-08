@@ -24,8 +24,9 @@ PuppetDB can also be used with standalone Puppet deployments where each node run
 * Send the node's catalog to PuppetDB
 * Query PuppetDB when compiling catalogs that collect [exported resources][exported]
 * Store facts in PuppetDB
+* Send reports to PuppetDB (optional)
 
-You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that since you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.** 
+You will need to take the following steps to configure your standalone nodes to connect to PuppetDB. Note that since you must change Puppet's configuration on every managed node, **we strongly recommend that you do so with Puppet itself.**
 
 ## Step 1: Configure SSL
 
@@ -35,7 +36,7 @@ PuppetDB requires client authentication for its SSL connections and the PuppetDB
 
 1. Edit [the `jetty` section of the PuppetDB config files][jetty] to remove all SSL-related settings.
 2. Install a general purpose web server (like Apache or Nginx) on the PuppetDB server.
-3. Configure the web server to listen on port 8081 with SSL enabled and proxy all traffic to `localhost:8080` (or whatever unencrypted hostname and port were set in [jetty.ini][jetty]). The proxy server can use any certificate --- as long as Puppet has never downloaded a CA cert from a puppet master, it will not verify the proxy server's certificate. If your nodes have downloaded CA certs, you must either make sure the proxy server's cert was signed by the same CA, or delete the CA cert. 
+3. Configure the web server to listen on port 8081 with SSL enabled and proxy all traffic to `localhost:8080` (or whatever unencrypted hostname and port were set in [jetty.ini][jetty]). The proxy server can use any certificate --- as long as Puppet has never downloaded a CA cert from a puppet master, it will not verify the proxy server's certificate. If your nodes have downloaded CA certs, you must either make sure the proxy server's cert was signed by the same CA, or delete the CA cert.
 
 <!--TODO-->More detailed instructions for setting up this proxy will be added to this guide at a later date.
 
@@ -45,14 +46,14 @@ When talking to PuppetDB, puppet apply can use the certificates issued by a pupp
 
 Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script]. PuppetDB will now trust connections from your Puppet nodes.
 
-You will have to sign a certificate for every new node you add to your site. 
+You will have to sign a certificate for every new node you add to your site.
 
 
 ## Step 2: Install Terminus Plugins on Every Puppet Node
 
-Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory. 
+Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
-* First, ensure that the appropriate Puppet Labs package repository ([Puppet Enterprise](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories), or [open source](/guides/puppetlabs_package_repositories.html#open-source-repositories)) is enabled. You can use a [package][] resource to do this or use the apt::source (from the [puppetlabs-apt][apt] module) and [yumrepo][] types. 
+* First, ensure that the appropriate Puppet Labs package repository ([Puppet Enterprise](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories), or [open source](/guides/puppetlabs_package_repositories.html#open-source-repositories)) is enabled. You can use a [package][] resource to do this or use the apt::source (from the [puppetlabs-apt][apt] module) and [yumrepo][] types.
 * Next, use Puppet to ensure that the `puppetdb-terminus` package is installed:
 
 {% highlight ruby %}
@@ -64,17 +65,17 @@ Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike cust
 
 ### On Platforms Without Packages
 
-If your puppet master isn't running Puppet from a supported package, you will need to install the plugins using [file][] resources. 
+If your puppet master isn't running Puppet from a supported package, you will need to install the plugins using [file][] resources.
 
 * [Download the PuppetDB source code][puppetdb_download]; unzip it, locate the `puppet/lib/puppet` directory and put it in the `files` directory of the Puppet module you are using to enable PuppetDB integration.
 * Identify the install location of Puppet on your nodes.
-* Create a [file][] resource in your manifests for each of the plugin files, to move them into place on each node. 
+* Create a [file][] resource in your manifests for each of the plugin files, to move them into place on each node.
 
 {% highlight ruby %}
     # <modulepath>/puppetdb/manifests/terminus.pp
     class puppetdb::terminus {
       $puppetdir = "$rubysitedir/puppet"
-      
+
       file {$puppetdir:
         ensure => directory,
         recurse => remote, # Copy these files without deleting the existing files
@@ -113,6 +114,9 @@ You will need to create a template for puppet.conf based on your existing config
     [main]
       storeconfigs = true
       storeconfigs_backend = puppetdb
+      # Optional settings to submit reports to PuppetDB:
+      report = true
+      reports = puppetdb
 
 > Note: The `thin_storeconfigs` and `async_storeconfigs` settings should be absent or set to `false`.
 
@@ -124,8 +128,14 @@ Ensure that the following keys are present:
 
     ---
     apply:
+      catalog:
+        terminus: compiler
+        cache: puppetdb
+      resource:
+        terminus: ral
+        cache: puppetdb
       facts:
         terminus: facter
         cache: puppetdb_apply
 
-This will install use the terminus `puppetdb_apply` as a facts cache which really doesn't act as a cache at all, it just monopolizes the cache handling behaviour to intercept facts and store them in PuppetDB.
+This is necessary to keep Puppet from using stale facts and to keep the puppet resource subcommand from malfunctioning. Note that the `puppetdb_apply` terminus is specifically for puppet apply nodes, and differs from the configuration of puppet masters using PuppetDB.
