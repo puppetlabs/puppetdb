@@ -252,10 +252,12 @@
                  "operatingsystem" "Debian"}]
       (add-certname! certname)
 
-      (is (false? (cert-facts-exist? "some_certname")))
+      (is (nil?
+           (sql/transaction
+            (lock-facts-for-certname! "some_certname"))))
       (is (empty? (cert-fact-map "some_certname")))
       
-      (add-facts! certname facts (now))
+      (add-facts! certname facts (-> 2 days ago))
       (testing "should have entries for each fact"
         (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
                [{:certname certname :name "domain" :value "mydomain.com"}
@@ -264,7 +266,8 @@
                 {:certname certname :name "kernel" :value "Linux"}
                 {:certname certname :name "operatingsystem" :value "Debian"}]))
 
-        (is (true? (cert-facts-exist? "some_certname")))
+        (is (sql/transaction
+             (lock-facts-for-certname! "some_certname")))
         (is (= facts (cert-fact-map "some_certname"))))
       
       (testing "should add the certname if necessary"
@@ -321,10 +324,47 @@
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
-        (add-facts! certname facts (now))
+        (add-facts! certname facts (-> 2 days ago))
         (replace-facts! {"name" certname
                          "values" {"foo" "bar"}} (now))
         (is (= {"foo" "bar"} (cert-fact-map "some_certname")))))))
+
+(deftest fact-locking
+  (let [certname "some_certname"
+        facts {"domain" "mydomain.com"
+               "fqdn" "myhost.mydomain.com"
+               "hostname" "myhost"
+               "kernel" "Linux"
+               "operatingsystem" "Debian"}
+        hand-off-queue (java.util.concurrent.SynchronousQueue.)
+        storage-replace-facts! update-facts!
+        update-time (now)]
+
+    (sql/transaction
+     (add-certname! certname)
+     (add-facts! certname facts (-> 2 days ago)))
+
+    (future-call
+     (bound-fn []
+       (sql/with-connection *db*
+         (with-redefs [update-facts! (fn [certname facts timestamp]
+                                       (.put hand-off-queue "got the lock")
+                                       (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
+                                       (storage-replace-facts! certname facts timestamp))]
+           (replace-facts! {"name" certname
+                            "values" (-> facts
+                                         (assoc "newfact" "here")
+                                         (dissoc "kernel"))}
+                           update-time)))))
+    (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
+
+    (is (thrown-with-msg? java.sql.BatchUpdateException #"transaction rollback"
+                          (sql/with-connection *db*
+                            (replace-facts! {"name" certname
+                                             "values" (-> facts
+                                                          (dissoc "kernel")
+                                                          (assoc  "newfact2" "here"))}
+                                            update-time))))))
 
 (let [catalog  (:basic catalogs)
       certname (:certname catalog)]

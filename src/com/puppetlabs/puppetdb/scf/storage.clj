@@ -29,7 +29,7 @@
             [com.puppetlabs.cheshire :as json]
             [clojure.data :as data])
   (:use [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [ago secs now]]
+        [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -616,17 +616,6 @@ must be supplied as the value to be matched."
         (.after catalog-timestamp timestamp)
         false))))
 
-(defn facts-newer-than?
-  "Returns true if the most current facts for `certname` are more recent than
-  `time`."
-  [certname time]
-  (let [timestamp (to-timestamp time)]
-    (sql/with-query-results result-set
-      ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
-      (if-let [facts-timestamp (:timestamp (first result-set))]
-        (.after facts-timestamp timestamp)
-        false))))
-
 ;; ## Database compaction
 
 (defn delete-unassociated-catalogs!
@@ -726,21 +715,30 @@ must be supplied as the value to be matched."
   "Returns true if a certname_facts_metadata entry is found for certname"
   [certname]
   (sql/with-query-results result-set
-    ["SELECT 1 FROM certname_facts_metadata WHERE certname=? LIMIT 1" certname]
+    ["SELECT 1 FROM certname_facts_metadata WHERE certname=? LIMIT 1 FOR UPDATE" certname]
     (boolean (seq result-set))))
 
+(defn lock-facts-for-certname!
+  "If certname_facts_metadata exists for a certname, lock the row, return the timestamp.  This
+   lock prevents another command for the same certname from changing the facts in mid-update.
+  `time`."
+  [certname]
+  (sql/with-query-results result-set
+    ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC FOR UPDATE" certname]
+    (:timestamp (first result-set))))
+
 (defn replace-facts!
-  "Updates the facts of an existing node, or adds all new facts if no
-   existing facts are found"
+  "Updates the facts of an existing node, if the facts are newer than the current set of facts.
+   Adds all new facts if no existing facts are found"
   [{:strs [name values]} timestamp]
   {:pre [(string? name)
          (every? string? (keys values))
          (every? string? (vals values))]}
   (time! (:replace-facts metrics)
-         (sql/transaction
-          (if (cert-facts-exist? name)
-            (update-facts! name values timestamp)
-            (add-facts! name values timestamp)))))
+         (if-let [facts-meta-ts (lock-facts-for-certname! name)]
+           (when (.before facts-meta-ts (to-timestamp timestamp))
+             (update-facts! name values timestamp))
+           (add-facts! name values timestamp))))
 
 (defn resource-event-identity-string
   "Compute a string suitable for hashing a resource event

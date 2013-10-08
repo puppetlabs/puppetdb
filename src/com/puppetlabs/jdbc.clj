@@ -4,6 +4,7 @@
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.internal :as jint]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [com.puppetlabs.utils :as utils]
@@ -311,3 +312,11 @@
        (str/join "," (repeat (count coll) "?"))
        ")"))
 
+(defmacro with-repeatable-read [& body]
+  `(do
+     (sql/transaction
+      (doto (:connection jint/*db*)
+        (.setAutoCommit false)
+        (.setTransactionIsolation java.sql.Connection/TRANSACTION_REPEATABLE_READ))
+
+      ~@body)))

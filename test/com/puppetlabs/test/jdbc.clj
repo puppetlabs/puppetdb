@@ -1,6 +1,7 @@
 (ns com.puppetlabs.test.jdbc
   (:require [com.puppetlabs.jdbc :as subject]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.internal :as jint])
   (:use [clojure.test]
         [com.puppetlabs.puppetdb.testutils :only [test-db]]
         [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database insert-map *db-spec*]]))
@@ -79,3 +80,18 @@
     (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
                           (subject/in-clause nil)))))
 
+(deftest repeatable-reads
+  (let [evaled-body? (atom false)
+        db (test-db)]
+
+    (sql/with-connection db
+      (let [conn (:connection jint/*db*)]
+        (is (true? (.getAutoCommit conn)))
+        (is (not= java.sql.Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation conn)))
+
+        (subject/with-repeatable-read
+          (is (false? (.getAutoCommit conn)))
+          (is (= java.sql.Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation conn)))
+          (reset! evaled-body? true)))
+
+      (is @evaled-body? "Body of with-repeatable-read macro was never evaled"))))

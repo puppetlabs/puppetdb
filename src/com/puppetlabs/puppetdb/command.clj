@@ -68,11 +68,12 @@
             [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
-            [clamq.protocol.connection :as mq-conn])
+            [clamq.protocol.connection :as mq-conn]
+            [clojure.java.jdbc :as sql])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.jdbc :only (with-transacted-connection with-repeatable-read)]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
@@ -344,9 +345,9 @@
   (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
         id                       (:id annotations)
         timestamp                (:received annotations)]
-    (with-transacted-connection db
-      (scf-storage/maybe-activate-node! name timestamp)
-      (if-not (scf-storage/facts-newer-than? name timestamp)
+    (sql/with-connection db
+      (with-repeatable-read
+        (scf-storage/maybe-activate-node! name timestamp)
         (scf-storage/replace-facts! facts timestamp)))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
