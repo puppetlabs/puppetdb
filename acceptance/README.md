@@ -94,6 +94,17 @@ in your hash; the environment variable names are the same but uppercased
   exhaustive cleanup after the run.  This is useful if you would like to avoid
   resetting VMs between every run of the acceptance tests.  Defaults to `:true`.
 
+* `:puppetdb_package_build_host` (`PUPPETDB_PACKAGE_BUILD_HOST`) : This specifies
+  the hostname where the final packages built by the packaging job are available.
+  This should typically not need to be overridden, as it defaults to the
+  well-known host name provided by our release engineering team.
+
+* `:puppetdb_package_repo_host` (`PUPPETDB_PACAKGE_REPO_HOST`): This specifies
+  the hostname where the final apt/yum repos will be deployed and accessible to
+  the test nodes.  When testing under EC2, this will be an s3 "hostname" that
+  differs from our default for internal VMs.  This should be overridden by
+  jenkins jobs that are running in EC2.
+
 * `:puppetdb_package_repo_url` (`PUPPETDB_PACKAGE_REPO_URL`) : By default,
   the test setup will install the latest 'master' branch of puppetdb dev packages
   from puppetlabs.lan; however, if this option is set, then it will try to use
@@ -108,6 +119,10 @@ in your hash; the environment variable names are the same but uppercased
 * `:puppetdb_repo_puppetdb` (`PUPPETDB_REPO_PUPPETDB`) :
   Specify the git repository and reference for where we are to download the
   PuppetDB source code.
+
+* `:puppetdb_git_ref` (`REF`) :
+  Specify the specific git ref that the tests should be run against.  This should
+  almost always be passed in by the Jenkins job, and not overridden by configuration.
 
 ## Beaker Specific Options
 
