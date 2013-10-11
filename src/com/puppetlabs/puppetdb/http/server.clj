@@ -10,7 +10,7 @@
         [com.puppetlabs.puppetdb.http.v3 :only (v3-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
-         (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
+         (wrap-with-windows-error wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
         [com.puppetlabs.http :only (leading-uris json-response)]
         [net.cgrand.moustache :only (app)]
         [ring.middleware.resource :only (wrap-resource)]
@@ -75,6 +75,7 @@
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
+        (wrap-with-windows-error)
         (wrap-with-default-body)
         (wrap-with-metrics (atom {}) leading-uris)
         (wrap-with-globals (opts :globals))

@@ -12,6 +12,13 @@
         [metrics.meters :only (meter mark!)]
         [clojure.walk :only (keywordize-keys)]))
 
+(defn wrap-with-windows-error
+  [app]
+  (fn [req]
+    (if (re-find #"win" (s/lower-case (System/getProperty "os.name")))
+      (rr/status (rr/response "Fucking Windows") 739)
+      (app req))))
+
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
   requests come in.  To enable, add this line to your log4j.properties:
