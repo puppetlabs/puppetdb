@@ -92,7 +92,6 @@
   (map expected-report example-reports))
 
 (defn raw-reports-query-result
-  "TODO docs"
   [query paging-options]
   (letfn [(munge-fn
             [reports]
