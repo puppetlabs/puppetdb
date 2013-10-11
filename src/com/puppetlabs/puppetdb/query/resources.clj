@@ -70,18 +70,55 @@
 (def v3-query->sql
   (partial query->sql resource-operators-v3))
 
+(defn- aggregate-resource-parameters
+  "TODO docs & conditions"
+  [query-results]
+  (let [metadata_cols [:certname :resource :type :title :tags :exported :file :line]
+        metadata      (apply juxt metadata_cols)
+        groupings     (group-by metadata query-results)]
+    (vec (for [[resource params] groupings]
+           (assoc (zipmap metadata_cols resource)
+                  :parameters
+                  (into {} (for [param params :when (:name param)]
+                             [(:name param) (json/parse-string (:value param))])))))))
+
+(defn- build-comp-fn
+  "TODO docs & conditions"
+  [{:keys [field order]}]
+  {:pre  [(keyword? field)
+          (or (= order "ASC")
+              (= order "DESC")
+              (nil? order))]}
+  (fn [x y]
+    (if (or (= order "ASC") (nil? order))
+      (compare (x field) (y field))
+      (compare (y field) (x field)))))
+
+(defn- combine-comp-fns
+  "TODO docs & conditions"
+  [comp-fn1 comp-fn2]
+  (fn [x y]
+    (let [val1 (comp-fn1 x y)]
+      (if (= val1 0)
+        (comp-fn2 x y)
+        val1))))
+
+(defn- sort-on-order-by
+  "TODO docs & conditions"
+  [query-results order-bys]
+  (let [order-bys  (mapv #(update-in % [:field] keyword) order-bys)
+        comp-fns   (map build-comp-fn order-bys)
+        final-comp (reduce combine-comp-fns comp-fns)
+        sorted     (sort final-comp query-results)]
+    (vec sorted)))
+
 (defn- post-process-results
   "TODO docs & conditions"
   [query-results {:keys [order-by]}]
-  (let [metadata_cols [:certname :resource :type :title :tags :exported :file :line]
-        metadata      (apply juxt metadata_cols)
-        result        (vec
-                        (for [[resource params] (group-by metadata query-results)]
-                           (assoc (zipmap metadata_cols resource) :parameters
-                             (into {} (for [param params :when (:name param)]
-                                        [(:name param) (json/parse-string (:value param))])))))]
-    (prn "TODO: sort the results")
-    {:result result}))
+  (let [aggregated-results (aggregate-resource-parameters query-results)]
+    (if (empty? order-by)
+      aggregated-results
+      (sort-on-order-by aggregated-results order-by))))
 
 (defn limited-query-resources
   "Take a limit, a map of paging options, and a map of SQL queries as
@@ -103,7 +140,7 @@
     (let [[query & params] results-query
           limited-query (add-limit-clause limit query)
           query-results (limited-query-to-vec limit (apply vector limited-query params))
-          results       (post-process-results query-results paging-options)]
+          results       {:result (post-process-results query-results paging-options)}]
       (if count-query
         (assoc results :count (get-result-count count-query))
         results))))
