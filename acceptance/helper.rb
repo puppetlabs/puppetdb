@@ -54,12 +54,26 @@ module PuppetDBExtensions
           "'purge packages and perform exhaustive cleanup after run'",
           "PUPPETDB_PURGE_AFTER_RUN", :false)
 
+    package_build_host =
+        get_option_value(options[:puppetdb_package_build_host],
+          nil,
+          "'hostname for package build output'",
+          "PUPPETDB_PACKAGE_BUILD_HOST",
+          "builds.puppetlabs.lan")
+
+    package_repo_host =
+        get_option_value(options[:puppetdb_package_repo_host],
+          nil,
+          "'hostname for yum/apt repos'",
+          "PUPPETDB_PACKAGE_REPO_HOST",
+          "neptune.puppetlabs.lan")
+
     package_repo_url =
         get_option_value(options[:puppetdb_package_repo_url],
           nil,
           "'base URL for yum/apt repos'",
           "PUPPETDB_PACKAGE_REPO_URL",
-          "http://neptune.puppetlabs.lan/dev/puppetdb/master")
+          "http://#{package_repo_host}/dev/puppetdb/master")
 
     puppetdb_repo_puppet = get_option_value(options[:puppetdb_repo_puppet],
       nil, "git repo for puppet source installs", "PUPPETDB_REPO_PUPPET", nil)
@@ -73,6 +87,9 @@ module PuppetDBExtensions
     puppetdb_repo_puppetdb = get_option_value(options[:puppetdb_repo_puppetdb],
       nil, "git repo for puppetdb source installs", "PUPPETDB_REPO_PUPPETDB", nil)
 
+    puppetdb_git_ref = get_option_value(options[:puppetdb_git_ref],
+      nil, "git revision of puppetdb to test against", "REF", nil)
+
     @config = {
       :base_dir => base_dir,
       :acceptance_data_dir => File.join(base_dir, "acceptance", "data"),
@@ -85,11 +102,14 @@ module PuppetDBExtensions
       :expected_deb_version => expected_deb_version,
       :use_proxies => use_proxies == :true,
       :purge_after_run => purge_after_run == :true,
+      :package_build_host => package_build_host,
+      :package_repo_host => package_repo_host,
       :package_repo_url => package_repo_url,
       :repo_puppet => puppetdb_repo_puppet,
       :repo_hiera => puppetdb_repo_hiera,
       :repo_facter => puppetdb_repo_facter,
       :repo_puppetdb => puppetdb_repo_puppetdb,
+      :git_ref => puppetdb_git_ref,
     }
 
     pp_config = PP.pp(@config, "")
