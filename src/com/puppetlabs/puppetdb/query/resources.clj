@@ -70,8 +70,10 @@
 (def v3-query->sql
   (partial query->sql resource-operators-v3))
 
-(defn- aggregate-resource-parameters
-  "TODO docs & conditions"
+(defn- consolidate-resource-params
+  "Given the raw query results from the database, consolidate all the resource
+  parameters for each resource and put them into a hash on each resource keyed
+  at `:parameters`."
   [query-results]
   (let [metadata_cols [:certname :resource :type :title :tags :exported :file :line]
         metadata      (apply juxt metadata_cols)
@@ -83,20 +85,28 @@
                              [(:name param) (json/parse-string (:value param))])))))))
 
 (defn- build-comp-fn
-  "TODO docs & conditions"
+  "Given a resource field and order direction, return a comparator
+  function that takes two resources and sorts them in ascending or
+  descending order based on the values of the provided field."
   [{:keys [field order]}]
   {:pre  [(keyword? field)
           (or (= order "ASC")
               (= order "DESC")
-              (nil? order))]}
+              (nil? order))]
+   :post [(fn? %)]}
   (fn [x y]
     (if (or (= order "ASC") (nil? order))
       (compare (x field) (y field))
       (compare (y field) (x field)))))
 
 (defn- combine-comp-fns
-  "TODO docs & conditions"
+  "Given two comparator functions, return a comparator function that
+  delegates to the first comparator, and if the result is equal, then
+  delegates to the second comparator."
   [comp-fn1 comp-fn2]
+  {:pre  [(fn? comp-fn1)
+          (fn? comp-fn2)]
+   :post [(fn? %)]}
   (fn [x y]
     (let [val1 (comp-fn1 x y)]
       (if (= val1 0)
@@ -104,8 +114,14 @@
         val1))))
 
 (defn- sort-on-order-by
-  "TODO docs & conditions"
+  "Sort the results of the query based on the order by clauses."
   [query-results order-bys]
+  {:pre  [(vector? query-results)
+          (vector? order-bys)
+          (every? map? order-bys)]
+   :post [(vector? %)
+          (= (count %)
+             (count query-results))]}
   (let [order-bys  (mapv #(update-in % [:field] keyword) order-bys)
         comp-fns   (map build-comp-fn order-bys)
         final-comp (reduce combine-comp-fns comp-fns)
@@ -113,12 +129,18 @@
     (vec sorted)))
 
 (defn- post-process-results
-  "TODO docs & conditions"
+  "Given the results of the query and the optional order-by paging clauses,
+  consolidate the results into a form appropriate for returning to the user
+  and sort them based on the order-by clauses, if there are any."
   [query-results {:keys [order-by]}]
-  (let [aggregated-results (aggregate-resource-parameters query-results)]
+  {:pre  [(vector? query-results)
+          ((some-fn nil? vector?) order-by)
+          (every? map? order-by)]
+   :post [(vector? %)]}
+  (let [consolidated-results (consolidate-resource-params query-results)]
     (if (empty? order-by)
-      aggregated-results
-      (sort-on-order-by aggregated-results order-by))))
+      consolidated-results
+      (sort-on-order-by consolidated-results order-by))))
 
 (defn limited-query-resources
   "Take a limit, a map of paging options, and a map of SQL queries as
