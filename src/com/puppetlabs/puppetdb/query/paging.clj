@@ -149,7 +149,7 @@
    the list of fields.  Throws an exception if validation fails."
   [columns paging-options]
   {:pre [(sequential? columns)
-         (every? (some-fn string? keyword?) columns)
+         (every? string? columns)
          ((some-fn nil? map?) paging-options)]}
   (let [columns (map underscores->dashes columns)]
     (doseq [field (map :field (:order-by paging-options))]
