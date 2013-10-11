@@ -327,7 +327,22 @@
         (add-facts! certname facts (-> 2 days ago))
         (replace-facts! {"name" certname
                          "values" {"foo" "bar"}} (now))
-        (is (= {"foo" "bar"} (cert-fact-map "some_certname")))))))
+        (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
+      
+      (testing "replace-facts with only additions"
+        (let [fact-map (cert-fact-map "some_certname")]
+          (replace-facts! {"name" certname
+                           "values" (assoc fact-map "one more" "here")} (now))
+          (is (= (assoc fact-map  "one more" "here")
+                 (cert-fact-map "some_certname")))))
+
+      (testing "replace-facts with no change"
+        (let [fact-map (cert-fact-map "some_certname")]
+          (clojure.pprint/pprint fact-map)
+          (replace-facts! {"name" certname
+                           "values" fact-map} (now))
+          (is (= fact-map
+                 (cert-fact-map "some_certname"))))))))
 
 (deftest fact-locking
   (let [certname "some_certname"
