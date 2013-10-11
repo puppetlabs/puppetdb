@@ -64,6 +64,17 @@
                  [org.apache.commons/commons-compress "1.4.1"]
                  [org.bouncycastle/bcpkix-jdk15on "1.49"]]
 
+  ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
+  ;;environment variable to be the test selector.  The selector below
+  ;;will always run a test, unless it has a meta value for that
+  ;;dbtype, and that value is falsey, such as
+  ;;(deftest ^{:postgres false} my-test-name...)
+
+  :test-selectors {:default (fn [test-var-meta]
+                              (let [dbtype (keyword (or (System/getenv "PUPPETDB_DBTYPE")
+                                                        "hsql"))]
+                                (get test-var-meta dbtype true)))}
+
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]]}}
 

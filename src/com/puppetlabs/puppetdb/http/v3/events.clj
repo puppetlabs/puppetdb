@@ -53,7 +53,7 @@
                 (params "query")
                 query-options
                 paging-options
-                (:scf-db globals))))}))
+                (:scf-read-db globals))))}))
 
 (def events-app
   "Ring app for querying events"

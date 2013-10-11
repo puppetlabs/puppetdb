@@ -57,7 +57,7 @@
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
-            (search-nodes (params "query") (:scf-db globals)))}))
+            (search-nodes (params "query") (:scf-read-db globals)))}))
 
 (def node-app
   "Ring app for querying nodes."

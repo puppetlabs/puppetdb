@@ -257,12 +257,12 @@
 
 (defn make-connection-pool
   "Create a new database connection pool"
-  [{:keys [classname subprotocol subname username password
+  [{:keys [classname subprotocol subname user username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements
-           conn-max-age conn-lifetime conn-keep-alive]
+           conn-max-age conn-lifetime conn-keep-alive read-only?]
     :or   {partition-conn-min  1
-           partition-conn-max  50
+           partition-conn-max  25
            partition-count     1
            stats               true
            ;; setting this to a String value, because that's what it would
@@ -270,7 +270,8 @@
            log-statements      "true"
            log-slow-statements 10
            conn-max-age        60
-           conn-keep-alive     45}
+           conn-keep-alive     45
+           read-only?          false}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
@@ -286,9 +287,11 @@
                           (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                          (.setConnectionHook (connection-hook log-statements? log-slow-statements)))]
+                          (.setConnectionHook (connection-hook log-statements? log-slow-statements))
+                          (.setDefaultReadOnly read-only?))
+        user (or user username)]
     ;; configurable without default
-    (when username (.setUsername config (str username)))
+    (when user (.setUsername config (str user)))
     (when password (.setPassword config (str password)))
     (when conn-lifetime (.setMaxConnectionAge config conn-lifetime TimeUnit/MINUTES))
     (when log-statements? (.setLogStatementsEnabled config log-statements?))

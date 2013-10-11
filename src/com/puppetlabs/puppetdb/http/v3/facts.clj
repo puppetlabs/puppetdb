@@ -31,7 +31,7 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (query-facts (params "query") paging-options (:scf-db globals)))
+                  (query-facts (params "query") paging-options (:scf-read-db globals)))
             http-q/restrict-query-to-active-nodes)}))
 
 (defn build-facts-app
