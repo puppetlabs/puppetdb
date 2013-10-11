@@ -41,7 +41,7 @@
            (or
              (not (:count? paging-options))
              (valid-jdbc-query? (:count-query %)))]}
-    (validate-order-by! (keys resource-columns) paging-options)
+    (validate-order-by! (map keyword (keys resource-columns)) paging-options)
     (let [[subselect & params] (resource-query->sql operators query)
           paged-subselect      (paged-sql subselect paging-options)
           sql                  (format "SELECT subquery1.certname, subquery1.resource,
@@ -93,7 +93,7 @@
   ;;  middleware, which should eliminate most or all of the
   ;;  need for this function
   [{:keys [field order]}]
-  {:pre [(string? field)
+  {:pre [(keyword? field)
          ((some-fn nil? string?) order)]}
   [(keyword field)
    (if (or (nil? order) (= "asc" (string/lower-case order)))

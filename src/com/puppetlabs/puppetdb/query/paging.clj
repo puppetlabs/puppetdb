@@ -15,6 +15,27 @@
 (def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")
 
+(defn valid-paging-options?
+  "Validates that an object is a well-formed set of
+  paging options, based on the format that is generated
+  by the wrap-with-paging-options middleware."
+  [{:keys [limit offset order-by] :as paging-options}]
+  (and
+    (map? paging-options)
+    (or
+      (nil? limit)
+      (pos? limit))
+    (or
+      (nil? offset)
+      (>= offset 0))
+    (or
+      (nil? order-by)
+      (and
+        (sequential? order-by)
+        (every? map? order-by)
+        (every? #(contains? % :field) order-by)
+        (every? keyword? (map :field order-by))))))
+
 (defn parse-order-by-json
   "Parses a JSON order-by string.  Returns the parsed string, or a Ring
   error response with a useful error message if there was a parse failure."
@@ -52,7 +73,7 @@
     (throw (IllegalArgumentException.
       (str "Illegal value '" bad-order-by "' in :order-by; "
          "missing required key 'field'.")))
-    order-by))
+    (map #(update-in % [:field] keyword) order-by)))
 
 (defn validate-no-invalid-order-by-fields
   "Validates that each map in the order-by list does not contain any invalid
@@ -149,15 +170,15 @@
    the list of fields.  Throws an exception if validation fails."
   [columns paging-options]
   {:pre [(sequential? columns)
-         (every? string? columns)
-         ((some-fn nil? map?) paging-options)]}
+         (every? keyword? columns)
+         ((some-fn nil? valid-paging-options?) paging-options)]}
   (let [columns (map underscores->dashes columns)]
     (doseq [field (map :field (:order-by paging-options))]
       (when-not (seq-contains? columns field)
         (throw (IllegalArgumentException.
           (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
-                  field
-                  (string/join "', '" columns))))))))
+                  (name field)
+                  (string/join "', '" (map name columns)))))))))
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging

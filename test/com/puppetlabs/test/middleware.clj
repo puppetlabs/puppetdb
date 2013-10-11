@@ -147,5 +147,5 @@
                    "foo"      "bar"}})
             {:limit     10
              :offset    10
-             :order-by  [{:field "foo" :order "desc"}]
+             :order-by  [{:field :foo :order "desc"}]
              :count?    true })))))

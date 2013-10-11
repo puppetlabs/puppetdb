@@ -35,7 +35,7 @@
         (is (= actual 3))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 3]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 3]]]
         (let [results (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -44,14 +44,14 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:order-by [{:field "invalid-field"}]}))))
+              (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:order-by [{:field :invalid-field}]}))))
 
       (testing "numerical fields"
         (doseq [[order expected] [["ASC"  [count2 count1]]
                                   ["DESC" [count1 count2]]]]
           (testing order
             (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
-                                                                 {:order-by [{:field "successes" :order order}]}))]
+                                                                 {:order-by [{:field :successes :order order}]}))]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -64,7 +64,7 @@
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
-                                                                 {:order-by [{:field "successes" :order order}] :offset offset}))]
+                                                                 {:order-by [{:field :successes :order order}] :offset offset}))]
               (is (= actual expected)))))))))
 
 (deftest resource-event-count-queries

@@ -73,7 +73,7 @@
         (is (= actual report-count))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 report-count]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 report-count]]]
         (let [results (reports-query-result ["=" "certname" "foo.local"] {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -82,7 +82,7 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "invalid-field"}]}))))
+              (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :invalid-field}]}))))
 
       (testing "numerical fields"
         (doseq [[order expecteds] [["ASC"  [report1 report2 report4 report3]]
@@ -90,7 +90,7 @@
           (testing order
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
-                                                 {:order-by [{:field "report-format" :order order}]})]
+                                                 {:order-by [{:field :report-format :order order}]})]
               (is (= actual expected))))))
 
       (testing "alphabetical fields"
@@ -98,7 +98,7 @@
                                    ["DESC" [report3 report4 report2 report1]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "transaction-uuid" :order order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :transaction-uuid :order order}]})]
               (is (= actual expected))))))
 
       (testing "timestamp fields"
@@ -106,7 +106,7 @@
                                    ["DESC" [report1 report4 report3 report2]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "start-time" :order order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :start-time :order order}]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
@@ -114,8 +114,8 @@
                                                                        [["DESC" "ASC"] [report3 report4 report2 report1]]]]
           (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "puppet-version" :order puppet-version-order}
-                                                                                          {:field "configuration-version" :order conf-version-order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :puppet-version :order puppet-version-order}
+                                                                                          {:field :configuration-version :order conf-version-order}]})]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -132,5 +132,5 @@
         (testing order
           (doseq [[offset expecteds] expected-sequences]
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field "report-format" :order order}] :offset offset})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :report-format :order order}] :offset offset})]
               (is (= actual expected)))))))))

@@ -39,7 +39,7 @@
     {:post [(map? %)
             (coll? (:result %))
             (every? string? (:result %))]}
-    (validate-order-by! ["name"] paging-options)
+    (validate-order-by! [:name] paging-options)
     (let [facts (execute-query
                   ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
                   paging-options)]
@@ -61,5 +61,5 @@
 (defn query-facts
   [[sql & params :as query] paging-options]
   {:pre [(string? sql)]}
-  (validate-order-by! ["certname" "name" "value"] paging-options)
+  (validate-order-by! [:certname :name :value] paging-options)
   (execute-query query paging-options))

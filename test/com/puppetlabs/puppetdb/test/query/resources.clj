@@ -326,7 +326,7 @@
         (is (= actual expected))))
 
     (testing "limit results"
-    (doseq [[limit expected] [[0 0] [2 2] [100 4]]]
+    (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
       (let [results (query-resources ["=" ["node" "active"] true] {:limit limit})
             actual  (count results)]
         (is (= actual expected)))))
@@ -335,25 +335,28 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-resources [] {:order-by [{:field "invalid-field"}]}))))
+              (query-resources [] {:order-by [{:field :invalid-field}]}))))
 
       (testing "defaults to ascending"
         (let [expected [r1 r3 r4 r2]
-              actual   (query-resources ["=" ["node" "active"] true] {:order-by [{:field "line"}]})]
+              actual   (query-resources ["=" ["node" "active"] true]
+                         {:order-by [{:field :line}]})]
           (is (= actual expected))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC"  [r1 r2 r3 r4]]
                                   ["DESC" [r4 r3 r2 r1]]]]
           (testing order
-            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "title" :order order}]})]
+            (let [actual (query-resources ["=" ["node" "active"] true]
+                           {:order-by [{:field :title :order order}]})]
               (is (= actual expected))))))
 
       (testing "numerical fields"
         (doseq [[order expected] [["ASC"  [r1 r3 r4 r2]]
                                   ["DESC" [r2 r4 r3 r1]]]]
           (testing order
-            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "line" :order order}]})]
+            (let [actual (query-resources ["=" ["node" "active"] true]
+                           {:order-by [{:field :line :order order}]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
@@ -362,8 +365,9 @@
                                                     [["DESC" "ASC"]  [r4 r3 r1 r2]]
                                                     [["DESC" "DESC"] [r4 r3 r2 r1]]]]
           (testing (format "file %s line %s" file-order line-order)
-            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "file" :order file-order}
-                                                                                   {:field "line" :order line-order}]})]
+            (let [actual (query-resources ["=" ["node" "active"] true]
+                           {:order-by [{:field :file :order file-order}
+                                       {:field :line :order line-order}]})]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -379,5 +383,6 @@
                                                    [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-resources ["=" ["node" "active"] true] {:order-by [{:field "title" :order order}] :offset offset})]
+            (let [actual (query-resources ["=" ["node" "active"] true]
+                           {:order-by [{:field :title :order order}] :offset offset})]
               (is (= actual expected)))))))))

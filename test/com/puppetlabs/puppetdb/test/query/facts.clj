@@ -54,7 +54,7 @@
         (is (= actual fact-count))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 fact-count]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 fact-count]]]
         (let [results (query-facts {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -63,13 +63,13 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-facts {:order-by [{:field "invalid-field"}]}))))
+              (query-facts {:order-by [{:field :invalid-field}]}))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC"  [f1 f2 f3 f4]]
                                   ["DESC" [f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-facts {:order-by [{:field "certname" :order order}]})]
+            (let [actual (query-facts {:order-by [{:field :certname :order order}]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
@@ -78,8 +78,8 @@
                                                      [["ASC" "DESC"]  [f3 f1 f2 f4]]
                                                      [["ASC" "ASC"]   [f1 f3 f4 f2]]]]
           (testing (format "name %s value %s" name-order value-order)
-            (let [actual (query-facts {:order-by [{:field "name" :order name-order}
-                                                  {:field "value" :order value-order}]})]
+            (let [actual (query-facts {:order-by [{:field :name :order name-order}
+                                                  {:field :value :order value-order}]})]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -95,5 +95,5 @@
                                                    [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-facts {:order-by [{:field "certname" :order order}] :offset offset})]
+            (let [actual (query-facts {:order-by [{:field :certname :order order}] :offset offset})]
               (is (= actual expected)))))))))

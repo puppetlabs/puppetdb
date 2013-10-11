@@ -27,20 +27,20 @@
         (is (= (sort (keys antonym-data))
                (map #(get % :key)
                   (execute-query orig-sql
-                    {:order-by [{:field "key"}]})))))
+                    {:order-by [{:field :key}]})))))
       (testing "should return results in correct order when DESC is specified"
         (is (= (reverse (sort (keys antonym-data)))
                (map #(get % :key)
                 (execute-query orig-sql
-                  {:order-by [{:field "key" :order "DESC"}]}))))))
+                  {:order-by [{:field :key :order "DESC"}]}))))))
     (testing "should support multiple order-by fields"
       (is (= [{:key "blandness" :value "zest"}
               {:key "lethargy"  :value "zest"}
               {:key "abundant"  :value "scarce"}]
             (take 3
               (execute-query "SELECT key, value from test"
-                {:order-by [{:field "value" :order "DESC"}
-                            {:field "key"}]}))))))
+                {:order-by [{:field :value :order "DESC"}
+                            {:field :key}]}))))))
   (testing "limit / offset"
     (let [orig-sql "SELECT key FROM test"]
       (testing "SQL not modified if no offset or limit is provided"
@@ -50,11 +50,11 @@
             (execute-query orig-sql {}))))
       (testing "Results are limited if limit is provided"
         (let [results (execute-query orig-sql
-                        {:limit 5 :order-by [{:field "key"}]})]
+                        {:limit 5 :order-by [{:field :key}]})]
           (is (= 5 (count results)))))
       (testing "Results begin at offset if offset is provided"
         (let [results     (execute-query orig-sql
-                            {:offset 2 :order-by [{:field "key"}]})]
+                            {:offset 2 :order-by [{:field :key}]})]
           (is (= "accept" (-> results first :key)))))
       (testing "Combination of limit and offset allows paging through entire result set"
         (let [orig-results        (set (jdbc/query-to-vec orig-sql))
@@ -66,7 +66,7 @@
                                       orig-sql
                                       {:limit     limit
                                        :offset    (* n limit)
-                                       :order-by  [{:field "key"}]}))
+                                       :order-by  [{:field :key}]}))
               paged-result        (->> (range num-paged-queries)
                                     (map paged-query-fn)
                                     (apply concat))]

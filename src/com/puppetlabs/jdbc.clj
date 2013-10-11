@@ -127,11 +127,11 @@
   "Given a list of legal result columns and a map containing a single order-by term,
   return the SQL string representing this term for use in an ORDER BY clause."
   [{:keys [field order]}]
-  {:pre [(string? field)
-         (re-find #"^[\w\-]+$" field)
+  {:pre [(keyword? field)
+         (re-find #"^[\w\-]+$" (name field))
          ((some-fn string? nil?) order)]
    :post [(string? %)]}
-  (let [field (dashes->underscores field)
+  (let [field (dashes->underscores (name field))
         order (string/lower-case (or order "asc"))]
     (when-not (#{"asc" "desc"} order)
       (throw (IllegalArgumentException.

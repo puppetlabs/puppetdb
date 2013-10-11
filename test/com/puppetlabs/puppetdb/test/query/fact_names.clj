@@ -26,7 +26,7 @@
         (is (= actual fact-count))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 fact-count]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 fact-count]]]
         (let [results (query-fact-names {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -35,13 +35,13 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-fact-names {:order-by [{:field "invalid-field"}]}))))
+              (query-fact-names {:order-by [{:field :invalid-field}]}))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC"  [f1 f2 f3 f4]]
                                   ["DESC" [f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-fact-names {:order-by [{:field "name" :order order}]})]
+            (let [actual (query-fact-names {:order-by [{:field :name :order order}]})]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -57,5 +57,5 @@
                                                    [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-fact-names {:order-by [{:field "name" :order order}] :offset offset})]
+            (let [actual (query-fact-names {:order-by [{:field :name :order order}] :offset offset})]
               (is (= actual expected)))))))))

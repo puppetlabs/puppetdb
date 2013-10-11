@@ -42,19 +42,19 @@
   (testing "should return an empty string if order-by list is empty"
     (is (= "" (subject/order-by->sql []))))
   (testing "should generate a valid SQL 'ORDER BY' clause"
-    (is (= " ORDER BY foo" (subject/order-by->sql [{:field "foo"}]))))
+    (is (= " ORDER BY foo" (subject/order-by->sql [{:field :foo}]))))
   (testing "should support ordering in descending order"
-    (is (= " ORDER BY foo DESC" (subject/order-by->sql [{:field "foo" :order "desc"}]))))
+    (is (= " ORDER BY foo DESC" (subject/order-by->sql [{:field :foo :order "desc"}]))))
   (testing "order specifier should be case insensitive"
-    (is (= " ORDER BY foo DESC" (subject/order-by->sql [{:field "foo" :order "DESC"}]))))
+    (is (= " ORDER BY foo DESC" (subject/order-by->sql [{:field :foo :order "DESC"}]))))
   (testing "should support explicitly ordering in ascending order"
-    (is (= " ORDER BY foo" (subject/order-by->sql [{:field "foo" :order "ASC"}]))))
+    (is (= " ORDER BY foo" (subject/order-by->sql [{:field :foo :order "ASC"}]))))
   (testing "should raise an error if order is not ASC or DESC"
     (is (thrown-with-msg? IllegalArgumentException
           #"Unsupported value .* for :order; expected one of 'DESC' or 'ASC'"
-          (subject/order-by->sql [{:field "foo" :order "foo"}]))))
+          (subject/order-by->sql [{:field :foo :order "foo"}]))))
   (testing "should support multiple order-by fields"
     (is (= " ORDER BY foo DESC, bar"
           (subject/order-by->sql
-            [{:field "foo" :order "DESC"}
-             {:field "bar"}])))))
+            [{:field :foo :order "DESC"}
+             {:field :bar}])))))
