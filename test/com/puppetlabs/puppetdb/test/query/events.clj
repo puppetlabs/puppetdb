@@ -341,7 +341,6 @@
                                                       ["and" ["=" "message" "created"] ["=" "latest-report?" true]]])]
         (is (= actual expected))))))
 
-
 (deftest distinct-resource-event-queries
   (let [basic1        (store-example-report! (:basic reports) (now))
         basic3        (store-example-report! (:basic3 reports) (now))
@@ -352,3 +351,73 @@
             actual    (resource-events-query-result ["=" "certname" "foo.local"] {} {:distinct-resources? true})]
         (is (= (count events3) (count actual)))
         (is (= actual expected))))))
+
+(deftest paging-results
+  (let [basic4        (store-example-report! (:basic4 reports) (now))
+        events        (get-in reports [:basic4 :resource-events])
+        event-count   (count events)
+        select-values #(reverse (utils/select-values (get-events-map (:basic4 reports)) %))]
+
+    (testing "include total results count"
+      (let [actual (:count (raw-resource-events-query-result [">" "timestamp" 0] {:count? true}))]
+        (is (= actual event-count))))
+
+    (testing "limit results"
+      (doseq [[limit expected] [[0 0] [2 2] [100 event-count]]]
+        (let [results (resource-events-query-result [">" "timestamp" 0] {:limit limit})
+              actual  (count results)]
+          (is (= actual expected)))))
+
+    (testing "order-by"
+      (testing "rejects invalid fields"
+        (is (thrown-with-msg?
+              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+              (resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "invalid-field"}]}))))
+
+      (testing "numerical fields"
+        (doseq [[order expected-events] [["ASC"  [10 11 12]]
+                                         ["DESC" [12 11 10]]]]
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "line" :order order}]}))]
+              (is (= actual expected))))))
+
+      (testing "alphabetical fields"
+        (doseq [[order expected-events] [["ASC"  [10 11 12]]
+                                         ["DESC" [12 11 10]]]]
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "file" :order order}]}))]
+              (is (= actual expected))))))
+
+      (testing "timestamp fields"
+        (doseq [[order expected-events] [["ASC"  [10 11 12]]
+                                         ["DESC" [12 11 10]]]]
+          (testing order
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "timestamp" :order order}]}))]
+              (is (= actual expected))))))
+
+      (testing "multiple fields"
+        (doseq [[[status-order title-order] expected-events] [[["DESC" "ASC"] [11 10 12]]
+                                                              [["ASC" "DESC"] [12 10 11]]]]
+          (testing (format "status %s resource-title %s" status-order title-order)
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "status" :order status-order}
+                                                                                                      {:field "resource-title" :order title-order}]}))]
+              (is (= actual expected)))))))
+
+    (testing "offset"
+      (doseq [[order expected-sequences] [["ASC"  [[0 [10 11 12]]
+                                                   [1 [11 12]]
+                                                   [2 [12]]
+                                                   [3 []]]]
+                                          ["DESC" [[0 [12 11 10]]
+                                                   [1 [11 10]]
+                                                   [2 [10]]
+                                                   [3 []]]]]]
+        (testing order
+          (doseq [[offset expected-events] expected-sequences]
+            (let [expected (raw-expected-resource-events (select-values expected-events) basic4)
+                  actual   (:result (raw-resource-events-query-result [">" "timestamp" 0] {:order-by [{:field "line" :order order}] :offset offset}))]
+              (is (= actual expected)))))))))
