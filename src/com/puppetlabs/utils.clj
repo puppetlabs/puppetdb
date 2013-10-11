@@ -248,6 +248,62 @@
           nil
           keys))
 
+(defn ordered-comparator
+  "Given a function and an order (:ascending or :descending),
+  return a comparator function that takes two objects and compares them in
+  ascending or descending order based on the value of applying the function
+  to each."
+  [f order]
+  {:pre  [(ifn? f)
+          (contains? #{:ascending :descending} order)]
+   :post [(fn? %)]}
+  (fn [x y]
+    (if (= order :ascending)
+      (compare (f x) (f y))
+      (compare (f y) (f x)))))
+
+(defn compose-comparators
+  "Composes two comparator functions into a single comparator function
+  which will call the first comparator and return the result if it is
+  non-zero; otherwise it will call the second comparator and return
+  its result."
+  [comp-fn1 comp-fn2]
+  {:pre  [(fn? comp-fn1)
+          (fn? comp-fn2)]
+   :post [(fn? %)]}
+  (fn [x y]
+    (let [val1 (comp-fn1 x y)]
+      (if (= val1 0)
+        (comp-fn2 x y)
+        val1))))
+
+(defn order-by-expr?
+  "Predicate that returns true if the argument is a valid expression for use
+  with the `order-by` function; in other words, returns true if the argument
+  is a 2-item vector whose first element is an `ifn` and whose second element
+  is either `:ascending` or `:descending`."
+  [x]
+  (and
+    (vector? x)
+    (ifn? (first x))
+    (contains? #{:ascending :descending} (second x))))
+
+(defn order-by
+  "Sorts a collection based on a sequence of 'order by' expressions.  Each expression
+  is a tuple containing a fn followed by either `:ascending` or `:descending`;
+  returns a collection that is sorted based on the values of the 'order by' fns
+  being applied to the elements in the original collection.  If multiple 'order by'
+  expressions are passed in, their precedence is determined by their order in
+  the argument list."
+  [order-bys coll]
+  {:pre [(sequential? order-bys)
+         (every? order-by-expr? order-bys)
+         (coll? coll)]}
+  (let [comp-fns    (map (fn [[f order]] (ordered-comparator f order)) order-bys)
+        final-comp  (reduce compose-comparators comp-fns)]
+    (sort final-comp coll)))
+
+
 ;; ## Date and Time
 
 (defn timestamp
