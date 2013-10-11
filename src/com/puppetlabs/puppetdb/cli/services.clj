@@ -340,18 +340,23 @@
                             (dissoc :node-ttl-days))]
     (assoc config :database parsed-database :command-processing parsed-commandproc)))
 
+(defn default-db-config [global]
+  {:classname   "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file (:vardir global) "db"))})
+
 (defn configure-database
   "Update the supplied config map with information about the database. Adds a
   default hsqldb. If a single part of the database information is specified
   (such as classname but not subprotocol), no defaults will be filled in."
-  [{:keys [database global] :as config}]
+  [{:keys [database read-database global] :as config}]
   {:pre  [(map? config)]
    :post [(map? config)]}
-  (let [vardir       (:vardir global)
-        default-db   {:classname   "org.hsqldb.jdbcDriver"
-                      :subprotocol "hsqldb"
-                      :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (file vardir "db"))}]
-    (assoc config :database (or database default-db))))
+  (let [write-db (or database (default-db-config global))
+        read-db (or read-database write-db)]
+    (assoc config
+      :database write-db
+      :read-database (assoc read-db :read-only? true))))
 
 (defn normalize-product-name
   "Checks that `product-name` is specified as a legal value, throwing an
@@ -444,14 +449,15 @@
                                                       supported-cli-options
                                                       required-cli-options)
         initial-config                             {:debug (:debug options)}
-        {:keys [jetty database global command-processing]
+        {:keys [jetty database read-database global command-processing]
             :as config}                            (parse-config! (:config options) initial-config)
         product-name                               (normalize-product-name (get global :product-name "puppetdb"))
         vardir                                     (validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         ;; TODO: revisit the choice of 20000 as a default value for event queries
         event-query-limit                          (get global :event-query-limit 20000)
-        db                                         (pl-jdbc/pooled-datasource database)
+        write-db                                   (pl-jdbc/pooled-datasource database)
+        read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         gc-interval                                (get database :gc-interval)
         node-ttl                                   (get database :node-ttl)
         node-purge-ttl                             (get database :node-purge-ttl)
@@ -459,7 +465,8 @@
         dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
         mq-dir                                     (str (file vardir "mq"))
         discard-dir                                (file mq-dir "discarded")
-        globals                                    {:scf-db               db
+        globals                                    {:scf-read-db          read-db
+                                                    :scf-write-db         write-db
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
                                                     :event-query-limit    event-query-limit
@@ -478,12 +485,12 @@
     ;; deprecated. We do this in a single connection because HSQLDB seems to
     ;; get confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
-    (sql/with-connection db
+    (sql/with-connection write-db
       (scf-store/warn-on-db-deprecation!)
       (migrate!))
 
     ;; Initialize database-dependent metrics
-    (pop/initialize-metrics db)
+    (pop/initialize-metrics write-db)
 
     (let [error         (promise)
           broker        (try
@@ -499,8 +506,8 @@
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
-                                           (load-from-mq mq-addr mq-endpoint discard-dir db))))))
-          updater       (future (maybe-check-for-updates product-name update-server db))
+                                           (load-from-mq mq-addr mq-endpoint discard-dir write-db))))))
+          updater       (future (maybe-check-for-updates product-name update-server read-db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (build-whitelist-authorizer wl)
                                             (constantly true))
@@ -521,7 +528,7 @@
                                   (when (pos? (to-secs report-ttl))
                                     (partial sweep-reports! report-ttl))]]
 
-        (gc-task #(apply perform-db-maintenance! db (remove nil? db-maintenance-tasks)))
+        (gc-task #(apply perform-db-maintenance! write-db (remove nil? db-maintenance-tasks)))
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
 
       ;; Start debug REPL if necessary

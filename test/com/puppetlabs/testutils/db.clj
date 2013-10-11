@@ -21,13 +21,20 @@
                    "blandness"  "zest"
                    "lethargy"   "zest"})
 
+(def ^:dynamic *db-spec* nil)
+
+(defn insert-map [data]
+  (apply (partial sql/insert-values :test [:key :value]) data))
+
 (defn with-antonym-test-database
   [function]
   (sql/with-connection (test-db)
     (clear-db-for-testing!))
-  (pl-jdbc/with-transacted-connection (test-db)
-    (sql/create-table :test
-      [:key   "VARCHAR(256)" "PRIMARY KEY"]
-      [:value "VARCHAR(256)" "NOT NULL"])
-    (apply (partial sql/insert-values :test [:key :value]) (map identity antonym-data))
-    (function)))
+  (binding [*db-spec* (test-db)]
+    (sql/with-connection *db-spec*
+      (sql/transaction
+       (sql/create-table :test
+                         [:key   "VARCHAR(256)" "PRIMARY KEY"]
+                         [:value "VARCHAR(256)" "NOT NULL"])
+       (insert-map antonym-data))
+      (function))))

@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
-            [com.puppetlabs.puppetdb.http.server :as server])
+            [com.puppetlabs.puppetdb.http.server :as server]
+            [com.puppetlabs.jdbc :as pjdbc])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
         [com.puppetlabs.testutils.logging :only [with-log-output]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
@@ -9,6 +10,15 @@
 (def ^:dynamic *mq* nil)
 (def ^:dynamic *conn* nil)
 (def ^:dynamic *app* nil)
+
+(defn init-db [db read-only?]
+  (binding [*db* db]
+    (do
+      (sql/with-connection *db*
+        (sql/transaction
+         (clear-db-for-testing!)
+         (migrate!)))
+      (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
 
 (defn with-test-db
   "A fixture to start and migrate a test db before running tests."
@@ -39,13 +49,21 @@
   ([globals-overrides f]
      (binding [*app* (server/build-app
                       :globals (merge
-                                {:scf-db               *db*
+                                {:scf-read-db          *db*
+                                 :scf-write-db         *db*
                                  :command-mq           *mq*
                                  :resource-query-limit 20000
                                  :event-query-limit    20000
                                  :product-name         "puppetdb"}
                                 globals-overrides))]
        (f))))
+
+(defn create-db-map []
+  {:classname   "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname     (str "mem:"
+                     (java.util.UUID/randomUUID)
+                     ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 (defn with-test-logging
   "A fixture to temporarily redirect all logging output to an atom, rather than

@@ -26,7 +26,7 @@
   (app
     ["nodes" node]
     {:get (fn [{:keys [globals]}]
-            (produce-node-status node (:scf-db globals)))}))
+            (produce-node-status node (:scf-read-db globals)))}))
 
 (def status-app
   "Moustache app for retrieving status information"

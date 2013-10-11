@@ -37,7 +37,7 @@
             (produce-body
               (params "query")
               paging-options
-              (:scf-db globals)))}))
+              (:scf-read-db globals)))}))
 
 (def reports-app
   "Ring app for querying reports"

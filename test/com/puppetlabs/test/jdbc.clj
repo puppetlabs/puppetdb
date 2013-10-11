@@ -3,17 +3,33 @@
             [clojure.java.jdbc :as sql])
   (:use [clojure.test]
         [com.puppetlabs.puppetdb.testutils :only [test-db]]
-        [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database]]))
+        [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database insert-map *db-spec*]]))
 
 
 (use-fixtures :each with-antonym-test-database)
 
 (deftest pool-construction
+
   (testing "can construct pool with numeric usernames and passwords"
     (let [pool (-> (test-db)
                    (assoc :username 1234 :password 1234)
                    (subject/pooled-datasource))]
-      (.close (:datasource pool)))))
+      (.close (:datasource pool))))
+
+  (testing "writes not allowed on read-only pools"
+    (let [write-pool (subject/pooled-datasource *db-spec*)
+          read-pool (subject/pooled-datasource (assoc *db-spec* :read-only? true))]
+
+      (subject/with-transacted-connection write-pool
+        (insert-map {"foo" 1})
+        (is (= [{:value "1"}] (subject/query-to-vec "SELECT value FROM test WHERE key='foo'"))))
+
+      (subject/with-transacted-connection read-pool
+        (is (thrown-with-msg? java.sql.SQLException #"read-only.*transaction"
+                              (insert-map {"bar" 1}))))
+      
+      (.close (:datasource write-pool))
+      (.close (:datasource read-pool)))))
 
 (deftest query-to-vec
   (testing "query string only"

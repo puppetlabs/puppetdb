@@ -54,7 +54,7 @@
                   (produce-body
                     (params "query")
                     {}
-                    (:scf-db globals)))
+                    (:scf-read-db globals)))
                 http-q/restrict-query-to-active-nodes)}))
 
 (defn build-resources-app

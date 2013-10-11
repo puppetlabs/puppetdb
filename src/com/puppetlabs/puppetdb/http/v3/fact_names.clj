@@ -9,7 +9,7 @@
 (defn get-fact-names
   "Produces a response body containing the list of known facts."
   [{:keys [globals paging-options]}]
-  (let [db (:scf-db globals)
+  (let [db (:scf-read-db globals)
         facts (with-transacted-connection db
                 (f/fact-names paging-options))]
     (query-result-response facts)))
