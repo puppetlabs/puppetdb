@@ -335,54 +335,54 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-resources [] {:order-by [{:field :invalid-field}]}))))
+              (query-resources [] {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "defaults to ascending"
         (let [expected [r1 r3 r4 r2]
               actual   (query-resources ["=" ["node" "active"] true]
-                         {:order-by [{:field :line}]})]
+                         {:order-by [[:line :ascending]]})]
           (is (= actual expected))))
 
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC"  [r1 r2 r3 r4]]
-                                  ["DESC" [r4 r3 r2 r1]]]]
+        (doseq [[order expected] [[:ascending  [r1 r2 r3 r4]]
+                                  [:descending [r4 r3 r2 r1]]]]
           (testing order
             (let [actual (query-resources ["=" ["node" "active"] true]
-                           {:order-by [{:field :title :order order}]})]
+                           {:order-by [[:title order]]})]
               (is (= actual expected))))))
 
       (testing "numerical fields"
-        (doseq [[order expected] [["ASC"  [r1 r3 r4 r2]]
-                                  ["DESC" [r2 r4 r3 r1]]]]
+        (doseq [[order expected] [[:ascending  [r1 r3 r4 r2]]
+                                  [:descending [r2 r4 r3 r1]]]]
           (testing order
             (let [actual (query-resources ["=" ["node" "active"] true]
-                           {:order-by [{:field :line :order order}]})]
+                           {:order-by [[:line order]]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
-        (doseq [[[file-order line-order] expected] [[["ASC" "DESC"]  [r2 r1 r3 r4]]
-                                                    [["ASC" "ASC"]   [r1 r2 r3 r4]]
-                                                    [["DESC" "ASC"]  [r4 r3 r1 r2]]
-                                                    [["DESC" "DESC"] [r4 r3 r2 r1]]]]
+        (doseq [[[file-order line-order] expected] [[[:ascending :descending]  [r2 r1 r3 r4]]
+                                                    [[:ascending :ascending]   [r1 r2 r3 r4]]
+                                                    [[:descending :ascending]  [r4 r3 r1 r2]]
+                                                    [[:descending :descending] [r4 r3 r2 r1]]]]
           (testing (format "file %s line %s" file-order line-order)
             (let [actual (query-resources ["=" ["node" "active"] true]
-                           {:order-by [{:field :file :order file-order}
-                                       {:field :line :order line-order}]})]
+                           {:order-by [[:file file-order]
+                                       [:line line-order]]})]
               (is (= actual expected)))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [r1 r2 r3 r4]]
-                                                   [1 [r2 r3 r4]]
-                                                   [2 [r3 r4]]
-                                                   [3 [r4]]
-                                                   [4 []]]]
-                                          ["DESC" [[0 [r4 r3 r2 r1]]
-                                                   [1 [r3 r2 r1]]
-                                                   [2 [r2 r1]]
-                                                   [3 [r1]]
-                                                   [4 []]]]]]
+      (doseq [[order expected-sequences] [[:ascending [[0 [r1 r2 r3 r4]]
+                                                      [1 [r2 r3 r4]]
+                                                      [2 [r3 r4]]
+                                                      [3 [r4]]
+                                                      [4 []]]]
+                                          [:descending [[0 [r4 r3 r2 r1]]
+                                                       [1 [r3 r2 r1]]
+                                                       [2 [r2 r1]]
+                                                       [3 [r1]]
+                                                       [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-resources ["=" ["node" "active"] true]
-                           {:order-by [{:field :title :order order}] :offset offset})]
+                           {:order-by [[:title order]] :offset offset})]
               (is (= actual expected)))))))))

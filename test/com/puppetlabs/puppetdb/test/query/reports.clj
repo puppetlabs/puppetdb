@@ -82,55 +82,59 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :invalid-field}]}))))
+              (reports-query-result ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
-        (doseq [[order expecteds] [["ASC"  [report1 report2 report4 report3]]
-                                   ["DESC" [report3 report4 report2 report1]]]]
+        (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
+                                   [:descending [report3 report4 report2 report1]]]]
           (testing order
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
-                                                 {:order-by [{:field :report-format :order order}]})]
+                                                 {:order-by [[:report-format order]]})]
               (is (= actual expected))))))
 
       (testing "alphabetical fields"
-        (doseq [[order expecteds] [["ASC"  [report1 report2 report4 report3]]
-                                   ["DESC" [report3 report4 report2 report1]]]]
+        (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
+                                   [:descending [report3 report4 report2 report1]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :transaction-uuid :order order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"]
+                             {:order-by [[:transaction-uuid order]]})]
               (is (= actual expected))))))
 
       (testing "timestamp fields"
-        (doseq [[order expecteds] [["ASC"  [report2 report3 report4 report1]]
-                                   ["DESC" [report1 report4 report3 report2]]]]
+        (doseq [[order expecteds] [[:ascending  [report2 report3 report4 report1]]
+                                   [:descending [report1 report4 report3 report2]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :start-time :order order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"]
+                             {:order-by [[:start-time order]]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
-        (doseq [[[puppet-version-order conf-version-order] expecteds] [[["ASC" "DESC"] [report1 report2 report4 report3]]
-                                                                       [["DESC" "ASC"] [report3 report4 report2 report1]]]]
+        (doseq [[[puppet-version-order conf-version-order] expecteds] [[[:ascending :descending] [report1 report2 report4 report3]]
+                                                                       [[:descending :ascending] [report3 report4 report2 report1]]]]
           (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :puppet-version :order puppet-version-order}
-                                                                                          {:field :configuration-version :order conf-version-order}]})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"]
+                             {:order-by [[:puppet-version puppet-version-order]
+                                         [:configuration-version conf-version-order]]})]
               (is (= actual expected)))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [report1 report2 report4 report3]]
-                                                   [1 [report2 report4 report3]]
-                                                   [2 [report4 report3]]
-                                                   [3 [report3]]
-                                                   [4 []]]]
-                                          ["DESC" [[0 [report3 report4 report2 report1]]
-                                                   [1 [report4 report2 report1]]
-                                                   [2 [report2 report1]]
-                                                   [3 [report1]]
-                                                   [4 []]]]]]
+      (doseq [[order expected-sequences] [[:ascending  [[0 [report1 report2 report4 report3]]
+                                                       [1 [report2 report4 report3]]
+                                                       [2 [report4 report3]]
+                                                       [3 [report3]]
+                                                       [4 []]]]
+                                          [:descending [[0 [report3 report4 report2 report1]]
+                                                       [1 [report4 report2 report1]]
+                                                       [2 [report2 report1]]
+                                                       [3 [report1]]
+                                                       [4 []]]]]]
         (testing order
           (doseq [[offset expecteds] expected-sequences]
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"] {:order-by [{:field :report-format :order order}] :offset offset})]
+                  actual   (reports-query-result ["=" "certname" "foo.local"]
+                             {:order-by [[:report-format order]] :offset offset})]
               (is (= actual expected)))))))))

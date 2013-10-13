@@ -85,21 +85,6 @@
                   (into {} (for [param params :when (:name param)]
                              [(:name param) (json/parse-string (:value param))])))))))
 
-(defn- order-by->tuple
-  "Convert an order-by entry from the paging middleware into
-  a tuple valid for use by the `ordered-comparator` fn."
-  ;; TODO: we should handle the conversion from asc/desc strings
-  ;;  to the :ascending :descending keywords in the paging
-  ;;  middleware, which should eliminate most or all of the
-  ;;  need for this function
-  [{:keys [field order]}]
-  {:pre [(keyword? field)
-         ((some-fn nil? string?) order)]}
-  [(keyword field)
-   (if (or (nil? order) (= "asc" (string/lower-case order)))
-      :ascending
-      :descending)])
-
 (defn- post-process-results
   "Given the results of the query and the optional order-by paging clauses,
   consolidate the results into a form appropriate for returning to the user
@@ -107,13 +92,12 @@
   [query-results order-bys]
   {:pre  [(vector? query-results)
           ((some-fn nil? vector?) order-bys)
-          (every? map? order-bys)]
+          (every? utils/order-by-expr? order-bys)]
    :post [(vector? %)]}
   (let [consolidated-results (consolidate-resource-params query-results)]
     (if (empty? order-bys)
       consolidated-results
-      (let [order-bys (map order-by->tuple order-bys)]
-        (vec (utils/order-by order-bys consolidated-results))))))
+      (vec (utils/order-by order-bys consolidated-results)))))
 
 (defn limited-query-resources
   "Take a limit, a map of paging options, and a map of SQL queries as
