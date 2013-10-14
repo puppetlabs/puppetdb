@@ -15,6 +15,7 @@
         [com.puppetlabs.puppetdb.testutils.reports :only [munge-example-report-for-storage]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [clj-time.coerce :only [to-timestamp]]
+        [clj-time.core :only [days ago]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
         [slingshot.slingshot :only [try+ throw+]]))
@@ -484,6 +485,62 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 
+(deftest concurrent-fact-updates
+  (testing "Should allow only one replace facts update for a given cert at a time"
+    (let [certname "some_certname"
+          facts {:name certname
+                 :values {"domain" "mydomain.com"
+                          "fqdn" "myhost.mydomain.com"
+                          "hostname" "myhost"
+                          "kernel" "Linux"
+                          "operatingsystem" "Debian"}}
+          command   {:command (command-names :replace-facts)
+                     :version 1
+                     :payload (json/generate-string facts)}
+          
+          hand-off-queue (java.util.concurrent.SynchronousQueue.)
+          storage-replace-facts! scf-store/update-facts!]
+
+      (sql/transaction
+       (scf-store/add-certname! certname)
+       (scf-store/add-facts! certname (:values facts) (-> 2 days ago)))
+
+      (let [first-message? (atom false)
+            second-message? (atom false)
+            fut (future
+                  (with-redefs [scf-store/update-facts! (fn [certname facts timestamp]
+                                                          (.put hand-off-queue "got the lock")
+                                                          (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
+                                                          (storage-replace-facts! certname (:values facts) timestamp))]
+                    (test-msg-handler command publish discard-dir
+                      (reset! first-message? true))))
+
+            _ (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
+
+            new-facts (update-in facts [:values] (fn [values]
+                                                   (-> values
+                                                       (dissoc "kernel")
+                                                       (assoc "newfact2" "here"))))
+            new-facts-cmd {:command (command-names :replace-facts)
+                           :version 1
+                           :payload (json/generate-string new-facts)}]
+
+        (test-msg-handler new-facts-cmd publish discard-dir
+          (reset! second-message? true)
+          (is (re-matches #".*BatchUpdateException.*transaction rollback.*"
+                          (-> publish
+                              meta
+                              :args
+                              deref
+                              ffirst
+                              json/parse-string
+                              (get-in ["annotations" "attempts"])
+                              first
+                              (get "error")))))
+        @fut
+        (is (true? @first-message?))
+        (is (true? @second-message?))))))
+
 (let [certname "foo.example.com"
       command {:command (command-names :deactivate-node)
                :version 1
@@ -533,3 +590,9 @@
               [{:certname (:certname report) :configuration_version (:configuration-version report)}]))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
+
+
+;; Local Variables:
+;; mode: clojure
+;; eval: (define-clojure-indent (test-msg-handler (quote defun)))
+;; End:

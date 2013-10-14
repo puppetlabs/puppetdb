@@ -68,7 +68,7 @@
             [[:foo :descending]
              [:bar :ascending]])))))
 
-(deftest in-cluase
+(deftest in-clause
   (testing "single item in collection"
     (is (= "in (?)" (subject/in-clause ["foo"]))))
   (testing "many items in a collection"

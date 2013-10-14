@@ -686,7 +686,7 @@ must be supplied as the value to be matched."
     ["SELECT name, value FROM certname_facts WHERE certname=?" certname]
     (zipmap (map :name result-set)
             (map :value result-set))))
-(require '[spyscope.core :as spy])
+
 (defn diff-existing-facts
   "Returns a vector with three fact maps, facts to be added,
    facts to be updated and facts to be deleted"
