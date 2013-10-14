@@ -29,6 +29,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should POST the facts command as a URL-encoded PSON string" do
+      facts.stringify
       payload = {
         :command => CommandReplaceFacts,
         :version => 1,
