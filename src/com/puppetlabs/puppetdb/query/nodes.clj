@@ -46,7 +46,7 @@
    :post [(map? %)
           (vector? (:result %))
           (every? #(= (set node-columns) (keyset %)) (:result %))]}
-    (validate-order-by! (map name node-columns) paging-options)
+    (validate-order-by! node-columns paging-options)
     (execute-query filter-expr paging-options)))
 
 (def v1-query->sql

@@ -35,7 +35,7 @@
         (is (= actual 3))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 3]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 3]]]
         (let [results (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -44,27 +44,37 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:order-by [{:field "invalid-field"}]}))))
+              (event-counts-query-result
+                ["=" "certname" "foo.local"]
+                "resource"
+                {}
+                {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
-        (doseq [[order expected] [["ASC"  [count2 count1]]
-                                  ["DESC" [count1 count2]]]]
+        (doseq [[order expected] [[:ascending  [count2 count1]]
+                                  [:descending [count1 count2]]]]
           (testing order
-            (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
-                                                                 {:order-by [{:field "successes" :order order}]}))]
+            (let [actual (:result (raw-event-counts-query-result
+                                    ["=" "certname" "foo.local"]
+                                    "containing-class"
+                                    {}
+                                    {:order-by [[:successes order]]}))]
               (is (= actual expected)))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [count2 count1]]
-                                                   [1 [count1]]
-                                                   [2 []]]]
-                                          ["DESC" [[0 [count1 count2]]
-                                                   [1 [count2]]
-                                                   [2 []]]]]]
+      (doseq [[order expected-sequences] [[:ascending  [[0 [count2 count1]]
+                                                       [1 [count1]]
+                                                       [2 []]]]
+                                          [:descending [[0 [count1 count2]]
+                                                       [1 [count2]]
+                                                       [2 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
-                                                                 {:order-by [{:field "successes" :order order}] :offset offset}))]
+            (let [actual (:result (raw-event-counts-query-result
+                                    ["=" "certname" "foo.local"]
+                                    "containing-class"
+                                    {}
+                                    {:order-by [[:successes order]] :offset offset}))]
               (is (= actual expected)))))))))
 
 (deftest resource-event-count-queries

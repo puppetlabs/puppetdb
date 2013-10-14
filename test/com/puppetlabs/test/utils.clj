@@ -1,5 +1,6 @@
 (ns com.puppetlabs.test.utils
-  (:require [fs.core :as fs])
+  (:require [fs.core :as fs]
+            [clojure.string :as string])
   (:use [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
         [metrics.timers :only (timer)]
@@ -118,6 +119,41 @@
       (is (false? (missing? sample :a :h :f))))
     (testing "should return false for multiple key items if all items exist in the coll"
       (is (false? (missing? sample :a :b :c))))))
+
+(deftest order-by-test
+  (let [test-data [{:id 1
+                    :k1 "ALPHA"
+                    :k2 "BETA"
+                    :k3 "GAMMA"}
+                   {:id 2
+                    :k1 "ALPHA"
+                    :k2 "BETA"
+                    :k3 "EPSILON"}
+                   {:id 3
+                    :k1 "ALPHA"
+                    :k2 "CHARLIE"
+                    :k3 "DELTA"}
+                   {:id 4
+                    :k1 "ALPHA"
+                    :k2 "CHARLIE"
+                    :k3 "FOXTROT"}
+                   {:id 5
+                    :k1 "alpha"
+                    :k2 "beta"
+                    :k3 "alpha"}]]
+        (testing "single field, ascending order-by"
+          (is (= [3 2 4 1 5] (map :id (order-by [[:k3 :ascending]] test-data)))))
+        (testing "single field, descending order-by"
+          (is (= [5 1 4 2 3] (map :id (order-by [[:k3 :descending]] test-data)))))
+        (testing "single function, descending order-by"
+          (is (= [1 4 2 3 5] (map :id (order-by [[#(string/lower-case (:k3 %)) :descending]] test-data)))))
+        (testing "multiple order-bys"
+          (is (= [5 3 4 2 1] (map :id
+                               (order-by
+                                 [[#(string/upper-case (:k1 %)) :ascending]
+                                  [:k2 :descending]
+                                  [:k3 :ascending]]
+                                 test-data)))))))
 
 (deftest string-hashing
   (testing "Computing a SHA-1 for a UTF-8 string"

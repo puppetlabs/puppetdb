@@ -62,7 +62,7 @@
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string]
             [clojure.set :as set])
-  (:use [com.puppetlabs.utils :only [parse-number keyset valset]]
+  (:use [com.puppetlabs.utils :only [parse-number keyset valset order-by-expr?]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
         [com.puppetlabs.puppetdb.query.paging :only [requires-paging?]]
@@ -78,7 +78,7 @@
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
          ((some-fn nil? sequential?) order-by)
-         (every? map? order-by)]
+         (every? order-by-expr? order-by)]
    :post [(map? %)
           (vector? (:result %))
           ((some-fn nil? integer?) (:count %))]}

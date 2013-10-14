@@ -6,7 +6,8 @@
 ;;
 (ns com.puppetlabs.puppetdb.query.resources
   (:require [cheshire.core :as json]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection
@@ -40,18 +41,16 @@
            (or
              (not (:count? paging-options))
              (valid-jdbc-query? (:count-query %)))]}
-    (let [columns (map keyword (keys resource-columns))]
-      (validate-order-by! columns paging-options))
+    (validate-order-by! (map keyword (keys resource-columns)) paging-options)
     (let [[subselect & params] (resource-query->sql operators query)
           paged-subselect      (paged-sql subselect paging-options)
-          sql (format (str "SELECT subquery1.certname, subquery1.resource, "
-                                  "subquery1.type, subquery1.title, subquery1.tags, "
-                                  "subquery1.exported, subquery1.file, "
-                                  "subquery1.line, rp.name, rp.value "
-                            "FROM (%s) subquery1 "
-                            "LEFT OUTER JOIN resource_params rp "
-                                "ON rp.resource = subquery1.resource")
-                paged-subselect)
+          sql                  (format "SELECT subquery1.certname, subquery1.resource,
+                                               subquery1.type, subquery1.title, subquery1.tags,
+                                               subquery1.exported, subquery1.file,
+                                               subquery1.line, rp.name, rp.value
+                                        FROM (%s) subquery1
+                                        LEFT OUTER JOIN resource_params rp ON rp.resource = subquery1.resource"
+                                 paged-subselect)
           ;; This is a little more complex than I'd prefer; the general query paging
           ;;  functions are built to work for SQL queries that return 1 row per
           ;;  PuppetDB result.  Since that's not the case for resources right now,
@@ -72,9 +71,38 @@
 (def v3-query->sql
   (partial query->sql resource-operators-v3))
 
+(defn- consolidate-resource-params
+  "Given the raw query results from the database, consolidate all the resource
+  parameters for each resource and put them into a hash on each resource keyed
+  at `:parameters`."
+  [query-results]
+  (let [metadata_cols [:certname :resource :type :title :tags :exported :file :line]
+        metadata      (apply juxt metadata_cols)
+        groupings     (group-by metadata query-results)]
+    (vec (for [[resource params] groupings]
+           (assoc (zipmap metadata_cols resource)
+                  :parameters
+                  (into {} (for [param params :when (:name param)]
+                             [(:name param) (json/parse-string (:value param))])))))))
+
+(defn- post-process-results
+  "Given the results of the query and the optional order-by paging clauses,
+  consolidate the results into a form appropriate for returning to the user
+  and sort them based on the order-by clauses, if there are any."
+  [query-results order-bys]
+  {:pre  [(vector? query-results)
+          ((some-fn nil? vector?) order-bys)
+          (every? utils/order-by-expr? order-bys)]
+   :post [(vector? %)]}
+  (let [consolidated-results (consolidate-resource-params query-results)]
+    (if (empty? order-bys)
+      consolidated-results
+      (vec (utils/order-by order-bys consolidated-results)))))
+
 (defn limited-query-resources
-  "Take a limit, and a map of SQL queries as produced by `query->sql`, return
-  a map containing the results of the query, as well as optional metadata.
+  "Take a limit, a map of paging options, and a map of SQL queries as
+  produced by `query->sql`, return a map containing the results of the
+  query, as well as optional metadata.
 
   The returned map will contain a key `:result`, whose value is vector of
   resources which match the query.  If the paging-options used to generate
@@ -83,23 +111,21 @@
 
    Throws an exception if the query would return more than `limit` results.  (A
    value of `0` for `limit` means that the query should not be limited.)"
-  [limit {:keys [results-query count-query] :as queries-map}]
-  {:pre  [(and (integer? limit) (>= limit 0))]
-   :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [[query & params] results-query
-        limited-query (add-limit-clause limit query)
-        results       (limited-query-to-vec limit (apply vector limited-query params))
-        metadata_cols [:certname :resource :type :title :tags :exported :file :line]
-        metadata      (apply juxt metadata_cols)
-        results       {:result
-                        (vec
-                          (for [[resource params] (group-by metadata results)]
-                             (assoc (zipmap metadata_cols resource) :parameters
-                               (into {} (for [param params :when (:name param)]
-                                          [(:name param) (json/parse-string (:value param))])))))}]
-    (if count-query
-      (assoc results :count (get-result-count count-query))
-      results)))
+  ([limit queries-map]
+    (limited-query-resources limit {} queries-map))
+  ([limit paging-options {:keys [results-query count-query] :as queries-map}]
+    {:pre  [(and (integer? limit) (>= limit 0))]
+     :post [(or (zero? limit) (<= (count %) limit))]}
+    (let [[query & params] results-query
+          limited-query (add-limit-clause limit query)
+          query-results (limited-query-to-vec limit (apply vector limited-query params))
+          results       {:result
+                          (post-process-results
+                            query-results
+                            (:order-by paging-options))}]
+      (if count-query
+        (assoc results :count (get-result-count count-query))
+        results))))
 
 (defn query-resources
   "Takes a map of SQL queries as produced by `query->sql`, and returns a map

@@ -205,7 +205,7 @@
           (map? %)
           (contains? % :result)
           (sequential? (:result %))]}
-  (validate-order-by! (keys event-columns) paging-options)
+  (validate-order-by! (map keyword (keys event-columns)) paging-options)
   (let [limited-query   (add-limit-clause limit query)
         results         (execute-query
                           limit
