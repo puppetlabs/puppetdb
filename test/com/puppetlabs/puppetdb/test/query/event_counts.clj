@@ -8,16 +8,64 @@
 
 (use-fixtures :each with-test-db)
 
+(defn- raw-event-counts-query-result
+  [query summarize-by query-options paging-options]
+  (->> (event-counts/query->sql query summarize-by query-options)
+       (event-counts/query-event-counts paging-options summarize-by)))
+
 (defn- event-counts-query-result
   "Utility function that executes an event-counts query and
   returns a set of results for use in test comparison."
   ([query summarize-by]
     (event-counts-query-result query summarize-by {}))
-  ([query summarize-by extra-query-params]
-    (-> (event-counts/query->sql query summarize-by extra-query-params)
-        (event-counts/query-event-counts summarize-by)
+  ([query summarize-by query-options]
+    (event-counts-query-result query summarize-by query-options {}))
+  ([query summarize-by query-options paging-options]
+    (-> (raw-event-counts-query-result query summarize-by query-options paging-options)
         (:result)
         (set))))
+
+(deftest paging-results
+  (let [_           (store-example-report! (:basic reports) (now))
+        count1      {:subject-type "containing-class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
+        count2      {:subject-type "containing-class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
+
+    (testing "include total results count"
+      (let [actual (:count (raw-event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:count? true}))]
+        (is (= actual 3))))
+
+    (testing "limit results"
+      (doseq [[limit expected] [[0 0] [2 2] [100 3]]]
+        (let [results (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:limit limit})
+              actual  (count results)]
+          (is (= actual expected)))))
+
+    (testing "order-by"
+      (testing "rejects invalid fields"
+        (is (thrown-with-msg?
+              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+              (event-counts-query-result ["=" "certname" "foo.local"] "resource" {} {:order-by [{:field "invalid-field"}]}))))
+
+      (testing "numerical fields"
+        (doseq [[order expected] [["ASC"  [count2 count1]]
+                                  ["DESC" [count1 count2]]]]
+          (testing order
+            (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
+                                                                 {:order-by [{:field "successes" :order order}]}))]
+              (is (= actual expected)))))))
+
+    (testing "offset"
+      (doseq [[order expected-sequences] [["ASC"  [[0 [count2 count1]]
+                                                   [1 [count1]]
+                                                   [2 []]]]
+                                          ["DESC" [[0 [count1 count2]]
+                                                   [1 [count2]]
+                                                   [2 []]]]]]
+        (testing order
+          (doseq [[offset expected] expected-sequences]
+            (let [actual (:result (raw-event-counts-query-result ["=" "certname" "foo.local"] "containing-class" {}
+                                                                 {:order-by [{:field "successes" :order order}] :offset offset}))]
+              (is (= actual expected)))))))))
 
 (deftest resource-event-count-queries
   (store-example-report! (:basic reports) (now))
