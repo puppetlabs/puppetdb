@@ -150,7 +150,8 @@ namespace :test do
        "--type #{type} " +
        "--debug " +
        "--tests acceptance/tests/ " +
-       "--options-file 'acceptance/options/#{options}.rb'"
+       "--options-file 'acceptance/options/#{options}.rb' " +
+       "--root-keys"
     beaker += " --preserve-hosts" if preserve_hosts
     beaker += " --no-color" unless color
     beaker += " --xml" if xml
