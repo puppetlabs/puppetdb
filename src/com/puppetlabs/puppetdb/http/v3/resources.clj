@@ -23,7 +23,7 @@
       (-> query
         (json/parse-string true)
         (r/v3-query->sql paging-options)
-        ((partial r/limited-query-resources limit))
+        ((partial r/limited-query-resources limit paging-options))
         (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))

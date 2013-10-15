@@ -47,4 +47,16 @@
                                            {:offset invalid-offset}))
               body      (get response :body "null")]
           (is (= (:status response) pl-http/status-bad-request))
-          (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))))
+          (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))
+
+    (testing (str endpoint " 'order-by' :order should only accept nil, 'asc', or 'desc' (case-insensitive)")
+      (doseq [invalid-order-by [{"field" "foo"
+                                 "order" "foo"}
+                                {"field" "foo"
+                                 "order" 1}]]
+        (let [response  (*app* (get-request endpoint
+                                 ["these" "are" "unused"]
+                                 {:order-by invalid-order-by}))
+              body      (get response :body "null")]
+          (is (= (:status response) pl-http/status-bad-request))
+          (is (re-find #"Illegal value '.*' for :order-by; expected an array of maps" body)))))))
