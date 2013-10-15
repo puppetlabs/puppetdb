@@ -91,7 +91,7 @@
   and sort them based on the order-by clauses, if there are any."
   [query-results order-bys]
   {:pre  [(vector? query-results)
-          ((some-fn nil? vector?) order-bys)
+          ((some-fn nil? sequential?) order-bys)
           (every? utils/order-by-expr? order-bys)]
    :post [(vector? %)]}
   (let [consolidated-results (consolidate-resource-params query-results)]
