@@ -102,7 +102,7 @@
       (let [{:keys [status body]}
               (wrapped-fn {:params {"order-by" "["}})]
         (is (= pl-http/status-bad-request status))
-        (is (= "Illegal value '[' for :order-by; expected an array of maps."
+        (is (= "Illegal value '[' for :order-by; expected a JSON array of maps."
               body))))
 
     (testing "should return an error if order-by is not an array of maps"

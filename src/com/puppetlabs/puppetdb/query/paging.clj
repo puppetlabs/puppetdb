@@ -53,8 +53,8 @@
     (doall (json/parse-string order-by true))
     (catch JsonParseException e
       (throw (IllegalArgumentException.
-        (str "Illegal value '" order-by "' for :order-by; expected "
-          "an array of maps."))))))
+        (str "Illegal value '" order-by "' for :order-by; expected a JSON "
+          "array of maps."))))))
 
 (defn parse-order-str
   "Given an 'order' string, returns either :ascending or :descending"
