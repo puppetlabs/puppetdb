@@ -26,6 +26,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [com.puppetlabs.cheshire]
             [cheshire.core :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now]]
@@ -234,7 +235,6 @@ must be supplied as the value to be matched."
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."
   [value]
-  (utils/add-common-json-encoders!)
   (json/generate-string (utils/sort-nested-maps value)))
 
 ;; ## Entity manipulation
@@ -378,7 +378,6 @@ must be supplied as the value to be matched."
   instead."
   [data]
   {:post [(string? %)]}
-  (utils/add-common-json-encoders!)
   (-> (utils/sort-nested-maps data)
       (json/generate-string)))
 
