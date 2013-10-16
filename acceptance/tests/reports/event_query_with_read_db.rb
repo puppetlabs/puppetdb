@@ -116,13 +116,13 @@ EOM
 
       assert_equal(0, events.length, "Expected no 'Notify' events, as all of the writes should be going to the write database; found #{events.length}.")
 
-      on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini.bak #{puppetdb_confdir(database)}/conf.d/database.ini"
-
-      restart_puppetdb database
-
-      sleep 5
-      
     end
   end
 
+  on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini.bak #{puppetdb_confdir(database)}/conf.d/database.ini"
+
+  restart_puppetdb database
+
+  sleep 5
+  
 end
