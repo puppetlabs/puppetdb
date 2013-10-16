@@ -4,6 +4,8 @@ require 'cgi'
 
 test_name "validation of basic PuppetDB resource event queries" do
 
+  skip_test "Skipping read-db test for HyperSQL.  This feature is only available for Postgres" if test_config[:database] == :embedded
+
   step "Create second database as a read-only database" do
 
     second_db_manifest = <<MANIFEST
