@@ -8,6 +8,7 @@
            [java.io IOException Writer])
   (:require [ring.util.response :as rr]
             [ring.util.io :as rio]
+            [com.puppetlabs.cheshire]
             [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
@@ -107,7 +108,6 @@
   ([body]
      (json-response body status-ok))
   ([body code]
-     (utils/add-common-json-encoders!)
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
          (rr/response)

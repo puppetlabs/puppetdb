@@ -17,8 +17,7 @@
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
             [digest]
-            [fs.core :as fs]
-            [cheshire.generate])
+            [fs.core :as fs])
   (:use [clojure.java.io :only (reader)]
         [clojure.set :only (difference union)]
         [clojure.string :only (split)]
@@ -771,15 +770,3 @@
   timer objects"
   [timers & body]
   `(multitime!* ~timers (fn [] (do ~@body))))
-
-(defn add-common-json-encoders!*
-  "Registers some common encoders for cheshire JSON encoding.
-
-  * org.joda.time.DateTime - handled with to-string"
-  []
-  (cheshire.generate/add-encoder
-    org.joda.time.DateTime
-    (fn [data jsonGenerator]
-      (.writeString jsonGenerator (clj-time.coerce/to-string data)))))
-
-(def add-common-json-encoders! (memoize add-common-json-encoders!*))
