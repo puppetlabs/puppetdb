@@ -126,20 +126,15 @@
 (defn order-by-term->sql
   "Given a list of legal result columns and a map containing a single order-by term,
   return the SQL string representing this term for use in an ORDER BY clause."
-  [{:keys [field order]}]
-  {:pre [(string? field)
-         (re-find #"^[\w\-]+$" field)
-         ((some-fn string? nil?) order)]
+  [[field order]]
+  {:pre [(keyword? field)
+         (re-find #"^[\w\-]+$" (name field))
+         (contains? #{:ascending :descending} order)]
    :post [(string? %)]}
-  (let [field (dashes->underscores field)
-        order (string/lower-case (or order "asc"))]
-    (when-not (#{"asc" "desc"} order)
-      (throw (IllegalArgumentException.
-               (str "Unsupported value " order
-                 " for :order; expected one of 'DESC' or 'ASC'"))))
+  (let [field (dashes->underscores (name field))]
     (format "%s%s"
       field
-      (if (= order "desc") " DESC" ""))))
+      (if (= order :descending) " DESC" ""))))
 
 (defn order-by->sql
   "Given a list of legal result columns an array of maps (where each map is
@@ -147,7 +142,7 @@
   for the specified terms"
   [order-by]
   {:pre [((some-fn nil? sequential?) order-by)
-         (every? map? order-by)]
+         (every? utils/order-by-expr? order-by)]
    :post [(string? %)]}
   (if (empty? order-by)
     ""
@@ -173,10 +168,10 @@
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
          ((some-fn nil? sequential?) order-by)
-         (every? map? order-by)]
+         (every? utils/order-by-expr? order-by)]
    :post [(string? %)]}
-    (let [limit-clause                (if limit (format " LIMIT %s" limit) "")
-          offset-clause               (if offset (format " OFFSET %s" offset) "")
+    (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
+          offset-clause    (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
       (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
           sql

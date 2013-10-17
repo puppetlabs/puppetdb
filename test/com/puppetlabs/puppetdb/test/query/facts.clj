@@ -54,7 +54,7 @@
         (is (= actual fact-count))))
 
     (testing "limit results"
-      (doseq [[limit expected] [[0 0] [2 2] [100 fact-count]]]
+      (doseq [[limit expected] [[1 1] [2 2] [100 fact-count]]]
         (let [results (query-facts {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
@@ -63,37 +63,40 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-facts {:order-by [{:field "invalid-field"}]}))))
+              (query-facts {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC"  [f1 f2 f3 f4]]
-                                  ["DESC" [f4 f3 f2 f1]]]]
+        (doseq [[order expected] [[:ascending  [f1 f2 f3 f4]]
+                                  [:descending [f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-facts {:order-by [{:field "certname" :order order}]})]
+            (let [actual (query-facts
+                           {:order-by [[:certname order]]})]
               (is (= actual expected))))))
 
       (testing "multiple fields"
-        (doseq [[[name-order value-order] expected] [[["DESC" "ASC"]  [f4 f2 f1 f3]]
-                                                     [["DESC" "DESC"] [f2 f4 f3 f1]]
-                                                     [["ASC" "DESC"]  [f3 f1 f2 f4]]
-                                                     [["ASC" "ASC"]   [f1 f3 f4 f2]]]]
+        (doseq [[[name-order value-order] expected] [[[:descending :ascending]  [f4 f2 f1 f3]]
+                                                     [[:descending :descending] [f2 f4 f3 f1]]
+                                                     [[:ascending :descending]  [f3 f1 f2 f4]]
+                                                     [[:ascending :ascending]   [f1 f3 f4 f2]]]]
           (testing (format "name %s value %s" name-order value-order)
-            (let [actual (query-facts {:order-by [{:field "name" :order name-order}
-                                                  {:field "value" :order value-order}]})]
+            (let [actual (query-facts
+                           {:order-by [[:name name-order]
+                                       [:value value-order]]})]
               (is (= actual expected)))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4]]
-                                                   [1 [f2 f3 f4]]
-                                                   [2 [f3 f4]]
-                                                   [3 [f4]]
-                                                   [4 []]]]
-                                          ["DESC" [[0 [f4 f3 f2 f1]]
-                                                   [1 [f3 f2 f1]]
-                                                   [2 [f2 f1]]
-                                                   [3 [f1]]
-                                                   [4 []]]]]]
+      (doseq [[order expected-sequences] [[:ascending  [[0 [f1 f2 f3 f4]]
+                                                       [1 [f2 f3 f4]]
+                                                       [2 [f3 f4]]
+                                                       [3 [f4]]
+                                                       [4 []]]]
+                                          [:descending [[0 [f4 f3 f2 f1]]
+                                                       [1 [f3 f2 f1]]
+                                                       [2 [f2 f1]]
+                                                       [3 [f1]]
+                                                       [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-facts {:order-by [{:field "certname" :order order}] :offset offset})]
+            (let [actual (query-facts
+                           {:order-by [[:certname order]] :offset offset})]
               (is (= actual expected)))))))))

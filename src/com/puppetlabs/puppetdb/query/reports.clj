@@ -46,7 +46,7 @@
   ([sql-and-params] (query-reports {} sql-and-params))
   ([paging-options [sql & params]]
     {:pre [(string? sql)]}
-    (validate-order-by! report-columns paging-options)
+    (validate-order-by! (map keyword report-columns) paging-options)
     (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
                     (string/join ", " report-columns)
                     sql)
