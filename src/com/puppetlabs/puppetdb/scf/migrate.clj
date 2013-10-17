@@ -406,6 +406,13 @@
           ON reports.certname = latest.certname
           AND reports.end_time = latest.max_end_time"))
 
+(defn drop-duplicate-indexes
+  "Remove indexes that are duplicated by primary keys or other
+  constraints"
+  []
+  (sql/do-commands "DROP INDEX idx_catalogs_hash")
+  (sql/do-commands "DROP INDEX idx_certname_catalogs_certname"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -421,7 +428,8 @@
    11 increase-puppet-version-field-length
    12 burgundy-schema-changes
    13 add-latest-reports-table
-   14 add-parameter-cache})
+   14 add-parameter-cache
+   15 drop-duplicate-indexes})
 
 (def desired-schema-version (apply max (keys migrations)))
 
