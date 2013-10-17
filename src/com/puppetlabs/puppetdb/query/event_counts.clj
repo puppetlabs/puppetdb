@@ -193,6 +193,8 @@
     :post [(map? %)
            (vector? (:result %))]}
     (let [group-by (get-group-by summarize-by)]
-      (validate-order-by! (event-counts-columns group-by) paging-options))
+      (validate-order-by!
+        (map keyword (event-counts-columns group-by))
+        paging-options))
     (-> (execute-query (apply vector sql params) paging-options)
       (update-in [:result] (partial munge-subjects summarize-by)))))

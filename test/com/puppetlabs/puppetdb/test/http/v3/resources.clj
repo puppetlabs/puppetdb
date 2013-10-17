@@ -10,9 +10,9 @@
 (use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
-  ([]      (get-response nil))
-  ([query] (*app* (get-request "/v3/resources" query))))
-
+  ([]             (get-response nil))
+  ([query]        (get-response query {}))
+  ([query params] (*app* (get-request "/v3/resources" query params))))
 
 (def c-t pl-http/json-response-content-type)
 
@@ -64,5 +64,13 @@ to the result of the form supplied to this method."
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (get-response query)]
         (is (= pl-http/status-bad-request (:status response)))
-        (is (= "sourcefile is not a queryable object for resources" (:body response)))))))
+        (is (= "sourcefile is not a queryable object for resources" (:body response)))))
 
+    (testing "ordering results with order-by"
+      (let [order-by {:order-by (json/generate-string [{"field" "certname" "order" "DESC"}
+                                                       {"field" "resource" "order" "DESC"}])}
+            response (get-response nil order-by)
+            actual   (json/parse-string (slurp (get response :body "null")) true)
+            expected [bar2 bar1 foo2 foo1]]
+        (is (= pl-http/status-ok (:status response)))
+        (is (= actual expected))))))

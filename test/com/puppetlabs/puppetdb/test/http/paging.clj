@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.paging
-  (:require [com.puppetlabs.http :as pl-http])
+  (:require [com.puppetlabs.http :as pl-http]
+            [cheshire.core :as json])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
         [com.puppetlabs.puppetdb.testutils :only [get-request]]))
@@ -22,7 +23,7 @@
                                                 {:order-by malformed-JSON}))
             body            (get response :body "null")]
         (is (= (:status response) pl-http/status-bad-request))
-        (is (re-find #"Illegal value '.*' for :order-by" body))))
+        (is (re-find #"Illegal value '.*' for :order-by; expected a JSON array of maps" body))))
 
     (testing (str endpoint " 'limit' should only accept positive non-zero integers")
       (doseq [invalid-limit [0
@@ -47,4 +48,16 @@
                                            {:offset invalid-offset}))
               body      (get response :body "null")]
           (is (= (:status response) pl-http/status-bad-request))
-          (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))))
+          (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))
+
+    (testing (str endpoint " 'order-by' :order should only accept nil, 'asc', or 'desc' (case-insensitive)")
+      (doseq [invalid-order-by [[{"field" "foo"
+                                 "order" "foo"}]
+                                [{"field" "foo"
+                                 "order" 1}]]]
+        (let [response  (*app* (get-request endpoint
+                                 ["these" "are" "unused"]
+                                 {:order-by (json/generate-string invalid-order-by)}))
+              body      (get response :body "null")]
+          (is (= (:status response) pl-http/status-bad-request))
+          (is (re-find #"Illegal value '.*' in :order-by; 'order' must be either 'asc' or 'desc'" body)))))))

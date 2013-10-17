@@ -107,3 +107,13 @@ mention of the KahaDB libraries (org.apache.activemq.store.kahadb), for example:
 
 You should consult the [Troubleshooting guide for Kahadb][trouble_kahadb] for
 details on how to rememdy this.
+
+## PuppetDB daemon shuts down, with a "Cannot assign requested address" error. What does this mean, and how do I fix it?
+
+```
+FAILED org.eclipse.jetty.server.Server@6b2c636d: java.net.BindException: Cannot assign requested address
+java.net.BindException: Cannot assign requested address
+```
+
+PuppetDB will error with this message if the IP address associated with the ssl-host parameter in the
+jetty.ini isn't linked to a known interface - or resolvable.

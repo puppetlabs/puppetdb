@@ -6,7 +6,8 @@
 ;;
 (ns com.puppetlabs.puppetdb.query.resources
   (:require [cheshire.core :as json]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection
@@ -41,10 +42,8 @@
            (or
              (not (:count? paging-options))
              (valid-jdbc-query? (:count-query %)))]}
-    (let [columns (map keyword (keys resource-columns))]
-      (validate-order-by! columns paging-options))
+    (validate-order-by! (map keyword (keys resource-columns)) paging-options)
     (let [[subselect & params] (resource-query->sql operators query)
-          paged-subselect      (paged-sql subselect paging-options)
           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
                                   "subquery1.type, subquery1.title, subquery1.tags, "
                                   "subquery1.exported, subquery1.file, "
@@ -52,14 +51,15 @@
                             "FROM (%s) subquery1 "
                             "LEFT OUTER JOIN resource_params_cache rpc "
                                 "ON rpc.resource = subquery1.resource")
-                paged-subselect)
+                subselect)
+          paged-select (paged-sql sql paging-options)
           ;; This is a little more complex than I'd prefer; the general query paging
           ;;  functions are built to work for SQL queries that return 1 row per
           ;;  PuppetDB result.  Since that's not the case for resources right now,
           ;;  we have to actually manage two separate SQL queries.  The introduction
           ;;  of the new `resource-params-cache` table in the next release should
           ;;  alleviate this problem and allow us to simplify this code.
-          result               {:results-query (apply vector sql params)}]
+          result               {:results-query (apply vector paged-select params)}]
       (if (:count? paging-options)
         (assoc result :count-query (apply vector (count-sql subselect) params))
         result))))
@@ -93,8 +93,8 @@
   the queries indicate that a total result count should also be returned, then
   the map will contain an additional key `:count`, whose value is an integer.
 
-  Throws an exception if the query would return more than `limit` results.  (A
-  value of `0` for `limit` means that the query should not be limited.)"
+   Throws an exception if the query would return more than `limit` results.  (A
+   value of `0` for `limit` means that the query should not be limited.)"
   [limit {:keys [results-query count-query] :as queries-map}]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
