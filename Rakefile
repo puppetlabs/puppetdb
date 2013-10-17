@@ -137,7 +137,8 @@ namespace :test do
   end
 
   desc "Run beaker based acceptance tests"
-  task :beaker do
+  task :beaker, :test_files do |t, args|
+    args.with_defaults(:test_files => 'acceptance/tests/')
     config = ENV["BEAKER_CONFIG"] || "vbox-el6-64mda"
     options = ENV["BEAKER_OPTIONS"] || "postgres"
     preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] == "true" ? true : false
@@ -149,7 +150,7 @@ namespace :test do
        "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
        "--type #{type} " +
        "--debug " +
-       "--tests acceptance/tests/ " +
+       "--tests " + args[:test_files] + " " +
        "--options-file 'acceptance/options/#{options}.rb' " +
        "--root-keys"
     beaker += " --preserve-hosts" if preserve_hosts
