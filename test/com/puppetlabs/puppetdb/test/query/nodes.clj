@@ -84,7 +84,7 @@
       (is (= actual (count names)))))
 
   (testing "limit results"
-    (doseq [[limit expected] [[0 0] [2 2] [100 5]]]
+    (doseq [[limit expected] [[1 1] [2 2] [100 5]]]
       (let [results (retrieve-node-names nil {:limit limit})
             actual  (count results)]
         (is (= actual expected)))))
@@ -93,44 +93,49 @@
     (testing "rejects invalid fields"
       (is (thrown-with-msg?
             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-            (retrieve-node-names nil {:order-by [{:field "invalid-field"}]}))))
+            (retrieve-node-names nil
+              {:order-by [[:invalid-field :ascending]]}))))
 
     (testing "alphabetical fields"
-      (doseq [[order expected] [["ASC"  ["node_a" "node_b" "node_c" "node_d" "node_e"]]
-                                ["DESC" ["node_e" "node_d" "node_c" "node_b" "node_a"]]]]
+      (doseq [[order expected] [[:ascending  ["node_a" "node_b" "node_c" "node_d" "node_e"]]
+                                [:descending ["node_e" "node_d" "node_c" "node_b" "node_a"]]]]
         (testing order
-          (let [actual (retrieve-node-names nil {:order-by [{:field "name" :order order}]})]
+          (let [actual (retrieve-node-names nil
+                         {:order-by [[:name order]]})]
             (is (= actual expected))))))
 
     (testing "timestamp fields"
-      (doseq [[order expected] [["ASC"  ["node_e" "node_b" "node_c" "node_d" "node_a"]]
-                                ["DESC" ["node_a" "node_d" "node_c" "node_b" "node_e"]]]]
+      (doseq [[order expected] [[:ascending  ["node_e" "node_b" "node_c" "node_d" "node_a"]]
+                                [:descending ["node_a" "node_d" "node_c" "node_b" "node_e"]]]]
         (testing order
-          (let [actual (retrieve-node-names nil {:order-by [{:field "facts-timestamp" :order order}]})]
+          (let [actual (retrieve-node-names nil
+                         {:order-by [[:facts-timestamp order]]})]
             (is (= actual expected))))))
 
     (testing "multiple fields"
-      (doseq [[[timestamp-order name-order] expected] [[["ASC" "DESC"] ["node_d" "node_a" "node_e" "node_b" "node_c"]]
-                                                       [["DESC" "ASC"] ["node_c" "node_b" "node_e" "node_a" "node_d"]]]]
+      (doseq [[[timestamp-order name-order] expected] [[[:ascending :descending] ["node_d" "node_a" "node_e" "node_b" "node_c"]]
+                                                       [[:descending :ascending] ["node_c" "node_b" "node_e" "node_a" "node_d"]]]]
         (testing (format "catalog-timestamp %s name %s" timestamp-order name-order)
-          (let [actual (retrieve-node-names nil {:order-by [{:field "catalog-timestamp" :order timestamp-order}
-                                                            {:field "name" :order name-order}]})]
+          (let [actual (retrieve-node-names nil
+                         {:order-by [[:catalog-timestamp timestamp-order]
+                                     [:name name-order]]})]
             (is (= actual expected)))))))
 
   (testing "offset"
-    (doseq [[order expected-sequences] [["ASC"  [[0 ["node_a" "node_b" "node_c" "node_d" "node_e"]]
-                                                 [1 ["node_b" "node_c" "node_d" "node_e"]]
-                                                 [2 ["node_c" "node_d" "node_e"]]
-                                                 [3 ["node_d" "node_e"]]
-                                                 [4 ["node_e"]]
-                                                 [5 []]]]
-                                        ["DESC" [[0 ["node_e" "node_d" "node_c" "node_b" "node_a"]]
-                                                 [1 ["node_d" "node_c" "node_b" "node_a"]]
-                                                 [2 ["node_c" "node_b" "node_a"]]
-                                                 [3 ["node_b" "node_a"]]
-                                                 [4 ["node_a"]]
-                                                 [5 []]]]]]
+    (doseq [[order expected-sequences] [[:ascending  [[0 ["node_a" "node_b" "node_c" "node_d" "node_e"]]
+                                                     [1 ["node_b" "node_c" "node_d" "node_e"]]
+                                                     [2 ["node_c" "node_d" "node_e"]]
+                                                     [3 ["node_d" "node_e"]]
+                                                     [4 ["node_e"]]
+                                                     [5 []]]]
+                                        [:descending [[0 ["node_e" "node_d" "node_c" "node_b" "node_a"]]
+                                                     [1 ["node_d" "node_c" "node_b" "node_a"]]
+                                                     [2 ["node_c" "node_b" "node_a"]]
+                                                     [3 ["node_b" "node_a"]]
+                                                     [4 ["node_a"]]
+                                                     [5 []]]]]]
       (testing order
         (doseq [[offset expected] expected-sequences]
-          (let [actual (retrieve-node-names nil {:order-by [{:field "name" :order order}] :offset offset})]
+          (let [actual (retrieve-node-names nil
+                         {:order-by [[:name order]] :offset offset})]
             (is (= actual expected))))))))
