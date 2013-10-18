@@ -69,11 +69,11 @@
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
-            [clojure.java.jdbc :as sql])
+            [com.puppetlabs.jdbc :as jdbc])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection with-repeatable-read)]
+        [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
@@ -345,10 +345,10 @@
   (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
         id                       (:id annotations)
         timestamp                (:received annotations)]
-    (sql/with-connection db
-      (with-repeatable-read
-        (scf-storage/maybe-activate-node! name timestamp)
-        (scf-storage/replace-facts! facts timestamp)))
+    
+    (jdbc/with-transacted-connection' db :repeatable-read
+      (scf-storage/maybe-activate-node! name timestamp)
+      (scf-storage/replace-facts! facts timestamp))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation

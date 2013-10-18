@@ -80,18 +80,22 @@
     (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
                           (subject/in-clause nil)))))
 
-(deftest repeatable-reads
+(deftest transaction-isolation
   (let [evaled-body? (atom false)
         db (test-db)]
 
-    (sql/with-connection db
+    (subject/with-transacted-connection' db nil
       (let [conn (:connection jint/*db*)]
-        (is (true? (.getAutoCommit conn)))
-        (is (not= java.sql.Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation conn)))
+        (is (false? (.getAutoCommit (:connection jint/*db*))))
+        (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED (.getTransactionIsolation conn)))
+        (reset! evaled-body? true)))
 
-        (subject/with-repeatable-read
-          (is (false? (.getAutoCommit conn)))
-          (is (= java.sql.Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation conn)))
-          (reset! evaled-body? true)))
+    (is (true? @evaled-body?))
 
-      (is @evaled-body? "Body of with-repeatable-read macro was never evaled"))))
+    (are [isolation-level isolation-level-kwd] (subject/with-transacted-connection' db isolation-level-kwd
+                                                 (let [conn (:connection jint/*db*)]
+                                                   (= isolation-level (.getTransactionIsolation conn))))
+
+         java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
+         java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
+         java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))

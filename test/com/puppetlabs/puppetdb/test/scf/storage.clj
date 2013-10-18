@@ -16,7 +16,7 @@
         [clojure.math.combinatorics :only (combinations subsets)]
         [clj-time.core :only [ago from-now now days]]
         [clj-time.coerce :only [to-timestamp to-string]]
-        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection with-repeatable-read]]
+        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)

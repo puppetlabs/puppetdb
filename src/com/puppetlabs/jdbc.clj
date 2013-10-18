@@ -209,13 +209,40 @@
       (first)
       :c))
 
+(def ^{:doc "A more clojurey way to refer to the JDBC transaction isolation levels"}
+  isolation-levels
+  {:read-committed java.sql.Connection/TRANSACTION_READ_COMMITTED
+   :repeatable-read java.sql.Connection/TRANSACTION_REPEATABLE_READ
+   :serializable java.sql.Connection/TRANSACTION_SERIALIZABLE})
+
+(defn with-transacted-connection-fn
+  "Function for creating a connection that has the specified isolation
+   level.  If one is not specified, the JDBC default will be used (read-committed)"
+  [db-spec tx-isolation-level f]
+  {:pre [(or (nil? tx-isolation-level)
+             (get isolation-levels tx-isolation-level))]}
+  (sql/with-connection db-spec
+    (when-let [isolation-level (get isolation-levels tx-isolation-level)]
+      (.setTransactionIsolation (:connection jint/*db*) isolation-level))
+     (sql/transaction
+      (f))))
+
+(defmacro with-transacted-connection'
+  "Like `clojure.java.jdbc/with-connection`, except this automatically
+  wraps `body` in a database transaction with the specified transaction 
+  isolation level.  See isolation-levels for possible values."
+  [db-spec tx-isolation-level & body]
+  `(with-transacted-connection-fn ~db-spec ~tx-isolation-level
+     (fn []
+       ~@body)))
+
 (defmacro with-transacted-connection
   "Like `clojure.java.jdbc/with-connection`, except this automatically
   wraps `body` in a database transaction."
   [db-spec & body]
-  `(sql/with-connection ~db-spec
-     (sql/transaction
-      ~@body)))
+  `(with-transacted-connection-fn ~db-spec nil
+     (fn []
+       ~@body)))
 
 (defn with-query-results-cursor*
   "Executes the given parameterized query within a transaction,
@@ -311,12 +338,3 @@
   (str "in ("
        (str/join "," (repeat (count coll) "?"))
        ")"))
-
-(defmacro with-repeatable-read [& body]
-  `(do
-     (sql/transaction
-      (doto (:connection jint/*db*)
-        (.setAutoCommit false)
-        (.setTransactionIsolation java.sql.Connection/TRANSACTION_REPEATABLE_READ))
-
-      ~@body)))
