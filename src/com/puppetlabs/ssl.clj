@@ -53,9 +53,13 @@
   decodes the contents into an instance of `PrivateKey`."
   [pem]
   {:post [(instance? PrivateKey %)]}
-  ; bouncy-castle's PEMReader reads a private key pem file as a KeyPair, with
-  ; an empty public key.  That seems useless so we're just returning the PrivateKey.
-  (.getPrivate (pem->obj pem)))
+  (let [obj (pem->obj pem)]
+    (cond
+     (instance? PrivateKey obj) obj
+     ;; Certain PEMs will hand back a keypair with a nil public key
+     (instance? KeyPair obj)    (.getPrivate obj)
+     :else
+     (throw (IllegalArgumentException. (format "Expected a KeyPair or PrivateKey, got %s" obj))))))
 
 (defn pem->public-key
   "Given the path to a PEM file (or some other object supported by clojure's `reader`),
