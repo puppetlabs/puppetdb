@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.query.resources :as r]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [ring.util.response :as rr]
-            [cheshire.core :as json])
+            [com.puppetlabs.cheshire :as json])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params)]
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]

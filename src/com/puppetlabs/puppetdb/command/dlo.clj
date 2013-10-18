@@ -4,8 +4,7 @@
             [com.puppetlabs.archive :as archive]
             [com.puppetlabs.utils :as pl-utils]
             [clj-time.format :as time-format]
-            [com.puppetlabs.cheshire]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [fs.core :as fs])
   (:use [clojure.java.io :only [file make-parents]]
         [clj-time.core :only [ago after?]]

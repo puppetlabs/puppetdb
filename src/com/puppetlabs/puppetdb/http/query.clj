@@ -4,8 +4,7 @@
 ;; of PuppetDB queries embedded in HTTP parameters.
 ;;
 (ns com.puppetlabs.puppetdb.http.query
-  (:require [com.puppetlabs.cheshire]
-            [cheshire.core :as json]))
+  (:require [com.puppetlabs.cheshire :as json]))
 
 (defn- are-queries-different?
   [req1 req2]

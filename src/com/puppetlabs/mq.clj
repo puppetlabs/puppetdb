@@ -4,8 +4,7 @@
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.usage SystemUsage])
-  (:require [com.puppetlabs.cheshire]
-            [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]

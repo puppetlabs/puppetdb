@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.v3.catalogs
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalogs :as c]
             [ring.util.response :as rr])

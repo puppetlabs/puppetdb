@@ -26,8 +26,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.cheshire]
-            [cheshire.core :as json])
+            [com.puppetlabs.cheshire :as json])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now]]
         [metrics.meters :only (meter mark!)]

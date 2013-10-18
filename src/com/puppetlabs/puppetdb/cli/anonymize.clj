@@ -4,8 +4,7 @@
         [com.puppetlabs.puppetdb.cli.import :only [parse-metadata]])
   (:import  [com.puppetlabs.archive TarGzReader TarGzWriter]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
-  (:require [com.puppetlabs.cheshire]
-            [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [clojure.java.io :as io]
             [clojure.string :as string]
             [com.puppetlabs.archive :as archive]

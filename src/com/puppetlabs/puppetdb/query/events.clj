@@ -3,7 +3,7 @@
 (ns com.puppetlabs.puppetdb.query.events
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string]
-            [cheshire.core :as json])
+            [com.puppetlabs.cheshire :as json])
   (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize sql-regexp-match]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2 execute-query]]

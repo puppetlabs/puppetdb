@@ -7,7 +7,7 @@
   (:use [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.validation :only [defmodel validate-against-model!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]])
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.utils :as utils]
             [clojure.string :as s]))
 

@@ -55,8 +55,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.cheshire]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.server :as server]
             [com.puppetlabs.ssl :as ssl])
   (:use [clojure.java.io :only [file]]

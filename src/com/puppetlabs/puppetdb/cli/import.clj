@@ -9,7 +9,7 @@
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.archive :as archive]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [clojure.java.io :as io])
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])

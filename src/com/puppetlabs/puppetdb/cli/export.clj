@@ -13,8 +13,7 @@
         [com.puppetlabs.concurrent :only [bounded-pmap]]
         [clj-http.util :only [url-encode]]
         [com.puppetlabs.puppetdb.catalogs :only [catalog-version]])
-  (:require [com.puppetlabs.cheshire]
-            [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]

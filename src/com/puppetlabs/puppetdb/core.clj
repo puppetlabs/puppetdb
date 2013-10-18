@@ -12,8 +12,7 @@
 ;; `[arg1 arg2 arg3]`.
 
 (ns com.puppetlabs.puppetdb.core
-  (:require [com.puppetlabs.cheshire]
-            [com.puppetlabs.utils :as utils]
+  (:require [com.puppetlabs.utils :as utils]
             [clojure.tools.namespace :as ns])
   (:use [clojure.string :only (split)])
   (:gen-class))

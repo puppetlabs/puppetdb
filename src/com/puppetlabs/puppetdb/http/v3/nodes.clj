@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.v3.nodes
   (:require [com.puppetlabs.puppetdb.query.paging :as paging]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.nodes :as node]
             [com.puppetlabs.puppetdb.http.v2.facts :as f]
             [com.puppetlabs.puppetdb.http.v2.resources :as r]
