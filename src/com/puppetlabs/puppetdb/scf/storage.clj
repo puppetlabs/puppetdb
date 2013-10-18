@@ -715,31 +715,25 @@ must be supplied as the value to be matched."
       (sql/update-values :certname_facts ["certname=? and name=?" certname k] {:value v}))
     (insert-facts! certname add-facts)))
 
-(defn cert-facts-exist?
-  "Returns true if a certname_facts_metadata entry is found for certname"
+(defn certname-facts-metadata!
+  "Return the certname_facts_metadata timestamp for the given certname, nil if not found"
   [certname]
   (sql/with-query-results result-set
-    ["SELECT 1 FROM certname_facts_metadata WHERE certname=? LIMIT 1 FOR UPDATE" certname]
-    (boolean (seq result-set))))
-
-(defn lock-facts-for-certname!
-  "If certname_facts_metadata exists for a certname, lock the row, return the timestamp.  This
-   lock prevents another command for the same certname from changing the facts in mid-update.
-  `time`."
-  [certname]
-  (sql/with-query-results result-set
-    ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC FOR UPDATE" certname]
+    ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC" certname]
     (:timestamp (first result-set))))
 
 (defn replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
-   Adds all new facts if no existing facts are found"
+   Adds all new facts if no existing facts are found. Invoking this function under the umbrella of
+   a repeatable read or serializable transaction enforces only one update to the facts of a certname
+   can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail 
+   as the certname_facts_metadata will have changed while the transaction was in-flight."
   [{:strs [name values]} timestamp]
   {:pre [(string? name)
          (every? string? (keys values))
          (every? string? (vals values))]}
   (time! (:replace-facts metrics)
-         (if-let [facts-meta-ts (lock-facts-for-certname! name)]
+         (if-let [facts-meta-ts (certname-facts-metadata! name)]
            (when (.before facts-meta-ts (to-timestamp timestamp))
              (update-facts! name values timestamp))
            (add-facts! name values timestamp))))

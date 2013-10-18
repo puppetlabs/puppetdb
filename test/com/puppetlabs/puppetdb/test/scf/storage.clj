@@ -254,7 +254,7 @@
 
       (is (nil?
            (sql/transaction
-            (lock-facts-for-certname! "some_certname"))))
+            (certname-facts-metadata! "some_certname"))))
       (is (empty? (cert-fact-map "some_certname")))
       
       (add-facts! certname facts (-> 2 days ago))
@@ -267,7 +267,7 @@
                 {:certname certname :name "operatingsystem" :value "Debian"}]))
 
         (is (sql/transaction
-             (lock-facts-for-certname! "some_certname")))
+             (certname-facts-metadata! "some_certname")))
         (is (= facts (cert-fact-map "some_certname"))))
       
       (testing "should add the certname if necessary"
