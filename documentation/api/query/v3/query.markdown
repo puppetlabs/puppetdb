@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v3/query.html"
 [index]: ../../index.html
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 [operators]: ./operators.html
-[tutorial]: ../tutorial.html
+[tutorial]: ../tutorial.markdown
 [curl]: ../curl.html
 [paging]: ./paging.html
 
