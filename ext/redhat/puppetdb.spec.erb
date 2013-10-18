@@ -33,6 +33,13 @@
 %endif
 <% end -%>
 
+# Fedora 17 and later use systemd
+%if 0%{?fedora} >= 17
+%global _with_systemd 1
+%else
+%global _with_systemd 0
+%endif
+
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
@@ -107,10 +114,23 @@ Requires:      logrotate
 Requires:      procps
 %else
 BuildRequires: /usr/sbin/useradd
-Requires:      chkconfig
+%if 0%{?_with_systemd}
+# Required for %%post, %%preun, %%postun
+Requires:       systemd
+%if 0%{?fedora} >= 18
+BuildRequires:  systemd
+%else
+BuildRequires:  systemd-units
+%endif
+%else
+# Required for %%post and %%preun
+Requires:       chkconfig
+%endif
 %endif
 BuildRequires: %{open_jdk}
 Requires:      %{open_jdk}
+
+
 
 %description
 Puppet Centralized Storage.
@@ -174,6 +194,15 @@ fi
 #  and see if the service is running.  If it is, we need to stop it.
 #  we want to shut down and disable the service.
 if [ "$1" = "2" ] ; then
+%if 0%{?_with_systemd}
+    if /usr/bin/systemctl status %{name}.service > /dev/null ; then
+# If we need to restart the service after the upgrade
+#  is finished, we will touch a temp file so that
+#  we can detect that state
+        touch <%= @install_dir %>/start_service_after_upgrade
+        /usr/bin/systemctl stop %{name}.service >/dev/null 2>&1
+    fi
+%else
     if /sbin/service %{name} status > /dev/null ; then
         # If we need to restart the service after the upgrade
         #  is finished, we will touch a temp file so that
@@ -181,6 +210,7 @@ if [ "$1" = "2" ] ; then
         touch <%= @install_dir %>/start_service_after_upgrade
         /sbin/service %{name} stop >/dev/null 2>&1
     fi
+%endif
 fi
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
@@ -195,7 +225,11 @@ export PATH=/opt/puppet/bin:$PATH
 # If this is an install (as opposed to an upgrade)...
 if [ "$1" = "1" ]; then
   # Register the puppetDB service
+%if 0%{?_with_systemd}
+  /usr/bin/systemctl daemon-reload
+%else
   /sbin/chkconfig --add %{name}
+%endif
 fi
 
 <%= @sbin_dir -%>/puppetdb ssl-setup
@@ -207,14 +241,23 @@ fi
 # If this is an uninstall (as opposed to an upgrade) then
 #  we want to shut down and disable the service.
 if [ "$1" = "0" ] ; then
+%if 0%{?_with_systemd}
+    /usr/sbin/systemctl stop %{name}.service
+    /usr/sbin/systemctl disable %{name}.service
+%else
     /sbin/service %{name} stop >/dev/null 2>&1
     /sbin/chkconfig --del %{name}
+%endif
 fi
 
 %postun
 # Remove the rundir if this is an uninstall (as opposed to an upgrade)...
 if [ "$1" = "0" ]; then
     rm -rf %{_rundir}/%{name} || :
+%if 0%{?_with_systemd}
+    # Restart systemd after the service file is removed
+    /usr/bin/systemctl daemon-reload
+%endif
 fi
 
 # If this is an upgrade (as opposed to an install) then we need to check
@@ -224,7 +267,11 @@ fi
 if [ "$1" = "1" ] ; then
     if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
         rm <%= @install_dir %>/start_service_after_upgrade
+%if 0%{?_with_systemd}
+        /usr/sbin/systemctl start %{name}.service >/dev/null 2>&1
+%else
         /sbin/service %{name} start >/dev/null 2>&1
+%endif
     fi
 fi
 
@@ -242,8 +289,13 @@ fi
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/database.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/jetty.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/repl.ini
-%config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
+%if 0%{?_with_systemd}
+%{_unitdir}/%{name}.service
+%else
+%config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
+%{_initddir}/%{name}
+%endif
 %{_sbindir}/puppetdb-ssl-setup
 %{_sbindir}/puppetdb-foreground
 %{_sbindir}/puppetdb-import
@@ -257,7 +309,7 @@ fi
 %{_libexecdir}/%{name}/puppetdb-export
 %{_libexecdir}/%{name}/puppetdb-anonymize
 %{_datadir}/%{realname}
-%{_initddir}/%{name}
+
 <% unless @pe -%>
 %{_sharedstatedir}/%{realname}
 <% end -%>
