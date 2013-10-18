@@ -17,3 +17,5 @@ Vagrantfile
 .vagrant
 *.tar.gz
 .blimpy.d
+.idea
+*.iml

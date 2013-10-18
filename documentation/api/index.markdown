@@ -30,7 +30,7 @@ PuppetDB 1.3 (and later) supports versions 1 and 2 of the query API. Version 1 i
 
 PuppetDB's data can be queried with a REST API.
 
-* [Specification of the General Query Structure](./query/v3/query.html)
+* [Specification of the General Query Structure](./query/v3/query.markdown)
 * [Available Operators](./query/v3/operators.html)
 * [Query Tutorial](./query/tutorial.html)
 * [Curl Tips](./query/curl.html)
