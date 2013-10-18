@@ -10,11 +10,10 @@
 (ns com.puppetlabs.puppetdb.cli.export
   (:use [com.puppetlabs.utils :only (cli!)]
         [clj-time.core :only [now]]
-        [clj-time.coerce :only [to-string]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
         [clj-http.util :only [url-encode]]
         [com.puppetlabs.puppetdb.catalogs :only [catalog-version]])
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]
@@ -94,7 +93,7 @@
 
 (def export-metadata
   "Metadata about this export; used during import to ensure version compatibility."
-  {:timestamp (to-string (now))
+  {:timestamp (now)
    :command-versions
     ;; This is not ideal that we are hard-coding the command version here, but
     ;;  in our current architecture I don't believe there is any way to introspect

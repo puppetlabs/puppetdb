@@ -25,7 +25,7 @@
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]
             [clojure.string :as s]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use com.puppetlabs.middleware

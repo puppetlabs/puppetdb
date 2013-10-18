@@ -65,7 +65,7 @@
             [com.puppetlabs.mq :as mq]
             [com.puppetlabs.utils :as pl-utils]
             [clj-http.client :as client]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn])

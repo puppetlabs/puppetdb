@@ -63,7 +63,6 @@
 
 (defn -main
   [& args]
-  (utils/set-default-uncaught-exception-handler!)
   (let [subcommand (first args)
         allowed?   (available-subcommands)]
 

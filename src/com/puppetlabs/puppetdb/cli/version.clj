@@ -10,7 +10,7 @@
 ;; by the property value.
 
 (ns com.puppetlabs.puppetdb.cli.version
-  (:require [cheshire.core :as json])
+  (:require [com.puppetlabs.cheshire :as json])
   (:use [com.puppetlabs.puppetdb.version :only [version]]
         [com.puppetlabs.puppetdb.scf.migrate :only [desired-schema-version]]))
 

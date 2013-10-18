@@ -8,7 +8,7 @@
            [java.io IOException Writer])
   (:require [ring.util.response :as rr]
             [ring.util.io :as rio]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.reflect :as r]

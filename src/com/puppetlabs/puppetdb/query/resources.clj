@@ -5,7 +5,7 @@
 ;; right format and picking out the desired columns.
 ;;
 (ns com.puppetlabs.puppetdb.query.resources
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [clojure.string :as string]
             [com.puppetlabs.utils :as utils])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec

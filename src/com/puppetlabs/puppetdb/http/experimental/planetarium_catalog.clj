@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.experimental.planetarium-catalog
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.planetarium-catalog :as c]
             [ring.util.response :as rr])

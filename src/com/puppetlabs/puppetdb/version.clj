@@ -9,7 +9,7 @@
             [clojure.string :as string]
             [clj-http.client :as client]
             [ring.util.codec :as ring-codec]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]))
 
 ;; ### PuppetDB current version

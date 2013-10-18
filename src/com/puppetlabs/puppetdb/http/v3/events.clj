@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.events :as query]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [ring.util.response :as rr]
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]

@@ -91,7 +91,7 @@
   (:require [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.set :as set]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [digest]
             [com.puppetlabs.utils :as pl-utils])
   (:use [clojure.core.match :only [match]]))

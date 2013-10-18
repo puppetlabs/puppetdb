@@ -68,7 +68,7 @@
 (ns com.puppetlabs.puppetdb.http.v1.resources
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resources :as r]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [ring.util.response :as rr])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
