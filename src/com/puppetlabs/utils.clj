@@ -303,6 +303,24 @@
         final-comp  (reduce compose-comparators comp-fns)]
     (sort final-comp coll)))
 
+(defn sort-nested-maps
+  "For a data structure, recursively sort any nested maps and sets descending
+  into map values, lists, vectors and set members as well. The result should be
+  that all maps in the data structure become explicitly sorted with natural
+  ordering. This can be used before serialization to ensure predictable
+  serialization.
+
+  The returned data structure is not a transient so it is still able to be
+  modified, therefore caution should be taken to avoid modification else the
+  data will lose its sorted status."
+  [data]
+  (cond
+    (map? data)
+      (into (sorted-map) (for [[k v] data]
+                           [k (sort-nested-maps v)]))
+    (sequential? data)
+      (map sort-nested-maps data)
+    :else data))
 
 ;; ## Date and Time
 

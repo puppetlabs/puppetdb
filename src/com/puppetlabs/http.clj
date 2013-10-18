@@ -5,7 +5,9 @@
 
 (ns com.puppetlabs.http
   (:import [org.apache.http.impl EnglishReasonPhraseCatalog])
-  (:require [ring.util.response :as rr]
+  (:require [com.puppetlabs.utils :as utils]
+            [ring.util.response :as rr]
+            [com.puppetlabs.cheshire]
             [cheshire.core :as json]
             [clojure.reflect :as r]
             [clojure.string :as s]))

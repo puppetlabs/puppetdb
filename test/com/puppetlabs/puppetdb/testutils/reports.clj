@@ -71,7 +71,7 @@
     (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
     (let [example-report  (munge-example-report-for-storage example-report)
-          report-hash     (scf-store/report-identity-string example-report)]
+          report-hash     (scf-store/report-identity-hash example-report)]
       (report/validate! 2 example-report)
       (scf-store/maybe-activate-node! (:certname example-report) timestamp)
       (scf-store/add-report!* example-report timestamp update-latest-report?)
