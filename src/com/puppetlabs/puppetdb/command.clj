@@ -68,7 +68,8 @@
             [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
-            [clamq.protocol.connection :as mq-conn])
+            [clamq.protocol.connection :as mq-conn]
+            [com.puppetlabs.jdbc :as jdbc])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
@@ -344,10 +345,10 @@
   (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
         id                       (:id annotations)
         timestamp                (:received annotations)]
-    (with-transacted-connection db
+    
+    (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
-      (if-not (scf-storage/facts-newer-than? name timestamp)
-        (scf-storage/replace-facts! facts timestamp)))
+      (scf-storage/replace-facts! facts timestamp))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation

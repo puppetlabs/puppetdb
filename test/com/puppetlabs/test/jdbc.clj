@@ -1,6 +1,7 @@
 (ns com.puppetlabs.test.jdbc
   (:require [com.puppetlabs.jdbc :as subject]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.internal :as jint])
   (:use [clojure.test]
         [com.puppetlabs.puppetdb.testutils :only [test-db]]
         [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database insert-map *db-spec*]]))
@@ -66,3 +67,35 @@
           (subject/order-by->sql
             [[:foo :descending]
              [:bar :ascending]])))))
+
+(deftest in-clause
+  (testing "single item in collection"
+    (is (= "in (?)" (subject/in-clause ["foo"]))))
+  (testing "many items in a collection"
+    (is (= "in (?,?,?,?,?)" (subject/in-clause (repeat 5 "foo")))))
+  (testing "fails on empty collection (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause []))))
+  (testing "fails on nil (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause nil)))))
+
+(deftest transaction-isolation
+  (let [evaled-body? (atom false)
+        db (test-db)]
+
+    (subject/with-transacted-connection' db nil
+      (let [conn (:connection jint/*db*)]
+        (is (false? (.getAutoCommit (:connection jint/*db*))))
+        (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED (.getTransactionIsolation conn)))
+        (reset! evaled-body? true)))
+
+    (is (true? @evaled-body?))
+
+    (are [isolation-level isolation-level-kwd] (subject/with-transacted-connection' db isolation-level-kwd
+                                                 (let [conn (:connection jint/*db*)]
+                                                   (= isolation-level (.getTransactionIsolation conn))))
+
+         java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
+         java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
+         java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))

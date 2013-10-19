@@ -26,9 +26,10 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.cheshire :as json])
+            [com.puppetlabs.cheshire :as json]
+            [clojure.data :as data])
   (:use [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [ago secs now]]
+        [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
         [metrics.counters :only (counter inc! value)]
         [metrics.gauges :only (gauge)]
@@ -615,17 +616,6 @@ must be supplied as the value to be matched."
         (.after catalog-timestamp timestamp)
         false))))
 
-(defn facts-newer-than?
-  "Returns true if the most current facts for `certname` are more recent than
-  `time`."
-  [certname time]
-  (let [timestamp (to-timestamp time)]
-    (sql/with-query-results result-set
-      ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
-      (if-let [facts-timestamp (:timestamp (first result-set))]
-        (.after facts-timestamp timestamp)
-        false))))
-
 ;; ## Database compaction
 
 (defn delete-unassociated-catalogs!
@@ -661,33 +651,92 @@ must be supplied as the value to be matched."
             (dissociate-all-catalogs-for-certname! certname)
             (associate-catalog-with-certname! catalog-hash certname timestamp)))))
 
+(defn insert-facts!
+  "Given a certname and map of fact/value keypairs, insert them into the facts table"
+  [certname facts]
+  (let [default-row {:certname certname}
+        rows        (for [[fact value] facts]
+                      (assoc default-row :name fact :value value))]
+    (apply sql/insert-records :certname_facts rows)))
+
 (defn add-facts!
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   [certname facts timestamp]
   {:pre [(utils/datetime? timestamp)]}
-  (let [default-row {:certname certname}
-        rows        (for [[fact value] facts]
-                      (assoc default-row :name fact :value value))]
-    (sql/insert-record :certname_facts_metadata
-                       {:certname certname :timestamp (to-timestamp timestamp)})
-    (apply sql/insert-records :certname_facts rows)))
+  (sql/insert-record :certname_facts_metadata
+                     {:certname certname :timestamp (to-timestamp timestamp)})
+  (insert-facts! certname facts))
 
 (defn delete-facts!
-  "Delete all the facts for the given certname."
+  "Delete all the facts (1 arg) or just the fact-names (2 args) for the given certname."
+  ([certname]
+      {:pre [(string? certname)]}
+      (sql/delete-rows :certname_facts_metadata ["certname=?" certname]))
+  ([certname fact-names]
+     {:pre [(string? certname)]}
+     (when (seq fact-names)
+       (sql/delete-rows :certname_facts
+                        (into [(str "certname=? and name " (jdbc/in-clause fact-names)) certname]  fact-names)))))
+
+(defn cert-fact-map
+  "Return all facts and their values for a given certname as a map"
   [certname]
-  {:pre [(string? certname)]}
-  (sql/delete-rows :certname_facts_metadata ["certname=?" certname]))
+  (sql/with-query-results result-set
+    ["SELECT name, value FROM certname_facts WHERE certname=?" certname]
+    (zipmap (map :name result-set)
+            (map :value result-set))))
+
+(defn diff-existing-facts
+  "Returns a vector with three fact maps, facts to be added,
+   facts to be updated and facts to be deleted"
+  [certname new-facts old-facts]
+  (let [diffs (data/diff new-facts old-facts)
+        just-new (or (first diffs)
+                     {})
+        just-old (or (second diffs)
+                     {})
+        new-keys (keys just-new)
+        old-keys (keys just-old)]
+    [(select-keys just-new (remove just-old new-keys))
+     (select-keys just-new (filter just-old new-keys))
+     (select-keys just-old (remove just-new old-keys))]))
+
+(defn update-facts!
+  "Given a certname, querys the DB for existing facts for that
+   certname and will update, delete or insert the facts as necessary
+   to match the facts argument."
+  [certname facts timestamp]
+  (let [[add-facts update-facts delete-facts] (diff-existing-facts certname facts (cert-fact-map certname))]
+    (sql/update-values :certname_facts_metadata ["certname=?" certname]
+                         {:timestamp (to-timestamp timestamp)})
+    (delete-facts! certname (keys delete-facts))
+    (doseq [[k v] update-facts]
+      (sql/update-values :certname_facts ["certname=? and name=?" certname k] {:value v}))
+    (insert-facts! certname add-facts)))
+
+(defn certname-facts-metadata!
+  "Return the certname_facts_metadata timestamp for the given certname, nil if not found"
+  [certname]
+  (sql/with-query-results result-set
+    ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC" certname]
+    (:timestamp (first result-set))))
 
 (defn replace-facts!
+  "Updates the facts of an existing node, if the facts are newer than the current set of facts.
+   Adds all new facts if no existing facts are found. Invoking this function under the umbrella of
+   a repeatable read or serializable transaction enforces only one update to the facts of a certname
+   can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail 
+   as the certname_facts_metadata will have changed while the transaction was in-flight."
   [{:strs [name values]} timestamp]
   {:pre [(string? name)
          (every? string? (keys values))
          (every? string? (vals values))]}
   (time! (:replace-facts metrics)
-         (sql/transaction
-          (delete-facts! name)
-          (add-facts! name values timestamp))))
+         (if-let [facts-meta-ts (certname-facts-metadata! name)]
+           (when (.before facts-meta-ts (to-timestamp timestamp))
+             (update-facts! name values timestamp))
+           (add-facts! name values timestamp))))
 
 (defn resource-event-identity-string
   "Compute a string suitable for hashing a resource event
