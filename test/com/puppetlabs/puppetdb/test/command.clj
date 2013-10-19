@@ -527,7 +527,7 @@
 
         (test-msg-handler new-facts-cmd publish discard-dir
           (reset! second-message? true)
-          (is (re-matches #".*BatchUpdateException.*transaction rollback.*"
+          (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
                           (-> publish
                               meta
                               :args
