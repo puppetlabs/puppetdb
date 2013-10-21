@@ -22,7 +22,7 @@
     (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
-  ([route] (*app* (get-request (str "/v3/" route)))))
+  ([route] (*app* (get-request (str "/v2/" route)))))
 
 (defmacro check-json-response
   "Test if the HTTP request is a success, and if the result is equal
@@ -106,6 +106,8 @@
          (is (= (set (map :certname resources)) #{host}))
          (is (= (set (map :type resources)) #{"File"}))
          (is (= (set (map :title resources)) #{"/etc/foobar"}))
+         (is (= (set (map :sourcefile resources)) #{"/tmp/foo"}))
+         (is (= (set (map :sourceline resources)) #{10}))
          (is (= (count resources) 1)))))
 
     (testing "/resources without a query should not fail"

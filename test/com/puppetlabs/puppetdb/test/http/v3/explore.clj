@@ -106,6 +106,8 @@
          (is (= (set (map :certname resources)) #{host}))
          (is (= (set (map :type resources)) #{"File"}))
          (is (= (set (map :title resources)) #{"/etc/foobar"}))
+         (is (= (set (map :file resources)) #{"/tmp/foo"}))
+         (is (= (set (map :line resources)) #{10}))
          (is (= (count resources) 1)))))
 
     (testing "/resources without a query should not fail"
