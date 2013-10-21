@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.experimental.explore
+(ns com.puppetlabs.puppetdb.test.http.v2.explore
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
