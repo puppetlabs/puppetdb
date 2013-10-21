@@ -16,25 +16,30 @@
   If the query can't be parsed, a 400 is returned."
   [query paging-options db]
   (try
-    (let [{[sql & params] :results-query
-           count-query   :count-query} (with-transacted-connection db
-                                         (-> query
-                                           (json/parse-string true)
-                                             (r/v3-query->sql paging-options)))
-          result       (pl-http/streamed-response buffer
-                         (with-transacted-connection db
-                           (r/with-queried-resources sql params
-                             #(pl-http/stream-json % buffer))))
-          query-result (if count-query
-                         {:result result :count (get-result-count count-query)}
-                         {:result result})]
+    (let [query-result
+          (with-transacted-connection db
+            (let [{[sql & params] :results-query
+                   count-query    :count-query} (-> query
+                                                  (json/parse-string true)
+                                                  (r/v3-query->sql paging-options))
+                  result       (pl-http/streamed-response buffer
+                                 ; NOTE - we we don't have a transaction here,
+                                 ; then the outer transaction can end up being
+                                 ; closed *after* the stream has been opened but
+                                 ; before it's been read, causing a connection
+                                 ; error when the caller tries to read it.
+                                 (with-transacted-connection db
+                                   (r/with-queried-resources sql params
+                                     #(pl-http/stream-json % buffer))))]
+              (if count-query
+                {:result result :count (get-result-count count-query)}
+                {:result result})))]
       (-> (:result query-result)
           rr/response
           (add-headers (dissoc query-result :result))
           (rr/header "Content-Type" "application/json")
           (rr/charset "utf-8")
           (rr/status pl-http/status-ok)))
-
     (catch IllegalArgumentException e
       (pl-http/error-response e))
     (catch com.fasterxml.jackson.core.JsonParseException e
