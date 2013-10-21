@@ -229,8 +229,9 @@
 
 (defn paged-results
   [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]
-  {:pre [(= (keyset paged-test-params)
-          #{:app-fn :path :query :params :limit :total :include-total})]}
+  {:pre [(= #{} (difference
+                  (keyset paged-test-params)
+                  #{:app-fn :path :query :params :limit :total :include-total}))]}
   (reduce
     (fn [coll n]
       (let [params  (merge params
