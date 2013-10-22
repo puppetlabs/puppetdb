@@ -240,8 +240,8 @@ fi
 #  we want to shut down and disable the service.
 if [ "$1" = "0" ] ; then
 %if 0%{?_with_systemd}
-    /usr/sbin/systemctl stop %{name}.service
-    /usr/sbin/systemctl disable %{name}.service
+    /usr/bin/systemctl stop %{name}.service
+    /usr/bin/systemctl disable %{name}.service
 %else
     /sbin/service %{name} stop >/dev/null 2>&1
     /sbin/chkconfig --del %{name}
@@ -266,7 +266,7 @@ if [ "$1" = "1" ] ; then
     if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
         rm <%= @install_dir %>/start_service_after_upgrade
 %if 0%{?_with_systemd}
-        /usr/sbin/systemctl start %{name}.service >/dev/null 2>&1
+        /usr/bin/systemctl start %{name}.service >/dev/null 2>&1
 %else      
         /sbin/service %{name} start >/dev/null 2>&1
 %endif    
