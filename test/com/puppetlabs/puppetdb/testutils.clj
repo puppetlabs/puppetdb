@@ -227,33 +227,40 @@
           headers (:headers request)]
       (assoc request :headers (assoc headers "Accept" c-t)))))
 
+
+(defn paged-results*
+  [{:keys [app-fn path query params limit total include-total offset] :as paged-test-params}]
+  {:pre [(= #{} (difference
+                 (keyset paged-test-params)
+                 #{:app-fn :path :query :params :limit :total :include-total :offset}))]}
+  (let [params  (merge params
+                       {:limit limit
+                        :offset offset})
+        request (get-request path query
+                             (if include-total
+                               (assoc params :include-total true)
+                               params))
+        resp (app-fn request)
+        body    (if (string? (:body resp))
+                  (:body resp)
+                  (slurp (:body resp)))]
+    (assoc resp :body (json/parse-string body true))))
+
 (defn paged-results
   [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]
   {:pre [(= #{} (difference
-                  (keyset paged-test-params)
-                  #{:app-fn :path :query :params :limit :total :include-total}))]}
+                 (keyset paged-test-params)
+                 #{:app-fn :path :query :params :limit :total :include-total}))]}
   (reduce
     (fn [coll n]
-      (let [params  (merge params
-                      {:limit limit :offset (* limit n)})
-            request (get-request path query
-                      (if include-total
-                        (assoc params :include-total true)
-                        params))
-            {:keys [status body headers] :as resp} (app-fn request)
-            _       (assert-success! resp)
-            ;; Sometimes a body is a PipedInputStream for streaming
-            ;; queries.
-            body    (if (string? body)
-                      body
-                      (slurp body))
-            result  (json/parse-string body true)]
-        (is (>= limit (count result)))
+      (let [{:keys [status body headers] :as resp} (paged-results* (assoc paged-test-params :offset (* limit n)))]
+        (assert-success! resp)
+        (is (>= limit (count body)))
         (if include-total
           (do
             (is (contains? headers paging/count-header))
             (is (= total (parse-int (headers paging/count-header)))))
           (is (excludes? headers paging/count-header)))
-        (concat coll result)))
+        (concat coll body)))
     []
     (range (java.lang.Math/ceil (/ total (float limit))))))

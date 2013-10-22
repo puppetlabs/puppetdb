@@ -45,18 +45,24 @@
                   paging-options)]
       (update-in facts [:result] #(map :name %)))))
 
-(defn query->sql
-  "Compile a query into an SQL expression."
-  [query]
-  {:pre [((some-fn nil? sequential?) query) ]
-   :post [(vector? %)
-          (string? (first %))
-          (every? (complement coll?) (rest %))]}
+(defn facts-sql [query paging-options]
   (if query
     (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
           sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts ORDER BY facts.certname, facts.name, facts.value" subselect)]
       (apply vector sql params))
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
+
+(defn query->sql
+  "Compile a query into an SQL expression."
+  [query paging-options]
+  {:pre [((some-fn nil? sequential?) query) ]
+   :post [(map? %)
+          (string? (first (:results-query %)))
+          (every? (complement coll?) (rest (:results-query %)))]}
+  (let [[sql & params] (facts-sql query paging-options)]
+    (conj {:results-query (apply vector (sql/paged-sql sql paging-options) params)}
+          (when (:count? paging-options)
+            [:count-query (apply vector (sql/count-sql sql) params)]))))
 
 (defn with-queried-facts
   "Execute `func` against the rows returned from fact query `query`
@@ -65,11 +71,7 @@
   {:pre [(string? query)
          (or (coll? params) (nil? params))
          (fn? func)]}
+  
+  (validate-order-by! [:certname :name :value] paging-options)
   (sql/with-query-results-cursor query params rs
     (func rs)))
-
-(defn query-facts
-  [[sql & params :as query] paging-options]
-  {:pre [(string? sql)]}
-  (validate-order-by! [:certname :name :value] paging-options)
-  (execute-query query paging-options))
