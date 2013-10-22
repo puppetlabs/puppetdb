@@ -2,8 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.nodes :as node]
-            [com.puppetlabs.puppetdb.http.v2.facts :as f]
-            [com.puppetlabs.puppetdb.http.v2.resources :as r]
+            [com.puppetlabs.puppetdb.http.v3.facts :as f]
+            [com.puppetlabs.puppetdb.http.v3.resources :as r]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http])
   (:use [net.cgrand.moustache :only (app)]

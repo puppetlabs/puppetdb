@@ -10,8 +10,9 @@
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
-            [com.puppetlabs.utils :only [parse-int excludes?]]
+            [com.puppetlabs.utils :only [parse-int excludes? keyset]]
             [clojure.test]
+            [clojure.set :only [difference]]
             [ring.mock.request]))
 
 (def c-t "application/json")
@@ -227,14 +228,17 @@
       (assoc request :headers (assoc headers "Accept" c-t)))))
 
 (defn paged-results
-  [{:keys [app-fn path query params limit total count?]}]
+  [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]
+  {:pre [(= #{} (difference
+                  (keyset paged-test-params)
+                  #{:app-fn :path :query :params :limit :total :include-total}))]}
   (reduce
     (fn [coll n]
       (let [params  (merge params
                       {:limit limit :offset (* limit n)})
             request (get-request path query
-                      (if count?
-                        (assoc params :count? true)
+                      (if include-total
+                        (assoc params :include-total true)
                         params))
             {:keys [status body headers] :as resp} (app-fn request)
             _       (assert-success! resp)
@@ -245,7 +249,7 @@
                       (slurp body))
             result  (json/parse-string body true)]
         (is (>= limit (count result)))
-        (if count?
+        (if include-total
           (do
             (is (contains? headers paging/count-header))
             (is (= total (parse-int (headers paging/count-header)))))
