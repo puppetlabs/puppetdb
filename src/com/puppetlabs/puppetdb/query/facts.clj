@@ -45,7 +45,10 @@
                   paging-options)]
       (update-in facts [:result] #(map :name %)))))
 
-(defn facts-sql [query paging-options]
+(defn facts-sql
+  "Return a vector with the facts SQL query string as the first element, parameters
+   needed for that query as the rest."
+  [query paging-options]
   (if query
     (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
           sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts ORDER BY facts.certname, facts.name, facts.value" subselect)]
@@ -71,7 +74,6 @@
   {:pre [(string? query)
          (or (coll? params) (nil? params))
          (fn? func)]}
-  
   (validate-order-by! [:certname :name :value] paging-options)
   (sql/with-query-results-cursor query params rs
     (func rs)))

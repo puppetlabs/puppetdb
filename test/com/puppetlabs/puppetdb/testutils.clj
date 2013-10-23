@@ -229,6 +229,9 @@
 
 
 (defn paged-results*
+  "Makes a ring request to `path` using the `app-fn` ring handler. Sets the necessary parameters
+   for paged results.  Returns the ring response, with the body converted from the stream/JSON
+   to clojure data structures."
   [{:keys [app-fn path query params limit total include-total offset] :as paged-test-params}]
   {:pre [(= #{} (difference
                  (keyset paged-test-params)
@@ -247,6 +250,10 @@
     (assoc resp :body (json/parse-string body true))))
 
 (defn paged-results
+  "This function makes multiple calls to the ring handler `app-fn` to consume all of the
+   results for `query`, a `limit` number of records at a time using the built in paging
+   functions. See paged-results* for the code making the GET requests, this function
+   drives the pages and the assertions of the result."
   [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]
   {:pre [(= #{} (difference
                  (keyset paged-test-params)

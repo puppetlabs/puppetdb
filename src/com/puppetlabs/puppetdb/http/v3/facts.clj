@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.query.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
@@ -36,9 +36,7 @@
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+      (pl-http/error-response e))))
 
 (def query-app
   (app

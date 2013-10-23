@@ -31,7 +31,6 @@
                            (pl-http/streamed-response buffer
                              (with-transacted-connection db
                                (r/with-queried-resources sql params (comp #(pl-http/stream-json % buffer) munge-result-rows)))))]
-
       (if count-query
         (add-headers response {:count (get-result-count count-query)})
         response))
