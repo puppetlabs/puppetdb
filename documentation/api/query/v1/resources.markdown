@@ -15,7 +15,6 @@ Queries for resources must conform to the following format:
 
 * A `GET` is used.
 * There is a single parameter, `query`.
-* There is an `Accept` header matching `application/json`.
 * The `query` parameter is a JSON array of query predicates, in prefix
   form, conforming to the format described below.
 

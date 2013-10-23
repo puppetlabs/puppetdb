@@ -23,10 +23,6 @@ server.
 
     {"version": "1.5.2"}
 
-## Request
-
-All requests `Accept` header must match `application/json`.
-
 ## Response Format
 
 The response will be in `application/json`, and will return a JSON map with a

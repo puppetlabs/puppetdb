@@ -15,7 +15,7 @@ Querying catalogs occurs via an HTTP request to the
 
 ### `GET /v3/catalogs/<NODE>`
 
-This will return the most recent catalog for the given node. There must be an `Accept` header matching `application/json`.
+This will return the most recent catalog for the given node.
 
 #### Examples
 

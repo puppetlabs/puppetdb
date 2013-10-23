@@ -18,7 +18,6 @@ The HTTP request must conform to the following format:
 
 * The URL requested is `/facts/<node>`
 * A `GET` is used.
-* There is an `Accept` header matching `application/json`.
 
 The supplied `<node>` path component indicates the certname for which
 facts should be retrieved.

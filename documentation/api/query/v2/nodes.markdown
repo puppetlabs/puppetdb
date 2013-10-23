@@ -16,8 +16,7 @@ endpoint with a JSON-formatted parameter called `query`.
 ### `GET /v2/nodes`
 
 This will return all nodes matching the given query. Deactivated nodes
-aren't included in the response. There must be an `Accept` header matching
-`application/json`.
+aren't included in the response.
 
 #### Parameters
 
@@ -71,7 +70,7 @@ The array is sorted alphabetically by `name`.
 ### `GET /v2/nodes/<NODE>`
 
 This will return status information for the given node, active or
-not. There must be an `Accept` header matching `application/json`.
+not.
 
 #### Response format
 
@@ -81,8 +80,7 @@ endpoint.
 ### `GET /v2/nodes/<NODE>/facts`
 
 This will return the facts for the given node. Facts from deactivated
-nodes aren't included in the response. There must be an `Accept` header
-matching `application/json`.
+nodes aren't included in the response.
 
 #### Parameters
 
@@ -100,8 +98,7 @@ endpoint.
 ### `GET /v2/nodes/<NODE>/facts/<NAME>`
 
 This will return facts with the given name for the given node. Facts
-from deactivated nodes aren't included in the response. There must be
-an `Accept` header matching `application/json`.
+from deactivated nodes aren't included in the response.
 
 #### Parameters
 
@@ -121,8 +118,7 @@ endpoint.
 
 This will return facts with the given name and value for the given
 node. Facts from deactivated nodes aren't included in the
-response. There must be an `Accept` header matching
-`application/json`.
+response.
 
 #### Parameters
 
@@ -140,8 +136,7 @@ endpoint.
 ### `GET /v2/nodes/<NODE>/resources`
 
 This will return the resources for the given node. Resources from
-deactivated nodes aren't included in the response. There must be an
-`Accept` header matching `application/json`.
+deactivated nodes aren't included in the response.
 
 #### Parameters
 
@@ -160,8 +155,7 @@ endpoint.
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header matching
-`application/json`.
+response.
 
 This endpoint behaves identically to the
 [`/v2/resources/<TYPE>`][resource] endpoint, except the resources
@@ -172,8 +166,7 @@ for this route.
 
 This will return the resource of the indicated type and title for the
 given node. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header matching
-`application/json`.
+response.
 
 This endpoint behaves identically to the
 [`/v2/resources/<TYPE>`][resource] endpoint, except the resources

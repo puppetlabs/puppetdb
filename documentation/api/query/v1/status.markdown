@@ -11,8 +11,7 @@ canonical: "/puppetdb/latest/api/query/v1/status.html"
 
 ### `GET /v1/status/nodes/<NODE>`
 
-This will return status information for the given node. There must be
-an `Accept` header matching `application/json`.
+This will return status information for the given node.
 
 
 ## Response Format

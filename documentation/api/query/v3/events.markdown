@@ -15,8 +15,7 @@ canonical: "/puppetdb/latest/api/query/v3/events.html"
 ### `GET /v3/events`
 
 This will return all resource events matching the given query.  (Resource events
-are generated from Puppet reports.)  There must be an `Accept` header matching
-`application/json`.
+are generated from Puppet reports.)
 
 #### Parameters
 
