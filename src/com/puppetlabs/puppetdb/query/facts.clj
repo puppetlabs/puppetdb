@@ -51,9 +51,9 @@
   [query paging-options]
   (if query
     (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
-          sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts ORDER BY facts.certname, facts.name, facts.value" subselect)]
+          sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts" subselect)]
       (apply vector sql params))
-    ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
+    ["SELECT certname, name, value FROM certname_facts"]))
 
 (defn query->sql
   "Compile a query into an SQL expression."

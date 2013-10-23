@@ -209,9 +209,11 @@
         {:keys [status body]} (*app* request)]
     (is (= status pl-http/status-ok))
     (is (= (try
-             (json/parse-string (slurp body) true)
+             (set (json/parse-string (slurp body) true))
              (catch Throwable e
-               body)) results) query)))
+               body))
+           (set results))
+        query)))
 
 (deftest fact-subqueries
   (testing "subqueries using a resource"
