@@ -25,10 +25,6 @@ machines.
 
     {"server-time": "2013-09-20T20:54:27.472Z"}
 
-## Request
-
-All requests `Accept` header must match `application/json`.
-
 ## Response Format
 
 The response will be in `application/json`, and will return a JSON map with a

@@ -15,8 +15,7 @@ Querying facts occurs via an HTTP request to the
 ### `GET /v2/facts`
 
 This will return all facts matching the given query. Facts for
-deactivated nodes are not included in the response. There must be an
-`Accept` header matching `application/json`.
+deactivated nodes are not included in the response.
 
 #### URL Parameters
 
@@ -56,7 +55,7 @@ Get all facts for a single node:
 ### `GET /v2/facts/<NAME>`
 
 This will return all facts for all nodes with the indicated
-name. There must be an `Accept` header matching `application/json`.
+name.
 
 #### URL Parameters
 
@@ -78,7 +77,7 @@ name. There must be an `Accept` header matching `application/json`.
 ### `GET /v2/facts/<NAME>/<VALUE>`
 
 This will return all facts for all nodes with the indicated name and
-value. There must be an `Accept` header matching `application/json`.
+value.
 
 #### URL Parameters
 

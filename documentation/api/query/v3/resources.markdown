@@ -16,8 +16,7 @@ Resources are queried via an HTTP request to the
 ### `GET /v3/resources`
 
 This will return all resources matching the given query. Resources for
-deactivated nodes are not included in the response. There must be an
-`Accept` header matching `application/json`.
+deactivated nodes are not included in the response.
 
 #### Parameters
 
@@ -75,8 +74,7 @@ supported* against node status or parameter values.
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header matching
-`application/json`.
+response.
 
 #### Parameters
 
@@ -130,8 +128,7 @@ response. There must be an `Accept` header matching
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
-response. There must be an `Accept` header matching
-`application/json`.
+response.
 
 #### Parameters
 
