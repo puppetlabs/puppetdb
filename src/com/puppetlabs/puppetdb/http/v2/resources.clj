@@ -22,18 +22,18 @@
   If the query can't be parsed, a 400 is returned."
   [query paging-options db]
   (try
-    (let [{[sql & params] :results-query
-           count-query   :count-query} (with-transacted-connection db
-                                         (-> query
+    (with-transacted-connection db
+      (let [{[sql & params] :results-query
+             count-query   :count-query} (-> query
                                              (json/parse-string true)
-                                             (r/v2-query->sql paging-options)))
-           response       (pl-http/json-response*
-                           (pl-http/streamed-response buffer
-                             (with-transacted-connection db
-                               (r/with-queried-resources sql params (comp #(pl-http/stream-json % buffer) munge-result-rows)))))]
-      (if count-query
-        (add-headers response {:count (get-result-count count-query)})
-        response))
+                                             (r/v2-query->sql paging-options))
+             response       (pl-http/json-response*
+                             (pl-http/streamed-response buffer
+                               (with-transacted-connection db
+                                 (r/with-queried-resources sql params (comp #(pl-http/stream-json % buffer) munge-result-rows)))))]
+        (if count-query
+          (add-headers response {:count (get-result-count count-query)})
+          response)))
 
     (catch IllegalArgumentException e
       ;; Query compilation error
