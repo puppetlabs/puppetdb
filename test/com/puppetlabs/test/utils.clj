@@ -377,3 +377,26 @@
       (is (= 6 (multitime! timers (+ 1 2 3))))
       (doseq [t timers]
         (is (= 1 (.count t)))))))
+
+(deftest test-spit-ini
+  (let [tf (fs/temp-file)]
+    (spit tf "[foo]\nbar=baz\n[bar]\nfoo=baz")
+    (let [ini-map (ini-to-map tf)]
+      (is (= ini-map
+             {:foo {:bar "baz"}
+              :bar {:foo "baz"}}))
+      (testing "changing existing keys"
+        (let [result-file (fs/temp-file)]
+          (spit-ini result-file (-> ini-map
+                                    (assoc-in [:foo :bar] "baz changed")
+                                    (assoc-in [:bar :foo] "baz also changed")))
+          (is (= {:foo {:bar "baz changed"}
+                  :bar {:foo "baz also changed"}}
+                 (ini-to-map result-file)))))
+      (testing "adding a new section to an existing ini"
+        (let [result-file (fs/temp-file)]
+          (spit-ini result-file (assoc-in ini-map [:baz :foo] "bar"))
+          (is (= {:foo {:bar "baz"}
+                  :bar {:foo "baz"}
+                  :baz {:foo "bar"}}
+               (ini-to-map result-file))))))))
