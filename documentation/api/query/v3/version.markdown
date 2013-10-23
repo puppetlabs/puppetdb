@@ -10,7 +10,7 @@ The `/version` endpoint can be used to retrieve version information from the Pup
 
 ## Routes
 
-### `GET /version`
+### `GET /v3/version`
 
 This query endpoint will return version information about the running PuppetDB
 server.
