@@ -19,7 +19,6 @@ To get a list of all available metric names:
 
 * Request `/v2/metrics/mbeans`.
 * Use a `GET` request.
-* Provide an `Accept` header matching `application/json`.
 
 ### Response format
 
@@ -37,7 +36,6 @@ To get the attributes of a particular metric:
 * Request `/v2/metrics/mbean/<name>`, where `<name>` is something that was
   returned in the list of available metrics specified above.
 * Use a `GET` request.
-* Provide an `Accept` header matching `application/json`.
 
 ### Response format
 

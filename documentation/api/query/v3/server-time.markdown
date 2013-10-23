@@ -10,7 +10,7 @@ The `/server-time` endpoint can be used to retrieve the server time from the Pup
 
 ## Routes
 
-### `GET /server-time`
+### `GET /v3/server-time`
 
 This query endpoint will return the current time of the clock on the PuppetDB
 server.  This can be useful as input to other time-based queries against PuppetDB,
@@ -24,10 +24,6 @@ machines.
     curl -X GET http://localhost:8080/v3/server-time
 
     {"server-time": "2013-09-20T20:54:27.472Z"}
-
-## Request
-
-All requests `Accept` header must match `application/json`.
 
 ## Response Format
 

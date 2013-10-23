@@ -13,7 +13,6 @@ endpoint with a JSON-formatted parameter called `query`.
 ## Query format
 
 * The HTTP method must be `GET`.
-* There must be an `Accept` header matching `application/json`.
 
 The `query` parameter uses a format similar to [resource queries][resource].
 

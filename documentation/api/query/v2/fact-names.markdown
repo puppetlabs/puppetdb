@@ -24,11 +24,6 @@ known only for deactivated nodes.
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 
-
-## Request
-
-All requests `Accept` header must match `application/json`.
-
 ## Response Format
 
 The response will be in `application/json`, and will contain an alphabetical

@@ -31,10 +31,6 @@ This query endpoint supports paged results via the common PuppetDB paging
 query parameters.  For more information, please see the documentation
 on [paging][paging].
 
-## Request
-
-All requests `Accept` header must match `application/json`.
-
 ## Response Format
 
 The response will be in `application/json`, and will contain an alphabetical

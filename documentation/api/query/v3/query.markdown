@@ -40,8 +40,7 @@ on [paging][paging].
 A query consists of:
 
 * An HTTP GET request to an endpoint URL...
-* ...which may or may not contain a **query string** as a `query` URL parameter...
-* ...and which must contain an `Accept` header matching `application/json`.
+* ...which may or may not contain a **query string** as a `query` URL parameter.
 
 That is, nearly every query will look like a GET request to a URL that resembles the following:
 
