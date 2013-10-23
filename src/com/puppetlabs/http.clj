@@ -101,6 +101,20 @@
           (rr/response)
           (rr/status status-not-acceptable)))))
 
+(defn json-response*
+  "Returns a Ring response object with the supplied `body`, response
+  `code`, and a JSON content type and charset. `body` is assumed to
+  alredy be JSON-ified. To auto-serialize body to JSON, look at
+  `json-response`."
+  ([body]
+     (json-response* body status-ok))
+  ([body code]
+     (-> body
+         (rr/response)
+         (rr/header "Content-Type" "application/json")
+         (rr/charset "utf-8")
+         (rr/status code))))
+
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
@@ -109,10 +123,7 @@
   ([body code]
      (-> body
          (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
-         (rr/response)
-         (rr/header "Content-Type" "application/json")
-         (rr/charset "utf-8")
-         (rr/status code))))
+         (json-response* code))))
 
 (def json-response-content-type "application/json; charset=utf-8")
 

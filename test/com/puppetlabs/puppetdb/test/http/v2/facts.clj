@@ -3,7 +3,8 @@
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
-            [com.puppetlabs.puppetdb.http.server :as server])
+            [com.puppetlabs.puppetdb.http.server :as server]
+            [clojure.java.io :as io])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
@@ -186,7 +187,7 @@
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
             (is (= (headers "Content-Type") c-t))
-            (is (= result (json/parse-string body true))
+            (is (= result (json/parse-string (slurp body) true))
                 (pr-str query)))))
 
       (testing "malformed, yo"
@@ -207,7 +208,7 @@
         {:keys [status body]} (*app* request)]
     (is (= status pl-http/status-ok))
     (is (= (try
-             (json/parse-string body true)
+             (json/parse-string (slurp body) true)
              (catch Throwable e
                body)) results) query)))
 
@@ -414,7 +415,7 @@
                   {:keys [status body headers]} (two-db-app request)]
               (is (= status pl-http/status-ok))
               (is (= (headers "Content-Type") c-t))
-              (is (empty? (json/parse-string body true)))))
+              (is (empty? (json/parse-stream (io/reader body) true)))))
 
           (testing "config with only a single database returns results"
             (let [request (get-request "/v2/facts" {"query" (json/generate-string nil)})
@@ -427,5 +428,5 @@
                       {:certname "foo1" :name "operatingsystem" :value "Debian"}
                       {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a"}
                       {:certname "foo1" :name "uptime_seconds" :value "4000"}]
-                     (json/parse-string body true))))))))))
+                     (json/parse-stream (io/reader body) true))))))))))
 

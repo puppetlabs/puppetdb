@@ -25,21 +25,15 @@
     (let [{[sql & params] :results-query
            count-query   :count-query} (with-transacted-connection db
                                          (-> query
-                                           (json/parse-string true)
+                                             (json/parse-string true)
                                              (r/v2-query->sql paging-options)))
-          result       (pl-http/streamed-response buffer
-                         (with-transacted-connection db
-                           (r/with-queried-resources sql params
-                             #(pl-http/stream-json (munge-result-rows %) buffer))))
-          query-result (if count-query
-                         {:result result :count (get-result-count count-query)}
-                         {:result result})]
-      (-> (:result query-result)
-          rr/response
-          (add-headers (dissoc query-result :result))
-          (rr/header "Content-Type" "application/json")
-          (rr/charset "utf-8")
-          (rr/status pl-http/status-ok)))
+           response       (pl-http/json-response*
+                           (pl-http/streamed-response buffer
+                             (with-transacted-connection db
+                               (r/with-queried-resources sql params (comp #(pl-http/stream-json % buffer) munge-result-rows)))))]
+      (if count-query
+        (add-headers response {:count (get-result-count count-query)})
+        response))
 
     (catch IllegalArgumentException e
       ;; Query compilation error
@@ -74,3 +68,7 @@
     (validate-query-params query-app {:optional ["query"]})))
 
 
+;; Local Variables:
+;; mode: clojure
+;; eval: (define-clojure-indent (test-msg-handler (quote defun)))
+;; End:
