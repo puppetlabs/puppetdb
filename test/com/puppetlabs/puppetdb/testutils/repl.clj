@@ -14,6 +14,13 @@
    a map with config keypairs."
   [& {:keys [config config-overrides]
       :or {config "config.sample.ini"}}]
+  {:pre [(or (and (map? config-overrides)
+                  (every? map? (vals config-overrides))
+                  (every? (some-fn string? keyword?) (keys config-overrides))
+                  (every? (some-fn string? keyword?) (mapcat keys (vals config-overrides))))
+             (nil? config-overrides))
+         (string? config)
+         (fs/exists? config)]}
   (let [new-config-file (testutils/temp-file "config" ".ini")
         config-path (fs/absolute-path new-config-file)]
     (println "Writing current config to" config-path)
