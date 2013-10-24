@@ -28,6 +28,19 @@
   ([]      (get-response nil))
   ([query] (*app* (get-request "/v2/facts" query))))
 
+
+(defn is-query-result
+  [query results]
+  (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
+        {:keys [status body]} (*app* request)]
+    (is (= status pl-http/status-ok))
+    (is (= (try
+             (set (json/parse-string (slurp body) true))
+             (catch Throwable e
+               body))
+           (set results))
+        query)))
+
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -184,12 +197,7 @@
                                 ["=" ["node" "active"] false]
                                 []}]
 
-          (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
-                {:keys [status body headers]} (*app* request)]
-            (is (= status pl-http/status-ok))
-            (is (= (headers "Content-Type") c-t))
-            (is (= result (json/parse-string (slurp body) true))
-                (pr-str query)))))
+          (is-query-result query result)))
 
       (testing "malformed, yo"
         (let [request (get-request "/v2/facts" {"query" (json/generate-string [])})
@@ -202,18 +210,6 @@
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
-
-(defn is-query-result
-  [query results]
-  (let [request (get-request "/v2/facts" {"query" (json/generate-string query)})
-        {:keys [status body]} (*app* request)]
-    (is (= status pl-http/status-ok))
-    (is (= (try
-             (set (json/parse-string (slurp body) true))
-             (catch Throwable e
-               body))
-           (set results))
-        query)))
 
 (deftest fact-subqueries
   (testing "subqueries using a resource"
