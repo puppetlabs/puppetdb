@@ -1,10 +1,14 @@
 language: clojure
 lein: lein2
 env:
-  - T_TEST=java:oraclejdk7
-  - T_TEST=java:openjdk6
-  - T_TEST=java:openjdk7
-  - T_TEST=ruby:default
+  - T_TEST=java:oraclejdk7:embedded
+  - T_TEST=java:openjdk6:embedded
+  - T_TEST=java:openjdk7:embedded
+  - T_TEST=java:oraclejdk7:postgres
+  - T_TEST=java:openjdk6:postgres
+  - T_TEST=java:openjdk7:postgres
+  - T_TEST=ruby:default:none
 script: ./ext/travisci/test.sh
 notifications:
   email: false
+services: postgresql
