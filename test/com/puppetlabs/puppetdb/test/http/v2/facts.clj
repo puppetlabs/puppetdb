@@ -63,6 +63,7 @@
     (testing "query without param should not fail"
       (let [response (get-response)
             body     (get response :body "null")]
+        (slurp body)
         (is (= 200 (:status response)))))
 
     (testing "fact queries"
