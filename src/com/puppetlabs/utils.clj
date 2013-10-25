@@ -433,6 +433,18 @@
             (apply merge)
             (merge {})))))
 
+(defn spit-ini
+  "Writes the `ini-map` to the Ini file at `file`. `ini-map` should
+   a map similar to the ones created by ini-to-map. The keys are keywords
+   for the sections and their values are maps of config keypairs."
+  [file ini-map]
+  (let [ini (org.ini4j.Ini. file)]
+    (doseq [[section-key section] ini-map
+            [k v] section]
+      (.put ini (name section-key) (name k) v))
+    (.store ini)))
+
+
 ;; ## Logging helpers
 
 (defn catch-all-logger

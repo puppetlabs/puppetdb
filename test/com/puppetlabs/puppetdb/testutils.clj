@@ -271,3 +271,15 @@
         (concat coll body)))
     []
     (range (java.lang.Math/ceil (/ total (float limit))))))
+
+(defn delete-on-exit
+  "Will delete file `f` on shutdown of the JVM"
+  [^java.io.File f]
+  (doto f
+    .deleteOnExit))
+
+(def ^{:doc "Creates a temp file, deletes it on JVM shutdown"}
+  temp-file (comp delete-on-exit fs/temp-file))
+
+(def ^{:doc "Creates a temp directory, deletes the directory on JVM shutdown"}
+  temp-dir (comp delete-on-exit fs/temp-dir))

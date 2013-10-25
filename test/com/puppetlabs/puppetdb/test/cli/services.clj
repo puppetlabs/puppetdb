@@ -3,7 +3,9 @@
   (:require clojure.string
             [fs.core :refer (absolute-path temp-file)]
             [com.puppetlabs.puppetdb.version]
-            [com.puppetlabs.utils :as utils])
+            [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.puppetdb.fixtures :as fixt]
+            [com.puppetlabs.puppetdb.testutils :as testutils])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
         [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
