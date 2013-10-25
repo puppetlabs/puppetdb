@@ -8,6 +8,8 @@ canonical: "/puppetdb/latest/install_via_module.html"
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
 [migrating]: ./migrate.html
 
+> **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
+
 You can install and configure all of PuppetDB's components and prerequisites (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems, and the
 terminus plugins for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge.
 
