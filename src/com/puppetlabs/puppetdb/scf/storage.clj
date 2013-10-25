@@ -55,6 +55,17 @@
         minor (.getDatabaseMinorVersion db-metadata)]
     [major minor]))
 
+(defn postgres?
+  "Returns true if currently connected to a Postgres DB instance"
+  []
+  (= (sql-current-connection-database-name) "PostgreSQL"))
+
+(defn pg-newer-than-8-1?
+  "Returns true if connected to a Postgres instance that is newer than 8.1"
+  []
+  (and (postgres?)
+       (pos? (compare (sql-current-connection-database-version) [8 1]))))
+
 (defn sql-current-connection-table-names
   "Return all of the table names that are present in the database based on the
   current connection.  This is most useful for debugging / testing  purposes
