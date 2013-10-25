@@ -15,6 +15,9 @@ canonical: "/puppetdb/latest/install_from_packages.html"
 [module]: ./install_via_module.html
 [migrating]: ./migrate.html
 
+
+> **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
+
 This page describes how to manually install and configure PuppetDB from the official packages.
 
 * If you are **just getting started with Puppet** and don't yet know how to assign Puppet classes to nodes, this is the guide for you.
