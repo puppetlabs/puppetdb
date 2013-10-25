@@ -12,6 +12,8 @@ canonical: "/puppetdb/latest/install_from_source.html"
 [packages]: ./install_from_packages.html
 [migrating]: ./migrate.html
 
+> **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
+
 This page describes how to install PuppetDB from an archive of the source code, or alternately how to run it directly from source without installing.
 
 If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install it from source. 
