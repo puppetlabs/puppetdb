@@ -59,7 +59,9 @@
         [com.puppetlabs.jdbc :only [query-to-vec with-query-results-cursor]]
         [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
                                                     sql-current-connection-database-name
-                                                    sql-current-connection-database-version]]))
+                                                    sql-current-connection-database-version
+                                                    postgres?
+                                                    pg-newer-than-8-1?]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -216,8 +218,8 @@
     "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
-  (when (= (sql-current-connection-database-name) "PostgreSQL")
-    (if (pos? (compare (sql-current-connection-database-version) [8 1]))
+  (when (postgres?)
+    (if (pg-newer-than-8-1?)
       (sql/do-commands
         "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
       (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
@@ -240,7 +242,7 @@
   "Renames the `fact` column on `certname_facts` to `name`, for consistency."
   []
   (sql/do-commands
-    (if (= (sql-current-connection-database-name) "PostgreSQL")
+    (if (postgres?)
       "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
       "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
     "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
@@ -380,10 +382,10 @@
     "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
     "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
   (sql/do-commands
-    (if (= (sql-current-connection-database-name) "PostgreSQL")
+    (if (postgres?)
       "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
       "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
-    (if (= (sql-current-connection-database-name) "PostgreSQL")
+    (if (postgres?)
       "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
       "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
@@ -413,6 +415,12 @@
   (sql/do-commands "DROP INDEX idx_catalogs_hash")
   (sql/do-commands "DROP INDEX idx_certname_catalogs_certname"))
 
+(defn drop-resource-tags-index
+  "Remove the resource tags index, it can get very large and is not used"
+  []
+  (when (pg-newer-than-8-1?)
+    (sql/do-commands "DROP INDEX IF EXISTS idx_catalog_resources_tags_gin")))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -429,7 +437,8 @@
    12 burgundy-schema-changes
    13 add-latest-reports-table
    14 add-parameter-cache
-   15 drop-duplicate-indexes})
+   15 drop-duplicate-indexes
+   16 drop-resource-tags-index})
 
 (def desired-schema-version (apply max (keys migrations)))
 
