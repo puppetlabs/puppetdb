@@ -28,11 +28,11 @@
       (is (= "text/*" (acceptable-content-type "text/html" "text/plain, text/*"))))
 
     (testing "should return nil if a single header doesn't match"
-      (is (= nil (acceptable-content-type "text/html" "application/json"))))
+      (is (nil? (acceptable-content-type "text/html" "application/json"))))
 
     (testing "should return nil if no headers match"
-      (is (= nil (acceptable-content-type "text/html" "text/plain, application/json")))
-      (is (= nil (acceptable-content-type "text/html" "text/plain, application/*"))))))
+      (is (nil? (acceptable-content-type "text/html" "text/plain, application/json")))
+      (is (nil? (acceptable-content-type "text/html" "text/plain, application/*"))))))
 
 (deftest uri-to-segments
   (testing "splitting a url into segments"
