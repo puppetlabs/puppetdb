@@ -53,7 +53,7 @@
                       {:source {:type (:type source) :title (:title source)}
                        :target {:type (:type target) :title (:title target)}}))
         ;; Generate at most 100 edges
-        new-edge  (first (remove edges (take 100 (repeatedly make-edge))))]
+        new-edge  (first (remove edges (repeatedly 100 make-edge)))]
     (if new-edge
       (assoc c :edges (conj edges new-edge))
       c)))
