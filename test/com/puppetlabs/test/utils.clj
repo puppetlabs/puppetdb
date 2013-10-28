@@ -303,7 +303,7 @@
     (let [f (call-counter)
           memoized (bounded-memoize f 2)]
       (testing "should only call the function once per argument"
-        (is (= (times-called f) 0))
+        (is (zero? (times-called f)))
 
         (memoized 0)
         (is (= (times-called f) 1))
@@ -335,10 +335,10 @@
 
 (deftest jvm-versions
   (testing "comparing same versions should return 0"
-    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3"))))
+    (is (zero? (compare-jvm-versions "1.7.0_3" "1.7.0_3"))))
 
   (testing "comparing same versions should return 0, even with trailing fields"
-    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3-beta3"))))
+    (is (zero? (compare-jvm-versions "1.7.0_3" "1.7.0_3-beta3"))))
 
   (testing "should detect older versions"
     (is (neg? (compare-jvm-versions "1.7.0_0" "1.7.0_3")))
