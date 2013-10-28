@@ -199,9 +199,11 @@
   ([response expected body-munge-fn]
     (is (= pl-http/status-ok   (:status response)))
     (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
-    (let [actual  (if (:body response)
-      (set (body-munge-fn (json/parse-string (:body response) true)))
-      nil)]
+    (let [actual (when (:body response)
+                   (-> (:body response)
+                       (json/parse-string true)
+                       (body-munge-fn)
+                       (set)))]
       (is (= expected actual)
         (str response)))))
 

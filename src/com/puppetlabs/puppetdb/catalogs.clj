@@ -216,9 +216,9 @@
   (let [present-keys (pl-utils/keyset catalog)
         extra-keys (set/difference present-keys catalog-attributes)
         missing-keys (set/difference catalog-attributes present-keys)]
-    (when-not (empty? extra-keys)
+    (when (seq extra-keys)
       (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
-    (when-not (empty? missing-keys)
+    (when (seq missing-keys)
       (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
   catalog)
 
