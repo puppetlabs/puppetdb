@@ -10,12 +10,12 @@ test_name "validation of basic PuppetDB resource event queries" do
 
     second_db_manifest = <<MANIFEST
 include postgresql::server
-postgresql::db{ "puppetdb2":
-    user     => 'puppetdb2',
-    password => 'puppetdb2',
-    grant    => 'all',
-    require  => Class['::postgresql::server'],
-  }
+postgresql::server::db{ 'puppetdb2':
+  user     => 'puppetdb2',
+  password => 'puppetdb2',
+  grant    => 'all',
+  require  => Class['::postgresql::server'],
+}
 MANIFEST
   
     apply_manifest_on(database, second_db_manifest)
