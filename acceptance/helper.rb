@@ -221,10 +221,10 @@ module PuppetDBExtensions
   def install_puppetdb(host, db, version=nil)
     manifest = <<-EOS
     class { 'puppetdb':
-      database               => '#{db}',
-      open_ssl_listen_port   => false,
-      open_postgres_port     => false,
-      puppetdb_version       => '#{get_package_version(host, version)}',
+      database             => '#{db}',
+      open_ssl_listen_port => false,
+      open_postgres_port   => false,
+      puppetdb_version     => '#{get_package_version(host, version)}',
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -263,12 +263,12 @@ module PuppetDBExtensions
     # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server           => '#{database.node_name}',
-      puppetdb_version          => '#{get_package_version(host, version)}',
-      puppetdb_startup_timeout  => 120,
-      manage_report_processor   => true,
-      enable_reports            => true,
-      restart_puppet            => false,
+      puppetdb_server          => '#{database.node_name}',
+      puppetdb_version         => '#{get_package_version(host, version)}',
+      puppetdb_startup_timeout => 120,
+      manage_report_processor  => true,
+      enable_reports           => true,
+      restart_puppet           => false,
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -337,25 +337,18 @@ module PuppetDBExtensions
         version             => $version
       } ->
       class { '::postgresql::server':
-        service_name => #{service_name},
-        config_hash => {
-          # TODO: make this stuff configurable
-          'ip_mask_allow_all_users' => '0.0.0.0/0',
-          'manage_redhat_firewall'  => false,
-        },
+        service_name            => #{service_name},
+        ip_mask_allow_all_users => '0.0.0.0/0',
       }
       # create the puppetdb database
-      class { 'puppetdb::database::postgresql_db': 
-        database_name     => #{db_name},
-        database_username => #{db_user},
-        database_password => '#{db_pass}',
+      postgresql::server::db { '#{db_name}':
+        user     => '#{db_user}',
+        password => '#{db_pass}',
       }
       EOS
     else
       manifest = <<-EOS
-      class { 'puppetdb::database::postgresql':
-        manage_redhat_firewall => false,
-      }
+      class { 'puppetdb::database::postgresql': }
       EOS
     end
     apply_manifest_on(host, manifest)
@@ -386,7 +379,7 @@ module PuppetDBExtensions
   $database = '#{PuppetDBExtensions.config[:database]}'
 
   class { 'puppetdb::server::database_ini':
-      database      => $database,
+    database => $database,
   }
       EOS
 
