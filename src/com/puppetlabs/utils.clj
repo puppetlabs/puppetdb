@@ -280,7 +280,7 @@
    :post [(fn? %)]}
   (fn [x y]
     (let [val1 (comp-fn1 x y)]
-      (if (= val1 0)
+      (if (zero? val1)
         (comp-fn2 x y)
         val1))))
 
