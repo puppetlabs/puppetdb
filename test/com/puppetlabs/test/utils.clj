@@ -69,13 +69,13 @@
 
 (deftest contains-some-test
   (testing "should return nil if coll doesn't contain any of the keys"
-    (is (= nil (contains-some {:foo 1} [:bar :baz :bam]))))
+    (is (nil? (contains-some {:foo 1} [:bar :baz :bam]))))
   (testing "should return the first key that coll does contain"
     (is (= :baz (contains-some {:foo 1 :baz 2 :bam 3} [:bar :baz :bam])))))
 
 (deftest excludes-some-test
   (testing "should return nil if coll does `contain?` all of the keys"
-    (is (= nil (excludes-some {:bar 1 :baz 2} [:bar :baz]))))
+    (is (nil? (excludes-some {:bar 1 :baz 2} [:bar :baz]))))
   (testing "should return the first key that coll does *not* `contain?`"
     (is (= :baz (excludes-some {:bar 1 :foo 2} [:foo :baz :bam])))))
 
@@ -216,14 +216,15 @@
     (is (thrown? AssertionError (cn-for-dn nil))
         "should throw error when arg is nil")
 
-    (is (= (cn-for-dn "") nil)
-        "should return nil when passed an empty string")
-    (is (= (cn-for-dn "MEH=bar") nil)
-        "should return nil when no CN is present")
-    (is (= (cn-for-dn "cn=foo.bar.com") nil)
-        "should return nil when CN present but lower case")
-    (is (= (cn-for-dn "cN=foo.bar.com") nil)
-        "should return nil when CN present but with mixed case")
+    (testing "returns nil for negative cases"
+      (is (nil? (cn-for-dn ""))
+          "should return nil when passed an empty string")
+      (is (nil? (cn-for-dn "MEH=bar"))
+          "should return nil when no CN is present")
+      (is (nil? (cn-for-dn "cn=foo.bar.com"))
+          "should return nil when CN present but lower case")
+      (is (nil? (cn-for-dn "cN=foo.bar.com"))
+          "should return nil when CN present but with mixed case"))
 
     (is (= (cn-for-dn "CN=foo.bar.com") "foo.bar.com")
         "should work when only CN is present")
@@ -276,7 +277,7 @@
     (let [f (call-counter)
           memoized (bounded-memoize f 2)]
       (testing "should only call the function once per argument"
-        (is (= (times-called f) 0))
+        (is (zero? (times-called f)))
 
         (memoized 0)
         (is (= (times-called f) 1))
@@ -308,10 +309,10 @@
 
 (deftest jvm-versions
   (testing "comparing same versions should return 0"
-    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3"))))
+    (is (zero? (compare-jvm-versions "1.7.0_3" "1.7.0_3"))))
 
   (testing "comparing same versions should return 0, even with trailing fields"
-    (is (= 0 (compare-jvm-versions "1.7.0_3" "1.7.0_3-beta3"))))
+    (is (zero? (compare-jvm-versions "1.7.0_3" "1.7.0_3-beta3"))))
 
   (testing "should detect older versions"
     (is (neg? (compare-jvm-versions "1.7.0_0" "1.7.0_3")))

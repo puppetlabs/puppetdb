@@ -123,7 +123,7 @@
         (let [diff (set/difference (utils/keyset params)
                       (set (:required param-specs))
                       (set (:optional param-specs)))]
-          (when-not (empty? diff) diff))
+          (when (seq diff) diff))
         (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
         :else

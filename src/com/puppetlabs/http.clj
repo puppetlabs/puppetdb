@@ -169,7 +169,7 @@
         ;; If the original query string contains the query param w/o a
         ;; a value, it will show up here as nil.  We assume that in that
         ;; case, the caller intended to use it as a flag.
-        (= val nil)                  true
+        (nil? val)                   true
         (Boolean/parseBoolean val)   true
         :else                        false))
     false))

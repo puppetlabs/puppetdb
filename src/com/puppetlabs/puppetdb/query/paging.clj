@@ -171,7 +171,7 @@
   and return an updated map with the correct integer value.
   Throws an exception if the provided limit is not a positive non-zero integer."
   [paging-options]
-  (update-in paging-options [:limit] #(if (nil? %) nil (validate-limit %))))
+  (update-in paging-options [:limit] #(when-not (nil? %) (validate-limit %))))
 
 (defn validate-offset
   "Validates that the offset string is a non-negative integer. Returns the integer
@@ -190,7 +190,7 @@
   and return an updated map with the correct integer value.
   Throws an exception if the provided offset is not a non-negative integer."
   [paging-options]
-  (update-in paging-options [:offset] #(if (nil? %) nil (validate-offset %))))
+  (update-in paging-options [:offset] #(when-not (nil? %) (validate-offset %))))
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of
