@@ -205,10 +205,8 @@
                                     :on-message #(swap! contents conj %)
                                     :on-failure #(deliver mq-error (:exception %))})]
     (mq-consumer/start consumer)
-    (loop []
-      (when (> limit (count @contents))
-        (Thread/sleep 10)
-        (recur)))
+    (while (> limit (count @contents))
+      (Thread/sleep 10))
 
     (mq-consumer/close consumer)
     (if (realized? mq-error)

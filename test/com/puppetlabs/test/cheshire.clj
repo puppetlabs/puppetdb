@@ -16,7 +16,7 @@
   (testing "should generate a json string from a stream"
     (let [sw (StringWriter.)]
       (generate-stream {:a 1 :b 2} sw)
-      (is (= (.toString sw)
+      (is (= (str sw)
               "{\"a\":1,\"b\":2}")))))
 
 (deftest test-parse-string
