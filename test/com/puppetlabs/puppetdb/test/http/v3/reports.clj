@@ -79,3 +79,11 @@
                     [(assoc basic1 :hash basic1-hash)
                      (assoc basic2 :hash basic2-hash)])
                 (set (remove-receive-times results)))))))))
+
+(deftest invalid-queries
+  (let [response (get-response ["<" "timestamp" 0])]
+    (is (re-matches #".*query operator '<' is unknown" (:body response)))
+    (is (= 400 (:status response))))
+  (let [response (get-response ["=" "timestamp" 0])]
+    (is (= "'timestamp' is not a valid query term" (:body response)))
+    (is (= 400 (:status response)))))
