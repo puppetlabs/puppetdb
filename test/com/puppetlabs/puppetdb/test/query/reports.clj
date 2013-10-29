@@ -36,13 +36,13 @@
 
 (deftest test-compile-report-term
   (testing "should successfully compile a valid equality query"
-    (is (= (query/compile-report-term ["=" "certname" "foo.local"])
+    (is (= (query/compile-equals-term "certname" "foo.local")
            {:where   "reports.certname = ?"
             :params  ["foo.local"]})))
   (testing "should fail with an invalid equality query"
     (is (thrown-with-msg?
           IllegalArgumentException #"is not a valid query term"
-          (query/compile-report-term ["=" "foo" "foo"])))))
+          (query/compile-equals-term "foo" "foo")))))
 
 (deftest reports-retrieval
   (let [basic         (:basic reports)

@@ -4,7 +4,7 @@
   (:require [com.puppetlabs.utils :as utils]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
-        [com.puppetlabs.puppetdb.query :only [execute-query]]
+        [com.puppetlabs.puppetdb.query :only [execute-query compile-term]]
         [com.puppetlabs.puppetdb.query.events :only [events-for-report-hash]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
@@ -13,21 +13,32 @@
 ;; The following functions provide the basic logic for composing and executing
 ;; queries against reports (report summaries / metadata).
 
-(defmulti compile-report-term
-  "Recursively compile a report query into a structured map reflecting the terms
-  of the query."
-  (fn [query]
-    (let [operator (string/lower-case (first query))]
-      (cond
-        (#{"="} operator) :equality
-        ))))
+(defn compile-equals-term
+  "Compile a report query into a structured map reflecting the terms
+   of the query. Currnetly only the `=` operator is supported"
+  [& [path value :as term]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (let [num-args (count term)]
+    (when-not (= 2 num-args)
+      (throw (IllegalArgumentException.
+              (format "= requires exactly two arguments, but we found %d" num-args)))))
+  (case path
+    "certname" {:where "reports.certname = ?"
+                :params [value] }
+    "hash"     {:where "reports.hash = ?"
+                :params [value]}
+    (throw (IllegalArgumentException.
+            (format "'%s' is not a valid query term" path)))))
+
+(def report-term-map {"=" compile-equals-term})
 
 (defn report-query->sql
   "Compile a report query into an SQL expression."
   [query]
   {:pre [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
-  (let [{:keys [where params]} (compile-report-term query)]
+  (let [{:keys [where params]} (compile-term report-term-map query)]
     (apply vector (format " WHERE %s" where) params)))
 
 (def report-columns
@@ -55,23 +66,6 @@
                     paging-options)]
       (update-in results [:result]
         (fn [rs] (map #(utils/mapkeys underscores->dashes %) rs))))))
-
-
-(defmethod compile-report-term :equality
-  [[op path value :as term]]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (let [count (count term)]
-    (if (not= 3 count)
-      (throw (IllegalArgumentException.
-               (format "%s requires exactly two arguments, but we found %d" op (dec count))))))
-  (case path
-    "certname" {:where "reports.certname = ?"
-                :params [value] }
-    "hash"     {:where "reports.hash = ?"
-                :params [value]}
-    (throw (IllegalArgumentException.
-                 (str term " is not a valid query term")))))
 
 (defn reports-for-node
   "Return reports for a particular node."
