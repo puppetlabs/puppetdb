@@ -315,38 +315,56 @@
                   [catalog-id source-hash target-hash type])]
     (apply sql/do-prepared the-sql rows)))
 
+(defn update-catalog-hash-match
+  "When a new incoming catalog has the same hash as an existing catalog, update metrics
+   and the transaction id for the new catalog"
+  [hash {:keys [api-version version transaction-uuid]}]
+  (inc! (:duplicate-catalog metrics))
+  (update-catalog-metadata! hash api-version version transaction-uuid))
+
+(defn update-catalog-hash-miss
+  "New catalogs for a given certname needs to have their metadata, resources and edges updated.  This
+   function also outputs debugging related information when `catalog-hash-debug-dir` is not nil"
+  [hash {:keys [api-version version transaction-uuid resources edges] :as catalog} resource-hashes catalog-hash-debug-dir]
+
+  (inc! (:new-catalog metrics))
+
+  (when catalog-hash-debug-dir
+    (shash/debug-catalog catalog-hash-debug-dir hash catalog))
+
+  (let [catalog-id (:id (add-catalog-metadata! hash api-version
+                                               version transaction-uuid))
+        refs-to-hashes (zipmap (keys resources)
+                               resource-hashes)]
+    (time! (:add-resources metrics)
+           (add-resources! catalog-id resources refs-to-hashes))
+    (time! (:add-edges metrics)
+           (add-edges! catalog-id edges refs-to-hashes))))
+
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
   similarity hash"
-  [{:keys [api-version version transaction-uuid resources edges] :as catalog}]
-  {:pre [(number? api-version)
-         (coll? edges)
-         (map? resources)]}
+  ([catalog]
+     (add-catalog! catalog nil))
+  ([{:keys [api-version version transaction-uuid resources edges] :as catalog} catalog-hash-debug-dir]
+      {:pre [(number? api-version)
+             (coll? edges)
+             (map? resources)
+             (or (nil? catalog-hash-debug-dir)
+                 (string? catalog-hash-debug-dir))]}
 
-  (time! (:add-catalog metrics)
-         (let [resource-hashes (time! (:resource-hashes metrics)
-                                      (doall
-                                       (map shash/resource-identity-hash (vals resources))))
-               hash            (time! (:catalog-hash metrics)
-                                      (shash/catalog-similarity-hash catalog))]
+      (time! (:add-catalog metrics)
+             (let [resource-hashes (time! (:resource-hashes metrics)
+                                          (mapv shash/resource-identity-hash (vals resources)))
+                   hash            (time! (:catalog-hash metrics)
+                                          (shash/catalog-similarity-hash catalog))]
 
-           (sql/transaction
-            (let [exists? (catalog-exists? hash)]
+               (sql/transaction
+                (if (catalog-exists? hash)
+                  (update-catalog-hash-match hash catalog)
+                  (update-catalog-hash-miss hash catalog resource-hashes catalog-hash-debug-dir)))
 
-              (when exists?
-                (inc! (:duplicate-catalog metrics))
-                (update-catalog-metadata! hash api-version version transaction-uuid))
-
-              (when-not exists?
-                (inc! (:new-catalog metrics))
-                (let [catalog-id     (:id (add-catalog-metadata! hash api-version version transaction-uuid))
-                      refs-to-hashes (zipmap (keys resources) resource-hashes)]
-                  (time! (:add-resources metrics)
-                         (add-resources! catalog-id resources refs-to-hashes))
-                  (time! (:add-edges metrics)
-                         (add-edges! catalog-id edges refs-to-hashes))))))
-
-           hash)))
+               hash))))
 
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
@@ -414,13 +432,15 @@
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
   associated host with the supplied one."
-  [{:keys [certname] :as catalog} timestamp]
-  {:pre [(utils/datetime? timestamp)]}
-  (time! (:replace-catalog metrics)
-         (sql/transaction
-          (let [catalog-hash (add-catalog! catalog)]
-            (dissociate-all-catalogs-for-certname! certname)
-            (associate-catalog-with-certname! catalog-hash certname timestamp)))))
+  ([catalog timestamp]
+     (replace-catalog! catalog timestamp nil))
+  ([{:keys [certname] :as catalog} timestamp catalog-hash-debug-dir]
+     {:pre [(utils/datetime? timestamp)]}
+     (time! (:replace-catalog metrics)
+            (sql/transaction
+             (let [catalog-hash (add-catalog! catalog catalog-hash-debug-dir)]
+               (dissociate-all-catalogs-for-certname! certname)
+               (associate-catalog-with-certname! catalog-hash certname timestamp))))))
 
 (defn insert-facts!
   "Given a certname and map of fact/value keypairs, insert them into the facts table"

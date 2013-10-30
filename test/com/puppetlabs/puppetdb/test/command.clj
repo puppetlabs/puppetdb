@@ -215,12 +215,12 @@
         (is (= (count @names) 2))
         (is (= true (every? #(.startsWith % "foobar") @names)))))))
 
-(defmacro test-msg-handler
-  [command publish-var discard-var & body]
+(defmacro test-msg-handler*
+  [command publish-var discard-var opts-map & body]
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir)
-         handle-message# (produce-message-handler publish# discard-dir# {:db *db*})
+         handle-message# (produce-message-handler publish# discard-dir# ~opts-map)
          msg#            (json/generate-string ~command)]
      (try
        (binding [*logger-factory* (atom-logger log-output#)]
@@ -233,6 +233,21 @@
          )
        (finally
          (fs/delete-dir discard-dir#)))))
+
+(defmacro test-msg-handler
+  "Runs `command` (after converting to JSON) through the MQ message handlers.
+   `body` is executed with `publish-var` bound to the number of times the message
+   was processed and `discard-var` bound to the directory that contains failed messages."
+  [command publish-var discard-var & body]
+  `(test-msg-handler* ~command ~publish-var ~discard-var {:db *db*} ~@body))
+
+(defmacro test-msg-handler-with-opts
+  "Similar to test-msg-handler, but allows the passing of additional config
+   options to the message handler via `opts-map`."
+  [command publish-var discard-var opts-map & body]
+  `(test-msg-handler* ~command ~publish-var ~discard-var (merge {:db *db*}
+                                                                ~opts-map)
+                      ~@body))
 
 (deftest command-processor-integration
   (let [command {:command "some command" :version 1 :payload "payload"}]
@@ -337,6 +352,23 @@
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
+
+        (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
+          (with-fixtures
+            (sql/insert-record :certnames {:name certname})
+            
+            (let [debug-dir (fs/absolute-path (temp-dir))
+                  catalog-id (:id (sql/insert-values :catalogs [:hash :api_version :catalog_version] ["some_catalog_hash" 1 "foo"]))]
+
+            (sql/insert-record :certname_catalogs {:certname certname :catalog_id catalog-id})
+
+              (is (nil? (fs/list-dir debug-dir)))
+              (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
+                (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
+                     [{:certname certname :catalog catalog-hash}]))                
+                (is (= 5 (count (fs/list-dir debug-dir))))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir)))))))
 
         (let [command {:command (command-names :replace-catalog)
                        :version command-version
@@ -595,5 +627,6 @@
 
 ;; Local Variables:
 ;; mode: clojure
-;; eval: (define-clojure-indent (test-msg-handler (quote defun)))
+;; eval: (define-clojure-indent (test-msg-handler (quote defun))
+;;                              (test-msg-handler-with-opts (quote defun)))
 ;; End:

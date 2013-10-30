@@ -13,7 +13,8 @@
   com.puppetlabs.cheshire
   (:require [cheshire.generate :as generate]
             [cheshire.core :as core]
-            [clj-time.coerce :as coerce]))
+            [clj-time.coerce :as coerce]
+            [clojure.java.io :as io]))
 
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
@@ -45,3 +46,11 @@
 (def parse-string core/parse-string)
 
 (def parse-stream core/parse-stream)
+
+(defn spit-json
+  "Similar to clojure.core/spit, but writes the Clojure
+   datastructure as JSON to `f`"
+  [f obj & options]
+  (with-open [writer (apply io/writer f options)]
+    (generate-stream obj writer {:pretty true}))
+  nil)

@@ -6,7 +6,14 @@
             [com.puppetlabs.puppetdb.examples :refer [catalogs]]
             [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [com.puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [com.puppetlabs.puppetdb.report.utils :as reputils]))
+            [com.puppetlabs.puppetdb.report.utils :as reputils]
+            [clj-time.core :as time]
+            [com.puppetlabs.puppetdb.scf.storage :as store]
+            [com.puppetlabs.puppetdb.testutils :as tu]
+            [fs.core :as fs]
+            [com.puppetlabs.puppetdb.fixtures :as fixt]
+            [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.utils :as utils]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -15,9 +22,9 @@
         (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
               sorted   (into (sorted-map) unsorted)
               reversed (into (sorted-map-by (fn [k1 k2] (compare k2 k1))) unsorted)]
-            (is (= (func {:foo unsorted})
-                   (func {:foo sorted})
-                   (func {:foo reversed})))))
+          (is (= (func {:foo unsorted})
+                 (func {:foo sorted})
+                 (func {:foo reversed})))))
       (testing "should not match when two different data structures are supplied"
         (let [a {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
               b {:z 26 :i 8 :j 9 :k 10 :l 11 :m 12 :n 13}]
@@ -43,7 +50,7 @@
 
     (testing "should be equal for the base case"
       (is (= (resource-identity-hash {})
-            (resource-identity-hash {}))))
+             (resource-identity-hash {}))))
 
     (testing "shouldn't change for identical input"
       (doseq [i (range 10)
@@ -53,35 +60,24 @@
 
     (testing "shouldn't change for equivalent input"
       (is (= (resource-identity-hash {:foo 1 :bar 2})
-            (resource-identity-hash {:bar 2 :foo 1})))
+             (resource-identity-hash {:bar 2 :foo 1})))
       (is (= (resource-identity-hash {:tags #{1 2 3}})
-            (resource-identity-hash {:tags #{3 2 1}}))))
+             (resource-identity-hash {:tags #{3 2 1}}))))
 
     (testing "should be different for non-equivalent resources"
-      ; Take a population of 5 resource, put them into a set to make
-      ; sure we only care about a population of unique resources, take
-      ; any 2 elements from that set, and those 2 resources should
-      ; have different hashes.
+      ;; Take a population of 5 resource, put them into a set to make
+      ;; sure we only care about a population of unique resources, take
+      ;; any 2 elements from that set, and those 2 resources should
+      ;; have different hashes.
       (let [candidates (set (repeatedly 5 random/random-kw-resource))
             pairs      (combinations candidates 2)]
         (doseq [[r1 r2] pairs]
           (is (not= (resource-identity-hash r1)
-                (resource-identity-hash r2))))))
+                    (resource-identity-hash r2))))))
 
     (testing "should return the same predictable string"
       (is (= (resource-identity-hash {:foo 1 :bar 2})
              "b4199f8703c5dc208054a62203db132c3d12581c"))))
-
-  (testing "edge-identity-string"
-    (let [sample {:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]
-
-      (testing "shouldn't change for identical input"
-        (is (= (edge-identity-string sample)
-               (edge-identity-string sample))))
-
-      (testing "should return the same predictable string"
-        (is (= (edge-identity-string sample)
-               "{\"source\":{\"title\":\"foo\",\"type\":\"Type\"},\"target\":{\"title\":\"/tmp\",\"type\":\"File\"}}")))))
 
   (testing "catalog-similarity-hash"
     (let [sample {:certname  "foobar.baz"
@@ -94,7 +90,7 @@
 
       (testing "should return the same predictable string"
         (is (= (catalog-similarity-hash sample)
-               "9a26b461f23e46e0d74a4176845da245bf290314")))))
+               "40f42c42bcd81ae28ab306ab64498f0bd6674ce6")))))
 
   (testing "resource-event-identity-string"
     (let [sample {:resource-type  "Type"
@@ -114,7 +110,7 @@
         (is (= (resource-event-identity-string sample)
                "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new-value\":\"foo\",\"old-value\":\"baz\",\"property\":\"name\",\"resource-title\":\"foo\",\"resource-type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
 
-  (testing "catalog-resource-identity-string"
+  (testing "catalog-resource-identity-format"
     (let [sample {:type "Type"
                   :title "title"
                   :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
@@ -123,12 +119,22 @@
                   :line 15}]
 
       (testing "should return sorted predictable string output"
-        (is (= (catalog-resource-identity-string sample)
-               "[\"Type\",\"title\",false,\"/tmp/zzz\",15,{\"a\":1,\"c\":3,\"d\":{\"b\":2,\"c\":[\"a\",\"b\",\"c\"]}}]")))
+        (is (= (sorted-map :type "Type"
+                           :title "title"
+                           :parameters (sorted-map :d (sorted-map :b 2 :c [:a :b :c])
+                                                   :c 3
+                                                   :a 1)
+                           :exported false
+                           :file "/tmp/zzz"
+                           :line 15)
+               (catalog-resource-identity-format sample))))
 
-      (testing "should return the same value twice"
-        (is (= (catalog-resource-identity-string sample)
-               (catalog-resource-identity-string sample))))))
+      (testing "should ignore extra key/values"
+        (is (= (sorted-map :type "Type"
+                           :title "title")
+               (catalog-resource-identity-format {:type "Type"
+                                                  :title "title"
+                                                  :foo "bar"}))))))
 
   (testing "report-identity-hash"
     (let [sample {:certname "foobar.baz"
@@ -138,11 +144,11 @@
                   :start-time "2012-03-01-12:31:11.123"
                   :end-time   "2012-03-01-12:31:31.123"
                   :resource-events [
-                    {:type "Type"
-                     :title "title"
-                     :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
-                     :exported false :file "/tmp/zzz"
-                     :line 15}]}]
+                                    {:type "Type"
+                                     :title "title"
+                                     :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
+                                     :exported false :file "/tmp/zzz"
+                                     :line 15}]}]
 
       (testing "should return sorted predictable string output"
         (is (= (report-identity-hash sample)
@@ -224,3 +230,173 @@
         (doseq [mod-report-fn mod-report-fns]
           (is (not= report-hash (report-identity-hash (mod-report-fn report)))))))))
 
+(defn persist-catalog
+  "Adds the certname and full catalog to the database, returns the catalog map with
+   the generated as as `:persisted-hash`"
+  [{:keys [certname] :as catalog}]
+  (store/add-certname! certname)
+  (let [persisted-hash (store/add-catalog! catalog)]
+    (store/associate-catalog-with-certname! persisted-hash certname (time/now))
+    (assoc catalog :persisted-hash persisted-hash)))
+
+(defn find-file
+  "Finds files in `dir` with the given `suffix`. Useful for the debugging
+   files that include a UUID in the prefix of the file name."
+  [^String suffix dir]
+  (first
+   (for [f (fs/list-dir dir)
+         :when (.endsWith f suffix)]
+     (str dir "/" f))))
+
+(def ^{:doc "Reads a catalog debugging clojure file from the file system."}
+  slurp-clj
+  (comp read-string slurp find-file))
+
+(def ^{:doc "Reads/parses a JSON catalog debugging file from the file system."}
+  slurp-json
+  (comp json/parse-string slurp find-file))
+
+(deftest debug-catalog-output
+  (fixt/with-test-db
+    (fn []
+      (let [debug-dir (fs/absolute-path (tu/temp-dir))
+            {:keys [persisted-hash] :as orig-catalog} (persist-catalog (:basic catalogs))
+            new-catalog (assoc-in (:basic catalogs)
+                                  [:resources {:type "File"
+                                               :title "/etc/foobar/bazv2"}]
+                                  {:type "File"
+                                   :title "/etc/foobar/bazv2"})
+            new-hash (catalog-similarity-hash new-catalog)]
+
+        (is (nil? (fs/list-dir debug-dir)))
+        (debug-catalog debug-dir new-hash new-catalog)
+        (is (= 5 (count (fs/list-dir debug-dir))))
+
+        (let [{old-edn-res :resources
+               old-edn-edges :edges
+               :as old-edn} (slurp-clj "old-catalog.edn" debug-dir)
+              {new-edn-res :resources
+               new-edn-eges :edges
+               :as new-edn} (slurp-clj "new-catalog.edn" debug-dir)
+              {old-json-res "resources"
+               old-json-edges "edges"
+               :as old-json} (slurp-json "old-catalog.json" debug-dir)
+              {new-json-res "resources"
+               new-json-edges "edges"
+               :as new-json} (slurp-json "new-catalog.json" debug-dir)
+              catalog-metadata (slurp-json "catalog-metadata.json" debug-dir)]
+
+          (is (some #(= "/etc/foobar/bazv2" (:title %)) new-edn-res))
+          (is (some #(= "/etc/foobar/bazv2" (get % "title")) new-json-res))
+          (is (not-any? #(= "/etc/foobar/bazv2" (get % "title")) old-json-res))
+          (is (not-any? #(= "/etc/foobar/bazv2" (:title %)) old-edn-res))
+
+          (is (seq old-edn-res))
+          (is (seq old-edn-edges))
+          (is (seq old-json-res))
+          (is (seq old-json-edges))
+
+          (are [metadata-key] (contains? catalog-metadata metadata-key)
+               "java version"
+               "new catalog hash"
+               "old catalog hash"
+               "database name"
+               "database version")
+
+          (are [metadata-key] (and (utils/string-contains? (:certname new-catalog)
+                                                           (get catalog-metadata metadata-key))
+                                   (.startsWith (get catalog-metadata metadata-key) debug-dir))
+               "old catalog path - edn"
+               "new catalog path - edn"
+               "old catalog path - json"
+               "new catalog path - json")
+
+          (is (not= (get catalog-metadata "new catalog hash")
+                    (get catalog-metadata "old catalog hash"))))))))
+
+(deftest debug-catalog-output-filename-uniqueness
+  (fixt/with-test-db
+    (fn []
+      (let [debug-dir (fs/absolute-path (tu/temp-dir))
+            {:keys [persisted-hash] :as orig-catalog} (persist-catalog (:basic catalogs))
+
+            new-catalog-1 (assoc-in (:basic catalogs)
+                                    [:resources {:type "File" :title "/etc/foobar/bazv2"}]
+                                    {:type       "File"
+                                     :title      "/etc/foobar/bazv2"})
+            new-hash-1 (catalog-similarity-hash new-catalog-1)
+
+            new-catalog-2 (assoc-in (:basic catalogs)
+                                    [:resources {:type "File" :title "/etc/foobar/bazv3"}]
+                                    {:type       "File"
+                                     :title      "/etc/foobar/bazv2"})
+            new-hash-2 (catalog-similarity-hash new-catalog-2)]
+
+        (is (nil? (fs/list-dir debug-dir)))
+        (debug-catalog debug-dir new-hash-1 new-catalog-1)
+        (debug-catalog debug-dir new-hash-2 new-catalog-2)
+        (is (= 10 (count (fs/list-dir debug-dir))))))))
+
+(deftest comparing-resources
+  (let [unsorted-results [{:title "z" :type "z"}
+                          {:title "z" :type "w"}
+                          {:title "z" :type "x"}
+                          {:title "b" :type "z"}
+                          {:title "a" :type "z"}
+                          {:title "c" :type "c"}
+                          {:title "c" :type "c"}]
+        sorted-results [{:title "a" :type "z"}
+                        {:title "b" :type "z"}
+                        {:title "c" :type "c"}
+                        {:title "c" :type "c"}
+                        {:title "z" :type "w"}
+                        {:title "z" :type "x"}
+                        {:title "z" :type "z"}]]
+
+    (is (= sorted-results
+           (sort resource-comparator unsorted-results)))
+    (is (= sorted-results
+           (sort resource-comparator (shuffle unsorted-results))))
+    (is (= sorted-results
+           (sort resource-comparator
+                 (sort resource-comparator unsorted-results))))))
+
+(deftest comparing-edges
+  (let [unsorted-results [{:source {:title "a" :type "z"}
+                           :target {:title "b" :type "z"}
+                           :relationship "contains"}
+                          {:source {:title "a" :type "c"}
+                           :target {:title "b" :type "c"}
+                           :relationship "contains"}
+                          {:source {:title "a" :type "c"}
+                           :target {:title "b" :type "b"}
+                           :relationship "contains"}
+                          {:source {:title "a" :type "z"}
+                           :target {:title "b" :type "z"}
+                           :relationship "before"}
+                          {:source {:title "a" :type "b"}
+                           :target {:title "b" :type "z"}
+                           :relationship "contains"}]
+        sorted-results [{:source {:title "a" :type "b"}
+                         :target {:title "b" :type "z"}
+                         :relationship "contains"}
+                        {:source {:title "a" :type "c"}
+                         :target {:title "b" :type "b"}
+                         :relationship "contains"}
+                        {:source {:title "a" :type "c"}
+                         :target {:title "b" :type "c"}
+                         :relationship "contains"}
+                        {:source {:title "a" :type "z"}
+                         :target {:title "b" :type "z"}
+                         :relationship "before"}
+                        {:source {:title "a" :type "z"}
+                         :target {:title "b" :type "z"}
+                         :relationship "contains"}]]
+
+    (is (= sorted-results
+           (sort edge-comparator unsorted-results)))
+    (is (= sorted-results
+           (sort edge-comparator (shuffle unsorted-results))))
+    (is (= sorted-results
+           (sort edge-comparator
+                 (sort edge-comparator unsorted-results))))))

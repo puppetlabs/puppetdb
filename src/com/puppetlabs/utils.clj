@@ -66,6 +66,11 @@
    :post [(boolean? %)]}
   (.contains s substring))
 
+(defn true-str?
+  "Return true if the string contains true"
+  [^String s]
+  (.equalsIgnoreCase "true" s))
+
 ;; ## I/O
 
 (defn lines
@@ -731,6 +736,10 @@
                                    (first)
                                    (split #"[\\._]")))]
     (compare (parse a) (parse b))))
+
+(def ^{:doc "Returns a string of the currently running java version"}
+  java-version
+  (System/getProperty "java.version"))
 
 ;; control flow
 
