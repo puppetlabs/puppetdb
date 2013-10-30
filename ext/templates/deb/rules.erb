@@ -2,8 +2,10 @@
 # -*- makefile -*-
 
 export DH_OPTIONS
-
+SHELL := /bin/bash
 BUILD_ROOT=$(CURDIR)/debian/tmp
+DIST := $(shell lsb_release -i | awk '{print tolower($$3)}')
+RELEASE := $(shell lsb_release -r | awk '{print $$2}')
 
 %:
 	dh $@
@@ -34,9 +36,27 @@ binary-indep: build install
 	dh_installlogcheck
 	dh_installman
 <% if @pe -%>
+	if [[ ${DIST} == debian ]] ; then \
+		if [[ $$(echo "${RELEASE}>=7" | bc -l) -eq 1 || ${RELEASE} == testing || ${RELEASE} == unstable ]] ; then \
+			sed -i '/notifempty/a\    su pe-puppetdb pe-puppetdb' $(CURDIR)/debian/pe-puppetdb.logrotate ; \
+		fi ; \
+	elif [[ ${DIST} == ubuntu ]] ; then \
+		if [[ $$(echo "${RELEASE}>=13.04" | bc -l) -eq 1 ]] ; then \
+			sed -i '/notifempty/a\    su pe-puppetdb pe-puppetdb' $(CURDIR)/debian/pe-puppetdb.logrotate ; \
+		fi ; \
+	fi
 	dh_installinit -ppe-puppetdb
 	dh_installlogrotate -i -ppe-puppetdb
 <% else -%>
+	if [[ ${DIST} == debian ]] ; then \
+		if [[ $$(echo "${RELEASE}>=7" | bc -l) -eq 1 || ${RELEASE} == testing || ${RELEASE} == unstable ]] ; then \
+			sed -i '/notifempty/a\    su puppetdb puppetdb' $(CURDIR)/debian/puppetdb.logrotate ; \
+		fi ; \
+	elif [[ ${DIST} == ubuntu ]] ; then \
+		if [[ $$(echo "${RELEASE}>=13.04" | bc -l) -eq 1 ]] ; then \
+			sed -i '/notifempty/a\    su puppetdb puppetdb' $(CURDIR)/debian/puppetdb.logrotate ; \
+		fi ; \
+	fi
 	dh_installinit -ppuppetdb
 	dh_installlogrotate -i -ppuppetdb
 <% end -%>
