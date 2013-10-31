@@ -19,8 +19,8 @@
   "Fetch the edges for the current catalog for the given `node`."
   [node]
   (let [query (str "SELECT sources.type AS source_type, sources.title AS source_title, targets.type AS target_type, targets.title AS target_title, edges.type AS relationship "
-                   "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog = edges.catalog INNER JOIN catalog_resources sources ON edges.catalog = sources.catalog AND source = sources.resource "
-                   "INNER JOIN catalog_resources targets ON edges.catalog = targets.catalog AND target = targets.resource WHERE certname = ?")]
+                   "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog_id = edges.catalog_id INNER JOIN catalog_resources sources ON edges.catalog_id = sources.catalog_id AND source = sources.resource "
+                   "INNER JOIN catalog_resources targets ON edges.catalog_id = targets.catalog_id AND target = targets.resource WHERE certname = ?")]
     (set (for [{:keys [source_type source_title target_type target_title relationship]} (query-to-vec query node)]
            {:source       {:type source_type :title source_title}
             :target       {:type target_type :title target_title}

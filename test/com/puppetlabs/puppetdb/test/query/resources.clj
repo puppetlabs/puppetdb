@@ -53,24 +53,24 @@
    {:name "subset.local"})
   (sql/insert-records
     :catalogs
-    {:hash "foo" :api_version 1 :catalog_version "12"}
-    {:hash "bar" :api_version 1 :catalog_version "14"})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12"}
+    {:id 2 :hash "bar" :api_version 1 :catalog_version "14"})
   (sql/insert-records
     :certname_catalogs
-    {:certname "example.local" :catalog "foo"}
-    {:certname "subset.local" :catalog "bar"})
+    {:certname "example.local" :catalog_id 1}
+    {:certname "subset.local" :catalog_id 2})
   (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-    {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
-    {:catalog "foo" :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
-    {:catalog "foo" :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
-    {:catalog "foo" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
-    {:catalog "foo" :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
-    {:catalog "foo" :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
-    {:catalog "foo" :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
-    {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
-    {:catalog "bar" :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-    {:catalog "bar" :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+    {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+    {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
+    {:catalog_id 1 :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
+    {:catalog_id 1 :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
+    {:catalog_id 1 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
+    {:catalog_id 1 :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
+    {:catalog_id 1 :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
+    {:catalog_id 1 :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
+    {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
+    {:catalog_id 2 :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+    {:catalog_id 2 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
   (let [foo1 {:certname   "example.local"
               :resource   "1"
               :type       "File"
@@ -329,14 +329,14 @@
   (sql/insert-records :certnames
     {:name "foo.local"})
   (sql/insert-records :catalogs
-    {:hash "foo" :api_version 1 :catalog_version "12"})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12"})
   (sql/insert-records :certname_catalogs
-    {:certname "foo.local" :catalog "foo"})
+    {:certname "foo.local" :catalog_id 1})
   (sql/insert-records :catalog_resources
-    {:catalog "foo" :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-    {:catalog "foo" :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
-    {:catalog "foo" :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-    {:catalog "foo" :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+    {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+    {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
+    {:catalog_id 1 :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+    {:catalog_id 1 :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
 
   (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :parameters {"ensure" "file" "group" "root" "owner" "root"}}
         r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :parameters {"enabled" "false" "random" "true"}}

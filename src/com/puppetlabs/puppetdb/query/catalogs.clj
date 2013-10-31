@@ -22,7 +22,7 @@
   (let [query (str "SELECT catalog_version, transaction_uuid "
                "FROM catalogs "
                "INNER JOIN certname_catalogs "
-               "ON certname_catalogs.catalog = catalogs.hash "
+               "ON certname_catalogs.catalog_id = catalogs.id "
                "WHERE certname = ?")]
     (mapkeys underscores->dashes (first (query-to-vec query node)))))
 
@@ -66,12 +66,12 @@
                 "targets.type AS target_type, "
                 "targets.title AS target_title, "
                 "edges.type AS relationship "
-                "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog = edges.catalog "
+                "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog_id = edges.catalog_id "
                 "INNER JOIN catalog_resources sources "
-                    "ON edges.catalog = sources.catalog "
+                    "ON edges.catalog_id = sources.catalog_id "
                     "AND source = sources.resource "
                 "INNER JOIN catalog_resources targets "
-                    "ON edges.catalog = targets.catalog "
+                    "ON edges.catalog_id = targets.catalog_id "
                     "AND target = targets.resource "
                 "WHERE certname = ?")]
     (for [{:keys [source_type

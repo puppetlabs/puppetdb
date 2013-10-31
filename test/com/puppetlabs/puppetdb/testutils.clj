@@ -27,7 +27,7 @@
   (throw (IllegalStateException.
            (str "No test database configuration found!  Please make sure that "
               "your test config file defines a no-arg function named "
-             "'test-db-config'."))))
+              "'test-db-config'."))))
 
 (defn load-test-config
   "Loads the test configuration file from the classpath.  First looks for

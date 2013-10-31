@@ -252,7 +252,7 @@
 
   The result map has the following format:
 
-    {:resource [[<catalog hash> <resouce hash> <type> <title> <tags> <exported?> <sourcefile> <sourceline>] ...]
+    {:resource [[<resouce hash> <type> <title> <tags> <exported?> <sourcefile> <sourceline> <catalog hash>] ...]
      :parameters [[<resource hash> <name> <value>] ...]
      :parameters_cache [[<resource hash> <parameters>] ...]}
 
@@ -265,7 +265,7 @@
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:resource :parameters :parameters_cache})]}
-  (let [values {:resource         [[catalog-hash resource-hash type title (sutils/to-jdbc-varchar-array tags) exported file line]]
+  (let [values {:resource         [[resource-hash type title (sutils/to-jdbc-varchar-array tags) exported file line catalog-hash]]
                 :parameters       []
                 :parameters_cache []}]
 
@@ -284,7 +284,7 @@
                               :let [hash (refs-to-hashes ref)]]
                           (resource->values catalog-hash resource hash (persisted? hash)))
         lookup-table    [[:parameters_cache "INSERT INTO resource_params_cache (resource, parameters) VALUES (?, ?)"]
-                         [:resource "INSERT INTO catalog_resources (catalog,resource,type,title,tags,exported,file,line) VALUES (?,?,?,?,?,?,?,?)"]
+                         [:resource "INSERT INTO catalog_resources (catalog_id,resource,type,title,tags,exported,file,line) SELECT id,?,?,?,?,?,?,? FROM catalogs WHERE hash = ?"]
                          [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
     (sql/transaction
      (doseq [[lookup the-sql] lookup-table
@@ -305,12 +305,12 @@
   {:pre [(string? catalog-hash)
          (coll? edges)
          (map? refs-to-hashes)]}
-  (let [the-sql "INSERT INTO edges (catalog,source,target,type) VALUES (?,?,?,?)"
+  (let [the-sql "INSERT INTO edges (catalog_id,source,target,type) SELECT id,?,?,? FROM catalogs WHERE hash=?"
         rows    (for [{:keys [source target relationship]} edges
                       :let [source-hash (refs-to-hashes source)
                             target-hash (refs-to-hashes target)
                             type        (name relationship)]]
-                  [catalog-hash source-hash target-hash type])]
+                  [source-hash target-hash type catalog-hash])]
     (apply sql/do-prepared the-sql rows)))
 
 (defn add-catalog!
@@ -354,12 +354,12 @@
 (defn associate-catalog-with-certname!
   "Creates a relationship between the given certname and catalog"
   [catalog-hash certname timestamp]
-  (sql/insert-record :certname_catalogs {:certname certname :catalog catalog-hash :timestamp (to-timestamp timestamp)}))
+  (sql/do-prepared "INSERT INTO certname_catalogs (certname, catalog_id, timestamp) SELECT ?,id,? FROM catalogs WHERE hash=?" [certname (to-timestamp timestamp) catalog-hash]))
 
 (defn dissociate-catalog-with-certname!
   "Breaks the relationship between the given certname and catalog"
   [catalog-hash certname]
-  (sql/delete-rows :certname_catalogs ["certname=? AND catalog=?" certname catalog-hash]))
+  (sql/do-prepared "DELETE FROM certname_catalogs WHERE certname=? AND catalog_id=(SELECT id FROM catalogs WHERE hash=?)" [certname catalog-hash]))
 
 (defn dissociate-all-catalogs-for-certname!
   "Breaks all relationships between `certname` and any catalogs"
@@ -371,7 +371,7 @@
   certname"
   [certname]
   (sql/with-query-results result-set
-    ["SELECT catalog FROM certname_catalogs WHERE certname=?" certname]
+    ["SELECT c.hash as catalog FROM catalogs c, certname_catalogs cc WHERE cc.certname=? and cc.catalog_id=c.id" certname]
     (mapv :catalog result-set)))
 
 (defn catalog-newer-than?
@@ -391,7 +391,7 @@
   "Remove any catalogs that aren't associated with a certname"
   []
   (time! (:gc-catalogs metrics)
-         (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog=catalogs.hash)"])))
+         (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalogs.id)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"

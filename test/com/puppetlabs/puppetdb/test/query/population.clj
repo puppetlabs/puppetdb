@@ -20,13 +20,13 @@
 
       (sql/insert-records
        :catalogs
-       {:hash "c1" :api_version 1 :catalog_version "1"}
-       {:hash "c2" :api_version 1 :catalog_version "1"})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1"}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1"})
 
       ;; The catalog "c2" isn't associated with a node
       (sql/insert-records
        :certname_catalogs
-       {:certname "h1" :catalog "c1"})
+       {:certname "h1" :catalog_id 1})
 
       (sql/insert-records
        :resource_params_cache
@@ -36,11 +36,11 @@
 
       (sql/insert-records
        :catalog_resources
-       {:catalog "c1" :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
        ;; c2's resource shouldn't be counted, as they don't correspond to an active node
-       {:catalog "c2" :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog "c1" :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog "c1" :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+       {:catalog_id 2 :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
       (is (= 3 (pop/num-resources))))
 
@@ -78,13 +78,13 @@
 
       (sql/insert-records
        :catalogs
-       {:hash "c1" :api_version 1 :catalog_version "1"}
-       {:hash "c2" :api_version 1 :catalog_version "1"})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1"}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1"})
 
       (sql/insert-records
        :certname_catalogs
-       {:certname "h1" :catalog "c1"}
-       {:certname "h2" :catalog "c2"})
+       {:certname "h1" :catalog_id 1}
+       {:certname "h2" :catalog_id 2})
 
       (sql/insert-records
        :resource_params_cache
@@ -94,10 +94,10 @@
 
       (sql/insert-records
        :catalog_resources
-       {:catalog "c1" :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog "c2" :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog "c1" :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog "c1" :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+       {:catalog_id 1 :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 2 :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
       (let [total  4
             unique 3

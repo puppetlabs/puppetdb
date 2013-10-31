@@ -308,7 +308,7 @@
 (deftest replace-catalog
   (doseq [[command-version catalog] {1 (get-in wire-catalogs [1 :empty])
                                      2 (get-in wire-catalogs [2 :empty])}]
-    (testing (str (command-names :replace-catalog) command-version)
+    (testing (str (command-names :replace-catalog) " " command-version)
       (let [command      {:command (command-names :replace-catalog)
                           :version command-version
                           :payload (json/generate-string catalog)}
@@ -329,11 +329,11 @@
         (testing "with an existing catalog should replace the catalog"
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
-            (sql/insert-record :catalogs {:hash "some_catalog_hash" :api_version 1 :catalog_version "foo"})
-            (sql/insert-record :certname_catalogs {:certname certname :catalog "some_catalog_hash"})
+            (let [catalog-id (:id (sql/insert-values :catalogs [:hash :api_version :catalog_version] ["some_catalog_hash_existing" 1 "foo"]))]
+              (sql/insert-record :certname_catalogs {:certname certname :catalog_id catalog-id}))
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
+              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -351,12 +351,12 @@
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
-            (sql/insert-record :catalogs {:hash "some_catalog_hash" :api_version 1 :catalog_version "foo"})
-            (sql/insert-record :certname_catalogs {:certname certname :catalog "some_catalog_hash" :timestamp tomorrow})
+            (sql/insert-record :catalogs {:id 1 :hash "some_catalog_hash_newer" :api_version 1 :catalog_version "foo"})
+            (sql/insert-record :certname_catalogs {:certname certname :catalog_id 1 :timestamp tomorrow})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
-                     [{:certname certname :catalog "some_catalog_hash"}]))
+              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
+                     [{:certname certname :catalog "some_catalog_hash_newer"}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -367,7 +367,7 @@
             (test-msg-handler command publish discard-dir
               (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                      [{:name certname :deactivated nil}]))
-              (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
+              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -378,7 +378,7 @@
           (test-msg-handler command publish discard-dir
                             (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                                    [{:name certname :deactivated tomorrow}]))
-                            (is (= (query-to-vec "SELECT certname,catalog FROM certname_catalogs")
+                            (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
                                    [{:certname certname :catalog catalog-hash}]))
                             (is (= 0 (times-called publish)))
                             (is (empty? (fs/list-dir discard-dir)))))))))

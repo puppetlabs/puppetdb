@@ -135,7 +135,7 @@
         (associate-catalog-with-certname! hash certname (now)))
 
       (testing "should contain proper catalog metadata"
-        (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog=c.hash"])
+        (is (= (query-to-vec ["SELECT cr.certname, c.api_version, c.catalog_version FROM catalogs c, certname_catalogs cr WHERE cr.catalog_id=c.id"])
               [{:certname certname :api_version 1 :catalog_version "123456789"}])))
 
       (testing "should contain a complete edges list"
@@ -154,7 +154,7 @@
                {:type "File" :title "/etc/foobar/baz"}]))
 
         (testing "properly associated with the host"
-          (is (= (query-to-vec ["SELECT cc.certname, cr.type, cr.title FROM catalog_resources cr, certname_catalogs cc WHERE cc.catalog=cr.catalog ORDER BY cr.type, cr.title"])
+          (is (= (query-to-vec ["SELECT cc.certname, cr.type, cr.title FROM catalog_resources cr, certname_catalogs cc WHERE cc.catalog_id=cr.catalog_id ORDER BY cr.type, cr.title"])
                 [{:certname certname :type "Class" :title "foobar"}
                  {:certname certname :type "File"  :title "/etc/foobar"}
                  {:certname certname :type "File"  :title "/etc/foobar/baz"}])))
@@ -271,7 +271,7 @@
 
       ;; no edges for myhost
       (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
-                              "WHERE e.catalog=cc.catalog AND cc.certname=?")
+                              "WHERE e.catalog_id=cc.catalog_id AND cc.certname=?")
                             certname])
             [{:c 0}]))
 

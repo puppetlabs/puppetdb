@@ -69,15 +69,15 @@
 
 (deftest paging-results
   (let [right-now (now)]
-    (doseq [[node facts-age catalog-age] [["node_a" 1 3]
-                                          ["node_b" 4 2]
-                                          ["node_c" 3 1]
-                                          ["node_d" 2 3]
-                                          ["node_e" 5 2]]]
+    (doseq [[id node facts-age catalog-age] [[1 "node_a" 1 3]
+                                             [2 "node_b" 4 2]
+                                             [3 "node_c" 3 1]
+                                             [4 "node_d" 2 3]
+                                             [5 "node_e" 5 2]]]
       (sql/insert-record :certnames {:name node})
       (sql/insert-record :certname_facts_metadata {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
-      (sql/insert-record :catalogs {:hash node :api_version 0 :catalog_version 0})
-      (sql/insert-record :certname_catalogs {:certname node :catalog node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
+      (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0})
+      (sql/insert-record :certname_catalogs {:catalog_id id :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 
   (testing "include total results count"
     (let [actual (:count (raw-retrieve-nodes nil {:count? true}))]
