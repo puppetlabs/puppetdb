@@ -28,7 +28,8 @@
             [clojure.tools.logging :as log]
             [com.puppetlabs.cheshire :as json]
             [clojure.data :as data]
-            [com.puppetlabs.puppetdb.scf.hash :as shash])
+            [com.puppetlabs.puppetdb.scf.hash :as shash]
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutil])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
@@ -37,141 +38,6 @@
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]
         [com.puppetlabs.jdbc :only [query-to-vec dashes->underscores]]))
-
-(defn sql-current-connection-database-name
-  "Return the database product name currently in use."
-  []
-  (.. (sql/find-connection)
-      (getMetaData)
-      (getDatabaseProductName)))
-
-(defn sql-current-connection-database-version
-  "Return the version of the database product currently in use."
-  []
-  {:post [(every? integer? %)
-          (= (count %) 2)]}
-  (let [db-metadata (.. (sql/find-connection)
-                      (getMetaData))
-        major (.getDatabaseMajorVersion db-metadata)
-        minor (.getDatabaseMinorVersion db-metadata)]
-    [major minor]))
-
-(defn postgres?
-  "Returns true if currently connected to a Postgres DB instance"
-  []
-  (= (sql-current-connection-database-name) "PostgreSQL"))
-
-(defn pg-newer-than-8-1?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
-  []
-  (and (postgres?)
-       (pos? (compare (sql-current-connection-database-version) [8 1]))))
-
-(defn sql-current-connection-table-names
-  "Return all of the table names that are present in the database based on the
-  current connection.  This is most useful for debugging / testing  purposes
-  to allow introspection on the database.  (Some of our unit tests rely on this.)"
-  []
-  (let [query   "SELECT table_name FROM information_schema.tables WHERE LOWER(table_schema) = 'public'"
-        results (sql/transaction (query-to-vec query))]
-    (map :table_name results)))
-
-(defn to-jdbc-varchar-array
-  "Takes the supplied collection and transforms it into a
-  JDBC-appropriate VARCHAR array."
-  [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
-
-(defmulti sql-array-type-string
-  "Returns a string representing the correct way to declare an array
-  of the supplied base database type."
-  ;; Dispatch based on database from the metadata of DB connection at the time
-  ;; of call; this copes gracefully with multiple connection types.
-  (fn [_] (sql-current-connection-database-name)))
-
-(defmulti sql-array-query-string
-  "Returns an SQL fragment representing a query for a single value being
-found in an array column in the database.
-
-  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
-
-The returned SQL fragment will contain *one* parameter placeholder, which
-must be supplied as the value to be matched."
-  (fn [column] (sql-current-connection-database-name)))
-
-(defmulti sql-as-numeric
-  "Returns appropriate db-specific code for converting the given column to a
-  number, or to NULL if it is not numeric."
-  (fn [_] (sql-current-connection-database-name)))
-
-(defmulti sql-regexp-match
-  "Returns db-specific code for performing a regexp match"
-  (fn [_] (sql-current-connection-database-name)))
-
-(defmulti sql-regexp-array-match
-  "Returns db-specific code for performing a regexp match against the
-  contents of an array. If any of the array's items match the supplied
-  regexp, then that satisfies the match."
-  (fn [_ _] (sql-current-connection-database-name)))
-
-(defmethod sql-array-type-string "PostgreSQL"
-  [basetype]
-  (format "%s ARRAY[1]" basetype))
-
-(defmethod sql-array-type-string "HSQL Database Engine"
-  [basetype]
-  (format "%s ARRAY[%d]" basetype 65535))
-
-(defmethod sql-array-query-string "PostgreSQL"
-  [column]
-  (if (pos? (compare (sql-current-connection-database-version) [8 1]))
-    (format "ARRAY[?::text] <@ %s" column)
-    (format "? = ANY(%s)" column)))
-
-(defmethod sql-array-query-string "HSQL Database Engine"
-  [column]
-  (format "? IN (UNNEST(%s))" column))
-
-(defmethod sql-as-numeric "PostgreSQL"
-  [column]
-  (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::integer "
-               "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
-               "ELSE NULL END")
-          column column column column))
-
-(defmethod sql-as-numeric "HSQL Database Engine"
-  [column]
-  (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS INTEGER) "
-               "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
-               "ELSE NULL END")
-          column column column column))
-
-(defmethod sql-regexp-match "PostgreSQL"
-  [column]
-  (format "%s ~ ?" column))
-
-(defmethod sql-regexp-match "HSQL Database Engine"
-  [column]
-  (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
-
-(defmethod sql-regexp-array-match "PostgreSQL"
-  [table column]
-  (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" column))
-
-(defmethod sql-regexp-array-match "HSQL Database Engine"
-  [table column]
-  ;; What evil have I wrought upon the land? Good gravy.
-  ;;
-  ;; This is entirely due to the fact that HSQLDB doesn't support the
-  ;; UNNEST operator referencing a column from an outer table. UNNEST
-  ;; *has* to come after the parent table in the FROM clause of a
-  ;; separate SQL statement.
-  (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
-               "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
-          table table column table column table column))
 
 (def ns-str (str *ns*))
 
@@ -242,12 +108,6 @@ must be supplied as the value to be matched."
 
    :store-report      (timer [ns-str "default" "store-report-time"])
    })
-
-(defn db-serialize
-  "Serialize `value` into a form appropriate for querying against a
-  serialized database column."
-  [value]
-  (json/generate-string (utils/sort-nested-maps value)))
 
 ;; ## Entity manipulation
 
@@ -405,7 +265,7 @@ must be supplied as the value to be matched."
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:resource :parameters :parameters_cache})]}
-  (let [values {:resource         [[catalog-hash resource-hash type title (to-jdbc-varchar-array tags) exported file line]]
+  (let [values {:resource         [[catalog-hash resource-hash type title (sutil/to-jdbc-varchar-array tags) exported file line]]
                 :parameters       []
                 :parameters_cache []}]
 
@@ -413,8 +273,8 @@ must be supplied as the value to be matched."
       values
       (assoc values
         :parameters (for [[key value] parameters]
-                      [resource-hash (name key) (db-serialize value)])
-        :parameters_cache [[resource-hash (if parameters (db-serialize parameters))]]))))
+                      [resource-hash (name key) (sutil/db-serialize value)])
+        :parameters_cache [[resource-hash (if parameters (sutil/db-serialize parameters))]]))))
 
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -693,11 +553,11 @@ must be supplied as the value to be matched."
          (utils/datetime? timestamp)
          (utils/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (to-jdbc-varchar-array cp)))
+        containment-path-fn (fn [cp] (if-not (nil? cp) (sutil/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
-                                     (update-in [:old-value] db-serialize)
-                                     (update-in [:new-value] db-serialize)
+                                     (update-in [:old-value] sutil/db-serialize)
+                                     (update-in [:new-value] sutil/db-serialize)
                                      (update-in [:containment-path] containment-path-fn)
                                      (assoc :containing-class (find-containing-class (% :containment-path)))
                                      (assoc :report report-hash) ((partial utils/mapkeys dashes->underscores)))
@@ -750,8 +610,8 @@ must be supplied as the value to be matched."
   "Get metadata about the current connection and warn if the database we are
   using is deprecated."
   []
-  (let [version    (sql-current-connection-database-version)
-        dbtype     (sql-current-connection-database-name)
+  (let [version    (sutil/sql-current-connection-database-version)
+        dbtype     (sutil/sql-current-connection-database-name)
         [deprecated? message] (db-deprecated? dbtype version)]
     (when deprecated?
       (log/warn message))))

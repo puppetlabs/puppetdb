@@ -6,7 +6,7 @@
         ring.mock.request
         [com.puppetlabs.jdbc]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array]]))
+        [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)
 

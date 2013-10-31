@@ -10,7 +10,7 @@
             [clj-http.client :as client]
             [ring.util.codec :as ring-codec]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]))
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutil]))
 
 ;; ### PuppetDB current version
 
@@ -35,8 +35,8 @@
   {:pre  [(map? db)]
    :post [(map? %)]}
   (sql/with-connection db
-    {:database-name    (scf-store/sql-current-connection-database-name)
-     :database-version (string/join "." (scf-store/sql-current-connection-database-version))}))
+    {:database-name    (sutil/sql-current-connection-database-name)
+     :database-version (string/join "." (sutil/sql-current-connection-database-version))}))
 
 (def version-data
   "Build up a map of version data to be used in the 'latest version' check."

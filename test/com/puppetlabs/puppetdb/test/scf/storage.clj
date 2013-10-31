@@ -18,33 +18,10 @@
         [clj-time.core :only [ago from-now now days]]
         [clj-time.coerce :only [to-timestamp to-string]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.puppetdb.fixtures]))
+        [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.scf.storage-utils :as sutil]))
 
 (use-fixtures :each with-test-db)
-
-(deftest serialization
-  (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
-    (testing "serialized values should deserialize to the initial value"
-      (doseq [value values]
-        (is (= (json/parse-string (db-serialize value)) value))))
-    (testing "serialized values should be unique"
-      (doseq [value1 values
-              value2 values]
-        (let [str1 (db-serialize value1)
-              str2 (db-serialize value2)]
-          (when (= value1 value2)
-            (is (= str1 str2)))
-          (when-not (= value1 value2)
-            (is (not= str1 str2)
-              (str value1 " should not serialize the same as " value2)))))))
-  (let [values ["foo" 0 {"z" 1 "a" 1}]
-        expected ["foo" 0 {"a" 1 "z" 1}]]
-    (testing "should sort beforehand"
-      (is (= (json/parse-string (db-serialize values)) expected))))
-  (let [sample {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
-    (testing "serialized value should be sorted and predictable"
-      (is (= (db-serialize sample)
-             "{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":26},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}")))))
 
 (deftest fact-persistence
   (testing "Persisted facts"
@@ -184,13 +161,13 @@
 
         (testing "with all parameters"
           (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
-                [{:type "File" :title "/etc/foobar" :name "ensure" :value (db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar" :name "group" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar" :name "user" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (db-serialize "File[/etc/foobar]")}
-                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
+                [{:type "File" :title "/etc/foobar" :name "ensure" :value (sutil/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar" :name "group" :value (sutil/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar" :name "user" :value (sutil/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (sutil/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (sutil/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (sutil/db-serialize "File[/etc/foobar]")}
+                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (sutil/db-serialize "root")}])))
 
         (testing "with all metadata"
           (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
