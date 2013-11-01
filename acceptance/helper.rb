@@ -799,6 +799,49 @@ module PuppetDBExtensions
     end
   end
 
+  # This helper has been grabbed from beaker, and overriden with the opts
+  # component so I can add a new 'refspec' functionality to allow a custom
+  # refspec if required.
+  #
+  # Once this methodology is confirmed we should merge it back upstream.
+  def install_from_git(host, path, repository, opts = {})
+    name   = repository[:name]
+    repo   = repository[:path]
+    rev    = repository[:rev]
+
+    target = "#{path}/#{name}"
+
+    step "Clone #{repo} if needed" do
+      on host, "test -d #{path} || mkdir -p #{path}"
+      on host, "test -d #{target} || git clone #{repo} #{target}"
+    end
+
+    step "Update #{name} and check out revision #{rev}" do
+      commands = ["cd #{target}",
+                  "remote rm origin",
+                  "remote add origin #{repo}",
+                  "fetch origin #{opts[:refspec]}",
+                  "clean -fdx",
+                  "checkout -f #{rev}"]
+      on host, commands.join(" && git ")
+    end
+
+    step "Install #{name} on the system" do
+      # The solaris ruby IPS package has bindir set to /usr/ruby/1.8/bin.
+      # However, this is not the path to which we want to deliver our
+      # binaries. So if we are using solaris, we have to pass the bin and
+      # sbin directories to the install.rb
+      install_opts = ''
+      install_opts = '--bindir=/usr/bin --sbindir=/usr/sbin' if
+        host['platform'].include? 'solaris'
+
+        on host,  "cd #{target} && " +
+                  "if [ -f install.rb ]; then " +
+                  "ruby ./install.rb #{install_opts}; " +
+                  "else true; fi"
+    end
+  end
+
   def install_puppet_from_source
     os_families = test_config[:os_families]
 
@@ -835,7 +878,8 @@ module PuppetDBExtensions
 
       repositories.each do |repository|
         step "Install #{repository[:name]}"
-        install_from_git host, source_path, repository
+        install_from_git host, source_path, repository,
+          :refspec => '+refs/pull/*:refs/remotes/origin/pr/*'
       end
 
       on host, "getent group puppet || groupadd puppet"
