@@ -74,7 +74,7 @@
   [pattern]
   {:pre [(string? pattern) (pattern-string? pattern)]
    :post [(regexp? %)]}
-  (re-pattern (.substring pattern 1 (- (count pattern) 1))))
+  (re-pattern (.substring pattern 1 (dec (count pattern)))))
 
 (defn matcher-match?
   "Compares a rule matcher against a value, returning true if it's a match."

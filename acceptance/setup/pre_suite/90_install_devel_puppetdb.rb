@@ -16,7 +16,8 @@ step "Install development build of PuppetDB on the PuppetDB server" do
 
     on database, "rm -rf #{GitReposDir}/puppetdb"
     repo = extract_repo_info_from(test_config[:repo_puppetdb].to_s)
-    install_from_git database, GitReposDir, repo
+    install_from_git database, GitReposDir, repo,
+      :refspec => '+refs/pull/*:refs/remotes/origin/pr/*'
 
     if (test_config[:database] == :postgres)
       install_postgres(database)

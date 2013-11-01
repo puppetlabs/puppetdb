@@ -79,6 +79,6 @@
                               model-name field (string/capitalize (name type)) value)))
 
         error-message (string/join "\n" (remove nil? (concat [missing-keys-message unknown-keys-message] type-errors)))]
-    (when-not (empty? error-message)
+    (when (seq error-message)
       (throw (IllegalArgumentException. error-message))))
   obj)
