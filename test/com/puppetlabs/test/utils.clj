@@ -51,6 +51,13 @@
   (testing "should return false for an invalid integer")
     (is (not (datetime? -9999999999999999999999999999999))))
 
+(deftest string-contains?-test
+  (testing "should return true if substring is in string"
+    (is (string-contains? "foo" "foobar")))
+  (testing "should return true for an empty substring"
+    (is (string-contains? "" "foobar")))
+  )
+
 (deftest quotient-test
   (testing "quotient"
 

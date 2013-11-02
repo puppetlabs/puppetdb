@@ -63,7 +63,7 @@
   [substring s]
   {:pre [(string? s)
          (string? substring)]}
-  (>= (.indexOf s substring) 0))
+  (.contains s substring))
 
 ;; ## I/O
 
