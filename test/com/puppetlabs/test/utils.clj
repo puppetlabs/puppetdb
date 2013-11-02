@@ -107,11 +107,13 @@
           (maptrans {[:a :b] :foo} {:a {:foo 3} :b {:foo 3}})))))
 
 (deftest dissoc-if-nil-test
-  (let [testmap {:a 1 :b nil}]
+  (let [testmap {:a 1 :b nil :c 1 :d nil}]
     (testing "should remove the key if the value is nil"
       (is (= (dissoc testmap :b) (dissoc-if-nil testmap :b))))
     (testing "should not remove the key if the value is not nil"
-      (is (= testmap (dissoc-if-nil testmap :a))))))
+      (is (= testmap (dissoc-if-nil testmap :a))))
+    (testing "should remove multiple keys if their values are nil"
+      (is (= (dissoc testmap :b :d) (dissoc-if-nil testmap :a :b :c :d))))))
 
 (deftest missing?-test
   (let [sample {:a "asdf" :b "asdf" :c "asdf"}]
