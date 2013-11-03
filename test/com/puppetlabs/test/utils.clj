@@ -54,9 +54,10 @@
 (deftest string-contains?-test
   (testing "should return true if substring is in string"
     (is (string-contains? "foo" "foobar")))
+  (testing "should return false if substring is not in string"
+    (is (false? (string-contains? "bar" "foo"))))
   (testing "should return true for an empty substring"
-    (is (string-contains? "" "foobar")))
-  )
+    (is (string-contains? "" "foobar"))))
 
 (deftest quotient-test
   (testing "quotient"
