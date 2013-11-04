@@ -29,7 +29,7 @@
             [com.puppetlabs.cheshire :as json]
             [clojure.data :as data]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
-            [com.puppetlabs.puppetdb.scf.storage-utils :as sutil])
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
@@ -265,7 +265,7 @@
   [catalog-hash {:keys [type title exported parameters tags file line] :as resource} resource-hash persisted?]
   {:pre  [(every? string? #{catalog-hash type title})]
    :post [(= (set (keys %)) #{:resource :parameters :parameters_cache})]}
-  (let [values {:resource         [[catalog-hash resource-hash type title (sutil/to-jdbc-varchar-array tags) exported file line]]
+  (let [values {:resource         [[catalog-hash resource-hash type title (sutils/to-jdbc-varchar-array tags) exported file line]]
                 :parameters       []
                 :parameters_cache []}]
 
@@ -273,8 +273,8 @@
       values
       (assoc values
         :parameters (for [[key value] parameters]
-                      [resource-hash (name key) (sutil/db-serialize value)])
-        :parameters_cache [[resource-hash (if parameters (sutil/db-serialize parameters))]]))))
+                      [resource-hash (name key) (sutils/db-serialize value)])
+        :parameters_cache [[resource-hash (if parameters (sutils/db-serialize parameters))]]))))
 
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -553,11 +553,11 @@
          (utils/datetime? timestamp)
          (utils/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutil/to-jdbc-varchar-array cp)))
+        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                      (update-in [:timestamp] to-timestamp)
-                                     (update-in [:old-value] sutil/db-serialize)
-                                     (update-in [:new-value] sutil/db-serialize)
+                                     (update-in [:old-value] sutils/db-serialize)
+                                     (update-in [:new-value] sutils/db-serialize)
                                      (update-in [:containment-path] containment-path-fn)
                                      (assoc :containing-class (find-containing-class (% :containment-path)))
                                      (assoc :report report-hash) ((partial utils/mapkeys dashes->underscores)))
@@ -610,8 +610,8 @@
   "Get metadata about the current connection and warn if the database we are
   using is deprecated."
   []
-  (let [version    (sutil/sql-current-connection-database-version)
-        dbtype     (sutil/sql-current-connection-database-name)
+  (let [version    (sutils/sql-current-connection-database-version)
+        dbtype     (sutils/sql-current-connection-database-name)
         [deprecated? message] (db-deprecated? dbtype version)]
     (when deprecated?
       (log/warn message))))

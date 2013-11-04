@@ -19,7 +19,7 @@
         [clj-time.coerce :only [to-timestamp to-string]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.scf.storage-utils :as sutil]))
+        [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 (use-fixtures :each with-test-db)
 
@@ -161,13 +161,13 @@
 
         (testing "with all parameters"
           (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
-                [{:type "File" :title "/etc/foobar" :name "ensure" :value (sutil/db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar" :name "group" :value (sutil/db-serialize "root")}
-                 {:type "File" :title "/etc/foobar" :name "user" :value (sutil/db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (sutil/db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (sutil/db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (sutil/db-serialize "File[/etc/foobar]")}
-                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (sutil/db-serialize "root")}])))
+                [{:type "File" :title "/etc/foobar" :name "ensure" :value (sutils/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar" :name "group" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar" :name "user" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (sutils/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (sutils/db-serialize "File[/etc/foobar]")}
+                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (sutils/db-serialize "root")}])))
 
         (testing "with all metadata"
           (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
