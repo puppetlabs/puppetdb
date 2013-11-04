@@ -8,7 +8,7 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [fs.core :as fs])
-  (:use     [com.puppetlabs.puppetdb.scf.storage :only [sql-current-connection-table-names]]
+  (:use     [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
             [com.puppetlabs.utils :only [parse-int excludes? keyset]]
             [clojure.test]

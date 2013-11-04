@@ -4,7 +4,8 @@
             [com.puppetlabs.puppetdb.report.utils :as reputils]
             [com.puppetlabs.puppetdb.reports :as report-val]
             [clojure.java.jdbc :as sql]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.scf.hash :as shash])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
         [com.puppetlabs.puppetdb.examples.reports :only [reports]]
         [com.puppetlabs.puppetdb.testutils.reports]
@@ -17,230 +18,10 @@
         [clj-time.core :only [ago from-now now days]]
         [clj-time.coerce :only [to-timestamp to-string]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
-        [com.puppetlabs.puppetdb.fixtures]))
+        [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 (use-fixtures :each with-test-db)
-
-(deftest serialization
-  (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
-    (testing "serialized values should deserialize to the initial value"
-      (doseq [value values]
-        (is (= (json/parse-string (db-serialize value)) value))))
-    (testing "serialized values should be unique"
-      (doseq [value1 values
-              value2 values]
-        (let [str1 (db-serialize value1)
-              str2 (db-serialize value2)]
-          (when (= value1 value2)
-            (is (= str1 str2)))
-          (when-not (= value1 value2)
-            (is (not= str1 str2)
-              (str value1 " should not serialize the same as " value2)))))))
-  (let [values ["foo" 0 {"z" 1 "a" 1}]
-        expected ["foo" 0 {"a" 1 "z" 1}]]
-    (testing "should sort beforehand"
-      (is (= (json/parse-string (db-serialize values)) expected))))
-  (let [sample {:b "asdf" :a {:z "asdf" :k [:z {:z 26 :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
-    (testing "serialized value should be sorted and predictable"
-      (is (= (db-serialize sample)
-             "{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":26},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}")))))
-
-(deftest hash-computation
-  (testing "generic-identity-*"
-    (doseq [func [generic-identity-string generic-identity-hash]]
-      (testing "should return the same value for recursive misordered hashes that are equal"
-        (let [unsorted {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
-              sorted   (into (sorted-map) unsorted)
-              reversed (into (sorted-map-by (fn [k1 k2] (compare k2 k1))) unsorted)]
-            (is (= (func {:foo unsorted})
-                   (func {:foo sorted})
-                   (func {:foo reversed})))))
-      (testing "should not match when two different data structures are supplied"
-        (let [a {:f 6 :c 3 :z 26 :a 1 :l 11 :h 7 :e 5 :m 12 :b 2 :d 4 :g 6}
-              b {:z 26 :i 8 :j 9 :k 10 :l 11 :m 12 :n 13}]
-          (is (not (= (func a)
-                      (func b)))))))
-
-    (testing "should return the expected string in a sorted and predictable way"
-      (let [input {:b "asdf" :a {:z "asdf" :k [:z {:z #{:a {:a [1 2] :b 2}} :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
-        (testing "generic-identity-string"
-          (let [output (generic-identity-string ["Type" "title" {:foo input}])]
-            (is (= output
-                   "[\"Type\",\"title\",{\"foo\":{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":[\"a\",{\"a\":[1,2],\"b\":2}]},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}}]"))))
-
-        (testing "generic-identity-hash"
-          (let [output (generic-identity-hash ["Type" "title" {:foo input}])]
-            (is (= output
-                   "c62dab030cfe8c25a4832c5c6302b7f0041264ba")))))))
-
-  (testing "resource-identity-hash"
-    (testing "should error on bad input"
-      (is (thrown? AssertionError (resource-identity-hash nil)))
-      (is (thrown? AssertionError (resource-identity-hash []))))
-
-    (testing "should be equal for the base case"
-      (is (= (resource-identity-hash {})
-            (resource-identity-hash {}))))
-
-    (testing "shouldn't change for identical input"
-      (doseq [i (range 10)
-              :let [r (random/random-kw-resource)]]
-        (is (= (resource-identity-hash r)
-               (resource-identity-hash r)))))
-
-    (testing "shouldn't change for equivalent input"
-      (is (= (resource-identity-hash {:foo 1 :bar 2})
-            (resource-identity-hash {:bar 2 :foo 1})))
-      (is (= (resource-identity-hash {:tags #{1 2 3}})
-            (resource-identity-hash {:tags #{3 2 1}}))))
-
-    (testing "should be different for non-equivalent resources"
-      ; Take a population of 5 resource, put them into a set to make
-      ; sure we only care about a population of unique resources, take
-      ; any 2 elements from that set, and those 2 resources should
-      ; have different hashes.
-      (let [candidates (set (repeatedly 5 random/random-kw-resource))
-            pairs      (combinations candidates 2)]
-        (doseq [[r1 r2] pairs]
-          (is (not= (resource-identity-hash r1)
-                (resource-identity-hash r2))))))
-
-    (testing "should return the same predictable string"
-      (is (= (resource-identity-hash {:foo 1 :bar 2})
-             "b4199f8703c5dc208054a62203db132c3d12581c"))))
-
-  (testing "edge-identity-string"
-    (let [sample {:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]
-
-      (testing "shouldn't change for identical input"
-        (is (= (edge-identity-string sample)
-               (edge-identity-string sample))))
-
-      (testing "should return the same predictable string"
-        (is (= (edge-identity-string sample)
-               "{\"source\":{\"title\":\"foo\",\"type\":\"Type\"},\"target\":{\"title\":\"/tmp\",\"type\":\"File\"}}")))))
-
-  (testing "catalog-similarity-hash"
-    (let [sample {:certname  "foobar.baz"
-                  :resources {:foo {:type "Type" :title "foo" :parameters {:a 1 :c 3 :b {:z 26 :c 3}} :file "/tmp" :line 3 :tags ["foo" "bar"]}}
-                  :edges     [{:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]}]
-
-      (testing "shouldn't change for identical input"
-        (is (= (catalog-similarity-hash sample)
-               (catalog-similarity-hash sample))))
-
-      (testing "should return the same predictable string"
-        (is (= (catalog-similarity-hash sample)
-               "9a26b461f23e46e0d74a4176845da245bf290314")))))
-
-  (testing "resource-event-identity-string"
-    (let [sample {:resource-type  "Type"
-                  :resource-title "foo"
-                  :property       "name"
-                  :timestamp      "foo"
-                  :status         "skipped"
-                  :old-value      "baz"
-                  :new-value      "foo"
-                  :message        "Name changed from baz to foo"}]
-
-      (testing "shouldn't change for identical input"
-        (is (= (resource-event-identity-string sample)
-               (resource-event-identity-string sample))))
-
-      (testing "should return the same predictable string"
-        (is (= (resource-event-identity-string sample)
-               "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new-value\":\"foo\",\"old-value\":\"baz\",\"property\":\"name\",\"resource-title\":\"foo\",\"resource-type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
-
-  (testing "catalog-resource-identity-string"
-    (let [sample {:type "Type"
-                  :title "title"
-                  :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
-                  :exported false
-                  :file "/tmp/zzz"
-                  :line 15}]
-
-      (testing "should return sorted predictable string output"
-        (is (= (catalog-resource-identity-string sample)
-               "[\"Type\",\"title\",false,\"/tmp/zzz\",15,{\"a\":1,\"c\":3,\"d\":{\"b\":2,\"c\":[\"a\",\"b\",\"c\"]}}]")))
-
-      (testing "should return the same value twice"
-        (is (= (catalog-resource-identity-string sample)
-               (catalog-resource-identity-string sample))))))
-
-  (testing "report-identity-hash"
-    (let [sample {:certname "foobar.baz"
-                  :puppet-version "3.2.1"
-                  :report-format 1
-                  :configuration-version "asdffdsa"
-                  :start-time "2012-03-01-12:31:11.123"
-                  :end-time   "2012-03-01-12:31:31.123"
-                  :resource-events [
-                    {:type "Type"
-                     :title "title"
-                     :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
-                     :exported false :file "/tmp/zzz"
-                     :line 15}]}]
-
-      (testing "should return sorted predictable string output"
-        (is (= (report-identity-hash sample)
-               "3504b79ff27eb17f4b83bf597d3944bb91cbb1ab")))
-
-      (testing "should return the same value twice"
-        (is (= (report-identity-hash sample)
-               (report-identity-hash sample)))))))
-
-(deftest catalog-dedupe
-  (testing "Catalogs with the same metadata but different content should have different hashes"
-    (let [catalog       (:basic catalogs)
-          hash          (catalog-similarity-hash catalog)
-          ;; List of all the tweaking functions
-          chaos-monkeys [catutils/add-random-resource-to-catalog
-                         catutils/mod-resource-in-catalog
-                         catutils/mod-resource-metadata-in-catalog
-                         catutils/add-random-edge-to-catalog
-                         catutils/swap-edge-targets-in-catalog]
-          ;; Function that will apply a random tweak function
-          apply-monkey  #((rand-nth chaos-monkeys) %)]
-
-      (is (not= hash (catalog-similarity-hash (catutils/add-random-resource-to-catalog catalog))))
-      (is (not= hash (catalog-similarity-hash (catutils/mod-resource-in-catalog catalog))))
-      (is (not= hash (catalog-similarity-hash (catutils/mod-resource-metadata-in-catalog catalog))))
-      (is (not= hash (catalog-similarity-hash (catutils/add-random-edge-to-catalog catalog))))
-
-      ;; Do the following 100 times: pick up to 10 tweaking functions,
-      ;; successively apply them all to the original catalog, and
-      ;; verify that the hash of the resulting catalog is the same as
-      ;; the hash of the original catalog
-      (doseq [nmonkeys (repeatedly 100 #(inc (rand-int 10)))
-              :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
-                    tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
-        (if (= catalog tweaked-catalog)
-          (is (= hash tweaked-hash)
-            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))
-          (is (not= hash tweaked-hash)
-            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
-
-  (testing "Catalogs with different metadata but the same content should have the same hashes"
-    (let [catalog            (:basic catalogs)
-          hash               (catalog-similarity-hash catalog)
-          ;; Functions that tweak various attributes of a catalog
-          tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
-          tweak-version      #(assoc % :version (str (:version %) "?"))
-          tweak-puppetdb-version #(assoc % :puppetdb-version (inc (:puppetdb-version %)))
-          ;; List of all the tweaking functions
-          chaos-monkeys      [tweak-api-version tweak-version tweak-puppetdb-version]
-          ;; Function that will apply a random tweak function
-          apply-monkey       #((rand-nth chaos-monkeys) %)]
-
-      ;; Do the following 100 times: pick up to 10 tweaking functions,
-      ;; successively apply them all to the original catalog, and
-      ;; verify that the hash of the resulting catalog is the same as
-      ;; the hash of the original catalog
-      (doseq [nmonkeys (repeatedly 100 #(inc (rand-int 10)))
-              :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
-                    tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
-        (is (= hash tweaked-hash)
-          (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
 (deftest fact-persistence
   (testing "Persisted facts"
@@ -380,13 +161,13 @@
 
         (testing "with all parameters"
           (is (= (query-to-vec ["SELECT cr.type, cr.title, rp.name, rp.value FROM catalog_resources cr, resource_params rp WHERE rp.resource=cr.resource ORDER BY cr.type, cr.title, rp.name"])
-                [{:type "File" :title "/etc/foobar" :name "ensure" :value (db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar" :name "group" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar" :name "user" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (db-serialize "directory")}
-                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (db-serialize "root")}
-                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (db-serialize "File[/etc/foobar]")}
-                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (db-serialize "root")}])))
+                [{:type "File" :title "/etc/foobar" :name "ensure" :value (sutils/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar" :name "group" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar" :name "user" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "ensure" :value (sutils/db-serialize "directory")}
+                 {:type "File" :title "/etc/foobar/baz" :name "group" :value (sutils/db-serialize "root")}
+                 {:type "File" :title "/etc/foobar/baz" :name "require" :value (sutils/db-serialize "File[/etc/foobar]")}
+                 {:type "File" :title "/etc/foobar/baz" :name "user" :value (sutils/db-serialize "root")}])))
 
         (testing "with all metadata"
           (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
@@ -669,25 +450,8 @@
 
 (let [timestamp     (now)
       report        (:basic reports)
-      report-hash   (report-identity-hash report)
+      report-hash   (shash/report-identity-hash report)
       certname      (:certname report)]
-
-  (deftest report-dedupe
-    (testing "Reports with the same metadata but different events should have different hashes"
-      (is (= report-hash (report-identity-hash report)))
-      (is (not= report-hash (report-identity-hash (reputils/add-random-event-to-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/mod-event-in-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/remove-random-event-from-report report)))))
-
-    (testing "Reports with different metadata but the same events should have different hashes"
-      (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
-                            #(assoc % :puppet-version (str (:puppet-version %) "foo"))
-                            #(assoc % :report-format (inc (:report-format %)))
-                            #(assoc % :configuration-version (str (:configuration-version %) "foo"))
-                            #(assoc % :start-time (str (:start-time %) "foo"))
-                            #(assoc % :end-time (str (:start-time %) "foo"))]]
-        (doseq [mod-report-fn mod-report-fns]
-          (is (not= report-hash (report-identity-hash (mod-report-fn report))))))))
 
   (deftest report-storage
     (testing "should store reports"

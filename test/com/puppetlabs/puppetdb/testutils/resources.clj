@@ -5,7 +5,8 @@
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array add-facts!]]))
+        [com.puppetlabs.puppetdb.scf.storage :only [add-facts!]]
+        [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize to-jdbc-varchar-array]]))
 
 (defn store-example-resources
   []

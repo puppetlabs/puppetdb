@@ -4,7 +4,8 @@
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.catalogs :as catalog]
-            [com.puppetlabs.puppetdb.examples.reports :as report-examples])
+            [com.puppetlabs.puppetdb.examples.reports :as report-examples]
+            [com.puppetlabs.puppetdb.scf.hash :as shash])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
@@ -311,7 +312,7 @@
       (let [command      {:command (command-names :replace-catalog)
                           :version command-version
                           :payload (json/generate-string catalog)}
-            catalog-hash (scf-store/catalog-similarity-hash (catalog/parse-catalog catalog command-version))
+            catalog-hash (shash/catalog-similarity-hash (catalog/parse-catalog catalog command-version))
             certname     (get-in catalog [:data :name])
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))

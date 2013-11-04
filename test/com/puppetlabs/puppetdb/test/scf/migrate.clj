@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.scf.migrate
   (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
-            [com.puppetlabs.puppetdb.scf.storage :refer (db-serialize)]
+            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]

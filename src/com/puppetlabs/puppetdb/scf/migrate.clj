@@ -57,11 +57,11 @@
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
         [com.puppetlabs.jdbc :only [query-to-vec with-query-results-cursor]]
-        [com.puppetlabs.puppetdb.scf.storage :only [sql-array-type-string
-                                                    sql-current-connection-database-name
-                                                    sql-current-connection-database-version
-                                                    postgres?
-                                                    pg-newer-than-8-1?]]))
+        [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-array-type-string
+                                                          sql-current-connection-database-name
+                                                          sql-current-connection-database-version
+                                                          postgres?
+                                                          pg-newer-than-8-1?]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."

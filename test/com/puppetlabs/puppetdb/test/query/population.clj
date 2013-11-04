@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.population :as pop]
             [clojure.java.jdbc :as sql])
   (:use clojure.test
-        [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node! to-jdbc-varchar-array]]
+        [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node!]]
+        [com.puppetlabs.puppetdb.scf.storage-utils :only [to-jdbc-varchar-array]]
         [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)

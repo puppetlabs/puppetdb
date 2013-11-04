@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.testutils.reports
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.scf.hash :as shash]
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.utils :as utils]
             [com.puppetlabs.puppetdb.query.reports :as query]
@@ -71,7 +72,7 @@
     (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
     (let [example-report  (munge-example-report-for-storage example-report)
-          report-hash     (scf-store/report-identity-hash example-report)]
+          report-hash     (shash/report-identity-hash example-report)]
       (report/validate! 2 example-report)
       (scf-store/maybe-activate-node! (:certname example-report) timestamp)
       (scf-store/add-report!* example-report timestamp update-latest-report?)
