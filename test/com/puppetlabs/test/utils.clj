@@ -51,6 +51,14 @@
   (testing "should return false for an invalid integer")
     (is (not (datetime? -9999999999999999999999999999999))))
 
+(deftest string-contains?-test
+  (testing "should return true if substring is in string"
+    (is (string-contains? "foo" "foobar")))
+  (testing "should return false if substring is not in string"
+    (is (false? (string-contains? "bar" "foo"))))
+  (testing "should return true for an empty substring"
+    (is (string-contains? "" "foobar"))))
+
 (deftest quotient-test
   (testing "quotient"
 
@@ -100,11 +108,13 @@
           (maptrans {[:a :b] :foo} {:a {:foo 3} :b {:foo 3}})))))
 
 (deftest dissoc-if-nil-test
-  (let [testmap {:a 1 :b nil}]
+  (let [testmap {:a 1 :b nil :c 1 :d nil}]
     (testing "should remove the key if the value is nil"
       (is (= (dissoc testmap :b) (dissoc-if-nil testmap :b))))
     (testing "should not remove the key if the value is not nil"
-      (is (= testmap (dissoc-if-nil testmap :a))))))
+      (is (= testmap (dissoc-if-nil testmap :a))))
+    (testing "should remove multiple keys if their values are nil"
+      (is (= (dissoc testmap :b :d) (dissoc-if-nil testmap :a :b :c :d))))))
 
 (deftest missing?-test
   (let [sample {:a "asdf" :b "asdf" :c "asdf"}]

@@ -59,11 +59,12 @@
 ;; ## String utilities
 
 (defn string-contains?
-  "Returns true if `s` has the `substring` in it"
+  "Returns true if `s` contains `substring`"
   [substring s]
   {:pre [(string? s)
-         (string? substring)]}
-  (>= (.indexOf s substring) 0))
+         (string? substring)]
+   :post [(boolean? %)]}
+  (.contains s substring))
 
 ;; ## I/O
 
