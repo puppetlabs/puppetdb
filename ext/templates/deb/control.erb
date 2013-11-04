@@ -3,9 +3,9 @@ Section: utils
 Priority: optional
 Maintainer: Puppet Labs <info@puppetlabs.com>
 <% if @pe -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, pe-rubygem-rake, pe-facter, pe-puppet
+Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, pe-rubygem-rake, pe-facter, pe-puppet
 <% else -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, rake, facter, puppet
+Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, rake, facter, puppet
 <% end -%>
 Standards-Version: 3.9.1
 Homepage: http://puppetlabs.com

@@ -159,6 +159,10 @@ mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}
 mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
 touch  $RPM_BUILD_ROOT/%{_localstatedir}/log/%{name}/%{name}.log
 
+%if 0%{?fedora} >= 16 || 0%{?rhel} >= 7 || 0%{?sles_version} >= 12
+sed -i '/notifempty/a\    su puppetdb puppetdb' $RPM_BUILD_ROOT/%{_sysconfdir}/logrotate.d/%{name}
+%endif
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
