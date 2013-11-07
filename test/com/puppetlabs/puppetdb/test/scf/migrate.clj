@@ -60,11 +60,11 @@
 
         (testing "should attempt a partial migration if there are migrations missing"
           (clear-db-for-testing!)
-          ;; we are using migration 6 here because it's just dropping an index,
-          ;; so we know for sure that it can be applied in any order.
-          (doseq [m (filter (fn [[i migration]] (not= i 6)) (pending-migrations))]
+          ;; We are using migration 13 here because it is isolated enough to be able
+          ;; to execute on its own. This might need to be changed in the future.
+          (doseq [m (filter (fn [[i migration]] (not= i 13)) (pending-migrations))]
             (apply-migration-for-testing (first m)))
-          (is (= (keys (pending-migrations)) '(6)))
+          (is (= (keys (pending-migrations)) '(13)))
           (migrate!)
           (is (= (applied-migrations) expected-migrations))))))
 

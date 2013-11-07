@@ -30,12 +30,12 @@
       {:name "two.local"})
     (sql/insert-records
       :catalogs
-      {:hash "foo" :api_version 1 :catalog_version "12"}
-      {:hash "bar" :api_version 1 :catalog_version "14"})
+      {:id 1 :hash "foo" :api_version 1 :catalog_version "12"}
+      {:id 2 :hash "bar" :api_version 1 :catalog_version "14"})
     (sql/insert-records
       :certname_catalogs
-      {:certname "one.local" :catalog "foo"}
-      {:certname "two.local" :catalog "bar"})
+      {:certname "one.local" :catalog_id 1}
+      {:certname "two.local" :catalog_id 2})
     (add-facts! "one.local"
       {"operatingsystem" "Debian"
        "kernel" "Linux"
@@ -48,10 +48,10 @@
        "message" "hello"}
       (now))
     (sql/insert-records :catalog_resources
-      {:catalog "foo" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-      {:catalog "foo" :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
-      {:catalog "bar" :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-      {:catalog "bar" :resource "2" :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
+      {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
+      {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
+      {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
+      {:catalog_id 2 :resource "2" :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
 
   {:foo1 {:certname   "one.local"
           :resource   "1"

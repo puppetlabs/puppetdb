@@ -13,8 +13,8 @@
   []
   ;; TODO: This needs to only return results for active nodes
   (query-to-vec (str "SELECT DISTINCT exporters.type, exporters.title, "
-                     "(SELECT certname FROM certname_catalogs WHERE catalog=exporters.catalog) AS exporter, "
-                     "(SELECT certname FROM certname_catalogs WHERE catalog=collectors.catalog) AS collector "
+                     "(SELECT certname FROM certname_catalogs WHERE catalog_id=exporters.catalog_id) AS exporter, "
+                     "(SELECT certname FROM certname_catalogs WHERE catalog_id=collectors.catalog_id) AS collector "
                      "FROM catalog_resources exporters, catalog_resources collectors "
                      "WHERE exporters.resource=collectors.resource AND exporters.exported=true AND collectors.exported=false "
                      "ORDER BY exporters.type, exporters.title, exporter, collector ASC")))
@@ -25,7 +25,7 @@
   {:post [(number? %)]}
   (-> (str "SELECT COUNT(*) AS c "
            "FROM certname_catalogs cc, catalog_resources cr, certnames c "
-           "WHERE cc.catalog=cr.catalog AND c.name=cc.certname AND c.deactivated IS NULL")
+           "WHERE cc.catalog_id=cr.catalog_id AND c.name=cc.certname AND c.deactivated IS NULL")
       (query-to-vec)
       (first)
       :c))
@@ -51,7 +51,7 @@
   {:post [(number? %)]}
   (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
                                           "(SELECT DISTINCT resource FROM catalog_resources cr, certname_catalogs cc, certnames c "
-                                          " WHERE cr.catalog=cc.catalog AND cc.certname=c.name AND c.deactivated IS NULL) r"))
+                                          " WHERE cr.catalog_id=cc.catalog_id AND cc.certname=c.name AND c.deactivated IS NULL) r"))
                        (first)
                        (:c))
         num-total  (num-resources)]

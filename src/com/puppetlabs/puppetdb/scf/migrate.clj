@@ -421,6 +421,135 @@
   (when (pg-newer-than-8-1?)
     (sql/do-commands "DROP INDEX IF EXISTS idx_catalog_resources_tags_gin")))
 
+(defn use-bigint-instead-of-catalog-hash
+  "This migration converts all catalog hash instances to use bigint sequences instead"
+  []
+  (sql/do-commands
+    ;; catalogs: Create new table without constraints
+    "CREATE TABLE catalogs_transform (
+      id bigserial NOT NULL,
+      hash character varying(40) NOT NULL,
+      api_version integer NOT NULL,
+      catalog_version text NOT NULL,
+      transaction_uuid character varying(255) DEFAULT NULL)"
+
+    ;; catalogs: Insert data from old table
+    "INSERT INTO catalogs_transform (hash, api_version, catalog_version, transaction_uuid)
+      SELECT hash, api_version, catalog_version, transaction_uuid
+        FROM catalogs"
+
+    ;; certname_catalogs: Create new table without constraints
+    "CREATE TABLE certname_catalogs_transform (
+      catalog_id bigint NOT NULL,
+      certname text NOT NULL,
+      timestamp TIMESTAMP WITH TIME ZONE)"
+
+    ;; certname_catalogs: insert data from old table
+    "INSERT INTO certname_catalogs_transform (catalog_id, certname, timestamp)
+      SELECT c.id, certname, timestamp
+        FROM certname_catalogs cc, catalogs_transform c
+        WHERE cc.catalog = c.hash"
+
+    ;; edges: create new table
+    "CREATE TABLE edges_transform (
+      catalog_id bigint NOT NULL,
+      source character varying(40) NOT NULL,
+      target character varying(40) NOT NULL,
+      type text NOT NULL)"
+
+    ;; edges: insert data from old table
+    "INSERT INTO edges_transform (catalog_id, source, target, type)
+      SELECT c.id, source, target, type
+        FROM edges e, catalogs_transform c
+        WHERE e.catalog = c.hash"
+
+    ;; catalog_resources: create new table
+    (str "CREATE TABLE catalog_resources_transform (
+      catalog_id bigint NOT NULL,
+      resource character varying(40) NOT NULL,
+      type text NOT NULL,
+      title text NOT NULL,
+      tags " (sql-array-type-string "TEXT") " NOT NULL,
+      exported boolean NOT NULL,
+      file text,
+      line integer)")
+
+    ;; catalog_resources: insert data from old table
+    "INSERT INTO catalog_resources_transform (catalog_id, resource, type, title, tags, exported, file, line)
+      SELECT c.id, resource, type, title, tags, exported, file, line
+        FROM catalog_resources cr, catalogs_transform c
+        WHERE cr.catalog = c.hash"
+
+    ;; Drop the old tables
+    "DROP TABLE catalog_resources"
+    "DROP TABLE certname_catalogs"
+    "DROP TABLE edges"
+    "DROP TABLE catalogs"
+
+    ;; Rename the new tables
+    "ALTER TABLE catalog_resources_transform RENAME to catalog_resources"
+    "ALTER TABLE certname_catalogs_transform RENAME to certname_catalogs"
+    "ALTER TABLE edges_transform RENAME to edges"
+    "ALTER TABLE catalogs_transform RENAME to catalogs"
+
+    ;; catalogs: Add constraints to new catalogs table
+    ;;   hsqldb automatically creates the primary key when we created the table
+    ;;   with a bigserial so its only needed for pgsql.
+    (if (postgres?)
+      "ALTER TABLE catalogs
+        ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
+      "select 1")
+    "ALTER TABLE catalogs
+      ADD CONSTRAINT catalogs_hash_key UNIQUE (hash)"
+
+    ;; catalogs: create other indexes
+    "CREATE INDEX idx_catalogs_transaction_uuid
+      ON catalogs (transaction_uuid)"
+
+    ;; certname_catalogs: Add constraints
+    "ALTER TABLE certname_catalogs
+      ADD CONSTRAINT certname_catalogs_pkey PRIMARY KEY (certname, catalog_id)"
+    "ALTER TABLE certname_catalogs
+      ADD CONSTRAINT certname_catalogs_catalog_id_fkey FOREIGN KEY (catalog_id)
+          REFERENCES catalogs (id)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE certname_catalogs
+      ADD CONSTRAINT certname_catalogs_certname_fkey FOREIGN KEY (certname)
+          REFERENCES certnames (name)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE certname_catalogs
+      ADD CONSTRAINT certname_catalogs_certname_key UNIQUE (certname)"
+
+    ;; edges: add constraints
+    "ALTER TABLE edges
+      ADD CONSTRAINT edges_pkey PRIMARY KEY (catalog_id, source, target, type)"
+    "ALTER TABLE edges
+      ADD CONSTRAINT edges_catalog_id_fkey FOREIGN KEY (catalog_id)
+          REFERENCES catalogs (id)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+
+    ;; catalog_resources: add constraints
+    "ALTER TABLE catalog_resources
+      ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, resource)"
+    "ALTER TABLE catalog_resources
+      ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
+          REFERENCES catalogs (id)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE catalog_resources
+      ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource)
+          REFERENCES resource_params_cache (resource)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+
+    ;; catalog_resources: create other indexes
+    "CREATE INDEX idx_catalog_resources_resource
+      ON catalog_resources (resource)"
+
+    "CREATE INDEX idx_catalog_resources_type
+      ON catalog_resources (type)"
+
+    "CREATE INDEX idx_catalog_resources_type_title
+      ON catalog_resources (type)"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -438,7 +567,8 @@
    13 add-latest-reports-table
    14 add-parameter-cache
    15 drop-duplicate-indexes
-   16 drop-resource-tags-index})
+   16 drop-resource-tags-index
+   17 use-bigint-instead-of-catalog-hash})
 
 (def desired-schema-version (apply max (keys migrations)))
 
