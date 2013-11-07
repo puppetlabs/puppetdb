@@ -511,11 +511,11 @@
       ADD CONSTRAINT certname_catalogs_pkey PRIMARY KEY (certname, catalog_id)"
     "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_catalog_id_fkey FOREIGN KEY (catalog_id)
-          REFERENCES catalogs (id) MATCH SIMPLE
+          REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
     "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_certname_fkey FOREIGN KEY (certname)
-          REFERENCES certnames (name) MATCH SIMPLE
+          REFERENCES certnames (name)
           ON UPDATE NO ACTION ON DELETE CASCADE"
     "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_certname_key UNIQUE (certname)"
@@ -525,7 +525,7 @@
       ADD CONSTRAINT edges_pkey PRIMARY KEY (catalog_id, source, target, type)"
     "ALTER TABLE edges
       ADD CONSTRAINT edges_catalog_id_fkey FOREIGN KEY (catalog_id)
-          REFERENCES catalogs (id) MATCH SIMPLE
+          REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
 
     ;; catalog_resources: add constraints
@@ -533,11 +533,11 @@
       ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, resource)"
     "ALTER TABLE catalog_resources
       ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
-          REFERENCES catalogs (id) MATCH SIMPLE
+          REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
     "ALTER TABLE catalog_resources
       ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource)
-          REFERENCES resource_params_cache (resource) MATCH SIMPLE
+          REFERENCES resource_params_cache (resource)
           ON UPDATE NO ACTION ON DELETE CASCADE"
 
     ;; catalog_resources: create other indexes
