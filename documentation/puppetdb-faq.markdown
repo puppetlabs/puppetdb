@@ -7,6 +7,8 @@ canonical: "/puppetdb/latest/puppetdb-faq.html"
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
 [migrating]: ./migrate.html
+[maintaining_tuning]: ./maintain_and_tune.html
+[low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 
 ## Can I migrate my data from ActiveRecord storeconfigs or from an existing PuppetDB to a new instance?
 
@@ -117,3 +119,12 @@ java.net.BindException: Cannot assign requested address
 
 PuppetDB will error with this message if the IP address associated with the ssl-host parameter in the
 jetty.ini isn't linked to a known interface - or resolvable.
+
+## Why is the load so high on the database server?
+
+One possibile cause for execessive load on the database server is a
+low catalog duplication rate. The catalog duplication rate can be
+found on the [dashboard][maintaining_tuning]. Typically that
+percentage should be 90% or above. If that percentage is lower, it
+could cause a much heavier I/O load on the database. Refer to the
+[Troubleshooting Low Catalog Duplication guide][low_catalog_dupe].
