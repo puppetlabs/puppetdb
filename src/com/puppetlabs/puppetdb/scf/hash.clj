@@ -4,7 +4,8 @@
             [com.puppetlabs.puppetdb.query.catalogs :as qcat]
             [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.pprint :as pp]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]))
 
 (defn generic-identity-string
   "Serialize a data structure into a format that can be hashed for uniqueness
@@ -190,6 +191,8 @@
         old-catalog (catalog-similarity-format certname old-resources old-edges)
         new-catalog (catalog-similarity-format certname (vals new-resources) new-edges)
         file-path-fn #(debug-file-path debug-output-dir certname %)]
+
+    (log/warn (format "Writing catalog debugging info for %s to %s" certname debug-output-dir))
     (json/spit-json (file-path-fn "catalog-metadata.json")
                     (-> {"new catalog hash" new-hash
                          "old catalog hash" (-> old-catalog json/generate-string utils/utf8-string->sha1)

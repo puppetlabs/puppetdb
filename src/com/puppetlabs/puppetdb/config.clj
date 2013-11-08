@@ -218,7 +218,12 @@
   [config]
   (if-let [debug-dir (and (pl-utils/true-str? (get-in config [:global :catalog-hash-conflict-debugging]))
                           (ensure-catalog-debug-dir config))]
-    (assoc-in config [:global :catalog-hash-debug-dir] debug-dir)
+    (do
+      (log/warn (str "Global config catalog-hash-conflict-debugging set to true. "
+                     "This is intended to troubleshoot catalog duplication issues and "
+                     "not for enabling in production long term.  See the PuppetDB docs "
+                     "for more information on this setting."))
+      (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
 (defn parse-config
