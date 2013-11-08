@@ -51,7 +51,7 @@
                  [org.slf4j/slf4j-log4j12 "1.7.5"]
                  [org.clojure/java.jdbc "0.1.1"]
                  [org.hsqldb/hsqldb "2.2.8"]
-                 [postgresql/postgresql "9.1-901-1.jdbc4"]
+                 [org.postgresql/postgresql "9.2-1003-jdbc4"]
                  [clojureql "1.0.3"]
                  ;; MQ connectivity
                  [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
