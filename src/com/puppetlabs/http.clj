@@ -122,7 +122,7 @@
      (json-response body status-ok))
   ([body code]
      (-> body
-         (json/generate-string {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
+         json/generate-pretty-string
          (json-response* code))))
 
 (def json-response-content-type "application/json; charset=utf-8")
@@ -176,7 +176,7 @@
   object."
   [coll buffer]
   {:pre [(instance? Writer buffer)]}
-  (json/generate-stream coll buffer {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true}))
+  (json/generate-pretty-stream coll buffer))
 
 (defmacro streamed-response
   "Evaluates `body` in a thread, with a local variable (`writer-var`)

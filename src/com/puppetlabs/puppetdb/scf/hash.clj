@@ -5,7 +5,8 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.pprint :as pp]
             [clojure.java.io :as io]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [fs.core :as fs]))
 
 (defn generic-identity-string
   "Serialize a data structure into a format that can be hashed for uniqueness
@@ -170,7 +171,7 @@
 (defn debug-file-path
   "Creates a unique path name for the `certname`. Uses a UUID to ensure uniqueness."
   [debug-output-dir certname file-name]
-  (str debug-output-dir "/" certname "_" (utils/uuid) "_" file-name))
+  (fs/file debug-output-dir (format "%s_%s_%s" certname (utils/uuid) file-name)))
 
 (defn output-clj-catalog
   "Writes `data` as a pretty-printed clojure data structure to `file-name`,
@@ -178,13 +179,13 @@
   [file-metadata title file-name data]
   (with-open [writer (io/writer file-name)]
     (pp/pprint data writer))
-  (assoc file-metadata title file-name))
+  (assoc file-metadata title (fs/absolute-path file-name)))
 
 (defn output-json-catalog
   "Similar to output-clj-catalog but writes the `data` as a JSON data structure to `file-name`."
   [file-metadata title file-name data]
   (json/spit-json file-name data)
-  (assoc file-metadata title file-name))
+  (assoc file-metadata title (fs/absolute-path file-name)))
 
 (defn debug-catalog [debug-output-dir new-hash {certname :certname new-resources :resources new-edges :edges :as catalog}]
   (let [{old-resources :resources old-edges :edges :as foo} (:data (qcat/catalog-for-node certname))

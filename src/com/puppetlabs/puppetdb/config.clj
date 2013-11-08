@@ -188,7 +188,7 @@
    catalog debug info."
   [config]
   {:pre [(not (str/blank? (get-in config [:global :vardir])))]}
-  (str (get-in config [:global :vardir]) "/debug/catalog-hashes"))
+  (fs/file (get-in config [:global :vardir]) "debug" "catalog-hashes"))
 
 (defn create-catalog-debug-dir
   "Attempt to crate the catalog debug directory at `path`. Failing to create the
@@ -203,14 +203,10 @@
                              "but PuppetDB was not able to create a directory at %s")
                         path)))))
 
-(defn ensure-catalog-debug-dir
-  "Create the directory for catalog debug info if it does not already
-   exist, returning the path if successful (or it already exists)"
-  [config]
-  (let [catalog-dir (catalog-debug-path config)]
-    (if (fs/exists? catalog-dir)
-      catalog-dir
-      (create-catalog-debug-dir catalog-dir))))
+(def ^{:doc "Create the directory for catalog debug info if it does not already
+              exist, returning the path if successful (or it already exists)"}
+  ensure-catalog-debug-dir
+  (comp create-catalog-debug-dir catalog-debug-path))
 
 (defn configure-catalog-debugging
   "When [global] contains catalog-hash-conflict-debugging=true, assoc into the config the directory

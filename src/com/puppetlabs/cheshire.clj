@@ -39,9 +39,27 @@
 
 (add-common-json-encoders!)
 
+(def default-pretty-opts {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
+
 (def generate-string core/generate-string)
 
 (def generate-stream core/generate-stream)
+
+(defn generate-pretty-string
+  "Thinly wraps cheshire.core/generate-string, adding the PuppetDB default date format
+   and pretty printing from `default-pretty-opts`"
+  ([obj]
+     (generate-pretty-string obj default-pretty-opts))
+  ([obj opts]
+     (generate-string obj (merge default-pretty-opts opts))))
+
+(defn generate-pretty-stream
+  "Thinly wraps cheshire.core/generate-stream, adding the PuppetDB default date format
+   and pretty printing from `default-pretty-opts`"
+  ([obj writer]
+     (generate-pretty-stream obj writer default-pretty-opts))
+  ([obj writer opts]
+     (generate-stream obj writer (merge default-pretty-opts opts))))
 
 (def parse-string core/parse-string)
 
@@ -52,5 +70,5 @@
    datastructure as JSON to `f`"
   [f obj & options]
   (with-open [writer (apply io/writer f options)]
-    (generate-stream obj writer {:pretty true}))
+    (generate-pretty-stream obj writer))
   nil)

@@ -219,21 +219,6 @@
       (is (= (assoc-in config [:global :catalog-hash-debug-dir] (str vardir "/debug/catalog-hashes"))
              (configure-catalog-debugging config)))))
 
-  (testing "existing directory should be reused, no new directory created"
-    (let [vardir (str (tu/temp-dir))
-          config {:global {:vardir vardir
-                           :catalog-hash-conflict-debugging "true"}}
-          mkdirs-called? (atom false)]
-
-      (configure-catalog-debugging config)
-
-      (is (true? (fs/exists? (catalog-debug-path config))))
-
-      (with-redefs [fs/mkdirs (fn [& args]
-                                (reset! mkdirs-called? true))]
-        (configure-catalog-debugging config))
-      (is (false? @mkdirs-called?))))
-
   (testing "failure to create directory"
     (let [vardir (str (tu/temp-dir))
           config {:global {:vardir vardir

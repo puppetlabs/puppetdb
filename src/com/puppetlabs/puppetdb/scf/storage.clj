@@ -343,7 +343,8 @@
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
-  similarity hash"
+   similarity hash. `catalog-hash-debug-dir` is an optional path
+   that indicates where catalog debugging information should be stored."
   ([catalog]
      (add-catalog! catalog nil))
   ([{:keys [api-version version transaction-uuid resources edges] :as catalog} catalog-hash-debug-dir]
@@ -431,7 +432,9 @@
 
 (defn replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
-  associated host with the supplied one."
+  associated host with the supplied one. `catalog-hash-debug-dir`
+  is an optional path that indicates where catalog debugging information
+  should be stored."
   ([catalog timestamp]
      (replace-catalog! catalog timestamp nil))
   ([{:keys [certname] :as catalog} timestamp catalog-hash-debug-dir]
