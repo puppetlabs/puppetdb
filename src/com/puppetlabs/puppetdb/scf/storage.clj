@@ -206,9 +206,13 @@
          (string? catalog-version)
          ((some-fn nil? string?) transaction-uuid)]
    :post [(map? %)]}
-  (sql/insert-values :catalogs
-    [:hash :api_version :catalog_version :transaction_uuid]
-    [hash api-version catalog-version transaction-uuid]))
+  (let [return (sql/insert-values :catalogs
+                 [:hash :api_version :catalog_version :transaction_uuid]
+                 [hash api-version catalog-version transaction-uuid])]
+    ;; PostgreSQL <= 8.1 does not support RETURNING so we fake it
+    (if (and (sutils/postgres?) (not (sutils/pg-newer-than-8-1?)))
+      (first (query-to-vec ["SELECT * FROM catalogs WHERE hash = ?" hash]))
+      return)))
 
 (defn update-catalog-metadata!
   "Given some catalog metadata, update the db"
