@@ -50,8 +50,12 @@ MANIFEST
 
 MANIFEST
 
-  on database, 'rm -rf /var/lib/puppetdb/debug/catalog-hashes/*'
+  catalog_hash_dir = catalog_hash_debug_dir(database)
 
+  Log.notify "Clearing the catalog hash debugging directory: #{catalog_hash_dir}"
+
+  on database, "rm -rf #{catalog_hash_dir}*"
+  
   rerun_agents_with_new_site_pp(master, second_run_manifest)
 
   sleep_until_queue_empty database
@@ -60,18 +64,18 @@ MANIFEST
 
     files = nil
 
-    on database, "ls /var/lib/puppetdb/debug/catalog-hashes/" do |res|
+    on database, "ls #{catalog_hash_dir}" do |res|
       files = res.stdout.split.map {|file| file.strip}
     end
 
     assert_equal(5 * agents.count, files.count)
 
     old_catalog_suffix = files.select { |file| file.end_with?("old-catalog.json") }.first
-    old_catalog_path = File.join('/var/lib/puppetdb/debug/catalog-hashes',old_catalog_suffix)
+    old_catalog_path = File.join(catalog_hash_dir, old_catalog_suffix)
     scp_from(database, old_catalog_path, ".")
 
     new_catalog_suffix = files.select { |file| file.end_with?("new-catalog.json") }.first
-    new_catalog_path = File.join('/var/lib/puppetdb/debug/catalog-hashes',new_catalog_suffix)
+    new_catalog_path = File.join(catalog_hash_dir, new_catalog_suffix)
     scp_from(database, new_catalog_path, ".")
 
     old_catalog = JSON.parse( File.read(old_catalog_suffix) )

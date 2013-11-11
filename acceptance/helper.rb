@@ -936,6 +936,18 @@ module PuppetDBExtensions
     end
   end
 
+  def puppetdb_vardir(host)
+    if host.is_pe?
+      "/var/lib/pe-puppetdb"
+    else
+      "/var/lib/puppetdb"
+    end
+  end
+
+  def catalog_hash_debug_dir(host)
+    puppetdb_vardir(host) + "/debug/catalog-hashes/"
+  end
+
 end
 
 # oh dear.
