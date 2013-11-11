@@ -550,6 +550,18 @@
     "CREATE INDEX idx_catalog_resources_type_title
       ON catalog_resources (type)"))
 
+(defn add-index-on-exported-column
+  "This migration adds an index to catalog_resources.exported. It will
+  optionally create a partial index on PostgreSQL to reduce disk space, and
+  since the more common value is false its not useful to index this."
+  []
+  (sql/do-commands
+    (if (postgres?)
+      "CREATE INDEX idx_catalog_resources_exported_true
+         ON catalog_resources (exported) WHERE exported = true"
+      "CREATE INDEX idx_catalog_resources_exported
+         ON catalog_resources (exported)")))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -568,7 +580,8 @@
    14 add-parameter-cache
    15 drop-duplicate-indexes
    16 drop-resource-tags-index
-   17 use-bigint-instead-of-catalog-hash})
+   17 use-bigint-instead-of-catalog-hash
+   18 add-index-on-exported-column})
 
 (def desired-schema-version (apply max (keys migrations)))
 
