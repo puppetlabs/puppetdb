@@ -29,7 +29,8 @@
             [com.puppetlabs.cheshire :as json]
             [clojure.data :as data]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
-            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils])
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [com.puppetlabs.puppetdb.scf.hash-debug :as hashdbg])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
@@ -330,7 +331,7 @@
   (inc! (:new-catalog metrics))
 
   (when catalog-hash-debug-dir
-    (shash/debug-catalog catalog-hash-debug-dir hash catalog))
+    (hashdbg/debug-catalog catalog-hash-debug-dir hash catalog))
 
   (let [catalog-id (:id (add-catalog-metadata! hash api-version
                                                version transaction-uuid))
