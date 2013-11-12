@@ -1,5 +1,6 @@
 (ns com.puppetlabs.test.cheshire
-  (:require [clj-time.core :as clj-time])
+  (:require [clj-time.core :as clj-time]
+            [com.puppetlabs.puppetdb.testutils :as tu])
   (:import (java.io StringWriter StringReader))
   (:use clojure.test
         com.puppetlabs.cheshire))
@@ -43,3 +44,14 @@
   (testing "should return  map from parsing a json stream"
     (is (= (parse-stream (StringReader. "{\"a\":1,\"b\":2}"))
             {"a" 1 "b" 2}))))
+
+(deftest test-spit-json
+  (let [json-out (tu/temp-file "spit-json")]
+    (testing "json output with keywords"
+      (spit-json json-out {:a 1 :b 2})
+      (is (= "{\n  \"a\" : 1,\n  \"b\" : 2\n}"
+             (slurp json-out))))
+    (testing "json output with strings"
+      (spit-json json-out {"a" 1 "b" 2})
+      (is (= "{\n  \"a\" : 1,\n  \"b\" : 2\n}"
+             (slurp json-out))))))

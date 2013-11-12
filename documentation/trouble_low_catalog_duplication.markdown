@@ -137,7 +137,6 @@ location.
 Using a command like below, you should see 5 files:
 
     # ls -1 el6-64.vm*
-    
     sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_old-catalog.edn
     sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_old-catalog.json
     sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_catalog-metadata.json
@@ -146,16 +145,16 @@ Using a command like below, you should see 5 files:
 
 To examine the differences, diff the old and new JSON files:
 
-    # diff sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_old-catalog.json sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_new-catalog.json
-
-    58c58
-    <       "content" : "foo",
-    ---
-    >       "content" : "bar",
-
-The above diff output shows line 58 as being different in the two
-catalogs. To get more context around the changing lines, use -C or
-view the files individually.
+    # diff -u sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_old-catalog.json sample.com_0dabed38-b999-41a8-b6a3-254915ebcdd7_new-catalog.json
+    @@ -52,10 +52,10 @@
+         "file" : "/path/to/site.pp",
+         "line" : 8,
+         "parameters" : {
+    -      "content" : "foo",
+    +      "content" : "bar",
+           "ensure" : "present"
+         },
+         "title" : "/tmp/catalog-test.ox78bt/foo",
 
 In this example, the change from the first run to the second run was
 pretty trivial, but following a similar set of steps should also
