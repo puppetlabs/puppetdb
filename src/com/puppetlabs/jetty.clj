@@ -90,9 +90,7 @@
 (defn add-gzip-handler
   "Jetty configurator that wraps GZIP compression around the existing
   web request handler"
-  [server]
-  {:pre  [(instance? Server server)]
-   :post [(instance? Server %)]}
+  [^Server server]
   (let [current-handler (.getHandler server)
         gzip-handler    (doto (GzipHandler.)
                           (.setHandler current-handler))]
