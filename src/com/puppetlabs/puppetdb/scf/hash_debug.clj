@@ -28,8 +28,31 @@
   (json/spit-json file-name data)
   (assoc file-metadata title (fs/absolute-path file-name)))
 
+(defn edge-relationships->kwds
+  "Updates the edge relationships from the DB to keywords for easier diffing
+   with the new catalog."
+  [edges]
+  (map #(update-in % [:relationship] keyword) edges))
+
+(defn resource-params->kwds
+  "Updates the reousrce parameter keys from the DB to keywords for easier diffing
+   with the new catalog."
+  [resources]
+  (map (fn [resource]
+         (update-in resource [:parameters] #(utils/mapkeys keyword %)))
+       resources))
+
+(defn diffable-old-catalog
+  "Query for the existing catalog from the DB, prep the results
+   for easy diffing."
+  [certname]
+  (-> (qcat/catalog-for-node certname)
+      :data
+      (update-in [:edges] edge-relationships->kwds)
+      (update-in [:resources] resource-params->kwds)))
+
 (defn debug-catalog [debug-output-dir new-hash {certname :certname new-resources :resources new-edges :edges :as catalog}]
-  (let [{old-resources :resources old-edges :edges :as foo} (:data (qcat/catalog-for-node certname))
+  (let [{old-resources :resources old-edges :edges} (diffable-old-catalog certname)
         old-catalog (shash/catalog-similarity-format certname old-resources old-edges)
         new-catalog (shash/catalog-similarity-format certname (vals new-resources) new-edges)
         uuid (utils/uuid)

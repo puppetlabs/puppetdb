@@ -75,7 +75,7 @@
                old-edn-edges :edges
                :as old-edn} (slurp-clj "catalog-old.edn" debug-dir)
               {new-edn-res :resources
-               new-edn-eges :edges
+               new-edn-edges :edges
                :as new-edn} (slurp-clj "catalog-new.edn" debug-dir)
               {old-json-res "resources"
                old-json-edges "edges"
@@ -89,6 +89,11 @@
           (is (some #(= "/etc/foobar/bazv2" (get % "title")) new-json-res))
           (is (not-any? #(= "/etc/foobar/bazv2" (get % "title")) old-json-res))
           (is (not-any? #(= "/etc/foobar/bazv2" (:title %)) old-edn-res))
+
+          (is (every? (comp keyword? :relationship)  old-edn-edges)
+              "Edge relationships from the DB should be converted to keywords")
+          (is (every? keyword? (mapcat (comp keys :parameters) old-edn-res))
+              "Parameter keys from the DB should be converted to keywords")
 
           (is (seq old-edn-res))
           (is (seq old-edn-edges))
