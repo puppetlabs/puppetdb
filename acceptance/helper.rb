@@ -923,7 +923,7 @@ module PuppetDBExtensions
     remote_path
   end
 
-  def rerun_agents_with_new_site_pp(host, manifest)
+  def run_agents_with_new_site_pp(host, manifest)
     manifest_path = create_remote_site_pp(host, manifest)
     with_puppet_running_on host, {
       'master' => {

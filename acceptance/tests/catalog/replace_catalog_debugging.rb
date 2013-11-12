@@ -30,7 +30,7 @@ catalog-hash-conflict-debugging=true
   }
 MANIFEST
 
-  rerun_agents_with_new_site_pp(master, first_run_manifest)
+  run_agents_with_new_site_pp(master, first_run_manifest)
 
   sleep_until_queue_empty database
 
@@ -56,7 +56,7 @@ MANIFEST
 
   on database, "rm -rf #{catalog_hash_dir}*"
   
-  rerun_agents_with_new_site_pp(master, second_run_manifest)
+  run_agents_with_new_site_pp(master, second_run_manifest)
 
   sleep_until_queue_empty database
 
