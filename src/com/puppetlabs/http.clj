@@ -12,7 +12,7 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.reflect :as r]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as s]))
 
 

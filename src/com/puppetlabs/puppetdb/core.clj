@@ -12,7 +12,8 @@
 ;; `[arg1 arg2 arg3]`.
 
 (ns com.puppetlabs.puppetdb.core
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.utils.logging :as logging-utils]
             [clojure.tools.namespace :as ns])
   (:use [clojure.string :only (split)])
   (:gen-class))
@@ -78,5 +79,5 @@
         (apply (resolve (symbol module "-main")) args)
         (System/exit 0)
         (catch Throwable e
-          (utils/catch-all-logger e)
+          (logging-utils/catch-all-logger e)
           (System/exit 1))))))

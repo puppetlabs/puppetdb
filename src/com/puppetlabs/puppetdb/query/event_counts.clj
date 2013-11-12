@@ -4,7 +4,7 @@
   (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores underscores->dashes]]
         [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]
-        [com.puppetlabs.utils :only [contains-some]]
+        [puppetlabs.kitchensink.core :only [contains-some]]
         [clojure.core.match :only [match]]))
 
 (defn- compile-event-count-equality

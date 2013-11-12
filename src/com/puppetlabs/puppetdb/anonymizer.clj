@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [clojure.string :as string])
   (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
-        [com.puppetlabs.utils :only (regexp? boolean? uuid string-contains?)]
+        [puppetlabs.kitchensink.core :only (regexp? boolean? uuid string-contains?)]
         [clojure.walk :only (keywordize-keys)]
         [com.puppetlabs.random]))
 

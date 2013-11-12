@@ -1,5 +1,5 @@
 (ns com.puppetlabs.validation
-  (:require [com.puppetlabs.utils :as pl-utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
             [clojure.set :as set])
   (:use [cheshire.custom :only [JSONable]]))
@@ -28,7 +28,7 @@
   [model-name fields]
   `(def ~model-name
      {:name (str '~model-name)
-      :fields (pl-utils/mapvals (fn [v#]
+      :fields (kitchensink/mapvals (fn [v#]
                                   (if (map? v#)
                                     v#
                                     {:optional? false
@@ -45,8 +45,8 @@
    :post [(= obj %)]}
   (let [model-name (:name model)
         fields (:fields model)
-        field-names (pl-utils/keyset fields)
-        present-keys (pl-utils/keyset obj)
+        field-names (kitchensink/keyset fields)
+        present-keys (kitchensink/keyset obj)
         optional-keys (set (map key (filter #(:optional? (val %)) fields)))
         missing-keys (set/difference field-names present-keys optional-keys)
         unknown-keys (set/difference present-keys field-names)
@@ -58,7 +58,7 @@
         type-fns {:string   string?
                   :integer  integer?
                   :number   number?
-                  :datetime pl-utils/datetime?
+                  :datetime kitchensink/datetime?
                   :coll     coll?
                   :jsonable #(satisfies? JSONable %)}
         type-errors (for [[field {:keys [optional? type]}] fields

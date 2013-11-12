@@ -63,7 +63,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clj-http.client :as client]
             [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
@@ -176,8 +176,8 @@
           (map? (:annotations %))]}
   (let [message     (json/parse-string command-string true)
         annotations (get message :annotations {})
-        received    (get annotations :received (pl-utils/timestamp))
-        id          (get annotations :id (pl-utils/uuid))
+        received    (get annotations :received (kitchensink/timestamp))
+        id          (get annotations :id (kitchensink/uuid))
         annotations (-> annotations
                         (assoc :received received)
                         (assoc :id id))]
@@ -201,8 +201,8 @@
   {:pre  [(map? message)]
    :post [(map? %)]}
   (-> message
-      (assoc-in [:annotations :received] (pl-utils/timestamp))
-      (assoc-in [:annotations :id] (pl-utils/uuid))))
+      (assoc-in [:annotations :received] (kitchensink/timestamp))
+      (assoc-in [:annotations :id] (kitchensink/uuid))))
 
 ;; ## Command submission
 
@@ -224,7 +224,7 @@
             (map? command-map)]}
      (let [message (json/generate-string command-map)
            body    (format "checksum=%s&payload=%s"
-                           (pl-utils/utf8-string->sha1 message)
+                           (kitchensink/utf8-string->sha1 message)
                            (url-encode message))
            url     (format "http://%s:%s/v2/commands" host port)]
        (client/post url {:body               body
@@ -251,7 +251,7 @@
                                  (annotate-command))]
                      [(json/generate-string cmd) (get-in cmd [:annotations :id])])
                    (catch com.fasterxml.jackson.core.JsonParseException e
-                     [raw-command (pl-utils/uuid)]))]
+                     [raw-command (kitchensink/uuid)]))]
     (with-open [conn (mq/connect! mq-spec)]
       (mq/connect-and-publish! conn mq-endpoint msg))
     id))
@@ -439,7 +439,7 @@
    :post [(= (count (get-in % [:annotations :attempts]))
              (inc (count (:attempts annotations))))]}
   (let [attempts (get annotations :attempts [])
-        attempt  {:timestamp (pl-utils/timestamp)
+        attempt  {:timestamp (kitchensink/timestamp)
                   :error     (str e)
                   :trace     (map str (.getStackTrace e))}]
     (update-in msg [:annotations :attempts] conj attempt)))

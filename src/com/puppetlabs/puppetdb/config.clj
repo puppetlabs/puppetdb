@@ -1,9 +1,10 @@
 (ns com.puppetlabs.puppetdb.config
   (:import [java.security KeyStore])
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.ssl :as ssl]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.ssl :as ssl]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.time :as pl-time]
+            [com.puppetlabs.utils.logging :refer [configure-logging!]]
             [clj-time.core :as time]
             [clojure.java.io :as io]
             [fs.core :as fs]
@@ -18,7 +19,7 @@
   {:pre  [(map? config)]
    :post [(map? %)
           (pos? (get-in % [:command-processing :threads]))]}
-  (let [default-nthreads (-> (pl-utils/num-cpus)
+  (let [default-nthreads (-> (kitchensink/num-cpus)
                              (/ 2)
                              (int)
                              (max 1))]
@@ -40,7 +41,7 @@
           (instance? KeyStore (:keystore %))
           (string? (:key-password %))
           (instance? KeyStore (:truststore %))
-          (pl-utils/missing? % :trust-password :ssl-key :ssl-cert :ssl-ca-cert)]}
+          (kitchensink/missing? % :trust-password :ssl-key :ssl-cert :ssl-ca-cert)]}
   (let [old-ssl-config-keys [:keystore :truststore :key-password :trust-password]
         old-ssl-config      (select-keys jetty old-ssl-config-keys)]
     (when (pos? (count old-ssl-config))
@@ -48,7 +49,7 @@
                   (keys old-ssl-config)))))
   (let [truststore  (-> (ssl/keystore)
                         (ssl/assoc-cert-file! "PuppetDB CA" ssl-ca-cert))
-        keystore-pw (pl-utils/uuid)
+        keystore-pw (kitchensink/uuid)
         keystore    (-> (ssl/keystore)
                         (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" ssl-key keystore-pw ssl-cert))]
     (-> jetty
@@ -70,7 +71,7 @@
   This bug is solved in Jetty 9, so this check can probably be removed if we
   upgrade."
   ([threads]
-  (jetty7-minimum-threads threads (inc (pl-utils/num-cpus))))
+  (jetty7-minimum-threads threads (inc (kitchensink/num-cpus))))
 
   ([threads min-threads]
   {:pre [(pos? threads)
@@ -90,7 +91,7 @@
   [{:keys [jetty] :as config}]
   {:pre  [(map? config)]
    :post [(map? %)
-          (pl-utils/missing? (:jetty %) :ssl-key :ssl-cert :ssl-ca-cert)]}
+          (kitchensink/missing? (:jetty %) :ssl-key :ssl-cert :ssl-ca-cert)]}
   (let [initial-config  {:max-threads 50}
         merged-jetty    (merge initial-config jetty)
         pem-required-keys [:ssl-key :ssl-cert :ssl-ca-cert]
@@ -212,7 +213,7 @@
   "When [global] contains catalog-hash-conflict-debugging=true, assoc into the config the directory
    to store the debugging, if not return the config unmodified."
   [config]
-  (if-let [debug-dir (and (pl-utils/true-str? (get-in config [:global :catalog-hash-conflict-debugging]))
+  (if-let [debug-dir (and (kitchensink/true-str? (get-in config [:global :catalog-hash-conflict-debugging]))
                           (ensure-catalog-debug-dir config))]
     (do
       (log/warn (str "Global config catalog-hash-conflict-debugging set to true. "
@@ -239,9 +240,9 @@
         (throw (IllegalArgumentException.
                 (format "Configuration path '%s' must exist and must be readable." path)))))
 
-    (->> (pl-utils/inis-to-map path)
+    (->> (kitchensink/inis-to-map path)
          (merge initial-config)
-         pl-utils/configure-logging!
+         configure-logging!
          validate-vardir
          configure-commandproc-threads
          configure-web-server

@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.testutils.catalogs
   (:require [com.puppetlabs.puppetdb.command :as command]
             [cheshire.core :as json])
-  (:use     [com.puppetlabs.utils :only [uuid]]
+  (:use     [puppetlabs.kitchensink.core :only [uuid]]
             [clj-time.core :only [now]]
             [com.puppetlabs.puppetdb.testutils :only [test-db]]
             [com.puppetlabs.puppetdb.fixtures :only [*db*]]

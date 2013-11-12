@@ -4,7 +4,7 @@
 
 (ns com.puppetlabs.puppetdb.query.population
   (:use [com.puppetlabs.jdbc :only (query-to-vec table-count with-transacted-connection)]
-        [com.puppetlabs.utils :only (quotient)]
+        [puppetlabs.kitchensink.core :only (quotient)]
         [metrics.gauges :only (gauge)]))
 
 (defn correlate-exported-resources

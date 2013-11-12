@@ -1,7 +1,7 @@
 (ns com.puppetlabs.random
   (:require [clojure.string :as string])
   (:use [clojure.walk :only [keywordize-keys]]
-        [com.puppetlabs.utils :only [boolean?]]))
+        [puppetlabs.kitchensink.core :only [boolean?]]))
 
 (def ^{:doc "Convenience for java.util.Random"}
   random (java.util.Random.))

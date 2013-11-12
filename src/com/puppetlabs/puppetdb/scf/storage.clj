@@ -21,7 +21,7 @@
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.reports :as report]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
@@ -103,7 +103,7 @@
    :duplicate-pct     (gauge [ns-str "default" "duplicate-pct"]
                              (let [dupes (value (:duplicate-catalog metrics))
                                    new   (value (:new-catalog metrics))]
-                               (float (utils/quotient dupes (+ dupes new)))))
+                               (float (kitchensink/quotient dupes (+ dupes new)))))
 
    :replace-facts     (timer [ns-str "default" "replace-facts-time"])
 
@@ -145,7 +145,7 @@
   "Return a list of nodes that have seen no activity between
   (now-`time` and now)"
   [time]
-  {:pre  [(utils/datetime? time)]
+  {:pre  [(kitchensink/datetime? time)]
    :post [(coll? %)]}
   (let [ts (to-timestamp time)]
     (map :name (jdbc/query-to-vec "SELECT c.name FROM certnames c
@@ -168,7 +168,7 @@
 (defn purge-deactivated-nodes!
   "Delete nodes from the database which were deactivated before `time`."
   [time]
-  {:pre [(utils/datetime? time)]}
+  {:pre [(kitchensink/datetime? time)]}
   (let [ts (to-timestamp time)]
     (sql/delete-rows :certnames ["deactivated < ?" ts])))
 
@@ -286,7 +286,7 @@
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-id refs-to-resources refs-to-hashes]
-  (let [persisted?      (resources-exist? (utils/valset refs-to-hashes))
+  (let [persisted?      (resources-exist? (kitchensink/valset refs-to-hashes))
         resource-values (for [[ref resource] refs-to-resources
                               :let [hash (refs-to-hashes ref)]]
                           (resource->values catalog-id resource hash (persisted? hash)))
@@ -443,7 +443,7 @@
   ([catalog timestamp]
      (replace-catalog! catalog timestamp nil))
   ([{:keys [certname] :as catalog} timestamp catalog-hash-debug-dir]
-     {:pre [(utils/datetime? timestamp)]}
+     {:pre [(kitchensink/datetime? timestamp)]}
      (time! (:replace-catalog metrics)
             (sql/transaction
              (let [catalog-hash (add-catalog! catalog catalog-hash-debug-dir)]
@@ -462,7 +462,7 @@
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   [certname facts timestamp]
-  {:pre [(utils/datetime? timestamp)]}
+  {:pre [(kitchensink/datetime? timestamp)]}
   (sql/insert-record :certname_facts_metadata
                      {:certname certname :timestamp (to-timestamp timestamp)})
   (insert-facts! certname facts))
@@ -567,7 +567,7 @@
     ;; "Foo" is a class, but "Foo[Bar]" is a type with a title.
     (first
       (filter
-        #(not (or (empty? %) (utils/string-contains? "[" %)))
+        #(not (or (empty? %) (kitchensink/string-contains? "[" %)))
         (reverse containment-path)))))
 
 (defn add-report!*
@@ -580,8 +580,8 @@
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
-         (utils/datetime? timestamp)
-         (utils/boolean? update-latest-report?)]}
+         (kitchensink/datetime? timestamp)
+         (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
@@ -590,7 +590,7 @@
                                      (update-in [:new-value] sutils/db-serialize)
                                      (update-in [:containment-path] containment-path-fn)
                                      (assoc :containing-class (find-containing-class (% :containment-path)))
-                                     (assoc :report report-hash) ((partial utils/mapkeys dashes->underscores)))
+                                     (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
                                   resource-events)]
     (time! (:store-report metrics)
       (sql/transaction
@@ -617,7 +617,7 @@
   "Delete all reports in the database which have an `end-time` that is prior to
   the specified date/time."
   [time]
-  {:pre [(utils/datetime? time)]}
+  {:pre [(kitchensink/datetime? time)]}
   (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))
 
 (defmulti db-deprecated?
