@@ -122,9 +122,19 @@ jetty.ini isn't linked to a known interface - or resolvable.
 
 ## Why is the load so high on the database server?
 
-One possibile cause for execessive load on the database server is a
-low catalog duplication rate. The catalog duplication rate can be
-found on the [dashboard][maintaining_tuning]. Typically that
-percentage should be 90% or above. If that percentage is lower, it
-could cause a much heavier I/O load on the database. Refer to the
-[Troubleshooting Low Catalog Duplication guide][low_catalog_dupe].
+There could be many reasons for a high load on the database server.
+The total number of nodes managed by Puppet, the frequency of the
+agent runs, the amount of changes to the nodes on each run etc. One
+possible cause of execessive load on the database server is a low
+catalog duplication rate. See the [PuppetDB dashboard][maintaining_tuning]
+to find this rate for your PuppetDB instance. If this rate is
+significantly lower than 90%, see [Why is my catalog duplication rate so low?][#why-is-my-catalog-duplication-rate-so-low].
+
+## Why is my catalog duplication rate so low?
+
+The catalog duplication rate can be found on the
+[dashboard][maintaining_tuning]. Typically that percentage should be
+90% or above. If that percentage is lower, it could cause a much
+heavier I/O load on the database. Refer to the [Troubleshooting Low
+Catalog Duplication guide][low_catalog_dupe] for steps to diagnose the
+problem.
