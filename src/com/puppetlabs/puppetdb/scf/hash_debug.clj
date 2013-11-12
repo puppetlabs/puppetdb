@@ -41,7 +41,7 @@
                          "java version" utils/java-version
                          "database name" (sutils/sql-current-connection-database-name)
                          "database version" (sutils/sql-current-connection-database-version)}
-                        (output-clj-catalog "old catalog path - edn" (file-path-fn "old-catalog.edn") old-catalog)
-                        (output-clj-catalog "new catalog path - edn" (file-path-fn "new-catalog.edn") new-catalog)
-                        (output-json-catalog "old catalog path - json" (file-path-fn "old-catalog.json") old-catalog)
-                        (output-json-catalog "new catalog path - json" (file-path-fn "new-catalog.json") new-catalog)))))
+                        (output-clj-catalog "old catalog path - edn" (file-path-fn "catalog-old.edn") old-catalog)
+                        (output-clj-catalog "new catalog path - edn" (file-path-fn "catalog-new.edn") new-catalog)
+                        (output-json-catalog "old catalog path - json" (file-path-fn "catalog-old.json") old-catalog)
+                        (output-json-catalog "new catalog path - json" (file-path-fn "catalog-new.json") new-catalog)))))

@@ -70,11 +70,11 @@ MANIFEST
 
     assert_equal(5 * agents.count, files.count)
 
-    old_catalog_suffix = files.select { |file| file.end_with?("old-catalog.json") }.first
+    old_catalog_suffix = files.select { |file| file.end_with?("catalog-old.json") }.first
     old_catalog_path = File.join(catalog_hash_dir, old_catalog_suffix)
     scp_from(database, old_catalog_path, ".")
 
-    new_catalog_suffix = files.select { |file| file.end_with?("new-catalog.json") }.first
+    new_catalog_suffix = files.select { |file| file.end_with?("catalog-new.json") }.first
     new_catalog_path = File.join(catalog_hash_dir, new_catalog_suffix)
     scp_from(database, new_catalog_path, ".")
 
