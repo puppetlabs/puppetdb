@@ -6,7 +6,9 @@
            [com.puppetlabs.time :as pl-time]
            [clj-time.core :as time]
            [com.puppetlabs.testutils.logging :as tu-log]
-           [clojure.java.io :as io]))
+           [clojure.java.io :as io]
+           [com.puppetlabs.puppetdb.testutils :as tu]
+           [fs.core :as fs]))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -161,24 +163,27 @@
           config      (configure-web-server user-config)]
       (is (= config {:jetty {:truststore "foo" :max-threads 500 :client-auth :need}})))))
 
+(defn vardir [path]
+  {:global {:vardir (str path)}})
+
 (deftest vardir-validation
   (testing "should fail if it's not specified"
     (is (thrown-with-msg? IllegalArgumentException #"is not specified"
-          (validate-vardir nil))))
+                          (validate-vardir {:global {:vardir nil}}))))
 
   (testing "should fail if it's not an absolute path"
     (is (thrown-with-msg? IllegalArgumentException #"must be an absolute path"
-          (validate-vardir "foo/bar/baz"))))
+                          (validate-vardir (vardir "foo/bar/baz")))))
 
   (testing "should fail if it doesn't exist"
     (is (thrown-with-msg? java.io.FileNotFoundException #"does not exist"
-          (validate-vardir "/abc/def/ghi"))))
+                          (validate-vardir (vardir "/abc/def/ghi")))))
 
   (testing "should fail if it's not a directory"
     (let [filename (doto (java.io.File/createTempFile "not_a" "directory")
                      (.deleteOnExit))]
       (is (thrown-with-msg? java.io.FileNotFoundException #"is not a directory"
-            (validate-vardir filename)))))
+                            (validate-vardir (vardir filename))))))
 
   (testing "should fail if it's not writable"
     (let [filename (doto (java.io.File/createTempFile "not" "writable")
@@ -187,7 +192,7 @@
                      (.mkdir)
                      (.setReadOnly))]
       (is (thrown-with-msg? java.io.FileNotFoundException #"is not writable"
-            (validate-vardir filename)))))
+                            (validate-vardir (vardir filename))))))
 
   (testing "should return the value if everything is okay"
     (let [filename (doto (java.io.File/createTempFile "totally" "okay")
@@ -195,5 +200,35 @@
                      (.delete)
                      (.mkdir)
                      (.setWritable true))]
-      (is (= (validate-vardir filename) filename)))))
+      (is (= (validate-vardir (vardir filename))
+             (vardir filename))))))
+
+(deftest catalog-debugging
+  (testing "no changes when debugging is not enabled"
+    (is (= {} (configure-catalog-debugging {})))
+    (is (= {:global {:catalog-hash-conflict-debugging "false"}}
+           (configure-catalog-debugging {:global {:catalog-hash-conflict-debugging "false"}})))
+    (is (= {:global {:catalog-hash-conflict-debugging "something that is not true"}}
+           (configure-catalog-debugging {:global {:catalog-hash-conflict-debugging "something that is not true"}}))))
+
+  (testing "creating the directory when not present"
+    (let [vardir (str (tu/temp-dir))
+          config {:global {:vardir vardir
+                           :catalog-hash-conflict-debugging "true"}}]
+      (is (false? (fs/exists? (catalog-debug-path config))))
+      (is (= (assoc-in config [:global :catalog-hash-debug-dir] (str vardir "/debug/catalog-hashes"))
+             (configure-catalog-debugging config)))))
+
+  (testing "failure to create directory"
+    (let [vardir (str (tu/temp-dir))
+          config {:global {:vardir vardir
+                           :catalog-hash-conflict-debugging "true"}}
+          mkdirs-called? (atom true)]
+
+      (with-redefs [fs/mkdirs (fn [& args]
+                                (reset! mkdirs-called? true)
+                                (throw (SecurityException. "Stuff is broken")))]
+        (is (= config
+               (configure-catalog-debugging config))))
+      (is (true? @mkdirs-called?)))))
 

@@ -7,7 +7,7 @@
   (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]
         [clojure.string :only (split trim)]
-        [com.puppetlabs.utils :only (compare-jvm-versions)]))
+        [com.puppetlabs.utils :only (compare-jvm-versions java-version)]))
 
 ;; We need to monkey-patch `add-ssl-connector!` in order to set the
 ;; appropriate options for Client Certificate Authentication, and use
@@ -39,7 +39,7 @@
 ;; If not running on an affected JVM version, this is nil.
 (defn acceptable-ciphers
   ([]
-     (acceptable-ciphers (System/getProperty "java.version")))
+     (acceptable-ciphers java-version))
   ([jvm-version]
      (let [known-good-version "1.7.0_05"]
        (if (pos? (compare-jvm-versions jvm-version known-good-version))

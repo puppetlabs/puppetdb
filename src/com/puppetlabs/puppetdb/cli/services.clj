@@ -86,14 +86,15 @@
   This function doesn't terminate. If we encounter an exception when
   processing commands from the message queue, we retry the operation
   after reopening a fresh connection with the MQ."
-  [mq mq-endpoint discard-dir db]
+  [mq mq-endpoint discard-dir opt-map]
+  {:pre [(:db opt-map)]}
   (pl-utils/keep-going
    (fn [exception]
      (log/error exception "Error during command processing; reestablishing connection after 10s")
      (Thread/sleep 10000))
 
    (with-open [conn (mq/connect! mq)]
-     (command/process-commands! conn mq-endpoint discard-dir {:db db}))))
+     (command/process-commands! conn mq-endpoint discard-dir opt-map))))
 
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
@@ -247,7 +248,6 @@
         {:keys [jetty database read-database global command-processing]
             :as config}                            (conf/parse-config (:config options) initial-config)
         product-name                               (normalize-product-name (get global :product-name "puppetdb"))
-        vardir                                     (conf/validate-vardir (:vardir global))
         update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         ;; TODO: revisit the choice of 20000 as a default value for event queries
         event-query-limit                          (get global :event-query-limit 20000)
@@ -258,7 +258,7 @@
         node-purge-ttl                             (get database :node-purge-ttl)
         report-ttl                                 (get database :report-ttl)
         dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
-        mq-dir                                     (str (file vardir "mq"))
+        mq-dir                                     (str (file (:vardir global) "mq"))
         discard-dir                                (file mq-dir "discarded")
         globals                                    {:scf-read-db          read-db
                                                     :scf-write-db         write-db
@@ -301,7 +301,8 @@
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
                                  (future (with-error-delivery error
-                                           (load-from-mq mq-addr mq-endpoint discard-dir write-db))))))
+                                           (load-from-mq mq-addr mq-endpoint discard-dir {:db write-db
+                                                                                          :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}))))))
           updater       (future (maybe-check-for-updates product-name update-server read-db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (build-whitelist-authorizer wl)
@@ -328,7 +329,7 @@
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
-        (when (= "true" enabled)
+        (when (pl-utils/true-str? enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
 

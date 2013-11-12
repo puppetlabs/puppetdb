@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.scf.hash
   (:require [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils]))
+            [com.puppetlabs.utils :as utils]
+            [com.puppetlabs.puppetdb.query.catalogs :as qcat]))
 
 (defn generic-identity-string
   "Serialize a data structure into a format that can be hashed for uniqueness
@@ -62,24 +63,43 @@
    :post [(string? %)]}
   (resource-identity-hash* type title parameters))
 
-(defn catalog-resource-identity-string
-  "Compute a stably-sorted, string representation of the given
-  resource that will uniquely identify it with respect to a
-  catalog. Unlike `resource-identity-hash`, this string will also
-  include the resource metadata. This function is used as part of
-  determining whether a catalog needs to be stored."
-  [{:keys [type title parameters exported file line] :as resource}]
+(defn catalog-resource-identity-format
+  "Narrow `resource` to only contain the needed key/values for computing the hash of
+   the given resource."
+  [resource]
   {:pre  [(map? resource)]
-   :post [(string? %)]}
-  (generic-identity-string [type title exported file line parameters]))
+   :post [(map? %)]}
+  (select-keys resource [:type :title :parameters :exported :file :line]))
 
-(defn edge-identity-string
-  "Compute a string for a given edge that will uniquely identify it
-  within a population."
-  [edge]
-  {:pre  [(map? edge)]
-   :post [(string? %)]}
-  (generic-identity-string edge))
+(defn resource-comparator
+  "Compares two resources by the title and type.  Useful in calls to sort to
+   get a stable ordering of resources."
+  [{lhs-title :title :as lhs} {rhs-title :title :as rhs}]
+  (let [cmp-val (compare lhs-title rhs-title)]
+    (if (zero? cmp-val)
+      (compare (:type lhs) (:type rhs))
+      cmp-val)))
+
+(defn edge-comparator
+  "Function used for comparing two edges by their source/target resources, suitable
+   for the clojure sort function."
+  [{lhs-source :source :as lhs} {rhs-source :source :as rhs}]
+  (let [source-result (resource-comparator lhs-source rhs-source)]
+    (if (zero? source-result)
+      (let [target-result (resource-comparator (:target lhs) (:target rhs))]
+        (if (zero? target-result)
+          (compare (:relationship lhs) (:relationship rhs))
+          target-result))
+      source-result)))
+
+(defn catalog-similarity-format
+  "Creates catalog map for the given `certname`, `resources` and `edges` with a
+   stable ordering that can be used to create a hash consistently."
+  [certname resources edges]
+  (utils/sort-nested-maps
+   {:certname  certname
+    :resources (sort resource-comparator (map catalog-resource-identity-format resources))
+    :edges     (sort edge-comparator edges)}))
 
 (defn catalog-similarity-hash
   "Compute a hash for the given catalog's content
@@ -100,10 +120,8 @@
   ;; but I figure that for safety's sake, it's better to be very
   ;; explicit about the exact attributes of a catalog that we care
   ;; about when we think about "uniqueness".
-  (generic-identity-hash {:certname  certname
-                          :resources (sort (for [[ref resource] resources]
-                                             (catalog-resource-identity-string resource)))
-                          :edges     (sort (map edge-identity-string edges))}))
+  (generic-identity-hash
+   (catalog-similarity-format certname (vals resources) edges)))
 
 (defn resource-event-identity-string
   "Compute a string suitable for hashing a resource event
@@ -144,3 +162,4 @@
      :end-time end-time
      :resource-events (sort (map resource-event-identity-string resource-events))
      :transaction-uuid transaction-uuid}))
+

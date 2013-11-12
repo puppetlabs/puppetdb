@@ -915,6 +915,39 @@ module PuppetDBExtensions
     end
   end
 
+  def create_remote_site_pp(host, manifest)
+    tmpdir = host.tmpdir("remote-site-pp")
+    remote_path = File.join(tmpdir, 'site.pp')
+    create_remote_file(host, remote_path, manifest)
+    on master, "chmod -R +rX #{tmpdir}"
+    remote_path
+  end
+
+  def run_agents_with_new_site_pp(host, manifest)
+    manifest_path = create_remote_site_pp(host, manifest)
+    with_puppet_running_on host, {
+      'master' => {
+        'storeconfigs' => 'true',
+        'storeconfigs_backend' => 'puppetdb',
+        'autosign' => 'true',
+        'manifest' => manifest_path
+      }} do
+      run_agent_on agents, "--test --server #{host}", :acceptable_exit_codes => [0,2]
+    end
+  end
+
+  def puppetdb_vardir(host)
+    if host.is_pe?
+      "/var/lib/pe-puppetdb"
+    else
+      "/var/lib/puppetdb"
+    end
+  end
+
+  def catalog_hash_debug_dir(host)
+    puppetdb_vardir(host) + "/debug/catalog-hashes/"
+  end
+
 end
 
 # oh dear.

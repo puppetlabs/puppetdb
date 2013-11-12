@@ -411,3 +411,14 @@
                   :bar {:foo "baz"}
                   :baz {:foo "bar"}}
                (ini-to-map result-file))))))))
+
+(deftest test-true-str?
+  (are [t-or-f? str-val] (t-or-f? (true-str? str-val))
+
+       true? "true"
+       true? "TRUE"
+       true? "TrUe"
+
+       false? "false"
+       false? nil
+       false? "FALSE"))

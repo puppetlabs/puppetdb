@@ -307,7 +307,7 @@
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [payload annotations version]} {:keys [db]}]
+  [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
   (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
         certname (:certname catalog)
         id (:id annotations)
@@ -316,7 +316,7 @@
       (scf-storage/maybe-activate-node! certname timestamp)
       ;; Only store a catalog if it's newer than the current catalog
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
-        (scf-storage/replace-catalog! catalog timestamp)))
+        (scf-storage/replace-catalog! catalog timestamp catalog-hash-debug-dir)))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-catalog) certname))))
 
 (defmethod process-command! [(command-names :replace-catalog) 1]

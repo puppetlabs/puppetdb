@@ -5,7 +5,9 @@
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.time :as pl-time]
             [clj-time.core :as time]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [fs.core :as fs]
+            [clojure.string :as str]))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -155,9 +157,13 @@
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
   appropriate exceptions if any condition is unmet."
-  [vardir]
-  (if-let [vardir (io/file vardir)]
+  [config]
+  (let [vardir (io/file (get-in config [:global :vardir]))]
     (cond
+     (nil? vardir)
+     (throw (IllegalArgumentException.
+             "Required setting 'vardir' is not specified. Please set it to a writable directory."))
+
      (not (.isAbsolute vardir))
      (throw (IllegalArgumentException.
              (format "Vardir %s must be an absolute path." vardir)))
@@ -172,11 +178,49 @@
 
      (not (.canWrite vardir))
      (throw (java.io.FileNotFoundException.
-             (format "Vardir %s is not writable." vardir))))
+             (format "Vardir %s is not writable." vardir)))
 
-    (throw (IllegalArgumentException.
-            "Required setting 'vardir' is not specified. Please set it to a writable directory.")))
-  vardir)
+     :else
+     config)))
+
+(defn catalog-debug-path
+  "Given a `config` create the path to the directory directory to store
+   catalog debug info."
+  [config]
+  {:pre [(not (str/blank? (get-in config [:global :vardir])))]}
+  (fs/file (get-in config [:global :vardir]) "debug" "catalog-hashes"))
+
+(defn create-catalog-debug-dir
+  "Attempt to crate the catalog debug directory at `path`. Failing to create the
+   directory only causes a warning as not having this directory shouldn't cause
+   PuppetDB to crash on startup."
+  [path]
+  (try
+    (str (fs/mkdirs path))
+    (catch SecurityException e
+      (log/warn e
+                (format (str "catalog-hash-conflig-debugging was enabled, "
+                             "but PuppetDB was not able to create a directory at %s")
+                        path)))))
+
+(def ^{:doc "Create the directory for catalog debug info if it does not already
+              exist, returning the path if successful (or it already exists)"}
+  ensure-catalog-debug-dir
+  (comp create-catalog-debug-dir catalog-debug-path))
+
+(defn configure-catalog-debugging
+  "When [global] contains catalog-hash-conflict-debugging=true, assoc into the config the directory
+   to store the debugging, if not return the config unmodified."
+  [config]
+  (if-let [debug-dir (and (pl-utils/true-str? (get-in config [:global :catalog-hash-conflict-debugging]))
+                          (ensure-catalog-debug-dir config))]
+    (do
+      (log/warn (str "Global config catalog-hash-conflict-debugging set to true. "
+                     "This is intended to troubleshoot catalog duplication issues and "
+                     "not for enabling in production long term.  See the PuppetDB docs "
+                     "for more information on this setting."))
+      (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
+    config))
 
 (defn parse-config
   "Parses the given config file/directory and configures its various
@@ -195,9 +239,12 @@
         (throw (IllegalArgumentException.
                 (format "Configuration path '%s' must exist and must be readable." path)))))
 
-    (-> (merge initial-config (pl-utils/inis-to-map path))
-        (pl-utils/configure-logging!)
-        (configure-commandproc-threads)
-        (configure-web-server)
-        (configure-database)
-        (configure-gc-params))))
+    (->> (pl-utils/inis-to-map path)
+         (merge initial-config)
+         pl-utils/configure-logging!
+         validate-vardir
+         configure-commandproc-threads
+         configure-web-server
+         configure-database
+         configure-gc-params
+         configure-catalog-debugging)))
