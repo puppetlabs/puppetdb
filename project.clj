@@ -79,9 +79,4 @@
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core
 
-  ;; TODO: this will go away as soon as kitchensink is published to clojars
-  ;;  (before this PR is merged)
-  :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
-                 ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
-
   )
