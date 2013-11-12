@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.query.catalogs :as qcat]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
             [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [fs.core :as fs]))
 
 (defn debug-file-path
@@ -39,7 +39,7 @@
    with the new catalog."
   [resources]
   (map (fn [resource]
-         (update-in resource [:parameters] #(utils/mapkeys keyword %)))
+         (update-in resource [:parameters] #(kitchensink/mapkeys keyword %)))
        resources))
 
 (defn diffable-old-catalog
@@ -55,14 +55,14 @@
   (let [{old-resources :resources old-edges :edges} (diffable-old-catalog certname)
         old-catalog (shash/catalog-similarity-format certname old-resources old-edges)
         new-catalog (shash/catalog-similarity-format certname (vals new-resources) new-edges)
-        uuid (utils/uuid)
+        uuid (kitchensink/uuid)
         file-path-fn #(debug-file-path debug-output-dir certname uuid %)]
 
     (log/warn (format "Writing catalog debugging info for %s to %s" certname debug-output-dir))
     (json/spit-json (file-path-fn "catalog-metadata.json")
                     (-> {"new catalog hash" new-hash
-                         "old catalog hash" (-> old-catalog json/generate-string utils/utf8-string->sha1)
-                         "java version" utils/java-version
+                         "old catalog hash" (-> old-catalog json/generate-string kitchensink/utf8-string->sha1)
+                         "java version" kitchensink/java-version
                          "database name" (sutils/sql-current-connection-database-name)
                          "database version" (sutils/sql-current-connection-database-version)}
                         (output-clj-catalog "old catalog path - edn" (file-path-fn "catalog-old.edn") old-catalog)

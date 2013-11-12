@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.events
   (:require [com.puppetlabs.puppetdb.reports :as report]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json])
@@ -35,7 +35,7 @@
   ;; with keywords as keys, but real world-data has strings as keys.  Here
   ;; we simply convert the keys to strings so that we can compare them for
   ;; tests.
-  (map #(utils/maptrans {[:old-value :new-value] stringify-keys} %) events))
+  (map #(kitchensink/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
 (defn expected-resource-event-response
   [resource-event report]
@@ -87,7 +87,7 @@
         (testing "should support single term timestamp queries"
           (let [response (get-response ["<" "timestamp" end-time])
                 expected (expected-resource-events-response
-                            (utils/select-values basic-events-map [1 3])
+                            (kitchensink/select-values basic-events-map [1 3])
                             basic)]
             (response-equal? response expected munge-event-values)))
 
@@ -95,7 +95,7 @@
           (let [response (get-response ["and" [">" "timestamp" start-time]
                                               ["<" "timestamp" end-time]])
                 expected (expected-resource-events-response
-                            (utils/select-values basic-events-map [3])
+                            (kitchensink/select-values basic-events-map [3])
                             basic)]
             (response-equal? response expected munge-event-values)))))
 
@@ -121,7 +121,7 @@
                   ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
         (let [response  (get-response query)
               expected  (expected-resource-events-response
-                          (utils/select-values basic-events-map matches)
+                          (kitchensink/select-values basic-events-map matches)
                           basic)]
           (response-equal? response expected munge-event-values))))
 

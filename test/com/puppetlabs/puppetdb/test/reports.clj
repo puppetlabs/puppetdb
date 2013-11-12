@@ -7,7 +7,7 @@
           :only [munge-example-report-for-storage
                  munge-v2-example-report-to-v1
                  munge-v1-example-report-to-v2]])
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [cheshire.core :as json]))
 
 (let [report (munge-example-report-for-storage (:basic reports))]

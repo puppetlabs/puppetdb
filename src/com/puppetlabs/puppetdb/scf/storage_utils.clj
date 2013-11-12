@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.cheshire :as json]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.tools.logging :as log]))
 
 (defn sql-current-connection-database-name
@@ -144,5 +144,5 @@ must be supplied as the value to be matched."
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."
   [value]
-  (json/generate-string (utils/sort-nested-maps value)))
+  (json/generate-string (kitchensink/sort-nested-maps value)))
 

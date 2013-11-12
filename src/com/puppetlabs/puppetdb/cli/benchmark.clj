@@ -47,7 +47,7 @@
             [clj-http.client :as client]
             [clj-http.util :as util]
             [fs.core :as fs])
-  (:use [com.puppetlabs.utils :only (cli! inis-to-map configure-logging! utf8-string->sha1)]
+  (:use [puppetlabs.kitchensink.core :only (cli! inis-to-map configure-logging! utf8-string->sha1)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 

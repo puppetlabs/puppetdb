@@ -1,7 +1,7 @@
 ;; ## SQL/query-related functions for reports
 
 (ns com.puppetlabs.puppetdb.query.reports
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query :only [execute-query compile-term]]
@@ -65,7 +65,7 @@
                     (apply vector query params)
                     paging-options)]
       (update-in results [:result]
-        (fn [rs] (map #(utils/mapkeys underscores->dashes %) rs))))))
+        (fn [rs] (map #(kitchensink/mapkeys underscores->dashes %) rs))))))
 
 (defn reports-for-node
   "Return reports for a particular node."
@@ -106,7 +106,7 @@
   [node report-hash]
   {:pre  [(string? node)
           (string? report-hash)]
-   :post [(utils/boolean? %)]}
+   :post [(kitchensink/boolean? %)]}
   (= 1 (count (query-to-vec
                 ["SELECT report FROM latest_reports
                     WHERE certname = ? AND report = ?"

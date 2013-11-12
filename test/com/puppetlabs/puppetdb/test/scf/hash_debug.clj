@@ -9,7 +9,7 @@
             [fs.core :as fs]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]))
 
 (defn persist-catalog
@@ -52,7 +52,7 @@
   (let [debug-files (fs/list-dir debug-dir)
         uuid (file-uuid (first debug-files))]
     (is (= 5 (count debug-files)))
-    (is (every? #(utils/string-contains? uuid %) debug-files))))
+    (is (every? #(kitchensink/string-contains? uuid %) debug-files))))
 
 (deftest debug-catalog-output
   (fixt/with-test-db
@@ -107,7 +107,7 @@
                "database name"
                "database version")
 
-          (are [metadata-key] (and (utils/string-contains? (:certname new-catalog)
+          (are [metadata-key] (and (kitchensink/string-contains? (:certname new-catalog)
                                                            (get catalog-metadata metadata-key))
                                    (.startsWith (get catalog-metadata metadata-key) debug-dir))
                "old catalog path - edn"

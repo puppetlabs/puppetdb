@@ -7,7 +7,7 @@
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [com.puppetlabs.cheshire :as json]
             [clojure.string :as string])
-  (:use     [com.puppetlabs.utils :only [keyset seq-contains? parse-int order-by-expr?]]
+  (:use     [puppetlabs.kitchensink.core :only [keyset seq-contains? parse-int order-by-expr?]]
             [com.puppetlabs.jdbc :only [underscores->dashes]]
             [com.puppetlabs.http :only [parse-boolean-query-param]]
             [clojure.walk :only (keywordize-keys)]))

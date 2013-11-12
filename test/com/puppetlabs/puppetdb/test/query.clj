@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as q])
   (:use [clojure.test]
-        [com.puppetlabs.utils :only [excludes?]]
+        [puppetlabs.kitchensink.core :only [excludes?]]
         [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database]]))
 
 (use-fixtures :each with-antonym-test-database)

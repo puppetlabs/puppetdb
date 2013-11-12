@@ -50,7 +50,7 @@
             [com.puppetlabs.jdbc :as pl-jdbc]
             [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
@@ -62,7 +62,7 @@
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.utils :only (cli! with-error-delivery)]
+        [puppetlabs.kitchensink.core :only (cli! with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.version :only [version update-info]]
@@ -88,7 +88,7 @@
   after reopening a fresh connection with the MQ."
   [mq mq-endpoint discard-dir opt-map]
   {:pre [(:db opt-map)]}
-  (pl-utils/keep-going
+  (kitchensink/keep-going
    (fn [exception]
      (log/error exception "Error during command processing; reestablishing connection after 10s")
      (Thread/sleep 10000))
@@ -103,7 +103,7 @@
   {:pre [(map? db)
          (period? node-ttl)]}
   (try
-    (pl-utils/demarcate
+    (kitchensink/demarcate
       (format "sweep of stale nodes (threshold: %s)"
               (format-period node-ttl))
       (with-transacted-connection db
@@ -118,7 +118,7 @@
   {:pre [(map? db)
          (period? node-purge-ttl)]}
   (try
-    (pl-utils/demarcate
+    (kitchensink/demarcate
       (format "purge deactivated nodes (threshold: %s)"
               (format-period node-purge-ttl))
       (with-transacted-connection db
@@ -132,7 +132,7 @@
   {:pre [(map? db)
          (period? report-ttl)]}
   (try
-    (pl-utils/demarcate
+    (kitchensink/demarcate
       (format "sweep of stale reports (threshold: %s)"
               (format-period report-ttl))
       (with-transacted-connection db
@@ -144,7 +144,7 @@
   "Compresses discarded message which are older than `dlo-compression-threshold`."
   [dlo dlo-compression-threshold]
   (try
-    (pl-utils/demarcate
+    (kitchensink/demarcate
       (format "compression of discarded messages (threshold: %s)"
               (format-period dlo-compression-threshold))
       (dlo/compress! dlo dlo-compression-threshold))
@@ -158,7 +158,7 @@
   [db]
   {:pre [(map? db)]}
   (try
-    (pl-utils/demarcate
+    (kitchensink/demarcate
       "database garbage collection"
       (with-transacted-connection db
         (scf-store/garbage-collect!)))
@@ -205,7 +205,7 @@
   [whitelist]
   {:pre  [(string? whitelist)]
    :post [(fn? %)]}
-  (let [allowed? (pl-utils/cn-whitelist->authorizer whitelist)]
+  (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
     (fn [{:keys [ssl-client-cn] :as req}]
       (if (allowed? req)
         true
@@ -274,7 +274,7 @@
       (log/info (format "PuppetDB version %s" (version))))
 
     ;; Add a shutdown hook where we can handle any required cleanup
-    (pl-utils/add-shutdown-hook! on-shutdown)
+    (kitchensink/add-shutdown-hook! on-shutdown)
 
     ;; Ensure the database is migrated to the latest version, and warn if it's
     ;; deprecated. We do this in a single connection because HSQLDB seems to
@@ -329,7 +329,7 @@
 
       ;; Start debug REPL if necessary
       (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
-        (when (pl-utils/true-str? enabled)
+        (when (kitchensink/true-str? enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
 

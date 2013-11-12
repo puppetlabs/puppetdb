@@ -13,7 +13,7 @@
             [clojure.java.io :as io])
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
-  (:use [com.puppetlabs.utils :only (cli!)]
+  (:use [puppetlabs.kitchensink.core :only (cli!)]
         [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
