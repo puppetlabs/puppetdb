@@ -105,6 +105,6 @@
   [handler options]
   (when (empty? (select-keys options [:port :ssl? :ssl-port]))
     (throw (IllegalArgumentException. "No ports were specified to bind")))
-  (let [defaults {:configurator add-gzip-handler}]
+  (let [overrides {:configurator add-gzip-handler}]
     (with-redefs [jetty/create-server create-server]
-      (jetty/run-jetty handler (merge options defaults)))))
+      (jetty/run-jetty handler (merge options overrides)))))
