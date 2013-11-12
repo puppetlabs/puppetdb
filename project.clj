@@ -30,7 +30,7 @@
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.5.1"]
                  [org.clojure/java.jmx "0.2.0"]
-                 ; Filesystem utilities
+                 ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
@@ -77,11 +77,4 @@
   :jar-exclusions [#"leiningen/"]
 
   :aot [com.puppetlabs.puppetdb.core]
-  :main com.puppetlabs.puppetdb.core
-
-  ;; TODO: this will go away as soon as kitchensink is published to clojars
-  ;;  (before this PR is merged)
-  :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
-                 ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
-
-  )
+  :main com.puppetlabs.puppetdb.core)
