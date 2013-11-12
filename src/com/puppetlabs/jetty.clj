@@ -2,6 +2,7 @@
 ;;
 (ns com.puppetlabs.jetty
   (:import (org.eclipse.jetty.server Server)
+           (org.eclipse.jetty.server.handler GzipHandler)
            (org.eclipse.jetty.server.nio SelectChannelConnector))
   (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]
@@ -86,11 +87,22 @@
         (.addConnector server connector)))
     server))
 
+(defn add-gzip-handler
+  "Jetty configurator that wraps GZIP compression around the existing
+  web request handler"
+  [^Server server]
+  (let [current-handler (.getHandler server)
+        gzip-handler    (doto (GzipHandler.)
+                          (.setHandler current-handler))]
+    (.setHandler server gzip-handler)
+    server))
+
 (defn run-jetty
   "Version of `ring.adapter.jetty/run-jetty` that uses the above
   monkey patch."
   [handler options]
   (when (empty? (select-keys options [:port :ssl? :ssl-port]))
     (throw (IllegalArgumentException. "No ports were specified to bind")))
-  (with-redefs [jetty/create-server create-server]
-    (jetty/run-jetty handler options)))
+  (let [overrides {:configurator add-gzip-handler}]
+    (with-redefs [jetty/create-server create-server]
+      (jetty/run-jetty handler (merge options overrides)))))
