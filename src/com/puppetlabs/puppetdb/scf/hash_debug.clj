@@ -11,8 +11,8 @@
 
 (defn debug-file-path
   "Creates a unique path name for the `certname`. Uses a UUID to ensure uniqueness."
-  [debug-output-dir certname file-name]
-  (fs/file debug-output-dir (format "%s_%s_%s" certname (utils/uuid) file-name)))
+  [debug-output-dir certname uuid file-name]
+  (fs/file debug-output-dir (format "%s_%s_%s" certname uuid file-name)))
 
 (defn output-clj-catalog
   "Writes `data` as a pretty-printed clojure data structure to `file-name`,
@@ -32,7 +32,8 @@
   (let [{old-resources :resources old-edges :edges :as foo} (:data (qcat/catalog-for-node certname))
         old-catalog (shash/catalog-similarity-format certname old-resources old-edges)
         new-catalog (shash/catalog-similarity-format certname (vals new-resources) new-edges)
-        file-path-fn #(debug-file-path debug-output-dir certname %)]
+        uuid (utils/uuid)
+        file-path-fn #(debug-file-path debug-output-dir certname uuid %)]
 
     (log/warn (format "Writing catalog debugging info for %s to %s" certname debug-output-dir))
     (json/spit-json (file-path-fn "catalog-metadata.json")

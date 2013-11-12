@@ -9,7 +9,8 @@
             [fs.core :as fs]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils]))
+            [com.puppetlabs.utils :as utils]
+            [clojure.string :as str]))
 
 (defn persist-catalog
   "Adds the certname and full catalog to the database, returns the catalog map with
@@ -37,6 +38,22 @@
   slurp-json
   (comp json/parse-string slurp find-file))
 
+(defn file-uuid
+  "Strips the UUID out of the hash debug file name."
+  [path]
+  (-> (fs/base-name path)
+      (str/split #"_")
+      second))
+
+(defn assert-debug-files-present
+  "Checks the hash debug file directory for the correct
+   number of files and that they all have the same UUID."
+  [debug-dir]
+  (let [debug-files (fs/list-dir debug-dir)
+        uuid (file-uuid (first debug-files))]
+    (is (= 5 (count debug-files)))
+    (is (every? #(utils/string-contains? uuid %) debug-files))))
+
 (deftest debug-catalog-output
   (fixt/with-test-db
     (fn []
@@ -51,7 +68,8 @@
 
         (is (nil? (fs/list-dir debug-dir)))
         (debug-catalog debug-dir new-hash new-catalog)
-        (is (= 5 (count (fs/list-dir debug-dir))))
+
+        (assert-debug-files-present debug-dir)
 
         (let [{old-edn-res :resources
                old-edn-edges :edges
