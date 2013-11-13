@@ -223,6 +223,32 @@
       (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
+(defn assoc-when [m k v & kvs]
+  (if (get m k)
+    m
+    (assoc m k v)))
+
+(defn normalize-product-name
+  "Checks that `product-name` is specified as a legal value, throwing an
+  exception if not. Returns `product-name` if it's okay."
+  [product-name]
+  {:pre [(string? product-name)]
+   :post [(= (str/lower-case product-name) %)]}
+  (let [lower-product-name (str/lower-case product-name)]
+    (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
+      (throw (IllegalArgumentException.
+               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+    lower-product-name))
+
+(defn configure-globals [{:keys [global] :as config}]
+  (let [product-name (normalize-product-name (get global :product-name "puppetdb"))]
+    (update-in config [:global]
+               (fn [global-config]
+                 (-> global-config
+                     (assoc :product-name product-name)
+                     (assoc-when :event-query-limit 20000)
+                     (assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
+
 (defn parse-config
   "Parses the given config file/directory and configures its various
   subcomponents.
@@ -242,7 +268,8 @@
 
     (->> (kitchensink/inis-to-map path)
          (merge initial-config)
-         configure-logging!
+         configure-globals
+         pl-utils/configure-logging!
          validate-vardir
          configure-commandproc-threads
          configure-web-server

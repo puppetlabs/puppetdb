@@ -232,3 +232,18 @@
                (configure-catalog-debugging config))))
       (is (true? @mkdirs-called?)))))
 
+(deftest product-name-validation
+  (doseq [product-name ["puppetdb" "pe-puppetdb"]]
+    (testing (format "should accept %s and return it" product-name)
+      (is (= product-name
+             (normalize-product-name product-name)))))
+
+  (doseq [product-name ["PUPPETDB" "PE-PUPPETDB" "PuppetDB" "PE-PuppetDB"]]
+    (testing (format "should accept %s and return it lower-cased" product-name)
+      (is (= (clojure.string/lower-case product-name)
+             (normalize-product-name product-name)))))
+
+  (testing "should disallow anything else"
+    (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
+          (normalize-product-name "puppet")))))
+

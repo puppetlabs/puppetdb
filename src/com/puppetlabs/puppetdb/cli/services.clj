@@ -213,24 +213,11 @@
           (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
           false)))))
 
-(defn normalize-product-name
-  "Checks that `product-name` is specified as a legal value, throwing an
-  exception if not. Returns `product-name` if it's okay."
-  [product-name]
-  {:pre [(string? product-name)]
-   :post [(= (string/lower-case product-name) %)]}
-  (let [lower-product-name (string/lower-case product-name)]
-    (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
-      (throw (IllegalArgumentException.
-               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
-    lower-product-name))
-
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
   []
   ;; nothing much to do here for now, but let's at least log that we're shutting down.
   (log/info "Shutdown request received; puppetdb exiting."))
-
 
 (def supported-cli-options
   [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
@@ -247,10 +234,10 @@
         initial-config                             {:debug (:debug options)}
         {:keys [jetty database read-database global command-processing]
             :as config}                            (conf/parse-config (:config options) initial-config)
-        product-name                               (normalize-product-name (get global :product-name "puppetdb"))
-        update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
+        product-name                               (:product-name global)
+        update-server                              (:update-server global)
         ;; TODO: revisit the choice of 20000 as a default value for event queries
-        event-query-limit                          (get global :event-query-limit 20000)
+        event-query-limit                          (:event-query-limit global)
         write-db                                   (pl-jdbc/pooled-datasource database)
         read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         gc-interval                                (get database :gc-interval)
