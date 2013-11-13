@@ -607,13 +607,12 @@
     (when (:help options)
       (println banner)
       (System/exit 0))
-    (let [required-pairs (select-keys options required-args)]
-      (when-let [missing-field (some #(if (nil? (val %)) (key %)) required-pairs)]
-        (println)
-        (println (format "Missing required argument '--%s'!" (name missing-field)))
-        (println)
-        (println banner)
-        (System/exit 1)))
+    (when-let [missing-field (some #(if (not (contains? options %)) %) required-args)]
+      (println)
+      (println (format "Missing required argument '--%s'!" (name missing-field)))
+      (println)
+      (println banner)
+      (System/exit 1))
     [options extras]))
 
 
