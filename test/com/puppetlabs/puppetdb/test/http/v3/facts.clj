@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.testutils :as testutils]
-            [com.puppetlabs.utils :refer [parse-int]])
+            [puppetlabs.kitchensink.core :refer [parse-int]])
   (:use clojure.test
         [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]

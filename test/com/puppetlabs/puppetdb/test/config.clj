@@ -2,7 +2,7 @@
   (:import [java.security KeyStore])
   (require [clojure.test :refer :all]
            [com.puppetlabs.puppetdb.config :refer :all]
-           [com.puppetlabs.utils :as utils]
+           [puppetlabs.kitchensink.core :as kitchensink]
            [com.puppetlabs.time :as pl-time]
            [clj-time.core :as time]
            [com.puppetlabs.testutils.logging :as tu-log]
@@ -16,7 +16,7 @@
       (is (= (get-in config [:command-processing :threads]) 37))))
 
   (let [with-ncores (fn [cores]
-                      (with-redefs [utils/num-cpus (constantly cores)]
+                      (with-redefs [kitchensink/num-cpus (constantly cores)]
                         (-> (configure-commandproc-threads {})
                             (get-in [:command-processing :threads]))))]
     (testing "should default to half the available CPUs"

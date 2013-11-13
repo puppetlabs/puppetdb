@@ -1,7 +1,8 @@
 ;; ## Ring middleware
 
 (ns com.puppetlabs.middleware
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.utils.metrics :refer [multitime!]]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
             [clojure.string :as s]
@@ -46,7 +47,7 @@
   [app]
   (fn [{:keys [ssl-client-cert] :as req}]
     (let [cn  (if ssl-client-cert
-                (utils/cn-for-cert ssl-client-cert))
+                (kitchensink/cn-for-cert ssl-client-cert))
           req (assoc req :ssl-client-cn cn)]
       (app req))))
 
@@ -112,15 +113,15 @@
   parameters."
   [app param-specs]
   {:pre [(map? param-specs)
-         (= #{} (utils/keyset (dissoc param-specs :required :optional)))
+         (= #{} (kitchensink/keyset (dissoc param-specs :required :optional)))
          (every? string? (:required param-specs))
          (every? string? (:optional param-specs))]}
     (fn [{:keys [params] :as req}]
-      (utils/cond-let [p]
-        (utils/excludes-some params (:required param-specs))
+      (kitchensink/cond-let [p]
+        (kitchensink/excludes-some params (:required param-specs))
         (pl-http/error-response (str "Missing required query parameter '" p "'"))
 
-        (let [diff (set/difference (utils/keyset params)
+        (let [diff (set/difference (kitchensink/keyset params)
                       (set (:required param-specs))
                       (set (:optional param-specs)))]
           (when (seq diff) diff))
@@ -155,7 +156,7 @@
     (let [expected-checksum (params "checksum")
           payload           (params "payload")]
       (if (and expected-checksum
-               (not= expected-checksum (utils/utf8-string->sha1 payload)))
+               (not= expected-checksum (kitchensink/utf8-string->sha1 payload)))
         (pl-http/error-response "checksums don't match")
         (app req)))))
 
@@ -178,7 +179,7 @@
         (swap! storage assoc-in timer-key (timer [prefix metric-root "service-time"])))
 
       (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
-        (utils/multitime! timers
+        (multitime! timers
            (let [response  (app req)
                  status    (:status response)]
 

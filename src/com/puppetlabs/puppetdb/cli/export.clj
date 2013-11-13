@@ -8,7 +8,7 @@
 ;; database.
 
 (ns com.puppetlabs.puppetdb.cli.export
-  (:use [com.puppetlabs.utils :only (cli!)]
+  (:use [puppetlabs.kitchensink.core :only (cli!)]
         [clj-time.core :only [now]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
         [clj-http.util :only [url-encode]]

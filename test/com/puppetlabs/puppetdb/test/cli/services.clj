@@ -3,7 +3,7 @@
   (:require clojure.string
             [fs.core :refer (absolute-path temp-file)]
             [com.puppetlabs.puppetdb.version]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :as testutils])
   (:use [com.puppetlabs.puppetdb.cli.services]

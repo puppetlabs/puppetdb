@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.v1.command
-  (:require [com.puppetlabs.utils :as pl-utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clj-time.format :as time])
@@ -24,7 +24,7 @@
 
     (testing "should work when well-formed"
       (let [payload  "This is a test"
-            checksum (pl-utils/utf8-string->sha1 payload)
+            checksum (kitchensink/utf8-string->sha1 payload)
             req      (make-request {:payload payload :checksum checksum})
             resp     (*app* req)]
         (assert-success! resp)
@@ -53,9 +53,9 @@
 
 (deftest receipt-timestamping
   (let [good-payload       (json/generate-string {:command "my command" :version 1 :payload "{}"})
-        good-checksum      (pl-utils/utf8-string->sha1 good-payload)
+        good-checksum      (kitchensink/utf8-string->sha1 good-payload)
         bad-payload        "some test message"
-        bad-checksum       (pl-utils/utf8-string->sha1 bad-payload)]
+        bad-checksum       (kitchensink/utf8-string->sha1 bad-payload)]
     (-> {:payload good-payload :checksum good-checksum}
       (make-request)
       (*app*))

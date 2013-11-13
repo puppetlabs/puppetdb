@@ -1,11 +1,11 @@
 (ns com.puppetlabs.test.middleware
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http]
             [fs.core :as fs]
             [ring.util.response :as rr]
             [cheshire.core :as json])
   (:use [com.puppetlabs.middleware]
-        [com.puppetlabs.utils :only (keyset)]
+        [puppetlabs.kitchensink.core :only (keyset)]
         [clojure.test]))
 
 (deftest wrapping-metrics
@@ -58,7 +58,7 @@
       (is (= pl-http/status-ok (:status (app 1)))))))
 
 (deftest wrapping-cert-cn-extraction
-  (with-redefs [utils/cn-for-cert :cn]
+  (with-redefs [kitchensink/cn-for-cert :cn]
     (let [app (wrap-with-certificate-cn identity)]
       (testing "Should set :ssl-client-cn to extracted cn"
         (let [req {:ssl-client-cert {:cn "foobar"}}]

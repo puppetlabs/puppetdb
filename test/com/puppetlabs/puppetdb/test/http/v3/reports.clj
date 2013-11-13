@@ -2,7 +2,7 @@
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
-            [com.puppetlabs.utils :as utils])
+            [puppetlabs.kitchensink.core :as kitchensink])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
@@ -20,7 +20,7 @@
 
 (defn report-response
   [report]
-  (utils/mapvals
+  (kitchensink/mapvals
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
     ;; the timezone so that it will match the value returned form the db.

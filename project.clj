@@ -22,7 +22,6 @@
                  [org.clojure/core.match "0.2.0-rc5"]
                  [org.clojure/math.combinatorics "0.0.4"]
                  [org.clojure/tools.logging "0.2.6"]
-                 [org.clojure/tools.cli "0.2.2"]
                  [org.clojure/tools.nrepl "0.2.3"]
                  [org.clojure/tools.namespace "0.2.4"]
                  [swank-clojure "1.4.3"]
@@ -31,17 +30,14 @@
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.5.1"]
                  [org.clojure/java.jmx "0.2.0"]
-                 ;; Filesystem utilities
+                 ; Filesystem utilities
                  [fs "1.1.2"]
-                 ;; Configuration file parsing
-                 [org.ini4j/ini4j "0.5.2"]
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.3"]
-                 [digest "1.4.3"]
                  [log4j "1.2.17" :exclusions [javax.mail/mail
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
@@ -62,7 +58,7 @@
                  [ring/ring-core "1.1.8"]
                  [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [org.bouncycastle/bcpkix-jdk15on "1.49"]]
+                 [puppetlabs/kitchensink "0.1.0"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below
@@ -82,4 +78,5 @@
 
   :aot [com.puppetlabs.puppetdb.core]
   :main com.puppetlabs.puppetdb.core
-)
+
+  )

@@ -7,7 +7,7 @@
   (:require [ring.adapter.jetty :as jetty])
   (:use [clojure.tools.logging :as log]
         [clojure.string :only (split trim)]
-        [com.puppetlabs.utils :only (compare-jvm-versions java-version)]))
+        [puppetlabs.kitchensink.core :only (compare-jvm-versions java-version)]))
 
 ;; We need to monkey-patch `add-ssl-connector!` in order to set the
 ;; appropriate options for Client Certificate Authentication, and use

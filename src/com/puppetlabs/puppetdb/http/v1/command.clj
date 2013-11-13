@@ -9,7 +9,7 @@
 (ns com.puppetlabs.puppetdb.http.v1.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.command :as command]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr])
   (:use [com.puppetlabs.middleware]

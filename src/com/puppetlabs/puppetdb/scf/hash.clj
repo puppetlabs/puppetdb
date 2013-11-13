@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.scf.hash
   (:require [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.catalogs :as qcat]))
 
 (defn generic-identity-string
@@ -9,7 +9,7 @@
   instead."
   [data]
   {:post [(string? %)]}
-  (-> (utils/sort-nested-maps data)
+  (-> (kitchensink/sort-nested-maps data)
       (json/generate-string)))
 
 (defn generic-identity-hash
@@ -19,7 +19,7 @@
   {:post [(string? %)]}
   (-> data
     (generic-identity-string)
-    (utils/utf8-string->sha1)))
+    (kitchensink/utf8-string->sha1)))
 
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
@@ -49,7 +49,7 @@
 
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona
-(def resource-identity-hash* (utils/bounded-memoize resource-identity-hash* 40000))
+(def resource-identity-hash* (kitchensink/bounded-memoize resource-identity-hash* 40000))
 
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
@@ -96,7 +96,7 @@
   "Creates catalog map for the given `certname`, `resources` and `edges` with a
    stable ordering that can be used to create a hash consistently."
   [certname resources edges]
-  (utils/sort-nested-maps
+  (kitchensink/sort-nested-maps
    {:certname  certname
     :resources (sort resource-comparator (map catalog-resource-identity-format resources))
     :edges     (sort edge-comparator edges)}))

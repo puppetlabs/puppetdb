@@ -5,7 +5,7 @@
   (:use [com.puppetlabs.puppetdb.version :only [version update-info]]
         com.puppetlabs.middleware
         [net.cgrand.moustache :only [app]]
-        [com.puppetlabs.utils :only [cond-let]]))
+        [puppetlabs.kitchensink.core :only [cond-let]]))
 
 (defn current-version-response
   "Responds with the current version of PuppetDB as a JSON object containing a

@@ -8,7 +8,7 @@
         [com.puppetlabs.validation :only [defmodel validate-against-model!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]])
   (:require [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as s]))
 
 (defmodel Report
@@ -48,7 +48,7 @@
 
 (defn validate-and-add-v2-event-field!
   [event field]
-  {:pre [(utils/seq-contains? v2-new-event-fields field)]}
+  {:pre [(kitchensink/seq-contains? v2-new-event-fields field)]}
   (if (contains? event field)
     (throw (IllegalArgumentException.
              (format

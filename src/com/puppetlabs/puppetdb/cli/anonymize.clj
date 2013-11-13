@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.cli.anonymize
-  (:use [com.puppetlabs.utils :only (cli!)]
+  (:use [puppetlabs.kitchensink.core :only (cli!)]
         [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
         [com.puppetlabs.puppetdb.cli.import :only [parse-metadata]])
   (:import  [com.puppetlabs.archive TarGzReader TarGzWriter]

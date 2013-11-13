@@ -1,7 +1,7 @@
 ;; ## SQL/query-related functions for events
 
 (ns com.puppetlabs.puppetdb.query.events
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
             [com.puppetlabs.cheshire :as json])
   (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
@@ -26,7 +26,7 @@
                           "run-end-time"        "reports.end_time"
                           "report-receive-time" "reports.receive_time"}]
     (match [path]
-      [(field :guard (utils/keyset timestamp-fields))]
+      [(field :guard (kitchensink/keyset timestamp-fields))]
       (if-let [timestamp (to-timestamp value)]
         {:where (format "%s %s ?" (timestamp-fields field) op)
          :params [(to-timestamp value)]}
@@ -213,7 +213,7 @@
                           paging-options)]
     (assoc results :result
       (map
-        #(-> (utils/mapkeys underscores->dashes %)
+        #(-> (kitchensink/mapkeys underscores->dashes %)
            (update-in [:old-value] json/parse-string)
            (update-in [:new-value] json/parse-string))
         (:result results)))))
