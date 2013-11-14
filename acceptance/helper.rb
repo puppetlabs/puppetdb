@@ -370,17 +370,17 @@ module PuppetDBExtensions
     on host, "rm -rf /etc/puppetdb/ssl"
     on host, "#{LeinCommandPrefix} rake package:bootstrap"
     on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
+    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{preinst}"
     on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{postinst}"
 
     step "Configure database.ini file" do
       manifest = <<-EOS
-  $database = '#{PuppetDBExtensions.config[:database]}'
+        $database = '#{PuppetDBExtensions.config[:database]}'
 
-  class { 'puppetdb::server::database_ini':
-    database => $database,
-  }
+        class { 'puppetdb::server::database_ini':
+          database => $database,
+        }
       EOS
 
       apply_manifest_on(host, manifest)
@@ -912,6 +912,27 @@ module PuppetDBExtensions
         install_puppet_from_package
       end
       install_puppet_conf
+    end
+  end
+
+  def create_remote_site_pp(host, manifest)
+    tmpdir = host.tmpdir("remote-site-pp")
+    remote_path = File.join(tmpdir, 'site.pp')
+    create_remote_file(host, remote_path, manifest)
+    on master, "chmod -R +rX #{tmpdir}"
+    remote_path
+  end
+
+  def run_agents_with_new_site_pp(host, manifest)
+    manifest_path = create_remote_site_pp(host, manifest)
+    with_puppet_running_on host, {
+      'master' => {
+        'storeconfigs' => 'true',
+        'storeconfigs_backend' => 'puppetdb',
+        'autosign' => 'true',
+        'manifest' => manifest_path
+      }} do
+      run_agent_on agents, "--test --server #{host}", :acceptable_exit_codes => [0,2]
     end
   end
 

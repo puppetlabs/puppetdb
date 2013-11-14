@@ -5,17 +5,15 @@ test_name "anonymize tool - with profile anonymization" do
     clear_and_restart_puppetdb(database)
   end
 
-  step "run each agent once to populate the database" do
-    with_puppet_running_on master, {
-      'master' => {
-        'autosign' => 'true',
-        'report' => 'true',
-      }} do
+  step "setup a test manifest for the master and perform agent runs" do
+    manifest = <<-MANIFEST
+      node default {
+        @@notify { "exported_resource": }
+        notify { "non_exported_resource": }
+     }
+    MANIFEST
 
-      hosts.each do |host|
-        run_agent_on host, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-      end
-    end
+    run_agents_with_new_site_pp(master, manifest)
   end
 
   export_file1 = "./puppetdb-export1.tar.gz"
