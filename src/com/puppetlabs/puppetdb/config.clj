@@ -8,7 +8,9 @@
             [clj-time.core :as time]
             [clojure.java.io :as io]
             [fs.core :as fs]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [schema.core :as s]
+            [com.puppetlabs.puppetdb.schema :as pls]))
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -106,36 +108,62 @@
           (assoc :client-auth :need)
           (assoc :max-threads (jetty7-minimum-threads (:max-threads merged-jetty)))))))
 
+(def database-config-in
+  "Schema for incoming database config (user defined)"
+  {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
+   (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
+   (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
+   (s/optional-key :node-ttl) (s/maybe s/String)
+   (s/optional-key :node-ttl-days) (s/maybe s/Int)})
+
+(def database-config-out
+  "Schema for parsed/processed database config"
+  {:gc-interval pls/Minutes
+   :report-ttl pls/Period
+   :node-purge-ttl pls/Period
+   :node-ttl (s/either pls/Period pls/Days)})
+
+(def command-processing-in
+  "Schema for incoming command processing config (user defined) - currently incomplete"
+  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")})
+
+(def command-processing-out
+  "Schema for parsed/processed command processing config - currently incomplete"
+  {:dlo-compression-threshold pls/Period})
+
+(defn maybe-days
+  "Convert the non-nil integer ot days"
+  [days-int]
+  (when days-int
+    (time/days days-int)))
+
+(s/defn configure-gc-params* :- database-config-out
+  "Convert the gc related parameters of the user defined config to the
+   correct internal types."
+  [config :- database-config-in]
+  (let [gc-conf (pls/convert-to-schema database-config-out config)]
+    (pls/strip-unknown-keys database-config-out
+                            (if (:node-ttl gc-conf)
+                              gc-conf
+                              (assoc gc-conf :node-ttl (or (maybe-days (:node-ttl-days gc-conf))
+                                                           (pl-time/parse-period "0s")))))))
+
+(s/defn command-processing-params :- command-processing-in
+  "Convert the gc related command processing params to the correct internal format"
+  [config :- command-processing-out]
+  (pls/convert-to-schema command-processing-out config))
+
 (defn configure-gc-params
-  "Helper function that munges the supported permutations of our GC-related
-  `ttl` and interval settings (if present) from their config file
-  representation to our internal representation as Period objects."
-  [{:keys [database command-processing] :as config :or {database {}}}]
-  {:pre  [(map? config)]
-   :post [(map? %)
-          (= (dissoc database :gc-interval :report-ttl :node-purge-ttl :node-ttl :node-ttl-days)
-             (dissoc (:database %) :gc-interval :report-ttl :node-purge-ttl :node-ttl))
-          (pl-time/period? (get-in % [:command-processing :dlo-compression-threshold]))
-          (every? pl-time/period? (map (:database %) [:node-ttl :node-purge-ttl :report-ttl :gc-interval]))]}
-  (let [maybe-parse-period #(some-> % pl-time/parse-period)
-        maybe-days #(some-> % time/days)
-        maybe-minutes #(some-> % time/minutes)
-        gc-interval-default (time/minutes 60)
-        dlo-compression-default (time/days 1)
-        ;; These defaults have to be actual periods rather than nil, because
-        ;; the user could explicitly specify 0, and we want to treat that the
-        ;; same
-        node-ttl-default (time/secs 0)
-        node-purge-ttl-default (time/secs 0)
-        report-ttl-default (time/days 14)
-        parsed-commandproc (update-in command-processing [:dlo-compression-threshold] #(or (maybe-parse-period %) dlo-compression-default))
-        parsed-database (-> database
-                            (update-in [:gc-interval] #(or (maybe-minutes %) gc-interval-default))
-                            (update-in [:report-ttl] #(or (maybe-parse-period %) report-ttl-default))
-                            (update-in [:node-purge-ttl] #(or (maybe-parse-period %) (time/secs 0)))
-                            (update-in [:node-ttl] #(or (maybe-parse-period %) (maybe-days (:node-ttl-days database)) node-ttl-default))
-                            (dissoc :node-ttl-days))]
-    (assoc config :database parsed-database :command-processing parsed-commandproc)))
+  "Take a user defined config and default missing values and convert
+   the results to the proper internal format."
+  [config]
+  (-> config
+      (update-in [:database]
+                 (fn [db-config]
+                   (merge db-config (configure-gc-params* (pls/defaulted-data database-config-in db-config)))))
+      (update-in [:command-processing]
+                 (fn [cmd-processing]
+                   (merge cmd-processing (command-processing-params (pls/defaulted-data command-processing-in cmd-processing)))))))
 
 (defn default-db-config [global]
   {:classname   "org.hsqldb.jdbcDriver"

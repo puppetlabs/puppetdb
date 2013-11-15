@@ -67,12 +67,11 @@
     (testing "should use the value specified in minutes"
       (let [{:keys [gc-interval]} (:database (configure-gc-params {:database {:gc-interval 900}}))]
         (is (pl-time/period? gc-interval))
-        (is (= (time/minutes 900) gc-interval))))
-
+        (is (= 900 (pl-time/to-minutes gc-interval)))))
     (testing "should default to 60 minutes"
       (let [{:keys [gc-interval]} (:database (configure-gc-params {}))]
         (is (pl-time/period? gc-interval))
-        (is (= (time/minutes 60) gc-interval)))))
+        (is (= 60 (pl-time/to-minutes gc-interval))))))
 
   (testing "node-ttl"
     (testing "should parse node-ttl and return a Pl-Time/Period object"
@@ -82,7 +81,7 @@
     (testing "should support node-ttl-days for backward compatibility"
       (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database { :node-ttl-days 10 }}))]
         (is (pl-time/period? node-ttl))
-        (is (= (time/days 10) node-ttl))
+        (is (= 10 (pl-time/to-days node-ttl)))
         (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should prefer node-ttl over node-ttl-days"
       (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database {:node-ttl "5d"
@@ -93,8 +92,7 @@
     (testing "should default to zero (no expiration)"
       (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params {}))]
         (is (pl-time/period? node-ttl))
-        (is (= (time/secs 0) node-ttl)))))
-
+        (is (= 0 (pl-time/to-secs node-ttl))))))
   (testing "report-ttl"
     (testing "should parse report-ttl and produce report-ttl"
       (let [{:keys [report-ttl]} (:database (configure-gc-params { :database { :report-ttl "10d" }}))]
