@@ -1,12 +1,10 @@
 (ns com.puppetlabs.puppetdb.test.http.v1.deprecation
   (:require [ring.mock.request :as mock]
             [cheshire.core :as json]
-            [com.puppetlabs.http :as pl-http])
+            [com.puppetlabs.http :as pl-http]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
   (:use     [clojure.test]
-            [com.puppetlabs.puppetdb.fixtures]
-            [com.puppetlabs.testutils.logging]))
-
-
+            [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-http-app)
 

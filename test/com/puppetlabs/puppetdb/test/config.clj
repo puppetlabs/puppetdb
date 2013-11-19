@@ -1,14 +1,13 @@
 (ns com.puppetlabs.puppetdb.test.config
   (:import [java.security KeyStore])
-  (require [clojure.test :refer :all]
-           [com.puppetlabs.puppetdb.config :refer :all]
-           [puppetlabs.kitchensink.core :as kitchensink]
-           [com.puppetlabs.time :as pl-time]
-           [clj-time.core :as time]
-           [com.puppetlabs.testutils.logging :as tu-log]
-           [clojure.java.io :as io]
-           [com.puppetlabs.puppetdb.testutils :as tu]
-           [fs.core :as fs]))
+  (:require [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.config :refer :all]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.time :as pl-time]
+            [clj-time.core :as time]
+            [clojure.java.io :as io]
+            [com.puppetlabs.puppetdb.testutils :as tu]
+            [fs.core :as fs]))
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
@@ -104,64 +103,6 @@
       (let [{:keys [report-ttl]} (:database (configure-gc-params {}))]
         (is (pl-time/period? report-ttl))
         (is (= (time/days 14) (time/days (pl-time/to-days report-ttl))))))))
-
-(deftest jetty7-minimum-threads-test
-  (testing "should return the same number when higher than num-cpus"
-    (is (= 500 (jetty7-minimum-threads 500 1))))
-  (testing "should set the number to min threads when it is higher and return a warning"
-    (tu-log/with-log-output logs
-      (is (= 4 (jetty7-minimum-threads 1 4)))
-      (is (= 1 (count (tu-log/logs-matching #"max-threads = 1 is less than the minium allowed on this system for Jetty 7 to operate." @logs)))))))
-
-(deftest http-configuration
-  (testing "should enable need-client-auth"
-    (let [config (configure-web-server {:jetty {:client-auth false}})]
-      (is (= (get-in config [:jetty :client-auth]) :need))))
-  (let [old-config {:keystore       "/some/path"
-                    :key-password   "pw"
-                    :truststore     "/some/other/path"
-                    :trust-password "otherpw"}]
-    (testing "should not muck with keystore/truststore settings if PEM-based SSL
-              settings are not provided"
-      (let [processed-config (:jetty (configure-web-server {:jetty old-config}))]
-        (is (= old-config
-               (select-keys processed-config
-                 [:keystore :key-password :truststore :trust-password])))))
-    (testing "should fail if some but not all of the PEM-based SSL settings are found"
-      (let [partial-pem-config (merge old-config {:ssl-ca-cert "/some/path"})]
-        (is (thrown-with-msg? java.lang.IllegalArgumentException
-              #"If configuring SSL from Puppet PEM files, you must provide all of the following options"
-              (configure-web-server {:jetty partial-pem-config})))))
-
-    (let [pem-config (merge old-config
-                        {:ssl-key     (io/resource "com/puppetlabs/test/ssl/private_keys/localhost.pem")
-                         :ssl-cert    (io/resource "com/puppetlabs/test/ssl/certs/localhost.pem")
-                         :ssl-ca-cert (io/resource "com/puppetlabs/test/ssl/certs/ca.pem")})]
-      (testing "should warn if both keystore-based and PEM-based SSL settings are found"
-        (tu-log/with-log-output logs
-          (configure-web-server {:jetty pem-config})
-          (is (= 1 (count (tu-log/logs-matching #"Found settings for both keystore-based and Puppet PEM-based SSL" @logs))))))
-      (testing "should prefer PEM-based SSL settings, override old keystore settings
-                  with instances of java.security.KeyStore, and remove PEM settings
-                  from final jetty config hash"
-        (let [processed-config (:jetty (configure-web-server {:jetty pem-config}))]
-          (is (instance? KeyStore (:keystore processed-config)))
-          (is (instance? KeyStore (:truststore processed-config)))
-          (is (string? (:key-password processed-config)))
-          (is (not (contains? processed-config :trust-password)))
-          (is (not (contains? processed-config :ssl-key)))
-          (is (not (contains? processed-config :ssl-cert)))
-          (is (not (contains? processed-config :ssl-ca-cert)))))))
-  (testing "should set max-threads"
-    (let [config (configure-web-server {:jetty {}})]
-      (is (contains? (:jetty config) :max-threads))))
-  (testing "should merge configuration with initial-configs correctly"
-    (let [user-config {:jetty {:truststore "foo"}}
-          config      (configure-web-server user-config)]
-      (is (= config {:jetty {:truststore "foo" :max-threads 50 :client-auth :need}})))
-    (let [user-config {:jetty {:max-threads 500 :truststore "foo"}}
-          config      (configure-web-server user-config)]
-      (is (= config {:jetty {:truststore "foo" :max-threads 500 :client-auth :need}})))))
 
 (defn vardir [path]
   {:global {:vardir (str path)}})
