@@ -3,22 +3,6 @@ require 'time'
 require 'cgi'
 
 test_name "basic validation of puppet report query by timestamp" do
-
-  Log.notify "Setting up manifest file"
-  manifest = <<MANIFEST
-notify { "hi":
-  message => "Hi ${::clientcert}"
-}
-MANIFEST
-
-  tmpdir = master.tmpdir('report_storage')
-
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
-
   start_times = agents.inject({}) do |hash, agent|
     hash[agent.node_name] = current_time_on agent
     hash
@@ -34,18 +18,14 @@ MANIFEST
     assert_equal(0, events.length, "Expected no results from event query with timestamp more recent than last batch of agent runs")
   end
 
-  # TODO: the module should be setting up the report processors so that we don't have to add it on the CLI here
-  with_puppet_running_on master, {
-    'master' => {
-      'storeconfigs' => 'true',
-      'storeconfigs_backend' => 'puppetdb',
-      'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+  step "setup a test manifest for the master and perform agent runs" do
+    manifest = <<-MANIFEST
+      notify { "hi":
+        message => "Hi ${::clientcert}"
+      }
+    MANIFEST
 
-      step "Run agents once to submit reports" do
-        run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-      end
+    run_agents_with_new_site_pp(master, manifest)
   end
 
   # Wait until all the commands have been processed

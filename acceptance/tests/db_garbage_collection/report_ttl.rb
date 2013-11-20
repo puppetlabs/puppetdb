@@ -2,26 +2,27 @@ require 'json'
   confd = "#{puppetdb_confdir(database)}/conf.d"
 
 test_name "validate that reports are deleted based on report-ttl setting" do
+  step "setup a test manifest for the master and perform agent runs" do
+    manifest = <<-MANIFEST
+      node default {
+        @@notify { "exported_resource": }
+        notify { "non_exported_resource": }
+     }
+    MANIFEST
 
-  with_puppet_running_on master, {
-    'master' => {
-      'autosign' => 'true'
-    }} do
-    step "Run agents once to generate reports" do
-      run_agent_on agents, "--test --server #{master}"
-    end
+    run_agents_with_new_site_pp(master, manifest)
   end
 
   # Wait until all the commands have been processed
   sleep_until_queue_empty database
 
   step "Verify that we have reports for every agent" do
-      agents.each do |agent|
-        # Query for all of the reports for this node:
-        result = on database, %Q|curl -G http://localhost:8080/v3/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
-        reports = JSON.parse(result.stdout)
-        assert(reports.length > 0, "Expected at least one report for node '#{agent.node_name}'")
-      end
+    agents.each do |agent|
+      # Query for all of the reports for this node:
+      result = on database, %Q|curl -G http://localhost:8080/v3/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+      reports = JSON.parse(result.stdout)
+      assert(reports.length > 0, "Expected at least one report for node '#{agent.node_name}'")
+    end
   end
 
   step "Sleep for one second to make sure we have a ttl to exceed" do
