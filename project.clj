@@ -17,6 +17,12 @@
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
+
+  ;; Abort when version ranges or version conflicts are detected in
+  ;; dependencies. Also supports :warn to simply emit warnings.
+  ;; requires lein 2.2.0+.
+  :pedantic? :abort
+
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [cheshire "5.2.0"]
                  [org.clojure/core.match "0.2.0-rc5"]
