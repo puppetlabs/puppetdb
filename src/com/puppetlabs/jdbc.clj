@@ -7,7 +7,7 @@
             [clojure.java.jdbc.internal :as jint]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str])
   (:use com.puppetlabs.jdbc.internal))
 
@@ -56,10 +56,10 @@
      (convert-result-arrays vec result-set))
   ([f result-set]
      (let [convert #(cond
-                     (utils/array? %) (f %)
+                     (kitchensink/array? %) (f %)
                      (isa? (class %) java.sql.Array) (f (.getArray %))
                      :else %)]
-       (map #(utils/mapvals convert %) result-set))))
+       (map #(kitchensink/mapvals convert %) result-set))))
 
 (defn add-limit-clause
   "Helper function for ensuring that a query does not return more than a certain
@@ -144,7 +144,7 @@
   for the specified terms"
   [order-by]
   {:pre [((some-fn nil? sequential?) order-by)
-         (every? utils/order-by-expr? order-by)]
+         (every? kitchensink/order-by-expr? order-by)]
    :post [(string? %)]}
   (if (empty? order-by)
     ""
@@ -170,7 +170,7 @@
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
          ((some-fn nil? sequential?) order-by)
-         (every? utils/order-by-expr? order-by)]
+         (every? kitchensink/order-by-expr? order-by)]
    :post [(string? %)]}
     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
           offset-clause    (if offset (format " OFFSET %s" offset) "")

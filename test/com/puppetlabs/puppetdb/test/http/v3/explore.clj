@@ -2,7 +2,7 @@
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http])
   (:import [com.fasterxml.jackson.core JsonParseException])
   (:use clojure.test

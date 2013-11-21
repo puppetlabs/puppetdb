@@ -7,7 +7,6 @@
             [com.puppetlabs.puppetdb.examples.reports :as report-examples]
             [com.puppetlabs.puppetdb.scf.hash :as shash])
   (:use [com.puppetlabs.puppetdb.command]
-        [com.puppetlabs.utils]
         [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only [query-to-vec]]

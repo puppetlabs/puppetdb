@@ -2,7 +2,7 @@
   (:import [org.apache.commons.io FileUtils])
   (:require [clojure.string :as string]
             [com.puppetlabs.archive :as archive]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.format :as time-format]
             [com.puppetlabs.cheshire :as json]
             [fs.core :as fs])
@@ -51,7 +51,7 @@
   {:pre [(or (string? subdir)
              (instance? java.io.File subdir))]
    :post [(or (nil? %)
-              (pl-utils/datetime? %))]}
+              (kitchensink/datetime? %))]}
   (->> (archives subdir)
        (map #(fs/base-name % ".tgz"))
        (map #(time-format/parse (time-format/formatters :date-time) %))
@@ -106,7 +106,7 @@
   "Convert a Throwable into a string summary similar to the output of
   summarize-attempt."
   [e]
-  (let [attempt {:timestamp (pl-utils/timestamp)
+  (let [attempt {:timestamp (kitchensink/timestamp)
                  :error     (str e)
                  :trace     (.getStackTrace e)}]
     (summarize-attempt nil attempt)))
@@ -129,9 +129,9 @@
         metadata (produce-failure-metadata attempts e)
         msg      (if (string? msg) msg (json/generate-string msg))
         contents (string/join "\n\n" [msg metadata])
-        checksum (pl-utils/utf8-string->sha1 contents)
+        checksum (kitchensink/utf8-string->sha1 contents)
         subdir   (file dir command)
-        basename (format "%s-%s" (pl-utils/timestamp) checksum)
+        basename (format "%s-%s" (kitchensink/timestamp) checksum)
         filename (file subdir basename)]
     (create-metrics-for-dlo! dir)
     (create-metrics-for-subdir! subdir)
@@ -166,7 +166,7 @@
   {:pre [(or (string? subdir)
              (instance? java.io.File subdir))]}
   (create-metrics-for-subdir! subdir)
-  (let [target-file (file subdir (str (pl-utils/timestamp) ".tgz"))
+  (let [target-file (file subdir (str (kitchensink/timestamp) ".tgz"))
         temp (str target-file ".partial")]
     (try
       (time! (subdir-metric subdir :compression)

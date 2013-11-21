@@ -52,7 +52,7 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.utils :as utils])
+            [puppetlabs.kitchensink.core :as kitchensink])
   (:use [clojure.set]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now]]
@@ -615,7 +615,7 @@
           (sorted? %)
           (apply < 0 (keys %))
           (<= (count %) (count migrations))]}
-  (let [pending (difference (utils/keyset migrations) (applied-migrations))]
+  (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
       (into (sorted-map)
         (select-keys migrations pending))))
 
@@ -623,7 +623,7 @@
   "Migrates database to the latest schema version. Does nothing if database is
   already at the latest schema version."
   []
-  (if-let [unexpected (first (difference (applied-migrations) (utils/keyset migrations)))]
+  (if-let [unexpected (first (difference (applied-migrations) (kitchensink/keyset migrations)))]
     (throw (IllegalStateException.
               (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                     unexpected))))

@@ -8,7 +8,7 @@
         [clj-time.core :only [now ago days secs]]
         [clojure.test]
         [clojure.set]
-        [com.puppetlabs.utils :only [mapvals]]
+        [puppetlabs.kitchensink.core :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
         [com.puppetlabs.puppetdb.examples.reports]

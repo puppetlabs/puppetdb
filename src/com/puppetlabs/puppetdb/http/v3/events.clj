@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.v3.events
   (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.utils :as pl-utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.events :as query]
             [com.puppetlabs.cheshire :as json]
             [ring.util.response :as rr]

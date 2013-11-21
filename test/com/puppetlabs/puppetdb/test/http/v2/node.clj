@@ -3,7 +3,7 @@
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.utils :only (keyset)]
+        [puppetlabs.kitchensink.core :only (keyset)]
         com.puppetlabs.puppetdb.fixtures
         [com.puppetlabs.puppetdb.testutils.nodes :only [store-example-nodes]]))
 

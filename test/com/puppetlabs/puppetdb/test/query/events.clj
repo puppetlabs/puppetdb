@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.events :as event-query]
-            [com.puppetlabs.utils :as utils])
+            [puppetlabs.kitchensink.core :as kitchensink])
   (:use clojure.test
          com.puppetlabs.puppetdb.fixtures
          com.puppetlabs.puppetdb.examples.reports
@@ -65,14 +65,14 @@
       (testing "should return the list of resource events that occurred before a given time"
         (let [end-time  "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events-map [1 3])
+                            (kitchensink/select-values basic-events-map [1 3])
                             basic)
               actual      (resource-events-query-result ["<" "timestamp" end-time])]
           (is (= actual expected))))
       (testing "should return the list of resource events that occurred after a given time"
         (let [start-time  "2011-01-01T12:00:01-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events-map [2 3])
+                            (kitchensink/select-values basic-events-map [2 3])
                             basic)
               actual      (resource-events-query-result [">" "timestamp" start-time])]
           (is (= actual expected))))
@@ -80,7 +80,7 @@
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events-map [3])
+                            (kitchensink/select-values basic-events-map [3])
                             basic)
               actual      (resource-events-query-result
                             ["and"  [">" "timestamp" start-time]
@@ -90,7 +90,7 @@
         (let [start-time  "2011-01-01T12:00:01-03:00"
               end-time    "2011-01-01T12:00:03-03:00"
               expected    (expected-resource-events
-                            (utils/select-values basic-events-map [1 2 3])
+                            (kitchensink/select-values basic-events-map [1 2 3])
                             basic)
               actual      (resource-events-query-result
                             ["and"   [">=" "timestamp" start-time]
@@ -130,7 +130,7 @@
                    [:containing-class nil                                 [1 2]]]]
         (testing (format "equality query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 query     ["=" (name field) value]
                 actual    (resource-events-query-result query)]
@@ -161,7 +161,7 @@
                [:containing-class nil                                 [3]]]]
         (testing (format "'not' query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 query     ["not" ["=" (name field) value]]
                 actual    (resource-events-query-result query)]
@@ -183,7 +183,7 @@
                [:containing-class "[fF]oo"                [3]]]]
         (testing (format "regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 query     ["~" (name field) value]
                 actual    (resource-events-query-result query)]
@@ -205,7 +205,7 @@
                [:containing-class "[fF]oo"                [1 2]]]]
         (testing (format "negated regex query on field '%s'" field)
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 query     ["not" ["~" (name field) value]]
                 actual    (resource-events-query-result query)]
@@ -227,7 +227,7 @@
                    [[[:file           "foo.pp"]
                      [:line           2]]               [1 3]]]]
           (let [expected    (expected-resource-events
-                              (utils/select-values basic-events-map matches)
+                              (kitchensink/select-values basic-events-map matches)
                               basic)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "or" (map term-fn terms)))
@@ -252,7 +252,7 @@
                    [:line             1]]             [1]]
                  [[[:containing-class "Foo"]]         [3]]]]
           (let [expected    (expected-resource-events
-                              (utils/select-values basic-events-map matches)
+                              (kitchensink/select-values basic-events-map matches)
                               basic)
                 term-fn     (fn [[field value]] ["=" (name field) value])
                 query       (vec (cons "and" (map term-fn terms)))
@@ -280,7 +280,7 @@
                       ["=" "line" 1]]
                     ["=" "line" 2]]                         [1 3]]]]
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -295,7 +295,7 @@
                     ["=" "status" "skipped"]
                     ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
           (let [expected  (expected-resource-events
-                            (utils/select-values basic-events-map matches)
+                            (kitchensink/select-values basic-events-map matches)
                             basic)
                 actual    (resource-events-query-result query)]
             (is (= actual expected)
@@ -318,7 +318,7 @@
               actual    (resource-events-query-result ["=" "latest-report?" true])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [expected  (expected-resource-events (utils/select-values events2-map [5 6]) basic2)
+        (let [expected  (expected-resource-events (kitchensink/select-values events2-map [5 6]) basic2)
               actual    (resource-events-query-result ["and" ["=" "resource-type" "File"] ["=" "latest-report?" true]])]
           (is (= actual expected)))))
 
@@ -328,13 +328,13 @@
               actual    (resource-events-query-result ["=" "latest-report?" false])]
           (is (= actual expected))))
       (testing "applied to subquery"
-        (let [expected  (expected-resource-events (utils/select-values events1-map [1 2]) basic1)
+        (let [expected  (expected-resource-events (kitchensink/select-values events1-map [1 2]) basic1)
               actual    (resource-events-query-result ["and" ["=" "status" "success"] ["=" "latest-report?" false]])]
           (is (= actual expected)))))
 
     (testing "compound latest report"
-      (let [results1  (expected-resource-events (utils/select-values events1-map [3]) basic1)
-            results2  (expected-resource-events (utils/select-values events2-map [5 6]) basic2)
+      (let [results1  (expected-resource-events (kitchensink/select-values events1-map [3]) basic1)
+            results2  (expected-resource-events (kitchensink/select-values events2-map [5 6]) basic2)
             expected  (clojure.set/union results1 results2)
             actual    (resource-events-query-result ["or"
                                                       ["and" ["=" "status" "skipped"] ["=" "latest-report?" false]]
@@ -356,7 +356,7 @@
   (let [basic4        (store-example-report! (:basic4 reports) (now))
         events        (get-in reports [:basic4 :resource-events])
         event-count   (count events)
-        select-values #(reverse (utils/select-values (get-events-map (:basic4 reports)) %))]
+        select-values #(reverse (kitchensink/select-values (get-events-map (:basic4 reports)) %))]
 
     (testing "include total results count"
       (let [actual (:count (raw-resource-events-query-result [">" "timestamp" 0] {:count? true}))]

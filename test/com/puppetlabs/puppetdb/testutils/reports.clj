@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
             [com.puppetlabs.puppetdb.reports :as report]
-            [com.puppetlabs.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce])
   (:use [com.puppetlabs.puppetdb.testutils.events :only [munge-example-event-for-storage
@@ -80,7 +80,7 @@
 
 (defn expected-report
   [example-report]
-  (utils/mapvals
+  (kitchensink/mapvals
     ;; we need to map the datetime fields to timestamp objects for comparison
     time-coerce/to-timestamp
     [:start-time :end-time]

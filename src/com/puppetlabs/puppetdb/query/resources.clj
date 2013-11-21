@@ -7,7 +7,7 @@
 (ns com.puppetlabs.puppetdb.query.resources
   (:require [com.puppetlabs.cheshire :as json]
             [clojure.string :as string]
-            [com.puppetlabs.utils :as utils])
+            [puppetlabs.kitchensink.core :as kitchensink])
   (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
                                     convert-result-arrays
                                     with-transacted-connection

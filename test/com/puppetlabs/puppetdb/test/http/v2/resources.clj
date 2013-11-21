@@ -7,7 +7,7 @@
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.testutils.resources :only [store-example-resources]]
-        [com.puppetlabs.utils :only [mapvals]]))
+        [puppetlabs.kitchensink.core :only [mapvals]]))
 
 (use-fixtures :each with-test-db with-http-app)
 

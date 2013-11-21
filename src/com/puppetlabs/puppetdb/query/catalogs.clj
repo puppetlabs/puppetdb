@@ -7,7 +7,7 @@
 (ns com.puppetlabs.puppetdb.query.catalogs
   (:require [com.puppetlabs.puppetdb.query.resources :as r])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
-        [com.puppetlabs.utils :only [dissoc-if-nil mapkeys]]))
+        [puppetlabs.kitchensink.core :only [dissoc-if-nil mapkeys]]))
 
 (defn get-catalog-info
   "Given a node name, return a map of Puppet catalog information

@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.testutils.repl
-  (:require [com.puppetlabs.utils :as utils]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :as testutils]
             [fs.core :as fs]
@@ -24,7 +24,7 @@
   (let [new-config-file (testutils/temp-file "config" ".ini")
         config-path (fs/absolute-path new-config-file)]
     (println "Writing current config to" config-path)
-    (utils/spit-ini new-config-file (merge-with merge (utils/ini-to-map config) config-overrides))
+    (kitchensink/spit-ini new-config-file (merge-with merge (kitchensink/ini-to-map config) config-overrides))
     (svcs/-main "--config" config-path)))
 
 (defn launch-mem-puppetdb

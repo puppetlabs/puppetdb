@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.command.dlo
   (:require [cheshire.core :as json]
             [fs.core :as fs]
-            [com.puppetlabs.utils :as pl-utils])
+            [puppetlabs.kitchensink.core :as kitchensink])
   (:use [clojure.test]
         [clj-time.core :only [years days secs ago now]]
         [clj-time.coerce :only [to-timestamp]]
@@ -65,7 +65,7 @@
           threshold (days 7)
           more-than-threshold (days 8)
           archive-time (ago more-than-threshold)]
-      (fs/touch (fs/file dir (str (pl-utils/timestamp archive-time) ".tgz")))
+      (fs/touch (fs/file dir (str (kitchensink/timestamp archive-time) ".tgz")))
 
       (testing "should have no messages"
         (is (empty? (messages dir))))
@@ -81,7 +81,7 @@
 
       (testing "and a new archive"
         (let [new-archive-time (now)]
-          (fs/touch (fs/file dir (str (pl-utils/timestamp new-archive-time) ".tgz")))
+          (fs/touch (fs/file dir (str (kitchensink/timestamp new-archive-time) ".tgz")))
 
           (testing "should have no messages"
             (is (empty? (messages dir))))

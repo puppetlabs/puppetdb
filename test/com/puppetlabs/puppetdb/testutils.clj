@@ -10,7 +10,7 @@
             [fs.core :as fs])
   (:use     [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
-            [com.puppetlabs.utils :only [parse-int excludes? keyset]]
+            [puppetlabs.kitchensink.core :only [parse-int excludes? keyset]]
             [clojure.test]
             [clojure.set :only [difference]]
             [ring.mock.request]))
