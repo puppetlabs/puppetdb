@@ -1,4 +1,7 @@
 test_name "general collection should get all exported resources except the host's" do
+  step "clear puppetdb database" do
+    clear_and_restart_puppetdb(database)
+  end
 
   names = hosts.map(&:name)
 
