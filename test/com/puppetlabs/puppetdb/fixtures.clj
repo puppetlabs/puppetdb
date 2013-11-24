@@ -1,7 +1,9 @@
 (ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.jdbc :as pjdbc])
+            [com.puppetlabs.jdbc :as pjdbc]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.config :as cfg])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
         [com.puppetlabs.testutils.logging :only [with-log-output]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
@@ -58,7 +60,21 @@
                                 globals-overrides))]
        (f))))
 
-(defn create-db-map []
+(defn defaulted-write-db-config
+  "Defaults and converts `db-config` from the write database INI format to the internal
+   write database format"
+  [db-config]
+  (pls/transform-data cfg/write-database-config-in cfg/write-database-config-out db-config))
+
+(defn defaulted-read-db-config
+  "Defaults and converts `db-config` from the read-database INI format to the internal
+   read database format"
+  [db-config]
+  (pls/transform-data cfg/database-config-in cfg/database-config-out db-config))
+
+(defn create-db-map
+  "Returns a database connection map with a reference to a new in memory HyperSQL database"
+  []
   {:classname   "org.hsqldb.jdbcDriver"
    :subprotocol "hsqldb"
    :subname     (str "mem:"

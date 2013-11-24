@@ -392,8 +392,12 @@
       (sql/do-commands "SHUTDOWN"))))
 
 (deftest ^{:postgres false} two-database-fact-query-config
-  (let [read-db (init-db (create-db-map) true)
-        write-db (init-db (create-db-map) false)]
+  (let [read-db (-> (create-db-map)
+                    defaulted-read-db-config
+                    (init-db true))
+        write-db (-> (create-db-map)
+                     defaulted-write-db-config
+                     (init-db false))]
     (with-shutdown-after [read-db write-db]
       (fn []
         (let [one-db-app (test-app write-db)

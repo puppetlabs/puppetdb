@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.config
   (:import [java.security KeyStore])
-  (require [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
            [com.puppetlabs.puppetdb.config :refer :all]
            [puppetlabs.kitchensink.core :as kitchensink]
            [com.puppetlabs.time :as pl-time]
@@ -29,13 +29,15 @@
 (deftest database-configuration
   (testing "database"
     (testing "should use the value specified"
-      (let [config (configure-database {:database {:classname "something"}})]
+      (let [config (configure-dbs {:database {:classname "something"
+                                              :subname "stuff"
+                                              :subprotocol "more stuff"}})]
         (is (= (get-in config [:database :classname]) "something"))
-        (is (nil? (get-in config [:database :subprotocol])))
-        (is (nil? (get-in config [:database :subname])))))
+        (is (= "more stuff" (get-in config [:database :subprotocol])))
+        (is (= "stuff" (get-in config [:database :subname])))))
 
     (testing "should default to hsqldb"
-      (let [config (configure-database {:global {:vardir "/var/lib/puppetdb"}})
+      (let [config (configure-dbs {:global {:vardir "/var/lib/puppetdb"}})
             expected {:classname "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
@@ -43,13 +45,15 @@
                expected))))
 
     (testing "the read-db defaulted to the specified write-db"
-      (let [config (configure-database {:database {:classname "something"}})]
+      (let [config (configure-dbs {:database {:classname "something"
+                                              :subname "stuff"
+                                              :subprotocol "more stuff"}})]
         (is (= (get-in config [:read-database :classname]) "something"))
-        (is (nil? (get-in config [:read-database :subprotocol])))
-        (is (nil? (get-in config [:read-database :subname])))))
+        (is (= "more stuff" (get-in config [:database :subprotocol])))
+        (is (= "stuff" (get-in config [:database :subname])))))
 
     (testing "the read-db defaulted to the hsql write-db-default"
-      (let [config (configure-database {:global {:vardir "/var/lib/puppetdb"}})
+      (let [config (configure-dbs {:global {:vardir "/var/lib/puppetdb"}})
             expected {:classname "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
@@ -57,49 +61,51 @@
                expected))))
 
     (testing "the read-db should be specified by a read-database property"
-      (let [config (configure-database {:read-database {:classname "something"}})]
+      (let [config (configure-dbs {:read-database {:classname "something"
+                                                   :subname "stuff"
+                                                   :subprotocol "more stuff"}})]
         (is (= (get-in config [:read-database :classname]) "something"))
-        (is (nil? (get-in config [:read-database :subprotocol])))
-        (is (nil? (get-in config [:read-database :subname])))))))
+        (is (= "more stuff" (get-in config [:read-database :subprotocol])))
+        (is (= "stuff" (get-in config [:read-database :subname])))))))
 
 (deftest garbage-collection
   (testing "gc-interval"
     (testing "should use the value specified in minutes"
-      (let [{:keys [gc-interval]} (:database (configure-gc-params {:database {:gc-interval 900}}))]
+      (let [{:keys [gc-interval]} (:database (configure-dbs {:database {:gc-interval 900}}))]
         (is (pl-time/period? gc-interval))
         (is (= 900 (pl-time/to-minutes gc-interval)))))
     (testing "should default to 60 minutes"
-      (let [{:keys [gc-interval]} (:database (configure-gc-params {}))]
+      (let [{:keys [gc-interval]} (:database (configure-dbs {:database {}}))]
         (is (pl-time/period? gc-interval))
         (is (= 60 (pl-time/to-minutes gc-interval))))))
 
   (testing "node-ttl"
     (testing "should parse node-ttl and return a Pl-Time/Period object"
-      (let [{:keys [node-ttl]} (:database (configure-gc-params { :database { :node-ttl "10d" }}))]
+      (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
         (is (pl-time/period? node-ttl))
         (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
     (testing "should support node-ttl-days for backward compatibility"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database { :node-ttl-days 10 }}))]
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database { :node-ttl-days 10 }}))]
         (is (pl-time/period? node-ttl))
         (is (= 10 (pl-time/to-days node-ttl)))
         (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should prefer node-ttl over node-ttl-days"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params { :database {:node-ttl "5d"
-                                                                                        :node-ttl-days 10 }}))]
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database {:node-ttl "5d"
+                                                                                   :node-ttl-days 10 }}))]
         (is (pl-time/period? node-ttl))
         (is (= (time/days 5) (time/days (pl-time/to-days node-ttl))))
         (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should default to zero (no expiration)"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-gc-params {}))]
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
         (is (pl-time/period? node-ttl))
         (is (= 0 (pl-time/to-secs node-ttl))))))
   (testing "report-ttl"
     (testing "should parse report-ttl and produce report-ttl"
-      (let [{:keys [report-ttl]} (:database (configure-gc-params { :database { :report-ttl "10d" }}))]
+      (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]
         (is (pl-time/period? report-ttl))
         (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
     (testing "should default to 14 days"
-      (let [{:keys [report-ttl]} (:database (configure-gc-params {}))]
+      (let [{:keys [report-ttl]} (:database (configure-dbs {}))]
         (is (pl-time/period? report-ttl))
         (is (= (time/days 14) (time/days (pl-time/to-days report-ttl))))))))
 

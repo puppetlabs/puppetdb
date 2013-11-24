@@ -1,13 +1,6 @@
 (ns com.puppetlabs.puppetdb.schema
-  (:import [java.security KeyStore])
-  (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.ssl :as ssl]
-            [com.puppetlabs.utils :as pl-utils]
-            [com.puppetlabs.time :as pl-time]
+  (:require [com.puppetlabs.time :as pl-time]
             [clj-time.core :as time]
-            [clojure.java.io :as io]
-            [fs.core :as fs]
-            [clojure.string :as str]
             [schema.core :as s]))
 
 (defrecord DefaultedMaybe [schema default]
@@ -26,7 +19,7 @@
 (defn defaulted-maybe?
   "True when `x` is a DefaultedMaybe"
   [x]
-  (instance? DefaultedMaybe x))
+  (instance? com.puppetlabs.puppetdb.schema.DefaultedMaybe x))
 
 (defprotocol PredConstructFn
   (get-construct-fn [pred]
@@ -52,6 +45,18 @@
      (ConstructedPred. pred construct-fn))
   ([p? pred-name construct-fn]
      (ConstructedPred. (s/pred p? pred-name) construct-fn)))
+
+(defn maybe? [x]
+  (instance? schema.core.Maybe x))
+
+(defn constructed-pred?
+  "True if `x` is a ConstructedPred and thus able to be converted to a new type
+   from an existing value"
+  [x]
+  (cond
+   (instance? ConstructedPred x) true
+   (maybe? x) (instance? ConstructedPred (:schema x))
+   :else false))
 
 (defn pred-name
   "Grabs the pred-name, typically a symbol representing the predicate
@@ -107,6 +112,23 @@
   "Schema type for JodaTime Period instances"
   (constructed-pred period? 'period? create-period))
 
+(defn convert-boolean
+  "Converts stringified boolean values to booleans, ignores the first
+   (ConstructedPred) argument as it always uses the stringified version."
+  [_ s]
+  (Boolean/valueOf (str s)))
+
+(defn boolean?
+  "Predicate for finding true and false values, not
+   truthy or falsey values but real true/false values."
+  [x]
+  (or (true? x)
+      (false? x)))
+
+(def SchemaBoolean
+  "Schema type for a boolean"
+  (constructed-pred boolean? 'boolean? convert-boolean))
+
 (defn schema-key->data-key
   "Returns the key from the `schema` map used for retrieving
    that schemas value from it's data map."
@@ -121,6 +143,11 @@
   (for [[k v] schema
         :when (defaulted-maybe? v)]
     k))
+
+(defn construct-fn?
+  "Returns true if x supports the PredConstructFn protocol"
+  [x]
+  (satisfies? PredConstructFn x))
 
 (defn defaulted-data
   "Default missing values in the `data` map with values specified in `schema`"
@@ -140,19 +167,35 @@
     (get-construct-fn (first (:schemas pred))))
   schema.core.Both
   (get-construct-fn [pred]
-    (get-construct-fn (first (:schemas pred)))))
+    (get-construct-fn (first (:schemas pred))))
+  schema.core.Maybe
+  (get-construct-fn [pred]
+    (get-construct-fn (:schema pred)))
+  DefaultedMaybe
+  (get-construct-fn [pred]
+    (get-construct-fn (:schema pred))))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
   [schema data]
-  (reduce-kv (fn [acc k constructed-pred]
-               (if-let [d (get data k)]
-                 (assoc acc k ( (get-construct-fn constructed-pred) (get schema k)  d))
-                 acc))
+  (reduce-kv (fn [acc k pred]
+               (let [data-key (schema-key->data-key k)]
+                 (if-let [d (and (construct-fn? pred)
+                                 (get data data-key))]
+                   (assoc acc data-key ( (get-construct-fn pred) (get schema k) d))
+                   acc)))
              data schema))
 
 (defn strip-unknown-keys
   "Remove all keys from `data` not specified by `schema`"
   [schema data]
   (select-keys data (map schema-key->data-key (keys schema))))
+
+(defn transform-data
+  "Given an `in-schema` and `out-schema`, default missing values
+   and convert to the `out-schema` format."
+  [in-schema out-schema data]
+  (->> data
+       (defaulted-data in-schema)
+       (convert-to-schema out-schema)))
 

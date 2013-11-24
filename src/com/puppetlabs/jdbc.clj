@@ -8,7 +8,8 @@
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [com.puppetlabs.time :as pl-time])
   (:use com.puppetlabs.jdbc.internal))
 
 
@@ -292,14 +293,12 @@
            ;; setting this to a String value, because that's what it would
            ;;  be in the config file and we're manually converting it to a boolean
            log-statements      "true"
-           log-slow-statements 10
-           conn-max-age        60
-           conn-keep-alive     45
            read-only?          false}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
   (let [log-statements? (Boolean/parseBoolean log-statements)
+        log-slow-statements-duration (pl-time/to-secs log-slow-statements)
         config          (doto (new BoneCPConfig)
                           (.setDefaultAutoCommit false)
                           (.setLazyInit true)
@@ -307,20 +306,20 @@
                           (.setMaxConnectionsPerPartition partition-conn-max)
                           (.setPartitionCount partition-count)
                           (.setStatisticsEnabled stats)
-                          (.setIdleMaxAgeInMinutes conn-max-age)
-                          (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)
+                          (.setIdleMaxAgeInMinutes (pl-time/to-minutes conn-max-age))
+                          (.setIdleConnectionTestPeriodInMinutes (pl-time/to-minutes conn-keep-alive))
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                          (.setConnectionHook (connection-hook log-statements? log-slow-statements))
+                          (.setConnectionHook (connection-hook log-statements? log-slow-statements-duration))
                           (.setDefaultReadOnly read-only?))
         user (or user username)]
     ;; configurable without default
     (when user (.setUsername config (str user)))
     (when password (.setPassword config (str password)))
-    (when conn-lifetime (.setMaxConnectionAge config conn-lifetime TimeUnit/MINUTES))
+    (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
     (when log-statements? (.setLogStatementsEnabled config log-statements?))
-    (when log-slow-statements
-      (.setQueryExecuteTimeLimit config log-slow-statements (TimeUnit/SECONDS)))
+
+    (.setQueryExecuteTimeLimit config log-slow-statements-duration (TimeUnit/SECONDS))
     ;; ...aaand, create the pool.
     (BoneCPDataSource. config)))
 

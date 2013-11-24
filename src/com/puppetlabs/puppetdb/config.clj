@@ -12,6 +12,14 @@
             [schema.core :as s]
             [com.puppetlabs.puppetdb.schema :as pls]))
 
+(def half-the-cores
+  "Half the number of CPU cores, used for defaulting the number of
+   command processors"
+  (-> (kitchensink/num-cpus)
+      (/ 2)
+      (int)
+      (max 1)))
+
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
   command-processing threads to use. If no value exists in the config
@@ -110,26 +118,61 @@
 
 (def database-config-in
   "Schema for incoming database config (user defined)"
-  {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
-   (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
-   (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
-   (s/optional-key :node-ttl) (s/maybe s/String)
-   (s/optional-key :node-ttl-days) (s/maybe s/Int)})
+  {(s/optional-key :log-slow-statements) (pls/defaulted-maybe s/Int 10)
+   (s/optional-key :conn-max-age) (pls/defaulted-maybe s/Int 60)
+   (s/optional-key :conn-keep-alive) (pls/defaulted-maybe s/Int 45)
+   (s/optional-key :conn-lifetime) (s/maybe s/Int)
+   (s/optional-key :classname) (s/maybe s/String)
+   (s/optional-key :subprotocol) (s/maybe s/String)
+   (s/optional-key :subname) (s/maybe s/String)
+   (s/optional-key :username) s/String
+   (s/optional-key :password) s/String
+   (s/optional-key :syntax_pgs) s/String})
+
+(def write-database-config-in
+  "Includes the common database config params, also the write-db specific ones"
+  (merge database-config-in
+         {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
+          (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
+          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
+          (s/optional-key :node-ttl) (s/maybe s/String)
+          (s/optional-key :node-ttl-days) (s/maybe s/Int)}))
 
 (def database-config-out
   "Schema for parsed/processed database config"
-  {:gc-interval pls/Minutes
-   :report-ttl pls/Period
-   :node-purge-ttl pls/Period
-   :node-ttl (s/either pls/Period pls/Days)})
+  {:classname s/String
+   :subprotocol s/String
+   :subname s/String
+   :log-slow-statements pls/Days
+   :conn-max-age pls/Minutes
+   :conn-keep-alive pls/Minutes
+   (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
+   (s/optional-key :read-only?) pls/SchemaBoolean
+   (s/optional-key :username) s/String
+   (s/optional-key :password) s/String
+   (s/optional-key :syntax_pgs) s/String})
+
+(def write-database-config-out
+  "Schema for parsed/processed database config that includes write database params"
+  (merge database-config-out
+         {:gc-interval pls/Minutes
+          :report-ttl pls/Period
+          :node-purge-ttl pls/Period
+          :node-ttl (s/either pls/Period pls/Days)}))
 
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
-  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")})
+  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")
+   (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
+   (s/optional-key :store-usage) (s/maybe s/Int)
+   (s/optional-key :temp-usage) (s/maybe s/Int)})
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
-  {:dlo-compression-threshold pls/Period})
+  {:dlo-compression-threshold pls/Period
+   :threads s/Int
+   (s/optional-key :store-usage) (s/maybe s/Int)
+   (s/optional-key :temp-usage) (s/maybe s/Int)})
 
 (defn maybe-days
   "Convert the non-nil integer ot days"
@@ -137,51 +180,91 @@
   (when days-int
     (time/days days-int)))
 
-(s/defn configure-gc-params* :- database-config-out
-  "Convert the gc related parameters of the user defined config to the
-   correct internal types."
-  [config :- database-config-in]
-  (let [gc-conf (pls/convert-to-schema database-config-out config)]
-    (pls/strip-unknown-keys database-config-out
-                            (if (:node-ttl gc-conf)
-                              gc-conf
-                              (assoc gc-conf :node-ttl (or (maybe-days (:node-ttl-days gc-conf))
-                                                           (pl-time/parse-period "0s")))))))
-
-(s/defn command-processing-params :- command-processing-in
-  "Convert the gc related command processing params to the correct internal format"
-  [config :- command-processing-out]
-  (pls/convert-to-schema command-processing-out config))
-
-(defn configure-gc-params
-  "Take a user defined config and default missing values and convert
-   the results to the proper internal format."
-  [config]
-  (-> config
-      (update-in [:database]
-                 (fn [db-config]
-                   (merge db-config (configure-gc-params* (pls/defaulted-data database-config-in db-config)))))
-      (update-in [:command-processing]
-                 (fn [cmd-processing]
-                   (merge cmd-processing (command-processing-params (pls/defaulted-data command-processing-in cmd-processing)))))))
-
-(defn default-db-config [global]
+(defn hsql-default-connection
+  "Returns a map of default, file-backed, HyperSQL connection information"
+  [global]
   {:classname   "org.hsqldb.jdbcDriver"
    :subprotocol "hsqldb"
    :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file (:vardir global) "db"))})
 
-(defn configure-database
-  "Update the supplied config map with information about the database. Adds a
-  default hsqldb. If a single part of the database information is specified
-  (such as classname but not subprotocol), no defaults will be filled in."
-  [{:keys [database read-database global] :as config}]
-  {:pre  [(map? config)]
-   :post [(map? config)]}
-  (let [write-db (or database (default-db-config global))
-        read-db (or read-database write-db)]
-    (assoc config
-      :database write-db
-      :read-database (assoc read-db :read-only? true))))
+(defn defaulted-db-connection
+  "Adds each of `hsql-default-connection` keypairs to `database` if classname, subprotocol and subname
+   are not found in the `database` config"
+  [global database]
+  (if (not-any? database [:classname :subprotocol :subname])
+    (into database (hsql-default-connection global))
+    database))
+
+(defn convert-db-config
+  "Converts a `db-config` to `db-schema-out` using defaults from `db-schema-in`. Will also
+   add default database connection information if it doesn't already have it"
+  [db-schema-in db-schema-out global-config db-config]
+  (->> (pls/defaulted-data db-schema-in db-config)
+       (defaulted-db-connection global-config)
+       (pls/convert-to-schema db-schema-out)))
+
+(defn configure-read-db
+  "Validates, defaults and converts an incoming (INI file based) read database config returns a config
+   that includes the new read-database config"
+  [{:keys [global read-database database] :as config}]
+  (let [db-config (pls/strip-unknown-keys database-config-out
+                                          (if read-database
+                                            (do
+                                              (s/validate database-config-in read-database)
+                                              (convert-db-config database-config-in database-config-out global read-database))
+                                            (assoc database :read-only? true)))]
+    (s/validate database-config-out db-config)
+    (assoc config :read-database db-config)))
+
+(defn default-node-ttl
+  "Assoc into `db-config` a :node-ttl when not already present. Default to node-ttl-days, if that's not there,
+   use 0 seconds"
+  [db-config]
+  (if (:node-ttl db-config)
+    db-config
+    (assoc db-config :node-ttl (or (maybe-days (:node-ttl-days db-config))
+                                   (pl-time/parse-period "0s")))))
+
+(defn convert-write-db-config
+  "Converts the `database` config using the write database config schema. Also defaults
+   the node-ttl parameter."
+  [global database]
+  (->> (convert-db-config write-database-config-in write-database-config-out global database)
+       default-node-ttl
+       (pls/strip-unknown-keys write-database-config-out)))
+
+(defn configure-write-db
+  "Convert the gc related parameters of the user defined config to the
+   correct internal types."
+  [{:keys [global database] :as config :or {database {}}}]
+  (s/validate write-database-config-in database)
+  (let [db-config (convert-write-db-config global database)]
+    (s/validate write-database-config-out db-config)
+    (assoc config :database db-config)))
+
+(defn configure-dbs
+  "Given an INI `config` map, default and convert the database parameters"
+  [config]
+  (-> config
+      configure-write-db
+      configure-read-db))
+
+(defn configure-command-params
+  "Validates and converts the command-processing portion of the PuppetDB config"
+  [{:keys [command-processing] :as config}]
+  (s/validate command-processing-in command-processing)
+  (let [converted-config (->> command-processing
+                              (pls/defaulted-data command-processing-in)
+                              (pls/convert-to-schema command-processing-out))]
+    (s/validate command-processing-out converted-config)
+    (assoc config :command-processing converted-config)))
+
+(defn convert-ini-map-config
+  "Given an incoming INI config map, convert it to the internal Clojure format that PuppetDB expects"
+  [config]
+  (-> config
+      configure-dbs
+      configure-command-params))
 
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
@@ -251,7 +334,9 @@
       (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
-(defn assoc-when [m k v & kvs]
+(defn assoc-when
+  "Assoc to `m` only when `k` is not already present in `m`"
+  [m k v]
   (if (get m k)
     m
     (assoc m k v)))
@@ -268,7 +353,9 @@
                (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
     lower-product-name))
 
-(defn configure-globals [{:keys [global] :as config}]
+(defn configure-globals
+  "Configures the global properties from the user defined config"
+  [{:keys [global] :as config}]
   (let [product-name (normalize-product-name (get global :product-name "puppetdb"))]
     (update-in config [:global]
                (fn [global-config]
@@ -297,10 +384,11 @@
     (->> (kitchensink/inis-to-map path)
          (merge initial-config)
          configure-globals
-         pl-utils/configure-logging!
+         configure-logging!
          validate-vardir
          configure-commandproc-threads
          configure-web-server
-         configure-database
-         configure-gc-params
+         convert-ini-map-config
          configure-catalog-debugging)))
+
+
