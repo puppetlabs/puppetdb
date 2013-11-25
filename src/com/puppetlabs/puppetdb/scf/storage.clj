@@ -299,7 +299,67 @@
              :when (not (empty? param-sets))]
        (apply sql/do-prepared the-sql param-sets)))))
 
-(defn add-edges!
+(defn diff-existing-edges
+  "Returns a vector with three edge maps, edges to be added,
+   edges to be left alone and edges to be deleted"
+  [new-edges old-edges]
+  {:pre [(or (map? new-edges) (nil? new-edges))
+         (or (map? old-edges) (nil? old-edges))]}
+  (let [diffs    (data/diff new-edges old-edges)
+        just-new (or (first diffs)
+                     {})
+        just-old (or (second diffs)
+                     {})
+        new-keys (keys just-new)
+        old-keys (keys just-old)]
+    [(select-keys just-new (remove just-old new-keys))
+     (select-keys just-old (remove just-new old-keys))]))
+
+(defn catalog-edges-map
+  "Return all edges for a given catalog id as a map"
+  [certname]
+  (sql/with-query-results result-set
+    ["SELECT source, target, type FROM edges WHERE certname=?" certname]
+    ;; Transform the result-set into a map with [source,target,type] as the key
+    ;; and nil as always the value. This just feeds into clojure.data/diff
+    ;; better this way.
+    (zipmap (map vals result-set)
+            (repeat nil))))
+
+(defn delete-edges!
+  "Delete edges for a given certname.
+
+  Edges must be either nil or a collection of lists containing each element
+  of an edge, eg:
+
+    [[<source> <target> <type>] ...]"
+  [certname edges]
+  {:pre [(or (coll? edges) (nil? edges))
+         (string? certname)]}
+  (doseq [[source target type] edges]
+    ;; This is relatively inefficient. If we have id's for edges, we could do
+    ;; this in 1 statement.
+    (sql/delete-rows :edges
+      ["certname=? and source=? and target=? and type=?" certname source target type])))
+
+(defn insert-edges!
+  "Insert edges for a given certname.
+
+  Edges must be either nil or a collection of lists containing each element
+  of an edge, eg:
+
+    [[<source> <target> <type>] ...]"
+  [certname edges]
+  {:pre [(or (coll? edges) (nil? edges))
+         (string? certname)]}
+  ;; Insert rows will not safely accept a nil, so abandon this operation
+  ;; earlier.
+  (when-not (nil? edges)
+    (let [rows (for [[source target type] edges]
+                 [certname source target type])]
+      (apply sql/insert-rows :edges rows))))
+
+(defn replace-edges!
   "Persist the given edges in the database
 
   Each edge is looked up in the supplied resources map to find a
@@ -308,17 +368,21 @@
 
   For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
   then we'll lookup a resource with that key and use its hash."
-  [catalog-id edges refs-to-hashes]
-  {:pre [(number? catalog-id)
+  [certname edges refs-to-hashes]
+  {:pre [(string? certname)
          (coll? edges)
          (map? refs-to-hashes)]}
-  (let [the-sql "INSERT INTO edges (catalog_id,source,target,type) VALUES (?,?,?,?)"
-        rows    (for [{:keys [source target relationship]} edges
-                      :let [source-hash (refs-to-hashes source)
-                            target-hash (refs-to-hashes target)
-                            type        (name relationship)]]
-                  [catalog-id source-hash target-hash type])]
-    (apply sql/do-prepared the-sql rows)))
+  (let [new-edges (zipmap
+                    (for [{:keys [source target relationship]} edges
+                       :let [source-hash (refs-to-hashes source)
+                             target-hash (refs-to-hashes target)
+                             type        (name relationship)]]
+                       [source-hash target-hash type])
+                    (repeat nil))
+        [add-edges delete-edges] (diff-existing-edges
+                                     new-edges (catalog-edges-map certname))]
+    (delete-edges! certname (keys delete-edges))
+    (insert-edges! certname (keys add-edges))))
 
 (defn update-catalog-hash-match
   "When a new incoming catalog has the same hash as an existing catalog, update metrics
@@ -330,7 +394,7 @@
 (defn update-catalog-hash-miss
   "New catalogs for a given certname needs to have their metadata, resources and edges updated.  This
    function also outputs debugging related information when `catalog-hash-debug-dir` is not nil"
-  [hash {:keys [api-version version transaction-uuid resources edges] :as catalog} resource-hashes catalog-hash-debug-dir]
+  [hash {:keys [certname api-version version transaction-uuid resources edges] :as catalog} resource-hashes catalog-hash-debug-dir]
 
   (inc! (:new-catalog metrics))
 
@@ -344,7 +408,7 @@
     (time! (:add-resources metrics)
            (add-resources! catalog-id resources refs-to-hashes))
     (time! (:add-edges metrics)
-           (add-edges! catalog-id edges refs-to-hashes))))
+           (replace-edges! certname edges refs-to-hashes))))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
@@ -525,7 +589,7 @@
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
    Adds all new facts if no existing facts are found. Invoking this function under the umbrella of
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
-   can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail 
+   can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the certname_facts_metadata will have changed while the transaction was in-flight."
   [{:strs [name values]} timestamp]
   {:pre [(string? name)

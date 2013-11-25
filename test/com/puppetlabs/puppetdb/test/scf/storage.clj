@@ -129,7 +129,6 @@
 
   (deftest catalog-persistence
     (testing "Persisted catalogs"
-
       (add-certname! certname)
       (let [hash (add-catalog! catalog)]
         (associate-catalog-with-certname! hash certname (now)))
@@ -187,7 +186,86 @@
 
         (is (= (query-to-vec ["SELECT hash FROM catalogs"])
               [{:hash hash}])))))
-  ;
+
+  (deftest edge-replacement-differential
+    (testing "should do selective inserts/deletes when edges are modified just slightly"
+      (add-certname! certname)
+      (let [original-catalog (:basic catalogs)
+            original-edges   (:edges original-catalog)
+            modified-edges   (conj (disj original-edges {:source {:type "Class" :title "foobar"}
+                                                         :target {:type "File" :title "/etc/foobar"}
+                                                         :relationship :contains})
+                                   {:source {:type "File" :title "/etc/foobar"}
+                                    :target {:type "File" :title "/etc/foobar/baz"}
+                                    :relationship :before})
+            modified-catalog (assoc original-catalog :edges modified-edges)]
+        ;; Add an initial catalog, we don't care to intercept the SQL yet
+        (replace-catalog! original-catalog (now))
+
+        (testing "ensure catalog-edges-map returns a predictable value"
+          (is (= (catalog-edges-map certname)
+                 {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                   "57495b553981551c5194a21b9a26554cd93db3d9"
+                   "contains"] nil,
+                  ["57495b553981551c5194a21b9a26554cd93db3d9"
+                   "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                   "required-by"] nil,
+                  ["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                   "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                   "contains"] nil})))
+
+        ;; Lets intercept the insert/update/delete level so we can test it later
+        (let [deletes (atom {})
+              adds (atom {})
+              sql-insert sql/insert-rows
+              sql-delete sql/delete-rows]
+          (with-redefs [sql/insert-rows    (fn [table & rows]
+                                             (swap! adds assoc table rows)
+                                             (apply sql-insert table rows))
+                        sql/delete-rows    (fn [table clause]
+                                             (swap! deletes assoc table clause)
+                                             (sql-delete table clause))]
+            ;; Here we only replace edges, so we can capture those specific SQL
+            ;; operations
+            (let [resources    (:resources modified-catalog)
+                  refs-to-hash (reduce-kv (fn [i k v]
+                                            (assoc i k (shash/resource-identity-hash v)))
+                                          {} resources)]
+              (replace-edges! certname modified-edges refs-to-hash)
+              (testing "ensure catalog-edges-map returns a predictable value"
+                (is (= (catalog-edges-map certname)
+                       {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                         "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                         "contains"] nil,
+                        ["57495b553981551c5194a21b9a26554cd93db3d9"
+                         "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                         "required-by"] nil
+                        ["57495b553981551c5194a21b9a26554cd93db3d9"
+                         "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                         "before"] nil})))
+
+              (testing "should only delete the 1 edge"
+                (is (= {:edges ["certname=? and source=? and target=? and type=?"
+                                "basic.catalogs.com"
+                                "d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                                "57495b553981551c5194a21b9a26554cd93db3d9"
+                                "contains"]}
+                       @deletes)))
+              (testing "should only insert the 1 edge"
+                (is (= {:edges [["basic.catalogs.com"
+                                 "57495b553981551c5194a21b9a26554cd93db3d9"
+                                 "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                                 "before"]]}
+                       @adds)))
+              (testing "when reran to check for idempotency"
+                (swap! adds {})
+                (swap! deletes {})
+                (replace-edges! certname modified-edges refs-to-hash)
+                (testing "should delete no edges"
+                  (is (= nil @deletes)))
+                (testing "should insert no edges"
+                  (is (= nil @adds))))))))))
+
   (deftest catalog-duplicates
     (testing "should share structure when duplicate catalogs are detected for the same host"
       (add-certname! certname)
@@ -214,10 +292,6 @@
         (is (= (query-to-vec ["SELECT hash FROM catalogs"])
               [{:hash hash}])))))
 
-  (deftest catalog-empty
-    (testing "should not fail when inserting an 'empty' catalog"
-      (add-catalog! (:empty catalogs))))
-
   (deftest catalog-manual-deletion
     (testing "should noop if replaced by themselves after using manual deletion"
       (add-certname! certname)
@@ -233,9 +307,6 @@
       (add-certname! certname)
       (let [hash (add-catalog! catalog)]
         (delete-catalog! hash))
-
-      (is (= (query-to-vec ["SELECT * FROM edges"])
-            []))
 
       (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
             []))))
@@ -269,12 +340,6 @@
       (is (= (query-to-vec ["SELECT certname FROM certname_catalogs ORDER BY certname"])
             [{:certname "myhost2.mydomain.com"}]))
 
-      ;; no edges for myhost
-      (is (= (query-to-vec [(str "SELECT COUNT(*) as c FROM edges e, certname_catalogs cc "
-                              "WHERE e.catalog_id=cc.catalog_id AND cc.certname=?")
-                            certname])
-            [{:c 0}]))
-
       ;; All the other resources should still be there
       (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
             [{:c 3}]))))
@@ -303,8 +368,6 @@
       (is (= (query-to-vec ["SELECT * FROM resource_params"])
             []))
       (is (= (query-to-vec ["SELECT * FROM resource_params_cache"])
-            []))
-      (is (= (query-to-vec ["SELECT * FROM edges"])
             []))))
 
   (deftest catalog-dissociation-without-gc

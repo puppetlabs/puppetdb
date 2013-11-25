@@ -65,15 +65,17 @@
                 "sources.title AS source_title, "
                 "targets.type AS target_type, "
                 "targets.title AS target_title, "
-                "edges.type AS relationship "
-                "FROM certname_catalogs INNER JOIN edges ON certname_catalogs.catalog_id = edges.catalog_id "
+                "e.type AS relationship "
+                "FROM edges e "
                 "INNER JOIN catalog_resources sources "
-                    "ON edges.catalog_id = sources.catalog_id "
-                    "AND source = sources.resource "
+                    "ON e.source = sources.resource "
                 "INNER JOIN catalog_resources targets "
-                    "ON edges.catalog_id = targets.catalog_id "
-                    "AND target = targets.resource "
-                "WHERE certname = ?")]
+                    "ON e.target = targets.resource "
+                "INNER JOIN certname_catalogs cc "
+                    "ON sources.catalog_id = cc.catalog_id "
+                    "AND targets.catalog_id = cc.catalog_id "
+                    "AND e.certname = cc.certname "
+                "WHERE e.certname = ?")]
     (for [{:keys [source_type
                   source_title
                   target_type

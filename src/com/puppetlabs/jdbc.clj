@@ -225,7 +225,12 @@
     (when-let [isolation-level (get isolation-levels tx-isolation-level)]
       (.setTransactionIsolation (:connection jint/*db*) isolation-level))
      (sql/transaction
-      (f))))
+       (try
+         (f)
+         (catch java.sql.SQLException e
+           (if-let [next (.getNextException e)]
+             (throw next)
+             (throw e)))))))
 
 (defmacro with-transacted-connection'
   "Like `clojure.java.jdbc/with-connection`, except this automatically
@@ -306,6 +311,7 @@
                           (.setMinConnectionsPerPartition partition-conn-min)
                           (.setMaxConnectionsPerPartition partition-conn-max)
                           (.setPartitionCount partition-count)
+                          (.setConnectionTestStatement "begin; select 1; commit;")
                           (.setStatisticsEnabled stats)
                           (.setIdleMaxAgeInMinutes conn-max-age)
                           (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)
