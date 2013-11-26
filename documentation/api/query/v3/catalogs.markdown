@@ -5,11 +5,10 @@ canonical: "/puppetdb/latest/api/query/v3/catalogs.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[catalog]: ../../catalog_format.html
+[catalog]: ../../wire_format/catalog_format.html
 
 Querying catalogs occurs via an HTTP request to the
 `/catalogs` REST endpoint.
-
 
 ## Routes
 
@@ -26,8 +25,8 @@ This will return the most recent catalog for the given node.
         "name" : "yo.delivery.puppetlabs.net",
         "version" : "e4c339f",
         "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
-        "edges" : [<strong>...</strong>],
-        "resources" : [<strong>...</strong>],
+        "edges" : [...],
+        "resources" : [...],
       },
       "metadata" : {
         "api_version" : 1
