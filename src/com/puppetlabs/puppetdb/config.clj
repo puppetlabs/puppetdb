@@ -1,4 +1,9 @@
 (ns com.puppetlabs.puppetdb.config
+  "Centralized place for reading a user-defined config INI file, validating,
+   defaulting and converting into a format that can startup a PuppetDB instance.
+
+   The schemas in this file define what is expected to be present in the INI file
+   and the format expected by the rest of the application."
   (:import [java.security KeyStore])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.ssl :as ssl]
@@ -12,6 +17,58 @@
             [schema.core :as s]
             [com.puppetlabs.puppetdb.schema :as pls]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Schemas
+
+;; The config is currently broken into the sections that are defined
+;; in the INI file. When the schema defaulting code gets changed to
+;; support defaulting/converting nested maps, these configs can be put
+;; together in a single schema that defines the config for PuppetDB
+
+(def database-config-in
+  "Schema for incoming database config (user defined)"
+  {(s/optional-key :log-slow-statements) (pls/defaulted-maybe s/Int 10)
+   (s/optional-key :conn-max-age) (pls/defaulted-maybe s/Int 60)
+   (s/optional-key :conn-keep-alive) (pls/defaulted-maybe s/Int 45)
+   (s/optional-key :conn-lifetime) (s/maybe s/Int)
+   (s/optional-key :classname) (s/maybe s/String)
+   (s/optional-key :subprotocol) (s/maybe s/String)
+   (s/optional-key :subname) (s/maybe s/String)
+   (s/optional-key :username) s/String
+   (s/optional-key :password) s/String
+   (s/optional-key :syntax_pgs) s/String})
+
+(def write-database-config-in
+  "Includes the common database config params, also the write-db specific ones"
+  (merge database-config-in
+         {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
+          (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
+          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
+          (s/optional-key :node-ttl) (s/maybe s/String)
+          (s/optional-key :node-ttl-days) (s/maybe s/Int)}))
+
+(def database-config-out
+  "Schema for parsed/processed database config"
+  {:classname s/String
+   :subprotocol s/String
+   :subname s/String
+   :log-slow-statements pls/Days
+   :conn-max-age pls/Minutes
+   :conn-keep-alive pls/Minutes
+   (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
+   (s/optional-key :read-only?) pls/SchemaBoolean
+   (s/optional-key :username) s/String
+   (s/optional-key :password) s/String
+   (s/optional-key :syntax_pgs) s/String})
+
+(def write-database-config-out
+  "Schema for parsed/processed database config that includes write database params"
+  (merge database-config-out
+         {:gc-interval pls/Minutes
+          :report-ttl pls/Period
+          :node-purge-ttl pls/Period
+          :node-ttl (s/either pls/Period pls/Days)}))
+
 (def half-the-cores
   "Half the number of CPU cores, used for defaulting the number of
    command processors"
@@ -19,6 +76,20 @@
       (/ 2)
       (int)
       (max 1)))
+
+(def command-processing-in
+  "Schema for incoming command processing config (user defined) - currently incomplete"
+  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")
+   (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
+   (s/optional-key :store-usage) (s/maybe s/Int)
+   (s/optional-key :temp-usage) (s/maybe s/Int)})
+
+(def command-processing-out
+  "Schema for parsed/processed command processing config - currently incomplete"
+  {:dlo-compression-threshold pls/Period
+   :threads s/Int
+   (s/optional-key :store-usage) (s/maybe s/Int)
+   (s/optional-key :temp-usage) (s/maybe s/Int)})
 
 (defn configure-commandproc-threads
   "Update the supplied config map with the number of
@@ -34,6 +105,9 @@
                              (int)
                              (max 1))]
     (update-in config [:command-processing :threads] #(or % default-nthreads))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Jetty config
 
 (defn configure-web-server-ssl-from-pems
   "Configures the web server's SSL settings based on Puppet PEM files, rather than
@@ -116,63 +190,8 @@
           (assoc :client-auth :need)
           (assoc :max-threads (jetty7-minimum-threads (:max-threads merged-jetty)))))))
 
-(def database-config-in
-  "Schema for incoming database config (user defined)"
-  {(s/optional-key :log-slow-statements) (pls/defaulted-maybe s/Int 10)
-   (s/optional-key :conn-max-age) (pls/defaulted-maybe s/Int 60)
-   (s/optional-key :conn-keep-alive) (pls/defaulted-maybe s/Int 45)
-   (s/optional-key :conn-lifetime) (s/maybe s/Int)
-   (s/optional-key :classname) (s/maybe s/String)
-   (s/optional-key :subprotocol) (s/maybe s/String)
-   (s/optional-key :subname) (s/maybe s/String)
-   (s/optional-key :username) s/String
-   (s/optional-key :password) s/String
-   (s/optional-key :syntax_pgs) s/String})
-
-(def write-database-config-in
-  "Includes the common database config params, also the write-db specific ones"
-  (merge database-config-in
-         {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
-          (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
-          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
-          (s/optional-key :node-ttl) (s/maybe s/String)
-          (s/optional-key :node-ttl-days) (s/maybe s/Int)}))
-
-(def database-config-out
-  "Schema for parsed/processed database config"
-  {:classname s/String
-   :subprotocol s/String
-   :subname s/String
-   :log-slow-statements pls/Days
-   :conn-max-age pls/Minutes
-   :conn-keep-alive pls/Minutes
-   (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
-   (s/optional-key :read-only?) pls/SchemaBoolean
-   (s/optional-key :username) s/String
-   (s/optional-key :password) s/String
-   (s/optional-key :syntax_pgs) s/String})
-
-(def write-database-config-out
-  "Schema for parsed/processed database config that includes write database params"
-  (merge database-config-out
-         {:gc-interval pls/Minutes
-          :report-ttl pls/Period
-          :node-purge-ttl pls/Period
-          :node-ttl (s/either pls/Period pls/Days)}))
-
-(def command-processing-in
-  "Schema for incoming command processing config (user defined) - currently incomplete"
-  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")
-   (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
-   (s/optional-key :store-usage) (s/maybe s/Int)
-   (s/optional-key :temp-usage) (s/maybe s/Int)})
-
-(def command-processing-out
-  "Schema for parsed/processed command processing config - currently incomplete"
-  {:dlo-compression-threshold pls/Period
-   :threads s/Int
-   (s/optional-key :store-usage) (s/maybe s/Int)
-   (s/optional-key :temp-usage) (s/maybe s/Int)})
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Database config 
 
 (defn maybe-days
   "Convert the non-nil integer ot days"
@@ -249,6 +268,9 @@
       configure-write-db
       configure-read-db))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Command Processing Config
+
 (defn configure-command-params
   "Validates and converts the command-processing portion of the PuppetDB config"
   [{:keys [command-processing] :as config}]
@@ -265,6 +287,9 @@
   (-> config
       configure-dbs
       configure-command-params))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Global Config
 
 (defn validate-vardir
   "Checks that `vardir` is specified, exists, and is writeable, throwing
@@ -363,6 +388,9 @@
                      (assoc :product-name product-name)
                      (assoc-when :event-query-limit 20000)
                      (assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
 
 (defn parse-config
   "Parses the given config file/directory and configures its various
