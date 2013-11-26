@@ -1,17 +1,15 @@
 require 'json'
 
 test_name "validate matching transaction UUIDs in agent report and catalog" do
-  # TODO: the module should be setting up the report processors so that we don't have to add it on the CLI here
-  with_puppet_running_on master, {
-    'master' => {
-      'storeconfigs' => 'true',
-      'store_configs_backend' => 'puppetdb',
-      'autosign' => 'true',
-    }} do
+  step "setup a test manifest for the master and perform agent runs" do
+    manifest = <<-MANIFEST
+      node default {
+        @@notify { "exported_resource": }
+        notify { "non_exported_resource": }
+     }
+    MANIFEST
 
-      step "Run agents once to submit reports" do
-        run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-      end
+    run_agents_with_new_site_pp(master, manifest)
   end
 
   # Wait until all the commands have been processed

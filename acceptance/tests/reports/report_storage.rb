@@ -2,38 +2,18 @@ require 'json'
 
 test_name "basic validation of puppet report submission" do
 
-  Log.notify "Setting up manifest file"
-  manifest = <<MANIFEST
-notify { "hi":
-  message => "Hi ${::clientcert}"
-}
-MANIFEST
+  step "setup a test manifest for the master and perform agent runs" do
+    manifest = <<-MANIFEST
+      notify { "hi":
+        message => "Hi ${::clientcert}"
+      }
+    MANIFEST
 
-  tmpdir = master.tmpdir('report_storage')
-
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
-
-  # TODO: the module should be setting up the report processors so that we don't
-  # have to add it on the CLI here
-  with_puppet_running_on master, {
-    'master' => {
-      'storeconfigs' => 'true',
-      'storeconfigs_backend' => 'puppetdb',
-      'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
-    step "Run agents once to submit reports" do
-      run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]
-    end
+    run_agents_with_new_site_pp(master, manifest)
   end
 
   # Wait until all the commands have been processed
   sleep_until_queue_empty database
-
 
   agents.each do |agent|
     # Query for all of the reports for this node:

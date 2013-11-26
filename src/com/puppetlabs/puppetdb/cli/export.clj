@@ -54,7 +54,7 @@
       (sort-by
         #(mapv % [:timestamp :resource-type :resource-title :property])
         (map
-          #(dissoc % :report :certname :configuration-version :containing-class)
+          #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time)
           (json/parse-string body true))))))
 
 (defn reports-for-node

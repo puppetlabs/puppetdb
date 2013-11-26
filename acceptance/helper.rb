@@ -370,17 +370,17 @@ module PuppetDBExtensions
     on host, "rm -rf /etc/puppetdb/ssl"
     on host, "#{LeinCommandPrefix} rake package:bootstrap"
     on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{preinst}"
+    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{preinst}"
     on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{postinst}"
 
     step "Configure database.ini file" do
       manifest = <<-EOS
-  $database = '#{PuppetDBExtensions.config[:database]}'
+        $database = '#{PuppetDBExtensions.config[:database]}'
 
-  class { 'puppetdb::server::database_ini':
-    database => $database,
-  }
+        class { 'puppetdb::server::database_ini':
+          database => $database,
+        }
       EOS
 
       apply_manifest_on(host, manifest)

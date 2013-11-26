@@ -10,6 +10,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 [nagios]: https://github.com/jasonhancock/nagios-puppetdb
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [query]: https://github.com/dalen/puppet-puppetdbquery
+[exports]: http://forge.puppetlabs.com/zack/exports
 [exported]: /puppet/2.7/reference/lang_exported.html
 
 [Jason Hancock --- nagios-puppetdb][nagios]
@@ -29,3 +30,11 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 * `pdbstatusquery`
 * `pdbquery`
 
+[Zack Smith --- Puppet face for querying puppetdb exports][exports]
+-----
+
+[A Puppet module with a face querying PuppetDB for exported resources.][exports] This simple face can be used for listing exported resources from the command line. It has support for querying all exports or filtering to a comma seperated list. Example syntax: 
+
+* `puppet node exports`
+* `puppet node exports file`
+* `puppet node exports file,user`
