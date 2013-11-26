@@ -69,13 +69,19 @@
           :node-purge-ttl pls/Period
           :node-ttl (s/either pls/Period pls/Days)}))
 
-(def half-the-cores
-  "Half the number of CPU cores, used for defaulting the number of
-   command processors"
+(defn half-the-cores*
+  "Function for computing half the cores of the system, useful
+   for testing."
+  []
   (-> (kitchensink/num-cpus)
       (/ 2)
       (int)
       (max 1)))
+
+(def half-the-cores
+  "Half the number of CPU cores, used for defaulting the number of
+   command processors"
+  (half-the-cores*))
 
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
@@ -90,21 +96,6 @@
    :threads s/Int
    (s/optional-key :store-usage) (s/maybe s/Int)
    (s/optional-key :temp-usage) (s/maybe s/Int)})
-
-(defn configure-commandproc-threads
-  "Update the supplied config map with the number of
-  command-processing threads to use. If no value exists in the config
-  map, default to half the number of CPUs. If only one CPU exists, we
-  will use one command-processing thread."
-  [config]
-  {:pre  [(map? config)]
-   :post [(map? %)
-          (pos? (get-in % [:command-processing :threads]))]}
-  (let [default-nthreads (-> (kitchensink/num-cpus)
-                             (/ 2)
-                             (int)
-                             (max 1))]
-    (update-in config [:command-processing :threads] #(or % default-nthreads))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Jetty config
@@ -273,7 +264,7 @@
 
 (defn configure-command-params
   "Validates and converts the command-processing portion of the PuppetDB config"
-  [{:keys [command-processing] :as config}]
+  [{:keys [command-processing] :as config :or {command-processing {}}}]
   (s/validate command-processing-in command-processing)
   (let [converted-config (->> command-processing
                               (pls/defaulted-data command-processing-in)
@@ -414,7 +405,6 @@
          configure-globals
          configure-logging!
          validate-vardir
-         configure-commandproc-threads
          configure-web-server
          convert-ini-map-config
          configure-catalog-debugging)))

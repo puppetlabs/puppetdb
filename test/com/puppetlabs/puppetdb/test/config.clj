@@ -12,13 +12,12 @@
 
 (deftest commandproc-configuration
   (testing "should use the thread value specified"
-    (let [config (configure-commandproc-threads {:command-processing {:threads 37}})]
+    (let [config (configure-command-params {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
 
   (let [with-ncores (fn [cores]
                       (with-redefs [kitchensink/num-cpus (constantly cores)]
-                        (-> (configure-commandproc-threads {})
-                            (get-in [:command-processing :threads]))))]
+                        (half-the-cores*)))]
     (testing "should default to half the available CPUs"
       (is (= (with-ncores 4) 2)))
     (testing "should default to half the available CPUs, rounding down"
