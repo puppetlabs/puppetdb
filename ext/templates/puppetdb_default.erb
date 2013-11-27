@@ -2,8 +2,8 @@
 # Init settings for <%= @name %>
 ###########################################
 
-# Location of your Java binary (version 6 or higher)
-JAVA_BIN="<%= @java_bin || "/usr/bin/java"  -%>"
+# Location of your Java binary (version 7 or higher)
+JAVA_BIN="<%= @java_bin || "/usr/lib/jvm/jre-1.7.0/bin/java"  -%>"
 
 # Modify this if you'd like to change the memory allocation, enable JMX, etc
 JAVA_ARGS="<%= @java_args || @default_java_args -%>"
