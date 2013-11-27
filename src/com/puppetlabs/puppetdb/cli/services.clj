@@ -78,6 +78,12 @@
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
 
+(def context
+  "An atom that keeps a reference to all of the stateful parts of the PuppetDB
+  system.  In the future, this could be used to enable dynamic reloading or
+  restarting of subsystems, or for improved control over the system from the REPL."
+  (atom {}))
+
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.
 
@@ -224,20 +230,36 @@
     lower-product-name))
 
 (defn on-shutdown
-  "General cleanup when a shutdown request is received."
-  [command-procs updater web-app broker]
-  (log/info "Shutdown request received; puppetdb exiting.")
-  (doseq [cp command-procs]
-    (future-cancel cp))
-  (future-cancel updater)
-  (future-cancel web-app)
+  "Callback to execute any necessary cleanup during a normal shutdown."
+  []
+  (log/info "Shutdown request received; puppetdb exiting."))
 
-  ;; Stop the mq the old-fashioned way
-  (mq/stop-broker! broker)
-  (log/info "PuppetDB shutdown complete."))
+(defn error-shutdown!
+  "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
+  []
+  (log/error "A fatal error occurred; shutting down all subsystems.")
+  (when-let [command-procs (@context :command-procs)]
+    (log/info "Shutting down command processing threads.")
+    (doseq [cp command-procs]
+           (future-cancel cp)))
+
+  (when-let [updater (@context :updater)]
+    (log/info "Shutting down updater thread.")
+    (future-cancel updater))
+
+  (when-let [web-app (@context :web-app)]
+    (log/info "Shutting down web app thread.")
+    (future-cancel web-app))
+
+  (when-let [broker (@context :broker)]
+    (log/info "Shutting down message broker.")
+    ;; Stop the mq the old-fashioned way
+    (mq/stop-broker! broker)))
 
 (defservice puppetdb-service
-  "Used to be -main"
+  "Defines a trapperkeeper service for PuppetDB; this service is responsible
+  for initializing all of the PuppetDB subsystems and registering shutdown hooks
+  that trapperkeeper will call on exit."
   {:depends  [[:config-service get-config]
               [:webserver-service add-ring-handler join]
               [:shutdown-service shutdown-on-error]]
@@ -288,6 +310,7 @@
                               "might be due to KahaDB corruption. Consult the "
                               "PuppetDB troubleshooting guide.")
                             (throw e)))
+          _             (swap! context assoc :broker broker)
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
@@ -297,8 +320,11 @@
                                               mq-endpoint
                                               discard-dir
                                               {:db write-db
-                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}))))))
+                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
+                                           error-shutdown!)))))
+          _             (swap! context assoc :command-procs command-procs)
           updater       (future (maybe-check-for-updates product-name update-server read-db))
+          _             (swap! context assoc :updater updater)
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (build-whitelist-authorizer wl)
                                             (constantly true))
@@ -307,7 +333,9 @@
                           (future (shutdown-on-error
                                     #(do
                                        (add-ring-handler app "")
-                                       (join)))))
+                                       (join))
+                                    error-shutdown!)))
+          _             (swap! context assoc :web-app web-app)
           job-pool      (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
@@ -333,7 +361,7 @@
       ;; Return a map containing our trapperkeeper service functions, which in
       ;; our case is just a single shutdown function that it can use to clean
       ;; things up when the container is shutting down.
-      {:shutdown (partial on-shutdown command-procs updater web-app broker)})))
+      {:shutdown on-shutdown})))
 
 (defn -main
   [& args]

@@ -64,7 +64,7 @@
                  [ring/ring-core "1.1.8"]
                  [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [puppetlabs/kitchensink "0.2.0"]
+                 [puppetlabs/kitchensink "0.3.0"]
                  [puppetlabs/trapperkeeper "0.1.0-SNAPSHOT"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
