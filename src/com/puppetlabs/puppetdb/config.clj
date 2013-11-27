@@ -397,14 +397,8 @@
 
 
 (defn process-config!
-  "TODO update docstring TODO
-
-  Parses the given config file/directory and configures its various
-  subcomponents.
-
-  Also accepts an optional map argument 'initial-config'; if
-  provided, any initial values in this map will be included
-  in the resulting config map."
+  "Accepts a map containing all of the user-provided configuration values
+  and configures the various PuppetDB subsystems."
   [config]
   (-> config
       configure-globals
