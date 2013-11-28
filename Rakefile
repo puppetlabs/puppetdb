@@ -140,6 +140,7 @@ namespace :test do
 
     beaker = "beaker " +
        "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
+       "--ntp " +
        "--type #{type} " +
        "--debug " +
        "--tests " + args[:test_files] + " " +
