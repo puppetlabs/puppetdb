@@ -15,7 +15,7 @@ Architecture: all
 <% if @pe -%>
 Depends: ${misc:Depends}, pe-java, adduser, pe-puppet
 <% else -%>
-Depends: ${misc:Depends},  java6-runtime-headless, adduser, puppet (>= 2.7.12)
+Depends: ${misc:Depends},  java7-runtime-headless | java6-runtime-headless, adduser, puppet (>= 2.7.12)
 Suggests: postgresql
 <% end -%>
 Description:PuppetDB Centralized Storage.

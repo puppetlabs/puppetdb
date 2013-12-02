@@ -3,8 +3,19 @@
 ###########################################
 
 # Location of your Java binary (version 7 or higher)
-JAVA_BIN="<%= @java_bin || "/usr/lib/jvm/jre-1.7.0/bin/java"  -%>"
-
+<%- if @pe -%>
+JAVA_BIN="<%= @java_bin %>"
+<%- else -%>
+if [ -f /usr/lib/jvm/java-7-openjdk-amd64/bin/java ]; then
+	JAVA_BIN="/usr/lib/jvm/java-7-openjdk-amd64/bin/java"
+elif [ -f /usr/lib/jvm/java-7-openjdk-i386/bin/java ]; then
+	JAVA_BIN="/usr/lib/jvm/java-7-openjdk-i386/bin/java"
+elif [ -f /usr/lib/jvm/jre-1.7.0/bin/java ]
+	JAVA_BIN="/usr/lib/jvm/jre-1.7.0/bin/java"
+else
+	JAVA_BIN="/usr/bin/java"
+fi
+<%- end -%>
 # Modify this if you'd like to change the memory allocation, enable JMX, etc
 JAVA_ARGS="<%= @java_args || @default_java_args -%>"
 
