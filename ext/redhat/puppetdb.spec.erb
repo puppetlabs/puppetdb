@@ -5,19 +5,10 @@
 <% if @pe -%>
 %global open_jdk          pe-java
 <% else -%>
-# Fedora 17 ships with openjdk 1.7.0
-%if 0%{?fedora} >= 17 || ( 0%{?suse_version} >= 1200 && %{undefined sles_version} )
+%if 0%{?suse_version} >= 1220
+%global open_jdk          java-1_7_0-openjdk
+%else
 %global open_jdk          java-1.7.0-openjdk
-%else
-%if 0%{?sles_version}
-%global open_jdk          java-1_6_0-ibm
-%else
-%if 0%{?suse_version}
-%global open_jdk          java-1_6_0-openjdk
-%else
-%global open_jdk          java-1.6.0-openjdk
-%endif
-%endif
 %endif
 <% end -%>
 
