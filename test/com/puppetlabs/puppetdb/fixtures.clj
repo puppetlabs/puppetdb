@@ -1,9 +1,9 @@
 (ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.jdbc :as pjdbc])
+            [com.puppetlabs.jdbc :as pjdbc]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
-        [com.puppetlabs.testutils.logging :only [with-log-output]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
@@ -65,7 +65,7 @@
                      (java.util.UUID/randomUUID)
                      ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-(defn with-test-logging
+(defn with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than
   to the usual ConsoleAppender.  Useful for tests that are intentionally triggering
   error conditions, to prevent them from cluttering up the test output with log
