@@ -102,9 +102,11 @@
         required [:infile]]
     (try+
       (cli! args specs required)
-      (catch map? {:keys [error-message]}
-        (println error-message)
-        (System/exit 1)))))
+      (catch map? m
+        (println (:message m))
+        (case (:type m)
+          :error (System/exit 1)
+          :help  (System/exit 0))))))
 
 (defn -main
   [& args]
