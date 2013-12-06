@@ -225,12 +225,7 @@
     (when-let [isolation-level (get isolation-levels tx-isolation-level)]
       (.setTransactionIsolation (:connection jint/*db*) isolation-level))
      (sql/transaction
-       (try
-         (f)
-         (catch java.sql.SQLException e
-           (if-let [next (.getNextException e)]
-             (throw next)
-             (throw e)))))))
+      (f))))
 
 (defmacro with-transacted-connection'
   "Like `clojure.java.jdbc/with-connection`, except this automatically

@@ -577,7 +577,8 @@
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
           wire-catalog (get-in wire-catalogs [2 :empty])
-          certname     (get-in test-catalog [:certname])
+          nonwire-catalog (catalog/parse-catalog wire-catalog 3)
+          certname     (get-in wire-catalog [:data :name])
           command {:command (command-names :replace-catalog)
                    :version 3
                    :payload (json/generate-string wire-catalog)}
@@ -587,7 +588,7 @@
 
       (sql/transaction
        (scf-store/add-certname! certname)
-       (scf-store/replace-catalog! test-catalog (-> 2 days ago)))
+       (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
       (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp dir]
                                                  (.put hand-off-queue "got the lock")
@@ -612,7 +613,7 @@
           (test-msg-handler new-catalog-cmd publish discard-dir
             (reset! second-message? true)
             (is (empty? (fs/list-dir discard-dir)))
-            (is (re-matches #".*TransactionRollbackException.*(rollback|abort).*"
+            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
                             (-> publish
                                 meta
                                 :args
