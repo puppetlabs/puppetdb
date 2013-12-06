@@ -11,7 +11,7 @@ module PuppetDBExtensions
 
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
-  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true"
+  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true LEIN_SNAPSHOTS_IN_RELEASE=true"
 
   def self.initialize_test_config(options, os_families)
 
