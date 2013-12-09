@@ -562,6 +562,46 @@
       "CREATE INDEX idx_catalog_resources_exported
          ON catalog_resources (exported)")))
 
+(defn differential-edges
+  "Convert edges so it becomes a 1 to many relationship with certnames
+  instead of catalogs. This is so we can adequately do differential edge
+  inserts/deletes otherwise this would prove difficult as catalogs is still
+  incremental. Once catalogs and catalog_resources are converted to
+  differential updates this table can be reassociated with catalogs if
+  desired."
+  []
+  ;; Start by doing a garbage collect on catalogs, so there is a 1 to 1 mapping for edges
+  (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalogs.id)"])
+  (sql/do-commands
+    ;; Create the new edges table
+    "CREATE TABLE edges_transform (
+      certname text NOT NULL,
+      source character varying(40) NOT NULL,
+      target character varying(40) NOT NULL,
+      type text NOT NULL)"
+
+    ;; Migrate data from old table
+    "INSERT INTO edges_transform (certname, source, target, type)
+      SELECT cc.certname, e.source, e.target, e.type
+        FROM edges e, catalogs c, certname_catalogs cc
+        WHERE e.catalog_id = c.id and cc.catalog_id = c.id"
+
+    ;; Drop old table
+    "DROP TABLE edges"
+
+    ;; Rename the new table
+    "ALTER TABLE edges_transform RENAME TO edges"
+
+    ;; Add foreign key constraints
+    "ALTER TABLE edges
+      ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname)
+          REFERENCES certnames (name)
+          ON UPDATE NO ACTION ON DELETE CASCADE"
+
+    ;; Add unique constraint to edge table
+    "ALTER TABLE edges
+      ADD CONSTRAINT edges_certname_source_target_type_unique_key UNIQUE (certname, source, target, type)"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -581,7 +621,8 @@
    15 drop-duplicate-indexes
    16 drop-resource-tags-index
    17 use-bigint-instead-of-catalog-hash
-   18 add-index-on-exported-column})
+   18 add-index-on-exported-column
+   19 differential-edges})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -632,6 +673,13 @@
     (sql/transaction
      (doseq [[version migration] pending]
        (log/info (format "Applying migration version %d" version))
-       (migration)
-       (record-migration! version)))
+       (try
+         (migration)
+         (record-migration! version)
+         (catch java.sql.SQLException e
+           (log/error e "Caught SQLException during migration")
+           (let [next (.getNextException e)]
+             (when-not (nil? next)
+               (log/error next "Unravelled exception")))
+           (System/exit 1)))))
     (log/info "There are no pending migrations")))

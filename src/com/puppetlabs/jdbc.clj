@@ -306,6 +306,7 @@
                           (.setMinConnectionsPerPartition partition-conn-min)
                           (.setMaxConnectionsPerPartition partition-conn-max)
                           (.setPartitionCount partition-count)
+                          (.setConnectionTestStatement "begin; select 1; commit;")
                           (.setStatisticsEnabled stats)
                           (.setIdleMaxAgeInMinutes conn-max-age)
                           (.setIdleConnectionTestPeriodInMinutes conn-keep-alive)

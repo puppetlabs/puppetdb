@@ -355,7 +355,7 @@
         (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
-            
+
             (let [debug-dir (fs/absolute-path (temp-dir))
                   catalog-id (:id (sql/insert-values :catalogs [:hash :api_version :catalog_version] ["some_catalog_hash" 1 "foo"]))]
 
@@ -364,7 +364,7 @@
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
                 (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
-                     [{:certname certname :catalog catalog-hash}]))                
+                     [{:certname certname :catalog catalog-hash}]))
                 (is (= 5 (count (fs/list-dir debug-dir))))
                 (is (= 0 (times-called publish)))
                 (is (empty? (fs/list-dir discard-dir)))))))
@@ -529,7 +529,7 @@
           command   {:command (command-names :replace-facts)
                      :version 1
                      :payload (json/generate-string facts)}
-          
+
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-facts! scf-store/update-facts!]
 
@@ -537,41 +537,95 @@
        (scf-store/add-certname! certname)
        (scf-store/add-facts! certname (:values facts) (-> 2 days ago)))
 
-      (let [first-message? (atom false)
-            second-message? (atom false)
-            fut (future
-                  (with-redefs [scf-store/update-facts! (fn [certname facts timestamp]
-                                                          (.put hand-off-queue "got the lock")
-                                                          (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
-                                                          (storage-replace-facts! certname (:values facts) timestamp))]
+      (with-redefs [scf-store/update-facts! (fn [certname facts timestamp]
+                                              (.put hand-off-queue "got the lock")
+                                              (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+                                              (storage-replace-facts! certname (:values facts) timestamp))]
+        (let [first-message? (atom false)
+              second-message? (atom false)
+              fut (future
                     (test-msg-handler command publish discard-dir
-                      (reset! first-message? true))))
+                      (reset! first-message? true)))
 
-            _ (.poll hand-off-queue 10 java.util.concurrent.TimeUnit/SECONDS)
+              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
 
-            new-facts (update-in facts [:values] (fn [values]
-                                                   (-> values
-                                                       (dissoc "kernel")
-                                                       (assoc "newfact2" "here"))))
-            new-facts-cmd {:command (command-names :replace-facts)
-                           :version 1
-                           :payload (json/generate-string new-facts)}]
+              new-facts (update-in facts [:values] (fn [values]
+                                                     (-> values
+                                                         (dissoc "kernel")
+                                                         (assoc "newfact2" "here"))))
+              new-facts-cmd {:command (command-names :replace-facts)
+                             :version 1
+                             :payload (json/generate-string new-facts)}]
 
-        (test-msg-handler new-facts-cmd publish discard-dir
-          (reset! second-message? true)
-          (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                          (-> publish
-                              meta
-                              :args
-                              deref
-                              ffirst
-                              json/parse-string
-                              (get-in ["annotations" "attempts"])
-                              first
-                              (get "error")))))
-        @fut
-        (is (true? @first-message?))
-        (is (true? @second-message?))))))
+          (test-msg-handler new-facts-cmd publish discard-dir
+            (reset! second-message? true)
+            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                            (-> publish
+                                meta
+                                :args
+                                deref
+                                ffirst
+                                json/parse-string
+                                (get-in ["annotations" "attempts"])
+                                first
+                                (get "error")))))
+          @fut
+          (is (true? @first-message?))
+          (is (true? @second-message?)))))))
+
+(deftest concurrent-catalog-updates
+  (testing "Should allow only one replace catalogs update for a given cert at a time"
+    (let [test-catalog (get-in catalogs [:empty])
+          wire-catalog (get-in wire-catalogs [2 :empty])
+          nonwire-catalog (catalog/parse-catalog wire-catalog 3)
+          certname     (get-in wire-catalog [:data :name])
+          command {:command (command-names :replace-catalog)
+                   :version 3
+                   :payload (json/generate-string wire-catalog)}
+
+          hand-off-queue (java.util.concurrent.SynchronousQueue.)
+          storage-replace-catalog! scf-store/replace-catalog!]
+
+      (sql/transaction
+       (scf-store/add-certname! certname)
+       (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
+
+      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp dir]
+                                                 (.put hand-off-queue "got the lock")
+                                                 (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+                                                 (storage-replace-catalog! catalog timestamp dir))]
+        (let [first-message? (atom false)
+              second-message? (atom false)
+              fut (future
+                    (test-msg-handler command publish discard-dir
+                      (reset! first-message? true)))
+
+              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+
+              new-wire-catalog (assoc-in wire-catalog [:data :edges]
+                                 #{{:relationship "contains"
+                                    :target       {:title "Settings" :type "Class"}
+                                    :source       {:title "main" :type "Stage"}}})
+              new-catalog-cmd {:command (command-names :replace-catalog)
+                               :version 3
+                               :payload (json/generate-string new-wire-catalog)}]
+
+          (test-msg-handler new-catalog-cmd publish discard-dir
+            (reset! second-message? true)
+            (is (empty? (fs/list-dir discard-dir)))
+            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                            (-> publish
+                                meta
+                                :args
+                                deref
+                                ffirst
+                                json/parse-string
+                                (get-in ["annotations" "attempts"])
+                                first
+                                (get "error")))))
+          @fut
+          (is (true? @first-message?))
+          (is (true? @second-message?)))))))
 
 (let [certname "foo.example.com"
       command {:command (command-names :deactivate-node)
