@@ -49,7 +49,14 @@
 ;; * `:replace-catalog`: the time it takes to replace the catalog for
 ;;   a host
 ;;
-;; * `:add-catalog`: the time it takes to persist a catalog
+;; * `:new-catalog`: the time it takes to persist a catalog for a
+;;    never before seen certname
+;;
+;; * `:catalog-hash-match`: the time it takes to persist the updates
+;;    for a catalog with a matches the previously stored hash
+;;
+;; * `:catalog-hash-miss`: the time it takes to persist the
+;;    differential updates of the previously stored catalog and this one
 ;;
 ;; * `:add-resources`: the time it takes to persist just a catalog's
 ;;   resources
@@ -61,8 +68,8 @@
 ;;
 ;; ### Counters for catalog storage
 ;;
-;; * `:new-catalog`: how many brand new (non-duplicate) catalogs we've
-;;   received
+;; * `:updated-catalog`: how many brand new or updated (non-duplicate)
+;;    catalogs we've received
 ;;
 ;; * `:duplicate-catalog`: how many duplicate catalogs we've received
 ;;
@@ -70,6 +77,11 @@
 ;;
 ;; * `:duplicate-pct`: percentage of incoming catalogs determined to
 ;;   be duplicates
+;;
+;; ### Catalog Histograms
+;;
+;; * `:catalog-volatility`: number of inserts/updates/deletes required
+;;   per hash miss
 ;;
 ;; ### Timers for garbage collection
 ;;
@@ -86,24 +98,27 @@
 ;;
 (def metrics
   {
-   :add-resources     (timer [ns-str "default" "add-resources"])
-   :add-edges         (timer [ns-str "default" "add-edges"])
+   :add-resources      (timer [ns-str "default" "add-resources"])
+   :add-edges          (timer [ns-str "default" "add-edges"])
 
-   :resource-hashes   (timer [ns-str "default" "resource-hashes"])
-   :catalog-hash      (timer [ns-str "default" "catalog-hash"])
-   :add-catalog       (timer [ns-str "default" "add-catalog-time"])
-   :replace-catalog   (timer [ns-str "default" "replace-catalog-time"])
+   :resource-hashes    (timer [ns-str "default" "resource-hashes"])
+   :catalog-hash       (timer [ns-str "default" "catalog-hash"])
+   :add-new-catalog    (timer [ns-str "default" "new-catalog-time"])
+   :catalog-hash-match (timer [ns-str "default" "catalog-hash-match-time"])
+   :catalog-hash-miss  (timer [ns-str "default" "catalog-hash-miss-time"])
+   :replace-catalog    (timer [ns-str "default" "replace-catalog-time"])
 
-   :gc                (timer [ns-str "default" "gc-time"])
-   :gc-catalogs       (timer [ns-str "default" "gc-catalogs-time"])
-   :gc-params         (timer [ns-str "default" "gc-params-time"])
+   :gc                 (timer [ns-str "default" "gc-time"])
+   :gc-catalogs        (timer [ns-str "default" "gc-catalogs-time"])
+   :gc-params          (timer [ns-str "default" "gc-params-time"])
 
-   :new-catalog       (counter [ns-str "default" "new-catalogs"])
-   :duplicate-catalog (counter [ns-str "default" "duplicate-catalogs"])
-   :duplicate-pct     (gauge [ns-str "default" "duplicate-pct"]
+   :updated-catalog    (counter [ns-str "default" "new-catalogs"])
+   :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
+   :duplicate-pct      (gauge [ns-str "default" "duplicate-pct"]
                              (let [dupes (value (:duplicate-catalog metrics))
-                                   new   (value (:new-catalog metrics))]
+                                   new   (value (:updated-catalog metrics))]
                                (float (kitchensink/quotient dupes (+ dupes new)))))
+   :catalog-volatility (histogram [ns-str "default" "catalog-volitilty"])
 
    :replace-facts     (timer [ns-str "default" "replace-facts-time"])
 
@@ -149,10 +164,10 @@
    :post [(coll? %)]}
   (let [ts (to-timestamp time)]
     (map :name (jdbc/query-to-vec "SELECT c.name FROM certnames c
-                                   LEFT OUTER JOIN certname_catalogs cc ON c.name=cc.certname
+                                   LEFT OUTER JOIN catalogs clogs ON c.name=clogs.certname
                                    LEFT OUTER JOIN certname_facts_metadata fm ON c.name=fm.certname
                                    WHERE c.deactivated IS NULL
-                                   AND (cc.timestamp IS NULL OR cc.timestamp < ?)
+                                   AND (clogs.timestamp IS NULL OR clogs.timestamp < ?)
                                    AND (fm.timestamp IS NULL OR fm.timestamp < ?)"
                                   ts ts))))
 
@@ -198,43 +213,52 @@
                                      {:deactivated nil})]
     (pos? (first replaced))))
 
+(defn catalog-metadata
+  "Returns the id and hash of certname's catalog"
+  [certname]
+  {:pre [certname]}
+  (sql/with-query-results result-set
+    ["SELECT id, hash FROM catalogs WHERE certname=?" certname]
+    (first result-set)))
+
+;; TODO: Add schema checks here
+(defn update-catalog-metadata!
+  "Given some catalog metadata, update the db"
+  [id hash {:keys [api-version version transaction-uuid]} timestamp]
+  {:pre [(number? id)
+         (string? hash)
+         (number? api-version)
+         (string? version)
+         ((some-fn nil? string?) transaction-uuid)]}
+  (sql/update-values :catalogs
+                     ["id=?" id]
+                     {:hash hash
+                      :api_version      api-version
+                      :catalog_version  version
+                      :transaction_uuid transaction-uuid
+                      :timestamp (to-timestamp timestamp)}))
+
 (defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db. Returns a map of the
   inserted data including any autogenerated columns."
-  [hash api-version catalog-version transaction-uuid]
+  [hash {:keys [api-version version transaction-uuid certname]} timestamp]
   {:pre [(string? hash)
          (number? api-version)
-         (string? catalog-version)
+         (string? version)
          ((some-fn nil? string?) transaction-uuid)]
    :post [(map? %)]}
-  (let [return (sql/insert-values :catalogs
-                 [:hash :api_version :catalog_version :transaction_uuid]
-                 [hash api-version catalog-version transaction-uuid])]
+  (let [return (first (sql/insert-records :catalogs
+                                          {:hash hash
+                                           :api_version api-version
+                                           :catalog_version version
+                                           :transaction_uuid transaction-uuid
+                                           :certname certname
+                                           :timestamp (to-timestamp timestamp)}))]
+
     ;; PostgreSQL <= 8.1 does not support RETURNING so we fake it
     (if (and (sutils/postgres?) (not (sutils/pg-newer-than-8-1?)))
       (first (query-to-vec ["SELECT * FROM catalogs WHERE hash = ?" hash]))
       return)))
-
-(defn update-catalog-metadata!
-  "Given some catalog metadata, update the db"
-  [hash api-version catalog-version transaction-uuid]
-  {:pre [(string? hash)
-         (number? api-version)
-         (string? catalog-version)
-         ((some-fn nil? string?) transaction-uuid)]}
-  (sql/update-values :catalogs
-                     ["hash=?" hash]
-                     {:api_version      api-version
-                      :catalog_version  catalog-version
-                      :transaction_uuid transaction-uuid}))
-
-(defn catalog-exists?
-  "Returns a boolean indicating whether or not the given catalog exists in the db"
-  [hash]
-  {:pre [hash]}
-  (sql/with-query-results result-set
-    ["SELECT 1 FROM catalogs WHERE hash=? LIMIT 1" hash]
-    (pos? (count result-set))))
 
 (defn resources-exist?
   "Given a collection of resource-hashes, return the subset that
@@ -283,37 +307,132 @@
                       [resource-hash (name key) (sutils/db-serialize value)])
         :parameters_cache [[resource-hash (if parameters (sutils/db-serialize parameters))]]))))
 
+(defn catalog-resources
+  "Return a map of the form {hash {:type type :title title :params {key value}}}}"
+  [catalog-id]
+  (sql/with-query-results result-set
+    ["SELECT resource as hash, type, title
+                 FROM catalog_resources
+                 WHERE catalog_id = ?" catalog-id]
+    (zipmap (map #(select-keys % [:type :title]) result-set)
+            (map :hash result-set))))
+
+(defn new-params-only
+  "Returns a map of not persisted parameters, keyed by hash"
+  [persisted-params refs-to-resources refs-to-hashes]
+  (reduce-kv (fn [acc resource-ref {:keys [parameters]}]
+               (let [resource-hash (get refs-to-hashes resource-ref)]
+                 (if (contains? persisted-params (refs-to-hashes resource-ref))
+                   acc
+                   (assoc acc resource-hash parameters))))
+             {} refs-to-resources))
+
+(defn insert-records*
+  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
+  [table record-coll]
+  (when (seq record-coll)
+    (apply sql/insert-records table record-coll)))
+
+(defn add-params!
+  "Persists the new parameters found in `refs-to-resources` and populates the
+   resource_params_cache."
+  [refs-to-resources refs-to-hashes]
+  (let [new-params (new-params-only (resources-exist? (kitchensink/valset refs-to-hashes))
+                                    refs-to-resources
+                                    refs-to-hashes)]
+
+    (update! (:catalog-volatility metrics) (* 2 (count new-params)))
+
+    (insert-records*
+     :resource_params_cache
+     (map (fn [[resource-hash params]]
+            {:resource resource-hash :parameters (when params (sutils/db-serialize params))})
+          new-params))
+
+    (insert-records*
+     :resource_params
+     (for [[resource-hash params] new-params
+           [k v] params]
+       {:resource resource-hash :name (name k) :value (sutils/db-serialize v)}))))
+
+(def resource-ref?
+  "Returns true of the map is a resource reference"
+  (every-pred :type :title))
+
+(defn insert-catalog-resources!
+  "Returns a function that accepts a seq of ref keys to insert"
+  [catalog-id refs-to-hashes refs-to-resources]
+  (fn [refs-to-insert]
+    {:pre [(every? resource-ref? refs-to-insert)]}
+
+    (update! (:catalog-volatility metrics) (count refs-to-insert))
+
+    (insert-records*
+     :catalog_resources
+     (map (fn [resource-ref]
+            (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
+              {:catalog_id catalog-id
+               :resource (get refs-to-hashes resource-ref)
+               :type type
+               :title title
+               :tags (sutils/to-jdbc-varchar-array tags)
+               :exported exported
+               :file file
+               :line line}))
+          refs-to-insert))))
+
+(defn delete-catalog-resources!
+  "Returns a function accepts old catalog resources that should be deleted."
+  [catalog-id]
+  (fn [refs-to-delete]
+    {:pre [(every? resource-ref? refs-to-delete)]}
+
+    (update! (:catalog-volatility metrics) (count refs-to-delete))
+
+    (doseq [{:keys [type title]} refs-to-delete]
+      (sql/delete-rows :catalog_resources ["catalog_id = ? and type = ? and title = ?" catalog-id type title]))))
+
+(defn update-catalog-resources!
+  "Returns a function accepting keys that were the same from the old resoruces and the new resources."
+  [catalog-id refs-to-hashes old-resources]
+  (fn [maybe-updated-refs]
+    {:pre [(every? resource-ref? maybe-updated-refs)]}
+    (let [updated-refs (remove #(= (get refs-to-hashes %) (get old-resources %)) maybe-updated-refs)]
+
+      (update! (:catalog-volatility metrics) (count updated-refs))
+
+      (doseq [{:keys [type title] :as resource-ref} updated-refs]
+        (sql/update-values :catalog_resources
+                           ["catalog_id = ? and type = ? and title = ?" catalog-id type title]
+                           {:resource (get refs-to-hashes resource-ref)})))))
+
+(defn diff-fn
+  "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with
+   the results of the call. Those functions should always receive a non-nil argument (though possibly empty)."
+  [left right left-only-fn right-only-fn same-fn]
+  {:pre [(map? left)
+         (map? right)
+         (fn? left-only-fn)
+         (fn? right-only-fn)
+         (fn? same-fn)]}
+  (let [[left-only right-only same] (data/diff (kitchensink/keyset left) (kitchensink/keyset right))]
+    (left-only-fn (or left-only (empty left)))
+    (right-only-fn (or right-only (empty right)))
+    (same-fn (or same (empty left)))))
+
 (defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-id refs-to-resources refs-to-hashes]
-  (let [persisted?      (resources-exist? (kitchensink/valset refs-to-hashes))
-        resource-values (for [[ref resource] refs-to-resources
-                              :let [hash (refs-to-hashes ref)]]
-                          (resource->values catalog-id resource hash (persisted? hash)))
-        lookup-table    [[:parameters_cache "INSERT INTO resource_params_cache (resource, parameters) VALUES (?, ?)"]
-                         [:resource "INSERT INTO catalog_resources (catalog_id,resource,type,title,tags,exported,file,line) VALUES (?,?,?,?,?,?,?,?)"]
-                         [:parameters "INSERT INTO resource_params (resource,name,value) VALUES (?,?,?)"]]]
+  {:pre [(every? resource-ref? (keys refs-to-resources))
+         (every? resource-ref? (keys refs-to-hashes))]}
+  (let [old-resources (catalog-resources catalog-id)]
     (sql/transaction
-     (doseq [[lookup the-sql] lookup-table
-             :let [param-sets (remove empty? (mapcat lookup resource-values))]
-             :when (not (empty? param-sets))]
-       (apply sql/do-prepared the-sql param-sets)))))
-
-(defn diff-existing-edges
-  "Returns a vector with three edge maps, edges to be added,
-   edges to be left alone and edges to be deleted"
-  [new-edges old-edges]
-  {:pre [(or (map? new-edges) (nil? new-edges))
-         (or (map? old-edges) (nil? old-edges))]}
-  (let [diffs    (data/diff new-edges old-edges)
-        just-new (or (first diffs)
-                     {})
-        just-old (or (second diffs)
-                     {})
-        new-keys (keys just-new)
-        old-keys (keys just-old)]
-    [(select-keys just-new (remove just-old new-keys))
-     (select-keys just-old (remove just-new old-keys))]))
+     (add-params! refs-to-resources refs-to-hashes)
+     (diff-fn old-resources
+              refs-to-resources
+              (delete-catalog-resources! catalog-id)
+              (insert-catalog-resources! catalog-id refs-to-hashes refs-to-resources)
+              (update-catalog-resources! catalog-id refs-to-hashes old-resources)))))
 
 (defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -336,11 +455,14 @@
   [certname edges]
   {:pre [(or (coll? edges) (nil? edges))
          (string? certname)]}
+
+  (update! (:catalog-volatility metrics) (count edges))
+
   (doseq [[source target type] edges]
     ;; This is relatively inefficient. If we have id's for edges, we could do
     ;; this in 1 statement.
     (sql/delete-rows :edges
-      ["certname=? and source=? and target=? and type=?" certname source target type])))
+                     ["certname=? and source=? and target=? and type=?" certname source target type])))
 
 (defn insert-edges!
   "Insert edges for a given certname.
@@ -354,9 +476,11 @@
          (string? certname)]}
   ;; Insert rows will not safely accept a nil, so abandon this operation
   ;; earlier.
-  (when-not (nil? edges)
+  (when (seq edges)
     (let [rows (for [[source target type] edges]
                  [certname source target type])]
+
+      (update! (:catalog-volatility metrics) (count rows))
       (apply sql/insert-rows :edges rows))))
 
 (defn replace-edges!
@@ -373,96 +497,101 @@
          (coll? edges)
          (map? refs-to-hashes)]}
   (let [new-edges (zipmap
-                    (for [{:keys [source target relationship]} edges
-                       :let [source-hash (refs-to-hashes source)
-                             target-hash (refs-to-hashes target)
-                             type        (name relationship)]]
-                       [source-hash target-hash type])
-                    (repeat nil))
-        [add-edges delete-edges] (diff-existing-edges
-                                     new-edges (catalog-edges-map certname))]
-    (delete-edges! certname (keys delete-edges))
-    (insert-edges! certname (keys add-edges))))
+                   (for [{:keys [source target relationship]} edges
+                         :let [source-hash (refs-to-hashes source)
+                               target-hash (refs-to-hashes target)
+                               type        (name relationship)]]
+                     [source-hash target-hash type])
+                   (repeat nil))]
+    (diff-fn new-edges
+             (catalog-edges-map certname)
+             #(insert-edges! certname %)
+             #(delete-edges! certname %)
+             identity)))
 
 (defn update-catalog-hash-match
   "When a new incoming catalog has the same hash as an existing catalog, update metrics
    and the transaction id for the new catalog"
-  [hash {:keys [api-version version transaction-uuid]}]
+  [catalog-id hash catalog timestamp]
   (inc! (:duplicate-catalog metrics))
-  (update-catalog-metadata! hash api-version version transaction-uuid))
+  (time! (:catalog-hash-match metrics)
+         (update-catalog-metadata! catalog-id hash catalog timestamp)))
+
+(defn update-catalog-associations!
+  "Adds/updates/deletes the edges and resources for the given certname"
+  [catalog-id {:keys [resources edges certname]} refs-to-hashes]
+  (time! (:add-resources metrics)
+         (add-resources! catalog-id resources refs-to-hashes))
+  (time! (:add-edges metrics)
+         (replace-edges! certname edges refs-to-hashes)))
 
 (defn update-catalog-hash-miss
   "New catalogs for a given certname needs to have their metadata, resources and edges updated.  This
    function also outputs debugging related information when `catalog-hash-debug-dir` is not nil"
-  [hash {:keys [certname api-version version transaction-uuid resources edges] :as catalog} resource-hashes catalog-hash-debug-dir]
+  [catalog-id hash catalog refs-to-hashes catalog-hash-debug-dir timestamp]
 
-  (inc! (:new-catalog metrics))
+  (inc! (:updated-catalog metrics))
 
   (when catalog-hash-debug-dir
     (hashdbg/debug-catalog catalog-hash-debug-dir hash catalog))
 
-  (let [catalog-id (:id (add-catalog-metadata! hash api-version
-                                               version transaction-uuid))
-        refs-to-hashes (zipmap (keys resources)
-                               resource-hashes)]
-    (time! (:add-resources metrics)
-           (add-resources! catalog-id resources refs-to-hashes))
-    (time! (:add-edges metrics)
-           (replace-edges! certname edges refs-to-hashes))))
+  (time! (:catalog-hash-miss metrics)
+         (update-catalog-metadata! catalog-id hash catalog timestamp)
+         (update-catalog-associations! catalog-id catalog refs-to-hashes)))
+
+(defn add-new-catalog
+  "Creates new catalog metadata and adds the proper associations for the edges and resources"
+  [hash catalog refs-to-hashes timestamp]
+  (inc! (:updated-catalog metrics))
+  (time! (:add-new-catalog metrics)
+         (let [catalog-id (:id (add-catalog-metadata! hash catalog timestamp))]
+           (update-catalog-associations! catalog-id catalog refs-to-hashes))))
 
 (defn add-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash. `catalog-hash-debug-dir` is an optional path
    that indicates where catalog debugging information should be stored."
   ([catalog]
-     (add-catalog! catalog nil))
-  ([{:keys [api-version version transaction-uuid resources edges] :as catalog} catalog-hash-debug-dir]
+     (add-catalog! catalog nil (now)))
+  ([{:keys [api-version resources edges certname] :as catalog} catalog-hash-debug-dir timestamp]
       {:pre [(number? api-version)
              (coll? edges)
              (map? resources)
              (or (nil? catalog-hash-debug-dir)
                  (string? catalog-hash-debug-dir))]}
 
-      (time! (:add-catalog metrics)
-             (let [resource-hashes (time! (:resource-hashes metrics)
-                                          (mapv shash/resource-identity-hash (vals resources)))
-                   hash            (time! (:catalog-hash metrics)
-                                          (shash/catalog-similarity-hash catalog))]
+      (let [refs-to-hashes (time! (:resource-hashes metrics)
+                                  (zipmap (keys resources)
+                                          (map shash/resource-identity-hash (vals resources))))
+            hash           (time! (:catalog-hash metrics)
+                                  (shash/catalog-similarity-hash catalog))
+            {id :id
+             stored-hash :hash} (catalog-metadata certname)]
 
-               (sql/transaction
-                (if (catalog-exists? hash)
-                  (update-catalog-hash-match hash catalog)
-                  (update-catalog-hash-miss hash catalog resource-hashes catalog-hash-debug-dir)))
+        (sql/transaction
+         (cond
+          (nil? id)
+          (add-new-catalog hash catalog refs-to-hashes timestamp)
 
-               hash))))
+          (= stored-hash hash)
+          (update-catalog-hash-match id hash catalog timestamp)
+
+          :else
+          (update-catalog-hash-miss id hash catalog refs-to-hashes catalog-hash-debug-dir timestamp)))
+
+        hash)))
 
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
   [catalog-hash]
   (sql/delete-rows :catalogs ["hash=?" catalog-hash]))
 
-(defn associate-catalog-with-certname!
-  "Creates a relationship between the given certname and catalog"
-  [catalog-hash certname timestamp]
-  (sql/do-prepared "INSERT INTO certname_catalogs (certname, catalog_id, timestamp) SELECT ?,id,? FROM catalogs WHERE hash=?" [certname (to-timestamp timestamp) catalog-hash]))
-
-(defn dissociate-catalog-with-certname!
-  "Breaks the relationship between the given certname and catalog"
-  [catalog-hash certname]
-  (sql/do-prepared "DELETE FROM certname_catalogs WHERE certname=? AND catalog_id=(SELECT id FROM catalogs WHERE hash=?)" [certname catalog-hash]))
-
-(defn dissociate-all-catalogs-for-certname!
-  "Breaks all relationships between `certname` and any catalogs"
-  [certname]
-  (sql/delete-rows :certname_catalogs ["certname=?" certname]))
-
-(defn catalogs-for-certname
-  "Returns a collection of catalog-hashes associated with the given
-  certname"
+(defn catalog-hash-for-certname
+  "Returns the hash for the `certname` catalog"
   [certname]
   (sql/with-query-results result-set
-    ["SELECT c.hash as catalog FROM catalogs c, certname_catalogs cc WHERE cc.certname=? and cc.catalog_id=c.id" certname]
-    (mapv :catalog result-set)))
+    ["SELECT hash as catalog FROM catalogs WHERE certname=?" certname]
+    (:catalog (first result-set))))
 
 (defn catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
@@ -470,18 +599,12 @@
   [certname time]
   (let [timestamp (to-timestamp time)]
     (sql/with-query-results result-set
-      ["SELECT timestamp FROM certname_catalogs WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
+      ["SELECT timestamp FROM catalogs WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
       (if-let [catalog-timestamp (:timestamp (first result-set))]
         (.after catalog-timestamp timestamp)
         false))))
 
 ;; ## Database compaction
-
-(defn delete-unassociated-catalogs!
-  "Remove any catalogs that aren't associated with a certname"
-  []
-  (time! (:gc-catalogs metrics)
-         (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalogs.id)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
@@ -494,7 +617,6 @@
   []
   (time! (:gc metrics)
          (sql/transaction
-          (delete-unassociated-catalogs!)
           (delete-unassociated-params!))))
 
 ;; ## High-level entity manipulation
@@ -510,9 +632,7 @@
      {:pre [(kitchensink/datetime? timestamp)]}
      (time! (:replace-catalog metrics)
             (sql/transaction
-             (let [catalog-hash (add-catalog! catalog catalog-hash-debug-dir)]
-               (dissociate-all-catalogs-for-certname! certname)
-               (associate-catalog-with-certname! catalog-hash certname timestamp))))))
+             (add-catalog! catalog catalog-hash-debug-dir timestamp)))))
 
 (defn insert-facts!
   "Given a certname and map of fact/value keypairs, insert them into the facts table"
@@ -550,33 +670,30 @@
     (zipmap (map :name result-set)
             (map :value result-set))))
 
-(defn diff-existing-facts
-  "Returns a vector with three fact maps, facts to be added,
-   facts to be updated and facts to be deleted"
-  [certname new-facts old-facts]
-  (let [diffs (data/diff new-facts old-facts)
-        just-new (or (first diffs)
-                     {})
-        just-old (or (second diffs)
-                     {})
-        new-keys (keys just-new)
-        old-keys (keys just-old)]
-    [(select-keys just-new (remove just-old new-keys))
-     (select-keys just-new (filter just-old new-keys))
-     (select-keys just-old (remove just-new old-keys))]))
+(defn update-existing-facts!
+  "Issues a SQL Update for `shared-keys` whose value in old-facts
+   is different from new-facts"
+  [certname old-facts new-facts shared-keys]
+  (doseq [k shared-keys]
+    (let [old-val (get old-facts k)
+          new-val (get new-facts k)]
+      (when-not (= old-val new-val)
+        (sql/update-values :certname_facts ["certname=? and name=?" certname k] {:value new-val})))))
 
 (defn update-facts!
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument."
   [certname facts timestamp]
-  (let [[add-facts update-facts delete-facts] (diff-existing-facts certname facts (cert-fact-map certname))]
+  (let [old-facts (cert-fact-map certname)]
     (sql/update-values :certname_facts_metadata ["certname=?" certname]
-                         {:timestamp (to-timestamp timestamp)})
-    (delete-facts! certname (keys delete-facts))
-    (doseq [[k v] update-facts]
-      (sql/update-values :certname_facts ["certname=? and name=?" certname k] {:value v}))
-    (insert-facts! certname add-facts)))
+                       {:timestamp (to-timestamp timestamp)})
+
+    (diff-fn old-facts
+             facts
+             #(delete-facts! certname %)
+             #(insert-facts! certname (select-keys facts %))
+             #(update-existing-facts! certname old-facts facts %))))
 
 (defn certname-facts-metadata!
   "Return the certname_facts_metadata timestamp for the given certname, nil if not found"

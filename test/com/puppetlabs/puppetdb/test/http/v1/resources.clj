@@ -63,12 +63,8 @@ to the result of the form supplied to this method."
      {:name "two.local"})
     (sql/insert-records
      :catalogs
-     {:id 1 :hash "foo" :api_version 1 :catalog_version "12"}
-     {:id 2 :hash "bar" :api_version 1 :catalog_version "14"})
-    (sql/insert-records
-     :certname_catalogs
-     {:certname "one.local" :catalog_id 1}
-     {:certname "two.local" :catalog_id 2})
+     {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "one.local"}
+     {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "two.local"})
     (sql/insert-records :catalog_resources
                         {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}
                         {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array ["one" "two"])}

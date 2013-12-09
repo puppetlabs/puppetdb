@@ -602,6 +602,63 @@
     "ALTER TABLE edges
       ADD CONSTRAINT edges_certname_source_target_type_unique_key UNIQUE (certname, source, target, type)"))
 
+(defn differential-catalog-resources []
+
+  (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalogs.id)"])
+  (sql/delete-rows :catalog_resources ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalog_resources.catalog_id)"])
+
+  (sql/create-table :catalogs_transform
+                    ["id" "bigserial NOT NULL"]
+                    ["hash" "character varying(40) NOT NULL"]
+                    ["api_version" "INTEGER NOT NULL"]
+                    ["catalog_version" "TEXT NOT NULL"]
+                    ["transaction_uuid" "CHARACTER VARYING(255) DEFAULT NULL"]
+                    ["timestamp" "TIMESTAMP WITH TIME ZONE"]
+                    ["certname" "TEXT NOT NULL"])
+
+  (apply
+   sql/do-commands
+   (remove nil?
+           [;;Populate the new catalogs_transform table with data from
+            ;;catalogs and certname_catalogs
+            "INSERT INTO catalogs_transform (id, hash, api_version, catalog_version, transaction_uuid, timestamp, certname)
+             SELECT c.id, c.hash, c.api_version, c.catalog_version, c.transaction_uuid, cc.timestamp, cc.certname
+             FROM catalogs c INNER JOIN certname_catalogs cc on c.id = cc.catalog_id"
+
+            "DROP TABLE certname_catalogs"
+
+            ;;Can't drop catalogs with this constraint still attached
+            "ALTER TABLE catalog_resources DROP CONSTRAINT catalog_resources_catalog_id_fkey"
+            "DROP TABLE catalogs"
+
+            ;;Rename catalogs_transform to catalogs, replace constraints
+            "ALTER TABLE catalogs_transform RENAME to catalogs"
+            
+            (when (postgres?)
+              "ALTER TABLE catalogs
+               ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)")
+
+            "ALTER TABLE catalog_resources
+             ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
+             REFERENCES catalogs (id)
+             ON UPDATE NO ACTION ON DELETE CASCADE"
+            
+            "ALTER TABLE catalogs
+             ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname)
+             REFERENCES certnames (name)
+             ON UPDATE NO ACTION ON DELETE CASCADE"
+
+            "ALTER TABLE catalogs
+             ADD CONSTRAINT catalogs_hash_key UNIQUE (hash)"
+            "ALTER TABLE catalogs
+             ADD CONSTRAINT catalogs_certname_key UNIQUE (certname)"
+
+            "CREATE INDEX idx_catalogs_transaction_uuid
+             ON catalogs (transaction_uuid)"
+
+            "ALTER TABLE catalog_resources DROP CONSTRAINT catalog_resources_pkey"
+            "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"])))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -622,7 +679,8 @@
    16 drop-resource-tags-index
    17 use-bigint-instead-of-catalog-hash
    18 add-index-on-exported-column
-   19 differential-edges})
+   19 differential-edges
+   20 differential-catalog-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 

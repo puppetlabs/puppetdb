@@ -335,7 +335,7 @@
         (testing "with no catalog should store the catalog"
           (with-fixtures
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname FROM certname_catalogs")
+              (is (= (query-to-vec "SELECT certname FROM catalogs")
                      [{:certname certname}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -343,11 +343,14 @@
         (testing "with an existing catalog should replace the catalog"
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
-            (let [catalog-id (:id (sql/insert-values :catalogs [:hash :api_version :catalog_version] ["some_catalog_hash_existing" 1 "foo"]))]
-              (sql/insert-record :certname_catalogs {:certname certname :catalog_id catalog-id}))
+            (sql/insert-records :catalogs
+                                {:hash "some_catalog_hash_existing"
+                                 :api_version  1
+                                 :catalog_version "foo"
+                                 :certname certname})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
+              (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -356,15 +359,17 @@
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
 
-            (let [debug-dir (fs/absolute-path (temp-dir))
-                  catalog-id (:id (sql/insert-values :catalogs [:hash :api_version :catalog_version] ["some_catalog_hash" 1 "foo"]))]
+            (let [debug-dir (fs/absolute-path (temp-dir))]
 
-            (sql/insert-record :certname_catalogs {:certname certname :catalog_id catalog-id})
+              (sql/insert-records :catalogs {:hash "some_catalog_hash"
+                                             :api_version 1
+                                             :catalog_version "foo"
+                                             :certname certname})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
-                (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
-                     [{:certname certname :catalog catalog-hash}]))
+                (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
+                       [{:certname certname :catalog catalog-hash}]))
                 (is (= 5 (count (fs/list-dir debug-dir))))
                 (is (= 0 (times-called publish)))
                 (is (empty? (fs/list-dir discard-dir)))))))
@@ -375,18 +380,22 @@
           (testing "with a bad payload should discard the message"
             (with-fixtures
               (test-msg-handler command publish discard-dir
-                (is (empty? (query-to-vec "SELECT * FROM certname_catalogs")))
+                (is (empty? (query-to-vec "SELECT * FROM catalogs")))
                 (is (= 0 (times-called publish)))
                 (is (seq (fs/list-dir discard-dir)))))))
 
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
             (sql/insert-record :certnames {:name certname})
-            (sql/insert-record :catalogs {:id 1 :hash "some_catalog_hash_newer" :api_version 1 :catalog_version "foo"})
-            (sql/insert-record :certname_catalogs {:certname certname :catalog_id 1 :timestamp tomorrow})
+            (sql/insert-record :catalogs {:id 1
+                                          :hash "some_catalog_hash_newer"
+                                          :api_version 1
+                                          :catalog_version "foo"
+                                          :certname certname
+                                          :timestamp tomorrow})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
+              (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
                      [{:certname certname :catalog "some_catalog_hash_newer"}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -398,7 +407,7 @@
             (test-msg-handler command publish discard-dir
               (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                      [{:name certname :deactivated nil}]))
-              (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
+              (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -407,12 +416,12 @@
           (scf-store/delete-certname! certname)
           (sql/insert-record :certnames {:name certname :deactivated tomorrow})
           (test-msg-handler command publish discard-dir
-                            (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                                   [{:name certname :deactivated tomorrow}]))
-                            (is (= (query-to-vec "SELECT certname, c.hash as catalog FROM certname_catalogs cc, catalogs c WHERE cc.catalog_id=c.id")
-                                   [{:certname certname :catalog catalog-hash}]))
-                            (is (= 0 (times-called publish)))
-                            (is (empty? (fs/list-dir discard-dir)))))))))
+            (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
+                   [{:name certname :deactivated tomorrow}]))
+            (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
+                   [{:certname certname :catalog catalog-hash}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 (let [certname  "foo.example.com"
       facts     {:name certname
@@ -517,6 +526,19 @@
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
 
+(defn extract-error-message
+  "Pulls the error message from the publish var of a test-msg-handler"
+  [publish]
+  (-> publish
+      meta
+      :args
+      deref
+      ffirst
+      json/parse-string
+      (get-in ["annotations" "attempts"])
+      first
+      (get "error")))
+
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
     (let [certname "some_certname"
@@ -560,15 +582,7 @@
           (test-msg-handler new-facts-cmd publish discard-dir
             (reset! second-message? true)
             (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                            (-> publish
-                                meta
-                                :args
-                                deref
-                                ffirst
-                                json/parse-string
-                                (get-in ["annotations" "attempts"])
-                                first
-                                (get "error")))))
+                            (extract-error-message publish))))
           @fut
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
@@ -614,15 +628,60 @@
             (reset! second-message? true)
             (is (empty? (fs/list-dir discard-dir)))
             (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                            (-> publish
-                                meta
-                                :args
-                                deref
-                                ffirst
-                                json/parse-string
-                                (get-in ["annotations" "attempts"])
-                                first
-                                (get "error")))))
+                            (extract-error-message publish))))
+          @fut
+          (is (true? @first-message?))
+          (is (true? @second-message?)))))))
+
+(deftest concurrent-catalog-resource-updates
+  (testing "Should allow only one replace catalogs update for a given cert at a time"
+    (let [test-catalog (get-in catalogs [:empty])
+          wire-catalog (get-in wire-catalogs [2 :empty])
+          nonwire-catalog (catalog/parse-catalog wire-catalog 3)
+          certname     (get-in wire-catalog [:data :name])
+          command {:command (command-names :replace-catalog)
+                   :version 3
+                   :payload (json/generate-string wire-catalog)}
+
+          hand-off-queue (java.util.concurrent.SynchronousQueue.)
+          storage-replace-catalog! scf-store/replace-catalog!]
+
+      (sql/transaction
+       (scf-store/add-certname! certname)
+       (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
+
+      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp dir]
+                                                 (.put hand-off-queue "got the lock")
+                                                 (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+                                                 (storage-replace-catalog! catalog timestamp dir))]
+        (let [first-message? (atom false)
+              second-message? (atom false)
+              fut (future
+                    (test-msg-handler command publish discard-dir
+                      (reset! first-message? true)))
+
+              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+
+              new-wire-catalog (update-in wire-catalog [:data :resources]
+                                          conj
+                                          {:type       "File"
+                                           :title      "/etc/foobar2"
+                                           :exported   false
+                                           :file       "/tmp/foo2"
+                                           :line       10
+                                           :tags       #{"file" "class" "foobar2"}
+                                           :parameters {:ensure "directory"
+                                                        :group  "root"
+                                                        :user   "root"}})
+              new-catalog-cmd {:command (command-names :replace-catalog)
+                               :version 3
+                               :payload (json/generate-string new-wire-catalog)}]
+
+          (test-msg-handler new-catalog-cmd publish discard-dir
+            (reset! second-message? true)
+            (is (empty? (fs/list-dir discard-dir)))
+            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                            (extract-error-message publish))))
           @fut
           (is (true? @first-message?))
           (is (true? @second-message?)))))))

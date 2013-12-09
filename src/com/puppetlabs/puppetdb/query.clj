@@ -13,7 +13,7 @@
 ;; parameters associated with that SQL expression. For instance, a resource
 ;; query for `["=" ["node" "name"] "foo.example.com"]` will compile to:
 ;;
-;;     {:where "certname_catalogs.certname = ?"
+;;     {:where "catalogs.certname = ?"
 ;;      :params ["foo.example.com"]}
 ;;
 ;; The `where` key is then inserted into a template query to return
@@ -202,7 +202,7 @@
 
 ;; This map's keys are the queryable fields for resources, and the values are the
 ;;  corresponding table names where the fields reside
-(def resource-columns {"certname"   "certname_catalogs"
+(def resource-columns {"certname"   "catalogs"
                        "catalog"    "catalog_resources"
                        "resource"   "catalog_resources"
                        "type"       "catalog_resources"
@@ -300,7 +300,7 @@
                                    type, title, tags, exported, file, line
                                FROM catalog_resources cr, catalogs c
                                WHERE c.id = cr.catalog_id) AS catalog_resources
-                       JOIN certname_catalogs USING(catalog_id) WHERE %s"
+                       JOIN catalogs ON catalog_resources.catalog_id = catalogs.id WHERE %s"
                     (column-map->sql resource-columns) where)]
     (apply vector sql params)))
 
@@ -339,13 +339,13 @@
 
          ;; node join.
          ["certname"]
-         {:where  "certname_catalogs.certname = ?"
+         {:where  "catalogs.certname = ?"
           :params [value]}
 
          ;; {in,}active nodes.
          [["node" "active"]]
          {
-           :where (format "certname_catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+           :where (format "catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
 
          ;; param joins.
          [["parameter" (name :guard string?)]]
@@ -409,7 +409,7 @@
 
          ;; node join.
          ["certname"]
-         {:where  (sql-regexp-match "certname_catalogs.certname")
+         {:where  (sql-regexp-match "catalogs.certname")
           :params [pattern]}
 
          ;; metadata match.

@@ -76,8 +76,7 @@
                                              [5 "node_e" 5 2]]]
       (sql/insert-record :certnames {:name node})
       (sql/insert-record :certname_facts_metadata {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
-      (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0})
-      (sql/insert-record :certname_catalogs {:catalog_id id :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
+      (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 
   (testing "include total results count"
     (let [actual (:count (raw-retrieve-nodes nil {:count? true}))]

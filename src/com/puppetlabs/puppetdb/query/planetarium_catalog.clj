@@ -12,7 +12,7 @@
   (:refer-clojure :exclude  [case compile conj! distinct disj! drop sort take])
   (:require [com.puppetlabs.puppetdb.query.resources :as r])
   (:use [com.puppetlabs.jdbc]
-        [com.puppetlabs.puppetdb.scf.storage :only [catalogs-for-certname]]
+        [com.puppetlabs.puppetdb.scf.storage :only [catalog-hash-for-certname]]
         [com.puppetlabs.puppetdb.query.catalogs :only [get-edges]]
         clojureql.core))
 
@@ -25,7 +25,7 @@
                    (= node (:name %))
                    (map? (:resources %))
                    (set? (:edges %))))]}
-  (when (seq (catalogs-for-certname node))
+  (when (catalog-hash-for-certname node)
     (let [resources       (-> ["=" "certname" node]
                             (r/v2-query->sql)
                             (r/query-resources)

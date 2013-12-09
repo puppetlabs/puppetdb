@@ -46,7 +46,7 @@
         (is (= timestamp (to-date-time (:facts_timestamp status))))))
 
     (scf-store/deactivate-node! certname)
-    (scf-store/dissociate-all-catalogs-for-certname! certname)
+    (scf-store/delete-catalog! (scf-store/catalog-hash-for-certname certname))
     (scf-store/delete-facts! certname)
 
     (testing "should be deactivated, with null timestamps if deactivated with no data"

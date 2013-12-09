@@ -7,7 +7,8 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
-            [fs.core :as fs])
+            [fs.core :as fs]
+            [slingshot.slingshot :refer [throw+]])
   (:use     [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-current-connection-table-names]]
             [com.puppetlabs.testutils.logging :only [with-log-output]]
             [puppetlabs.kitchensink.core :only [parse-int excludes? keyset]]
@@ -294,3 +295,33 @@
        ~@body
        (str sw#))))
 
+(defn wrap-capture-args
+  "Takes a function and wraps it, capturing each call's arguments by
+   conjing them onto args"
+  [orig-fn arg-atom]
+  (fn [& args]
+    (swap! arg-atom conj args)
+    (apply orig-fn args)))
+
+(defmacro with-wrapped-fn-args
+  "with-wrapped-fn-args is a with-open style macro, where `bindings` is a vector where the
+   odd elements are symbols and the even elements are functions.  The functions will be wrapped
+   (see `wrap-capture-args`) and each of call's arguments will be stored in an atom bound to
+   to the given symbol.
+
+   (with-wrapped-fn-args [+-call-args +]
+     (mapv + [1 2 3] [4 5 6])
+     (println @+-call-args)
+     (= '[(1 4) (2 5) (3 6)] @+-call-args))"
+  [bindings & body]
+  (cond
+   (zero? (count bindings))
+    `(do ~@body)
+
+    (symbol? (first bindings))
+   `(let [~(get bindings 0) (atom [])
+          orig-fn# ~(get bindings 1)]
+      (with-redefs [~(get bindings 1) (wrap-capture-args orig-fn# ~(get bindings 0))]
+        (with-wrapped-fn-args ~(subvec bindings 2)
+          ~@body)))
+   :else (throw+ "with-wrapped-fn-args bindings should be pairs of count-atom-sym and fn-to-wrap with the call-count function")))
