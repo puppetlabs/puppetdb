@@ -194,9 +194,13 @@ module PuppetDBExtensions
   end
 
   def sleep_until_started(host)
-    curl_with_retries("start puppetdb", host, "http://localhost:8080", 0, 120)
-    curl_with_retries("start puppetdb (ssl)",
-                      host, "https://#{host.node_name}:8081", [35, 60])
+    # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
+    # Retry until an HTTP response code of 200 is received.
+    curl_with_retries("start puppetdb", host,
+                      "-s -w '%{http_code}' http://localhost:8080/v3/version -o /dev/null",
+                      0, 120, 1, /200/)
+    curl_with_retries("start puppetdb (ssl)", host,
+                      "https://#{host.node_name}:8081/", [35, 60])
   end
 
   def get_package_version(host, version = nil)
@@ -455,13 +459,13 @@ module PuppetDBExtensions
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 
-  def curl_with_retries(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
+  def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
     desired_exit_codes = [desired_exit_codes].flatten
-    on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+    result = on host, "curl #{curl_args}", :acceptable_exit_codes => (0...127)
     num_retries = 0
-    until desired_exit_codes.include?(exit_code)
+    until desired_exit_codes.include?(exit_code) and (result.stdout =~ expected_output)
       sleep retry_interval
-      on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+      result = on host, "curl #{curl_args}", :acceptable_exit_codes => (0...127)
       num_retries += 1
       if (num_retries > max_retries)
         fail("Unable to #{desc}")
