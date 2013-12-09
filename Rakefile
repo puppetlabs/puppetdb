@@ -125,17 +125,6 @@ file "ext/files/config.ini" => [ :template, JAR_FILE ]   do
 end
 
 namespace :test do
-  desc "Build packages for testing"
-  task :package do
-    # TODO: I'm not proud of this.  The contents of the shell script(s) that
-    # we call here need to be reconciled with Moses' standardized packaging
-    # stuff, and a lot of the contents should probably be ported over to
-    # Ruby instead of just shipping the nasty scripts.  However, this first step
-    # at least gives us 1) VCS for this stuff, and 2) the ability to run
-    # the two packaging builds in parallel.
-    sh "sh ./ext/test/build_packages.sh"
-  end
-
   desc "Run beaker based acceptance tests"
   task :beaker, :test_files do |t, args|
     args.with_defaults(:test_files => 'acceptance/tests/')
