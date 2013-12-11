@@ -14,7 +14,9 @@
 (ns com.puppetlabs.puppetdb.core
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.utils.logging :as logging-utils]
-            [clojure.tools.namespace :as ns])
+            [clojure.tools.namespace :as ns]
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [clojure.string :only (split)])
   (:gen-class))
 
@@ -62,22 +64,32 @@
       (println subcommand "\t" (or description "")))
     (println "\nFor help on a given subcommand, invoke it with -h")))
 
-(defn -main
-  [& args]
+(defn run-command
+  "Does the real work of invoking a command by attempting to result it and
+   passing in args. `success-fn` is a no-arg function that is called when the
+   command successfully executes.  `fail-fn` is called when a bad command is given
+   or a failure executing a command."
+  [success-fn fail-fn args]
   (let [subcommand (first args)
         allowed?   (available-subcommands)]
+
+    (utils/alert-deprecated-jdk)
 
     ;; Bad invokation
     (when-not (allowed? subcommand)
       (usage)
-      (System/exit 1))
+      (fail-fn))
 
     (let [module (str ns-prefix subcommand)
           args   (rest args)]
       (try
         (require (symbol module))
         (apply (resolve (symbol module "-main")) args)
-        (System/exit 0)
+        (success-fn)
         (catch Throwable e
           (logging-utils/catch-all-logger e)
-          (System/exit 1))))))
+          (fail-fn))))))
+
+(defn -main
+  [& args]
+  (run-command #(System/exit 0) #(System/exit 1) args))

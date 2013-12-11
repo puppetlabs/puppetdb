@@ -56,7 +56,8 @@
             [clojure.tools.logging :as log]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.puppetdb.config :as conf])
+            [com.puppetlabs.puppetdb.config :as conf]
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs minutes days]]
         [overtone.at-at :only (mk-pool interspaced)]
@@ -269,6 +270,7 @@
                                                     :product-name         product-name}]
 
 
+    (utils/log-deprecated-jdk)
 
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))

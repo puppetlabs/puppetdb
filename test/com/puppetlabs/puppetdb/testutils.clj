@@ -285,3 +285,12 @@
 
 (def ^{:doc "Creates a temp directory, deletes the directory on JVM shutdown"}
   temp-dir (comp delete-on-exit fs/temp-dir))
+
+(defmacro with-err-str
+  "Similar to with-out-str, but captures standard error rather than standard out"
+  [& body]
+  `(let [sw# (new java.io.StringWriter)]
+     (binding [*err* sw#]
+       ~@body
+       (str sw#))))
+
