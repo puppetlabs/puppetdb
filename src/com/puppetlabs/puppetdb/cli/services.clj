@@ -48,21 +48,20 @@
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
-            [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.server :as server]
-            [com.puppetlabs.puppetdb.config :as conf])
+            [com.puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.trapperkeeper.core :refer [defservice main]])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs minutes days]]
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [puppetlabs.kitchensink.core :only (cli! with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.version :only [version update-info]]
@@ -75,10 +74,15 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
+
+(def context
+  "An atom that keeps a reference to all of the stateful parts of the PuppetDB
+  system.  In the future, this could be used to enable dynamic reloading or
+  restarting of subsystems, or for improved control over the system from the REPL."
+  (atom {}))
 
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.
@@ -226,55 +230,65 @@
     lower-product-name))
 
 (defn on-shutdown
-  "General cleanup when a shutdown request is received."
+  "Callback to execute any necessary cleanup during a normal shutdown."
   []
-  ;; nothing much to do here for now, but let's at least log that we're shutting down.
   (log/info "Shutdown request received; puppetdb exiting."))
 
+(defn error-shutdown!
+  "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
+  []
+  (log/error "A fatal error occurred; shutting down all subsystems.")
+  (when-let [command-procs (@context :command-procs)]
+    (log/info "Shutting down command processing threads.")
+    (doseq [cp command-procs]
+           (future-cancel cp)))
 
-(def supported-cli-options
-  [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
-   ["-D" "--debug" "Enable debug mode" :default false :flag true]])
+  (when-let [updater (@context :updater)]
+    (log/info "Shutting down updater thread.")
+    (future-cancel updater))
 
-(def required-cli-options
-  [:config])
+  (when-let [web-app (@context :web-app)]
+    (log/info "Shutting down web app thread.")
+    (future-cancel web-app))
 
-(defn -main
-  [& args]
-  (let [[options _]                                (cli! args
-                                                      supported-cli-options
-                                                      required-cli-options)
-        initial-config                             {:debug (:debug options)}
-        {:keys [jetty database read-database global command-processing]
-            :as config}                            (conf/parse-config (:config options) initial-config)
-        product-name                               (normalize-product-name (get global :product-name "puppetdb"))
-        update-server                              (:update-server global "http://updates.puppetlabs.com/check-for-updates")
+  (when-let [broker (@context :broker)]
+    (log/info "Shutting down message broker.")
+    ;; Stop the mq the old-fashioned way
+    (mq/stop-broker! broker)))
+
+(defservice puppetdb-service
+  "Defines a trapperkeeper service for PuppetDB; this service is responsible
+  for initializing all of the PuppetDB subsystems and registering shutdown hooks
+  that trapperkeeper will call on exit."
+  {:depends  [[:config-service get-config]
+              [:webserver-service add-ring-handler join]
+              [:shutdown-service shutdown-on-error]]
+   :provides [shutdown]}
+  (let [{:keys [jetty database read-database
+                global command-processing] :as config}  (conf/process-config! (get-config))
+        product-name                                    (normalize-product-name (get global :product-name "puppetdb"))
+        update-server                                   (:update-server global "http://updates.puppetlabs.com/check-for-updates")
         ;; TODO: revisit the choice of 20000 as a default value for event queries
-        event-query-limit                          (get global :event-query-limit 20000)
-        write-db                                   (pl-jdbc/pooled-datasource database)
-        read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-        gc-interval                                (get database :gc-interval)
-        node-ttl                                   (get database :node-ttl)
-        node-purge-ttl                             (get database :node-purge-ttl)
-        report-ttl                                 (get database :report-ttl)
-        dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
-        mq-dir                                     (str (file (:vardir global) "mq"))
-        discard-dir                                (file mq-dir "discarded")
-        globals                                    {:scf-read-db          read-db
-                                                    :scf-write-db         write-db
-                                                    :command-mq           {:connection-string mq-addr
-                                                                           :endpoint          mq-endpoint}
-                                                    :event-query-limit    event-query-limit
-                                                    :update-server        update-server
-                                                    :product-name         product-name}]
-
-
+        event-query-limit                               (get global :event-query-limit 20000)
+        write-db                                        (pl-jdbc/pooled-datasource database)
+        read-db                                         (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
+        gc-interval                                     (get database :gc-interval)
+        node-ttl                                        (get database :node-ttl)
+        node-purge-ttl                                  (get database :node-purge-ttl)
+        report-ttl                                      (get database :report-ttl)
+        dlo-compression-threshold                       (get command-processing :dlo-compression-threshold)
+        mq-dir                                          (str (file (:vardir global) "mq"))
+        discard-dir                                     (file mq-dir "discarded")
+        globals                                         {:scf-read-db          read-db
+                                                         :scf-write-db         write-db
+                                                         :command-mq           {:connection-string mq-addr
+                                                                                :endpoint          mq-endpoint}
+                                                         :event-query-limit    event-query-limit
+                                                         :update-server        update-server
+                                                         :product-name         product-name}]
 
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
-
-    ;; Add a shutdown hook where we can handle any required cleanup
-    (kitchensink/add-shutdown-hook! on-shutdown)
 
     ;; Ensure the database is migrated to the latest version, and warn if it's
     ;; deprecated. We do this in a single connection because HSQLDB seems to
@@ -287,8 +301,7 @@
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics write-db)
 
-    (let [error         (promise)
-          broker        (try
+    (let [broker        (try
                           (log/info "Starting broker")
                           (mq/build-and-start-broker! "localhost" mq-dir command-processing)
                           (catch java.io.EOFException e
@@ -297,20 +310,32 @@
                               "might be due to KahaDB corruption. Consult the "
                               "PuppetDB troubleshooting guide.")
                             (throw e)))
+          _             (swap! context assoc :broker broker)
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
-                                 (future (with-error-delivery error
-                                           (load-from-mq mq-addr mq-endpoint discard-dir {:db write-db
-                                                                                          :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}))))))
+                                 (future (shutdown-on-error
+                                           #(load-from-mq
+                                              mq-addr
+                                              mq-endpoint
+                                              discard-dir
+                                              {:db write-db
+                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
+                                           error-shutdown!)))))
+          _             (swap! context assoc :command-procs command-procs)
           updater       (future (maybe-check-for-updates product-name update-server read-db))
+          _             (swap! context assoc :updater updater)
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (build-whitelist-authorizer wl)
                                             (constantly true))
                               app         (server/build-app :globals globals :authorized? authorized?)]
                           (log/info "Starting query server")
-                          (future (with-error-delivery error
-                                    (jetty/run-jetty app jetty))))
+                          (future (shutdown-on-error
+                                    #(do
+                                       (add-ring-handler app "")
+                                       (join))
+                                    error-shutdown!)))
+          _             (swap! context assoc :web-app web-app)
           job-pool      (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
@@ -333,14 +358,11 @@
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
 
-      (let [exception (deref error)]
-        (doseq [cp command-procs]
-          (future-cancel cp))
-        (future-cancel updater)
-        (future-cancel web-app)
+      ;; Return a map containing our trapperkeeper service functions, which in
+      ;; our case is just a single shutdown function that it can use to clean
+      ;; things up when the container is shutting down.
+      {:shutdown on-shutdown})))
 
-        ;; Stop the mq the old-fashioned way
-        (mq/stop-broker! broker)
-
-        ;; Now throw the exception so the top-level handler will see it
-        (throw exception)))))
+(defn -main
+  [& args]
+  (apply main args))

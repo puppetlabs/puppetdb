@@ -17,7 +17,8 @@
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]
-            [com.puppetlabs.archive :as archive]))
+            [com.puppetlabs.archive :as archive]
+            [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
@@ -136,18 +137,27 @@
   {:node    node
    :reports (reports-for-node host port node)})
 
+(defn- validate-cli!
+  [args]
+  (let [specs    [["-o" "--outfile" "Path to backup file (required)"]
+                  ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
+                  ["-p" "--port" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
+        required [:outfile]]
+    (try+
+      (cli! args specs required)
+      (catch map? m
+        (println (:message m))
+        (case (:type m)
+          :error (System/exit 1)
+          :help  (System/exit 0))))))
+
 (defn -main
   [& args]
-  (let [specs          [["-o" "--outfile" "Path to backup file (required)"]
-                        ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
-                        ["-p" "--port" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
-        required       [:outfile]
-        [{:keys [outfile host port]} _] (cli! args specs required)
-        nodes          (get-active-node-names host port)
-        get-catalog-fn (partial get-catalog-for-node host port)
-        get-reports-fn (partial get-reports-for-node host port)]
+  (let [[{:keys [outfile host port]} _] (validate-cli! args)
+        nodes                           (get-active-node-names host port)
+        get-catalog-fn                  (partial get-catalog-for-node host port)
+        get-reports-fn                  (partial get-reports-for-node host port)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-
     (with-open [tar-writer (archive/tarball-writer outfile)]
       (archive/add-entry tar-writer "UTF-8"
         (.getPath (io/file export-root-dir export-metadata-file-name))

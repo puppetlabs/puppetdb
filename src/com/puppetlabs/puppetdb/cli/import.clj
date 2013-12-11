@@ -10,7 +10,8 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.archive :as archive]
             [com.puppetlabs.cheshire :as json]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [slingshot.slingshot :refer [try+]])
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:use [puppetlabs.kitchensink.core :only (cli!)]
@@ -93,14 +94,24 @@
         (get-in metadata [:command-versions :store-report])
         (archive/read-entry-content tar-reader)))))
 
+(defn- validate-cli!
+  [args]
+  (let [specs    [["-i" "--infile" "Path to backup file (required)"]
+                  ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
+                  ["-p" "--port" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
+        required [:infile]]
+    (try+
+      (cli! args specs required)
+      (catch map? m
+        (println (:message m))
+        (case (:type m)
+          :error (System/exit 1)
+          :help  (System/exit 0))))))
+
 (defn -main
   [& args]
-  (let [specs       [["-i" "--infile" "Path to backup file (required)"]
-                     ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
-                     ["-p" "--port" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
-        required    [:infile]
-        [{:keys [infile host port]} _] (cli! args specs required)
-        metadata    (parse-metadata infile)]
+  (let [[{:keys [infile host port]} _] (validate-cli! args)
+        metadata                       (parse-metadata infile)]
 ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-reader (archive/tarball-reader infile)]
       (doseq [tar-entry (archive/all-entries tar-reader)]

@@ -5,10 +5,10 @@
             [com.puppetlabs.puppetdb.version]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
-            [com.puppetlabs.puppetdb.testutils :as testutils])
+            [com.puppetlabs.puppetdb.testutils :as testutils]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
   (:use [com.puppetlabs.puppetdb.cli.services]
         [clojure.test]
-        [com.puppetlabs.testutils.logging :only [with-log-output logs-matching]]
         [clj-time.core :only [days hours minutes secs]]
         [clojure.java.io :only [resource]]
         [com.puppetlabs.time :only [to-secs to-minutes to-hours to-days period?]]))

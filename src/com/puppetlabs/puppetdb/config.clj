@@ -223,29 +223,13 @@
       (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
-(defn parse-config
-  "Parses the given config file/directory and configures its various
-  subcomponents.
-
-  Also accepts an optional map argument 'initial-config'; if
-  provided, any initial values in this map will be included
-  in the resulting config map."
-  ([path]
-    (parse-config path {}))
-  ([path initial-config]
-    {:pre [(string? path)
-           (map? initial-config)]}
-    (let [file (io/file path)]
-      (when-not (.canRead file)
-        (throw (IllegalArgumentException.
-                (format "Configuration path '%s' must exist and must be readable." path)))))
-
-    (->> (kitchensink/inis-to-map path)
-         (merge initial-config)
-         configure-logging!
-         validate-vardir
-         configure-commandproc-threads
-         configure-web-server
-         configure-database
-         configure-gc-params
-         configure-catalog-debugging)))
+(defn process-config!
+  "Accepts a map containing all of the user-provided configuration values
+  and configures the various PuppetDB subsystems."
+  [config]
+  (-> config
+      validate-vardir
+      configure-commandproc-threads
+      configure-database
+      configure-gc-params
+      configure-catalog-debugging))
