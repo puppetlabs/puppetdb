@@ -196,7 +196,7 @@
 ;;; Database config 
 
 (defn maybe-days
-  "Convert the non-nil integer ot days"
+  "Convert the non-nil integer to days"
   [days-int]
   (when days-int
     (time/days days-int)))
@@ -225,8 +225,8 @@
        (pls/convert-to-schema db-schema-out)))
 
 (defn configure-read-db
-  "Validates, defaults and converts an incoming (INI file based) read database config returns a config
-   that includes the new read-database config"
+  "Validates, defaults and converts the given `config` (i.e. created from a user provided PuppetDB config),
+   to a read database config"
   [{:keys [global read-database database] :as config}]
   (let [db-config (pls/strip-unknown-keys database-config-out
                                           (if read-database
@@ -264,7 +264,7 @@
     (assoc config :database db-config)))
 
 (defn configure-dbs
-  "Given an INI `config` map, default and convert the database parameters"
+  "Given a `config` map (created from the user provided config), validate, default and convert the database parameters"
   [config]
   (-> config
       configure-write-db
@@ -283,8 +283,9 @@
     (s/validate command-processing-out converted-config)
     (assoc config :command-processing converted-config)))
 
-(defn convert-ini-map-config
-  "Given an incoming INI config map, convert it to the internal Clojure format that PuppetDB expects"
+(defn convert-config
+  "Given a `config` map (created from the user defined config), validate, default and convert it
+   to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
       configure-dbs
@@ -417,7 +418,7 @@
          configure-logging!
          validate-vardir
          configure-web-server
-         convert-ini-map-config
+         convert-config
          configure-catalog-debugging)))
 
 
