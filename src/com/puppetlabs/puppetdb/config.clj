@@ -36,7 +36,13 @@
    (s/optional-key :subname) (s/maybe s/String)
    (s/optional-key :username) s/String
    (s/optional-key :password) s/String
-   (s/optional-key :syntax_pgs) s/String})
+   (s/optional-key :syntax_pgs) s/String
+   (s/optional-key :read-only?) (pls/defaulted-maybe s/String "false")
+   (s/optional-key :partition-conn-min) (pls/defaulted-maybe s/Int 1)
+   (s/optional-key :partition-conn-max) (pls/defaulted-maybe s/Int 25)
+   (s/optional-key :partition-count) (pls/defaulted-maybe s/Int 1)
+   (s/optional-key :stats) (pls/defaulted-maybe s/String "true")
+   (s/optional-key :log-statements) (pls/defaulted-maybe s/String "true")})
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -55,8 +61,13 @@
    :log-slow-statements pls/Days
    :conn-max-age pls/Minutes
    :conn-keep-alive pls/Minutes
+   :read-only? pls/SchemaBoolean
+   :partition-conn-min s/Int
+   :partition-conn-max s/Int
+   :partition-count s/Int
+   :stats pls/SchemaBoolean
+   :log-statements pls/SchemaBoolean
    (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
-   (s/optional-key :read-only?) pls/SchemaBoolean
    (s/optional-key :username) s/String
    (s/optional-key :password) s/String
    (s/optional-key :syntax_pgs) s/String})

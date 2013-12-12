@@ -286,19 +286,10 @@
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements
            conn-max-age conn-lifetime conn-keep-alive read-only?]
-    :or   {partition-conn-min  1
-           partition-conn-max  25
-           partition-count     1
-           stats               true
-           ;; setting this to a String value, because that's what it would
-           ;;  be in the config file and we're manually converting it to a boolean
-           log-statements      "true"
-           read-only?          false}
     :as   db}]
   ;; Load the database driver class
   (Class/forName classname)
-  (let [log-statements? (Boolean/parseBoolean log-statements)
-        log-slow-statements-duration (pl-time/to-secs log-slow-statements)
+  (let [log-slow-statements-duration (pl-time/to-secs log-slow-statements)
         config          (doto (new BoneCPConfig)
                           (.setDefaultAutoCommit false)
                           (.setLazyInit true)
@@ -310,14 +301,14 @@
                           (.setIdleConnectionTestPeriodInMinutes (pl-time/to-minutes conn-keep-alive))
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                          (.setConnectionHook (connection-hook log-statements? log-slow-statements-duration))
+                          (.setConnectionHook (connection-hook log-statements log-slow-statements-duration))
                           (.setDefaultReadOnly read-only?))
         user (or user username)]
     ;; configurable without default
     (when user (.setUsername config (str user)))
     (when password (.setPassword config (str password)))
     (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
-    (when log-statements? (.setLogStatementsEnabled config log-statements?))
+    (when log-statements (.setLogStatementsEnabled config log-statements))
 
     (.setQueryExecuteTimeLimit config log-slow-statements-duration (TimeUnit/SECONDS))
     ;; ...aaand, create the pool.
