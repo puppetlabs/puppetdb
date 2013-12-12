@@ -40,9 +40,10 @@
 (deftest successful-command-invocation
   (let [success? (atom false)
         fail? (atom false)]
-    (run-command #(reset! success? true)
-                 #(reset! fail? true)
-                 ["version"])
+    (with-out-str
+      (run-command #(reset! success? true)
+                   #(reset! fail? true)
+                   ["version"]))
     (is (true? @success?))
     (is (false? @fail?))))
 
