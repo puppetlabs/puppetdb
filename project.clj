@@ -29,7 +29,7 @@
                  [org.clojure/math.combinatorics "0.0.4"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/tools.nrepl "0.2.3"]
-                 [org.clojure/tools.namespace "0.2.4"]
+                 [puppetlabs/tools.namespace "0.2.4.1"]
                  [swank-clojure "1.4.3"]
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
                  [clj-stacktrace "0.2.6"]
