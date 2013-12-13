@@ -1,11 +1,11 @@
 (ns com.puppetlabs.test.jdbc
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql]
-            [clojure.java.jdbc.internal :as jint])
+            [clojure.java.jdbc.internal :as jint]
+            [com.puppetlabs.puppetdb.fixtures :as fixt])
   (:use [clojure.test]
         [com.puppetlabs.puppetdb.testutils :only [test-db]]
         [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database insert-map *db-spec*]]))
-
 
 (use-fixtures :each with-antonym-test-database)
 
@@ -14,12 +14,13 @@
   (testing "can construct pool with numeric usernames and passwords"
     (let [pool (-> (test-db)
                    (assoc :username 1234 :password 1234)
+                   fixt/defaulted-write-db-config
                    (subject/pooled-datasource))]
       (.close (:datasource pool))))
 
   (testing "writes not allowed on read-only pools"
-    (let [write-pool (subject/pooled-datasource *db-spec*)
-          read-pool (subject/pooled-datasource (assoc *db-spec* :read-only? true))]
+    (let [write-pool (subject/pooled-datasource (fixt/defaulted-write-db-config *db-spec*))
+          read-pool (subject/pooled-datasource (fixt/defaulted-read-db-config (assoc *db-spec* :read-only? true)))]
 
       (subject/with-transacted-connection write-pool
         (insert-map {"foo" 1})
