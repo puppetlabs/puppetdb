@@ -12,6 +12,7 @@ Puppet::Face.define(:node, '0.0.1') do
     when_invoked do |*args|
       require 'puppet/network/http_pool'
       require 'puppet/util/puppetdb'
+      require 'json'
 
       opts = args.pop
       raise ArgumentError, "Please provide at least one node" if args.empty?
@@ -25,7 +26,7 @@ Puppet::Face.define(:node, '0.0.1') do
         begin
           response = http.get("/v3/nodes/#{CGI.escape(node)}", headers)
           if response.is_a? Net::HTTPSuccess
-            result = PSON.parse(response.body)
+            result = JSON.parse(response.body)
           elsif response.is_a? Net::HTTPNotFound
             result = {'name' => node}
           else

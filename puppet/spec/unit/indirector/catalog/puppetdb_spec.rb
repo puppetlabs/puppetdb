@@ -4,6 +4,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/catalog/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'json'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do

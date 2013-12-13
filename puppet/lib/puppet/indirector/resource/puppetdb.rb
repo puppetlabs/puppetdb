@@ -1,5 +1,6 @@
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
+require 'json'
 
 class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -20,7 +21,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
     filter_expr = build_expression(filter)
     expr << filter_expr if filter_expr
 
-    query_param = CGI.escape(expr.to_pson)
+    query_param = CGI.escape(expr.to_json)
 
     begin
       response = http_get(request, "/v3/resources?query=#{query_param}", headers)
@@ -34,7 +35,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
       raise Puppet::Error, "Could not retrieve resources from the PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
     end
 
-    resources = PSON.load(response.body)
+    resources = JSON.load(response.body)
 
     resources.map do |res|
       params = res['parameters'] || {}

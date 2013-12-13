@@ -25,6 +25,6 @@ Architecture: all
 <% if @pe -%>
 Depends:  ${misc:Depends}, pe-puppet
 <% else -%>
-Depends:  ${misc:Depends}, puppet-common
+Depends:  ${misc:Depends}, puppet-common, libjson-ruby | ruby-json
 <% end -%>
 Description:Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.

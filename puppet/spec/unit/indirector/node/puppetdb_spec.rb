@@ -4,6 +4,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/node/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'json'
 
 describe Puppet::Node::Puppetdb do
 
@@ -26,14 +27,14 @@ describe Puppet::Node::Puppetdb do
       Puppet::Network::HttpPool.expects(:http_instance).returns http
     end
 
-    it "should POST a '#{CommandDeactivateNode}' command as a URL-encoded PSON string" do
+    it "should POST a '#{CommandDeactivateNode}' command as a URL-encoded JSON string" do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
 
       payload = {
         :command => CommandDeactivateNode,
         :version => 1,
-        :payload => node.to_pson,
-      }.to_pson
+        :payload => node.to_json,
+      }.to_json
 
       http.expects(:post).with do |uri,body,headers|
         body =~ /payload=(.+)/

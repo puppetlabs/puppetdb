@@ -3,6 +3,7 @@ require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
+require 'json'
 
 class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb::CommandNames
@@ -40,7 +41,7 @@ class Puppet::Util::Puppetdb::Command
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
-        result = PSON.parse(response.body)
+        result = JSON.parse(response.body)
         Puppet.info "'#{command}' command#{for_whom} submitted to PuppetDB with UUID #{result['uuid']}"
         result
       else
