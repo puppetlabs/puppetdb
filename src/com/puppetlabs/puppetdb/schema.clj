@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.schema
   (:require [com.puppetlabs.time :as pl-time]
             [clj-time.core :as time]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
@@ -111,6 +112,10 @@
 (def Period
   "Schema type for JodaTime Period instances"
   (constructed-pred period? 'period? create-period))
+
+(def Timestamp
+  "Schema type for JodaTime timestamps"
+  (s/pred kitchensink/datetime? 'datetime?))
 
 (defn convert-boolean
   "Converts stringified boolean values to booleans, ignores the first

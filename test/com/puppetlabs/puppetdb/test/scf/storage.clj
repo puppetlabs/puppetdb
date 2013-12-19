@@ -12,7 +12,7 @@
             [slingshot.slingshot :refer [throw+]]
             [com.puppetlabs.puppetdb.testutils :as tu]
             [metrics.histograms :refer [sample histogram]]
-            )
+            [schema.core :as s])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
         [com.puppetlabs.puppetdb.examples.reports :only [reports]]
         [com.puppetlabs.puppetdb.testutils.reports]
@@ -379,7 +379,7 @@
 (deftest catalog-bad-input
   (testing "should noop"
     (testing "on bad input"
-      (is (thrown? AssertionError (add-catalog! {})))
+      (is (thrown? clojure.lang.ExceptionInfo (add-catalog! {})))
 
       ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
@@ -641,7 +641,7 @@
   (testing "on input that violates referential integrity"
     ; This catalog has an edge that points to a non-existant resource
     (let [catalog (:invalid catalogs)]
-      (is (thrown? AssertionError (add-catalog! {})))
+      (is (thrown? clojure.lang.ExceptionInfo (add-catalog! {})))
 
       ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
@@ -810,3 +810,6 @@
     (let [[deprecated? message] (db-deprecated? "PostgreSQL" [9 4])]
       (is (not deprecated?))
       (is (nil? message)))))
+
+(deftest test-catalog-schemas
+  (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))
