@@ -5,13 +5,13 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.catalogs :as catalog]
             [com.puppetlabs.puppetdb.examples.reports :as report-examples]
-            [com.puppetlabs.puppetdb.scf.hash :as shash])
+            [com.puppetlabs.puppetdb.scf.hash :as shash]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only [query-to-vec]]
         [com.puppetlabs.puppetdb.examples]
-        [com.puppetlabs.testutils.logging]
         [com.puppetlabs.puppetdb.testutils.reports :only [munge-example-report-for-storage]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [clj-time.coerce :only [to-timestamp]]

@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.core
   (:require [com.puppetlabs.puppetdb.core :refer :all]
             [clojure.test :refer :all]
-            [com.puppetlabs.testutils.logging :as pllog]
+            [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.testutils :as tu]
             [com.puppetlabs.puppetdb.test.utils :refer [jdk-1-6-version

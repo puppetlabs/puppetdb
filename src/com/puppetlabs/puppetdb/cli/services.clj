@@ -48,22 +48,21 @@
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.puppetdb.query.population :as pop]
             [com.puppetlabs.jdbc :as pl-jdbc]
-            [com.puppetlabs.jetty :as jetty]
             [com.puppetlabs.mq :as mq]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.server :as server]
             [com.puppetlabs.puppetdb.config :as conf]
-            [com.puppetlabs.puppetdb.utils :as utils])
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.trapperkeeper.core :refer [defservice main]])
   (:use [clojure.java.io :only [file]]
         [clj-time.core :only [ago secs minutes days]]
         [overtone.at-at :only (mk-pool interspaced)]
         [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [puppetlabs.kitchensink.core :only (cli! with-error-delivery)]
         [com.puppetlabs.repl :only (start-repl)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.version :only [version update-info]]
@@ -76,7 +75,6 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def configuration nil)
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
@@ -216,25 +214,26 @@
 
 (defn on-shutdown
   "General cleanup when a shutdown request is received."
-  []
-  ;; nothing much to do here for now, but let's at least log that we're shutting down.
-  (log/info "Shutdown request received; puppetdb exiting."))
+  [command-procs updater web-app broker]
+  (log/info "Shutdown request received; puppetdb exiting.")
+  (doseq [cp command-procs]
+    (future-cancel cp))
+  (future-cancel updater)
+  (future-cancel web-app)
 
-(def supported-cli-options
-  [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
-   ["-D" "--debug" "Enable debug mode" :default false :flag true]])
+  ;; Stop the mq the old-fashioned way
+  (mq/stop-broker! broker)
+  (log/info "PuppetDB shutdown complete."))
 
-(def required-cli-options
-  [:config])
 
-(defn -main
-  [& args]
-  (let [[options _]                                (cli! args
-                                                      supported-cli-options
-                                                      required-cli-options)
-        initial-config                             {:debug (:debug options)}
-        {:keys [jetty database read-database global command-processing]
-            :as config}                            (conf/parse-config (:config options) initial-config)
+(defservice puppetdb-service
+  "Used to be -main"
+  {:depends  [[:config-service get-config]
+              [:webserver-service add-ring-handler join]
+              [:shutdown-service shutdown-on-error]]
+   :provides [shutdown]}
+  (let [{:keys [jetty database read-database global command-processing]
+            :as config}                            (conf/process-config! (get-config))
         product-name                               (:product-name global)
         update-server                              (:update-server global)
         ;; TODO: revisit the choice of 20000 as a default value for event queries
@@ -262,9 +261,6 @@
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
 
-    ;; Add a shutdown hook where we can handle any required cleanup
-    (kitchensink/add-shutdown-hook! on-shutdown)
-
     ;; Ensure the database is migrated to the latest version, and warn if it's
     ;; deprecated. We do this in a single connection because HSQLDB seems to
     ;; get confused if the database doesn't exist but we open and close a
@@ -276,8 +272,7 @@
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics write-db)
 
-    (let [error         (promise)
-          broker        (try
+    (let [broker        (try
                           (log/info "Starting broker")
                           (mq/build-and-start-broker! "localhost" mq-dir command-processing)
                           (catch java.io.EOFException e
@@ -289,17 +284,23 @@
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
-                                 (future (with-error-delivery error
-                                           (load-from-mq mq-addr mq-endpoint discard-dir {:db write-db
-                                                                                          :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}))))))
+                                 (future (shutdown-on-error
+                                           #(load-from-mq
+                                              mq-addr
+                                              mq-endpoint
+                                              discard-dir
+                                              {:db write-db
+                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}))))))
           updater       (future (maybe-check-for-updates product-name update-server read-db))
           web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
                                             (build-whitelist-authorizer wl)
                                             (constantly true))
                               app         (server/build-app :globals globals :authorized? authorized?)]
                           (log/info "Starting query server")
-                          (future (with-error-delivery error
-                                    (jetty/run-jetty app jetty))))
+                          (future (shutdown-on-error
+                                    #(do
+                                       (add-ring-handler app "")
+                                       (join)))))
           job-pool      (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
@@ -322,14 +323,11 @@
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
 
-      (let [exception (deref error)]
-        (doseq [cp command-procs]
-          (future-cancel cp))
-        (future-cancel updater)
-        (future-cancel web-app)
+      ;; Return a map containing our trapperkeeper service functions, which in
+      ;; our case is just a single shutdown function that it can use to clean
+      ;; things up when the container is shutting down.
+      {:shutdown (partial on-shutdown command-procs updater web-app broker)})))
 
-        ;; Stop the mq the old-fashioned way
-        (mq/stop-broker! broker)
-
-        ;; Now throw the exception so the top-level handler will see it
-        (throw exception)))))
+(defn -main
+  [& args]
+  (apply main args))

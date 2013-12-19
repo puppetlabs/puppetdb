@@ -64,8 +64,8 @@
                  [ring/ring-core "1.1.8"]
                  [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [puppetlabs/kitchensink "0.1.1"]
-                 [org.bouncycastle/bcpkix-jdk15on "1.49"]
+                 [puppetlabs/kitchensink "0.4.2"]
+                 [puppetlabs/trapperkeeper "0.1.1"]
                  [prismatic/schema "0.1.9"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
@@ -80,7 +80,8 @@
                                 (get test-var-meta dbtype true)))}
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.5"]]}}
+                   :dependencies [[ring-mock "0.1.5"]]}
+             :test {:dependencies [[puppetlabs/trapperkeeper "0.1.0-SNAPSHOT" :classifier "test"]]}}
 
   :jar-exclusions [#"leiningen/"]
 

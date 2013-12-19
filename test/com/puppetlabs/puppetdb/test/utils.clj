@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.utils :refer :all]
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.testutils :as tu]
-            [com.puppetlabs.testutils.logging :as pllog]
+            [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]))
 

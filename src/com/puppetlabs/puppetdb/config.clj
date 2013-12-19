@@ -395,30 +395,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn parse-config
-  "Parses the given config file/directory and configures its various
+
+(defn process-config!
+  "TODO update docstring TODO
+
+  Parses the given config file/directory and configures its various
   subcomponents.
 
   Also accepts an optional map argument 'initial-config'; if
   provided, any initial values in this map will be included
   in the resulting config map."
-  ([path]
-    (parse-config path {}))
-  ([path initial-config]
-    {:pre [(string? path)
-           (map? initial-config)]}
-    (let [file (io/file path)]
-      (when-not (.canRead file)
-        (throw (IllegalArgumentException.
-                (format "Configuration path '%s' must exist and must be readable." path)))))
-
-    (->> (kitchensink/inis-to-map path)
-         (merge initial-config)
-         configure-globals
-         configure-logging!
-         validate-vardir
-         configure-web-server
-         convert-config
-         configure-catalog-debugging)))
-
-
+  [config]
+  (-> config
+      configure-globals
+      validate-vardir
+      convert-config
+      configure-catalog-debugging))
