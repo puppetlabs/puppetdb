@@ -294,14 +294,18 @@
             (is (= 1 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
 
+(defn make-cmd
+  "Create a command pre-loaded with `n` attempts"
+  [n]
+  {:command nil :version nil :annotations {:attempts (repeat n {})}})
+
 (deftest command-retry-handler
   (testing "Retry handler"
     (with-redefs [metrics.meters/mark!  (call-counter)
                   annotate-with-attempt (call-counter)]
 
       (testing "should log errors"
-        (let [make-cmd (fn [n] {:command nil :version nil :annotations {:attempts (repeat n {})}})
-              publish  (call-counter)]
+        (let [publish  (call-counter)]
 
           (testing "to DEBUG for initial retries"
             (let [log-output (atom [])]
@@ -316,6 +320,23 @@
                 (handle-command-retry (make-cmd maximum-allowable-retries) nil publish))
 
               (is (= (get-in @log-output [0 1]) :error)))))))))
+
+(deftest test-error-with-stacktrace
+  (with-redefs [metrics.meters/mark!  (call-counter)]
+    (let [publish  (call-counter)]
+      (testing "Exception with stacktrace, no more retries"
+        (let [log-output (atom [])]
+          (binding [*logger-factory* (atom-logger log-output)]
+            (handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
+          (is (= (get-in @log-output [0 1]) :debug))
+          (is (instance? Exception (get-in @log-output [0 2])))))
+
+      (testing "Exception with stacktrace, no more retries"
+        (let [log-output (atom [])]
+          (binding [*logger-factory* (atom-logger log-output)]
+            (handle-command-retry (make-cmd maximum-allowable-retries) (RuntimeException. "foo") publish))
+          (is (= (get-in @log-output [0 1]) :error))
+          (is (instance? Exception (get-in @log-output [0 2]))))))))
 
 ;; The two different versions of replace-catalog have exactly the same
 ;; behavior, except different inputs.

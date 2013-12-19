@@ -582,11 +582,13 @@
         n       (inc attempt)
         delay   (+ (Math/pow 2 (dec n))
                    (rand-int (Math/pow 2 n)))
-        logger  (if (> n (/ maximum-allowable-retries 4))
-                  #(log/error %)
-                  #(log/debug %))]
-    (logger (format "[%s] [%s] Retrying after attempt %d, due to: %s"
-                    id command attempt e))
+        error-msg (format "[%s] [%s] Retrying after attempt %d, due to: %s"
+                          id command attempt e)]
+
+    (if (> n (/ maximum-allowable-retries 4))
+      (log/error e error-msg)
+      (log/debug e error-msg))
+
     (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
 
 ;; ### Message handler
