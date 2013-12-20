@@ -32,7 +32,8 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.puppetlabs.puppetdb.scf.hash-debug :as hashdbg]
             [schema.core :as s]
-            [com.puppetlabs.puppetdb.schema :as pls])
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]
@@ -41,8 +42,6 @@
         [metrics.histograms :only (histogram update!)]
         [metrics.timers :only (timer time!)]
         [com.puppetlabs.jdbc :only [query-to-vec dashes->underscores]]))
-
-(s/set-fn-validation! true)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -418,20 +417,6 @@
                            ["catalog_id = ? and type = ? and title = ?" catalog-id type title]
                            {:resource (get refs-to-hashes resource-ref)})))))
 
-(defn diff-fn
-  "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with
-   the results of the call. Those functions should always receive a non-nil argument (though possibly empty)."
-  [left right left-only-fn right-only-fn same-fn]
-  {:pre [(map? left)
-         (map? right)
-         (fn? left-only-fn)
-         (fn? right-only-fn)
-         (fn? same-fn)]}
-  (let [[left-only right-only same] (data/diff (kitchensink/keyset left) (kitchensink/keyset right))]
-    (left-only-fn (or left-only #{}))
-    (right-only-fn (or right-only #{}))
-    (same-fn (or same #{}))))
-
 (s/defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-id :- s/Number
@@ -440,11 +425,11 @@
   (let [old-resources (catalog-resources catalog-id)]
     (sql/transaction
      (add-params! refs-to-resources refs-to-hashes)
-     (diff-fn old-resources
-              refs-to-resources
-              (delete-catalog-resources! catalog-id)
-              (insert-catalog-resources! catalog-id refs-to-hashes refs-to-resources)
-              (update-catalog-resources! catalog-id refs-to-hashes old-resources)))))
+     (utils/diff-fn old-resources
+                    refs-to-resources
+                    (delete-catalog-resources! catalog-id)
+                    (insert-catalog-resources! catalog-id refs-to-hashes refs-to-resources)
+                    (update-catalog-resources! catalog-id refs-to-hashes old-resources)))))
 
 (s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -514,11 +499,11 @@
                                type        (name relationship)]]
                      [source-hash target-hash type])
                    (repeat nil))]
-    (diff-fn new-edges
-             (catalog-edges-map certname)
-             #(insert-edges! certname %)
-             #(delete-edges! certname %)
-             identity)))
+    (utils/diff-fn new-edges
+                   (catalog-edges-map certname)
+                   #(insert-edges! certname %)
+                   #(delete-edges! certname %)
+                   identity)))
 
 (s/defn update-catalog-hash-match
   "When a new incoming catalog has the same hash as an existing catalog, update metrics
@@ -694,11 +679,11 @@
     (sql/update-values :certname_facts_metadata ["certname=?" certname]
                        {:timestamp (to-timestamp timestamp)})
 
-    (diff-fn old-facts
-             facts
-             #(delete-facts! certname %)
-             #(insert-facts! certname (select-keys facts %))
-             #(update-existing-facts! certname old-facts facts %))))
+    (utils/diff-fn old-facts
+                   facts
+                   #(delete-facts! certname %)
+                   #(insert-facts! certname (select-keys facts %))
+                   #(update-existing-facts! certname old-facts facts %))))
 
 (s/defn certname-facts-metadata!
   "Return the certname_facts_metadata timestamp for the given certname, nil if not found"

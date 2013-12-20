@@ -4,6 +4,8 @@
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
+(s/set-fn-validation! true)
+
 (defrecord DefaultedMaybe [schema default]
   s/Schema
   (s/check [this x]
@@ -116,6 +118,9 @@
 (def Timestamp
   "Schema type for JodaTime timestamps"
   (s/pred kitchensink/datetime? 'datetime?))
+
+(def Function
+  (s/pred fn? 'fn?))
 
 (defn convert-boolean
   "Converts stringified boolean values to booleans, ignores the first
