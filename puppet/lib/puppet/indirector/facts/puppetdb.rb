@@ -10,8 +10,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     facts = request.instance.dup
     facts.values = facts.values.dup
     facts.stringify
+    payload = {"name" => facts.name, "values" => facts.values}.to_pson
 
-    submit_command(request.key, facts.to_pson, CommandReplaceFacts, 1)
+    submit_command(request.key, payload, CommandReplaceFacts, 1)
   end
 
   def find(request)

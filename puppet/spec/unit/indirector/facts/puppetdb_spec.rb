@@ -30,10 +30,11 @@ describe Puppet::Node::Facts::Puppetdb do
 
     it "should POST the facts command as a URL-encoded PSON string" do
       facts.stringify
+      f = {"name" => facts.name, "values" => facts.values}
       payload = {
         :command => CommandReplaceFacts,
         :version => 1,
-        :payload => facts.to_pson,
+        :payload => f.to_pson,
       }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
