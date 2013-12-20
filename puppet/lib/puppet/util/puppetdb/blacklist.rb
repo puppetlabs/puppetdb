@@ -16,7 +16,7 @@ module Puppet::Util::Puppetdb
          BlacklistedEvent.new("Schedule", "monthly", "skipped", nil)]
 
     def initialize(events)
-      @events = events.reduce({}) do |m, e|
+      @events = events.inject({}) do |m, e|
         m[e.resource_type] ||= {}
         m[e.resource_type][e.resource_title] ||= {}
         m[e.resource_type][e.resource_title][e.status] ||= {}
