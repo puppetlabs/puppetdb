@@ -87,6 +87,10 @@
 (def facts-schema
   {(s/required-key "name") String
    (s/required-key "values") fact-map-schema
+   ;;These next two should not be necessary, it's due to a bug in the
+   ;;terminus code.  Leaving this in until 2.0.  If the user hasn't
+   ;;and the below two lines are in, it will fails (sees keys it
+   ;;doesn't recognize).  Remove this at 2.0.
    (s/optional-key "timestamp") s/Any
    (s/optional-key "expiration") s/Any})
 
