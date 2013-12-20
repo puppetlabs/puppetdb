@@ -61,47 +61,37 @@
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
       (testing "replacing facts"
-        (let [deletes (atom {})
-              updates (atom #{})
-              adds (atom {})
-              sql-insert sql/insert-records
-              sql-update sql/update-values
-              sql-delete sql/delete-rows]
-          ;;Ensuring here that new records are inserted, updated
-          ;;facts are updated (not deleted and inserted) and that
-          ;;the necessary deletes happen
-          (with-redefs [sql/insert-records (fn [table & rows]
-                                             (swap! adds assoc table rows)
-                                             (apply sql-insert table rows))
-                        sql/update-values (fn [table clause values]
-                                            (swap! updates conj values)
-                                            (sql-update table clause values))
-                        sql/delete-rows (fn [table clause]
-                                          (swap! deletes assoc table clause)
-                                          (sql-delete table clause))]
-            (let [new-facts {"domain" "mynewdomain.com"
-                             "fqdn" "myhost.mynewdomain.com"
-                             "hostname" "myhost"
-                             "kernel" "Linux"
-                             "uptime_seconds" "3600"}]
-              (replace-facts! {"name"  certname "values" new-facts} (now))
-              (testing "should have only the new facts"
-                (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
-                       [{:name "domain" :value "mynewdomain.com"}
-                        {:name "fqdn" :value "myhost.mynewdomain.com"}
-                        {:name "hostname" :value "myhost"}
-                        {:name "kernel" :value "Linux"}
-                        {:name "uptime_seconds" :value "3600"}])))
-              (testing "should only delete operatingsystem key"
-                (is (= {:certname_facts ["certname=? and name in (?)" "some_certname" "operatingsystem"]}
-                       @deletes)))
-              (testing "should update existing keys"
-                (is (true? (contains? @updates {:value "mynewdomain.com"})))
-                (is (true? (contains? @updates  {:value "myhost.mynewdomain.com"})))
-                (is (some :timestamp @updates)))
-              (testing "should only insert uptime_seconds"
-                (is (= {:certname_facts [{:value "3600", :name "uptime_seconds", :certname "some_certname"}]}
-                       @adds)))))))
+        ;;Ensuring here that new records are inserted, updated
+        ;;facts are updated (not deleted and inserted) and that
+        ;;the necessary deletes happen
+        (tu/with-wrapped-fn-args [adds sql/insert-records
+                                  updates sql/update-values
+                                  deletes sql/delete-rows]
+          (let [new-facts {"domain" "mynewdomain.com"
+                           "fqdn" "myhost.mynewdomain.com"
+                           "hostname" "myhost"
+                           "kernel" "Linux"
+                           "uptime_seconds" "3600"}]
+            (replace-facts! {"name"  certname "values" new-facts} (now))
+            (testing "should have only the new facts"
+              (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
+                     [{:name "domain" :value "mynewdomain.com"}
+                      {:name "fqdn" :value "myhost.mynewdomain.com"}
+                      {:name "hostname" :value "myhost"}
+                      {:name "kernel" :value "Linux"}
+                      {:name "uptime_seconds" :value "3600"}])))
+            (testing "should only delete operatingsystem key"
+              (is (= [[:certname_facts ["certname=? and name in (?)" "some_certname" "operatingsystem"]]]
+                     @deletes)))
+            (testing "should update existing keys"
+              (is (some #{[:certname_facts ["certname=? and name=?" "some_certname" "domain"] {:value "mynewdomain.com"}]} @updates))
+              (is (some #{[:certname_facts ["certname=? and name=?" "some_certname" "fqdn"] {:value "myhost.mynewdomain.com"}]} @updates))
+              (is (some (fn [update-call]
+                          (and (= :certname_facts_metadata (first update-call))
+                               (:timestamp (last update-call)))) @updates)))
+            (testing "should only insert uptime_seconds"
+              (is (= [[:certname_facts {:value "3600", :name "uptime_seconds", :certname "some_certname"}]]
+                     @adds))))))
 
       (testing "replacing all new facts"
         (delete-facts! certname)
@@ -223,56 +213,48 @@
                     "contains"] nil})))
 
         ;; Lets intercept the insert/update/delete level so we can test it later
-        (let [deletes (atom {})
-              adds (atom {})
-              sql-insert sql/insert-rows
-              sql-delete sql/delete-rows]
-          (with-redefs [sql/insert-rows    (fn [table & rows]
-                                             (swap! adds assoc table rows)
-                                             (apply sql-insert table rows))
-                        sql/delete-rows    (fn [table clause]
-                                             (swap! deletes assoc table clause)
-                                             (sql-delete table clause))]
-            ;; Here we only replace edges, so we can capture those specific SQL
-            ;; operations
-            (let [resources    (:resources modified-catalog)
-                  refs-to-hash (reduce-kv (fn [i k v]
-                                            (assoc i k (shash/resource-identity-hash v)))
-                                          {} resources)]
-              (replace-edges! certname modified-edges refs-to-hash)
-              (testing "ensure catalog-edges-map returns a predictable value"
-                (is (= (catalog-edges-map certname)
-                       {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
-                         "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                         "contains"] nil,
-                         ["57495b553981551c5194a21b9a26554cd93db3d9"
-                          "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                          "required-by"] nil
-                         ["57495b553981551c5194a21b9a26554cd93db3d9"
-                          "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                          "before"] nil})))
+        ;; Here we only replace edges, so we can capture those specific SQL
+        ;; operations
+        (tu/with-wrapped-fn-args [adds sql/insert-rows
+                                  deletes sql/delete-rows]
+          (let [resources    (:resources modified-catalog)
+                refs-to-hash (reduce-kv (fn [i k v]
+                                          (assoc i k (shash/resource-identity-hash v)))
+                                        {} resources)]
+            (replace-edges! certname modified-edges refs-to-hash)
+            (testing "ensure catalog-edges-map returns a predictable value"
+              (is (= (catalog-edges-map certname)
+                     {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                       "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                       "contains"] nil,
+                       ["57495b553981551c5194a21b9a26554cd93db3d9"
+                        "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                        "required-by"] nil
+                       ["57495b553981551c5194a21b9a26554cd93db3d9"
+                        "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                        "before"] nil})))
 
-              (testing "should only delete the 1 edge"
-                (is (= {:edges ["certname=? and source=? and target=? and type=?"
+            (testing "should only delete the 1 edge"
+              (is (= [[:edges ["certname=? and source=? and target=? and type=?"
                                 "basic.catalogs.com"
                                 "d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
                                 "57495b553981551c5194a21b9a26554cd93db3d9"
-                                "contains"]}
-                       @deletes)))
-              (testing "should only insert the 1 edge"
-                (is (= {:edges [["basic.catalogs.com"
-                                 "57495b553981551c5194a21b9a26554cd93db3d9"
-                                 "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                                 "before"]]}
-                       @adds)))
-              (testing "when reran to check for idempotency"
-                (swap! adds {})
-                (swap! deletes {})
-                (replace-edges! certname modified-edges refs-to-hash)
-                (testing "should delete no edges"
-                  (is (= nil @deletes)))
-                (testing "should insert no edges"
-                  (is (= nil @adds))))))))))
+                                "contains"]]]
+                     @deletes)))
+            (testing "should only insert the 1 edge"
+              (is (= [[:edges ["basic.catalogs.com"
+                               "57495b553981551c5194a21b9a26554cd93db3d9"
+                               "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                               "before"]]]
+                     @adds)))
+            (testing "when reran to check for idempotency"
+              (reset! adds [])
+              (reset! deletes [])
+              (replace-edges! certname modified-edges refs-to-hash)
+              (testing "should delete no edges"
+                (is (empty? @deletes)))
+              (testing "should insert no edges"
+                (is (empty?@adds)))))))))
 
   (deftest catalog-duplicates
     (testing "should share structure when duplicate catalogs are detected for the same host"
