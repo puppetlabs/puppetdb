@@ -105,8 +105,8 @@
       (catch map? m
         (println (:message m))
         (case (:type m)
-          :error (System/exit 1)
-          :help  (System/exit 0))))))
+          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
 (defn -main
   [& args]
