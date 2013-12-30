@@ -81,7 +81,7 @@
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]]}
-             :test {:dependencies [[puppetlabs/trapperkeeper "0.1.0-SNAPSHOT" :classifier "test"]]}}
+             :test {:dependencies [[puppetlabs/trapperkeeper "0.1.0" :classifier "test"]]}}
 
   :jar-exclusions [#"leiningen/"]
 
