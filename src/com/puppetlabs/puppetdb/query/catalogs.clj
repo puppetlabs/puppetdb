@@ -21,8 +21,6 @@
    :post [((some-fn nil? map?) %)]}
   (let [query (str "SELECT catalog_version, transaction_uuid "
                "FROM catalogs "
-               "INNER JOIN certname_catalogs "
-               "ON certname_catalogs.catalog_id = catalogs.id "
                "WHERE certname = ?")]
     (mapkeys underscores->dashes (first (query-to-vec query node)))))
 
@@ -71,10 +69,10 @@
                     "ON e.source = sources.resource "
                 "INNER JOIN catalog_resources targets "
                     "ON e.target = targets.resource "
-                "INNER JOIN certname_catalogs cc "
-                    "ON sources.catalog_id = cc.catalog_id "
-                    "AND targets.catalog_id = cc.catalog_id "
-                    "AND e.certname = cc.certname "
+                "INNER JOIN catalogs c "
+                    "ON sources.catalog_id = c.id "
+                    "AND targets.catalog_id = c.id "
+                    "AND e.certname = c.certname "
                 "WHERE e.certname = ?")]
     (for [{:keys [source_type
                   source_title

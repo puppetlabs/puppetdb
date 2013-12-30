@@ -16,17 +16,15 @@
     (testing "should only count current resources"
       (sql/insert-records
        :certnames
-       {:name "h1"})
+       {:name "h1"}
+       {:name "h2"})
+
+      (deactivate-node! "h2")
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1"}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1"})
-
-      ;; The catalog "c2" isn't associated with a node
-      (sql/insert-records
-       :certname_catalogs
-       {:certname "h1" :catalog_id 1})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1"}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2"})
 
       (sql/insert-records
        :resource_params_cache
@@ -78,13 +76,8 @@
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1"}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1"})
-
-      (sql/insert-records
-       :certname_catalogs
-       {:certname "h1" :catalog_id 1}
-       {:certname "h2" :catalog_id 2})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1"}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2"})
 
       (sql/insert-records
        :resource_params_cache

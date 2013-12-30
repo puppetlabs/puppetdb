@@ -18,7 +18,6 @@
   [{:keys [certname] :as catalog}]
   (store/add-certname! certname)
   (let [persisted-hash (store/add-catalog! catalog)]
-    (store/associate-catalog-with-certname! persisted-hash certname (time/now))
     (assoc catalog :persisted-hash persisted-hash)))
 
 (defn find-file

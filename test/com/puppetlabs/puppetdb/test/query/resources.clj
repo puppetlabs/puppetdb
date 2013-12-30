@@ -53,12 +53,9 @@
    {:name "subset.local"})
   (sql/insert-records
     :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12"}
-    {:id 2 :hash "bar" :api_version 1 :catalog_version "14"})
-  (sql/insert-records
-    :certname_catalogs
-    {:certname "example.local" :catalog_id 1}
-    {:certname "subset.local" :catalog_id 2})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local"}
+    {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local"})
+
   (sql/insert-records :catalog_resources
     {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
     {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
@@ -329,9 +326,7 @@
   (sql/insert-records :certnames
     {:name "foo.local"})
   (sql/insert-records :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12"})
-  (sql/insert-records :certname_catalogs
-    {:certname "foo.local" :catalog_id 1})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local"})
   (sql/insert-records :catalog_resources
     {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
     {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}

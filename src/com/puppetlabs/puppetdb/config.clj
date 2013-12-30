@@ -31,33 +31,33 @@
    (s/optional-key :conn-max-age) (pls/defaulted-maybe s/Int 60)
    (s/optional-key :conn-keep-alive) (pls/defaulted-maybe s/Int 45)
    (s/optional-key :conn-lifetime) (s/maybe s/Int)
-   (s/optional-key :classname) (s/maybe s/String)
-   (s/optional-key :subprotocol) (s/maybe s/String)
-   (s/optional-key :subname) (s/maybe s/String)
-   (s/optional-key :username) s/String
-   (s/optional-key :password) s/String
-   (s/optional-key :syntax_pgs) s/String
-   (s/optional-key :read-only?) (pls/defaulted-maybe s/String "false")
+   (s/optional-key :classname) (s/maybe String)
+   (s/optional-key :subprotocol) (s/maybe String)
+   (s/optional-key :subname) (s/maybe String)
+   (s/optional-key :username) String
+   (s/optional-key :password) String
+   (s/optional-key :syntax_pgs) String
+   (s/optional-key :read-only?) (pls/defaulted-maybe String "false")
    (s/optional-key :partition-conn-min) (pls/defaulted-maybe s/Int 1)
    (s/optional-key :partition-conn-max) (pls/defaulted-maybe s/Int 25)
    (s/optional-key :partition-count) (pls/defaulted-maybe s/Int 1)
-   (s/optional-key :stats) (pls/defaulted-maybe s/String "true")
-   (s/optional-key :log-statements) (pls/defaulted-maybe s/String "true")})
+   (s/optional-key :stats) (pls/defaulted-maybe String "true")
+   (s/optional-key :log-statements) (pls/defaulted-maybe String "true")})
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
   (merge database-config-in
          {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
-          (s/optional-key :report-ttl) (pls/defaulted-maybe s/String "14d")
-          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe s/String "0s")
-          (s/optional-key :node-ttl) (s/maybe s/String)
+          (s/optional-key :report-ttl) (pls/defaulted-maybe String "14d")
+          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe String "0s")
+          (s/optional-key :node-ttl) (s/maybe String)
           (s/optional-key :node-ttl-days) (s/maybe s/Int)}))
 
 (def database-config-out
   "Schema for parsed/processed database config"
-  {:classname s/String
-   :subprotocol s/String
-   :subname s/String
+  {:classname String
+   :subprotocol String
+   :subname String
    :log-slow-statements pls/Days
    :conn-max-age pls/Minutes
    :conn-keep-alive pls/Minutes
@@ -68,9 +68,9 @@
    :stats pls/SchemaBoolean
    :log-statements pls/SchemaBoolean
    (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
-   (s/optional-key :username) s/String
-   (s/optional-key :password) s/String
-   (s/optional-key :syntax_pgs) s/String})
+   (s/optional-key :username) String
+   (s/optional-key :password) String
+   (s/optional-key :syntax_pgs) String})
 
 (def write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
@@ -96,7 +96,7 @@
 
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
-  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe s/String "1d")
+  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe String "1d")
    (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
    (s/optional-key :store-usage) (s/maybe s/Int)
    (s/optional-key :temp-usage) (s/maybe s/Int)})

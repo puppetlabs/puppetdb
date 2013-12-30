@@ -30,12 +30,8 @@
       {:name "two.local"})
     (sql/insert-records
       :catalogs
-      {:id 1 :hash "foo" :api_version 1 :catalog_version "12"}
-      {:id 2 :hash "bar" :api_version 1 :catalog_version "14"})
-    (sql/insert-records
-      :certname_catalogs
-      {:certname "one.local" :catalog_id 1}
-      {:certname "two.local" :catalog_id 2})
+      {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "one.local"}
+      {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "two.local"})
     (add-facts! "one.local"
       {"operatingsystem" "Debian"
        "kernel" "Linux"

@@ -73,7 +73,6 @@
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection with-transacted-connection')]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [metrics.meters :only (meter mark!)]
         [metrics.histograms :only (histogram update!)]
@@ -312,7 +311,7 @@
         certname (:certname catalog)
         id (:id annotations)
         timestamp (:received annotations)]
-    (with-transacted-connection' db :repeatable-read
+    (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname timestamp)
       ;; Only store a catalog if it's newer than the current catalog
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
@@ -357,7 +356,7 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (upon-error-throw-fatality (json/parse-string payload))
         id       (:id annotations)]
-    (with-transacted-connection db
+    (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname))
@@ -372,7 +371,7 @@
                       (report/validate! version payload))
         certname    (:certname report)
         timestamp   (:received annotations)]
-    (with-transacted-connection db
+    (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [%s] puppet v%s - %s"

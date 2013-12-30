@@ -27,11 +27,11 @@
                                ["SELECT name, deactivated FROM certnames"])
         sql (format "SELECT subquery1.name,
                      subquery1.deactivated,
-                     certname_catalogs.timestamp AS catalog_timestamp,
+                     catalogs.timestamp AS catalog_timestamp,
                      certname_facts_metadata.timestamp AS facts_timestamp,
                      reports.end_time AS report_timestamp
                      FROM (%s) subquery1
-                       LEFT OUTER JOIN certname_catalogs ON subquery1.name = certname_catalogs.certname
+                       LEFT OUTER JOIN catalogs ON subquery1.name = catalogs.certname
                        LEFT OUTER JOIN certname_facts_metadata ON subquery1.name = certname_facts_metadata.certname
                        LEFT OUTER JOIN reports ON subquery1.name = reports.certname AND reports.hash IN (SELECT report FROM latest_reports)
                      ORDER BY subquery1.name ASC"

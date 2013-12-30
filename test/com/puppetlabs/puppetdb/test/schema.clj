@@ -7,7 +7,7 @@
             [com.puppetlabs.time :as pl-time]))
 
 (deftest defaulted-maybe-test
-  (let [defaulted-schema {:foo (defaulted-maybe s/Int 10)}]
+  (let [defaulted-schema {:foo (defaulted-maybe Number 10)}]
     (is (= {:foo 10}
            (s/validate defaulted-schema
                        {:foo 10})))
@@ -17,7 +17,7 @@
 
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
                           #"Value does not match schema: \{:foo missing-required-key\}"
-                          (s/validate {:foo (defaulted-maybe s/Int 10)}
+                          (s/validate {:foo (defaulted-maybe Number 10)}
                                       {})))
 
     (is (= {:foo 10}
@@ -27,15 +27,15 @@
                 (s/validate defaulted-schema))))))
 
 (deftest defaulted-maybe?-test
-  (is (true? (defaulted-maybe? (defaulted-maybe s/Int 10))))
-  (is (false? (defaulted-maybe? (s/maybe s/Int)))))
+  (is (true? (defaulted-maybe? (defaulted-maybe Number 10))))
+  (is (false? (defaulted-maybe? (s/maybe Number)))))
 
 (deftest defaulted-maybe-keys-test
   (is (= [:foo]
          (defaulted-maybe-keys
-           {:foo (defaulted-maybe s/Int 1)
-            :bar (s/maybe s/Int)
-            :baz s/String}))))
+           {:foo (defaulted-maybe Number 1)
+            :bar (s/maybe Number)
+            :baz String}))))
 
 (deftest schema-key->data-key-test
   (are [x y] (= x (schema-key->data-key y))
@@ -44,9 +44,9 @@
        :foo (s/required-key :foo)))
 
 (deftest strip-unknown-keys-test
-  (let [schema {(s/required-key :foo) s/Int
-                (s/optional-key :bar) s/Int
-                :baz s/String}]
+  (let [schema {(s/required-key :foo) Number
+                (s/optional-key :bar) Number
+                :baz String}]
     (is (= {:foo 1
             :bar 3
             :baz 5}
@@ -72,11 +72,11 @@
              :foo-2 "baz"})))))
 
 (deftest defaulted-data-test
-  (let [schema {:foo s/Int
-                (s/optional-key :foo-1) (defaulted-maybe s/Int 1)
-                (s/required-key :bar) s/Int
-                (s/optional-key :baz-2) (defaulted-maybe s/String "bar-2")
-                (s/optional-key :baz) (defaulted-maybe s/String "baz")}]
+  (let [schema {:foo Number
+                (s/optional-key :foo-1) (defaulted-maybe Number 1)
+                (s/required-key :bar) Number
+                (s/optional-key :baz-2) (defaulted-maybe String "bar-2")
+                (s/optional-key :baz) (defaulted-maybe String "baz")}]
 
     (testing "all defaulted"
       (is (= {:foo-1 1
@@ -107,9 +107,9 @@
                                       :baz "not baz"}))))))
 
 (deftest test-strip-unknown-keys
-  (let [schema {:foo s/Int
-                (s/optional-key :bar) (defaulted-maybe s/Int 1)
-                (s/required-key :baz) s/Int}]
+  (let [schema {:foo Number
+                (s/optional-key :bar) (defaulted-maybe Number 1)
+                (s/required-key :baz) Number}]
     (testing "strip all keys"
       (is (empty? (strip-unknown-keys schema {:not-foo 1
                                               :not-bar 2
@@ -136,24 +136,24 @@
   (are [expected target-schema source-schema value]
     (= expected ((get-construct-fn target-schema) source-schema value))
 
-    (time/minutes 10) Minutes s/String "10"
-    (time/minutes 10) Minutes s/Int 10
+    (time/minutes 10) Minutes String "10"
+    (time/minutes 10) Minutes Number 10
 
-    (time/secs 10) Seconds s/String "10"
-    (time/secs 10) Seconds s/Int 10
+    (time/secs 10) Seconds String "10"
+    (time/secs 10) Seconds Number 10
 
-    (time/days 10) Days s/String "10"
-    (time/days 10) Days s/Int 10
+    (time/days 10) Days String "10"
+    (time/days 10) Days Number 10
 
-    (pl-time/parse-period "10d") Period s/String "10d"
+    (pl-time/parse-period "10d") Period String "10d"
 
-    true SchemaBoolean s/String "true"
-    false SchemaBoolean s/String "false"
-    true SchemaBoolean s/String "TRUE"
-    false SchemaBoolean s/String "FALSE"
-    true SchemaBoolean s/String "True"
-    false SchemaBoolean s/String "False"
-    false SchemaBoolean s/String "really false"))
+    true SchemaBoolean String "true"
+    false SchemaBoolean String "false"
+    true SchemaBoolean String "TRUE"
+    false SchemaBoolean String "FALSE"
+    true SchemaBoolean String "True"
+    false SchemaBoolean String "False"
+    false SchemaBoolean String "really false"))
 
 (deftest schema-conversion
   (testing "conversion of days/minutes/seconds"
@@ -189,8 +189,8 @@
                                         :baz "30s"})))))
 
   (testing "partial conversion"
-    (let [schema {:foo s/String
-                  :bar s/Int
+    (let [schema {:foo String
+                  :bar Number
                   :baz Period}
           result {:foo "foo"
                   :bar 10
@@ -201,8 +201,8 @@
                                         :baz "30s"})))))
 
   (testing "conversion with an optional and a maybe"
-    (let [schema {:foo s/String
-                  :bar s/Int
+    (let [schema {:foo String
+                  :bar Number
                   (s/optional-key :baz) (s/maybe Period)}
           result {:foo "foo"
                   :bar 10
