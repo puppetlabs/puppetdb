@@ -562,7 +562,7 @@
       (with-redefs [scf-store/update-facts! (fn [certname facts timestamp]
                                               (.put hand-off-queue "got the lock")
                                               (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                              (storage-replace-facts! certname (:values facts) timestamp))]
+                                              (storage-replace-facts! certname facts timestamp))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
