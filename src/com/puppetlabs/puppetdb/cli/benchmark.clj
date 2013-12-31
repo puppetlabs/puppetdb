@@ -49,6 +49,7 @@
             [clj-http.util :as util]
             [fs.core :as fs]
             [slingshot.slingshot :refer [try+]])
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [puppetlabs.kitchensink.core :only (cli! inis-to-map utf8-string->sha1)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
@@ -91,15 +92,27 @@
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
+(def mutate-fns
+  "Functions that randomly change a wire-catalog format"
+  [catutils/add-random-resource-to-wire-catalog
+   catutils/mod-resource-in-wire-catalog
+   catutils/add-random-edge-to-wire-catalog
+   catutils/swap-edge-targets-in-wire-catalog])
+
+(defn rand-catalog-mutate-fn
+  "Grabs one of the mutate-fns randomly and returns it"
+  []
+  (rand-nth mutate-fns))
+
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
   percent of the time."
   [rand-percentage catalog]
   (if (< (rand 100) rand-percentage)
-    (catutils/add-random-resource-to-wire-catalog catalog)
+    ((rand-catalog-mutate-fn) catalog)
     catalog))
 
-(defn update-host
+(defn timed-update-host
   "Send a new _clock tick_ to a host
 
   On each tick, a host:
@@ -134,6 +147,27 @@
       (assoc state :lastrun clock :catalog catalog))
     state))
 
+(defn update-host
+  "Submit a `catalog` for `hosts` (when present), possibly mutating it before
+   submission.  Also submit a report for the host (if present). This is
+   similar to timed-update-host, but always sends the update (doesn't run/skip
+   based on the clock)"
+  [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
+  (let [catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))]
+    (when catalog
+      (submit-catalog puppetdb-host puppetdb-port catalog))
+    (when report
+      (submit-report puppetdb-host puppetdb-port report))
+    (assoc state :catalog catalog)))
+
+(defn submit-n-messages
+  "Given a list of host maps, send `num-messages` to each host.  The function
+   is recursive to accumulate possible catalog mutations (i.e. changing a previously
+   mutated catalog as opposed to different mutations of the same catalog)."
+  [hosts num-msgs]
+  (when-not (zero? num-msgs)
+    (recur (mapv update-host hosts) (dec num-msgs))))
+
 (defn world-loop
   "Sends out new _clock tick_ messages to all agents.
 
@@ -146,7 +180,7 @@
 
       ;; Send out updated ticks to each agent
       (doseq [host hosts]
-        (send host update-host curr-time)
+        (send host timed-update-host curr-time)
         (when-let [error (agent-error host)]
           (log/error error (format "[%s] agent failed; restarting" host))
           ;; Restart it with exactly the same state. Hopefully that's okay!
@@ -170,14 +204,14 @@
   [hostname report]
   (assoc report "certname" hostname))
 
-
 (def supported-cli-options
   [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
    ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
    ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
    ["-n" "--numhosts" "How many hosts to use during simulation"]
-   ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]])
+   ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
+   ["-N" "--nummsgs" "Number of commands and/or reports to send to each host"]])
 
 (def required-cli-options
   [:config])
@@ -192,12 +226,20 @@
         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
         :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
 
+(defn validate-nummsgs [options action-on-error-fn]
+  (when (and (contains? options :runinterval)
+             (contains? options :nummsgs))
+    (utils/println-err "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+    (action-on-error-fn)))
+
 (defn -main
   [& args]
   (let [[options _]     (validate-cli! args)
         config          (-> (:config options)
                             (inis-to-map)
                             (logutils/configure-logging!))
+
+        _ (validate-nummsgs options #(System/exit 1))
 
         catalogs        (if (:catalogs options) (load-sample-data (:catalogs options)))
         reports         (if (:reports options) (load-sample-data (:reports options)))
@@ -207,22 +249,28 @@
         hostname        (get-in config [:jetty :host] "localhost")
         port            (get-in config [:jetty :port] 8080)
         rand-percentage (Integer/parseInt (:rand-perc options))
-        run-interval     (* 60 1000 (Integer/parseInt (:runinterval options)))
 
         ;; Create an agent for each host
-        hosts (mapv #(agent {:host    %
-                             :puppetdb-host hostname
-                             :puppetdb-port port
-                             :rand-percentage rand-percentage
-                             :run-interval run-interval
-                             :lastrun (- (System/currentTimeMillis) (rand-int run-interval))
-                             :catalog (if catalogs (associate-catalog-with-host % (rand-nth catalogs)))
-                             :report (if reports (associate-report-with-host % (rand-nth reports)))})
+        hosts (mapv (fn [host]
+                      {:host host
+                       :puppetdb-host hostname
+                       :puppetdb-port port
+                       :rand-percentage rand-percentage
+                       :catalog (when catalogs
+                                  (associate-catalog-with-host host (rand-nth catalogs)))
+                       :report (when reports
+                                 (associate-report-with-host host (rand-nth reports)))})
                     hostnames)]
 
     (when-not catalogs
       (log/info "No catalogs specified; skipping catalog submission"))
     (when-not reports
       (log/info "No reports specified; skipping report submission"))
-    ;; Loop forever
-    (world-loop hosts)))
+    (if-let [num-cmds (:nummsgs options)]
+      (submit-n-messages hosts (Long/valueOf num-cmds))
+      (world-loop (mapv (fn [host-map]
+                          (let [run-interval (* 60 1000 (Integer/parseInt (:runinterval options)))]
+                            (agent (assoc host-map
+                                     :run-interval run-interval
+                                     :lastrun (- (System/currentTimeMillis) (rand-int run-interval))))))
+                        hosts)))))
