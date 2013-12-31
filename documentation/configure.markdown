@@ -457,7 +457,7 @@ This setting sets the maximum amount of space in megabytes that PuppetDB's Activ
 
 The `[jetty]` section configures HTTP for PuppetDB.
 
-> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [Changing PuppetDB's Parameters](/pe/latest/maintain_console-db.html#changing-puppetdb's-parameters) for more information. PE users should not edit `jetty.ini`.
+> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [Changing PuppetDB's Parameters](/pe/latest/maintain_console-db.html#changing-puppetdbs-parameters) for more information. PE users should not edit `jetty.ini`.
 
 ### `host`
 
