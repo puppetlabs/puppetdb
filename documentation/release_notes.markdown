@@ -1,8 +1,151 @@
 ---
-title: "PuppetDB 1.5 » Release Notes"
+title: "PuppetDB 1.6 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
+
+1.6.0
+-----
+
+PuppetDB 1.6.0 is a performance and bugfix release.
+
+Notable improvements and fixes:
+
+* (PDB-81) Deprecate JDK6. It's been EOL for quite some time.
+
+* (#21083) Differential fact storage
+
+  Previously when facts for a node were replaced, all previous facts
+  for that node were deleted and all new facts were inserted. Now
+  existing facts are updated, old facts (no longer present) are
+  deleted and new facts are inserted. This results in much less I/O,
+  both because we have to write much less data and also because we
+  reduce churn in the database tables, allowing them to stay compact
+  and fast.
+
+* (PDB-68) Differential edge storage
+
+  Previously when a catalog wasn't detected as a duplicate, we'd have
+  to reinsert all edges into the database using the new catalog's
+  hash. This meant that even if 99% of the edges were the same, we'd
+  still insert 100% of them anew and wait for our periodic GC to clean
+  up the old rows. We now only modify the edges that have actually
+  changed, and leave unchanged edges alone. This results in much less
+  I/O as we touch substantially fewer rows.
+
+* (PDB-69) Differential resource storage
+
+  Previously when a catalog wasn't detected as a duplicate, we'd have
+  to reinsert all resource metadata into the catalog_resources table
+  using the catalog's new hash. Even if only 1 resource changed out of
+  a possible 1000, we'd still insert 1000 new rows. We now only modify
+  resources that have actually changed. This results in much less I/O
+  in the common case.
+
+* Streaming resource and fact queries. Previously, we'd load all rows
+  from a resource or fact query into RAM, then do a bunch of sorting
+  and aggregation to transform them into a format that clients
+  expect. That has obvious problems involving RAM usage for large
+  result sets. Furthermore, this does all the work for querying
+  up-front...if a client disconnects, the query continues to tax the
+  database until it completes. And lastly, we'd have to wait until all
+  the query results have been paged into RAM before we could send
+  anything to the client. New streaming support massively reduces RAM
+  usage and time-to-first-result. Note that currently only resource
+  and fact queries employ streaming, as they're the most
+  frequently-used endpoints.
+
+* Improvements to our deduplication algorithm. We've improved our
+  deduplication algorithms to better detect when we've already stored
+  the necessary data. Early reports from the field has show users who
+  previously had deduplication rates in the 0-10% range jumping up to
+  the 60-70% range. This has a massive impact on performance, as the
+  fastest way to persist data is to already have it persisted!
+
+* Eliminate joins for parameter retrieval. Much of the slowness of
+  resource queries comes from the format of the resultset. We get back
+  one row per parameter, and we need to collapse multiple rows into
+  single resource objects that we can emit to the client. It's much
+  faster and tidier to just have a separate table that contains a
+  json-ified version of all a resource's parameters. That way, there's
+  no need to collapse multiple rows at all, or do any kind of ORDER BY
+  to ensure that the rows are properly sequenced.  In testing, this
+  appears to speed up queries between 2x-3x...the improvement is much
+  better the larger the resultset.
+
+* (#22350) Support for dedicated, read-only databases. Postgres
+  supports Hot Standby (http://wiki.postgresql.org/wiki/Hot_Standby)
+  which uses one database for writes and another database for
+  reads. PuppetDB can now point read-only queries at the hot standby,
+  resulting in improved IO throughput for writes.
+
+* (#22960) Don't automatically sort fact query results
+
+  Previously, we'd sort fact query results by default, regardless of
+  whether or not the user has requested sorting. That incurs a
+  performance penalty, as the DB has to now to a costly sort
+  operation. This patch removes the sort, and if users want sorted
+  results they can use the new sorting parameters to ask for that
+  explicitly.
+
+* (#22947) Remove resource tags GIN index on Postgres. These indexes
+  can get large and they aren't used. This should free up some
+  precious disk space.
+
+* (22977) Add a debugging option to help diagnose catalogs for a host
+  that hash to different values
+
+  Added a new global config parameter to allow debugging of catalogs
+  that hash to a different value. This makes it easier for users to
+  determine why their catalog duplication rates are low. More details
+  are in the included "Troubleshooting Low Catalog Duplication" guide.
+
+* (PDB-56) Gzip HTTP responses
+
+  This patchset enables Jetty's gzip filter, which will automatically
+  compress output with compressible mime-types (text, JSON, etc). This
+  should reduce bandwidth requirements for clients who can handle
+  compressed responses.
+
+* (PDB-70) Add index on catalog_resources.exported
+
+  This increases performance for exported resource collection
+  queries. For postgresql the index is only a partial on exported =
+  true, since indexing on the very common 'false' case is not that
+  effective. This gives us a big perf boost with minimal disk usage.
+
+* (PDB-85) Fixes for report export and anonymization
+
+* (PDB-119) Pin to RSA ciphers for all jdk's to work-around Centos 6
+  EC failures
+
+  We were seeing EC cipher failures for Centos 6 boxes, so we now pin
+  the ciphers to RSA only for all JDK's to work-around the
+  problem. The cipher suite is still customizable, so users can
+  override this is they wish.
+
+* New event/report querying endpoints. These have been moved out of
+  the _experimental_ namespace. We've squashed a lot of bugs in this
+  area, added pagination, aggregate query operators, and added support
+  for querying events by the timestamps of corresponding
+  reports. There is also now full documentation for these endpoints.
+
+* New endpoint for querying server's current local time. This is
+  useful for those constructing time-offset queries ("all events
+  within the last N minutes"). It's also useful for tracking clock
+  drift between multiple PuppetDB daemons.
+
+* Fixes to allow use of public/private key files generated by a wider
+  variety of tools, such as FreeIPA.
+
+* (#17555) Use systemd on recent Fedora and RHEL systems.
+
+* Documentation for `store-usage` and `temp-usage` MQ configuration
+  options.
+
+* Travis-CI now automatically tests all pull requests against both
+  PostgreSQL and HSQLDB. We also run our full acceptance test suite on
+  incoming pull requests.
 
 1.5.2
 -----
