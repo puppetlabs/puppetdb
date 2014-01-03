@@ -21,7 +21,7 @@ server.
 
     curl -X GET http://localhost:8080/v3/version
 
-    {"version": "1.5.2"}
+    {"version": "X.Y.Z"}
 
 ## Response Format
 
@@ -29,4 +29,4 @@ The response will be in `application/json`, and will return a JSON map with a
 single key: `version`, whose value is a string representation of the version
 of the running PuppetDB server.
 
-    {"version": "1.5.2"}
+    {"version": "X.Y.Z"}
