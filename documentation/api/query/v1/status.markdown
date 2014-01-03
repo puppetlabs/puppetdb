@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.5 » API » v1 » Querying Status"
+title: "PuppetDB 1.6 » API » v1 » Querying Status"
 layout: default
 canonical: "/puppetdb/latest/api/query/v1/status.html"
 ---
