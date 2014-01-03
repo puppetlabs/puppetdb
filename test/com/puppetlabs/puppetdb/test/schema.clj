@@ -147,6 +147,9 @@
 
     (pl-time/parse-period "10d") Period String "10d"
 
+    :foo s/Keyword s/Keyword :foo
+    10 s/Int s/Int 10
+
     true SchemaBoolean String "true"
     false SchemaBoolean String "false"
     true SchemaBoolean String "TRUE"
@@ -203,14 +206,26 @@
   (testing "conversion with an optional and a maybe"
     (let [schema {:foo String
                   :bar Number
-                  (s/optional-key :baz) (s/maybe Period)}
+                  (s/optional-key :baz) (s/maybe Period)
+                  (s/optional-key :bog) (s/maybe s/Int)
+                  (s/optional-key :taf) (s/maybe s/Keyword)
+                  (s/optional-key :baz-nil) (s/maybe Period)
+                  (s/optional-key :bog-nil) (s/maybe s/Int)
+                  (s/optional-key :taf-nil) (s/maybe s/Keyword)}
           result {:foo "foo"
                   :bar 10
-                  :baz (pl-time/parse-period "30s")}]
+                  :baz (pl-time/parse-period "30s")
+                  :bog 1000
+                  :taf :foo
+                  :baz-nil nil
+                  :bog-nil nil
+                  :taf-nil nil}]
       (is (= result
              (convert-to-schema schema {:foo "foo"
                                         :bar 10
-                                        :baz "30s"}))))))
-
-
-
+                                        :baz "30s"
+                                        :bog 1000
+                                        :taf :foo
+                                        :baz-nil nil
+                                        :bog-nil nil
+                                        :taf-nil nil}))))))
