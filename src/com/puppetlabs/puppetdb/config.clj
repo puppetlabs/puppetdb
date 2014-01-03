@@ -98,15 +98,15 @@
   "Schema for incoming command processing config (user defined) - currently incomplete"
   {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe String "1d")
    (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
-   (s/optional-key :store-usage) (s/maybe s/Int)
-   (s/optional-key :temp-usage) (s/maybe s/Int)})
+   (s/optional-key :store-usage) s/Int
+   (s/optional-key :temp-usage) s/Int})
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
   {:dlo-compression-threshold pls/Period
    :threads s/Int
-   (s/optional-key :store-usage) (s/maybe s/Int)
-   (s/optional-key :temp-usage) (s/maybe s/Int)})
+   (s/optional-key :store-usage) s/Int
+   (s/optional-key :temp-usage) s/Int})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Jetty config

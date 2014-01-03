@@ -15,6 +15,14 @@
     (let [config (configure-command-params {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
 
+  (testing "should use the store-usage specified"
+    (let [config (configure-command-params {:command-processing {:store-usage 10000}})]
+      (is (= (get-in config [:command-processing :store-usage]) 10000))))
+
+  (testing "should use the temp-usage specified"
+    (let [config (configure-command-params {:command-processing {:temp-usage 10000}})]
+      (is (= (get-in config [:command-processing :temp-usage]) 10000))))
+
   (let [with-ncores (fn [cores]
                       (with-redefs [kitchensink/num-cpus (constantly cores)]
                         (half-the-cores*)))]

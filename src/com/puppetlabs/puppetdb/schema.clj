@@ -181,6 +181,9 @@
   schema.core.Maybe
   (get-construct-fn [pred]
     (get-construct-fn (:schema pred)))
+  schema.core.Predicate
+  (get-construct-fn [pred]
+    (fn [pred val] val))
   DefaultedMaybe
   (get-construct-fn [pred]
     (get-construct-fn (:schema pred))))
