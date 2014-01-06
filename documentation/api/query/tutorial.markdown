@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.5 » API » Query Tutorial"
+title: "PuppetDB 1.6 » API » Query Tutorial"
 layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---

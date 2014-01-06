@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.5 » Overview"
+title: "PuppetDB 1.6 » Overview"
 layout: default
 canonical: "/puppetdb/latest/index.html"
 ---
@@ -37,13 +37,13 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 1.5.x series of PuppetDB releases, which is backwards-compatible with the 1.4.x series but adds several new features. [See the release notes][releasenotes] for information on all changes since the final 1.0.x release.
+This manual covers the 1.6.x series of PuppetDB releases, which is backwards-compatible with the 1.5.x series but adds several new features. [See the release notes][releasenotes] for information on all changes since the final 1.0.x release.
 
 
 What Data?
 -----
 
-In version 1.5, PuppetDB stores:
+PuppetDB stores:
 
 * The most recent [facts][] from every node
 * The most recent [catalog][] for every node
@@ -92,7 +92,7 @@ Your site's puppet masters must be running Puppet 2.7.12 or later. [You will nee
 
 > #### Note about Puppet Enterprise
 >
-> * Due to packaging changes related to the integration of PuppetDB with Puppet Enterprise, PuppetDB 1.5 packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB is now included by default in Puppet Enterprise, and will be released on a separate schedule.
+> * Due to packaging changes related to the integration of PuppetDB with Puppet Enterprise, the latest PuppetDB packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB is now included by default in Puppet Enterprise, and will be released on a separate schedule.
 
 ### Robust Hardware
 
