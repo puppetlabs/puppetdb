@@ -78,7 +78,7 @@ describe Puppet::Resource::Puppetdb do
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
 
-        Net::HTTP.any_instance.stubs(:get).with do |uri, headers|
+        subject.stubs(:http_get).with do |request, uri, headers|
           path, query_string = uri.split('?query=')
           path == '/v3/resources' and PSON.load(CGI.unescape(query_string)) == query
         end.returns response
