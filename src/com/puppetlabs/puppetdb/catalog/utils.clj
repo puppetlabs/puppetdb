@@ -71,9 +71,14 @@
         new-resource (merge (random-kw-resource) {:type (:type r) :title (:title r) :parameters (:parameters r)})]
     (assoc c :resources (assoc resources k new-resource))))
 
-(def relationships #{:contains :before :required-by :notifies :subscription-of})
+(def relationships
+  "Set of all possible edge relationships"
+  #{:contains :before :required-by :notifies :subscription-of})
 
 (defn rand-relationship
+  "Picks a edge relationship at random from `relationships`. If a
+   `prev-relationship` is provided, it ensures it doesn't randomly
+   pick that relationship."
   ([] (rand-relationship nil))
   ([prev-relationship]
      (rand-nth (seq (disj relationships prev-relationship)))))
@@ -87,7 +92,7 @@
                           target (rand-nth (vals resources))]
                       {:source {:type (:type source) :title (:title source)}
                        :target {:type (:type target) :title (:title target)}
-                       :relationship (rand-relationship nil)}))
+                       :relationship (rand-relationship)}))
         ;; Generate at most 100 edges
         new-edge  (first (remove edges (repeatedly 100 make-edge)))]
     (if new-edge

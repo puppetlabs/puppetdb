@@ -48,11 +48,11 @@
             [clj-http.client :as client]
             [clj-http.util :as util]
             [fs.core :as fs]
-            [slingshot.slingshot :refer [try+]])
-            [com.puppetlabs.puppetdb.utils :as utils])
-  (:use [puppetlabs.kitchensink.core :only (cli! inis-to-map utf8-string->sha1)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [clj-time.core :as time]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -112,6 +112,16 @@
     ((rand-catalog-mutate-fn) catalog)
     catalog))
 
+(defn update-report-run-fields
+  "configuration-version, start-time and end-time should always change
+   on subsequent report submittions, this changes those fields to avoid
+   computing the same hash again (causing constraint errors in the DB)"
+  [report]
+  (assoc report
+    "configuration-version" (kitchensink/uuid)
+    "start-time" (time/now)
+    "end-time" (time/now)))
+
 (defn timed-update-host
   "Send a new _clock tick_ to a host
 
@@ -127,7 +137,8 @@
   * Submit the resulting catalog"
   [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
   (if (> (- clock lastrun) run-interval)
-    (let [catalog (if catalog (maybe-tweak-catalog rand-percentage catalog))]
+    (let [catalog (if catalog (maybe-tweak-catalog rand-percentage catalog))
+          report (and report (update-report-run-fields report))]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -153,7 +164,8 @@
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
   [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
-  (let [catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))]
+  (let [catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))
+        report (and report (update-report-run-fields report))]
     (when catalog
       (submit-catalog puppetdb-host puppetdb-port catalog))
     (when report
@@ -165,8 +177,11 @@
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
   [hosts num-msgs]
-  (when-not (zero? num-msgs)
-    (recur (mapv update-host hosts) (dec num-msgs))))
+  (printf "Sending %s messages for %s hosts, will exit upon completion" num-msgs hosts)
+  (loop [mutated-hosts hosts
+         msgs-to-send num-msgs]
+    (when-not (zero? msgs-to-send)
+      (recur (mapv update-host mutated-hosts) (dec msgs-to-send)))))
 
 (defn world-loop
   "Sends out new _clock tick_ messages to all agents.
@@ -211,7 +226,7 @@
    ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
    ["-n" "--numhosts" "How many hosts to use during simulation"]
    ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
-   ["-N" "--nummsgs" "Number of commands and/or reports to send to each host"]])
+   ["-N" "--nummsgs" "Number of commands and/or reports to send for each host"]])
 
 (def required-cli-options
   [:config])
@@ -219,7 +234,7 @@
 (defn- validate-cli!
   [args]
   (try+
-    (cli! args supported-cli-options required-cli-options)
+    (kitchensink/cli! args supported-cli-options required-cli-options)
     (catch map? m
       (println (:message m))
       (case (:type m)
@@ -234,9 +249,9 @@
 
 (defn -main
   [& args]
-  (let [[options _]     (validate-cli! args)
+  (let [[options _]     (kitchensink/cli! args supported-cli-options required-cli-options)
         config          (-> (:config options)
-                            (inis-to-map)
+                            (kitchensink/inis-to-map)
                             (logutils/configure-logging!))
 
         _ (validate-nummsgs options #(System/exit 1))
