@@ -134,7 +134,7 @@
       (log/warn (format "Found settings for both keystore-based and Puppet PEM-based SSL; using PEM-based settings, ignoring %s"
                   (keys old-ssl-config)))))
   (let [truststore  (-> (ssl/keystore)
-                        (ssl/assoc-cert-file! "PuppetDB CA" ssl-ca-cert))
+                        (ssl/assoc-certs-from-file! "PuppetDB CA" ssl-ca-cert))
         keystore-pw (kitchensink/uuid)
         keystore    (-> (ssl/keystore)
                         (ssl/assoc-private-key-file! "PuppetDB Agent Private Key" ssl-key keystore-pw ssl-cert))]
