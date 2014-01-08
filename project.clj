@@ -62,7 +62,6 @@
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [clj-http "0.5.3"]
                  [ring/ring-core "1.1.8"]
-                 [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink "0.4.2"]
                  [puppetlabs/trapperkeeper "0.1.1"]
