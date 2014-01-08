@@ -8,7 +8,8 @@
             [clojure.java.io :as io]
             [clojure.string :as string]
             [com.puppetlabs.archive :as archive]
-            [com.puppetlabs.puppetdb.anonymizer :as anon]))
+            [com.puppetlabs.puppetdb.anonymizer :as anon]
+            [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Anonymize puppetdb dump files")
 
@@ -166,18 +167,28 @@
               (anon/anonymize-report config (:store-report (:command-versions metadata))))
             {:pretty true}))))))
 
+(defn- validate-cli!
+  [args]
+  (let [profiles (string/join ", " (keys anon-profiles))
+        specs    [["-o" "--outfile" "Path to output file (required)"]
+                  ["-i" "--infile" "Path to input file (required)"]
+                  ["-p" "--profile" (str "Choice of anonymization profile: " profiles) :default "moderate"]
+                  ["-c" "--config" "Configuration file path for extra profile definitions (experimental) (optional)"]]
+        required [:outfile :infile]]
+    (try+
+      (cli! args specs required)
+      (catch map? m
+        (println (:message m))
+        (case (:type m)
+          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+
 (defn -main
   [& args]
-  (let [profiles       (string/join ", " (keys anon-profiles))
-        specs          [["-o" "--outfile" "Path to output file (required)"]
-                        ["-i" "--infile" "Path to input file (required)"]
-                        ["-p" "--profile" (str "Choice of anonymization profile: " profiles) :default "moderate"]
-                        ["-c" "--config" "Configuration file path for extra profile definitions (experimental) (optional)"]]
-        required       [:outfile :infile]
-        [{:keys [outfile infile profile config]} _] (cli! args specs required)
-        extra-config   (if (empty? config) {} (read-string (slurp config)))
-        profile-config (get (merge anon-profiles extra-config) profile)
-        metadata       (parse-metadata infile)]
+  (let [[{:keys [outfile infile profile config]} _] (validate-cli! args)
+        extra-config                                (if (empty? config) {} (read-string (slurp config)))
+        profile-config                              (get (merge anon-profiles extra-config) profile)
+        metadata                                    (parse-metadata infile)]
 
     (println (str "Anonymizing input data file: " infile " with profile type: " profile " to output file: " outfile))
 

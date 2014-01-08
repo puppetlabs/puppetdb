@@ -47,7 +47,8 @@
             [com.puppetlabs.cheshire :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
-            [fs.core :as fs])
+            [fs.core :as fs]
+            [slingshot.slingshot :refer [try+]])
   (:use [puppetlabs.kitchensink.core :only (cli! inis-to-map utf8-string->sha1)]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
@@ -181,9 +182,19 @@
 (def required-cli-options
   [:config])
 
+(defn- validate-cli!
+  [args]
+  (try+
+    (cli! args supported-cli-options required-cli-options)
+    (catch map? m
+      (println (:message m))
+      (case (:type m)
+        :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+        :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
+
 (defn -main
   [& args]
-  (let [[options _]     (cli! args supported-cli-options required-cli-options)
+  (let [[options _]     (validate-cli! args)
         config          (-> (:config options)
                             (inis-to-map)
                             (logutils/configure-logging!))

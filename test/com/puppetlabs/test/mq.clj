@@ -6,11 +6,11 @@
             [clojure.java.io :as io])
   (:use [com.puppetlabs.mq]
         [com.puppetlabs.puppetdb.testutils]
-        [com.puppetlabs.puppetdb.fixtures :only [with-test-logging]]
+        [com.puppetlabs.puppetdb.fixtures :only [with-test-logging-silenced]]
         [clojure.test]))
 
 
-(use-fixtures :each with-test-logging)
+(use-fixtures :each with-test-logging-silenced)
 
 (deftest delay-calc
   (testing "calculation of message delays"
