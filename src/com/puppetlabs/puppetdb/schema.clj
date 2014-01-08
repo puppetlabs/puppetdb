@@ -8,9 +8,11 @@
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
-  (s/check [this x]
-    (when-not (nil? x)
-      (s/check schema x)))
+  (s/walker [this]
+    (let [sub-walker (s/subschema-walker schema)]
+      (fn [x]
+        (when-not (nil? x)
+          (sub-walker x)))))
   (s/explain [this] (list 'defaulted-maybe (s/explain schema))))
 
 (defn defaulted-maybe
@@ -36,8 +38,8 @@
     construct-fn)
 
   s/Schema
-  (s/check [this x]
-    (s/check predicate-rec x))
+  (s/walker [this]
+    (s/walker predicate-rec))
   (s/explain [this]
     (s/explain predicate-rec)))
 
