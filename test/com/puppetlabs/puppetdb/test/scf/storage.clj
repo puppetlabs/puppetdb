@@ -12,7 +12,9 @@
             [slingshot.slingshot :refer [throw+]]
             [com.puppetlabs.puppetdb.testutils :as tu]
             [metrics.histograms :refer [sample histogram]]
-            [schema.core :as s])
+            [schema.core :as s]
+            [puppetlabs.trapperkeeper.testutils.logging :as pllog]
+            [clojure.string :as str])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
         [com.puppetlabs.puppetdb.examples.reports :only [reports]]
         [com.puppetlabs.puppetdb.testutils.reports]
@@ -782,16 +784,63 @@
             actual        (resource-events-query-result ["=" "report" report1-hash])]
         (is (= expected actual))))))
 
-(deftest db-deprecation?
-  (testing "should return true and a string if db is deprecated"
-    (let [[deprecated? message] (db-deprecated? "PostgreSQL" [8 1])]
-      (is deprecated?)
-      (is (string? message))))
+(defn with-db-version [db version f]
+  (with-redefs-fn {#'sutils/sql-current-connection-database-name (constantly db)
+                   #'sutils/sql-current-connection-database-version (constantly version)}
+    f))
 
-  (testing "should return false and nil if db is not deprecated"
-    (let [[deprecated? message] (db-deprecated? "PostgreSQL" [9 4])]
-      (is (not deprecated?))
-      (is (nil? message)))))
+(deftest db-deprecation?
+  (testing "should return a string if db is deprecated"
+    (are [db version result]
+      (with-db-version db version
+        (fn []
+          (is (= result (db-deprecated?)))))
+      "PostgreSQL" [8 4] "PostgreSQL DB 8.4 is deprecated and won't be supported in the future."
+      "PostgreSQL" [9 0] nil
+      "PostgreSQL" [9 1] nil
+      "PostgreSQL" [9 2] nil
+      "PostgreSQL" [9 3] nil
+      "PostgreSQL" [9 4] nil)))
+
+(deftest test-db-unsupported?
+  (testing "should return a string if db is deprecated"
+    (are [db version result]
+      (with-db-version db version
+        (fn []
+          (is (= result (db-unsupported?)))))
+      "PostgreSQL" [8 1] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 2] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 3] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 4] nil
+      "PostgreSQL" [9 0] nil
+      "PostgreSQL" [9 1] nil
+      "PostgreSQL" [9 2] nil
+      "PostgreSQL" [9 3] nil
+      "PostgreSQL" [9 4] nil)))
+
+(def not-supported-regex #"PostgreSQL DB versions 8.3 and older are no longer supported")
+
+(deftest test-unsupported-fail
+  (testing "unsupported postgres version"
+    (let [fail? (atom false)]
+      (with-db-version "PostgreSQL" [8 1]
+        (fn []
+          (pllog/with-log-output log
+            (is (re-find not-supported-regex
+                         (tu/with-err-str
+                           (validate-database-version #(reset! fail? true)))))
+            (is (true? @fail?))
+            (is (re-find not-supported-regex (last (first @log)))))))))
+  (testing "supported postgres version"
+    (let [fail? (atom false)]
+      (with-db-version "PostgreSQL" [9 3]
+        (fn []
+          (pllog/with-log-output log
+            (is (str/blank?
+                 (tu/with-err-str
+                   (validate-database-version #(reset! fail? true)))))
+            (is (false? @fail?))
+            (is (empty? @log))))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))

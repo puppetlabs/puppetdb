@@ -28,11 +28,23 @@
   []
   (= (sql-current-connection-database-name) "PostgreSQL"))
 
-(defn pg-newer-than-8-1?
+(defn pg-older-than-8-4?
   "Returns true if connected to a Postgres instance that is newer than 8.1"
   []
   (and (postgres?)
-       (pos? (compare (sql-current-connection-database-version) [8 1]))))
+       (neg? (compare (sql-current-connection-database-version) [8 4]))))
+
+(defn pg-8-4?
+  "Returns true if connected to a Postgres instance that is newer than 8.1"
+  []
+  (and (postgres?)
+       (= (sql-current-connection-database-version) [8 4])))
+
+(defn pg-newer-than-8-4?
+  "Returns true if connected to a Postgres instance that is newer than 8.1"
+  []
+  (and (postgres?)
+       (pos? (compare (sql-current-connection-database-version) [8 4]))))
 
 (defn sql-current-connection-table-names
   "Return all of the table names that are present in the database based on the
@@ -108,9 +120,7 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
-  (if (pos? (compare (sql-current-connection-database-version) [8 1]))
-    (format "ARRAY[?::text] <@ %s" column)
-    (format "? = ANY(%s)" column)))
+  (format "ARRAY[?::text] <@ %s" column))
 
 (defmethod sql-array-query-string "HSQL Database Engine"
   [column]

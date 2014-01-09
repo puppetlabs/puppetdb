@@ -288,18 +288,13 @@
    {:keys [api-version version transaction-uuid certname]} :- catalog-schema
    timestamp :- pls/Timestamp]
   {:post [(map? %)]}
-  (let [return (first (sql/insert-records :catalogs
-                                          {:hash hash
-                                           :api_version api-version
-                                           :catalog_version version
-                                           :transaction_uuid transaction-uuid
-                                           :certname certname
-                                           :timestamp (to-timestamp timestamp)}))]
-
-    ;; PostgreSQL <= 8.1 does not support RETURNING so we fake it
-    (if (and (sutils/postgres?) (not (sutils/pg-newer-than-8-1?)))
-      (first (query-to-vec ["SELECT * FROM catalogs WHERE hash = ?" hash]))
-      return)))
+  (first (sql/insert-records :catalogs
+                             {:hash hash
+                              :api_version api-version
+                              :catalog_version version
+                              :transaction_uuid transaction-uuid
+                              :certname certname
+                              :timestamp (to-timestamp timestamp)})))
 
 (sm/defn resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
@@ -780,23 +775,21 @@
   (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Database deprecation
+;;; Database support/deprecation
 
-(defmulti db-deprecated?
-  "Returns a vector with a boolean indicating if database type and version is
-  marked for deprecation. The second element in the vector is a string
-  explaining the deprecation."
-  (fn [dbtype version] dbtype))
+(defn db-deprecated?
+  "Returns a string with an deprecation message if the DB is deprecated,
+   nil otherwise."
+  []
+  (when (sutils/pg-8-4?)
+    "PostgreSQL DB 8.4 is deprecated and won't be supported in the future."))
 
-(defmethod db-deprecated? "PostgreSQL"
-  [_ version]
-  (if (pos? (compare [8 4] version))
-    [true "PostgreSQL DB 8.3 and older are deprecated and won't be supported in the future."]
-    [false nil]))
-
-(defmethod db-deprecated? :default
-  [_ _]
-  [false nil])
+(defn db-unsupported?
+  "Returns a string with an unsupported message if the DB is not supported,
+   nil otherwise."
+  []
+  (when (sutils/pg-older-than-8-4?)
+    "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -876,12 +869,26 @@
    timestamp :- pls/Timestamp]
   (add-report!* report timestamp true))
 
-(defn warn-on-db-deprecation!
-  "Get metadata about the current connection and warn if the database we are
-  using is deprecated."
+(defn warn-on-db-deprecation
+  "Log a warning message if the database is deprecated"
   []
-  (let [version    (sutils/sql-current-connection-database-version)
-        dbtype     (sutils/sql-current-connection-database-name)
-        [deprecated? message] (db-deprecated? dbtype version)]
-    (when deprecated?
-      (log/warn message))))
+  (when-let [deprecated-message (db-deprecated?)]
+    (log/warn deprecated-message)))
+
+(defn fail-on-unsupported
+  "Log an error message to the log and console if the currently
+   configured database is unsupported, then call fail-fn  (probably to
+   exit)."
+  [fail-fn]
+  (let [msg (db-unsupported?)]
+    (when-let [attn-msg (and msg (utils/attention-warning-msg msg))]
+      (utils/println-err attn-msg)
+      (log/error attn-msg)
+      (fail-fn))))
+
+(defn validate-database-version
+  "Checks to ensure that the database is supported, fails if supported, logs
+   if deprecated"
+  [action-for-unsupported-fn]
+  (fail-on-unsupported action-for-unsupported-fn)
+  (warn-on-db-deprecation))

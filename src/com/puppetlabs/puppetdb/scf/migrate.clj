@@ -60,8 +60,7 @@
         [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-array-type-string
                                                           sql-current-connection-database-name
                                                           sql-current-connection-database-version
-                                                          postgres?
-                                                          pg-newer-than-8-1?]]))
+                                                          postgres?]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -219,10 +218,8 @@
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
   (when (postgres?)
-    (if (pg-newer-than-8-1?)
-      (sql/do-commands
-        "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")
-      (log/warn (format "Version %s of PostgreSQL is too old to support fast tag searches; skipping GIN index on tags. For reliability and performance reasons, consider upgrading to the latest stable version." (string/join "." (sql-current-connection-database-version)))))))
+    (sql/do-commands
+     "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
 
 (defn drop-old-tags-index
   "Drops the non-GIN tags index, which is never used (because nobody
@@ -418,8 +415,7 @@
 (defn drop-resource-tags-index
   "Remove the resource tags index, it can get very large and is not used"
   []
-  (when (pg-newer-than-8-1?)
-    (sql/do-commands "DROP INDEX IF EXISTS idx_catalog_resources_tags_gin")))
+  (sql/do-commands "DROP INDEX IF EXISTS idx_catalog_resources_tags_gin"))
 
 (defn use-bigint-instead-of-catalog-hash
   "This migration converts all catalog hash instances to use bigint sequences instead"
