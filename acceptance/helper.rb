@@ -182,6 +182,15 @@ module PuppetDBExtensions
     end
   end
 
+  def puppetdb_pids(host)
+    java_bin = "java"
+    jar_file = "puppetdb.jar"
+    result = on host, %Q(ps -ef | grep "#{java_bin}" | grep "#{jar_file}" | grep " services -c " | awk '{print $2}')
+    pids = result.stdout.chomp.split("\n")
+    Beaker::Log.notify "PuppetDB PIDs appear to be: '#{pids}'"
+    pids
+  end
+
   def start_puppetdb(host)
     step "Starting PuppetDB" do
       if host.is_pe?
@@ -413,16 +422,28 @@ module PuppetDBExtensions
 
 
   def stop_puppetdb(host)
+    pids = puppetdb_pids(host)
+
     if host.is_pe?
       on host, "service pe-puppetdb stop"
     else
       on host, "service puppetdb stop"
     end
-    sleep_until_stopped(host)
+
+    sleep_until_stopped(host, pids)
   end
 
-  def sleep_until_stopped(host)
+  def sleep_until_stopped(host, pids)
     curl_with_retries("stop puppetdb", host, "http://localhost:8080", 7)
+    stopped = false
+    while (! stopped)
+      Beaker::Log.notify("Waiting for pids #{pids} to exit")
+      exit_codes = pids.map do |pid|
+        result = on host, %Q(ps -p #{pid}), :acceptable_exit_codes => [0, 1]
+        result.exit_code
+      end
+      stopped = exit_codes.all? { |x| x == 1}
+    end
   end
 
   def restart_puppetdb(host)
