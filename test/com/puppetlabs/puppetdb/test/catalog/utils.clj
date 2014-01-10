@@ -1,0 +1,94 @@
+(ns com.puppetlabs.puppetdb.test.catalog.utils
+  (:require [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.catalog.utils :refer :all]
+            [com.puppetlabs.cheshire :as json]
+            [clojure.java.io :as io]
+            [clojure.walk :as walk]
+            [com.puppetlabs.puppetdb.examples :as ex]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [clojure.set :as set]))
+
+
+(defn convert-tags
+  "Tags from JSON parse as a list, change that to a set for
+   easier comparison."
+  [resource]
+  (update-in resource ["tags"] set))
+
+(def wire-catalog
+  "Basic test wire-format catalog"
+  (json/parse-string (slurp (io/resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json"))))
+
+(defn wire-resources
+  "Returns the resources from a wire-format catalog"
+  [wire-catalog]
+  (get-in wire-catalog ["data" "resources"]))
+
+(defn wire-edges
+  "Returns the edges from a wire-format catalog"
+  [wire-catalog]
+  (get-in wire-catalog ["data" "edges"]))
+
+(deftest test-wire-catalog-conversion-fn
+  (let [{:strs [edges resources]} (get wire-catalog "data")
+        result ((convert-internal-catalog-fn identity) wire-catalog)]
+
+    (is (= (set (map convert-tags resources))
+           (set (wire-resources result))))
+
+    (is (= (set edges)
+           (set (wire-edges result))))
+    (is (= (get-in wire-catalog ["data" "name"])
+           (get-in result ["data" "name"])))))
+
+(deftest test-add-random-resource-to-catalog
+  (let [catalog (:basic ex/catalogs)]
+    (is (= (inc (count (:resources catalog)))
+           (count (:resources (add-random-resource-to-catalog catalog)))))))
+
+(deftest test-add-random-resource-to-wire-catalog
+  (let [result (add-random-resource-to-wire-catalog wire-catalog)]
+    (is (= (inc (count (wire-resources wire-catalog)))
+           (count (wire-resources result))))
+
+    (is (= (get-in wire-catalog ["data" "name"])
+           (get-in result ["data" "name"])))))
+
+(deftest test-add-random-edge-to-catalog
+  (let [catalog (:basic ex/catalogs)]
+    (is (= (inc (count (:edges catalog)))
+           (count (:edges (add-random-edge-to-catalog catalog)))))))
+
+(deftest test-add-random-edge-to-wire-catalog
+  (is (= (inc (count (wire-edges wire-catalog)))
+         (count (wire-edges (add-random-edge-to-wire-catalog wire-catalog))))))
+
+(deftest test-mod-resource-in-catalog
+  (let [catalog (:basic ex/catalogs)
+        old-resources (kitchensink/valset (:resources catalog))
+        result (mod-resource-in-catalog catalog)
+        new-resources (kitchensink/valset (:resources result))]
+    (is (= 3 (count (:resources result))))
+    (is (= 2 (count (set/intersection old-resources new-resources))))))
+
+(deftest test-mod-resource-in-wire-catalog
+  (let [old-resources (set (map convert-tags (wire-resources wire-catalog)))
+        result (mod-resource-in-wire-catalog wire-catalog)
+        new-resources (set (map convert-tags (wire-resources result)))]
+    (is (= 2 (count (wire-resources result))))
+    (is (= 1 (count (set/intersection old-resources new-resources))))))
+
+(deftest test-swap-edge-targets-in-catalog
+  (let [catalog (:basic ex/catalogs)
+        old-edges (:edges catalog)
+        result (swap-edge-targets-in-catalog catalog)
+        new-edges (:edges result)]
+    (is (= 3 (count new-edges)))
+    (is (= 1 (count (set/intersection old-edges new-edges))))))
+
+(deftest test-swap-edge-targets-in-wire-catalog
+  (let [old-edges (set (wire-edges wire-catalog))
+        result (swap-edge-targets-in-wire-catalog wire-catalog)
+        new-edges (set (wire-edges result))]
+    (is (= 2 (count (wire-resources result))))
+    (is (not-any? old-edges new-edges))))
