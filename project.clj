@@ -15,6 +15,9 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
+(def tk-version "0.1.1")
+(def ks-version "0.4.2")
+
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
 
@@ -63,8 +66,8 @@
                  [clj-http "0.5.3"]
                  [ring/ring-core "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [puppetlabs/kitchensink "0.4.2"]
-                 [puppetlabs/trapperkeeper "0.1.1"]
+                 [puppetlabs/kitchensink ~ks-version]
+                 [puppetlabs/trapperkeeper ~tk-version]
                  [prismatic/schema "0.1.9"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
@@ -79,8 +82,8 @@
                                 (get test-var-meta dbtype true)))}
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.5"]]}
-             :test {:dependencies [[puppetlabs/trapperkeeper "0.1.0" :classifier "test"]]}}
+                   :dependencies [[ring-mock "0.1.5"]
+                                  [puppetlabs/trapperkeeper ~tk-version :classifier "test"]]}}
 
   :jar-exclusions [#"leiningen/"]
 
