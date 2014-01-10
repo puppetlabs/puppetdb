@@ -60,8 +60,8 @@
           (integer? command-version)
           (string?  report-payload)]}
   (let [payload (-> report-payload
-                  (json/parse-string)
-                  (reports/sanitize-report))
+                  json/parse-string
+                  reports/sanitize-report)
         result  (command/submit-command-via-http!
                   puppetdb-host puppetdb-port
                   (command-names :store-report) command-version
