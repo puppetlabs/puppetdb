@@ -10,6 +10,7 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.archive :as archive]
             [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.reports :as reports]
             [clojure.java.io :as io])
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
@@ -44,9 +45,9 @@
           (integer? command-version)
           (string?  catalog-payload)]}
   (let [result (command/submit-command-via-http!
-                  puppetdb-host puppetdb-port
+                 puppetdb-host puppetdb-port
                  (command-names :replace-catalog) command-version
-                  catalog-payload)]
+                 catalog-payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -58,10 +59,13 @@
           (integer? puppetdb-port)
           (integer? command-version)
           (string?  report-payload)]}
-  (let [result (command/submit-command-via-http!
+  (let [payload (-> report-payload
+                  json/parse-string
+                  reports/sanitize-report)
+        result  (command/submit-command-via-http!
                   puppetdb-host puppetdb-port
                   (command-names :store-report) command-version
-                  (json/parse-string report-payload))]
+                  payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
