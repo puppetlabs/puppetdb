@@ -68,7 +68,7 @@
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
-                 [prismatic/schema "0.1.9"]]
+                 [prismatic/schema "0.2.0"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below

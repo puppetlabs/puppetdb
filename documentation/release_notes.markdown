@@ -136,6 +136,34 @@ Notable improvements and fixes:
   PostgreSQL and HSQLDB. We also run our full acceptance test suite on
   incoming pull requests.
 
+* (PDB-102) Implement Prismatic Schema for configuration validation
+
+  In the past our configuration validation was fairly ad-hoc and imperative. By
+  implementing an internal schema mechanism (using Prismatic Schema) this should
+  provice a better and more declarative mechanism to validate users
+  configuration rather then letting mis-configurations "fall through" to
+  internal code throwing undecipherable Java exceptions.
+
+  This implementation also handles configuration variable coercion and
+  defaulting also, thus allowing us to remove a lot of the bespoke code we had
+  before that performed this activity.
+
+* (PDB-279) Sanitize report imports
+
+  Previously we had a bug PDB-85 that caused our exports on 1.5.x to fail. This
+  has been fixed, but alas people are trying to import those broken dumps into
+  1.6.x and finding it doesn't work.
+
+  This patch sanitizes our imports by only using select keys from the reports
+  model and dropping everything else.
+
+* (PDB-107) Support chained CA certificates
+
+  This patch makes puppetdb load all of the certificates in the CA .pem
+  file into the in-memory truststore. This allows users to use a
+  certificate chain (typically represented as a sequence of certs in a
+  single file) for trust.
+
 1.5.2
 -----
 
