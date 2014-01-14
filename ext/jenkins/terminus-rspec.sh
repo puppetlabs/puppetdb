@@ -10,7 +10,7 @@ then
 fi
 
 # Lets install the gems in bundle
-bundle install --path vendor/bundle
+bundle install --path vendor/bundle --without acceptance
 
 echo "**********************************************"
 echo "RUNNING SPECS; PARAMS FROM UPSTREAM BUILD:"

@@ -9,6 +9,14 @@ group :test do
 
   gem 'puppet', :require => false
 
-  gem 'beaker', '~> 1.0'
   gem 'mocha', '~> 1.0'
+
+  # Since newer versions of rake are not supported, we pin
+  if RUBY_VERSION == '1.8.5'
+    gem 'rake', '<= 0.8.7'
+  end
+end
+
+group :acceptance do
+  gem 'beaker', '~> 1.0'
 end
