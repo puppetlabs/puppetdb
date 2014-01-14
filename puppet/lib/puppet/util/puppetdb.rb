@@ -39,8 +39,8 @@ module Puppet::Util::Puppetdb
     child.extend ClassMethods
   end
 
-  ## Given an instance of ruby's Time class, this method converts it to a String
-  ## that conforms to PuppetDB's wire format for representing a date/time.
+  # Given an instance of ruby's Time class, this method converts it to a String
+  # that conforms to PuppetDB's wire format for representing a date/time.
   def self.to_wire_time(time)
     # The current implementation simply calls iso8601, but having this method
     # allows us to change that in the future if needed w/o being forced to
@@ -58,22 +58,21 @@ module Puppet::Util::Puppetdb
     end
   end
 
-  # Public instance methods
+  # @!group Public instance methods
 
   def submit_command(certname, payload, command_name, version)
     command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
     command.submit
   end
 
-  private
+  # @!group Private instance methods
 
-  ## Private instance methods
-
+  # @api private
   def config
     Puppet::Util::Puppetdb.config
   end
 
-
+  # @api private
   def log_x_deprecation_header(response)
     if warning = response['x-deprecation']
       Puppet.deprecation_warning "Deprecation from PuppetDB: #{warning}"
