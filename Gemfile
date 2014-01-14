@@ -10,4 +10,5 @@ group :test do
   gem 'puppet', :require => false
 
   gem 'beaker', '~> 1.0'
+  gem 'mocha', '~> 1.0'
 end
