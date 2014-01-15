@@ -8,6 +8,7 @@ if [ -d "vendor" ];
 then
   rm -rf vendor
 fi
+mkdir vendor
 
 # Lets install the gems in bundle
 bundle install --path vendor/bundle --without acceptance
