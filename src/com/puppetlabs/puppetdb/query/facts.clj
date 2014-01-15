@@ -7,18 +7,6 @@
   (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 execute-query]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
-(defn facts-for-node
-  "Fetch the facts for the given node, as a map of `{fact value}`. This is used
-  for the deprecated v1 facts API."
-  [node]
-  {:pre  [(string? node)]
-   :post [(map? %)]}
-  (let [facts (sql/query-to-vec
-                ["SELECT name, value FROM certname_facts WHERE certname = ?"
-                 node])]
-    (into {} (for [fact facts]
-               [(:name fact) (:value fact)]))))
-
 (defn flat-facts-by-node
   "Similar to `facts-for-node`, but returns facts in the form:
 

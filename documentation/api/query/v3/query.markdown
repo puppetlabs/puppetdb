@@ -21,7 +21,7 @@ The query API is implemented as HTTP URLs on the PuppetDB server. By default, it
 
 ## API URLs
 
-The first component of an API URL is the API version, written as `v1`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v3`. After the version, URLs are organized into a number of **endpoints.**
+The first component of an API URL is the API version, written as `v2`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v3`. After the version, URLs are organized into a number of **endpoints.**
 
 ### Endpoints
 
