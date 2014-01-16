@@ -1,7 +1,9 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
 rvm use $ruby$gemset
+
+set -x
 
 # Remove old vendor directory to ensure we have a clean slate
 if [ -d "vendor" ];
@@ -14,6 +16,7 @@ mkdir vendor
 if [ "$ruby" != "ruby-1.8.5" ];
 then
   bundle install --path vendor/bundle --without acceptance
+  BUNDLE_PREFIX="bundle exec"
 fi
 
 echo "**********************************************"
@@ -44,4 +47,4 @@ end
 RUBY
 
 cd puppet
-bundle exec rspec spec -r /tmp/force_gc.rb -fd --tag "~@fails_on_${ruby/-/_}"
+$BUNDLE_PREFIX rspec spec -r /tmp/force_gc.rb -fd --tag "~@fails_on_${ruby/-/_}"
