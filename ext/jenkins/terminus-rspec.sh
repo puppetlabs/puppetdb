@@ -11,7 +11,10 @@ fi
 mkdir vendor
 
 # Lets install the gems in bundle
-bundle install --path vendor/bundle --without acceptance
+if [ "$ruby" != "ruby-1.8.5" ];
+then
+  bundle install --path vendor/bundle --without acceptance
+fi
 
 echo "**********************************************"
 echo "RUNNING SPECS; PARAMS FROM UPSTREAM BUILD:"
