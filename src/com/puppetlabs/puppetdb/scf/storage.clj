@@ -315,15 +315,19 @@
       sql-params
       (set (map :resource result-set)))))
 
-(sm/defn catalog-resources :- {resource-ref-schema String}
+;;The schema definition of this function should be
+;;resource-ref->resource-schema, but there are a lot of tests that
+;;have incorrect data. When examples.clj and tests get fixed, this
+;;should be changed to the correct schema
+(sm/defn catalog-resources
   "Returns the resource hashes keyed by resource reference"
   [catalog-id :- Number]
   (sql/with-query-results result-set
-    ["SELECT resource as hash, type, title
-                 FROM catalog_resources
-                 WHERE catalog_id = ?" catalog-id]
+    ["SELECT type, title, tags, exported, file, line, resource
+      FROM catalog_resources
+      WHERE catalog_id = ?" catalog-id]
     (zipmap (map #(select-keys % [:type :title]) result-set)
-            (map :hash result-set))))
+            (jdbc/convert-result-arrays set result-set))))
 
 (sm/defn new-params-only
   "Returns a map of not persisted parameters, keyed by hash"
@@ -371,6 +375,13 @@
   "Returns true of the map is a resource reference"
   (every-pred :type :title))
 
+(defn convert-tags-array
+  "Converts the given tags (if present) to the format the database expects"
+  [resource]
+  (if (contains? resource :tags)
+    (update-in resource [:tags] sutils/to-jdbc-varchar-array)
+    resource))
+
 (sm/defn insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
   [catalog-id :- Number
@@ -385,14 +396,15 @@
      :catalog_resources
      (map (fn [resource-ref]
             (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
-              {:catalog_id catalog-id
-               :resource (get refs-to-hashes resource-ref)
-               :type type
-               :title title
-               :tags (sutils/to-jdbc-varchar-array tags)
-               :exported exported
-               :file file
-               :line line}))
+              (convert-tags-array
+               {:catalog_id catalog-id
+                :resource (get refs-to-hashes resource-ref)
+                :type type
+                :title title
+                :tags tags
+                :exported exported
+                :file file
+                :line line})))
           refs-to-insert))))
 
 (sm/defn delete-catalog-resources!
@@ -406,36 +418,75 @@
     (doseq [{:keys [type title]} refs-to-delete]
       (sql/delete-rows :catalog_resources ["catalog_id = ? and type = ? and title = ?" catalog-id type title]))))
 
+(sm/defn basic-diff
+  "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
+   This is different from clojure.data/diff in that it treats non-equal sets as completely different
+   (rather than returning only the differing items of the set) and only returns differences from `right`."
+  [left right]
+  (reduce-kv (fn [acc k right-value]
+               (let [left-value (get left k)]
+                 (if (= left-value right-value)
+                   acc
+                   (assoc acc k right-value))))
+             {} right))
+
+(sm/defn diff-resources-metadata
+  "Return resource references with values that are only the key/values that from `right` that
+   are different from those of the `left`. The keys/values here are suitable for issuing update
+   statements that will update resources to the correct (new) values."
+  [left right]
+  (reduce-kv (fn [acc k right-values]
+               (let [updated-resource-vals (basic-diff (get left k) right-values)]
+                 (if (seq updated-resource-vals)
+                   (assoc acc k updated-resource-vals)
+                   acc))) {} right))
+
+(defn merge-resource-hash
+  "Assoc each hash from `refs-to-hashes` as :resource on `refs-to-resources`"
+  [refs-to-hashes refs-to-resources]
+  (reduce-kv (fn [acc k v]
+               (assoc-in acc [k :resource] (get refs-to-hashes k)))
+             refs-to-resources refs-to-resources))
+
 (sm/defn update-catalog-resources!
-  "Returns a function accepting keys that were the same from the old resoruces and the new resources."
+  "Returns a function accepting keys that were the same from the old resources and the new resources."
   [catalog-id :- Number
    refs-to-hashes :- {resource-ref-schema String}
-   old-resources :- {resource-ref-schema String}]
+   refs-to-resources
+   old-resources]
 
   (fn [maybe-updated-refs]
     {:pre [(every? resource-ref? maybe-updated-refs)]}
-    (let [updated-refs (remove #(= (get refs-to-hashes %) (get old-resources %)) maybe-updated-refs)]
+    (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
+          updated-resources (diff-resources-metadata old-resources new-resources-with-hash)]
 
-      (update! (:catalog-volatility metrics) (count updated-refs))
+      (update! (:catalog-volatility metrics) (count updated-resources))
 
-      (doseq [{:keys [type title] :as resource-ref} updated-refs]
+      (doseq [[{:keys [type title]} updated-cols] updated-resources]
         (sql/update-values :catalog_resources
                            ["catalog_id = ? and type = ? and title = ?" catalog-id type title]
-                           {:resource (get refs-to-hashes resource-ref)})))))
+                           (convert-tags-array updated-cols))))))
+
+(defn strip-params
+  "Remove params from the resource as it is stored (and hashed) separately
+   from the resource metadata"
+  [resource]
+  (dissoc resource :parameters))
 
 (sm/defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [catalog-id :- Number
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
-  (let [old-resources (catalog-resources catalog-id)]
+  (let [old-resources (catalog-resources catalog-id)
+        diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (sql/transaction
      (add-params! refs-to-resources refs-to-hashes)
      (utils/diff-fn old-resources
-                    refs-to-resources
+                    diffable-resources
                     (delete-catalog-resources! catalog-id)
-                    (insert-catalog-resources! catalog-id refs-to-hashes refs-to-resources)
-                    (update-catalog-resources! catalog-id refs-to-hashes old-resources)))))
+                    (insert-catalog-resources! catalog-id refs-to-hashes diffable-resources)
+                    (update-catalog-resources! catalog-id refs-to-hashes diffable-resources old-resources)))))
 
 (sm/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"

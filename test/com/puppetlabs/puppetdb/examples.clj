@@ -161,4 +161,51 @@
           :tags       ["node" "default" "class"]
           :type       "Node"}]
         :version          1332533763
+        :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}}
+      :basic
+      {:metadata      {:api_version 1}
+       :document_type "Catalog"
+       :data
+       {:edges
+        [{:relationship "contains"
+          :target       {:title "Settings" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "main" :type "Class"}
+          :source       {:title "main" :type "Stage"}}
+         {:relationship "contains"
+          :target       {:title "default" :type "Node"}
+          :source       {:title "main" :type "Class"}}]
+        :name        "basic.wire-catalogs.com"
+        :resources
+        [{:exported   false
+          :title      "Settings"
+          :parameters {}
+          :tags       ["class" "settings"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["class"]
+          :type       "Class"}
+         {:exported   false
+          :title      "main"
+          :parameters {:name "main"}
+          :tags       ["stage"]
+          :type       "Stage"}
+         {:exported   false
+          :title      "default"
+          :parameters {}
+          :tags       ["node" "default" "class"]
+          :type       "Node"}
+         {:type       "File"
+          :title      "/etc/foobar"
+          :exported   false
+          :file       "/tmp/foo"
+          :line       10
+          :tags       ["file" "class" "foobar"]
+          :parameters {:ensure "directory"
+                       :group  "root"
+                       :user   "root"}}]
+        :version          1332533763
         :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}}}})
