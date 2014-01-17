@@ -69,7 +69,7 @@ class Config
     raise
   end
 
-  # Public instance methods
+  # @!group Public instance methods
 
   def initialize(config_hash = {})
     @config = config_hash
@@ -96,13 +96,15 @@ class Config
     config[:soft_write_failure]
   end
 
-  # Private instance methods
-  private
+  # @!group Private instance methods
 
+  # @!attribute [r] count
+  #   @api private
   attr_reader :config
 
   Blacklist = Puppet::Util::Puppetdb::Blacklist
 
+  # @api private
   def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
     @blacklist = Blacklist.new(events)
   end
