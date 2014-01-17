@@ -12,7 +12,7 @@ if [ $T_LANG == "ruby" ]; then
   # Using `rvm use` in travis-ci needs a lot more work, so just accepting
   # the default version for now.
   ruby -v
-  bundle install
+  bundle install --without acceptance
   cd puppet
   bundle exec rspec spec/
 else

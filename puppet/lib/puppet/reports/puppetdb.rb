@@ -19,8 +19,6 @@ Puppet::Reports.register_report(:puppetdb) do
     submit_command(self.host, report_to_hash, CommandStoreReport, 2)
   end
 
-  private
-
   # TODO: It seems unfortunate that we have to access puppet_version and
   # report_format directly as instance variables.  I've filed the following
   # ticket / pull req against puppet to expose them via accessors, which
@@ -29,16 +27,21 @@ Puppet::Reports.register_report(:puppetdb) do
   # the accessors until version 3.x of puppet is our oldest supported version.
   #
   # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
+
+  # @api private
   def report_format
     @report_format
   end
 
+  # @api private
   def puppet_version
     @puppet_version
   end
 
-  ### Convert `self` (an instance of `Puppet::Transaction::Report`) to a hash
-  ### suitable for sending over the wire to PuppetDB
+  # Convert `self` (an instance of `Puppet::Transaction::Report`) to a hash
+  # suitable for sending over the wire to PuppetDB
+  #
+  # @api private
   def report_to_hash
     add_v4_fields_to_report(
       {
@@ -52,6 +55,7 @@ Puppet::Reports.register_report(:puppetdb) do
       })
   end
 
+  # @api private
   def build_events_list
     filter_events(resource_statuses.inject([]) do |events, status_entry|
       _, status = *status_entry
@@ -71,6 +75,7 @@ Puppet::Reports.register_report(:puppetdb) do
     end)
   end
 
+  # @api private
   def run_duration
     # TODO: this is wrong in puppet.  I am consistently seeing reports where
     # start-time + this value is less than the timestamp on the individual
@@ -81,8 +86,10 @@ Puppet::Reports.register_report(:puppetdb) do
     metrics["time"]["total"]
   end
 
-  ## Convert an instance of `Puppet::Transaction::Event` to a hash
-  ## suitable for sending over the wire to PuppetDB
+  # Convert an instance of `Puppet::Transaction::Event` to a hash
+  # suitable for sending over the wire to PuppetDB
+  #
+  # @api private
   def event_to_hash(resource_status, event)
     add_v4_fields_to_event(resource_status,
       {
@@ -99,9 +106,11 @@ Puppet::Reports.register_report(:puppetdb) do
       })
   end
 
-  ## Given an instance of `Puppet::Resource::Status` and a status string,
-  ## this method fabricates a PuppetDB event object with the provided
-  ## `"status"`.
+  # Given an instance of `Puppet::Resource::Status` and a status string,
+  # this method fabricates a PuppetDB event object with the provided
+  # `"status"`.
+  #
+  # @api private
   def fabricate_event(resource_status, event_status)
     add_v4_fields_to_event(resource_status,
       {
@@ -118,7 +127,9 @@ Puppet::Reports.register_report(:puppetdb) do
       })
   end
 
-  ## Backwards compatibility with versions of Puppet prior to report format 4
+  # Backwards compatibility with versions of Puppet prior to report format 4
+  #
+  # @api private
   def add_v4_fields_to_report(report_hash)
     if report_format >= 4
       report_hash.merge("transaction-uuid" => transaction_uuid)
@@ -127,7 +138,9 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
-  ## Backwards compatibility with versions of Puppet prior to report format 4
+  # Backwards compatibility with versions of Puppet prior to report format 4
+  #
+  # @api private
   def add_v4_fields_to_event(resource_status, event_hash)
     if report_format >= 4
       event_hash.merge("containment-path" => resource_status.containment_path)
@@ -136,7 +149,9 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
-  ## Filter out blacklisted events, if we're configured to do so
+  # Filter out blacklisted events, if we're configured to do so
+  #
+  # @api private
   def filter_events(events)
     if config.ignore_blacklisted_events?
       events.select { |e| ! config.is_event_blacklisted?(e) }
@@ -145,7 +160,9 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
-  ## Helper method for accessing the puppetdb configuration
+  # Helper method for accessing the puppetdb configuration
+  #
+  # @api private
   def config
     Puppet::Util::Puppetdb.config
   end
