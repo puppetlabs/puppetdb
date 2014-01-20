@@ -89,7 +89,7 @@ Puppet::Reports.register_report(:puppetdb) do
     if metrics["time"] and metrics["time"]["total"]
       metrics["time"]["total"]
     else
-      raise Puppet::Error, "Report from #{host} contained no metrics - possibly failed run. Not processing. (PDB-106)"
+      raise Puppet::Error, "Report from #{host} contained no metrics, which is often caused by a failed catalog compilation. Unable to process."
     end
   end
 
