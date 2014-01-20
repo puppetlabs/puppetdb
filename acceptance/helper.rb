@@ -309,6 +309,29 @@ module PuppetDBExtensions
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
   end
 
+  def el5?(host)
+    test_config[:os_families][host.name] == :redhat && fact_on(host, "lsbmajdistrelease") == '5'
+  end
+
+  def add_el5_postgres(host, manifest_string)
+    if el5?(host)
+      "class { 'postgresql::globals':
+         client_package_name => 'postgresql84',
+         server_package_name => 'postgresql84-server',
+         devel_package_name  => 'postgresql84-devel',
+         version => '8.4',
+         bindir => '/usr/bin',
+         service_name => 'postgresql',
+         datadir => '/var/lib/pgsql/data',
+         java_package_name => 'postgresql-jdbc',
+         plperl_package_name => 'postgresql84-plperl',
+         contrib_package_name => 'postgresql84-contrib'}
+       #{manifest_string}"
+    else
+      manifest_string
+    end
+  end
+
   ############################################################################
   # NOTE: the following methods should only be called during run-from-source
   #  acceptance test runs.
@@ -360,9 +383,7 @@ module PuppetDBExtensions
       }
       EOS
     else
-      manifest = <<-EOS
-      class { 'puppetdb::database::postgresql': }
-      EOS
+      manifest = add_el5_postgres(host, "class { 'puppetdb::database::postgresql': }")
     end
     apply_manifest_on(host, manifest)
   end
@@ -388,13 +409,11 @@ module PuppetDBExtensions
     on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{postinst}"
 
     step "Configure database.ini file" do
-      manifest = <<-EOS
+      manifest = add_el5_postgres(host, "
         $database = '#{PuppetDBExtensions.config[:database]}'
-
         class { 'puppetdb::server::database_ini':
           database => $database,
-        }
-      EOS
+        }")
 
       apply_manifest_on(host, manifest)
     end

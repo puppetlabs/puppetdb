@@ -283,12 +283,13 @@
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
 
-    ;; Ensure the database is migrated to the latest version, and warn if it's
-    ;; deprecated. We do this in a single connection because HSQLDB seems to
-    ;; get confused if the database doesn't exist but we open and close a
+    ;; Ensure the database is migrated to the latest version, and warn
+    ;; if it's deprecated, log and exit if it's unsupported. We do
+    ;; this in a single connection because HSQLDB seems to get
+    ;; confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
     (sql/with-connection write-db
-      (scf-store/warn-on-db-deprecation!)
+      (scf-store/validate-database-version #(System/exit 1))
       (migrate!))
 
     ;; Initialize database-dependent metrics
