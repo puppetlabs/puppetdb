@@ -40,7 +40,7 @@ step "Install rubygems and sqlite3 on master" do
   case os
   when :redhat
     if master['platform'].include? 'el-5'
-      on master, "yum install -y rubygems sqlite-devel rubygem-activerecord"
+      on master, "yum install -y rubygems sqlite-devel rubygem-activerecord ruby-devel.x86_64"
       on master, "gem install sqlite3"
     else
       on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
