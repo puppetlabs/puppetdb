@@ -444,6 +444,104 @@
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))
 
+(defn update-resource
+  "Updated the resource in `catalog` with the given `type` and `title`.
+   `update-fn` is a function that accecpts the resource map as an argument
+   and returns a (possibly mutated) resource map."
+  [catalog type title update-fn]
+  (update-in catalog [:data :resources]
+             (fn [resources]
+               (mapv (fn [res]
+                       (if (and (= (:title res) title)
+                                (= (:type res) type))
+                         (update-fn res)
+                         res))
+                     resources))))
+
+(def basic-wire-catalog
+  (get-in wire-catalogs [2 :basic]))
+
+(defn replace-catalog-cmd
+  "Creates a replace-catalog command from a wire format catalog"
+  [wire-catalog]
+  {:command (command-names :replace-catalog)
+   :version 2
+   :payload (json/generate-string wire-catalog)})
+
+(def command-1
+  "Basic command with resources used for resource metadata tests"
+  (replace-catalog-cmd basic-wire-catalog))
+
+(deftest catalog-with-updated-resource-line
+  (let [command-2 (replace-catalog-cmd (update-resource basic-wire-catalog "File" "/etc/foobar" #(assoc % :line 20)))]
+    (with-fixtures
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= 10
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
+
+(deftest catalog-with-updated-resource-file
+  (let [command-2 (replace-catalog-cmd (update-resource basic-wire-catalog "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]
+    (with-fixtures
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= "/tmp/foo"
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
+
+(deftest catalog-with-updated-resource-exported
+  (let [command-2 (replace-catalog-cmd (update-resource basic-wire-catalog "File" "/etc/foobar" #(assoc % :exported true)))]
+    (with-fixtures
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= false
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
+
+(deftest catalog-with-updated-resource-tags
+  (let [command-2 (replace-catalog-cmd (update-resource basic-wire-catalog "File" "/etc/foobar" #(-> %
+                                                                                                     (assoc :tags #{"file" "class" "foobar" "foo"})
+                                                                                                     (assoc :line 20))))]
+    (with-fixtures
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= #{"file" "class" "foobar"}
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
+          (is (= 10
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (-> orig-resources
+                       (assoc-in [{:type "File" :title "/etc/foobar"} :tags] #{"file" "class" "foobar" "foo"})
+                       (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
+
 (let [certname  "foo.example.com"
       facts     {:name certname
                  :values {"a" "1"
