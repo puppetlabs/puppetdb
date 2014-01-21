@@ -230,16 +230,38 @@ module PuppetDBExtensions
 
   end
 
+  def el5?(host)
+    test_config[:os_families][host.name] == :redhat && fact_on(host, "lsbmajdistrelease") == '5'
+  end
+
+  def add_el5_postgres(host, manifest_string)
+    if el5?(host)
+      "class { 'postgresql::globals':
+         client_package_name => 'postgresql84',
+         server_package_name => 'postgresql84-server',
+         devel_package_name  => 'postgresql84-devel',
+         version => '8.4',
+         bindir => '/usr/bin',
+         service_name => 'postgresql',
+         datadir => '/var/lib/pgsql/data',
+         java_package_name => 'postgresql-jdbc',
+         plperl_package_name => 'postgresql84-plperl',
+         contrib_package_name => 'postgresql84-contrib'}
+       #{manifest_string}"
+    else
+      manifest_string
+    end
+  end
 
   def install_puppetdb(host, db, version=nil)
-    manifest = <<-EOS
+    manifest = add_el5_postgres(host, "
     class { 'puppetdb':
       database             => '#{db}',
       open_ssl_listen_port => false,
       open_postgres_port   => false,
       puppetdb_version     => '#{get_package_version(host, version)}',
-    }
-    EOS
+    }")
+
     apply_manifest_on(host, manifest)
     print_ini_files(host)
     sleep_until_started(host)
@@ -307,29 +329,6 @@ module PuppetDBExtensions
   def current_time_on(host)
     result = on host, %Q|date --rfc-2822|
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
-  end
-
-  def el5?(host)
-    test_config[:os_families][host.name] == :redhat && fact_on(host, "lsbmajdistrelease") == '5'
-  end
-
-  def add_el5_postgres(host, manifest_string)
-    if el5?(host)
-      "class { 'postgresql::globals':
-         client_package_name => 'postgresql84',
-         server_package_name => 'postgresql84-server',
-         devel_package_name  => 'postgresql84-devel',
-         version => '8.4',
-         bindir => '/usr/bin',
-         service_name => 'postgresql',
-         datadir => '/var/lib/pgsql/data',
-         java_package_name => 'postgresql-jdbc',
-         plperl_package_name => 'postgresql84-plperl',
-         contrib_package_name => 'postgresql84-contrib'}
-       #{manifest_string}"
-    else
-      manifest_string
-    end
   end
 
   ############################################################################
