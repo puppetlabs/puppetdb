@@ -9,7 +9,8 @@
 
 (defn- raw-query-facts
   [query paging-options]
-  (-> (facts/query->sql query)
+  ;; TODO: the presumption here is that we only do testing on v3, is this correct?
+  (-> (facts/v3-query->sql query)
       (facts/query-facts paging-options)))
 
 (defn- query-facts

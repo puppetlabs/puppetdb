@@ -9,27 +9,19 @@
         [clj-time.core :only [now]]
         [clj-time.coerce :only [to-timestamp]]
         com.puppetlabs.puppetdb.fixtures
-        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
+        [com.puppetlabs.puppetdb.testutils :only [assert-success! get-request]]
         [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+
+(def endpoint "/v1/nodes")
 
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t pl-http/json-response-content-type)
 
-(defn get-request
-  ([path] (get-request path nil))
-  ([path query]
-     (let [request (if query
-                     (request :get path
-                              {"query" (if (string? query) query (json/generate-string query))})
-                     (request :get path))
-           headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" c-t)))))
-
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v1/nodes" query))))
+  ([query] (*app* (get-request endpoint query))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

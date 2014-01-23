@@ -1,17 +1,16 @@
-(ns com.puppetlabs.puppetdb.test.http.v1.command
+(ns com.puppetlabs.puppetdb.test.http.v3.command
   (:require [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
             [clj-time.format :as time])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.mq]
-        [com.puppetlabs.puppetdb.testutils :only [get-request]]))
+        [com.puppetlabs.puppetdb.testutils :only [get-request assert-success!]]
+        [com.puppetlabs.mq]))
 
-(def endpoint "/v1/commands")
+(def endpoint "/v3/commands")
 
 (use-fixtures :each with-test-db with-test-mq with-http-app)
 

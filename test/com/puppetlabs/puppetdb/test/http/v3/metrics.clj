@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.v1.metrics
+(ns com.puppetlabs.puppetdb.test.http.v3.metrics
   (:import (java.util.concurrent TimeUnit))
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http])
@@ -9,7 +9,7 @@
         [com.puppetlabs.puppetdb.testutils :only [get-request]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
-(def endpoint "/v1/metrics")
+(def endpoint "/v3/metrics")
 
 (use-fixtures :each with-test-db with-http-app)
 

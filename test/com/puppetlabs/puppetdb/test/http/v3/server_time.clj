@@ -6,11 +6,13 @@
         [clj-time.coerce :only [from-string]]
         [com.puppetlabs.puppetdb.testutils :only (assert-success! get-request)]))
 
+(def endpoint "/v3/server-time")
+
 (use-fixtures :each with-http-app)
 
 (defn get-response
   []
-  (*app* (get-request "/v3/server-time")))
+  (*app* (get-request endpoint)))
 
 (deftest server-time-response
   (testing "should return the server time"

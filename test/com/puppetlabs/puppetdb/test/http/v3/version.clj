@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.v1.version
+(ns com.puppetlabs.puppetdb.test.http.v3.version
   (:require [com.puppetlabs.puppetdb.version :as version]
             [cheshire.core :as json])
   (:use clojure.test
@@ -6,7 +6,7 @@
         ring.mock.request
         [com.puppetlabs.puppetdb.testutils :only [get-request]]))
 
-(def endpoint "/v1/version")
+(def endpoint "/v3/version")
 
 (use-fixtures :each with-test-db with-http-app)
 

@@ -220,14 +220,15 @@
   app."
   ([path] (get-request path nil))
   ([path query] (get-request path query {}))
-  ([path query params]
+  ([path query params] (get-request path query params {"accept" c-t}))
+  ([path query params headers]
     (let [request (request :get path
                     (if query
                       (assoc params
                         "query" (if (string? query) query (json/generate-string query)))
                       params))
-          headers (:headers request)]
-      (assoc request :headers (assoc headers "Accept" c-t)))))
+          orig-headers (:headers request)]
+      (assoc request :headers (merge orig-headers headers)))))
 
 (defn paged-results
   [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]

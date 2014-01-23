@@ -5,27 +5,18 @@
         ring.mock.request
         [com.puppetlabs.utils :only (keyset)]
         com.puppetlabs.puppetdb.fixtures
+        [com.puppetlabs.puppetdb.testutils :only [get-request]]
         [com.puppetlabs.puppetdb.testutils.nodes :only [store-example-nodes]]))
+
+(def endpoint "/v2/nodes")
 
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t "application/json")
 
-(defn get-request
-  ([path] (get-request path nil))
-  ([path query] (get-request path query nil))
-  ([path query params]
-    (let [query-map (if query
-                      {"query" (if (string? query) query (json/generate-string query))}
-                      {})
-          param-map (merge query-map (if params params {}))
-          request (request :get path param-map)
-          headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" c-t)))))
-
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v2/nodes" query))))
+  ([query] (*app* (get-request endpoint query))))
 
 (defn is-query-result
   [query expected]
@@ -114,7 +105,7 @@
 (deftest node-query-paging
   (testing "should not support paging-related query parameters"
     (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
-      (let [request (get-request "/v2/nodes" nil {k v})
+      (let [request (get-request endpoint nil {k v})
             {:keys [status body]} (*app* request)]
         (is (= status pl-http/status-bad-request))
         (is (= body (format "Unsupported query parameter '%s'" (name k))))))))

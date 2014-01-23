@@ -17,7 +17,7 @@
   (try
     (with-transacted-connection db
       (let [query   (if query (json/parse-string query true))
-            sql     (f/query->sql query)
+            sql     (f/v3-query->sql query)
             facts   (f/query-facts sql paging-options)]
         (query-result-response facts)))
     (catch com.fasterxml.jackson.core.JsonParseException e
