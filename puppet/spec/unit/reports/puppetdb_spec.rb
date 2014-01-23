@@ -71,6 +71,11 @@ describe processor do
       subject.add_resource_status(status)
     end
 
+    it "should error on reports with no metrics" do
+      # at this point subject has no metrics
+      expect { subject.send(:report_to_hash) }.to raise_error(Puppet::Error)
+    end
+
     it "should include the transaction uuid or nil" do
       # Prevents subject.send(:report_to_hash) from exploding
       subject.stubs(:run_duration).returns(-1)

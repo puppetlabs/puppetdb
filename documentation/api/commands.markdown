@@ -101,8 +101,6 @@ the [fact wire format][facts]
 The payload is expected to be the name of a node, as a JSON string, which will be deactivated
 effective as of the time the command is *processed*.
 
-## Experimental commands
-
 ### "store report", version 1
 
 The payload is expected to be a report, containing events that occurred on Puppet

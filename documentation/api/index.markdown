@@ -96,4 +96,4 @@ All of PuppetDB's "replace" commands contain payload data, which must be in one 
 
 * [Facts wire format](./wire_format/facts_format.html)
 * [Catalog wire format](./wire_format/catalog_format.html)
-* [Report wire format (experimental)](./wire_format/report_format.html)
+* [Report wire format](./wire_format/report_format.html)

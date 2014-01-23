@@ -68,9 +68,9 @@ System Requirements
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
 * Red Hat Enterprise Linux 5 or 6 or any distro derived from it (including CentOS)
-* Debian Squeeze, Lenny, Wheezy, or Sid
-* Ubuntu 12.10, 12.04 LTS, 10.04 LTS, 8.04 LTS, 11.10
-* Fedora 16, 17 or 18
+* Debian Squeeze, Wheezy, or Sid
+* Ubuntu 12.10, 12.04 LTS, 10.04 LTS, 11.10
+* Fedora 18, 19 or 20
 
 [See here for instructions for installing via the PuppetDB puppet module.][install_via_module]
 

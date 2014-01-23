@@ -10,8 +10,8 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [exported]: /puppet/2.7/reference/lang_exported.html
 [install_via_module]: ./install_via_module.html
 [report_processors]: http://docs.puppetlabs.com/guides/reporting.html
-[event]: ./api/query/experimental/event.html
-[report]: ./api/query/experimental/report.html
+[event]: ./api/query/v3/event.html
+[report]: ./api/query/v3/report.html
 [store_report]: ./api/commands.html#store-report-version-1
 [report_format]: ./api/wire_format/report_format.html
 
@@ -81,12 +81,12 @@ To enable PuppetDB for the inventory service and saved catalogs/exported resourc
 
 > Note: The `thin_storeconfigs` and `async_storeconfigs` settings should be absent or set to `false`. If you have previously used the puppet queue daemon (puppetqd), you should now disable it. 
 
-#### Enabling experimental report storage
+#### Enabling report storage
 
-Version 1.1 of PuppetDB includes experimental support for storing Puppet
-reports.  This feature can be enabled by simply adding the `puppetdb` report
-processor in your `puppet.conf` file.  If you don't already have a `reports`
-setting in your `puppet.conf` file, you'll probably want to add a line like this:
+PuppetDB includes support for storing Puppet reports.  This feature can be
+enabled by simply adding the `puppetdb` report processor in your `puppet.conf`
+file.  If you don't already have a `reports` setting in your `puppet.conf`
+file, you'll probably want to add a line like this:
 
     reports = store,puppetdb
 
@@ -96,10 +96,10 @@ while also sending the reports to PuppetDB.
 You can configure how long PuppetDB stores these reports, and you can do some
 very basic querying.  For more information, see:
 
-* [The experimental `event` query endpoint][event]
-* [The experimental `report` query endpoint][report]
-* [The experimental `store report` command][store_report]
-* [The experimental report wire format][report_format]
+* [The `event` query endpoint][event]
+* [The `report` query endpoint][report]
+* [The `store report` command][store_report]
+* [The report wire format][report_format]
 
 More information about Puppet report processors in general can be found
 [here][report_processors].
