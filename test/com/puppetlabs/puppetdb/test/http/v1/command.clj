@@ -5,19 +5,14 @@
             [clj-time.format :as time])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.mq]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]
+        [com.puppetlabs.mq]
+        [com.puppetlabs.puppetdb.testutils :only [get-request uuid-in-response? assert-success!]]))
+
+(def endpoint "/v1/commands")
 
 (use-fixtures :each with-test-db with-test-mq with-http-app)
-
-(defn make-request
-  [post-body]
-  (let [request (request :post "/v1/commands")]
-    (-> request
-        (assoc-in [:headers "accept"] "application/json")
-        (body post-body))))
 
 (deftest command-endpoint
   (testing "Commands submitted via REST"
@@ -25,29 +20,24 @@
     (testing "should work when well-formed"
       (let [payload  "This is a test"
             checksum (kitchensink/utf8-string->sha1 payload)
-            req      (make-request {:payload payload :checksum checksum})
+            req      (get-request endpoint nil {:payload payload :checksum checksum})
             resp     (*app* req)]
         (assert-success! resp)
         (is (= (get-in resp [:headers "Content-Type"]) pl-http/json-response-content-type))
-        (is (= (instance? java.util.UUID
-                          (-> (:body resp)
-                              (json/parse-string true)
-                              (:uuid)
-                              (java.util.UUID/fromString)))
-               true))))
+        (is (true? (uuid-in-response? resp)))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [req  (make-request {})
+      (let [req  (get-request endpoint)
             resp (*app* req)]
         (is (= (:status resp) pl-http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
-      (let [req (make-request {:payload "my payload!"})
+      (let [req (get-request endpoint nil {:payload "my payload!"})
             resp (*app* req)]
         (assert-success! resp)))
 
     (testing "should return 400 when checksums don't match"
-      (let [req  (make-request {:payload "Testing" :checksum "something bad"})
+      (let [req  (get-request endpoint nil {:payload "Testing" :checksum "something bad"})
             resp (*app* req)]
         (is (= (:status resp) pl-http/status-bad-request))))))
 
@@ -56,18 +46,18 @@
         good-checksum      (kitchensink/utf8-string->sha1 good-payload)
         bad-payload        "some test message"
         bad-checksum       (kitchensink/utf8-string->sha1 bad-payload)]
-    (-> {:payload good-payload :checksum good-checksum}
-      (make-request)
+    (->> {:payload good-payload :checksum good-checksum}
+      (get-request endpoint nil)
       (*app*))
-    (-> {:payload bad-payload :checksum bad-checksum}
-      (make-request)
+    (->> {:payload bad-payload :checksum bad-checksum}
+      (get-request endpoint nil)
       (*app*))
 
     (let [[good-msg bad-msg] (bounded-drain-into-vec! *conn* "com.puppetlabs.puppetdb.commands" 2)
           good-command       (json/parse-string good-msg true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-command [:annotations :received])]
-          (time/parse (time/formatters :date-time) timestamp)))
+          (is (not (nil? (time/parse (time/formatters :date-time) timestamp))))))
 
       (testing "should be left alone when not parseable"
         (is (= bad-msg bad-payload))))))

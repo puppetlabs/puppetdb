@@ -9,20 +9,22 @@
         [com.puppetlabs.puppetdb.testutils :only [response-equal? paged-results]]
         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
 
+(def endpoint "/v3/event-counts")
+
 (use-fixtures :each with-test-db with-http-app)
 
 (deftest query-event-counts
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
-    (let [response  (get-response "/v3/event-counts"
+    (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "illegal-summarize-by" {} true)
           body      (get response :body "null")]
       (is (= (:status response) pl-http/status-bad-request))
       (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
-    (let [response  (get-response "/v3/event-counts"
+    (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "certname"
                                   {"count-by" "illegal-count-by"} true)
           body      (get response :body "null")]
@@ -36,7 +38,7 @@
                        :successes 0
                        :noops 0
                        :skips 1}}
-          response  (get-response "/v3/event-counts"
+          response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   "containing-class"
                                   {"count-by"      "certname"
@@ -66,7 +68,7 @@
                          :skips           1}}
             results (paged-results
                       {:app-fn  *app*
-                       :path    "/v3/event-counts"
+                       :path    endpoint
                        :query   [">" "timestamp" 0]
                        :params  {:summarize-by "resource"}
                        :limit   1
@@ -97,7 +99,7 @@
                        :successes 0
                        :noops 0
                        :skips 1}}
-          response  (get-response "/v3/event-counts"
+          response  (get-response endpoint
                       ["=" "certname" "foo.local"]
                       "resource"
                       {"distinct-resources" true

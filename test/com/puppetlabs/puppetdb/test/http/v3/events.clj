@@ -14,6 +14,8 @@
         [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
         [com.puppetlabs.puppetdb.testutils.reports :only (store-example-report! get-events-map)]))
 
+(def endpoint "/v3/events")
+
 (def content-type-json pl-http/json-response-content-type)
 
 (use-fixtures :each with-test-db with-http-app)
@@ -22,7 +24,7 @@
   ([query]
     (get-response query {}))
   ([query extra-query-params]
-    (*app* (get-request "/v3/events" query extra-query-params))))
+    (*app* (get-request endpoint query extra-query-params))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -131,7 +133,7 @@
       (testing (str "should support paging through events " label " counts")
         (let [results (paged-results
                         {:app-fn  *app*
-                         :path    "/v3/events"
+                         :path    endpoint
                          :query   ["=" "report" report-hash]
                          :limit   1
                          :total   (count basic-events)
