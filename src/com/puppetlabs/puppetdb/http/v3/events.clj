@@ -1,4 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.v3.events
+  (:import (java.sql Timestamp))
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.utils :as pl-utils]
             [com.puppetlabs.puppetdb.query.events :as query]
@@ -7,6 +8,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
+        [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.http :only (parse-boolean-query-param)]
         [com.puppetlabs.puppetdb.http :only (query-result-response)]))
@@ -35,30 +37,65 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(defn get-query-options
-  "Given a map of query params, build up a list of the legal query options
-  support by the event counts query."
+(defn validate-distinct-options!
+  "Validate the query params related to a `distinct-resources` query.  Return a
+  map containing the validated `distinct-resources` options, parsed to the correct
+  data types.  Throws `IllegalArgumentException` if any arguments are missing
+  or invalid."
   [params]
-  ;; For now, the only supported query option is `:distinct-resources?`
-  {:distinct-resources? (parse-boolean-query-param params "distinct-resources")})
+  {:pre [(map? params)]
+   :post [(map? %)
+          (every? (partial contains? %) #{:distinct-resources? :distinct-start-time :distinct-end-time})
+          (pl-utils/boolean? (:distinct-resources? %))
+          ((some-fn (partial instance? Timestamp) nil?) (:distinct-start-time %))
+          ((some-fn (partial instance? Timestamp) nil?) (:distinct-end-time %))]}
+  (let [distinct-params ["distinct-resources" "distinct-start-time" "distinct-end-time"]]
+    (cond
+      (not-any? #(contains? params %) distinct-params)
+      {:distinct-resources? false
+       :distinct-start-time nil
+       :distinct-end-time   nil}
+
+      (every? #(contains? params %) distinct-params)
+      (let [start (to-timestamp (params "distinct-start-time"))
+            end   (to-timestamp (params "distinct-end-time"))]
+        (when (some nil? [start end])
+          (throw (IllegalArgumentException.
+                   (str "query parameters 'distinct-start-time' and 'distinct-end-time' must be valid datetime strings: "
+                        (params "distinct-start-time") " "
+                        (params "distinct-end-time")))))
+        {:distinct-resources? (parse-boolean-query-param params "distinct-resources")
+         :distinct-start-time start
+         :distinct-end-time   end})
+
+      :else
+      (throw (IllegalArgumentException.
+               "'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'")))))
 
 (def routes
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
-            (let [limit         (:event-query-limit globals)
-                  query-options (get-query-options params)]
-              (produce-body
-                limit
-                (params "query")
-                query-options
-                paging-options
-                (:scf-db globals))))}))
+            (try
+              (let [query-options (validate-distinct-options! params)
+                    limit         (:event-query-limit globals)]
+                (produce-body
+                  limit
+                  (params "query")
+                  query-options
+                  paging-options
+                  (:scf-db globals)))
+              (catch IllegalArgumentException e
+                (pl-http/error-response e))))}))
 
 (def events-app
   "Ring app for querying events"
   (-> routes
     verify-accepts-json
     (validate-query-params {:required ["query"]
-                            :optional (cons "distinct-resources" paging/query-params)})
+                            :optional (concat
+                                        ["distinct-resources"
+                                         "distinct-start-time"
+                                         "distinct-end-time"]
+                                        paging/query-params)})
     wrap-with-paging-options))

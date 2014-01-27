@@ -100,5 +100,7 @@
           response  (get-response "/v3/event-counts"
                       ["=" "certname" "foo.local"]
                       "resource"
-                      {"distinct-resources" true})]
+                      {"distinct-resources" true
+                       "distinct-start-time" 0
+                       "distinct-end-time" (now)})]
       (response-equal? response expected))))
