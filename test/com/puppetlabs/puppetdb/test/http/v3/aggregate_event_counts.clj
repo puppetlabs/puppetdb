@@ -58,6 +58,8 @@
           response  (get-response "/v3/aggregate-event-counts"
                       ["=" "certname" "foo.local"]
                       "resource"
-                      {"distinct-resources" true})]
+                      {"distinct-resources" true
+                       "distinct-start-time" 0
+                       "distinct-end-time" (now)})]
       (assert-success! response)
       (is (= expected (json/parse-string (:body response) true))))))
