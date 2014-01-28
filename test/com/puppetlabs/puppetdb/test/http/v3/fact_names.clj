@@ -54,7 +54,6 @@
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
-      (scf-store/add-facts! "foo1" facts1 (now))
       (scf-store/add-facts! "foo2" facts2 (now))
       (scf-store/add-facts! "foo3" facts3 (now))
       (scf-store/deactivate-node! "foo1"))
