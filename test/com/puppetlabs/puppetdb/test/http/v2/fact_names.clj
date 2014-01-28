@@ -1,20 +1,17 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.fact-names
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [cheshire.core :as json])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.testutils :only [get-request]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v2/fact-names")
 
 (use-fixtures :each with-test-db with-http-app)
-
-(def c-t "application/json")
 
 (deftest all-fact-names
   (let [facts1 {"domain" "testing.com"
@@ -38,7 +35,7 @@
             {:keys [status body]} (*app* request)
             result (json/parse-string body)]
         (is (= status pl-http/status-ok))
-        (is (= result []))))
+        (is (empty? []))))
 
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")

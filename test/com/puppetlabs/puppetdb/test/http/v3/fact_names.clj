@@ -7,7 +7,7 @@
         [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.testutils :only [paged-results get-request]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v3/fact-names")
 
@@ -34,7 +34,7 @@
             {:keys [status body]} (*app* request)
             result (json/parse-string body)]
         (is (= status pl-http/status-ok))
-        (is (= result []))))
+        (is (empty? result))))
 
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
