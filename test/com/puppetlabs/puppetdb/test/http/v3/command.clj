@@ -6,8 +6,8 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.testutils :only [get-request assert-success!]]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]
+        [com.puppetlabs.puppetdb.testutils :only [get-request uuid-in-response? assert-success!]]
         [com.puppetlabs.mq]))
 
 (def endpoint "/v3/commands")
@@ -24,12 +24,7 @@
             resp     (*app* req)]
         (assert-success! resp)
         (is (= (get-in resp [:headers "Content-Type"]) pl-http/json-response-content-type))
-        (is (= (instance? java.util.UUID
-                          (-> (:body resp)
-                              (json/parse-string true)
-                              (:uuid)
-                              (java.util.UUID/fromString)))
-               true))))
+        (is (true? (uuid-in-response? resp)))))
 
     (testing "should return status-bad-request when missing payload"
       (let [req  (get-request endpoint)
@@ -62,7 +57,7 @@
           good-command       (json/parse-string good-msg true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-command [:annotations :received])]
-          (time/parse (time/formatters :date-time) timestamp)))
+          (is (not (nil? (time/parse (time/formatters :date-time) timestamp))))))
 
       (testing "should be left alone when not parseable"
         (is (= bad-msg bad-payload))))))

@@ -11,7 +11,7 @@
         com.puppetlabs.puppetdb.fixtures
         [com.puppetlabs.puppetdb.testutils :only [assert-success! get-request]]
         [com.puppetlabs.puppetdb.scf.storage :only [deactivate-node!]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v1/nodes")
 

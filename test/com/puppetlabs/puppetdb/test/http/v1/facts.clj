@@ -1,14 +1,13 @@
 (ns com.puppetlabs.puppetdb.test.http.v1.facts
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [cheshire.core :as json])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [clj-time.core :only [now]]
-        [com.puppetlabs.puppetdb.testutils :only [get-request]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.puppetdb.testutils :only [get-request assert-success!]]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v1/facts")
 
@@ -48,7 +47,7 @@
     (testing "for a present node with facts"
       (let [request (get-request (str endpoint "/" certname_with_facts))
             response (*app* request)]
-        (is (= (:status response) pl-http/status-ok))
+        (assert-success! response)
         (is (= (get-in response [:headers "Content-Type"]) c-t))
         (is (= (json/parse-string (:body response))
                {"name" certname_with_facts "facts" facts}))))))

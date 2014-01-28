@@ -7,8 +7,8 @@
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.examples]
         [clj-time.core :only [now]]
-        [com.puppetlabs.puppetdb.testutils :only [get-request paged-results]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.puppetdb.testutils :only [get-request paged-results assert-success!]]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v3/facts")
 
@@ -53,9 +53,7 @@
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
-      (let [response (get-response)
-            body     (get response :body "null")]
-        (is (= 200 (:status response)))))
+      (assert-success! (get-response)))
 
     (testing "fact queries"
       (testing "well-formed queries"
@@ -180,8 +178,7 @@
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
             (is (= (headers "Content-Type") c-t))
-            (is (= result (json/parse-string body true))
-                (pr-str query)))))
+            (is (= result (json/parse-string body true))))))
 
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
@@ -202,7 +199,7 @@
     (is (= (try
              (json/parse-string body true)
              (catch Throwable e
-               body)) results) query)
+               body)) results))
     (is (= status pl-http/status-ok))))
 
 (deftest fact-subqueries

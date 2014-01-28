@@ -8,7 +8,8 @@
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.puppetdb.examples]
         [clj-time.core :only [now]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.puppetdb.testutils :only [get-request assert-success!]]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
 (def endpoint "/v2/facts")
 
@@ -18,7 +19,7 @@
 
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (testutils/get-request endpoint query))))
+  ([query] (*app* (get-request endpoint query))))
 
 (deftest fact-queries
   (let [facts1 {"domain" "testing.com"
@@ -53,9 +54,7 @@
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
-      (let [response (get-response)
-            body     (get response :body "null")]
-        (is (= 200 (:status response)))))
+      (assert-success! (get-response)))
 
     (testing "fact queries"
       (testing "well-formed queries"
@@ -176,33 +175,32 @@
                   ["=" ["node" "active"] false]
                   []}]
 
-          (let [request (testutils/get-request endpoint (json/generate-string query))
+          (let [request (get-request endpoint (json/generate-string query))
                 {:keys [status body headers]} (*app* request)]
             (is (= status pl-http/status-ok))
             (is (= (headers "Content-Type") c-t))
-            (is (= result (json/parse-string body true))
-                (pr-str query)))))
+            (is (= result (json/parse-string body true))))))
 
       (testing "malformed, yo"
-        (let [request (testutils/get-request endpoint (json/generate-string []))
+        (let [request (get-request endpoint (json/generate-string []))
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
-        (let [request (testutils/get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
+        (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
               {:keys [status body]} (*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (defn is-query-result
   [query results]
-  (let [request (testutils/get-request endpoint (json/generate-string query))
+  (let [request (get-request endpoint (json/generate-string query))
         {:keys [status body]} (*app* request)]
     (is (= (try
              (json/parse-string body true)
              (catch Throwable e
-               body)) results) query)
+               body)) results))
     (is (= status pl-http/status-ok))))
 
 (deftest fact-subqueries
@@ -372,7 +370,7 @@
                 ["=" "type" "Class"]]]]
               "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, name, value"}]
       (testing (str "query: " query " should fail with msg: " msg)
-        (let [request (testutils/get-request endpoint (json/generate-string query))
+        (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (*app* request)]
           (is (= body msg))
           (is (= status pl-http/status-bad-request)))))))
@@ -380,7 +378,7 @@
 (deftest fact-query-paging
   (testing "should not support paging-related query parameters"
     (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
-      (let [request (testutils/get-request endpoint nil {k v})
+      (let [request (get-request endpoint nil {k v})
             {:keys [status body]} (*app* request)]
         (is (= status pl-http/status-bad-request))
         (is (= body (format "Unsupported query parameter '%s'" (name k))))))))

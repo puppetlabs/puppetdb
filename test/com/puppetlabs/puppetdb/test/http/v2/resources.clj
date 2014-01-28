@@ -29,7 +29,7 @@ to the result of the form supplied to this method."
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
-                nil)) (str response)))
+                nil))))
 
 (defn expected-results
   "Munge example resource output from latest API format to v2 format"

@@ -6,8 +6,8 @@
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]
+        [com.puppetlabs.puppetdb.http :only [query-result-response]]))
 
 (defn query-facts
   "Accepts a `query` and a `db` connection, and returns facts matching the

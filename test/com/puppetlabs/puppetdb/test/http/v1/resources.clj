@@ -29,7 +29,7 @@ to the result of the form supplied to this method."
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
-                nil)) (str response)))
+                nil))))
 
 (deftest resource-list-handler
   (with-transacted-connection *db*

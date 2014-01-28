@@ -3,7 +3,7 @@
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
-        [com.puppetlabs.utils :only (keyset)]
+        [com.puppetlabs.utils :only [keyset]]
         com.puppetlabs.puppetdb.fixtures
         [com.puppetlabs.puppetdb.testutils :only [get-request]]
         [com.puppetlabs.puppetdb.testutils.nodes :only [store-example-nodes]]))
@@ -28,8 +28,7 @@
     (doseq [res result]
       (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res))))
     (is (= status pl-http/status-ok))
-    (is (= expected (mapv :name result))
-        (str query))))
+    (is (= expected (mapv :name result)))))
 
 (deftest node-queries
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]

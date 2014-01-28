@@ -255,3 +255,14 @@
         (concat coll result)))
     []
     (range (java.lang.Math/ceil (/ total (float limit))))))
+
+(defn uuid-in-response?
+  "Returns true when the response contains a properly formed
+   UUID in the body of the response"
+  [response]
+  (instance? java.util.UUID
+             (-> response
+                 :body
+                 (json/parse-string true)
+                 :uuid
+                 java.util.UUID/fromString)))

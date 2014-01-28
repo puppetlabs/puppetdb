@@ -1,9 +1,9 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.metrics
   (:import (java.util.concurrent TimeUnit))
   (:require [cheshire.core :as json]
-            [com.puppetlabs.http :as pl-http])
-  (:use com.puppetlabs.puppetdb.http.v1.metrics
-        com.puppetlabs.puppetdb.fixtures
+            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http.v1.metrics :as metrics])
+  (:use com.puppetlabs.puppetdb.fixtures
         clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.testutils :only [get-request]]
@@ -18,19 +18,19 @@
 (deftest mean-filtering
   (testing "MBean filtering"
     (testing "should pass-through serializable values"
-      (is (= (filter-mbean {:key 123})
+      (is (= (metrics/filter-mbean {:key 123})
              {:key 123}))
 
       (testing "in nested structures"
-        (is (= (filter-mbean {:key {:key 123}})
+        (is (= (metrics/filter-mbean {:key {:key 123}})
                {:key {:key 123}}))))
 
     (testing "should stringify unserializable objects"
-      (is (= (filter-mbean {:key TimeUnit/SECONDS})
+      (is (= (metrics/filter-mbean {:key TimeUnit/SECONDS})
              {:key "SECONDS"}))
 
       (testing "in nested structures"
-        (is (= (filter-mbean {:key {:key TimeUnit/SECONDS}})
+        (is (= (metrics/filter-mbean {:key {:key TimeUnit/SECONDS}})
                {:key {:key "SECONDS"}}))))))
 
 (deftest metrics-set-handler

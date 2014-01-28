@@ -27,7 +27,7 @@ to the result of the form supplied to this method."
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
-                nil)) (str response)))
+                nil))))
 
 (deftest test-resource-queries
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
