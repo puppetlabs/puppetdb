@@ -1,8 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.v2.facts
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.testutils :as testutils])
+            [cheshire.core :as json])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]

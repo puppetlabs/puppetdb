@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.facts
-  (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json])
   (:use clojure.test
         ring.mock.request
@@ -294,13 +294,11 @@
                {:certname "baz" :name "ipaddress" :value "192.168.1.102"}
                {:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
 
-
               ;; No matching resources
               ["and"
                ["=" "name" "ipaddress"]
                ["in" "certname" ["extract" "certname" ["select-resources"
                 ["=" "type" "NotRealAtAll"]]]]]
-
               []
 
               ;; No matching facts
@@ -326,8 +324,8 @@
                ["=" "name" "osfamily"]]]]
 
               [{:certname "bar" :name "osfamily" :value "Debian"}
-                 {:certname "baz" :name "osfamily" :value "RedHat"}
-                 {:certname "foo" :name "osfamily" :value "Debian"}]
+               {:certname "baz" :name "osfamily" :value "RedHat"}
+               {:certname "foo" :name "osfamily" :value "Debian"}]
 
               ;; Nested fact subqueries
               ["and"
@@ -356,11 +354,16 @@
                  [">" "value" 10000]]]]]]
 
               [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}]}]
-        (testing (str "query: " query " should match expected output")
-          (is-query-result query results))))
+      (testing (str "query: " query " should match expected output")
+        (is-query-result query results))))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] {
+             ;; Extract using an invalid fields should throw an error
+             ["in" "certname" ["extract" "nothing" ["select-resources"
+              ["=" "type" "Class"]]]]
+             "Can't extract unknown resource field 'nothing'. Acceptable fields are: catalog, certname, exported, file, line, resource, tags, title, type"
+
              ;; Subqueries using old sourcefile/sourceline should throw error
              ["and"
               ["=" "name" "ipaddress"]
@@ -371,11 +374,6 @@
 
              "sourcefile is not a queryable object for resources"
 
-             ;; Extract using an invalid fields should throw an error
-             ["in" "certname" ["extract" "nothing" ["select-resources"
-              ["=" "type" "Class"]]]]
-             "Can't extract unknown resource field 'nothing'. Acceptable fields are: catalog, certname, exported, file, line, resource, tags, title, type"
-
              ;; In-queries for invalid fields should throw an error
              ["in" "nothing" ["extract" "certname" ["select-resources"
                ["=" "type" "Class"]]]]
@@ -383,8 +381,8 @@
       (testing (str "query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (*app* request)]
-          (is (= status pl-http/status-bad-request))
-          (is (= body msg)))))))
+          (is (= body msg))
+          (is (= status pl-http/status-bad-request)))))))
 
 (defn test-paged-results
   [query limit total count?]

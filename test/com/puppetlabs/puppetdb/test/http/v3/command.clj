@@ -7,8 +7,8 @@
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
         [com.puppetlabs.jdbc :only [with-transacted-connection]]
-        [com.puppetlabs.puppetdb.testutils :only [get-request uuid-in-response? assert-success!]]
-        [com.puppetlabs.mq]))
+        [com.puppetlabs.mq]
+        [com.puppetlabs.puppetdb.testutils :only [get-request uuid-in-response? assert-success!]]))
 
 (def endpoint "/v3/commands")
 

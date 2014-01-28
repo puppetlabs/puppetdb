@@ -6,7 +6,7 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]
         [com.puppetlabs.mq]
         [com.puppetlabs.puppetdb.testutils :only [get-request uuid-in-response? assert-success!]]))
 
