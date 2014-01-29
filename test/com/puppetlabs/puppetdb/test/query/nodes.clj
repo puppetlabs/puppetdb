@@ -12,7 +12,7 @@
 
 (defn- raw-retrieve-nodes
   [filter-expr paging-options]
-  (-> (node/v2-query->sql filter-expr)
+  (-> (node/v3-query->sql filter-expr)
       (node/query-nodes paging-options)))
 
 (defn- retrieve-node-names
@@ -55,7 +55,7 @@
                     and-result (apply set/intersection results)
                     or-expr    (cons "or" exprs)
                     or-result  (apply set/union results)
-                    not-expr   (cons "not" exprs)
+                    not-expr   ["not" (cons "or" exprs)]
                     not-result (apply set/difference names results)]]
         (is (= (retrieve-node-names and-expr)
                (sort and-result))

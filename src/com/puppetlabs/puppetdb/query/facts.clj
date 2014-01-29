@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 execute-query]]
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v1 fact-operators-v2 fact-operators-v3 execute-query]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
@@ -47,16 +47,25 @@
 
 (defn query->sql
   "Compile a query into an SQL expression."
-  [query]
+  [operators query]
   {:pre [((some-fn nil? sequential?) query) ]
    :post [(vector? %)
           (string? (first %))
           (every? (complement coll?) (rest %))]}
   (if query
-    (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
+    (let [[subselect & params] (fact-query->sql operators query)
           sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts ORDER BY facts.certname, facts.name, facts.value" subselect)]
       (apply vector sql params))
     ["SELECT certname, name, value FROM certname_facts ORDER BY certname, name, value"]))
+
+(def v1-query->sql
+  (partial query->sql fact-operators-v1))
+
+(def v2-query->sql
+  (partial query->sql fact-operators-v2))
+
+(def v3-query->sql
+  (partial query->sql fact-operators-v3))
 
 (defn query-facts
   [[sql & params :as query] paging-options]

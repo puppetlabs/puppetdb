@@ -4,22 +4,18 @@
   (:use  [clojure.java.io :only [resource]]
          clojure.test
          ring.mock.request
+         [com.puppetlabs.puppetdb.testutils :only [get-request]]
          [com.puppetlabs.puppetdb.fixtures]))
+
+(def endpoint "/v3/catalogs")
 
 (use-fixtures :each with-test-db with-http-app)
 
-
 (def c-t "application/json")
-
-(defn get-request
-  [path]
-  (let [request (request :get path)]
-    (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
   ([]      (get-response nil))
-  ([node] (*app* (get-request (str "/v3/catalogs/" node)))))
-
+  ([node] (*app* (get-request (str endpoint "/" node)))))
 
 (deftest catalog-retrieval
   (let [original-catalog-str (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/big-catalog.json"))

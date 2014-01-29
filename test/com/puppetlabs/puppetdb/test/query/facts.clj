@@ -9,7 +9,7 @@
 
 (defn- raw-query-facts
   [query paging-options]
-  (-> (facts/query->sql query)
+  (-> (facts/v3-query->sql query)
       (facts/query-facts paging-options)))
 
 (defn- query-facts

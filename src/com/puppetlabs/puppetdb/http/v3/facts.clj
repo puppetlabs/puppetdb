@@ -6,8 +6,8 @@
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]
+        [com.puppetlabs.puppetdb.http :only [query-result-response]]))
 
 (defn query-facts
   "Accepts a `query` and a `db` connection, and returns facts matching the
@@ -17,7 +17,7 @@
   (try
     (with-transacted-connection db
       (let [query   (if query (json/parse-string query true))
-            sql     (f/query->sql query)
+            sql     (f/v3-query->sql query)
             facts   (f/query-facts sql paging-options)]
         (query-result-response facts)))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -29,10 +29,10 @@
 
 (def query-app
   (app
-    [&]
-    {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (query-facts (params "query") paging-options (:scf-db globals)))
-            http-q/restrict-query-to-active-nodes)}))
+   [&]
+   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
+                 (query-facts (params "query") paging-options (:scf-db globals)))
+           http-q/restrict-query-to-active-nodes)}))
 
 (defn build-facts-app
   [query-app]

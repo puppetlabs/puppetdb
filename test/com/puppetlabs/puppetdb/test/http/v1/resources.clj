@@ -6,27 +6,20 @@
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.testutils :only [get-request]]
         [com.puppetlabs.puppetdb.scf.storage :only [db-serialize to-jdbc-varchar-array deactivate-node!]]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+
+(def endpoint "/v1/resources")
 
 (use-fixtures :each with-test-db with-http-app)
 
 ;;;; Test the resource listing handlers.
 (def c-t pl-http/json-response-content-type)
 
-(defn get-request
-  ([path] (get-request path nil))
-  ([path query]
-     (let [request (if query
-                     (request :get path
-                              {"query" (if (string? query) query (json/generate-string query))})
-                     (request :get path))
-           headers (:headers request)]
-       (assoc request :headers (assoc headers "Accept" c-t)))))
-
 (defn get-response
   ([]      (get-response nil))
-  ([query] (*app* (get-request "/v1/resources" query))))
+  ([query] (*app* (get-request endpoint query))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -36,7 +29,7 @@ to the result of the form supplied to this method."
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
-                nil)) (str response)))
+                nil))))
 
 (deftest resource-list-handler
   (with-transacted-connection *db*

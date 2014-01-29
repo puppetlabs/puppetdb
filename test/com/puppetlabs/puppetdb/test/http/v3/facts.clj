@@ -1,26 +1,27 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.facts
-  (:require [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.testutils :as testutils])
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store])
   (:use clojure.test
         [com.puppetlabs.puppetdb.fixtures]
+        [com.puppetlabs.puppetdb.examples]
         [clj-time.core :only [now]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]))
+        [com.puppetlabs.puppetdb.testutils :only [get-request paged-results]]
+        [com.puppetlabs.jdbc :only [with-transacted-connection]]))
+
+(def endpoint "/v3/facts")
 
 (use-fixtures :each with-test-db with-http-app)
 
-(defn paged-results
+(defn test-paged-results
   [query limit total count?]
-  (testutils/paged-results
+  (paged-results
     {:app-fn  *app*
-     :path    "/v3/facts"
+     :path    endpoint
      :query   query
      :limit   limit
      :total   total
      :include-total  count?}))
 
-(deftest fact-queries
+(deftest fact-query-paging
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
                 "kernel" "Linux"
@@ -41,7 +42,7 @@
     (doseq [[label counts?] [["without" false]
                              ["with" true]]]
       (testing (str "should support paging through facts " label " counts")
-        (let [results (paged-results
+        (let [results (test-paged-results
                         ["=" "certname" "foo1"]
                         2 (count facts1) counts?)]
           (is (= (count facts1) (count results)))
