@@ -84,5 +84,5 @@
 
   :jar-exclusions [#"leiningen/"]
 
-  :aot [com.puppetlabs.puppetdb.core]
+  :aot [com.puppetlabs.puppetdb.core clj-time.core]
   :main com.puppetlabs.puppetdb.core)
