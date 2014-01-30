@@ -1,14 +1,14 @@
 (ns com.puppetlabs.puppetdb.http.v3.event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
+            [com.puppetlabs.puppetdb.http.events :as events-http]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
             [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [net.cgrand.moustache :only [app]]
             [com.puppetlabs.http :only [parse-boolean-query-param]]
-            [com.puppetlabs.puppetdb.http :only (query-result-response)]
-            [com.puppetlabs.puppetdb.http.v3.events :only [validate-distinct-options!]]))
+            [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn produce-body
   "Given a database connection, a query, a value to summarize by, and optionally
@@ -24,7 +24,7 @@
   (try
     (let [query               (json/parse-string query true)
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
-          distinct-options    (validate-distinct-options! query-params)]
+          distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
         (-> query
             (event-counts/query->sql summarize-by
