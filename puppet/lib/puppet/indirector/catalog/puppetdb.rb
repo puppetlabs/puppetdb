@@ -16,9 +16,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     nil
   end
 
-  # TODO: I think that almost everything below this line should be
-  #  private, but I don't want to break all the tests right now...
-
+  # @api private
   def extract_extra_request_data(request)
     {
       :transaction_uuid => request.options[:transaction_uuid]

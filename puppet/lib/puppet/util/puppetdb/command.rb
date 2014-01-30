@@ -69,10 +69,9 @@ class Puppet::Util::Puppetdb::Command
   end
 
 
-  private
+  # @!group Private class methods
 
-  ## Private class methods
-
+  # @api private
   def self.format_payload(command, version, payload)
     message = {
       :command => command,
@@ -83,9 +82,9 @@ class Puppet::Util::Puppetdb::Command
     Puppet::Util::Puppetdb::CharEncoding.utf8_string(message)
   end
 
+  # @!group Private instance methods
 
-  ## Private instance methods
-
+  # @api private
   def headers
     {
       "Accept" => "application/json",
@@ -93,6 +92,7 @@ class Puppet::Util::Puppetdb::Command
     }
   end
 
+  # @api private
   def config
     # Would prefer to pass this to the constructor or acquire it some other
     # way besides this pseudo-global reference.

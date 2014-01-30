@@ -11,6 +11,8 @@
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
+
+
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
   The `value` for comparison must be coercible to a timestamp via
@@ -139,53 +141,85 @@
    "containment_path"       ["resource_events"]
    "containing_class"       ["resource_events"]})
 
-;; This is the template for the SELECT statement that we use in the common case.
-(def default-select
-  "SELECT %s
-      FROM resource_events
-      JOIN reports ON resource_events.report = reports.hash
-      WHERE %s")
+(defn default-select
+  "Build the default SELECT statement that we use in the common case.  Returns
+  a two-item vector whose first value is the SQL string and whose second value
+  is a list of parameters for the SQL query."
+  [select-fields where params]
+  {:pre [(string? select-fields)
+         (string? where)
+         ((some-fn nil? sequential?) params)]
+   :post [(vector? %)
+          (= 2 (count %))
+          (string? (first %))
+          ((some-fn nil? sequential?) (second %))]}
+  [(format
+     "SELECT %s
+         FROM resource_events
+         JOIN reports ON resource_events.report = reports.hash
+         WHERE %s"
+     select-fields
+     where)
+   params])
 
-
-;; This is the template for the SELECT statement that we use if we are filtering
-;;  out duplicate events that occurred on the same resource (per node).
-(def distinct-select
-  "SELECT %s
-      FROM resource_events
-      JOIN reports ON resource_events.report = reports.hash
-      JOIN (SELECT reports.certname,
-                   resource_events.resource_type,
-                   resource_events.resource_title,
-                   resource_events.property,
-                   MAX(resource_events.timestamp) AS timestamp
-               FROM resource_events
-               JOIN reports ON resource_events.report = reports.hash
-               WHERE %s
-               GROUP BY certname, resource_type, resource_title, property) latest_events
-           ON reports.certname = latest_events.certname
-            AND resource_events.resource_type = latest_events.resource_type
-            AND resource_events.resource_title = latest_events.resource_title
-            AND ((resource_events.property = latest_events.property) OR
-                 (resource_events.property IS NULL AND latest_events.property IS NULL))
-            AND resource_events.timestamp = latest_events.timestamp")
+(defn distinct-select
+  "Build the SELECT statement that we use in the `distinct-resources` case (where
+  we are filtering out multiple events on the same resource on the same node).
+  Returns a two-item vector whose first value is the SQL string and whose second value
+  is a list of parameters for the SQL query."
+  [select-fields where params distinct-start-time distinct-end-time]
+  {:pre [(string? select-fields)
+         (string? where)
+         ((some-fn nil? sequential?) params)]
+   :post [(vector? %)
+          (= 2 (count %))
+          (string? (first %))
+          ((some-fn nil? sequential?) (second %))]}
+  [(format
+     "SELECT %s
+         FROM resource_events
+         JOIN reports ON resource_events.report = reports.hash
+         JOIN (SELECT reports.certname,
+                      resource_events.resource_type,
+                      resource_events.resource_title,
+                      resource_events.property,
+                      MAX(resource_events.timestamp) AS timestamp
+                  FROM resource_events
+                  JOIN reports ON resource_events.report = reports.hash
+                  WHERE resource_events.timestamp >= ?
+                     AND resource_events.timestamp <= ?
+                  GROUP BY certname, resource_type, resource_title, property) latest_events
+              ON reports.certname = latest_events.certname
+               AND resource_events.resource_type = latest_events.resource_type
+               AND resource_events.resource_title = latest_events.resource_title
+               AND ((resource_events.property = latest_events.property) OR
+                    (resource_events.property IS NULL AND latest_events.property IS NULL))
+               AND resource_events.timestamp = latest_events.timestamp
+         WHERE %s"
+     select-fields
+     where)
+   (concat [distinct-start-time distinct-end-time] params)])
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
   [query-options query]
-  {:pre  [(sequential? query)]
+  {:pre  [(sequential? query)
+          (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
+            (or (not-any? #(contains? query-options %) distinct-options)
+                (every? #(contains? query-options %) distinct-options)))]
    :post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]}  (compile-term resource-event-ops query)
-        select-template         (if (:distinct-resources? query-options)
-                                  distinct-select
-                                  default-select)
-        sql                     (format select-template
-                                  (string/join ", "
-                                    (map
-                                      (fn [[column [table alias]]]
-                                        (str table "." column
-                                          (if alias (format " AS %s" alias) "")))
-                                      event-columns))
-                                  where)]
+        select-fields           (string/join ", "
+                                   (map
+                                     (fn [[column [table alias]]]
+                                       (str table "." column
+                                            (if alias (format " AS %s" alias) "")))
+                                     event-columns))
+        [sql params]            (if (:distinct-resources? query-options)
+                                  (distinct-select select-fields where params
+                                    (:distinct-start-time query-options)
+                                    (:distinct-end-time query-options))
+                                  (default-select select-fields where params))]
     (apply vector sql params)))
 
 (defn limited-query-resource-events
