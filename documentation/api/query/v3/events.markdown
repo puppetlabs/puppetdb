@@ -52,7 +52,24 @@ type 'Service':
 
 For more information on the available values for `FIELD`, see the [fields](#fields) section below.
 
-* `limit`: Optional.  If specified, this should be an integer value that will be used to override the `event-query-limit` [configuration setting](../../../configure.html#event_query_limit)
+* `distinct-resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
+of this parameter may change in future releases.) If specified, then in addition
+to the normal event query filtering, the result set will be limited to only
+returning the most recent event for a given resource on a given node.
+
+So, for example, if the resource `File[/tmp/foo]` was failing on a certain node,
+but has since been fixed and is now succeeding, then a "normal" event query might
+return both the success and failure events.  Using the `distinct-resources` flag
+ensures that your query only returns the most recent event for a given resource,
+so you would only get the success event in your result set.
+
+The `distinct-resources` query can be expensive; therefore, it requires two
+additional query parameters to go along with it:  `distinct-start-time` and
+`distinct-end-time`.  (Issuing a `distinct-resources` query without
+specifying both of these parameters will cause an error.)  The values of these
+parameters should be timestamp strings in the same format as used with the normal
+"timestamp" field, and will define a window of time in which to find the most
+recent event for each resource.
 
 ##### Operators
 
