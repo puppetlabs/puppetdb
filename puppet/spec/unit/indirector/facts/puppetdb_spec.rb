@@ -3,6 +3,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/facts/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'json'
 
 describe Puppet::Node::Facts::Puppetdb do
 
@@ -28,14 +29,14 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts))
     end
 
-    it "should POST the facts command as a URL-encoded PSON string" do
+    it "should POST the facts command as a URL-encoded JSON string" do
       facts.stringify
       f = {"name" => facts.name, "values" => facts.values}
       payload = {
         :command => CommandReplaceFacts,
         :version => 1,
         :payload => f.to_pson,
-      }.to_pson
+      }.to_json
 
       http.expects(:post).with do |uri, body, headers|
         body =~ /payload=(.+)/
@@ -57,8 +58,8 @@ describe Puppet::Node::Facts::Puppetdb do
 
       save
 
-      message = PSON.parse(CGI.unescape(@sent_payload))
-      sent_facts = PSON.parse(message['payload'])
+      message = JSON.parse(CGI.unescape(@sent_payload))
+      sent_facts = JSON.parse(message['payload'])
 
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
@@ -73,7 +74,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
     it "should return the facts if they're found" do
       body = [{:node => 'some_node', :name => 'a', :value => '1'},
-              {:node => 'some_node', :name => 'b', :value => '2'}].to_pson
+              {:node => 'some_node', :name => 'b', :value => '2'}].to_json
 
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
@@ -87,7 +88,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return nil if no facts are found" do
-      body = [].to_pson
+      body = [].to_json
 
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
@@ -120,7 +121,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response['x-deprecation'] = "This is deprecated!"
 
-      body = [].to_pson
+      body = [].to_json
 
       response.stubs(:body).returns body
 
@@ -172,7 +173,7 @@ describe Puppet::Node::Facts::Puppetdb do
       }
 
       query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"],
-                                 ["=", ["fact", "uptime"], "10 days"]].to_pson)
+                                 ["=", ["fact", "uptime"], "10 days"]].to_json)
 
       response.stubs(:body).returns '[]'
 
@@ -188,7 +189,7 @@ describe Puppet::Node::Facts::Puppetdb do
         'facts.kernel.ne' => 'Linux',
       }
 
-      query = CGI.escape(["and", ["not", ["=", ["fact", "kernel"], "Linux"]]].to_pson)
+      query = CGI.escape(["and", ["not", ["=", ["fact", "kernel"], "Linux"]]].to_json)
 
       response.stubs(:body).returns '[]'
 
@@ -204,7 +205,7 @@ describe Puppet::Node::Facts::Puppetdb do
         'facts.kernel' => 'Linux',
       }
 
-      query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"]].to_pson)
+      query = CGI.escape(["and", ["=", ["fact", "kernel"], "Linux"]].to_json)
 
       response.stubs(:body).returns '[]'
 
@@ -226,7 +227,7 @@ describe Puppet::Node::Facts::Puppetdb do
           "facts.kernel.#{name}" => 'Linux',
         }
 
-        query = CGI.escape(["and", [operator, ["fact", "kernel"], "Linux"]].to_pson)
+        query = CGI.escape(["and", [operator, ["fact", "kernel"], "Linux"]].to_json)
 
         response.stubs(:body).returns '[]'
 

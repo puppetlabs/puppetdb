@@ -1,6 +1,7 @@
 require 'puppet/node/facts'
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
+require 'json'
 
 class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -21,7 +22,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
-        result = PSON.parse(response.body)
+        result = JSON.parse(response.body)
         # Note: the Inventory Service API appears to expect us to return nil here
         # if the node isn't found.  However, PuppetDB returns an empty array in
         # this case; for now we will just look for that condition and assume that
@@ -76,14 +77,14 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     end
 
     query = ["and"] + filters
-    query_param = CGI.escape(query.to_pson)
+    query_param = CGI.escape(query.to_json)
 
     begin
       response = http_get(request, "/v3/nodes?query=#{query_param}", headers)
       log_x_deprecation_header(response)
 
       if response.is_a? Net::HTTPSuccess
-        PSON.parse(response.body).collect {|s| s["name"]}
+        JSON.parse(response.body).collect {|s| s["name"]}
       else
         # Newline characters cause an HTTP error, so strip them
         raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"

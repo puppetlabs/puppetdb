@@ -6,6 +6,7 @@ require 'net/http'
 require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/config'
+require 'json'
 
 processor = Puppet::Reports.report(:puppetdb)
 
@@ -29,7 +30,7 @@ describe processor do
     let(:http) { mock "http" }
     let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
 
-    it "should POST the report command as a URL-encoded PSON string" do
+    it "should POST the report command as a URL-encoded JSON string" do
       httpok.stubs(:body).returns '{"uuid": "a UUID"}'
       subject.stubs(:run_duration).returns(10)
 
@@ -37,7 +38,7 @@ describe processor do
           :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
           :version => 2,
           :payload => subject.send(:report_to_hash)
-      }.to_pson
+      }.to_json
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|

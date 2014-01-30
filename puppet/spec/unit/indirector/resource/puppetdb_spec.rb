@@ -2,6 +2,7 @@
 require 'spec_helper'
 
 require 'puppet/indirector/resource/puppetdb'
+require 'json'
 
 describe Puppet::Resource::Puppetdb do
   before :each do
@@ -73,14 +74,14 @@ describe Puppet::Resource::Puppetdb do
       end
 
       def stub_response(resource_hashes)
-        body = resource_hashes.to_pson
+        body = resource_hashes.to_json
 
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
 
         subject.stubs(:http_get).with do |request, uri, headers|
           path, query_string = uri.split('?query=')
-          path == '/v3/resources' and PSON.load(CGI.unescape(query_string)) == query
+          path == '/v3/resources' and JSON.load(CGI.unescape(query_string)) == query
         end.returns response
       end
 

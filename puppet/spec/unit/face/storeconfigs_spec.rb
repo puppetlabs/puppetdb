@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'puppet/face/storeconfigs'
+require 'json'
 
 describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? and Puppet.features.rails?) do
   def setup_scratch_database
@@ -87,12 +88,12 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         results.keys.should =~ ['export-metadata.json', 'catalogs/foo.json']
 
-        metadata = PSON.load(results['export-metadata.json'])
+        metadata = JSON.load(results['export-metadata.json'])
 
         metadata.keys.should =~ ['timestamp', 'command-versions']
         metadata['command-versions'].should == {'replace-catalog' => 2}
 
-        catalog = PSON.load(results['catalogs/foo.json'])
+        catalog = JSON.load(results['catalogs/foo.json'])
 
         catalog.keys.should =~ ['metadata', 'data']
 
@@ -135,7 +136,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         results.keys.should =~ ['export-metadata.json', 'catalogs/foo.json']
 
-        catalog = PSON.load(results['catalogs/foo.json'])
+        catalog = JSON.load(results['catalogs/foo.json'])
 
         data = catalog['data']
         data['name'].should == 'foo'
