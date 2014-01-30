@@ -11,6 +11,8 @@
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
+
+
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
   The `value` for comparison must be coercible to a timestamp via
