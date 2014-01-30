@@ -11,6 +11,11 @@ if [ -f /usr/lib/jvm/java-7-openjdk-amd64/bin/java ]; then
 	JAVA_BIN="/usr/lib/jvm/java-7-openjdk-amd64/bin/java"
 elif [ -f /usr/lib/jvm/java-7-openjdk-i386/bin/java ]; then
 	JAVA_BIN="/usr/lib/jvm/java-7-openjdk-i386/bin/java"
+# Support make-jpkg packaged Oracle Java 1.7
+elif [ -f /usr/lib/jvm/j2re1.7-oracle/bin/java ]; then
+	JAVA_BIN="/usr/lib/jvm/j2re1.7-oracle/bin/java"
+elif [ -f /usr/lib/jvm/j2sdk1.7-oracle/bin/java ]; then
+	JAVA_BIN="/usr/lib/jvm/j2sdk1.7-oracle/bin/java"
 # OpenSUSE
 elif [ -f /usr/lib64/jvm/jre-1.7.0-openjdk/bin/java ]; then
 	JAVA_BIN="/usr/lib64/jvm/jre-1.7.0/bin/java"
