@@ -33,6 +33,10 @@ This query is forwarded to the [`event-counts`][event-counts] endpoint - see the
 the final event-counts output, but before the results are aggregated. Supported operators are `=`, `>`, `<`,
 `>=`, and `<=`. Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
+* `distinct-resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
+of this parameter may change in future releases.)  This parameter is passed along
+to the [`event`][events] query - see there for additional documentation.
+
 ##### Operators
 
 This endpoint builds on top of the [`event-counts`][event-counts] and therefore supports all of the same operators.

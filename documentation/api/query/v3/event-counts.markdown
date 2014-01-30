@@ -35,6 +35,10 @@ and `certname`.
 is applied to the final event counts output. Supported operators are `=`, `>`, `<`, `>=`, and `<=`.
 Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
+* `distinct-resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
+of this parameter may change in future releases.)  This parameter is passed along
+to the [`event`][events] query - see there for additional documentation.
+
 ##### Operators
 
 This endpoint builds on top of the [`events`][events] endpoint and therefore supports all of the same operators.
