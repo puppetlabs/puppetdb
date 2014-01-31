@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.v3.resources
   (:require [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http])
   (:use clojure.test
         ring.mock.request
@@ -7,14 +8,16 @@
         [com.puppetlabs.puppetdb.testutils :only [get-request paged-results]]
         [com.puppetlabs.puppetdb.testutils.resources :only [store-example-resources]]))
 
+(def endpoint "/v3/resources")
+
 (use-fixtures :each with-test-db with-http-app)
+
+(def c-t pl-http/json-response-content-type)
 
 (defn get-response
   ([]             (get-response nil))
   ([query]        (get-response query {}))
-  ([query params] (*app* (get-request "/v3/resources" query params))))
-
-(def c-t pl-http/json-response-content-type)
+  ([query params] (*app* (get-request endpoint query params))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -33,7 +36,7 @@ to the result of the form supplied to this method."
       (testing (str "should support paging through nodes " label " counts")
         (let [results (paged-results
                         {:app-fn  *app*
-                         :path    "/v3/resources"
+                         :path    endpoint
                          :limit   2
                          :total   (count expected)
                          :include-total  count?})]

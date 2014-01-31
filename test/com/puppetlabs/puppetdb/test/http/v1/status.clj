@@ -9,17 +9,13 @@
         [clj-time.coerce :only [to-date-time]]
         [clj-time.format :only [parse]]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.examples]))
+        [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.puppetdb.testutils :only [get-request]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t "application/json")
 (def v1-url "/v1/status/nodes/")
-
-(defn get-request
-  [path]
-  (let [request (request :get path)]
-    (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
   ([url]      (get-response url nil))

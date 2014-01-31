@@ -22,7 +22,7 @@
       (let [{[sql & params] :results-query
              count-query :count-query} (-> query
                                            (json/parse-string true)
-                                           (f/query->sql paging-options))
+                                           (f/v3-query->sql paging-options))
 
              resp (pl-http/json-response*
                    (pl-http/streamed-response buffer

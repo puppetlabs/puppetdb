@@ -8,7 +8,7 @@
   (:require [clojure.string :as string])
   (:use [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-array-query-string sql-as-numeric]]
         [clojure.core.match :only [match]]
-        [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2 execute-query]]
+        [com.puppetlabs.puppetdb.query :only [node-query->sql node-operators-v1 node-operators-v2 node-operators-v3 execute-query]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection valid-jdbc-query?]]
         [puppetlabs.kitchensink.core :only [keyset parse-number]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
@@ -54,6 +54,9 @@
 
 (def v2-query->sql
   (partial query->sql node-operators-v2))
+
+(def v3-query->sql
+  (partial query->sql node-operators-v3))
 
 (defn status
   "Given a node's name, return the current status of the node.  Results

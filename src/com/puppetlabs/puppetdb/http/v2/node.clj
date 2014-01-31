@@ -56,4 +56,3 @@
   (-> routes
     verify-accepts-json
     (validate-query-params {:optional ["query"]})))
-

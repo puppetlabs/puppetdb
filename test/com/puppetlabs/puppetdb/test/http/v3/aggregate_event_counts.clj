@@ -9,13 +9,15 @@
         [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
 
+(def endpoint "/v3/aggregate-event-counts")
+
 (use-fixtures :each with-test-db with-http-app)
 
 (deftest query-aggregate-event-counts
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
-    (let [response  (get-response "/v3/aggregate-event-counts"
+    (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "illegal-summarize-by"
                                   {} true)
@@ -24,7 +26,7 @@
       (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
-    (let [response  (get-response "/v3/aggregate-event-counts"
+    (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "certname"
                                   {"count-by" "illegal-count-by"} true)
@@ -38,7 +40,7 @@
                      :noops 0
                      :skips 1
                      :total 1}
-          response  (get-response "/v3/aggregate-event-counts"
+          response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                    "containing-class"
                                    {"count-by"      "certname"
@@ -55,7 +57,7 @@
                      :failures 1
                      :noops 0
                      :total 3}
-          response  (get-response "/v3/aggregate-event-counts"
+          response  (get-response endpoint
                       ["=" "certname" "foo.local"]
                       "resource"
                       {"distinct-resources" true
