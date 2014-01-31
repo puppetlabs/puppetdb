@@ -394,7 +394,9 @@
             (scf-store/deactivate-node! "foo4"))
 
           (testing "query without param should not fail"
-            (assert-success! (get-response endpoint)))
+            (let [response (get-response endpoint)]
+              (assert-success! response)
+              (slurp (:body response))))
 
           (testing "fact queries"
             (testing "well-formed queries"
