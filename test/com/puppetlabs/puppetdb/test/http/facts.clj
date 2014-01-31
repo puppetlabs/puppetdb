@@ -403,7 +403,7 @@
                       {:keys [status body headers]} (*app* request)]
                   (is (= status pl-http/status-ok))
                   (is (= (headers "Content-Type") c-t))
-                  (is (= result (json/parse-string (slurp body) true))))))
+                  (is (= (set result) (set (json/parse-string (slurp body) true)))))))
 
             (testing "malformed, yo"
               (let [request (get-request endpoint (json/generate-string []))

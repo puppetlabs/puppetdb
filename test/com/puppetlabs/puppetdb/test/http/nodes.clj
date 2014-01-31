@@ -13,10 +13,6 @@
 (use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
-  ([]      (get-response nil))
-  ([query] (*app* (get-request endpoint query))))
-
-(defn get-response
   ([endpoint]      (get-response endpoint nil))
   ([endpoint query] (*app* (get-request endpoint query)))
   ([endpoint query params] (*app* (get-request endpoint query params))))
