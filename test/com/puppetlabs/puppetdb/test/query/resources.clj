@@ -264,11 +264,6 @@
       (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
             (query-resources (s/v3-query->sql [op]))))))
 
-  (testing "'not' term without arguments in v1"
-    (doseq [op ["not" "NOT" "NoT"]]
-      (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-            (query-resources (s/v1-query->sql [op]))))))
-
   (testing "'not' term without arguments in v2"
     (doseq [op ["not" "NOT" "NoT"]]
       (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"

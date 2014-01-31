@@ -18,7 +18,6 @@
                                     count-sql
                                     with-query-results-cursor]]
         [com.puppetlabs.puppetdb.query :only [resource-query->sql
-                                              resource-operators-v1
                                               resource-operators-v2
                                               resource-operators-v3
                                               resource-columns]]
@@ -63,9 +62,6 @@
       (if (:count? paging-options)
         (assoc result :count-query (apply vector (count-sql subselect) params))
         result))))
-
-(def v1-query->sql
-  (partial query->sql resource-operators-v1))
 
 (def v2-query->sql
   (partial query->sql resource-operators-v2))
