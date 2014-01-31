@@ -177,7 +177,8 @@
           {counts-filter-where  :where
            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
           [event-sql & event-params]      (events/query->sql
-                                            (select-keys query-options [:distinct-resources?])
+                                            (select-keys query-options
+                                              [:distinct-resources? :distinct-start-time :distinct-end-time])
                                             query)
           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
           event-count-sql                 (get-event-count-sql count-by-sql group-by)

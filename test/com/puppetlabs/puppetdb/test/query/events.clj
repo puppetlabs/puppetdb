@@ -345,11 +345,39 @@
   (let [basic1        (store-example-report! (:basic reports) (now))
         basic3        (store-example-report! (:basic3 reports) (now))
         report-hash3  (:hash basic3)
+        events1       (get-in reports [:basic :resource-events])
         events3       (get-in reports [:basic3 :resource-events])]
+
     (testing "retrieval of events for distinct resources only"
       (let [expected  (expected-resource-events events3 basic3)
-            actual    (resource-events-query-result ["=" "certname" "foo.local"] {} {:distinct-resources? true})]
+            actual    (resource-events-query-result ["=" "certname" "foo.local"]
+                                                    {}
+                                                    {:distinct-resources? true
+                                                     :distinct-start-time (to-timestamp 0)
+                                                     :distinct-end-time   (to-timestamp (now))})]
         (is (= (count events3) (count actual)))
+        (is (= actual expected))))
+
+    (testing "events should be contained within distinct resource timestamps"
+      (let [expected  (expected-resource-events events1 basic1)
+            actual    (resource-events-query-result ["=" "certname" "foo.local"]
+                                                    {}
+                                                    {:distinct-resources? true
+                                                     :distinct-start-time (to-timestamp 0)
+                                                     :distinct-end-time (to-timestamp "2011-01-02T12:00:01-03:00")})]
+        (is (= (count events1) (count actual)))
+        (is (= actual expected))))
+
+    (testing "filters (such as status) should be applied *after* the distinct list of most recent events has been built up"
+      (let [expected  #{}
+            actual    (resource-events-query-result
+                        ["and" ["=" "certname" "foo.local"]
+                               ["=" "status" "success"]
+                               ["=" "resource-title" "notify, yar"]]
+                        {} {:distinct-resources? true
+                            :distinct-start-time (to-timestamp 0)
+                            :distinct-end-time   (to-timestamp (now))})]
+        (is (= (count expected) (count actual)))
         (is (= actual expected))))))
 
 (deftest paging-results

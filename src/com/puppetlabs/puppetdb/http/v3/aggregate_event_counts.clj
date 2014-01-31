@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.http.v3.aggregate-event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
-            [com.puppetlabs.cheshire :as json])
+            [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.http.events :as events-http])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
             [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params]]
             [net.cgrand.moustache :only [app]]))
@@ -20,12 +21,12 @@
   (try
     (let [query               (json/parse-string query true)
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
-          distinct-resources? (pl-http/parse-boolean-query-param query-params "distinct-resources")]
+          distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
         (-> query
             (aggregate-event-counts/query->sql summarize-by
-              {:counts-filter counts-filter :count-by count-by
-               :distinct-resources? distinct-resources?})
+              (merge {:counts-filter counts-filter :count-by count-by}
+                     distinct-options))
             (aggregate-event-counts/query-aggregate-event-counts)
             (pl-http/json-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -46,4 +47,5 @@
   (-> routes
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
-                              :optional ["counts-filter" "count-by" "distinct-resources"]})))
+                              :optional ["counts-filter" "count-by" "distinct-resources"
+                                         "distinct-start-time" "distinct-end-time"]})))
