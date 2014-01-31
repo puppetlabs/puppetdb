@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.http.events :as events-http]
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
             [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]
@@ -23,12 +24,12 @@
   (try
     (let [query               (json/parse-string query true)
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
-          distinct-resources? (parse-boolean-query-param query-params "distinct-resources")]
+          distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
         (-> query
             (event-counts/query->sql summarize-by
-              {:counts-filter counts-filter :count-by count-by
-               :distinct-resources? distinct-resources?})
+              (merge {:counts-filter counts-filter :count-by count-by}
+                     distinct-options))
             ((partial event-counts/query-event-counts paging-options summarize-by))
             (query-result-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -49,6 +50,8 @@
   (-> routes
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
-                              :optional (concat ["counts-filter" "count-by" "distinct-resources"]
+                              :optional (concat ["counts-filter" "count-by"
+                                                 "distinct-resources" "distinct-start-time"
+                                                 "distinct-end-time"]
                                           paging/query-params) })
       wrap-with-paging-options))

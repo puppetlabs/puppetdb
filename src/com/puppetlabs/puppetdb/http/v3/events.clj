@@ -3,12 +3,12 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.events :as query]
             [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.http.events :as events-http]
             [ring.util.response :as rr]
             [com.puppetlabs.puppetdb.query.paging :as paging])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.http :only (parse-boolean-query-param)]
         [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
 (defn produce-body
@@ -35,30 +35,30 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(defn get-query-options
-  "Given a map of query params, build up a list of the legal query options
-  support by the event counts query."
-  [params]
-  ;; For now, the only supported query option is `:distinct-resources?`
-  {:distinct-resources? (parse-boolean-query-param params "distinct-resources")})
-
 (def routes
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
-            (let [limit         (:event-query-limit globals)
-                  query-options (get-query-options params)]
-              (produce-body
-                limit
-                (params "query")
-                query-options
-                paging-options
-                (:scf-read-db globals))))}))
+            (try
+              (let [query-options (events-http/validate-distinct-options! params)
+                    limit         (:event-query-limit globals)]
+                (produce-body
+                  limit
+                  (params "query")
+                  query-options
+                  paging-options
+                  (:scf-read-db globals)))
+              (catch IllegalArgumentException e
+                (pl-http/error-response e))))}))
 
 (def events-app
   "Ring app for querying events"
   (-> routes
     verify-accepts-json
     (validate-query-params {:required ["query"]
-                            :optional (cons "distinct-resources" paging/query-params)})
+                            :optional (concat
+                                        ["distinct-resources"
+                                         "distinct-start-time"
+                                         "distinct-end-time"]
+                                        paging/query-params)})
     wrap-with-paging-options))
