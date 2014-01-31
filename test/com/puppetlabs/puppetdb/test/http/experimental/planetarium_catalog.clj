@@ -7,16 +7,12 @@
         ring.mock.request
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.examples]))
+        [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.puppetdb.testutils :only [get-request]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t pl-http/json-response-content-type)
-
-(defn get-request
-  [path]
-  (let [request (request :get path)]
-    (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
   ([]      (get-response nil))
@@ -63,8 +59,8 @@ to the result of the form supplied to this method."
                                         "title"      "Settings"
                                         "resource"   "e07ed40565f4d82e468b47b627df444557e132f6"
                                         "exported"   false
-                                        "file" nil
-                                        "line" nil
+                                        "file"       "/etc/puppet/modules/settings/manifests/init.pp"
+                                        "line"       1
                                         "count"      1
                                         "tags"       ["class" "settings"]
                                         "parameters" {}}

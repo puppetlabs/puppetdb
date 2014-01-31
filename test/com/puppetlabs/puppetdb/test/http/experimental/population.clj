@@ -7,16 +7,12 @@
         ring.mock.request
         [clj-time.core :only [now]]
         [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.examples]))
+        [com.puppetlabs.puppetdb.examples]
+        [com.puppetlabs.puppetdb.testutils :only [get-request]]))
 
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t pl-http/json-response-content-type)
-
-(defn get-request
-  [path]
-  (let [request (request :get path)]
-    (update-in request [:headers] assoc "Accept" c-t)))
 
 (defn get-response
   ([]      (get-response nil))

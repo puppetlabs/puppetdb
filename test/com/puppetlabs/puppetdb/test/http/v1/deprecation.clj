@@ -4,17 +4,12 @@
             [com.puppetlabs.http :as pl-http]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]])
   (:use     [clojure.test]
-            [com.puppetlabs.puppetdb.fixtures]))
+            [com.puppetlabs.puppetdb.fixtures]
+            [com.puppetlabs.puppetdb.testutils :only [get-request]]))
 
 (use-fixtures :each with-http-app)
 
 (def c-t pl-http/json-response-content-type)
-
-(defn get-request
-  [path]
-  (let [request (mock/request :get path)
-        headers (:headers request)]
-    (assoc request :headers (assoc headers "Accept" c-t))))
 
 (defn get-response
   ([url] (*app* (get-request url))))

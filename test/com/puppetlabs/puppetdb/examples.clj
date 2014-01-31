@@ -21,6 +21,8 @@
                        {:type "Class" :title "Settings"} {:exported false
                                                           :title    "Settings"
                                                           :tags     #{"settings" "class"}
+                                                          :file     "/etc/puppet/modules/settings/manifests/init.pp"
+                                                          :line     1
                                                           :type     "Class"}
                        {:type "Stage" :title "main"}     {:exported false
                                                           :title    "main"

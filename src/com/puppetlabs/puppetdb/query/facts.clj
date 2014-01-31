@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 execute-query]]
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v1 fact-operators-v2 fact-operators-v3 execute-query]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
 (defn facts-for-node
@@ -48,21 +48,21 @@
 (defn facts-sql
   "Return a vector with the facts SQL query string as the first element, parameters
    needed for that query as the rest."
-  [query paging-options]
+  [operators query paging-options]
   (if query
-    (let [[subselect & params] (fact-query->sql fact-operators-v2 query)
+    (let [[subselect & params] (fact-query->sql operators query)
           sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts" subselect)]
       (apply vector sql params))
     ["SELECT certname, name, value FROM certname_facts"]))
 
 (defn query->sql
   "Compile a query into an SQL expression."
-  [query paging-options]
+  [operators query paging-options]
   {:pre [((some-fn nil? sequential?) query) ]
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [[sql & params] (facts-sql query paging-options)]
+  (let [[sql & params] (facts-sql operators query paging-options)]
     (conj {:results-query (apply vector (sql/paged-sql sql paging-options) params)}
           (when (:count? paging-options)
             [:count-query (apply vector (sql/count-sql sql) params)]))))
@@ -77,3 +77,12 @@
   (validate-order-by! [:certname :name :value] paging-options)
   (sql/with-query-results-cursor query params rs
     (func rs)))
+
+(def v1-query->sql
+  (partial query->sql fact-operators-v1))
+
+(def v2-query->sql
+  (partial query->sql fact-operators-v2))
+
+(def v3-query->sql
+  (partial query->sql fact-operators-v3))

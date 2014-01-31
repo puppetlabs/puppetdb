@@ -12,11 +12,12 @@
         [clj-time.coerce :only [to-date-time to-string]]
         [clj-time.core :only [now]]))
 
+(def endpoint "/v3/reports")
 
 (use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
-  [query] (*app* (get-request "/v3/reports" query)))
+  [query] (*app* (get-request endpoint query)))
 
 (defn report-response
   [report]
@@ -69,7 +70,7 @@
       (testing (str "should support paging through reports " label " counts")
         (let [results       (paged-results
                               {:app-fn  *app*
-                               :path    "/v3/reports"
+                               :path    endpoint
                                :query   ["=" "certname" (:certname basic1)]
                                :limit   1
                                :total   2

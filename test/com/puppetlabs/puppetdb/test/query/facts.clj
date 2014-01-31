@@ -23,4 +23,3 @@
     (testing "after deleting facts for a node"
       (scf-store/delete-facts! certname)
       (is (= (facts/facts-for-node certname) {})))))
-
