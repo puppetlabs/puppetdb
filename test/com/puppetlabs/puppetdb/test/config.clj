@@ -11,6 +11,9 @@
            [fs.core :as fs]))
 
 (deftest commandproc-configuration
+  (testing "should throw an error on unrecognized config options"
+    (is (thrown? clojure.lang.ExceptionInfo (configure-command-params {:command-processing {:foo "foo"}}))))
+
   (testing "should use the thread value specified"
     (let [config (configure-command-params {:command-processing {:threads 37}})]
       (is (= (get-in config [:command-processing :threads]) 37))))
@@ -35,6 +38,9 @@
 
 (deftest database-configuration
   (testing "database"
+    (testing "should throw an error on unrecognized config options"
+      (is (thrown? clojure.lang.ExceptionInfo (configure-dbs {:database {:foo "foo"}}))))
+
     (testing "should use the value specified"
       (let [config (configure-dbs {:database {:classname "something"
                                               :subname "stuff"
