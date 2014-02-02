@@ -37,12 +37,27 @@ end
 end
 
 # We establish variables used in the puppetdb tasks before hand
-if (@build and @build.build_pe) || (ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true')
-  @pe = TRUE
-  ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
+if defined?(Pkg) and defined?(Pkg::Config)
+  @pe = Pkg::Config.build_pe
+  @version = Pkg::Config.version
 else
-  @pe = FALSE
+  begin
+    %x{which git >/dev/null 2>&1}
+    if $?.success?
+      @version = %x{git describe --always --dirty}
+      if $?.success?
+        @version.chomp!
+      end
+    end
+  rescue
+    @version = "0.0-dev-build"
+  end
+  if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
+    @pe = TRUE
+  end
 end
+
+ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH'] if @pe
 
 if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
