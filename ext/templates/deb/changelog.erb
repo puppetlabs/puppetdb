@@ -3,7 +3,7 @@
   else
   dists = 'hardy lucid maverick oneiric unstable lenny sid squeeze wheezy precise'
   end -%>
-<%= @name -%> (<%= @debversion -%>) <%= dists -%>; urgency=low
+<%= @name -%> (<%= Pkg::Config.debversion -%>) <%= dists -%>; urgency=low
 
   * Add postgresql to suggests
   * Adding an init script from Puppet Labs Ops
