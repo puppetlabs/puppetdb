@@ -26,6 +26,7 @@ task :package => [ :clobber, JAR_FILE, :template  ] do
     f.puts @version
   end
   mv "#{workdir}/ext/files/debian", "#{workdir}/ext"
+  mv "#{workdir}/ext/files/#{@name}.spec", "#{workdir}/ext/redhat/"
   cp_pr "puppet", "#{workdir}/ext/master"
   mkdir_p "pkg"
   pkg_dir = File.expand_path(File.join(".", "pkg"))
