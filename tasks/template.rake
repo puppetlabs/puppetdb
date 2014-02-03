@@ -33,6 +33,7 @@ task :template => [ :clean ] do
   }
 
   rpm_other_templates = {
+    "ext/redhat/#{@name}.spec.erb"                      => "ext/files/#{@name}.spec",
     "ext/templates/logrotate.erb"                       => "ext/files/puppetdb.logrotate",
     "ext/templates/init_redhat.erb"                     => "ext/files/puppetdb.redhat.init",
     "ext/templates/init_suse.erb"                       => "ext/files/puppetdb.suse.init",
