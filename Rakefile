@@ -38,7 +38,10 @@ end
 
 # We establish variables used in the puppetdb tasks before hand
 if defined?(Pkg) and defined?(Pkg::Config)
-  @pe = Pkg::Config.build_pe
+  if @pe = Pkg::Config.build_pe
+    # If we're building PE, we need to set the project name to pe-puppetdb
+    Pkg::Config.project = "pe-puppetdb"
+  end
   @version = Pkg::Config.version
 else
   begin
