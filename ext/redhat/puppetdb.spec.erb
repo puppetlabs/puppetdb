@@ -333,10 +333,10 @@ fi
 
 %changelog
 <%
-hostname = `hostname --fqdn`
-dt=`date +"%a %b %d %Y"`
+require 'socket'
+hostname = Socket.gethostname
 -%>
-* <%= dt.strip -%> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname.strip -%>> - <%= Pkg::Config.rpmversion %>-<%= Pkg::Config.rpmrelease %>
+* <%= Time.now.strftime("%a %b %d %Y") %> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname -%>> - <%= Pkg::Config.rpmversion %>-<%= Pkg::Config.rpmrelease %>
 - Autobuild from Rake task
 
 * Mon Apr 02 2012 Michael Stahnke <stahnma@puppetlabs.com> - 0.1.0-1
