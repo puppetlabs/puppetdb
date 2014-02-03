@@ -4,8 +4,6 @@
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
-(s/set-fn-validation! true)
-
 (defrecord DefaultedMaybe [schema default]
   s/Schema
   (s/walker [this]
