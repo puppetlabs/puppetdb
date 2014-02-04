@@ -19,7 +19,7 @@
 <% if @pe -%>
 %global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 <% else -%>
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 %global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['vendorlibdir']")
 %else
 %global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
@@ -110,7 +110,7 @@ BuildRequires: /usr/sbin/useradd
 %if 0%{?_with_systemd}
 # Required for %%post, %%preun, %%postun
 Requires:       systemd
-%if 0%{?fedora} >= 18
+%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7
 BuildRequires:  systemd
 %else
 BuildRequires:  systemd-units
@@ -264,9 +264,9 @@ if [ "$1" = "1" ] ; then
         rm <%= @install_dir %>/start_service_after_upgrade
 %if 0%{?_with_systemd}
         /usr/bin/systemctl start %{name}.service >/dev/null 2>&1
-%else      
+%else
         /sbin/service %{name} start >/dev/null 2>&1
-%endif    
+%endif
     fi
 fi
 
