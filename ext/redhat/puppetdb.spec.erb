@@ -2,6 +2,8 @@
 %global realversion <%= @version %>
 %global rpmversion <%= @rpmversion %>
 
+%define __jar_repack 0
+
 <% if @pe -%>
 %global open_jdk          pe-java
 <% else -%>
