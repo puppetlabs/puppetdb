@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.test.http.v3.fact-names
+(ns com.puppetlabs.puppetdb.test.http.fact-names
   (:require [cheshire.core :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store])
