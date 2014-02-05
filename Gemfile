@@ -18,5 +18,6 @@ group :test do
 end
 
 group :acceptance do
-  gem 'beaker', '~> 1.0'
+#  gem 'beaker', '~> 1.0'
+  gem 'beaker', :git => 'git://github.com/kbarber/beaker', :branch => 'maint/master/support-fedora-when-determining-ip'
 end
