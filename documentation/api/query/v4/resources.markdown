@@ -1,19 +1,20 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Querying Resources"
+title: "PuppetDB 1.6 » API » v4 » Querying Resources"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/resources.html"
+canonical: "/puppetdb/latest/api/query/v4/resources.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Resources are queried via an HTTP request to the
 `/resources` REST endpoint.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
 
 ## Routes
 
-### `GET /v2/resources`
+### `GET /v4/resources`
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response.
@@ -52,10 +53,10 @@ The `query` parameter is described by the following grammar:
 `exported`
 : whether or not the resource is exported
 
-`sourcefile`
+`file`
 : the manifest file the resource was declared in
 
-`sourceline`
+`line`
 : the line of the manifest on which the resource was declared
 
 For example, for file resources, tagged "magical", on any host except
@@ -70,7 +71,7 @@ See [the Operators page](./operators.html) for the full list of available operat
 resource queries *do not support* inequality, and regexp matching *is not
 supported* against node status or parameter values.
 
-### `GET /v2/resources/<TYPE>`
+### `GET /v4/resources/<TYPE>`
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
@@ -89,7 +90,7 @@ response.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v2/resources/User'
+    curl -X GET 'http://puppetdb:8080/v4/resources/User'
 
     [{"parameters" : {
         "uid" : "1000,
@@ -100,8 +101,8 @@ response.
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 10,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 10,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "foo",
@@ -116,15 +117,15 @@ response.
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 20,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 20,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "bar",
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
 
-### `GET /v2/resources/<TYPE>/<TITLE>`
+### `GET /v4/resources/<TYPE>/<TITLE>`
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
@@ -143,7 +144,7 @@ response.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v2/resources/User/foo'
+    curl -X GET 'http://puppetdb:8080/v4/resources/User/foo'
 
     [{"parameters" : {
         "uid" : "1000,
@@ -154,14 +155,20 @@ response.
         "groups" : "users,
         "ensure" : "present"
       },
-      "sourceline" : 10,
-      "sourcefile" : "/etc/puppet/manifests/site.pp",
+      "line" : 10,
+      "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "tags" : [ "foo", "bar" ],
       "title" : "foo",
       "type" : "User",
       "certname" : "host1.mydomain.com"
     }]
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Response format
 
@@ -174,8 +181,8 @@ following form:
      "title":      "/etc/hosts",
      "exported":   "true",
      "tags":       ["foo", "bar"],
-     "sourcefile": "/etc/puppet/manifests/site.pp",
-     "sourceline": "1",
+     "file": "/etc/puppet/manifests/site.pp",
+     "line": "1",
      "parameters": {<parameter>: <value>,
                    <parameter>: <value>,
                    ...}}

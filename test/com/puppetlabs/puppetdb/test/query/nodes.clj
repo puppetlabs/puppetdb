@@ -47,7 +47,7 @@
                        #{}
                        ["=" ["fact" "uptime_seconds"] "10000"]
                        #{"node_d"}}]
-      (doseq [version [:v2 :v3]
+      (doseq [version [:v2 :v3 :v4]
               size (range 1 (inc (count test-cases)))
               terms (combinations test-cases size)
               :let [exprs      (map first terms)
@@ -79,7 +79,7 @@
       (sql/insert-record :certname_facts_metadata {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
       (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 
-  (doseq [version [:v2 :v3]]
+  (doseq [version [:v2 :v3 :v4]]
 
     (testing "include total results count"
       (let [actual (:count (raw-retrieve-nodes version nil {:count? true}))]

@@ -9,7 +9,7 @@
         [com.puppetlabs.puppetdb.testutils :only [paged-results get-request]]
         [com.puppetlabs.jdbc :only [with-transacted-connection]]))
 
-(def versions [:v2 :v3])
+(def versions [:v2 :v3 :v4])
 
 (def route-suffix "fact-names")
 

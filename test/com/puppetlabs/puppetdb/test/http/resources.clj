@@ -12,8 +12,9 @@
 
 (def v2-endpoint "/v2/resources")
 (def v3-endpoint "/v3/resources")
+(def v4-endpoint "/v4/resources")
 
-(def endpoints [v2-endpoint v3-endpoint])
+(def endpoints [v2-endpoint v3-endpoint v4-endpoint])
 
 (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
 
@@ -45,7 +46,8 @@ to the result of the form supplied to this method."
 (deftest resource-endpoint-tests
   (let [results (store-example-resources)
         versioned-results {v2-endpoint (v3->v2-results results)
-                           v3-endpoint results}]
+                           v3-endpoint results
+                           v4-endpoint results}]
     (doseq [endpoint endpoints]
       (testing  (str "resource queries for " endpoint ":")
         (super-fixture

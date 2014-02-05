@@ -41,7 +41,7 @@ The available query endpoints are documented in the pages linked below.
 
 #### Version 3
 
-Version 3 of the query API adds new endpoints, and introduces paging and sorting operations.  The following endpoints will continue to work for the foreseeable future.
+Version 3 of the query API added new endpoints, and introduces paging and sorting operations. This is the current stable API.
 
 * [Facts Endpoint](./query/v3/facts.html)
 * [Resources Endpoint](./query/v3/resources.html)
@@ -54,9 +54,24 @@ Version 3 of the query API adds new endpoints, and introduces paging and sorting
 * [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
 * [Server Time Endpoint](./query/v3/server-time.html)
 
-#### Version 2
+#### Version 4 (Experimental)
 
-Version 2 of the query API adds new endpoints, and introduces subqueries and regular expression operators for more efficient requests and better insight into your data.  It isn't deprecated, but we encourage you to use version 3 if possible.
+Version 4 of the query API is currently experimental and may change without notice. For stability it is recommended to use the v3 query API.
+
+* [Facts Endpoint](./query/v4/facts.html)
+* [Resources Endpoint](./query/v4/resources.html)
+* [Nodes Endpoint](./query/v4/nodes.html)
+* [Fact-Names Endpoint](./query/v4/fact-names.html)
+* [Metrics Endpoint](./query/v4/metrics.html)
+* [Reports Endpoint](./query/v4/reports.html)
+* [Events Endpoint](./query/v4/events.html)
+* [Event Counts Endpoint](./query/v4/event-counts.html)
+* [Aggregate Event Counts Endpoint](./query/v4/aggregate-event-counts.html)
+* [Server Time Endpoint](./query/v4/server-time.html)
+
+#### Version 2 (Deprecated)
+
+Version 2 of the query API is deprecated and will be retired soon. For stability it is recommended to use the v3 query API instead.
 
 * [Facts Endpoint](./query/v2/facts.html)
 * [Resources Endpoint](./query/v2/resources.html)

@@ -14,7 +14,14 @@
                     "/v3/facts"
                     "/v3/nodes"
                     "/v3/reports"
-                    "/v3/resources"]]
+                    "/v3/resources"
+                    "/v4/events"
+                    "/v4/event-counts"
+                    "/v4/fact-names"
+                    "/v4/facts"
+                    "/v4/nodes"
+                    "/v4/reports"
+                    "/v4/resources"]]
 
     (testing (str endpoint " 'order-by' should properly handle malformed JSON input")
       (let [malformed-JSON  "[{\"field\":\"status\" \"order\":\"DESC\"}]"

@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Query Structure"
+title: "PuppetDB 1.6 » API » v4 » Query Structure"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/query.html"
+canonical: "/puppetdb/latest/api/query/v4/query.html"
 ---
 
 [prefix]: http://en.wikipedia.org/wiki/Polish_notation
@@ -11,24 +11,31 @@ canonical: "/puppetdb/latest/api/query/v2/query.html"
 [operators]: ./operators.html
 [tutorial]: ../tutorial.html
 [curl]: ../curl.html
+[paging]: ./paging.html
 
 ## Summary
 
-PuppetDB's query API can retrieve data objects from PuppetDB for use in other applications. For example, the terminus plugins for puppet masters use this API to collect exported resources, and to translate node facts into the inventory service. 
+PuppetDB's query API can retrieve data objects from PuppetDB for use in other applications. For example, the terminus plugins for puppet masters use this API to collect exported resources, and to translate node facts into the inventory service.
 
-The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP. 
+The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
 
 ## API URLs
 
-The first component of an API URL is the API version, written as `v2`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v2`. After the version, URLs are organized into a number of **endpoints.** 
+The first component of an API URL is the API version, written as `v2`, `v3`, `v4` etc. This page describes version 4 of the API, so every URL will begin with `/v4`. After the version, URLs are organized into a number of **endpoints.**
 
 ### Endpoints
 
 Conceptually, an endpoint represents a reservoir of some type of PuppetDB object. Each version of the PuppetDB API defines a set number of endpoints.
 
-See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings. 
+See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings.
+
+## Paging
+
+Most PuppetDB query endpoints support paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Query Structure
 
@@ -39,7 +46,7 @@ A query consists of:
 
 That is, nearly every query will look like a GET request to a URL that resembles the following:
 
-    https://puppetdb:8081/v2/<ENDPOINT>?query=<QUERY STRING>
+    https://puppetdb:8081/v4/<ENDPOINT>?query=<QUERY STRING>
 
 Query strings are optional for some endpoints, required for others, and prohibited for others; see each endpoint's documentation.
 
@@ -56,13 +63,13 @@ JSON arrays are delimited by square brackets (`[` and `]`), and items in the arr
 
 "Prefix notation" means every array in a query string must begin with an [operator][operators], and the remaining elements in the array will be interpreted as that operator's arguments, in order. (The similarity to Lisp is intentional.)
 
-A complete query string describes a comparison operation. When submitting a query, PuppetDB will check every _possible_ result from the endpoint to see if it matches the comparison from the query string, and will only return those objects that match. 
+A complete query string describes a comparison operation. When submitting a query, PuppetDB will check every _possible_ result from the endpoint to see if it matches the comparison from the query string, and will only return those objects that match.
 
-For a more complete description of how to construct query strings, see [the Operators page][operators]. 
+For a more complete description of how to construct query strings, see [the Operators page][operators].
 
 ## Query Responses
 
-All queries return data with a content type of `application/json`. 
+All queries return data with a content type of `application/json`.
 
 ## Tutorial and Tips
 

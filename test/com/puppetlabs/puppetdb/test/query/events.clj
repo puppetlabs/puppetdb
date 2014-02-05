@@ -16,7 +16,7 @@
 
 ;; Begin tests
 
-(doseq [version [:v3]]
+(doseq [version [:v3 :v4]]
   (deftest test-compile-resource-event-term
     (let [ops (event-query/resource-event-ops version)]
       (testing "should succesfully compile a valid equality query"
