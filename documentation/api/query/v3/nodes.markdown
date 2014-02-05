@@ -75,8 +75,10 @@ not.
 
 #### Response format
 
-The response is the same format as for the [/v1/status](../v1/status.html)
-endpoint.
+The response is a JSON array of node names that match the predicates, sorted
+in ascending order:
+
+`["foo.example.com", "bar.example.com", "baz.example.com"]`
 
 ### `GET /v3/nodes/<NODE>/facts`
 

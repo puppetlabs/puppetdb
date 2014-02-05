@@ -18,7 +18,6 @@
   (app
    ["commands"]
    {:any cmd/command}
-
    ["facts" &]
    {:any facts-app}
 

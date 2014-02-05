@@ -4,20 +4,8 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v1 fact-operators-v2 fact-operators-v3 execute-query]]
+  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators-v2 fact-operators-v3 execute-query]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
-
-(defn facts-for-node
-  "Fetch the facts for the given node, as a map of `{fact value}`. This is used
-  for the deprecated v1 facts API."
-  [node]
-  {:pre  [(string? node)]
-   :post [(map? %)]}
-  (let [facts (sql/query-to-vec
-                ["SELECT name, value FROM certname_facts WHERE certname = ?"
-                 node])]
-    (into {} (for [fact facts]
-               [(:name fact) (:value fact)]))))
 
 (defn flat-facts-by-node
   "Similar to `facts-for-node`, but returns facts in the form:
@@ -77,9 +65,6 @@
   (validate-order-by! [:certname :name :value] paging-options)
   (sql/with-query-results-cursor query params rs
     (func rs)))
-
-(def v1-query->sql
-  (partial query->sql fact-operators-v1))
 
 (def v2-query->sql
   (partial query->sql fact-operators-v2))

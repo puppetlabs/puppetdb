@@ -19,13 +19,14 @@
 ;; The `where` key is then inserted into a template query to return
 ;; the final result as a string of SQL code.
 ;;
-;; The compiled query components can be combined by operators such as `AND` or
-;; `OR`, which return the same sort of structure. Operators which accept other
-;; terms as their arguments are responsible for compiling their arguments
-;; themselves. To facilitate this, those functions accept as their first
-;; argument a map from operator to compile function. This allows us to have a
-;; different set of operators for resources and facts, or v1 and v2 resource
-;; queries, while still sharing the implementation of the operators themselves.
+;; The compiled query components can be combined by operators such as
+;; `AND` or `OR`, which return the same sort of structure. Operators
+;; which accept other terms as their arguments are responsible for
+;; compiling their arguments themselves. To facilitate this, those
+;; functions accept as their first argument a map from operator to
+;; compile function. This allows us to have a different set of
+;; operators for resources and facts, or queries, while still sharing
+;; the implementation of the operators themselves.
 ;;
 ;; Other operators include the subquery operators, `in`, `extract`, and
 ;; `select-resources` or `select-facts`. The `select-foo` operators implement
@@ -387,24 +388,6 @@
     (throw (IllegalArgumentException. (format "%s is not a queryable object for resources" path))))
   (compile-resource-equality-v3 (get v3-renamed-resource-columns path path) value))
 
-(defn compile-resource-equality-v1
-  "Compile an = operator for a v1 resource query. `path` represents the field
-  to query against, and `value` is the value. This mostly just defers to
-  `compile-resource-equality-v2`, with a little bit of logic to handle the one
-  term that differs."
-  [& [path value :as args]]
-  {:post [(map? %)
-          (:where %)]}
-  (when-not (= (count args) 2)
-    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  ;; We call it "certname" in v2, and ["node" "name"] in v1. If they specify
-  ;; ["node" "name"], rewrite it as "certname". But if they specify "certname",
-  ;; fail because this is v1.
-  (when (= path "certname")
-    (throw (IllegalArgumentException. "certname is not a queryable object for resources")))
-  (let [path (if (= path ["node" "name"]) "certname" path)]
-    (compile-resource-equality-v2 path value)))
-
 (defn compile-resource-regexp-v3
   "Compile an '~' predicate for a v3 resource query, which does regexp matching.
   This is done by leveraging the correct database-specific regexp syntax to
@@ -515,22 +498,6 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
-(defn compile-node-equality-v1
-  "Compile a v1 equality operator for nodes. This can either be for the value of
-  a specific fact, or based on node activeness."
-  [path value]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (match [path]
-         [["fact" (name :guard string?)]]
-         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
-          :params [name (str value)]}
-         [["node" "active"]]
-         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
-
-         :else (throw (IllegalArgumentException.
-                        (str path " is not a queryable object for nodes")))))
-
 (defn compile-node-equality-v2
   "Compile a v2 equality operator for nodes. This can either be for the value of
   a specific fact, or based on node activeness."
@@ -608,25 +575,6 @@
 (declare fact-operators-v2)
 (declare fact-operators-v3)
 
-(defn resource-operators-v1
-  "Maps v1 resource query operators to the functions implementing them. Returns nil
-  if the operator isn't known."
-  [op]
-  (let [unsupported (fn [& args]
-                      (throw (IllegalArgumentException. (format "Operator '%s' is not available in v1 resource queries" op))))]
-    (condp = (string/lower-case op)
-      "=" compile-resource-equality-v1
-      "and" (partial compile-and resource-operators-v1)
-      "or" (partial compile-or resource-operators-v1)
-      "not" (partial compile-not-v1 resource-operators-v1)
-      ;; All the subquery operators are unsupported in v1, so we dispatch to a
-      ;; function that throws an exception
-      "extract" unsupported
-      "in" unsupported
-      "select-resources" unsupported
-      "select-facts" unsupported
-      nil)))
-
 (defn resource-operators-v2
   "Maps v2 resource query operators to the functions implementing them. Returns nil
   if the operator isn't known."
@@ -658,27 +606,6 @@
     "select-resources" (partial resource-query->sql resource-operators-v3)
     "select-facts" (partial fact-query->sql fact-operators-v3)
     nil))
-
-(defn fact-operators-v1
-  "Maps v2 fact query operators to the functions implementing them. Returns nil
-  if the operator isn't known."
-  [op]
-  (let [op (string/lower-case op)]
-    (cond
-      (#{">" "<" ">=" "<="} op)
-      (partial compile-fact-inequality op)
-
-      (= op "=") compile-fact-equality
-      (= op "~") compile-fact-regexp
-      ;; We pass this function along so the recursive calls know which set of
-      ;; operators/functions to use, depending on the API version.
-      (= op "and") (partial compile-and fact-operators-v1)
-      (= op "or") (partial compile-or fact-operators-v1)
-      (= op "not") (partial compile-not-v1 fact-operators-v1)
-      (= op "extract") (partial compile-extract 1 fact-operators-v1)
-      (= op "in") (partial compile-in :fact 1 fact-operators-v1)
-      (= op "select-resources") (partial resource-query->sql resource-operators-v1)
-      (= op "select-facts") (partial fact-query->sql fact-operators-v1))))
 
 (defn fact-operators-v2
   "Maps v2 fact query operators to the functions implementing them. Returns nil
@@ -721,21 +648,6 @@
       (= op "in") (partial compile-in :fact 3 fact-operators-v3)
       (= op "select-resources") (partial resource-query->sql resource-operators-v3)
       (= op "select-facts") (partial fact-query->sql fact-operators-v3))))
-
-(defn node-operators-v1
-  "Maps v1 node query operators to the functions implementing them. Returns nil
-  if the operator isn't known."
-  [op]
-  (let [op (string/lower-case op)
-        unsupported (fn [& args]
-                      (throw (IllegalArgumentException. (format "Operator '%s' is not available in v1 node queries" op))))]
-    (cond
-      (= op "=") compile-node-equality-v1
-      (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
-      (= op "and") (partial compile-and node-operators-v1)
-      (= op "or") (partial compile-or node-operators-v1)
-      (= op "not") (partial compile-not-v1 node-operators-v1)
-      (#{"~" "extract" "in" "select-resources" "select-facts"} op) unsupported)))
 
 (defn node-operators-v2
   "Maps v2 node query operators to the functions implementing them. Returns nil
