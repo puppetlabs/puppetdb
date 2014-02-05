@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.v3.reports
+(ns com.puppetlabs.puppetdb.http.reports
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.reports :as query]
             [ring.util.response :as rr]
@@ -8,7 +8,6 @@
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.puppetdb.http :only (query-result-response)]))
-
 
 (defn produce-body
   "Given an optional `query` and a database connection, return a Ring response

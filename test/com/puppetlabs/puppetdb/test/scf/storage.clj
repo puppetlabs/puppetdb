@@ -893,7 +893,7 @@
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      #{}
-            actual        (resource-events-query-result ["=" "report" report1-hash])]
+            actual        (resource-events-query-result :latest ["=" "report" report1-hash])]
         (is (= expected actual))))))
 
 (deftest db-deprecation?

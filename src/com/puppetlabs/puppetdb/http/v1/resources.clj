@@ -74,6 +74,8 @@
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
+(def version :v1)
+
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the v1 API specification"
   [rows]
@@ -95,9 +97,7 @@
   {:pre [(and (integer? limit) (>= limit 0))]}
   (try
     (with-transacted-connection db
-      (-> query
-          (json/parse-string true)
-          (r/v1-query->sql)
+      (-> (r/query->sql version (json/parse-string query true))
           ((partial r/limited-query-resources limit))
           (:result)
           (munge-result-rows)

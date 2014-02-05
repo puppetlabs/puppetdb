@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.v3.server-time
+(ns com.puppetlabs.puppetdb.http.server-time
   (:require [com.puppetlabs.http :as pl-http])
   (:use [clj-time.core :only [now]]
         [net.cgrand.moustache :only [app]]

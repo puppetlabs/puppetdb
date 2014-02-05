@@ -70,10 +70,12 @@
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
-  ([query] (resource-events-query-result query nil))
-  ([query paging-options] (resource-events-query-result query paging-options nil))
-  ([query paging-options query-options]
-    (->> (query/query->sql query-options query)
+  ([version query]
+    (resource-events-query-result version query nil))
+  ([version query paging-options]
+    (resource-events-query-result version query paging-options nil))
+  ([version query paging-options query-options]
+    (->> (query/query->sql version query-options query)
          (query/query-resource-events paging-options)
          (:result)
          (set))))
@@ -81,9 +83,10 @@
 (defn resource-events-limited-query-result
   "Utility function that executes a resource events query with a limit, and returns
   a set of results for use in test comparisons."
-  ([limit query] (resource-events-limited-query-result limit query nil))
-  ([limit query paging-options]
-    (->> (query/query->sql nil query)
+  ([version limit query]
+    (resource-events-limited-query-result version limit query nil))
+  ([version limit query paging-options]
+    (->> (query/query->sql version nil query)
          (query/limited-query-resource-events limit paging-options)
          (:result)
          (set))))
@@ -92,7 +95,8 @@
   "Utility function that executes a resource events query with paging options and
   simply returns the map with the query results and any metadata for use in test
   comparisons. This does not do anything to the results from the query."
-  ([query paging-options] (raw-resource-events-query-result query paging-options nil))
-  ([query paging-options query-options]
-   (->> (query/query->sql query-options query)
-        (query/query-resource-events paging-options))))
+  ([version query paging-options]
+    (raw-resource-events-query-result version query paging-options nil))
+  ([version query paging-options query-options]
+    (->> (query/query->sql version query-options query)
+         (query/query-resource-events paging-options))))

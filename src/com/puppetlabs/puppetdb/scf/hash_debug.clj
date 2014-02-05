@@ -46,7 +46,7 @@
   "Query for the existing catalog from the DB, prep the results
    for easy diffing."
   [certname]
-  (-> (qcat/catalog-for-node certname)
+  (-> (qcat/catalog-for-node :latest certname)
       :data
       (update-in [:edges] edge-relationships->kwds)
       (update-in [:resources] resource-params->kwds)))

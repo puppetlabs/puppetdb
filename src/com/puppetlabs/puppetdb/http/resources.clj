@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.v3.resources
+(ns com.puppetlabs.puppetdb.http.resources
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
@@ -10,18 +10,22 @@
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
         [com.puppetlabs.puppetdb.http :only (add-headers)]))
 
+(defn munge-result-rows
+  "Munge the result rows so that they will be compatible with the v2 API specification"
+  [rows]
+  (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) rows))
+
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query results.
 
   If the query can't be parsed, a 400 is returned."
-  [query paging-options db]
+  [version query paging-options db]
   (try
     (with-transacted-connection db
-      (let [{[sql & params] :results-query
-             count-query    :count-query} (-> query
-                                              (json/parse-string true)
-                                              (r/v3-query->sql paging-options))
-             
+      (let [parsed-query (json/parse-string query true)
+            {[sql & params] :results-query
+             count-query    :count-query} (r/query->sql version parsed-query paging-options)
+
              resp (pl-http/json-response*
                    (pl-http/streamed-response buffer
                      ; NOTE - we we don't have a transaction here,
@@ -31,8 +35,10 @@
                      ; error when the caller tries to read it.
                      (with-transacted-connection db
                        (r/with-queried-resources sql params
-                         #(pl-http/stream-json % buffer)))))]
-        
+                         (case version
+                           :v2 (comp #(pl-http/stream-json % buffer) munge-result-rows)
+                           #(pl-http/stream-json % buffer))))))]
+
         (if count-query
           (add-headers resp {:count (get-result-count count-query)})
           resp)))
@@ -41,11 +47,13 @@
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))))
 
-(def query-app
+(defn query-app
+  [version]
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options]}]
                   (produce-body
+                    version
                     (params "query")
                     paging-options
                     (:scf-read-db globals)))
@@ -65,9 +73,14 @@
     [type &]
     (comp query-app (partial http-q/restrict-resource-query-to-type type))))
 
-(def resources-app
-  (build-resources-app
-    (-> query-app
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
-      (wrap-with-paging-options))))
+(defn resources-app
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "no support for v1"))
+    :v2 (build-resources-app
+          (validate-query-params (query-app version) {:optional ["query"]}))
+    (build-resources-app
+      (-> (query-app version)
+        (validate-query-params
+          {:optional (cons "query" paging/query-params)})
+        (wrap-with-paging-options)))))

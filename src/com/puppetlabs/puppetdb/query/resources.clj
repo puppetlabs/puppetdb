@@ -18,9 +18,7 @@
                                     count-sql
                                     with-query-results-cursor]]
         [com.puppetlabs.puppetdb.query :only [resource-query->sql
-                                              resource-operators-v1
-                                              resource-operators-v2
-                                              resource-operators-v3
+                                              resource-operators
                                               resource-columns]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
@@ -34,8 +32,9 @@
   indicate that the user would also like a total count of available results,
   then the return value will also contain a key `:count-query` whose value
   contains the SQL necessary to retrieve the count data."
-  ([operators query] (query->sql operators query {}))
-  ([operators query paging-options]
+  ([version query]
+    (query->sql version query {}))
+  ([version query paging-options]
    {:pre  [(sequential? query)]
     :post [(map? %)
            (valid-jdbc-query? (:results-query %))
@@ -43,7 +42,8 @@
              (not (:count? paging-options))
              (valid-jdbc-query? (:count-query %)))]}
     (validate-order-by! (map keyword (keys resource-columns)) paging-options)
-    (let [[subselect & params] (resource-query->sql operators query)
+    (let [operators (resource-operators version)
+          [subselect & params] (resource-query->sql operators query)
           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
                                   "subquery1.type, subquery1.title, subquery1.tags, "
                                   "subquery1.exported, subquery1.file, "
@@ -63,15 +63,6 @@
       (if (:count? paging-options)
         (assoc result :count-query (apply vector (count-sql subselect) params))
         result))))
-
-(def v1-query->sql
-  (partial query->sql resource-operators-v1))
-
-(def v2-query->sql
-  (partial query->sql resource-operators-v2))
-
-(def v3-query->sql
-  (partial query->sql resource-operators-v3))
 
 (defn deserialize-params
   [resources]

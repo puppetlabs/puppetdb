@@ -37,6 +37,8 @@
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)] ))
 
+(def version :v1)
+
 (defn search-nodes
   "Produce a response body for a request to search for nodes based on
   `query`. If no `query` is supplied, all nodes will be returned."
@@ -44,7 +46,7 @@
   (try
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
-            sql   (node/v1-query->sql query)
+            sql   (node/query->sql version query)
             nodes (mapv :name (:result (node/query-nodes sql)))]
         (pl-http/json-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e

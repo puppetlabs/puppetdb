@@ -10,6 +10,8 @@
         [net.cgrand.moustache :only (app)]
         [com.puppetlabs.jdbc :only (with-transacted-connection)]))
 
+(def version :v1)
+
 (defn produce-node-status
   "Produce a response body for a request to retrieve the status of `node`."
   [node db]
@@ -18,7 +20,7 @@
                     ; other than that, the code is exactly the same, so here we
                     ; are basically just calling the new v2 logic and then
                     ; removing the report timestamp.
-                    (dissoc (n/status node) :report_timestamp))]
+                    (dissoc (n/status :v2 node) :report_timestamp))]
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 
