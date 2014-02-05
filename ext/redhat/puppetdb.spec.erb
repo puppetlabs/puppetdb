@@ -311,11 +311,11 @@ fi
 %{_sbindir}/puppetdb-anonymize
 %{_sbindir}/puppetdb
 %dir %{_libexecdir}/%{name}
-%{_libexecdir}/%{name}/puppetdb-ssl-setup
-%{_libexecdir}/%{name}/puppetdb-foreground
-%{_libexecdir}/%{name}/puppetdb-import
-%{_libexecdir}/%{name}/puppetdb-export
-%{_libexecdir}/%{name}/puppetdb-anonymize
+%{_libexecdir}/%{realname}/puppetdb-ssl-setup
+%{_libexecdir}/%{realname}/puppetdb-foreground
+%{_libexecdir}/%{realname}/puppetdb-import
+%{_libexecdir}/%{realname}/puppetdb-export
+%{_libexecdir}/%{realname}/puppetdb-anonymize
 %{_datadir}/%{realname}
 <% unless @pe -%>
 %{_sharedstatedir}/%{realname}
