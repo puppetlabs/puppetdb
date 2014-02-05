@@ -190,12 +190,24 @@ fi
 #  we want to shut down and disable the service.
 if [ "$1" = "2" ] ; then
 %if 0%{?_with_systemd}
-    if /usr/bin/systemctl status %{name}.service > /dev/null ; then
-# If we need to restart the service after the upgrade
-#  is finished, we will touch a temp file so that
-#  we can detect that state
+    # We test to see if the systemd service file exists because in upgrades from < 1.6.0,
+    # puppetdb may still be using sysv and in that case we need to use the sysv tools.
+    if [ -f %{_unitdir}/%{name}.service ]; then
+      if /usr/bin/systemctl status %{name}.service > /dev/null; then
+        # If we need to restart the service after the upgrade
+        #  is finished, we will touch a temp file so that
+        #  we can detect that state
         touch <%= @install_dir %>/start_service_after_upgrade
         /usr/bin/systemctl stop %{name}.service >/dev/null 2>&1
+      fi
+    elif [ -f %{_initddir}/%{name} ]; then
+      if /sbin/service %{name} status > /dev/null ; then
+        # If we need to restart the service after the upgrade
+        #  is finished, we will touch a temp file so that
+        #  we can detect that state
+        touch <%= @install_dir %>/start_service_after_upgrade
+        /sbin/service %{name} stop >/dev/null 2>&1
+      fi
     fi
 %else
     if /sbin/service %{name} status > /dev/null ; then
@@ -217,15 +229,16 @@ useradd -r -g %{name} -d <%= @install_dir %> -s /sbin/nologin \
 <% if @pe -%>
 export PATH=/opt/puppet/bin:$PATH
 <% end -%>
+%if 0%{?_with_systemd}
+# Always reload the .service files if using systemd, in case they have changed.
+/usr/bin/systemctl daemon-reload
+%else
 # If this is an install (as opposed to an upgrade)...
 if [ "$1" = "1" ]; then
   # Register the puppetDB service
-%if 0%{?_with_systemd}
-  /usr/bin/systemctl daemon-reload
-%else
   /sbin/chkconfig --add %{name}
-%endif
 fi
+%endif
 
 <%= @sbin_dir -%>/puppetdb ssl-setup
 
