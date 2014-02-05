@@ -1,5 +1,7 @@
 (ns com.puppetlabs.puppetdb.http.v2
-  (:require         [com.puppetlabs.puppetdb.http.api :as api])
+  (:require [com.puppetlabs.puppetdb.http.version :as ver]
+            [com.puppetlabs.puppetdb.http.command :as cmd]
+            [com.puppetlabs.puppetdb.http.metrics :as met])
   (:use [com.puppetlabs.puppetdb.http.v2.facts :only (facts-app)]
         [com.puppetlabs.puppetdb.http.v2.fact-names :only (fact-names-app)]
         [com.puppetlabs.puppetdb.http.v2.node :only (node-app)]
@@ -9,7 +11,7 @@
 (def v2-app
   (app
    ["commands"]
-   {:any api/command}
+   {:any cmd/command}
 
    ["facts" &]
    {:any facts-app}
@@ -26,16 +28,16 @@
    ["metrics" &]
    (app
     ["mbeans"]
-    {:get api/list-mbeans}
+    {:get met/list-mbeans}
 
     ["mbean" & names]
     {:get (app
-           (api/mbean names))})
+           (met/mbean names))})
 
    ["version" &]
    (app
     [""]
-    {:get api/current-version}
+    {:get ver/current-version}
 
     ["latest"]
-    {:get api/latest-version})))
+    {:get ver/latest-version})))

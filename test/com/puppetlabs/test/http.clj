@@ -1,14 +1,14 @@
 (ns com.puppetlabs.test.http
   (:require [clj-http.client :as client]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [ring.mock.request :as mock]
+            [com.puppetlabs.puppetdb.testutils :as tu])
   (:import [java.io InputStream StringWriter])
   (:use [com.puppetlabs.http]
         [com.puppetlabs.jetty]
         [com.puppetlabs.testutils.logging]
-        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]
-        [cheshire.core]
-        [ring.mock.request]))
+        [cheshire.core]))
 
 (deftest conneg
   (testing "content negotiation"
@@ -110,12 +110,12 @@
         (is (= (default-body request response) message)))))
 
   (testing "provides a helpful message for 405 Method Not Allowed errors"
-    (let [request (request :post "/some/test/route")
+    (let [request (mock/request :post "/some/test/route")
           response {:status status-bad-method}
           message "The POST method is not allowed for /some/test/route"]
       (is (= (default-body request response) message)))
 
-    (let [request (request :post "/some/test/route?foo=bar")
+    (let [request (mock/request :post "/some/test/route?foo=bar")
           response {:status status-bad-method}
           message "The POST method is not allowed for /some/test/route?foo=bar"]
       (is (= (default-body request response) message)))))
@@ -123,7 +123,7 @@
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
     (let [app  (fn [req] (json-response "N�rnberg"))]
-      (with-test-jetty app port
+      (tu/with-test-jetty app port
         (let [resp (client/get (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp
