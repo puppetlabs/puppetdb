@@ -32,6 +32,24 @@ failovermethod=priority
 enabled=1
 gpgcheck=0
     REPO
+  when :fedora
+    create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
+[puppetlabs-dependencies]
+name=Puppet Labs Dependencies - $basearch
+baseurl=http://yum.puppetlabs.com/fedora/f$releasever/dependencies/$basearch
+gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+enabled=1
+gpgcheck=1
+    REPO
+
+    create_remote_file host, '/etc/yum.repos.d/puppetlabs-products.repo', <<-REPO.gsub(' '*8, '')
+[puppetlabs-products]
+name=Puppet Labs Products - $basearch
+baseurl=http://yum.puppetlabs.com/fedora/f$releasever/products/$basearch
+gpgkey=http://yum.puppetlabs.com/RPM-GPG-KEY-puppetlabs
+enabled=1
+gpgcheck=1
+    REPO
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end

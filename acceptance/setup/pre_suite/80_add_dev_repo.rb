@@ -15,11 +15,18 @@ if (test_config[:install_type] == :package)
       Log.notify("APT LIST FILE CONTENTS:\n#{result.stdout}\n")
       on database, "apt-get update"
     when :redhat
-      # TODO: this code assumes that we are always running a 64-bit CentOS.  Will
-      #  break with Fedora.
       result = on database, "facter operatingsystemmajrelease"
       el_version = result.stdout.chomp
       yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-el-#{el_version}-x86_64.repo"
+      yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
+      on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
+
+      result = on database, "cat #{yum_repo_file_path}"
+      Log.notify("Yum REPO DEFINITION:\n\n#{result.stdout}\n\n")
+    when :fedora
+      result = on database, "facter operatingsystemmajrelease"
+      version = result.stdout.chomp
+      yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-fedora-#{version}-x86_64.repo"
       yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
       on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
 

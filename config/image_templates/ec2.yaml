@@ -142,3 +142,9 @@ AMI:
       :pe: ami-f5d76b9c
       :foss: ami-f5d76b9c
     :region: us-east-1
+
+  fedora-20-x86_64-west:
+    :image:
+      :pe: ami-c0b9daf0
+      :foss: ami-c0b9daf0
+    :region: us-west-2
