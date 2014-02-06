@@ -19,5 +19,6 @@ end
 
 group :acceptance do
 #  gem 'beaker', '~> 1.0'
-  gem 'beaker', :git => 'git://github.com/kbarber/beaker', :branch => 'maint/master/support-fedora-when-determining-ip'
+  # TODO: this needs to be changed back once 1.6.3 of beaker is released
+  gem 'beaker', :git => 'git://github.com/puppetlabs/beaker', :ref => 'c7a388a484e4c53735a5d84bce93f844881290dc'
 end
