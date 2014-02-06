@@ -737,7 +737,7 @@
   (testing "on input that violates referential integrity"
     ; This catalog has an edge that points to a non-existant resource
     (let [catalog (:invalid catalogs)]
-      (is (thrown? clojure.lang.ExceptionInfo (add-catalog! {})))
+      (is (thrown? clojure.lang.ExceptionInfo (add-catalog! catalog)))
 
       ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
