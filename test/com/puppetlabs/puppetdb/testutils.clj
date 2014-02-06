@@ -8,12 +8,12 @@
             [cheshire.core :as json]
             [fs.core :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
-            [slingshot.slingshot :refer [throw+]])
+            [slingshot.slingshot :refer [throw+]]
+            [ring.mock.request :as mock])
   (:use     [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-current-connection-table-names]]
             [puppetlabs.kitchensink.core :only [parse-int excludes? keyset]]
             [clojure.test]
-            [clojure.set :only [difference]]
-            [ring.mock.request]))
+            [clojure.set :only [difference]]))
 
 (def c-t "application/json")
 
@@ -194,7 +194,7 @@
   ([path query] (get-request path query {}))
   ([path query params] (get-request path query params {"accept" c-t}))
   ([path query params headers]
-    (let [request (request :get path
+    (let [request (mock/request :get path
                     (if query
                       (assoc params
                         "query" (if (string? query) query (json/generate-string query)))
@@ -202,6 +202,10 @@
           orig-headers (:headers request)]
       (assoc request :headers (merge orig-headers headers)))))
 
+(defn content-type
+  "Returns the content type of the ring response"
+  [resp]
+  (get-in resp [:headers "Content-Type"]))
 
 (defn paged-results*
   "Makes a ring request to `path` using the `app-fn` ring handler. Sets the necessary parameters

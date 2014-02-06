@@ -89,3 +89,24 @@
   [f]
   (with-log-output logs
     (f)))
+
+(defn internal-request
+  "Create a ring request as it would look after passing through all of the
+   application middlewares, suitable for invoking one of the api functions
+   (where it assumes the middleware have already assoc'd in various attributes)."
+  ([]
+     (internal-request {}))
+  ([params]
+     (internal-request {} params))
+  ([global-overrides params]
+     {:params params
+      :headers {"accept" "application/json"}
+      :globals (merge {:update-server "FOO"
+                       :scf-read-db          *db*
+                       :scf-write-db         *db*
+                       :command-mq           *mq*
+                       :resource-query-limit 20000
+                       :event-query-limit    20000
+                       :product-name         "puppetdb"}
+                      global-overrides)}))
+

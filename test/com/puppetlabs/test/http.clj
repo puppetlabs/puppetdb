@@ -1,13 +1,12 @@
 (ns com.puppetlabs.test.http
   (:require [clj-http.client :as client]
             [cheshire.core :as json]
-            [puppetlabs.trapperkeeper.testutils.jetty :refer [with-test-jetty]])
+            [puppetlabs.trapperkeeper.testutils.jetty :refer [with-test-jetty]]
+            [ring.mock.request :as mock])
   (:import [java.io InputStream StringWriter])
   (:use [com.puppetlabs.http]
-        [com.puppetlabs.puppetdb.testutils]
         [clojure.test]
-        [cheshire.core]
-        [ring.mock.request]))
+        [cheshire.core])
 
 (deftest conneg
   (testing "content negotiation"
@@ -109,12 +108,12 @@
         (is (= (default-body request response) message)))))
 
   (testing "provides a helpful message for 405 Method Not Allowed errors"
-    (let [request (request :post "/some/test/route")
+    (let [request (mock/request :post "/some/test/route")
           response {:status status-bad-method}
           message "The POST method is not allowed for /some/test/route"]
       (is (= (default-body request response) message)))
 
-    (let [request (request :post "/some/test/route?foo=bar")
+    (let [request (mock/request :post "/some/test/route?foo=bar")
           response {:status status-bad-method}
           message "The POST method is not allowed for /some/test/route?foo=bar"]
       (is (= (default-body request response) message)))))

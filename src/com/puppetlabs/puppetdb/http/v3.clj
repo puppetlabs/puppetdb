@@ -1,11 +1,11 @@
 (ns com.puppetlabs.puppetdb.http.v3
-  (:use [com.puppetlabs.puppetdb.http.v3.command :only (command-app)]
-        [com.puppetlabs.puppetdb.http.v3.facts :only (facts-app)]
+  (:require [com.puppetlabs.puppetdb.http.version :as ver]
+            [com.puppetlabs.puppetdb.http.command :as cmd]
+            [com.puppetlabs.puppetdb.http.metrics :as met])
+  (:use [com.puppetlabs.puppetdb.http.v3.facts :only (facts-app)]
         [com.puppetlabs.puppetdb.http.v3.fact-names :only (fact-names-app)]
         [com.puppetlabs.puppetdb.http.v3.nodes :only (node-app)]
         [com.puppetlabs.puppetdb.http.v3.resources :only (resources-app)]
-        [com.puppetlabs.puppetdb.http.v3.metrics :only (metrics-app)]
-        [com.puppetlabs.puppetdb.http.v3.version :only (version-app)]
         [com.puppetlabs.puppetdb.http.v3.catalogs :only (catalog-app)]
         [com.puppetlabs.puppetdb.http.v3.events :only (events-app)]
         [com.puppetlabs.puppetdb.http.v3.reports :only (reports-app)]
@@ -16,41 +16,52 @@
 
 (def v3-app
   (app
-    ["commands" &]
-    {:any command-app}
+   ["commands"]
+   {:any cmd/command}
 
-    ["facts" &]
-    {:any facts-app}
+   ["facts" &]
+   {:any facts-app}
 
-    ["fact-names" &]
-    {:any fact-names-app}
+   ["fact-names" &]
+   {:any fact-names-app}
 
-    ["nodes" &]
-    {:any node-app}
+   ["nodes" &]
+   {:any node-app}
 
-    ["resources" &]
-    {:any resources-app}
+   ["resources" &]
+   {:any resources-app}
 
-    ["metrics" &]
-    {:any metrics-app}
+   ["metrics" &]
+   (app
+    ["mbeans"]
+    {:get met/list-mbeans}
 
-    ["version" &]
-    {:any version-app}
+    ["mbean" & names]
+    {:get (app
+           (met/mbean names))})
 
-    ["catalogs" &]
-    {:any catalog-app}
+   ["version" &]
+   (app
+    [""]
+    {:get ver/current-version}
 
-    ["events" &]
-    {:any events-app}
+    ["latest"]
+    {:get ver/latest-version})
 
-    ["event-counts" &]
-    {:any event-counts-app}
+   ["catalogs" &]
+   {:any catalog-app}
 
-    ["aggregate-event-counts" &]
-    {:any aggregate-event-counts-app}
+   ["events" &]
+   {:any events-app}
 
-    ["reports" &]
-    {:any reports-app}
+   ["event-counts" &]
+   {:any event-counts-app}
 
-    ["server-time" &]
-    {:any server-time-app}))
+   ["aggregate-event-counts" &]
+   {:any aggregate-event-counts-app}
+
+   ["reports" &]
+   {:any reports-app}
+
+   ["server-time" &]
+   {:any server-time-app}))

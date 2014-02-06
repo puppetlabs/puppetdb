@@ -1,17 +1,15 @@
-(ns com.puppetlabs.puppetdb.http.v1.version
-  (:require [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr]
-            [clojure.tools.logging :as log])
-  (:use [com.puppetlabs.puppetdb.version :only [version update-info]]
-        com.puppetlabs.middleware
-        [net.cgrand.moustache :only [app]]
-        [puppetlabs.kitchensink.core :only [cond-let]]))
+(ns com.puppetlabs.puppetdb.http.version
+  (:require [clojure.tools.logging :as log]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.version :as v]
+            [com.puppetlabs.middleware :as mid]))
 
 (defn current-version-response
   "Responds with the current version of PuppetDB as a JSON object containing a
   `version` key."
-  [req]
-  (if-let [version (version)]
+  [_]
+  (if-let [version (v/version)]
     (pl-http/json-response {:version version})
     (pl-http/error-response "Could not find version" 404)))
 
@@ -25,16 +23,16 @@
   (let [update-server (:update-server globals)
         product-name  (:product-name globals)]
     (try
-      (cond-let [result]
+      (kitchensink/cond-let [result]
         ;; if we get one of these requests from pe-puppetdb, we always want to
         ;; return 'newer->false' so that the dashboard will never try to
         ;; display info about a newer version being available
         (= product-name "pe-puppetdb")
         (pl-http/json-response {"newer"   false
-                                "version" (version)
+                                "version" (v/version)
                                 "link"    nil})
 
-        (update-info update-server (:scf-read-db globals))
+        (v/update-info update-server (:scf-read-db globals))
         (pl-http/json-response result)
 
         :else
@@ -49,16 +47,20 @@
         (pl-http/error-response
           (format "Error when checking for latest version: %s" e))))))
 
-(def routes
-  (app
-    [""]
-    {:get current-version-response}
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
 
-    ["latest"]
-    {:get latest-version-response}))
+;; The below fns expect to be called from a moustache handler and
+;; return functions that accept a ring request map
 
-(def version-app
-  "A moustache app for retrieving current and latest version information."
-  (-> routes
-    verify-accepts-json
-    (validate-no-query-params)))
+(def current-version
+  "Function for validating the request then getting the current (running) version PuppetDB"
+  (-> current-version-response
+      mid/verify-accepts-json
+      mid/validate-no-query-params))
+
+(def latest-version
+  "Function for validating the request, then getting latest version of PuppetDB"
+  (-> latest-version-response
+      mid/verify-accepts-json
+      mid/validate-no-query-params))
