@@ -4,6 +4,76 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.6.2
+-----
+
+PuppetDB 1.6.2 is a bugfix release.
+
+Notable improvements and fixes:
+
+
+* Provided an early release RPM SPEC for RHEL 7, no automated builds yet.
+
+* (PDB-377) - Fixed a Fedora RPM packaging issue preventing PuppetDB
+  from starting by disabling JAR repacking
+
+* (PDB-341) - Fixed a naming issue when using subqueries for resource
+  metadata like file and line with v3 of the API
+
+* (PDB-128) - Oracle Java 7 package support
+
+  Add support for Oracle Java 7 packages on Debian. This
+  means that users who have older Debian based distros but do not have
+  native JDK 7 packages can build their own Oracle Java 7 package (see
+  https://wiki.debian.org/JavaPackage) and we will pull it in as a
+  dependency.
+ 
+* (PDB-106) - Added an explicit log message upon a failed agent run
+  (previously would fail with “undefined method `[]' for nil:NilClass”)
+
+* Change the order that filters are applied for events
+
+  When using the `distinct-resources` flag of an event query, the
+  previous behavior was that we would do the filtering of the events
+  *before* we would eliminate duplicate resources. This was not the
+  expected behavior in many cases in the UI; for example, when filtering
+  events based on event status, the desired behavior was to find all of
+  the most recent events for each resource *first*, and then apply the
+  filter to that set of resources. If we did the status filtering first,
+  then we might end up in a state where we found the most recent
+  'failed' event and showed it in the UI even if there were 'success'
+  events on that resource afterwards.
+
+  This commit changes the order that the filtering happens in.  We
+  now do the `distinct` portion of the query before we do the filtering.
+
+  However, in order to achieve reasonable performance, we need to
+  at least include timestamp filtering in the `distinct` query; otherwise
+  that portion of the query has to work against the entire table,
+  and becomes prohibitively expensive.
+
+  Since the existing timestamp filtering can be nested arbitrarily
+  inside of the query (inside of boolean logic, etc.), it was not
+  going to be possible to re-use that to handle the timestamp filtering
+  for the `distinct` part of the query; thus, we had to introduce
+  two new query parameters to go along with `distinct-resources`:
+  `distinct-start-time` and `distinct-end-time`.  These are now
+  required when using `distinct-resources`.
+
+* (PDB-407) - Add Fedora 20 acceptance tests
+
+* (PDB-425) - System V to SystemD upgrade
+
+  Fixed issues upgrading from 1.5.2 to 1.6.2 on Fedora.
+  1.5.2 used System V scripts while 1.6.x used SystemD which caused
+  failures.
+
+1.6.1
+-----
+
+Not released due to SystemD-related packaging issues on Fedora
+  
+
 1.6.0
 -----
 
