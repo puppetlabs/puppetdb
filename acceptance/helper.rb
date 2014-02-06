@@ -151,7 +151,12 @@ module PuppetDBExtensions
   def get_os_family(host)
     on(host, "which yum", :silent => true)
     if result.exit_code == 0
-      :redhat
+      on(host, "ls /etc/fedora-release", :silent => true)
+      if result.exit_code == 2
+        :redhat
+      else
+        :fedora
+      end
     else
       :debian
     end
@@ -222,6 +227,9 @@ module PuppetDBExtensions
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
     elsif host['platform'].include?('el-6')
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
+    elsif host['platform'].include?('fedora')
+      version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
+      "#{PuppetDBExtensions.config[:expected_rpm_version]}.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
       "#{PuppetDBExtensions.config[:expected_deb_version]}"
     else
@@ -276,7 +284,7 @@ module PuppetDBExtensions
           when :debian
             result = on host, "dpkg-query --showformat \"\\${Version}\" --show puppetdb"
             result.stdout.strip
-          when :redhat
+          when :redhat, :fedora
             result = on host, "rpm -q puppetdb --queryformat \"%{VERSION}-%{RELEASE}\""
             result.stdout.strip
           else
@@ -393,7 +401,7 @@ module PuppetDBExtensions
       when :debian
         preinst = "debian/puppetdb.preinst install"
         postinst = "debian/puppetdb.postinst"
-      when :redhat
+      when :redhat, :fedora
         preinst = "dev/redhat/redhat_dev_preinst install"
         postinst = "dev/redhat/redhat_dev_postinst install"
       else
@@ -827,7 +835,7 @@ module PuppetDBExtensions
       case os
       when :debian
         on host, "apt-get install -y puppet puppetmaster-common"
-      when :redhat
+      when :redhat, :fedora
         on host, "yum install -y puppet"
       else
         raise ArgumentError, "Unsupported OS '#{os}'"
@@ -902,7 +910,7 @@ module PuppetDBExtensions
       os = os_families[host.name]
 
       case os
-      when :redhat
+      when :redhat, :fedora
         on host, "yum install -y git-core ruby"
       when :debian
         on host, "apt-get install -y git ruby"

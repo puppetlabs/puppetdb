@@ -567,3 +567,6 @@ The _swank_ type allows emacs' clojure-mode to connect directly to a running Pup
 
 The port to use for the REPL.
 
+### `host`
+
+Specifies the host or IP address for the repl service to listen on. By default this is `127.0.0.1` only, as this is an insecure channel this is the only recommended setting for production environments. Although this is generally not recommended for production, you can listen on all interfaces, you can specify `0.0.0.0` for example.

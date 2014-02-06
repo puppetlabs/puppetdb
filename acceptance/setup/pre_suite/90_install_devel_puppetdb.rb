@@ -6,7 +6,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
     raise "No PUPPETDB_REPO_PUPPETDB set" unless test_config[:repo_puppetdb]
 
     case os
-    when :redhat
+    when :redhat, :fedora
       on database, "yum install -y git-core ruby rubygem-rake"
     when :debian
       on database, "apt-get install -y git-core ruby rake"
@@ -44,7 +44,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
     # That leaves the case where we're on a redhat box and we're running the
     # tests as :install only (as opposed to :upgrade).  In that case we need
     # to start the service ourselves here.
-    if test_config[:install_mode] == :install and os == :redhat
+    if test_config[:install_mode] == :install and [:redhat, :fedora].include?(os)
       start_puppetdb(database)
     else
       # make sure it got started by the package install/upgrade
