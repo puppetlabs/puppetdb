@@ -55,7 +55,8 @@ find_my_pid() {
       mkdir -p /var/run/$prog
       chown -R $USER:$USER /var/run/$prog
     fi
-    pid=`ps -ef | grep $JAVA_BIN | grep $JARFILE | grep " services -c " | awk '{print $2}'`
+    java_cmd=`basename $JAVA_BIN`
+    pid=`ps -ef | grep $java_cmd | grep $JARFILE | grep " services -c " | awk '{print $2}'`
 }
 
 start() {
