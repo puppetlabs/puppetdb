@@ -12,3 +12,5 @@ script: ./ext/travisci/test.sh
 notifications:
   email: false
 services: postgresql
+before_install:
+  - rvm use 1.9.3
