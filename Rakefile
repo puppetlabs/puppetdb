@@ -37,12 +37,30 @@ end
 end
 
 # We establish variables used in the puppetdb tasks before hand
-if (@build and @build.build_pe) || (ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true')
-  @pe = TRUE
-  ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH']
+if defined?(Pkg) and defined?(Pkg::Config)
+  if @pe = Pkg::Config.build_pe
+    # If we're building PE, we need to set the project name to pe-puppetdb
+    Pkg::Config.project = "pe-puppetdb"
+  end
+  @version = Pkg::Config.version
 else
-  @pe = FALSE
+  begin
+    %x{which git >/dev/null 2>&1}
+    if $?.success?
+      @version = %x{git describe --always --dirty}
+      if $?.success?
+        @version.chomp!
+      end
+    end
+  rescue
+    @version = "0.0-dev-build"
+  end
+  if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
+    @pe = TRUE
+  end
 end
+
+ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH'] if @pe
 
 @osfamily = (Facter.value(:osfamily) || "").downcase
 

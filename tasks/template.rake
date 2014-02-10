@@ -1,62 +1,76 @@
 # Template task to handle all of puppetdb's erb templates
 #
 task :template => [ :clean ] do
-   mkdir_p "ext/files/debian"
-   # files for deb and rpm
-   erb "ext/templates/log4j.properties.erb", "ext/files/log4j.properties"
-   erb "ext/templates/config.ini.erb" , "ext/files/config.ini"
-   erb "ext/templates/jetty.ini.erb",  "ext/files/jetty.ini"
-   erb "ext/templates/repl.ini.erb",  "ext/files/repl.ini"
-   erb "ext/templates/database.ini.erb",  "ext/files/database.ini"
-   erb "ext/templates/puppetdb-foreground.erb",  "ext/files/puppetdb-foreground"
-   chmod 0700, "ext/files/puppetdb-foreground"
-   erb "ext/templates/puppetdb-import.erb",  "ext/files/puppetdb-import"
-   chmod 0700, "ext/files/puppetdb-import"
-   erb "ext/templates/puppetdb-export.erb",  "ext/files/puppetdb-export"
-   chmod 0700, "ext/files/puppetdb-export"
-   erb "ext/templates/puppetdb-anonymize.erb", "ext/files/puppetdb-anonymize"
-   chmod 0700, "ext/files/puppetdb-anonymize"
-   cp_pr "ext/templates/puppetdb-ssl-setup", "ext/files"
-   chmod 0700, "ext/files/puppetdb-ssl-setup"
-   erb "ext/templates/puppetdb.erb", "ext/files/puppetdb"
-   chmod 0700, "ext/files/puppetdb"
-   erb "ext/templates/puppetdb-legacy.erb", "ext/files/puppetdb-legacy"
-   chmod 0700, "ext/files/puppetdb-legacy"
+  shared_templates = {
+    # files for deb and rpm
+    "ext/templates/log4j.properties.erb"    => "ext/files/log4j.properties",
+    "ext/templates/config.ini.erb"          => "ext/files/config.ini",
+    "ext/templates/jetty.ini.erb"           => "ext/files/jetty.ini",
+    "ext/templates/repl.ini.erb"            => "ext/files/repl.ini",
+    "ext/templates/database.ini.erb"        => "ext/files/database.ini",
+    "ext/templates/puppetdb-foreground.erb" => "ext/files/puppetdb-foreground",
+    "ext/templates/puppetdb-import.erb"     => "ext/files/puppetdb-import",
+    "ext/templates/puppetdb-export.erb"     => "ext/files/puppetdb-export",
+    "ext/templates/puppetdb-anonymize.erb"  => "ext/files/puppetdb-anonymize",
+    "ext/templates/puppetdb.erb"            => "ext/files/puppetdb",
+    "ext/templates/puppetdb-legacy.erb"     => "ext/files/puppetdb-legacy",
+    "ext/templates/init_debian.erb"         => "ext/files/#{@name}.debian.init"
+  }
 
-   # files for deb
-   erb "ext/templates/init_debian.erb", "ext/files/debian/#{@name}.init"
-   erb "ext/templates/puppetdb_default.erb", "ext/files/debian/#{@name}.default"
-   erb "ext/templates/deb/control.erb", "ext/files/debian/control"
-   erb "ext/templates/deb/prerm.erb", "ext/files/debian/#{@name}.prerm"
-   erb "ext/templates/deb/postrm.erb", "ext/files/debian/#{@name}.postrm"
-   erb "ext/templates/deb/base.install.erb", "ext/files/debian/#{@name}.install"
-   erb "ext/templates/deb/terminus.install.erb", "ext/files/debian/#{@name}-terminus.install"
-   erb "ext/templates/deb/rules.erb", "ext/files/debian/rules"
-   chmod 0755, "ext/files/debian/rules"
-   erb "ext/templates/deb/changelog.erb", "ext/files/debian/changelog"
-   erb "ext/templates/deb/preinst.erb", "ext/files/debian/#{@name}.preinst"
-   erb "ext/templates/deb/postinst.erb", "ext/files/debian/#{@name}.postinst"
-   erb "ext/templates/logrotate.erb", "ext/files/debian/#{@name}.logrotate"
-   erb "ext/templates/init_debian.erb", "ext/files/#{@name}.debian.init"
-   cp_pr FileList["ext/templates/deb/*"], "ext/files/debian"
-   rm_rf FileList["ext/files/debian/*.erb"]
+  deb_templates = {
+    "ext/templates/init_debian.erb"           => "ext/files/debian/#{@name}.init",
+    "ext/templates/puppetdb_default.erb"      => "ext/files/debian/#{@name}.default",
+    "ext/templates/deb/control.erb"           => "ext/files/debian/control",
+    "ext/templates/deb/prerm.erb"             => "ext/files/debian/#{@name}.prerm",
+    "ext/templates/deb/postrm.erb"            => "ext/files/debian/#{@name}.postrm",
+    "ext/templates/deb/base.install.erb"      => "ext/files/debian/#{@name}.install",
+    "ext/templates/deb/terminus.install.erb"  => "ext/files/debian/#{@name}-terminus.install",
+    "ext/templates/deb/rules.erb"             => "ext/files/debian/rules",
+    "ext/templates/deb/changelog.erb"         => "ext/files/debian/changelog",
+    "ext/templates/deb/preinst.erb"           => "ext/files/debian/#{@name}.preinst",
+    "ext/templates/deb/postinst.erb"          => "ext/files/debian/#{@name}.postinst",
+    "ext/templates/logrotate.erb"             => "ext/files/debian/#{@name}.logrotate",
+  }
 
-   # files for rpm
-   erb "ext/templates/logrotate.erb", "ext/files/puppetdb.logrotate"
-   erb "ext/templates/init_redhat.erb", "ext/files/puppetdb.redhat.init"
-   erb "ext/templates/init_suse.erb", "ext/files/puppetdb.suse.init"
-   erb "ext/templates/puppetdb_default.erb", "ext/files/puppetdb.default"
+  rpm_other_templates = {
+    "ext/redhat/#{@name}.spec.erb"                      => "ext/files/#{@name}.spec",
+    "ext/templates/logrotate.erb"                       => "ext/files/puppetdb.logrotate",
+    "ext/templates/init_redhat.erb"                     => "ext/files/puppetdb.redhat.init",
+    "ext/templates/init_suse.erb"                       => "ext/files/puppetdb.suse.init",
+    "ext/templates/puppetdb_default.erb"                => "ext/files/puppetdb.default",
+    "ext/templates/dev/redhat/redhat_dev_preinst.erb"   => "ext/files/dev/redhat/redhat_dev_preinst",
+    "ext/templates/dev/redhat/redhat_dev_postinst.erb"  => "ext/files/dev/redhat/redhat_dev_postinst",
+    "ext/templates/init_openbsd.erb"                    => "ext/files/puppetdb.openbsd.init",
+    "ext/templates/puppetdb.service.erb"                => "ext/files/systemd/#{@name}.service"
+  }
 
-   # developer utility files for redhat
-   mkdir_p "ext/files/dev/redhat"
-   erb "ext/templates/dev/redhat/redhat_dev_preinst.erb", "ext/files/dev/redhat/redhat_dev_preinst"
-   erb "ext/templates/dev/redhat/redhat_dev_postinst.erb", "ext/files/dev/redhat/redhat_dev_postinst"
+  # Set up shared files
+  mkdir_p "ext/files/debian"
+  shared_templates.each do |template, target|
+    Pkg::Util::File.erb_file(template, target, false, :binding => binding)
+  end
+  chmod 0700, "ext/files/puppetdb-foreground"
+  chmod 0700, "ext/files/puppetdb-import"
+  chmod 0700, "ext/files/puppetdb-export"
+  chmod 0700, "ext/files/puppetdb-anonymize"
+  cp_p "ext/templates/puppetdb-ssl-setup", "ext/files"
+  chmod 0700, "ext/files/puppetdb-ssl-setup"
+  chmod 0700, "ext/files/puppetdb"
+  chmod 0700, "ext/files/puppetdb-legacy"
 
-   # files for OpenBSD
-   erb "ext/templates/init_openbsd.erb", "ext/files/puppetdb.openbsd.init"
+  # Set up deb files
+  deb_templates.each do |template, target|
+    Pkg::Util::File.erb_file(template, target, false, :binding => binding)
+  end
+  chmod 0755, "ext/files/debian/rules"
+  cp_pr FileList["ext/templates/deb/*"].reject {|f| File.extname(f) == ".erb" }, "ext/files/debian"
 
-   # files for systemd
-   mkdir_p "ext/files/systemd"
-   erb "ext/templates/puppetdb.service.erb", "ext/files/systemd/#{@name}.service"
-   chmod 0644, "ext/files/systemd/#{@name}.service"
+
+  # Set up rpm files, utilities, and misc other
+  mkdir_p "ext/files/dev/redhat"
+  mkdir_p "ext/files/systemd"
+  rpm_other_templates.each do |template, target|
+    Pkg::Util::File.erb_file(template, target, false, :binding => binding)
+  end
+  chmod 0644, "ext/files/systemd/#{@name}.service"
 end
