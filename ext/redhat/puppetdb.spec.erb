@@ -1,6 +1,6 @@
 %global realname puppetdb
-%global realversion <%= @version %>
-%global rpmversion <%= @rpmversion %>
+%global realversion <%= Pkg::Config.version %>
+%global rpmversion <%= Pkg::Config.rpmversion %>
 
 %define __jar_repack 0
 
@@ -58,8 +58,8 @@ Name:          pe-puppetdb
 <% else -%>
 Name:          puppetdb
 <% end -%>
-Version:       <%= @rpmversion %>
-Release:       <%= @rpmrelease %>%{?dist}
+Version:       <%= Pkg::Config.rpmversion %>
+Release:       <%= Pkg::Config.rpmrelease %>%{?dist}
 BuildRoot:     %{_tmppath}/%{realname}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Summary:       Puppet Centralized Storage Daemon
@@ -347,10 +347,10 @@ fi
 
 %changelog
 <%
-hostname = `hostname --fqdn`
-dt=`date +"%a %b %d %Y"`
+require 'socket'
+hostname = Socket.gethostname
 -%>
-* <%= dt.strip -%> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname.strip -%>> - <%= @rpmversion %>-<%= @rpmrelease -%>
+* <%= Time.now.strftime("%a %b %d %Y") %> <%= ENV['USER'] -%> <<%= ENV['USER'].strip -%>@<%= hostname -%>> - <%= Pkg::Config.rpmversion %>-<%= Pkg::Config.rpmrelease %>
 - Autobuild from Rake task
 
 * Mon Apr 02 2012 Michael Stahnke <stahnma@puppetlabs.com> - 0.1.0-1
