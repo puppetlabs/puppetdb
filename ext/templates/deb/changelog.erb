@@ -3,10 +3,10 @@
   else
   dists = 'hardy lucid maverick oneiric unstable lenny sid squeeze wheezy precise'
   end -%>
-<%= @name -%> (<%= @debversion -%>) <%= dists -%>; urgency=low
+<%= @name -%> (<%= Pkg::Config.debversion -%>) <%= dists -%>; urgency=low
 
   * Add postgresql to suggests
   * Adding an init script from Puppet Labs Ops
   * Update postinst stuff to be official debian-style
 
- -- Puppet Labs  <info@puppetlabs.com>  <%= %x{date -R} -%>
+ -- Puppet Labs  <info@puppetlabs.com>  <%= Time.now.strftime("%a, %d %b %Y %H:%M:%S %z")%>
