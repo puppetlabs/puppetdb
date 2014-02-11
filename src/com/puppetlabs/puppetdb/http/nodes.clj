@@ -57,6 +57,7 @@
 (defn node-app
   [version]
   (case version
+    :v1 (throw (IllegalArgumentException. "No support for v1 api"))
     :v2 (-> (routes version)
           verify-accepts-json
           (validate-query-params {:optional ["query"]}))

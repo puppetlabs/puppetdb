@@ -326,10 +326,10 @@
   [version & [path value :as args]]
   {:post [(map? %)
           (:where %)]}
+  (when-not (= (count args) 2)
+    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (case version
     :v1 (do
-          (when-not (= (count args) 2)
-            (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
           ;; We call it "certname" in v2, and ["node" "name"] in v1. If they specify
           ;; ["node" "name"], rewrite it as "certname". But if they specify "certname",
           ;; fail because this is v1.
@@ -338,16 +338,12 @@
           (let [path (if (= path ["node" "name"]) "certname" path)]
             (compile-resource-equality :v2 path value)))
     :v2 (do
-          (when-not (= (count args) 2)
-            (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
           ;; If they passed in any of the new names for the renamed resource-columns, we fail
           ;; because this is v2.
           (when (contains? (valset v3-renamed-resource-columns) path)
             (throw (IllegalArgumentException. (format "%s is not a queryable object for resources" path))))
           (compile-resource-equality :v3 (get v3-renamed-resource-columns path path) value))
     (do
-      (when-not (= (count args) 2)
-        (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
       (match [path]
              ;; tag join. Tags are case-insensitive but always lowercase, so
              ;; lowercase the query value.
@@ -487,15 +483,15 @@
   {:post [(map? %)
           (string? (:where %))]}
   (case version
-     :v1 (match [path]
-           [["fact" (name :guard string?)]]
-           {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
-            :params [name (str value)]}
-           [["node" "active"]]
-           {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+    :v1 (match [path]
+          [["fact" (name :guard string?)]]
+          {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
+           :params [name (str value)]}
+          [["node" "active"]]
+          {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
-           :else (throw (IllegalArgumentException.
-                          (str path " is not a queryable object for nodes"))))
+          :else (throw (IllegalArgumentException.
+                         (str path " is not a queryable object for nodes"))))
     (match [path]
            ["name"]
            {:where "certnames.name = ?"

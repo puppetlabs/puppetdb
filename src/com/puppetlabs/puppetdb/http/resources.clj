@@ -36,6 +36,7 @@
                      (with-transacted-connection db
                        (r/with-queried-resources sql params
                          (case version
+                           :v1 (throw (IllegalArgumentException. "No support for v1"))
                            :v2 (comp #(pl-http/stream-json % buffer) munge-result-rows)
                            #(pl-http/stream-json % buffer))))))]
 
