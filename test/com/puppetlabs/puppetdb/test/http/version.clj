@@ -32,13 +32,11 @@
                 version/version (constantly "99.0.0")]
     (testing "should return 'newer'->true if product is not specified"
       (let [api-response (parsed-body (latest-version (fixt/internal-request)))
-            v1-response (parsed-body (app-with-update-server {} (tu/get-request "/v1/version/latest")))
             v2-response (parsed-body (app-with-update-server {} (tu/get-request "/v2/version/latest")))
             v3-response (parsed-body (app-with-update-server {} (tu/get-request "/v3/version/latest")))]
 
         (are [expected response-key] (= expected
                                         (get api-response response-key)
-                                        (get v1-response response-key)
                                         (get v2-response response-key)
                                         (get v3-response response-key))
              true "newer"
@@ -46,12 +44,10 @@
              "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" "link")))
     (testing "should return 'newer'->true if product is 'puppetdb"
       (let [api-response (parsed-body (latest-version (fixt/internal-request {:product-name "puppetdb"} {})))
-            v1-response (parsed-body (app-with-update-server {:product-name "puppetdb"} (tu/get-request "/v1/version/latest")))
             v2-response (parsed-body (app-with-update-server {:product-name "puppetdb"} (tu/get-request "/v2/version/latest")))
             v3-response (parsed-body (app-with-update-server {:product-name "puppetdb"} (tu/get-request "/v3/version/latest")))]
         (are [expected response-key] (= expected
                                         (get api-response response-key)
-                                        (get v1-response response-key)
                                         (get v2-response response-key)
                                         (get v3-response response-key))
              true "newer"
@@ -61,15 +57,12 @@
       ;; it should *always* return false for pe-puppetdb because
       ;; we don't even want to allow checking for updates
       (let [api-response (parsed-body (latest-version (fixt/internal-request {:product-name "pe-puppetdb"} {})))
-            v1-response (parsed-body (app-with-update-server {:product-name "pe-puppetdb"}
-                                                             (tu/get-request "/v1/version/latest")))
             v2-response (parsed-body (app-with-update-server {:product-name "pe-puppetdb"}
                                                              (tu/get-request "/v2/version/latest")))
             v3-response (parsed-body (app-with-update-server {:product-name "pe-puppetdb"}
                                                              (tu/get-request "/v3/version/latest")))]
         (are [expected response-key] (= expected
                                         (get api-response response-key)
-                                        (get v1-response response-key)
                                         (get v2-response response-key)
                                         (get v3-response response-key))
              false "newer"

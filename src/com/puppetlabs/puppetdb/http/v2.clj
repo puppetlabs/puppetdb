@@ -12,7 +12,6 @@
   (app
    ["commands"]
    {:any cmd/command}
-
    ["facts" &]
    {:any facts-app}
 
@@ -34,10 +33,11 @@
     {:get (app
            (met/mbean names))})
 
-   ["version" &]
+  ["version" &]
    (app
     [""]
     {:get ver/current-version}
 
     ["latest"]
     {:get ver/latest-version})))
+

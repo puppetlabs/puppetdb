@@ -4,9 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
-This page is a walkthrough for constructing several types of PuppetDB queries. It uses the **version 2 API** in all of its examples; however, most of the general principles are also applicable to the version 1 API. 
-
-If you need to use the v1 API, note that it lacks many of v2's capabilities, and be sure to consult the v1 endpoint references before attempting to use these examples with it.
+This page is a walkthrough for constructing several types of PuppetDB queries. It uses the **version 2 API** in all of its examples.
 
 ## How to Query
 

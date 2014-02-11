@@ -4,8 +4,6 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v3/metrics.html"
 ---
 
-> **Note:** The v3 metrics endpoint is currently exactly the same as the [v1 endpoint](../v1/metrics.html).
-
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 
 Querying PuppetDB metrics is accomplished by making an HTTP request
