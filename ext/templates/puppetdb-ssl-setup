@@ -345,7 +345,7 @@ chown -R ${user}:${user} ${ssl_dir}
 if [ -f "$jettyfile" ] ; then
   # Check settings are correct and fix or warn
   settings=(
-    "ssl-host:${fqdn}"
+    "ssl-host:0.0.0.0"
     "ssl-port:8081"
     "ssl-key:${private_file}"
     "ssl-cert:${public_file}"
@@ -418,7 +418,7 @@ then
   echo "    [jetty]"
   echo "    #host       = localhost"
   echo "    port        = 8080"
-  echo "    ssl-host    = ${fqdn}"
+  echo "    ssl-host    = 0.0.0.0"
   echo "    ssl-port    = 8081"
   echo "    ssl-key     = ${private_file}"
   echo "    ssl-cert    = ${public_file}"
