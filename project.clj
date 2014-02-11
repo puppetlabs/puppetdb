@@ -66,7 +66,8 @@
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink "0.1.1"]
                  [org.bouncycastle/bcpkix-jdk15on "1.49"]
-                 [prismatic/schema "0.2.0"]]
+                 [prismatic/schema "0.2.0"]
+                 [org.clojure/tools.macro "0.1.5"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below
@@ -80,7 +81,8 @@
                                 (get test-var-meta dbtype true)))}
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.5"]]}}
+                   :dependencies [[ring-mock "0.1.5"]
+                                  [org.flatland/ordered "1.5.2"]]}}
 
   :jar-exclusions [#"leiningen/"]
 
