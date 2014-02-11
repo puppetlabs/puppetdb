@@ -237,13 +237,6 @@ fi
 
 set -e
 
-# Variables variables variables
-fqdn=`facter fqdn`
-# use hostname if fqdn is not available
-if [ ! -n "$fqdn" ] ; then
-  fqdn=`facter hostname`
-fi
-
 mycertname=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
 
 orig_public_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
