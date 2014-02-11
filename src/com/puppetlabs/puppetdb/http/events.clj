@@ -4,12 +4,11 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.events :as query]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.http.events :as events-http]
             [ring.util.response :as rr]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [clj-time.coerce :refer [to-timestamp]])
+            [clj-time.coerce :refer [to-timestamp]]
+            [com.puppetlabs.middleware :as middleware])
   (:use [net.cgrand.moustache :only [app]]
-        com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [com.puppetlabs.puppetdb.http :only (query-result-response)]))
 
@@ -78,7 +77,7 @@
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
             (try
-              (let [query-options (events-http/validate-distinct-options! params)
+              (let [query-options (validate-distinct-options! params)
                     limit         (:event-query-limit globals)]
                 (produce-body
                   version
@@ -94,11 +93,11 @@
   "Ring app for querying events"
   [version]
   (-> (routes version)
-    verify-accepts-json
-    (validate-query-params {:required ["query"]
+    middleware/verify-accepts-json
+    (middleware/validate-query-params {:required ["query"]
                             :optional (concat
                                         ["distinct-resources"
                                          "distinct-start-time"
                                          "distinct-end-time"]
                                         paging/query-params)})
-    wrap-with-paging-options))
+    middleware/wrap-with-paging-options))

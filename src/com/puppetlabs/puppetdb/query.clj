@@ -584,24 +584,23 @@
   "Maps fact query operators to the functions implementing them. Returns nil
   if the operator isn't known."
   [version]
-  (case version
-    (fn [op]
-      (let [op (string/lower-case op)]
-        (cond
-          (#{">" "<" ">=" "<="} op)
-          (partial compile-fact-inequality op)
+  (fn [op]
+    (let [op (string/lower-case op)]
+      (cond
+        (#{">" "<" ">=" "<="} op)
+        (partial compile-fact-inequality op)
 
-          (= op "=") compile-fact-equality
-          (= op "~") compile-fact-regexp
-          ;; We pass this function along so the recursive calls know which set of
-          ;; operators/functions to use, depending on the API version.
-          (= op "and") (partial compile-and (fact-operators version))
-          (= op "or") (partial compile-or (fact-operators version))
-          (= op "not") (partial compile-not version (fact-operators version))
-          (= op "extract") (partial compile-extract version (fact-operators version))
-          (= op "in") (partial compile-in :fact version (fact-operators version))
-          (= op "select-resources") (partial resource-query->sql (resource-operators version))
-          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+        (= op "=") compile-fact-equality
+        (= op "~") compile-fact-regexp
+        ;; We pass this function along so the recursive calls know which set of
+        ;; operators/functions to use, depending on the API version.
+        (= op "and") (partial compile-and (fact-operators version))
+        (= op "or") (partial compile-or (fact-operators version))
+        (= op "not") (partial compile-not version (fact-operators version))
+        (= op "extract") (partial compile-extract version (fact-operators version))
+        (= op "in") (partial compile-in :fact version (fact-operators version))
+        (= op "select-resources") (partial resource-query->sql (resource-operators version))
+        (= op "select-facts") (partial fact-query->sql (fact-operators version))))))
 
 (defn node-operators
   "Maps node query operators to the functions implementing them. Returns nil

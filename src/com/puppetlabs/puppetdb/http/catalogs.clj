@@ -2,9 +2,9 @@
   (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalogs :as c]
-            [ring.util.response :as rr])
-  (:use com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+            [ring.util.response :as rr]
+            [com.puppetlabs.middleware :as middleware])
+  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [net.cgrand.moustache :only (app)]))
 
 (defn produce-body
@@ -25,5 +25,5 @@
 (defn catalog-app
   [version]
   (-> (routes version)
-      verify-accepts-json
-      (validate-no-query-params)))
+      middleware/verify-accepts-json
+      (middleware/validate-no-query-params)))
