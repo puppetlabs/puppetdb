@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.anonymizer
   (:use [clojure.test]
         [com.puppetlabs.puppetdb.anonymizer]
-        [puppetlabs.kitchensink.core :only (boolean?)]))
+        [puppetlabs.kitchensink.core :only (boolean?)]
+        [puppetlabs.kitchensink.core :as ks]))
 
 (def anon-true {"context" {} "anonymize" true})
 (def anon-false {"context" {} "anonymize" false})
@@ -280,14 +281,26 @@
 
 (deftest test-anonymize-resources
   (testing "should handle a resource"
-    (let [test-resource {"parameters" ["ensure" "present"]
+    (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
                          "file"       "/etc/puppet/modules/foo/manifests/init.pp"
                          "line"       250
                          "tags"       ["package"]
                          "title"      "foo"
-                         "type"       "Package"}]
-      (is (coll? (anonymize-resources [test-resource] {} {}))))))
+                         "type"       "Package"}
+          result (first (anonymize-resources [test-resource] {} {}))]
+
+      (is (= (ks/keyset test-resource)
+             (ks/keyset result)))
+
+      (are [k] (not= (get test-resource k)
+                     (get result k))
+           "parameters"
+           "line"
+           "title"
+           "tags"
+           "type"
+           "file"))))
 
 (deftest test-anonymize-resource-event
   (testing "should handle a resource event"
