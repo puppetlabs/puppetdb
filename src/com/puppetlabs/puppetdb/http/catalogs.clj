@@ -1,27 +1,29 @@
-(ns com.puppetlabs.puppetdb.http.v3.catalogs
+(ns com.puppetlabs.puppetdb.http.catalogs
   (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalogs :as c]
-            [ring.util.response :as rr])
-  (:use com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
+            [ring.util.response :as rr]
+            [com.puppetlabs.middleware :as middleware])
+  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
         [net.cgrand.moustache :only (app)]))
 
 (defn produce-body
   "Produce a response body for a request to retrieve the catalog for `node`."
-  [node db]
+  [version node db]
   (if-let [catalog (with-transacted-connection db
-                     (c/catalog-for-node node))]
+                     (c/catalog-for-node version node))]
     (pl-http/json-response catalog)
     (pl-http/json-response {:error (str "Could not find catalog for " node)} pl-http/status-not-found)))
 
-(def routes
+(defn routes
+  [version]
   (app
     [node]
     (fn [{:keys [globals]}]
-      (produce-body node (:scf-read-db globals)))))
+      (produce-body version node (:scf-read-db globals)))))
 
-(def catalog-app
-  (-> routes
-      verify-accepts-json
-      (validate-no-query-params)))
+(defn catalog-app
+  [version]
+  (-> (routes version)
+      middleware/verify-accepts-json
+      (middleware/validate-no-query-params)))

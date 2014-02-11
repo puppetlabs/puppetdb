@@ -69,7 +69,7 @@
 
 (defn reports-for-node
   "Return reports for a particular node."
-  [node]
+  [version node]
   {:pre  [(string? node)]
    :post [(or (nil? %)
               (seq? %))]}
@@ -81,7 +81,7 @@
                   ;; can just pull the results out of the return value
                   (:result))]
     (map
-      #(merge % {:resource-events (events-for-report-hash (get % :hash))})
+      #(merge % {:resource-events (events-for-report-hash version (get % :hash))})
       reports)))
 
 (defn report-for-hash

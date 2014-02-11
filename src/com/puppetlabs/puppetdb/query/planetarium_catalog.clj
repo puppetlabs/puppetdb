@@ -26,8 +26,7 @@
                    (map? (:resources %))
                    (set? (:edges %))))]}
   (when (catalog-hash-for-certname node)
-    (let [resources       (-> ["=" "certname" node]
-                            (r/v2-query->sql)
+    (let [resources       (-> (r/query->sql :latest ["=" "certname" node])
                             (r/query-resources)
                             (:result))
           resource-counts (if (seq resources)

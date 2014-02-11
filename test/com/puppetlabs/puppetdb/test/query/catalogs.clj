@@ -17,9 +17,10 @@
         catalog-version  (str (get-in catalog ["data" "version"]))
         transaction-uuid (get-in catalog ["data" "transaction-uuid"])]
     (testcat/replace-catalog catalog-str)
-    (testing "get-catalog-info"
-      (is (= catalog-version  (:catalog-version (c/get-catalog-info certname))))
-      (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info certname)))))
-    (testing "catalog-for-node"
-      (is (= (testcat/munge-catalog-for-comparison catalog)
-             (testcat/munge-catalog-for-comparison (c/catalog-for-node certname)))))))
+    (doseq [version [:v3]]
+      (testing "get-catalog-info"
+        (is (= catalog-version  (:catalog-version (c/get-catalog-info certname))))
+        (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info certname)))))
+      (testing "catalog-for-node"
+        (is (= (testcat/munge-catalog-for-comparison catalog)
+               (testcat/munge-catalog-for-comparison (c/catalog-for-node version certname))))))))
