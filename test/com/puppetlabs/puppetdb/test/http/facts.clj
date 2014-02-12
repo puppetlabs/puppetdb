@@ -28,16 +28,23 @@
   ([endpoint query] (*app* (get-request endpoint query)))
   ([endpoint query params] (*app* (get-request endpoint query params))))
 
+(defn parse-result
+  "Stringify (if needed) then parse the response"
+  [body]
+  (try
+    (if (string? body)
+      (json/parse-string body true)
+      (json/parse-string (slurp body) true))
+    (catch Throwable e
+      body)))
+
 (defn is-query-result
-  [endpoint query results]
+  [endpoint query expected-results]
   (let [request (get-request endpoint (json/generate-string query))
-        {:keys [status body]} (*app* request)]
-    (is (= (try
-             (if (string? body)
-               (json/parse-string body true)
-               (json/parse-string (slurp body) true))
-             (catch Throwable e
-               body)) results))
+        {:keys [status body]} (*app* request)
+        actual-result (parse-result body)]
+    (is (= (count actual-result) (count expected-results)))
+    (is (= (set actual-result) expected-results))
     (is (= status pl-http/status-ok))))
 
 (def common-subquery-tests
@@ -49,8 +56,8 @@
                                              ["=" "type" "Class"]
                                              ["=" "title" "Apache"]]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-    {:certname "bar" :name "ipaddress" :value "192.168.1.101"}]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+     {:certname "bar" :name "ipaddress" :value "192.168.1.101"}}
 
    ;; "not" matching resources
    ["and"
@@ -61,7 +68,7 @@
                                               ["=" "type" "Class"]
                                               ["=" "title" "Apache"]]]]]]]
 
-   [{:certname "baz" :name "ipaddress" :value "192.168.1.102"}]
+   #{{:certname "baz" :name "ipaddress" :value "192.168.1.102"}}
 
    ;; Multiple matching resources
    ["and"
@@ -69,9 +76,9 @@
     ["in" "certname" ["extract" "certname" ["select-resources"
                                             ["=" "type" "Class"]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-    {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
-    {:certname "baz" :name "ipaddress" :value "192.168.1.102"}]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+     {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+     {:certname "baz" :name "ipaddress" :value "192.168.1.102"}}
 
    ;; Multiple facts
    ["and"
@@ -83,10 +90,10 @@
                                              ["=" "type" "Class"]
                                              ["=" "title" "Apache"]]]]]]
 
-   [{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
-    {:certname "bar" :name "operatingsystem" :value "Ubuntu"}
-    {:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-    {:certname "foo" :name "operatingsystem" :value "Debian"}]
+   #{{:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+     {:certname "bar" :name "operatingsystem" :value "Ubuntu"}
+     {:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+     {:certname "foo" :name "operatingsystem" :value "Debian"}}
 
    ;; Multiple subqueries
    ["and"
@@ -101,23 +108,23 @@
                                               ["=" "type" "Class"]
                                               ["=" "title" "Main"]]]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-    {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
-    {:certname "baz" :name "ipaddress" :value "192.168.1.102"}]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+     {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+     {:certname "baz" :name "ipaddress" :value "192.168.1.102"}}
 
    ;; No matching resources
    ["and"
     ["=" "name" "ipaddress"]
     ["in" "certname" ["extract" "certname" ["select-resources"
                                             ["=" "type" "NotRealAtAll"]]]]]
-   []
+   #{}
 
    ;; No matching facts
    ["and"
     ["=" "name" "nosuchfact"]
     ["in" "certname" ["extract" "certname" ["select-resources"
                                             ["=" "type" "Class"]]]]]
-   []
+   #{}
 
    ;; Fact subquery
    ["and"
@@ -127,16 +134,16 @@
                                              ["=" "name" "osfamily"]
                                              ["=" "value" "Debian"]]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-    {:certname "bar" :name "ipaddress" :value "192.168.1.101"}]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+     {:certname "bar" :name "ipaddress" :value "192.168.1.101"}}
 
    ;; Using a different column
    ["in" "name" ["extract" "name" ["select-facts"
                                    ["=" "name" "osfamily"]]]]
 
-   [{:certname "bar" :name "osfamily" :value "Debian"}
-    {:certname "baz" :name "osfamily" :value "RedHat"}
-    {:certname "foo" :name "osfamily" :value "Debian"}]
+   #{{:certname "bar" :name "osfamily" :value "Debian"}
+     {:certname "baz" :name "osfamily" :value "RedHat"}
+     {:certname "foo" :name "osfamily" :value "Debian"}}
 
    ;; Nested fact subqueries
    ["and"
@@ -150,7 +157,7 @@
                                                                                       ["=" "name" "uptime_seconds"]
                                                                                       [">" "value" 10000]]]]]]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}}
 
    ;; Multiple fact subqueries
    ["and"
@@ -164,7 +171,7 @@
                                              ["=" "name" "uptime_seconds"]
                                              [">" "value" 10000]]]]]]
 
-   [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}]))
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}}))
 
 (def versioned-subqueries
   (omap/ordered-map
@@ -179,9 +186,9 @@
                                                      ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
                                                      ["=" "sourceline" 1]]]]]]
 
-           [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-            {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
-            {:certname "baz" :name "ipaddress" :value "192.168.1.102"}]))
+           #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+             {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+             {:certname "baz" :name "ipaddress" :value "192.168.1.102"}}))
 
    "/v3/facts"
    (merge common-subquery-tests
@@ -194,9 +201,9 @@
                                                      ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
                                                      ["=" "line" 1]]]]]]
 
-           [{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
-            {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
-            {:certname "baz" :name "ipaddress" :value "192.168.1.102"}]))))
+           #{{:certname "foo" :name "ipaddress" :value "192.168.1.100"}
+             {:certname "bar" :name "ipaddress" :value "192.168.1.101"}
+             {:certname "baz" :name "ipaddress" :value "192.168.1.102"}}))))
 
 (def versioned-invalid-subqueries
   (omap/ordered-map
