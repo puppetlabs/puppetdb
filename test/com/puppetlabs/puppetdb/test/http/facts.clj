@@ -2,7 +2,6 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
-            [com.puppetlabs.puppetdb.test.http.facts :as facts]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server]
             [clojure.java.io :as io])

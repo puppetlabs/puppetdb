@@ -42,13 +42,12 @@
 (defn get-resources
   "Given a node name, return a sequence of resources (as maps, conforming to
   our catalog wire format) that appear in the node's latest catalog."
-  [node]
+  [version node]
   {:pre  [(string? node)]
    :post [(seq? %)
           (every? map? %)]}
   (map resource-to-wire-format
-    (-> ["=" "certname" node]
-      (r/v2-query->sql)
+    (-> (r/query->sql version ["=" "certname" node])
       (r/query-resources)
       (:result))))
 
@@ -85,7 +84,7 @@
 
 (defn catalog-for-node
   "Retrieve the catalog for `node`."
-  [node]
+  [version node]
   {:pre  [(string? node)]
    :post [(or (nil? %)
               (and (map? %)
@@ -100,7 +99,7 @@
     (when-let [catalog-version (:catalog-version info)]
       { :data          {:name             node
                         :edges            (get-edges node)
-                        :resources        (get-resources node)
+                        :resources        (get-resources version node)
                         :version          catalog-version
                         :transaction-uuid (:transaction-uuid info)}
         :metadata      {:api_version 1 }})))

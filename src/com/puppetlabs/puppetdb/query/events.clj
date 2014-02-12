@@ -6,12 +6,10 @@
             [com.puppetlabs.cheshire :as json])
   (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-regexp-match]]
-        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not-v2 execute-query]]
+        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not execute-query]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
-
-
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
@@ -111,15 +109,19 @@
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
   if the operator isn't known."
-  [op]
-  (let [op (string/lower-case op)]
-    (cond
-      (= op "=") compile-resource-event-equality
-      (= op "and") (partial compile-and resource-event-ops)
-      (= op "or") (partial compile-or resource-event-ops)
-      (= op "not") (partial compile-not-v2 resource-event-ops)
-      (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-      (= op "~") compile-resource-event-regexp)))
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    :v2 (throw (IllegalArgumentException. (str "Resource events end-point not available for api version " version)))
+    (fn [op]
+      (let [op (string/lower-case op)]
+        (cond
+          (= op "=") compile-resource-event-equality
+          (= op "and") (partial compile-and (resource-event-ops version))
+          (= op "or") (partial compile-or (resource-event-ops version))
+          (= op "not") (partial compile-not version (resource-event-ops version))
+          (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+          (= op "~") compile-resource-event-regexp)))))
 
 (def event-columns
   {"certname"               ["reports"]
@@ -202,13 +204,13 @@
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [query-options query]
+  [version query-options query]
   {:pre  [(sequential? query)
           (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
             (or (not-any? #(contains? query-options %) distinct-options)
                 (every? #(contains? query-options %) distinct-options)))]
    :post [(valid-jdbc-query? %)]}
-  (let [{:keys [where params]}  (compile-term resource-event-ops query)
+  (let [{:keys [where params]}  (compile-term (resource-event-ops version) query)
         select-fields           (string/join ", "
                                    (map
                                      (fn [[column [table alias]]]
@@ -263,7 +265,7 @@
 (defn events-for-report-hash
   "Given a particular report hash, this function returns all events for that
    given hash."
-  [report-hash]
+  [version report-hash]
   {:pre [(string? report-hash)]
    :post [(vector? %)]}
   (let [query          ["=" "report" report-hash]
@@ -271,7 +273,7 @@
         paging-options {}]
     (vec
       (->> query
-        (query->sql nil)
+        (query->sql version nil)
         (query-resource-events paging-options)
         (:result)
         (map #(-> %
