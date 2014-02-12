@@ -4,7 +4,9 @@ layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
-This page is a walkthrough for constructing several types of PuppetDB queries. It uses the **version 2 API** in all of its examples.
+This page is a walkthrough for constructing several types of PuppetDB queries. It uses the **version 3 API** in all of its examples; however, most of the general principles are also applicable to the old API revisions.
+
+If you need to use an older API, note that it lacks many of v3's capabilities, and be sure to consult that versions API endpoint references before attempting to use these examples with it.
 
 ## How to Query
 
@@ -20,7 +22,7 @@ Oueries are usually issued from code, but you can easily issue them from the com
 
 **Without SSL:**
 
-`curl -X GET http://puppetdb.example.com:8080/v2/resources --data-urlencode query@<filename>`
+`curl -X GET http://puppetdb.example.com:8080/v3/resources --data-urlencode query@<filename>`
 
 This requires that PuppetDB be [configured to accept non-SSL connections][config_jetty]. By default, it will only accept unencrypted traffic from `localhost`.
 
@@ -28,7 +30,7 @@ This requires that PuppetDB be [configured to accept non-SSL connections][config
 
 **With SSL:**
 
-`curl -X GET https://puppetdb.example.com:8081/v2/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
+`curl -X GET https://puppetdb.example.com:8081/v3/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
 
 This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
 
@@ -148,7 +150,7 @@ that of another attribute), it must be namespaced using
 `["parameter", <parameter name>]`.
 
 The full set of queryable attributes can be found in [the resource
-endpoint documentation](./v2/resources.html) for easy reference.
+endpoint documentation](./v3/resources.html) for easy reference.
 
 ### Regular Expressions
 
