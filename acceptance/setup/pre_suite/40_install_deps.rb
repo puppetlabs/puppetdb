@@ -1,38 +1,48 @@
 step "Install other dependencies on database" do
   os = test_config[:os_families][database.name]
+  db_facts = facts(database.name)
 
-  case os
-  when :redhat, :fedora
-    # Our teardown script does some heinous magic with unzip to dig
-    # into the puppetdb jar.  Redhat doesn't ship with unzip.
-    on database, "yum install -y unzip"
-  when :debian
-    on database, "apt-get install -y unzip"
+  use_our_jdk = (db_facts["osfamily"] == "Debian") and
+                (db_facts["operatingsystemmajrelease"] == "6" or
+                db_facts["operatingsystemrelease"] == "10.04")
+
+  # Install our JDK repository with a JDK 7 for Debian 6 and Ubuntu 10.04
+  # and install the oracle jdk
+  if use_our_jdk then
+    create_remote_file database, '/etc/apt/sources.list.d/jpkg.list', <<-REPO
+# Oracle JDK Packages
+deb http://s3-us-west-2.amazonaws.com/puppetdb-jdk/jpkg/ pljdk main
+    REPO
+    on database, "apt-get update"
   end
 
-
-  case test_config[:install_type]
-    when :git
-      case os
-      when :debian
-        on database, "apt-get install -y --force-yes openjdk-6-jre-headless rake"
-      when :redhat
-        on database, "yum install -y java-1.6.0-openjdk rubygem-rake"
-      when :fedora
-        on database, "yum install -y java-1.7.0-openjdk rubygem-rake"
+  if test_config[:install_type] == :git then
+    case os
+    when :debian
+      if use_our_jdk then
+        # Use our jdk
+        on database, "apt-get install -y --force-yes oracle-j2sdk1.7 rake unzip"
       else
-        raise ArgumentError, "Unsupported OS '#{os}'"
+        # Other debians have a JDK 7 already, just use that
+        on database, "apt-get install -y --force-yes openjdk-7-jre-headless rake unzip"
       end
+    when :redhat
+      on database, "yum install -y java-1.6.0-openjdk rubygem-rake unzip"
+    when :fedora
+      on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
+    else
+      raise ArgumentError, "Unsupported OS '#{os}'"
+    end
 
-      step "Install lein on the PuppetDB server" do
-        which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
-        needs_lein = which_result.exit_code == 1
-        if (needs_lein)
-          on database, "curl -k https://raw.github.com/technomancy/leiningen/preview/bin/lein -o /usr/local/bin/lein"
-          on database, "chmod +x /usr/local/bin/lein"
-          on database, "LEIN_ROOT=true lein"
-        end
+    step "Install lein on the PuppetDB server" do
+      which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
+      needs_lein = which_result.exit_code == 1
+      if (needs_lein)
+        on database, "curl -k https://raw.github.com/technomancy/leiningen/preview/bin/lein -o /usr/local/bin/lein"
+        on database, "chmod +x /usr/local/bin/lein"
+        on database, "LEIN_ROOT=true lein"
       end
+    end
   end
 end
 
