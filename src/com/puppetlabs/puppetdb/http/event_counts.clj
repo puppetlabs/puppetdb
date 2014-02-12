@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.http.v3.event-counts
+(ns com.puppetlabs.puppetdb.http.event-counts
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
@@ -16,7 +16,7 @@
   with the the query results.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [{:strs [query summarize-by counts-filter count-by] :as query-params} paging-options db]
+  [version {:strs [query summarize-by counts-filter count-by] :as query-params} paging-options db]
   {:pre [(string? query)
          (string? summarize-by)
          ((some-fn nil? string?) counts-filter)
@@ -26,8 +26,7 @@
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
           distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
-        (-> query
-            (event-counts/query->sql summarize-by
+        (-> (event-counts/query->sql version query summarize-by
               (merge {:counts-filter counts-filter :count-by count-by}
                      distinct-options))
             ((partial event-counts/query-event-counts paging-options summarize-by))
@@ -39,15 +38,17 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(def routes
+(defn routes
+  [version]
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
-            (produce-body params paging-options (:scf-read-db globals)))}))
+            (produce-body version params paging-options (:scf-read-db globals)))}))
 
-(def event-counts-app
+(defn event-counts-app
   "Ring app for querying for summary information about resource events."
-  (-> routes
+  [version]
+  (-> (routes version)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
                               :optional (concat ["counts-filter" "count-by"

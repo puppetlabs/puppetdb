@@ -20,7 +20,8 @@
             original-catalog      (json/parse-string original-catalog-str)]
         (testcat/replace-catalog original-catalog-str)
 
-         (let [exported-catalog (c/catalog-for-node "myhost.localdomain")]
+         ;; This is explicitly set to v3, as per the current CLI tooling
+         (let [exported-catalog (c/catalog-for-node :v3 "myhost.localdomain")]
             (is (= (testcat/munge-catalog-for-comparison original-catalog)
                    (testcat/munge-catalog-for-comparison exported-catalog)))))))
 
@@ -30,7 +31,8 @@
             original-report      (clojure.walk/keywordize-keys (json/parse-string original-report-str))]
         (testrep/store-example-report! original-report "2012-10-09T22:15:17-07:00")
 
-        (let [exported-report (first (r/reports-for-node "myhost.localdomain"))]
+        ;; This is explicitly set to v3, as per the current CLI tooling
+        (let [exported-report (first (r/reports-for-node :v3 "myhost.localdomain"))]
           (is (= (testrep/munge-report-for-comparison original-report)
                  (testrep/munge-report-for-comparison exported-report)))))))
 

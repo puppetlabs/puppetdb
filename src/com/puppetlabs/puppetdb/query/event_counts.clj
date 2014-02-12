@@ -164,9 +164,9 @@
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
-  ([query summarize-by]
-    (query->sql query summarize-by {}))
-  ([query summarize-by {:keys [counts-filter count-by] :as query-options}]
+  ([version query summarize-by]
+    (query->sql version query summarize-by {}))
+  ([version query summarize-by {:keys [counts-filter count-by] :as query-options}]
     {:pre  [(sequential? query)
             (string? summarize-by)
             ((some-fn nil? sequential?) counts-filter)
@@ -176,7 +176,7 @@
           group-by                        (get-group-by summarize-by)
           {counts-filter-where  :where
            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-          [event-sql & event-params]      (events/query->sql
+          [event-sql & event-params]      (events/query->sql version
                                             (select-keys query-options
                                               [:distinct-resources? :distinct-start-time :distinct-end-time])
                                             query)
