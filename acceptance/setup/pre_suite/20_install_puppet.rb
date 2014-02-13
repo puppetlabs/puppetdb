@@ -3,13 +3,17 @@ test_name "Install Puppet" do
     install_puppet
   end
 
-  result = on master, "facter -y"
-  facts = YAML.load(result.stdout)
+  step "Populate facts from each host" do
+    populate_facts
+  end
+
   pidfile = '/var/run/puppet/master.pid'
+
+  master_facts = facts(master.name)
 
   with_puppet_running_on(master, {
     'master' => {
-      'dns_alt_names' => "puppet,#{facts['hostname']},#{facts['fqdn']}",
+      'dns_alt_names' => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
       'verbose' => 'true',
     },
   }) do
