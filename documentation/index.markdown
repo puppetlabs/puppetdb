@@ -61,15 +61,15 @@ In future versions, PuppetDB will store historical catalogs for every node.
 System Requirements
 -----
 
-### \*nix Server with JDK 1.6+
+### \*nix Server with JDK 1.7+
 
 #### Standard Install: RHEL, CentOS, Debian, Ubuntu, or Fedora
 
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
 * Red Hat Enterprise Linux 5 or 6 or any distro derived from it (including CentOS)
-* Debian Squeeze, Wheezy, or Sid
-* Ubuntu 12.10, 12.04 LTS, 10.04 LTS, 11.10
+* Debian Squeeze (see [here](https://wiki.debian.org/JavaPackage) for JDK 1.7 packages), Wheezy, or Sid
+* Ubuntu 12.10, 12.04 LTS, 10.04 LTS (see [here](https://wiki.debian.org/JavaPackage) for JDK 1.7 packages), 11.10
 * Fedora 18, 19 or 20
 
 [See here for instructions for installing via the PuppetDB puppet module.][install_via_module]
@@ -78,7 +78,7 @@ Puppet Labs provides packages and a Puppet module for PuppetDB which simplify se
 
 #### Custom Install: Any Unix-like OS
 
-If you're willing to do some manual configuration, PuppetDB can run on any Unix-like OS with JDK 1.6 or higher, including:
+If you're willing to do some manual configuration, PuppetDB can run on any Unix-like OS with JDK 1.7 or higher, including:
 
 * Recent MacOS X versions (using built-in Java support)
 * Nearly any Linux distribution (using vendor's OpenJDK packages)
