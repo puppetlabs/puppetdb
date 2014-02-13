@@ -68,7 +68,8 @@
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
-                 [prismatic/schema "0.2.0"]]
+                 [prismatic/schema "0.2.0"]
+                 [org.clojure/tools.macro "0.1.5"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below
@@ -83,7 +84,11 @@
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
+<<<<<<< HEAD
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]]}}
+=======
+                                  [org.flatland/ordered "1.5.2"]]}}
+>>>>>>> 1.6.x
 
   :jar-exclusions [#"leiningen/"]
 
