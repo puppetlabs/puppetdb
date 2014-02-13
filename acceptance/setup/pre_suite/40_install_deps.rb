@@ -2,9 +2,9 @@ step "Install other dependencies on database" do
   os = test_config[:os_families][database.name]
   db_facts = facts(database.name)
 
-  use_our_jdk = (db_facts["osfamily"] == "Debian") and
-                (db_facts["operatingsystemmajrelease"] == "6" or
-                db_facts["operatingsystemrelease"] == "10.04")
+  use_our_jdk = ((db_facts["osfamily"] == "Debian") and
+                 (db_facts["operatingsystemmajrelease"] == "6" or
+                  db_facts["operatingsystemrelease"] == "10.04"))
 
   # Install our JDK repository with a JDK 7 for Debian 6 and Ubuntu 10.04
   # and install the oracle jdk
