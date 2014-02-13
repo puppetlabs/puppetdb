@@ -148,6 +148,31 @@ module PuppetDBExtensions
     PuppetDBExtensions.config
   end
 
+  # Return the fact set for a given hostname
+  #
+  # Relies on populate_facts to be ran first.
+  #
+  # @param host [String] hostname to retrieve facts for
+  # @return [Hash] facts hash
+  def facts(host)
+    test_config[:facts][host]
+  end
+
+  # Populate the facts storage area of test_config
+  #
+  # @return [void]
+  def populate_facts
+    fact_data = hosts.inject({}) do |result, host|
+      facts_raw = on host, "facter -y"
+      facts = YAML.load(facts_raw.stdout)
+      result[host.name] = facts
+      result
+    end
+
+    test_config[:facts] = fact_data
+    nil
+  end
+
   def get_os_family(host)
     on(host, "which yum", :silent => true)
     if result.exit_code == 0
