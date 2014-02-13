@@ -13,6 +13,9 @@ step "Install other dependencies on database" do
 # Oracle JDK Packages
 deb http://s3-us-west-2.amazonaws.com/puppetdb-jdk/jpkg/ pljdk main
     REPO
+    # Import GPG key
+    on database, "gpg --keyserver keys.gnupg.net --recv-keys B8615A77BBBFA17C"
+    on database, "gpg -a --export B8615A77BBBFA17C | apt-key add -"
     on database, "apt-get update"
   end
 
