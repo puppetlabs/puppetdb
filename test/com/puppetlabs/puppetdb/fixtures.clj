@@ -3,7 +3,9 @@
             [com.puppetlabs.puppetdb.http.server :as server]
             [com.puppetlabs.jdbc :as pjdbc]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [com.puppetlabs.puppetdb.config :as cfg])
+            [com.puppetlabs.puppetdb.config :as cfg]
+            [clojure.tools.macro :as tmacro]
+            [clojure.test :refer [join-fixtures use-fixtures]])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
         [com.puppetlabs.testutils.logging :only [with-log-output]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
@@ -109,4 +111,27 @@
                        :event-query-limit    20000
                        :product-name         "puppetdb"}
                       global-overrides)}))
+
+(defmacro defixture
+  "Defs a var `name` that is the composed fixtures for the ns and then uses those fixtures.
+
+   Example:
+
+     (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
+
+     Which is equivalent to:
+
+     (use-fixtures :each fixt/with-test-db fixt/with-http-app)
+
+     but is also usable individually:
+
+     (super-fixture 
+       (fn [] 
+         ;; --> Do stuff, the drop the database at the end
+       ))"
+  [name & args]
+  (let [[name [each-or-once & fixtures]] (tmacro/name-with-attributes name args)]
+    `(do
+       (def ~name (join-fixtures ~(vec fixtures)))
+       (apply use-fixtures ~each-or-once ~(vec fixtures)))))
 
