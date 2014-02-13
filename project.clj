@@ -84,11 +84,8 @@
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
-<<<<<<< HEAD
-                                  [puppetlabs/trapperkeeper ~tk-version :classifier "test"]]}}
-=======
+                                  [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]]}}
->>>>>>> 1.6.x
 
   :jar-exclusions [#"leiningen/"]
 
