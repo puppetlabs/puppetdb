@@ -624,8 +624,9 @@
     timestamp :- pls/Timestamp]
 
      (let [refs-to-hashes (time! (:resource-hashes metrics)
-                                 (zipmap (keys resources)
-                                         (map shash/resource-identity-hash (vals resources))))
+                                 (reduce-kv (fn [acc k v]
+                                              (assoc acc k (shash/resource-identity-hash v)))
+                                            {} resources))
            hash           (time! (:catalog-hash metrics)
                                  (shash/catalog-similarity-hash catalog))
            {id :id
