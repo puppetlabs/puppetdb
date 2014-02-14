@@ -6,6 +6,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
+  # Run initial checks
+  def initialize
+    Puppet::Util::Puppetdb::GlobalCheck.run
+  end
+
   def save(request)
     catalog = munge_catalog(request.instance, extract_extra_request_data(request))
 

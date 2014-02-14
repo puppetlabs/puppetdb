@@ -17,4 +17,5 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency 'json'
+  gem.add_runtime_dependency 'puppet', '>= 3.4.2'
 end

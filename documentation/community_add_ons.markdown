@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [query]: https://github.com/dalen/puppet-puppetdbquery
 [exports]: http://forge.puppetlabs.com/zack/exports
-[exported]: /puppet/2.7/reference/lang_exported.html
+[exported]: /puppet/3/reference/lang_exported.html
 
 [Jason Hancock --- nagios-puppetdb][nagios]
 -----

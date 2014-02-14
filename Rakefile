@@ -64,6 +64,10 @@ ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH'] if @pe
 
 @osfamily = (Facter.value(:osfamily) || "").downcase
 
+# Specific minimum pinning for Puppet & Facter versions
+@puppetminversion = "3.4.2"
+@facterminversion = "1.6.11"
+
 if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
     @etc_dir = "/etc/puppetlabs/puppetdb"

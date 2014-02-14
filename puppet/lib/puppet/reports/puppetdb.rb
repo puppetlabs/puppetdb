@@ -2,9 +2,10 @@ require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 
-
 Puppet::Reports.register_report(:puppetdb) do
   include Puppet::Util::Puppetdb
+
+  Puppet::Util::Puppetdb::GlobalCheck.run
 
   CommandStoreReport = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
 

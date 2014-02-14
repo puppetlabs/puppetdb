@@ -3,9 +3,9 @@ Section: utils
 Priority: optional
 Maintainer: Puppet Labs <info@puppetlabs.com>
 <% if @pe -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, pe-rubygem-rake, pe-facter, pe-puppet
+Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, pe-rubygem-rake, pe-facter (>= <%= @facterminversion %>), pe-puppet (>= <%= @puppetminversion %>)
 <% else -%>
-Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, rake, facter, puppet
+Build-Depends: debhelper (>= 7.0.0~), cdbs, bc, mawk, lsb-release, rake, facter (>= <%= @facterminversion %>), puppet (>= <%= @puppetminversion %>)
 <% end -%>
 Standards-Version: 3.9.1
 Homepage: http://puppetlabs.com
@@ -13,9 +13,9 @@ Homepage: http://puppetlabs.com
 Package: <%= @name %>
 Architecture: all
 <% if @pe -%>
-Depends: ${misc:Depends}, pe-java, adduser, pe-puppet
+Depends: ${misc:Depends}, pe-java, adduser, pe-puppet (>= <%= @puppetminversion %>)
 <% else -%>
-Depends: ${misc:Depends},  java7-runtime-headless | j2re1.7 | java6-runtime-headless, adduser, puppet (>= 2.7.12)
+Depends: ${misc:Depends},  java7-runtime-headless | j2re1.7 | java6-runtime-headless, adduser, puppet (>= <%= @puppetminversion %>)
 Suggests: postgresql
 <% end -%>
 Description:PuppetDB Centralized Storage.
@@ -23,8 +23,8 @@ Description:PuppetDB Centralized Storage.
 Package: <%= @name %>-terminus
 Architecture: all
 <% if @pe -%>
-Depends:  ${misc:Depends}, pe-puppet
+Depends:  ${misc:Depends}, pe-puppet (>= <%= @puppetminversion %>)
 <% else -%>
-Depends:  ${misc:Depends}, puppet-common, libjson-ruby | ruby-json
+Depends:  ${misc:Depends}, puppet-common (>= <%= @puppetminversion %>), libjson-ruby | ruby-json
 <% end -%>
 Description:Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.

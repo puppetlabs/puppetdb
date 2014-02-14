@@ -1,6 +1,8 @@
 %global realname puppetdb
 %global realversion <%= Pkg::Config.version %>
 %global rpmversion <%= Pkg::Config.rpmversion %>
+%global puppetminversion <%= @puppetminversion %>
+%global facterminversion <%= @facterminversion %>
 
 %define __jar_repack 0
 
@@ -84,17 +86,17 @@ Group:         System Environment/Daemons
 %endif
 
 <% if @pe -%>
-BuildRequires: pe-facter >= 1.6.2, pe-puppet
+BuildRequires: pe-facter >= %{facterminversion}, pe-puppet
 BuildRequires: pe-rubygem-rake
 BuildRequires: pe-ruby
-Requires:      pe-puppet >= 2.7.12
+Requires:      pe-puppet >= %{puppetminversion}
 <% else -%>
-BuildRequires: facter >= 1.6.8
-BuildRequires: puppet >= 2.7.12
+BuildRequires: facter >= %{facterminversion}
+BuildRequires: puppet >= %{puppetminversion}
 BuildRequires: rubygem-rake
 BuildRequires: ruby
-Requires:      puppet >= 2.7.12
-Requires:      facter >= 1.6.8
+Requires:      puppet >= %{puppetminversion}
+Requires:      facter >= %{facterminversion}
 <% end -%>
 BuildArch:     noarch
 %if 0%{?suse_version}
@@ -134,9 +136,9 @@ Group: System/Libraries
 Group: Development/Libraries
 %endif
 <% if @pe -%>
-Requires: pe-puppet >= 2.7.12
+Requires: pe-puppet >= %{puppetminversion}
 <% else -%>
-Requires: puppet >= 2.7.12
+Requires: puppet >= %{puppetminversion}
 Requires: rubygem-json
 <% end -%>
 

@@ -22,6 +22,9 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
     DESC
 
     when_invoked do |options|
+      require 'puppet/util/puppetdb/global_check'
+      Puppet::Util::Puppetdb::GlobalCheck.run
+
       require 'puppet/rails'
 
       tmpdir = Dir.mktmpdir
@@ -100,15 +103,16 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
     File.expand_path("storeconfigs-#{timestamp.strftime('%Y%m%d%H%M%S')}.tar")
   end
 
+  # Execute a command using Puppet's execution static method.
+  #
+  # @param command [Array<String>, String] the command to execute. If it is
+  #   an Array the first element should be the executable and the rest of the
+  #   elements should be the individual arguments to that executable.
+  # @return [Puppet::Util::Execution::ProcessOutput] output as specified by options
+  # @raise [Puppet::ExecutionFailure] if the executed chiled process did not exit with status == 0 and `failonfail` is
+  #   `true`.
   def execute(command)
-    # Puppet::Util::Execution is the preferred way to do this in newer Puppets,
-    # but isn't available in older versions. For the sake of not getting
-    # deprecation warnings, we choose intelligently.
-    if Puppet::Util::Execution.respond_to?(:execute)
-      Puppet::Util::Execution.execute(command)
-    else
-      Puppet::Util.execute(command)
-    end
+    Puppet::Util::Execution.execute(command)
   end
 
   def node_to_catalog_hash(node)
