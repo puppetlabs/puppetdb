@@ -97,6 +97,7 @@
   (try
     (with-transacted-connection db
       (-> (r/query->sql version (json/parse-string query true))
+          (r/query-resources)
           (:result)
           (munge-result-rows)
           (pl-http/json-response)))
