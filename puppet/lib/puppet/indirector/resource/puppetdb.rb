@@ -5,6 +5,11 @@ require 'json'
 class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
 
+  # Run initial checks
+  def initialize
+    Puppet::Util::Puppetdb::GlobalCheck.run
+  end
+
   def search(request)
     type   = request.key
     host   = request.options[:host]

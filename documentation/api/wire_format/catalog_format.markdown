@@ -4,19 +4,19 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format.html"
 ---
 
-[containment]: /puppet/2.7/reference/lang_containment.html
-[relationship]: /puppet/2.7/reference/lang_relationships.html
-[chain]: /puppet/2.7/reference/lang_relationships.html#chaining-arrows
-[metaparameters]: /puppet/2.7/reference/lang_relationships.html#relationship-metaparameters
-[require]: /puppet/2.7/reference/lang_relationships.html#the-require-function
-[resource_ref]: /puppet/2.7/reference/lang_datatypes.html#resource-references
-[numbers]: /puppet/2.7/reference/lang_datatypes.html#numbers
-[undef]: /puppet/2.7/reference/lang_datatypes.html#undef
-[namevar]: /puppet/2.7/reference/lang_resources.html#namenamevar
-[resource]: /puppet/2.7/reference/lang_resources.html
-[title]: /puppet/2.7/reference/lang_resources.html#title
-[type]: /puppet/2.7/reference/lang_resources.html#type
-[attributes]: /puppet/2.7/reference/lang_resources.html#attributes
+[containment]: /puppet/3/reference/lang_containment.html
+[relationship]: /puppet/3/reference/lang_relationships.html
+[chain]: /puppet/3/reference/lang_relationships.html#chaining-arrows
+[metaparameters]: /puppet/3/reference/lang_relationships.html#relationship-metaparameters
+[require]: /puppet/3/reference/lang_relationships.html#the-require-function
+[resource_ref]: /puppet/3/reference/lang_datatypes.html#resource-references
+[numbers]: /puppet/3/reference/lang_datatypes.html#numbers
+[undef]: /puppet/3/reference/lang_datatypes.html#undef
+[namevar]: /puppet/3/reference/lang_resources.html#namenamevar
+[resource]: /puppet/3/reference/lang_resources.html
+[title]: /puppet/3/reference/lang_resources.html#title
+[type]: /puppet/3/reference/lang_resources.html#type
+[attributes]: /puppet/3/reference/lang_resources.html#attributes
 [replace3]: ../commands.html#replace-catalog-version-3
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1

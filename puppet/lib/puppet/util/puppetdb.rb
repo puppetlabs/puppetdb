@@ -1,5 +1,6 @@
 require 'puppet/util'
 require 'puppet/util/logging'
+require 'puppet/util/puppetdb/global_check'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/command'
 require 'puppet/util/puppetdb/config'

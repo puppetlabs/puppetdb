@@ -7,14 +7,9 @@ group :test do
   gem 'rspec', '2.13.0'
   gem 'puppetlabs_spec_helper', '0.4.1', :require => false
 
-  gem 'puppet', :require => false
+  gem 'puppet', '>= 3.4.2', :require => false
 
   gem 'mocha', '~> 1.0'
-
-  # Since newer versions of rake are not supported, we pin
-  if RUBY_VERSION == '1.8.5'
-    gem 'rake', '<= 0.8.7'
-  end
 end
 
 group :acceptance do

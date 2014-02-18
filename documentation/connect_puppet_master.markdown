@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
 [puppetdb_conf]: /guides/configuring.html#puppetdbconf
 [routes_yaml]: /guides/configuring.html#routesyaml
-[exported]: /puppet/2.7/reference/lang_exported.html
+[exported]: /puppet/3/reference/lang_exported.html
 [install_via_module]: ./install_via_module.html
 [report_processors]: http://docs.puppetlabs.com/guides/reporting.html
 [event]: ./api/query/v3/event.html
@@ -15,7 +15,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [store_report]: ./api/commands.html#store-report-version-1
 [report_format]: ./api/wire_format/report_format.html
 
-> Note: To use PuppetDB, your site's puppet master(s) must be running Puppet 2.7.12 or later .
+> Note: To use PuppetDB, your site's puppet master(s) must be running Puppet 3.4.2 or later .
 
 After PuppetDB is installed and running, you should configure your puppet master(s) to use it. Once connected to PuppetDB, puppet masters will do the following: 
 

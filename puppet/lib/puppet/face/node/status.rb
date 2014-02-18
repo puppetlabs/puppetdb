@@ -14,6 +14,8 @@ Puppet::Face.define(:node, '0.0.1') do
       require 'puppet/util/puppetdb'
       require 'json'
 
+      Puppet::Util::Puppetdb::GlobalCheck.run
+
       opts = args.pop
       raise ArgumentError, "Please provide at least one node" if args.empty?
 
