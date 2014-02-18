@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 ---
 
 [configure_vardir]: ./configure.html#vardir
-[redmine]: http://projects.puppetlabs.com/projects/puppetdb
+[tracker]: https://tickets.puppetlabs.com/browse/PDB
 
 What is KahaDB?
 -----
@@ -44,6 +44,6 @@ If these is going to be too destructive, then there is a few things you can do. 
 How do I bring my corruption to the attention of developers?
 -----
 
-In almost all cases though we want to hear about your corruption so we can improve the ways we deal with these problems. We would appreciate if you have these issues to look at our [Bug Tracker][redmine] for the term `kahadb` to see if you're problem is already known, and adding a comment if you see it yourself, including the version of PuppetDB you are using.
+In almost all cases though we want to hear about your corruption so we can improve the ways we deal with these problems. We would appreciate if you have these issues to look at our [Bug Tracker][tracker] for the term `kahadb` to see if you're problem is already known, and adding a comment if you see it yourself, including the version of PuppetDB you are using.
 
 If the problem is unknown or new, make sure you log a new ticket including your `puppetdb.log` file, or at least the pertinent exception including the version of PuppetDB you are using and the potential cause of the corruption if you are aware of it. In all cases, make sure you preserve any backups of the `KahaDB` directory in its original corrupted state, this may be helpful to our Software Engineers to replicate the problem later.
