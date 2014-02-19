@@ -1,19 +1,20 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Querying Facts"
+title: "PuppetDB 1.6 » API » v4 » Querying Facts"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/facts.html"
+canonical: "/puppetdb/latest/api/query/v4/facts.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Querying facts occurs via an HTTP request to the
 `/facts` REST endpoint.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
 
 ## Routes
 
-### `GET /v2/facts`
+### `GET /v4/facts`
 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response.
@@ -39,7 +40,7 @@ See [the Operators page](./operators.html)
 
 Get the operatingsystem fact for all nodes:
 
-    curl -X GET http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
+    curl -X GET http://puppetdb:8080/v4/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
@@ -47,13 +48,13 @@ Get the operatingsystem fact for all nodes:
 
 Get all facts for a single node:
 
-    curl -X GET http://puppetdb:8080/v2/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
+    curl -X GET http://puppetdb:8080/v4/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
-### `GET /v2/facts/<NAME>`
+### `GET /v4/facts/<NAME>`
 
 This will return all facts for all nodes with the indicated
 name.
@@ -69,13 +70,13 @@ name.
 
 #### Examples
 
-    curl -X GET http://puppetdb:8080/v2/facts/operatingsystem
+    curl -X GET http://puppetdb:8080/v4/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
-### `GET /v2/facts/<NAME>/<VALUE>`
+### `GET /v4/facts/<NAME>/<VALUE>`
 
 This will return all facts for all nodes with the indicated name and
 value.
@@ -91,10 +92,16 @@ value.
 
 #### Examples
 
-    curl -X GET http://puppetdb:8080/v2/facts/operatingsystem/Debian
+    curl -X GET http://puppetdb:8080/v4/facts/operatingsystem/Debian
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Debian}]
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Response Format
 

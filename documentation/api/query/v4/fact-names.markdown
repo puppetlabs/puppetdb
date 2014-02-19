@@ -1,14 +1,15 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Querying Fact Names"
+title: "PuppetDB 1.6 » API » v4 » Querying Fact Names"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/fact-names.html"
+canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
 
 ## Routes
 
@@ -21,9 +22,15 @@ known only for deactivated nodes.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v2/fact-names
+    curl -X GET http://localhost:8080/v4/fact-names
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
 
 ## Response Format
 

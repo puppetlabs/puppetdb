@@ -7,6 +7,7 @@
   (:require [clojure.tools.logging :as log])
   (:use [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
         [com.puppetlabs.puppetdb.http.v3 :only (v3-app)]
+        [com.puppetlabs.puppetdb.http.v4 :only (v4-app)]
         [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
         [com.puppetlabs.middleware :only
          (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
@@ -22,13 +23,36 @@
     (log/warn msg)
     (header result "X-Deprecation" msg)))
 
+(defn experimental-warning
+  [app msg request]
+  (let [result (app request)]
+    (log/warn msg)
+    (header result "Warning" msg)))
+
+(defn deprecated-v2-app
+  [request]
+  (deprecated-app
+    v2-app
+    "v2 query API is deprecated and will be removed in an upcoming release.  Please upgrade to v3."
+    request))
+
+(defn experimental-v4-app
+  [request]
+  (experimental-warning
+    v4-app
+    "v4 query API is experimental and may change without warning. For stability use the v3 api."
+    request))
+
 (def routes
   (app
     ["v2" &]
-    {:any v2-app}
+    {:any deprecated-v2-app}
 
     ["v3" &]
     {:any v3-app}
+
+    ["v4" &]
+    {:any experimental-v4-app}
 
     ["experimental" &]
     {:any experimental-app}

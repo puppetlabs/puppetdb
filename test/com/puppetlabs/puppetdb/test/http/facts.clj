@@ -17,7 +17,8 @@
 
 (def v2-endpoint "/v2/facts")
 (def v3-endpoint "/v3/facts")
-(def endpoints [v2-endpoint v3-endpoint])
+(def v4-endpoint "/v4/facts")
+(def endpoints [v2-endpoint v3-endpoint v4-endpoint])
 
 (defixture super-fixture :each with-test-db with-http-app)
 

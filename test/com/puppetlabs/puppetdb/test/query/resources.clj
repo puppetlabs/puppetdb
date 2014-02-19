@@ -175,7 +175,7 @@
         ]
     ;; ...and, finally, ready for testing.
 
-    (doseq [version [:v3]]
+    (doseq [version [:v3 :v4]]
       (testing "queries against SQL data"
         (doseq [[input expect]
                 (partition
@@ -258,14 +258,14 @@
             (str "  " input " =>\n  " expect)))))))
 
 (deftest query-resources-not-operator
-  (doseq [version [:v2 :v3]]
+  (doseq [version [:v2 :v3 :v4]]
     (testing "'not' term without arguments in later version"
       (doseq [op ["not" "NOT" "NoT"]]
         (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
               (query-resources (s/query->sql version [op]))))))))
 
 (deftest query-resources-with-extra-FAIL
-  (doseq [version [:v2 :v3]]
+  (doseq [version [:v2 :v3 :v4]]
     (testing "combine terms without arguments"
       (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
         (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
@@ -337,7 +337,7 @@
         r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
         r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :parameters {"content" "contents" "ensure" "present"}}]
 
-    (doseq [version [:v3]]
+    (doseq [version [:v3 :v4]]
 
       (testing "include total results count"
         (let [expected 4

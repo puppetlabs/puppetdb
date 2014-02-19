@@ -29,6 +29,8 @@
    :v2 {:file :sourcefile
         :line :sourceline}
    :v3 {:file :file
+        :line :line}
+   :v4 {:file :file
         :line :line}))
 
 (defmacro check-json-response
@@ -46,7 +48,7 @@
        (is (= c-t (get-in response# [:headers "Content-Type"])))
        (do ~@the-body))))
 
-(deftest test-exploration-v2
+(deftest test-exploration
   (let [catalog (:basic catalogs)
         facts   {"kernel"          "Linux"
                  "operatingsystem" "Debian"}

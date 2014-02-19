@@ -1,20 +1,21 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Querying Nodes"
+title: "PuppetDB 1.6 » API » v4 » Querying Nodes"
 layout: default
-canonical: "/puppetdb/latest/api/query/v2/nodes.html"
+canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 ---
 
 [resource]: ./resources.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[paging]: ./paging.html
 
 Nodes can be queried by making an HTTP request to the `/nodes` REST
 endpoint with a JSON-formatted parameter called `query`.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
 
 ## Routes
 
-### `GET /v2/nodes`
+### `GET /v4/nodes`
 
 This will return all nodes matching the given query. Deactivated nodes
 aren't included in the response.
@@ -65,10 +66,10 @@ The array is sorted alphabetically by `name`.
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v2/nodes'
-    curl -G 'http://localhost:8080/v2/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl 'http://localhost:8080/v4/nodes'
+    curl -G 'http://localhost:8080/v4/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
-### `GET /v2/nodes/<NODE>`
+### `GET /v4/nodes/<NODE>`
 
 This will return status information for the given node, active or
 not.
@@ -80,7 +81,7 @@ in ascending order:
 
 `["foo.example.com", "bar.example.com", "baz.example.com"]`
 
-### `GET /v2/nodes/<NODE>/facts`
+### `GET /v4/nodes/<NODE>/facts`
 
 This will return the facts for the given node. Facts from deactivated
 nodes aren't included in the response.
@@ -89,16 +90,16 @@ nodes aren't included in the response.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v4/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v4/facts](./facts.html)
 endpoint.
 
-### `GET /v2/nodes/<NODE>/facts/<NAME>`
+### `GET /v4/nodes/<NODE>/facts/<NAME>`
 
 This will return facts with the given name for the given node. Facts
 from deactivated nodes aren't included in the response.
@@ -107,17 +108,17 @@ from deactivated nodes aren't included in the response.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v4/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v4/facts](./facts.html)
 endpoint.
 
 
-### `GET /v2/nodes/<NODE>/facts/<NAME>/<VALUE>`
+### `GET /v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
 
 This will return facts with the given name and value for the given
 node. Facts from deactivated nodes aren't included in the
@@ -127,16 +128,16 @@ response.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/facts` route. When supplied, the query is
+  parameter for the `/v4/facts` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/facts](./facts.html)
+The response is the same format as for the [/v4/facts](./facts.html)
 endpoint.
 
-### `GET /v2/nodes/<NODE>/resources`
+### `GET /v4/nodes/<NODE>/resources`
 
 This will return the resources for the given node. Resources from
 deactivated nodes aren't included in the response.
@@ -145,33 +146,40 @@ deactivated nodes aren't included in the response.
 
 * `query`: Optional. A JSON array containing the query in prefix
   notation. The syntax and semantics are identical to the `query`
-  parameter for the `/v2/resources` route. When supplied, the query is
+  parameter for the `/v4/resources` route. When supplied, the query is
   assumed to supply _additional_ criteria that can be used to return a
   _subset_ of the information normally returned by this route.
 
 #### Response format
 
-The response is the same format as for the [/v2/resources][resource]
+The response is the same format as for the [/v4/resources][resource]
 endpoint.
 
-### `GET /v2/nodes/<NODE>/resources/<TYPE>`
+### `GET /v4/nodes/<NODE>/resources/<TYPE>`
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated nodes aren't included in the
 response.
 
 This endpoint behaves identically to the
-[`/v2/resources/<TYPE>`][resource] endpoint, except the resources
+[`/v4/resources/<TYPE>`][resource] endpoint, except the resources
 returned include _only_ those belonging to the node given in the URL
 for this route.
 
-### `GET /v2/nodes/<NODE>/resources/<TYPE>/<TITLE>`
+### `GET /v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
 
 This will return the resource of the indicated type and title for the
 given node. Resources from deactivated nodes aren't included in the
 response.
 
 This endpoint behaves identically to the
-[`/v2/resources/<TYPE>`][resource] endpoint, except the resources
+[`/v4/resources/<TYPE>`][resource] endpoint, except the resources
 returned include _only_ those belonging to the node given in the URL
 for this route.
+
+## Paging
+
+This query endpoint supports paged results via the common PuppetDB paging
+query parameters.  For more information, please see the documentation
+on [paging][paging].
+

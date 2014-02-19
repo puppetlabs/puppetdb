@@ -17,7 +17,7 @@
         catalog-version  (str (get-in catalog ["data" "version"]))
         transaction-uuid (get-in catalog ["data" "transaction-uuid"])]
     (testcat/replace-catalog catalog-str)
-    (doseq [version [:v3]]
+    (doseq [version [:v3 :v4]]
       (testing "get-catalog-info"
         (is (= catalog-version  (:catalog-version (c/get-catalog-info certname))))
         (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info certname)))))

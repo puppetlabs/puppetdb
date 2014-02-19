@@ -10,7 +10,8 @@
 
 (def v2-endpoint "/v2/nodes")
 (def v3-endpoint "/v3/nodes")
-(def endpoints [v2-endpoint v3-endpoint])
+(def v4-endpoint "/v4/nodes")
+(def endpoints [v2-endpoint v3-endpoint v4-endpoint])
 
 (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
 
@@ -116,7 +117,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; :v3 tests
+;; :v3 & v4 tests
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -134,10 +135,12 @@
 
                   ["db.example.com" "puppet.example.com" "web1.example.com"]}]
           (testing (str "query: " query " is supported")
-            (is-query-result v3-endpoint query expected)))))
+            (is-query-result v3-endpoint query expected))
+            (is-query-result v4-endpoint query expected))))
 
   (testing "subqueries: invalid"
-    (doseq [[query msg] {
+    (doseq [endpoint [v3-endpoint v4-endpoint]
+            [query msg] {
               ;; Ensure the v2 version of sourcefile/sourceline returns
               ;; a proper error.
               ["in" "name"
@@ -148,8 +151,8 @@
                   ["=" "sourceline" 1]]]]]
 
               "sourcefile is not a queryable object for resources"}]
-      (testing (str "query: " query " should fail with msg: " msg)
-        (let [request (get-request v3-endpoint (json/generate-string query))
+      (testing (str endpoint " query: " query " should fail with msg: " msg)
+        (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (fixt/*app* request)]
           (is (= status pl-http/status-bad-request))
           (is (= body msg)))))))
@@ -157,12 +160,13 @@
 (deftest node-query-paging
   (let [expected (store-example-nodes)]
 
-    (doseq [[label count?] [["without" false]
+    (doseq [endpoint [v3-endpoint v4-endpoint]
+            [label count?] [["without" false]
                             ["with" true]]]
-      (testing (str "should support paging through nodes " label " counts")
+      (testing (str endpoint " should support paging through nodes " label " counts")
         (let [results (paged-results
                         {:app-fn  fixt/*app*
-                         :path    v3-endpoint
+                         :path    endpoint
                          :limit   1
                          :total   (count expected)
                          :include-total  count?})]
