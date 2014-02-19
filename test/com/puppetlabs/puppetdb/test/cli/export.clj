@@ -2,10 +2,13 @@
   (:require [com.puppetlabs.puppetdb.query.catalogs :as c]
             [com.puppetlabs.puppetdb.query.reports :as r]
             [com.puppetlabs.puppetdb.query.events :as e]
-            [cheshire.core :as json]
+            [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [com.puppetlabs.puppetdb.testutils.reports :as testrep]
-            [com.puppetlabs.puppetdb.cli.export :as export])
+            [com.puppetlabs.puppetdb.cli.export :as export]
+            [com.puppetlabs.puppetdb.command :as command]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [com.puppetlabs.puppetdb.testutils.repl :as turepl])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
          [com.puppetlabs.puppetdb.fixtures]
@@ -20,10 +23,10 @@
             original-catalog      (json/parse-string original-catalog-str)]
         (testcat/replace-catalog original-catalog-str)
 
-         ;; This is explicitly set to v3, as per the current CLI tooling
-         (let [exported-catalog (c/catalog-for-node :v3 "myhost.localdomain")]
-            (is (= (testcat/munge-catalog-for-comparison original-catalog)
-                   (testcat/munge-catalog-for-comparison exported-catalog)))))))
+        ;; This is explicitly set to v3, as per the current CLI tooling
+        (let [exported-catalog (c/catalog-for-node :v3 "myhost.localdomain")]
+          (is (= (testcat/munge-catalog-for-comparison original-catalog)
+                 (testcat/munge-catalog-for-comparison exported-catalog)))))))
 
   (testing "Exporting a JSON report"
     (testing "the exported JSON should match the original import JSON"
@@ -37,6 +40,12 @@
                  (testrep/munge-report-for-comparison exported-report)))))))
 
   (testing "Export metadata"
-    (is (= {:replace-catalog catalog-version
-            :store-report 2}
-          (:command-versions export/export-metadata)))))
+    (let [{:keys [msg file-suffix contents]} (export/export-metadata)
+          metadata (json/parse-string contents true)]
+      (is (= {:replace-catalog catalog-version
+              :store-report 2
+              :facts 1}
+             (:command-versions metadata)))
+      (is (= ["export-metadata.json"] file-suffix))
+      (is (= "Exporting PuppetDB metadata" msg)))))
+

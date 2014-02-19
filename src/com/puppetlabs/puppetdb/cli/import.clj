@@ -70,6 +70,23 @@
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
+(defn submit-facts
+  "Send the given wire-format `facts` (associated with `host`) to a
+  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
+  [puppetdb-host puppetdb-port fact-payload]
+  {:pre  [(string?  puppetdb-host)
+          (integer? puppetdb-port)
+          (string?  fact-payload)]}
+  (let [payload (-> fact-payload
+                    json/parse-string)
+        result  (command/submit-command-via-http!
+                 puppetdb-host puppetdb-port
+                 (command-names :replace-facts)
+                 1
+                 fact-payload)]
+    (when-not (= pl-http/status-ok (:status result))
+      (log/error result))))
+
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
@@ -81,7 +98,8 @@
           (map? metadata)]}
   (let [path    (.getName tar-entry)
         catalog-pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")
-        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")]
+        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")
+        facts-pattern (str "^" (.getPath (io/file export-root-dir "facts" ".*\\.json")) "$")]
     (when (re-find (re-pattern catalog-pattern) path)
       (println (format "Importing catalog from archive entry '%s'" path))
       ;; NOTE: these submissions are async and we have no guarantee that they
@@ -96,6 +114,10 @@
       (println (format "Importing report from archive entry '%s'" path))
       (submit-report host port
         (get-in metadata [:command-versions :store-report])
+        (archive/read-entry-content tar-reader)))
+    (when (re-find (re-pattern facts-pattern) path)
+      (println (format "Importing facts from archive entry '%s'" path))
+      (submit-facts host port
         (archive/read-entry-content tar-reader)))))
 
 (defn- validate-cli!

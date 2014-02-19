@@ -13,8 +13,15 @@ test_name "export and import tools" do
      }
     MANIFEST
 
-    run_agents_with_new_site_pp(master, manifest)
+    run_agents_with_new_site_pp(master, manifest, {"facter_foo" => "bar"})
   end
+
+  step "verify foo fact present" do
+    result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
+    facts = JSON.parse(result.stdout.strip)
+    assert_equal('bar', facts['values']['foo'], "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
+  end
+
 
   export_file1 = "./puppetdb-export1.tar.gz"
   export_file2 = "./puppetdb-export2.tar.gz"
@@ -31,6 +38,12 @@ test_name "export and import tools" do
   step "import data into puppetdb" do
     on database, "#{sbin_loc}/puppetdb import --infile #{export_file1}"
     sleep_until_queue_empty(database)
+  end
+
+  step "verify facts were exported/imported correctly" do
+    result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
+    facts = JSON.parse(result.stdout.strip)
+    assert_equal('bar', facts['values']['foo'], "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
   end
 
   step "export data from puppetdb again" do

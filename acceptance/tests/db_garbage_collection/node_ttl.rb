@@ -15,6 +15,10 @@ end
 
 test_name "validate that nodes are deactivated and deleted based on ttl settings" do
 
+  step "clear puppetdb database so that we can import into a clean db" do
+    clear_and_restart_puppetdb(database)
+  end
+
   with_puppet_running_on master, {
     'master' => {
       'autosign' => 'true'
