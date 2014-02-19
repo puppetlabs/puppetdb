@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/index.html"
 [catalog]: /puppet/3/reference/lang_summary.html#compilation-and-catalogs
 [releasenotes]: ./release_notes.html
 [github]: https://github.com/puppetlabs/puppetdb
-[redmine]: http://projects.puppetlabs.com/projects/puppetdb/issues
+[tracker]: https://tickets.puppetlabs.com/browse/PDB
 [migrating]: ./migrate.html
 [old_docs]: http://docs.puppetlabs.com/puppetdb/1.1/
 
@@ -107,4 +107,4 @@ For more on fitting PuppetDB to your site, [see "Scaling Recommendations."][scal
 Open Source
 -----
 
-PuppetDB is developed openly, and is released under the [Apache 2.0 license](http://www.apache.org/licenses/LICENSE-2.0.html). You can get the source --- and contribute to it! --- at [the PuppetDB GitHub repo][github]. Bugs and feature requests are welcome at [Puppet Labs's issue tracker][redmine].
+PuppetDB is developed openly, and is released under the [Apache 2.0 license](http://www.apache.org/licenses/LICENSE-2.0.html). You can get the source --- and contribute to it! --- at [the PuppetDB GitHub repo][github]. Bugs and feature requests are welcome at [Puppet Labs's issue tracker][tracker].
