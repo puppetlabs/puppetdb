@@ -2,4 +2,4 @@
 
 . <%= @libexec_dir %>/<%= @name %>.env
 
-${JAVA_BIN} ${JAVA_ARGS} -jar ${INSTALL_DIR}/puppetdb.jar export "${@}"
+${JAVA_BIN} <%= @java_args || @default_java_args -%> -jar ${INSTALL_DIR}/puppetdb.jar export "$@"
