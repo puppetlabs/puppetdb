@@ -298,10 +298,10 @@ fi
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/jetty.ini
 %config(noreplace)%{_sysconfdir}/%{realname}/conf.d/repl.ini
 %config(noreplace)%{_realsysconfdir}/logrotate.d/%{name}
+%config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %if 0%{?_with_systemd}
 %{_unitdir}/%{name}.service
 %else
-%config(noreplace)%{_realsysconfdir}/sysconfig/%{name}
 %{_initddir}/%{name}
 %endif
 %{_sbindir}/puppetdb-ssl-setup
