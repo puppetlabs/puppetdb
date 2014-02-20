@@ -1,16 +1,7 @@
 #!/bin/bash
 
-ARGS="$@"
-if [ -r "/etc/default/<%= @name -%>" ] ; then
-    . /etc/default/<%= @name %>
-elif [ -r  "/etc/sysconfig/<%= @name -%>" ] ; then
-    . /etc/sysconfig/<%= @name -%>
-else
-    JAVA_BIN=<%= @java_bin || "/usr/bin/java"  -%>
-    INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
-    JAVA_ARGS="<%= @java_args || @default_java_args -%>"
-    USER="<%= @name -%>"
-    CONFIG="<%= @config_dir -%>"
-fi
+. <%= @libexec_dir %>/<%= @name %>.env
 
-su ${USER} -s /bin/bash -c "${JAVA_BIN} -jar ${INSTALL_DIR}/puppetdb.jar services -c ${CONFIG} ${ARGS}"
+ARGS="$@"
+
+su ${USER} -s /bin/bash -c "${JAVA_BIN} -jar ${INSTALL_DIR}/puppetdb.jar services -c ${CONFIG} ${@}"

@@ -1,13 +1,5 @@
 #!/bin/bash
 
-if [ -r "/etc/default/<%= @name -%>" ] ; then
-    . /etc/default/<%= @name %>
-elif [ -r  "/etc/sysconfig/<%= @name -%>" ] ; then
-    . /etc/sysconfig/<%= @name -%>
-else    
-    JAVA_BIN=<%= @java_bin || "/usr/bin/java"  -%>
-    INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
-    JAVA_ARGS="<%= @java_args || @default_java_args -%>"
-fi
+. <%= @libexec_dir %>/<%= @name %>.env
 
 ${JAVA_BIN} ${JAVA_ARGS} -jar ${INSTALL_DIR}/puppetdb.jar export "${@}"
