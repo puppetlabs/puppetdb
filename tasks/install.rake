@@ -68,13 +68,17 @@ task :install => [  JAR_FILE  ] do
     puts "operatingsystemrelease is #{@operatingsystemrelease}"
     if (@operatingsystem == "fedora" && @operatingsystemrelease.to_i >= 17) || (@operatingsystem =~ /redhat|centos/ && @operatingsystemrelease.to_f >= 7 )
       #systemd!
+      mkdir_p "#{DESTDIR}/etc/sysconfig"
       mkdir_p "#{DESTDIR}/usr/lib/systemd/system"
+      cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+      cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
       cp_p "ext/files/systemd/#{@name}.service", "#{DESTDIR}/usr/lib/systemd/system"
       chmod 0644, "#{DESTDIR}/usr/lib/systemd/system/#{@name}.service"
     else
       mkdir_p "#{DESTDIR}/etc/sysconfig"
       mkdir_p "#{DESTDIR}/etc/rc.d/init.d/"
       cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+      cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
       cp_p "ext/files/puppetdb.redhat.init", "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
       chmod 0755, "#{DESTDIR}/etc/rc.d/init.d/#{@name}"
     end
@@ -82,16 +86,19 @@ task :install => [  JAR_FILE  ] do
     mkdir_p "#{DESTDIR}/etc/sysconfig"
     mkdir_p "#{DESTDIR}/etc/init.d/"
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+    cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
     cp_p "ext/files/puppetdb.suse.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   elsif @osfamily == "debian"
     mkdir_p "#{DESTDIR}/etc/default"
     cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/default/#{@name}"
+    cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
     cp_pr "ext/files/#{@name}.debian.init", "#{DESTDIR}/etc/init.d/#{@name}"
     chmod 0755, "#{DESTDIR}/etc/init.d/#{@name}"
   elsif @osfamily == "openbsd"
     mkdir_p "#{DESTDIR}/etc/rc.d/"
     cp_p "ext/files/puppetdb.openbsd.init", "#{DESTDIR}/etc/rc.d/#{@name}.rc"
+    cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
     chmod 0755, "#{DESTDIR}/etc/rc.d/#{@name}.rc"
   else
     raise "Unknown or unsupported osfamily: #{@osfamily}"

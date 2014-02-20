@@ -14,7 +14,8 @@ task :template => [ :clean ] do
     "ext/templates/puppetdb-anonymize.erb"  => "ext/files/puppetdb-anonymize",
     "ext/templates/puppetdb.erb"            => "ext/files/puppetdb",
     "ext/templates/puppetdb-legacy.erb"     => "ext/files/puppetdb-legacy",
-    "ext/templates/init_debian.erb"         => "ext/files/#{@name}.debian.init"
+    "ext/templates/init_debian.erb"         => "ext/files/#{@name}.debian.init",
+    "ext/templates/puppetdb-env.erb"        => "ext/files/puppetdb.env"
   }
 
   deb_templates = {
