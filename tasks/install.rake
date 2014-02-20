@@ -68,6 +68,7 @@ task :install => [  JAR_FILE  ] do
     puts "operatingsystemrelease is #{@operatingsystemrelease}"
     if (@operatingsystem == "fedora" && @operatingsystemrelease.to_i >= 17) || (@operatingsystem =~ /redhat|centos/ && @operatingsystemrelease.to_f >= 7 )
       #systemd!
+      mkdir_p "#{DESTDIR}/etc/sysconfig"
       mkdir_p "#{DESTDIR}/usr/lib/systemd/system"
       cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
       cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
