@@ -1,4 +1,7 @@
 #!/bin/bash
 
+. <%= @libexec_dir %>/<%= @name %>.env
+
 ARGS="$@"
-su <%= @name -%> -s /bin/bash -c "<%= @java_bin || "/usr/bin/java"  -%> <%= @java_args || @default_java_args -%> -jar <%= @install_dir || "/usr/share/puppetdb" -%>/puppetdb.jar services -c <%= @config_dir -%> $ARGS"
+
+su ${USER} -s /bin/bash -c "${JAVA_BIN} ${JAVA_ARGS} -jar ${INSTALL_DIR}/puppetdb.jar services -c ${CONFIG} ${@}"
