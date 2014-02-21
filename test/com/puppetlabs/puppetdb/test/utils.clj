@@ -17,8 +17,8 @@
 
 (def jdk-1-7-version "1.7.0_45")
 
-(def deprecation-regex
-  (re-pattern (format "Warning - Support for JDK 1.6 has been deprecated.*%s" jdk-1-6-version)))
+(def unsupported-regex
+  (re-pattern (format ".*JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7\\+, currently running.*%s" jdk-1-6-version)))
 
 (deftest test-jdk6?
   (with-redefs [kitchensink/java-version jdk-1-6-version]
@@ -27,38 +27,24 @@
   (with-redefs [kitchensink/java-version jdk-1-7-version]
     (is (false? (jdk6?)))))
 
-(deftest deprecated-jdk-logging
+(deftest unsupported-jdk-failing
   (testing "1.6 jdk version"
     (with-redefs [kitchensink/java-version jdk-1-6-version]
       (pllog/with-log-output log
-        (let [result (tu/with-err-str (log-deprecated-jdk))
+        (let [fail? (atom false)
+              result (tu/with-err-str (fail-unsupported-jdk #(reset! fail? true)))
               [[category level _ msg]] @log]
           (is (= "com.puppetlabs.puppetdb.utils" category))
           (is (= :error level))
-          (is (re-find deprecation-regex msg))
-          (is (str/blank? result))))))
+          (is (re-find unsupported-regex msg))
+          (is (re-find unsupported-regex result))
+          (is (true? @fail?))))))
 
   (testing "1.7 jdk version"
     (with-redefs [kitchensink/java-version jdk-1-7-version]
       (pllog/with-log-output log
-        (let [result (tu/with-err-str (log-deprecated-jdk))]
+        (let [fail? (atom false)
+              result (tu/with-err-str (fail-unsupported-jdk #(reset! fail? true)))]
           (is (empty? @log))
-          (is (str/blank? result)))))))
-
-(deftest deprecated-jdk-alerting
-  (testing "1.6 jdk version"
-    (with-redefs [kitchensink/java-version jdk-1-6-version]
-      (pllog/with-log-output log
-        (let [result (tu/with-err-str (alert-deprecated-jdk))
-              [[category level _ msg]] @log]
-          (is (= "com.puppetlabs.puppetdb.utils" category))
-          (is (= :error level))
-          (is (re-find deprecation-regex msg))
-          (is (re-find deprecation-regex result))))))
-
-  (testing "1.7 jdk version"
-    (with-redefs [kitchensink/java-version jdk-1-7-version]
-      (pllog/with-log-output log
-        (let [result (tu/with-err-str (log-deprecated-jdk))]
-          (is (empty? @log))
-          (is (str/blank? result)))))))
+          (is (str/blank? result))
+          (is (false? @fail?)))))))

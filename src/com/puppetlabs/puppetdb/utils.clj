@@ -10,7 +10,7 @@
   []
   (.startsWith kitchensink/java-version "1.6"))
 
-(defn attention-warning-msg
+(defn attention-msg
   "Wraps `msg` in lots of * to draw attention to the warning"
   [msg]
   (str "********************\n"
@@ -19,11 +19,11 @@
        "* \n"
        "********************"))
 
-(defn jdk-deprecation-message
-  "Returns warning message instructing the user to switch to JDK 1.7"
+(defn jdk-unsupported-message
+  "Returns error message instructing the user to switch to JDK 1.7"
   []
-  (attention-warning-msg
-   (format "Warning - Support for JDK 1.6 has been deprecated. PuppetDB requires JDK 1.7+, currently running: %s" kitchensink/java-version)))
+  (attention-msg
+   (format "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: %s" kitchensink/java-version)))
 
 (defn println-err
   "Redirects output to standard error before invoking println"
@@ -31,20 +31,14 @@
   (binding [*out* *err*]
     (apply println args)))
 
-(defn log-deprecated-jdk
-  "Checks the current JDK version, logs a deprecation message if it's 1.6"
-  []
+(defn fail-unsupported-jdk
+  "If the JDK is an unsupported version, Writes error message to standard error, the log and calls fail-fn"
+  [fail-fn]
   (when (jdk6?)
-    (let [attn-msg (jdk-deprecation-message)]
-      (log/error attn-msg))))
-
-(defn alert-deprecated-jdk
-  "Similar to log-deprecated-jdk, but also prints the deprecation message to standard error"
-  []
-  (when (jdk6?)
-    (let [attn-msg (jdk-deprecation-message)]
+    (let [attn-msg (jdk-unsupported-message)]
       (println-err attn-msg)
-      (log/error attn-msg))))
+      (log/error attn-msg)
+      (fail-fn))))
 
 (s/defn diff-fn
   "Run clojure.data/diff on `left` and `right`, calling `left-only-fn`, `right-only-fn` and `same-fn` with

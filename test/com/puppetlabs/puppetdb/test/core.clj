@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.testutils :as tu]
             [com.puppetlabs.puppetdb.test.utils :refer [jdk-1-6-version
                                                         jdk-1-7-version
-                                                        deprecation-regex]]))
+                                                        unsupported-regex]]))
 
 (defn ignore-exception [f]
   (try
@@ -47,7 +47,7 @@
     (is (true? @success?))
     (is (false? @fail?))))
 
-(defn valid-deprecation-pred [regex]
+(defn valid-unsupported-pred [regex]
   (fn [[category level _ msg :as foo]]
     (and (= "com.puppetlabs.puppetdb.utils"
             category)
@@ -55,15 +55,15 @@
             level)
          (re-find regex msg))))
 
-(deftest deprecation-message
-  (testing "No deprecation message when using 1.7"
+(deftest jdk-fail-message
+  (testing "No unsupported message when using 1.7"
     (let [success? (atom false)
           fail? (atom false)
           jdk-version  jdk-1-7-version]
       (with-redefs [kitchensink/java-version jdk-version]
         (pllog/with-log-output log
           (is (nil?
-               (re-find deprecation-regex
+               (re-find unsupported-regex
                         (tu/with-err-str
                           (with-out-str
                             (run-command #(reset! success? true)
@@ -71,21 +71,21 @@
                                          ["version"]))))))
           (is (true? @success?))
           (is (false? @fail?))
-          (is (not-any? (valid-deprecation-pred deprecation-regex) @log))))))
+          (is (not-any? (valid-unsupported-pred unsupported-regex) @log))))))
 
-  (testing "deprecation message appears in log and stdout when using JDK 1.6"
-    (let [success? (atom false)
-          fail? (atom false)
+  (testing "fail message appears in log and stdout when using JDK 1.6"
+    (let [exec-path (atom [])
           jdk-version  jdk-1-6-version]
       (with-redefs [kitchensink/java-version jdk-version]
         (pllog/with-log-output log
-          (is (re-find deprecation-regex
+          (is (re-find unsupported-regex
                        (tu/with-err-str
                          (with-out-str
-                           (run-command #(reset! success? true)
-                                        #(reset! fail? true)
+                           (run-command #(swap! exec-path conj :success)
+                                        #(swap! exec-path conj :fail)
                                         ["version"])))))
-          (is (true? @success?))
-          (is (false? @fail?))
-          (is (some (valid-deprecation-pred deprecation-regex) @log)))))))
+          ;;The code should call the fail-fn first, then the
+          ;;success-fn
+          (is (= [:fail :success] @exec-path))
+          (is (some (valid-unsupported-pred unsupported-regex) @log)))))))
 

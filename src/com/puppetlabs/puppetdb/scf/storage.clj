@@ -933,7 +933,7 @@
    exit)."
   [fail-fn]
   (let [msg (db-unsupported?)]
-    (when-let [attn-msg (and msg (utils/attention-warning-msg msg))]
+    (when-let [attn-msg (and msg (utils/attention-msg msg))]
       (utils/println-err attn-msg)
       (log/error attn-msg)
       (fail-fn))))

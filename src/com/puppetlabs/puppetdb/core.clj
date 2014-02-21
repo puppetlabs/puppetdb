@@ -73,7 +73,7 @@
   (let [subcommand (first args)
         allowed?   (available-subcommands)]
 
-    (utils/alert-deprecated-jdk)
+    (utils/fail-unsupported-jdk fail-fn)
 
     ;; Bad invokation
     (when-not (allowed? subcommand)

@@ -277,9 +277,6 @@
                                                     :update-server        update-server
                                                     :product-name         product-name}]
 
-
-    (utils/log-deprecated-jdk)
-
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
 
