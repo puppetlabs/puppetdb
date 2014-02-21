@@ -30,7 +30,7 @@ deb http://s3-us-west-2.amazonaws.com/puppetdb-jdk/jpkg/ pljdk main
         on database, "apt-get install -y --force-yes openjdk-7-jre-headless rake unzip"
       end
     when :redhat
-      on database, "yum install -y java-1.6.0-openjdk rubygem-rake unzip"
+      on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
     when :fedora
       on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
     else
