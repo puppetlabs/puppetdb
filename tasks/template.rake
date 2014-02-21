@@ -42,7 +42,8 @@ task :template => [ :clean ] do
     "ext/templates/dev/redhat/redhat_dev_preinst.erb"   => "ext/files/dev/redhat/redhat_dev_preinst",
     "ext/templates/dev/redhat/redhat_dev_postinst.erb"  => "ext/files/dev/redhat/redhat_dev_postinst",
     "ext/templates/init_openbsd.erb"                    => "ext/files/puppetdb.openbsd.init",
-    "ext/templates/puppetdb.service.erb"                => "ext/files/systemd/#{@name}.service"
+    "ext/templates/puppetdb.service.erb"                => "ext/files/systemd/#{@name}.service",
+    "ext/templates/puppetdb_default_systemd.erb"        => "ext/files/puppetdb.default.systemd"
   }
 
   # Set up shared files

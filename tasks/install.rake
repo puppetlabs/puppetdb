@@ -70,7 +70,7 @@ task :install => [  JAR_FILE  ] do
       #systemd!
       mkdir_p "#{DESTDIR}/etc/sysconfig"
       mkdir_p "#{DESTDIR}/usr/lib/systemd/system"
-      cp_p "ext/files/puppetdb.default", "#{DESTDIR}/etc/sysconfig/#{@name}"
+      cp_p "ext/files/puppetdb.default.systemd", "#{DESTDIR}/etc/sysconfig/#{@name}"
       cp_p "ext/files/puppetdb.env", "#{DESTDIR}/#{@libexec_dir}/#{@name}.env"
       cp_p "ext/files/systemd/#{@name}.service", "#{DESTDIR}/usr/lib/systemd/system"
       chmod 0644, "#{DESTDIR}/usr/lib/systemd/system/#{@name}.service"

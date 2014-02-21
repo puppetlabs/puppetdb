@@ -120,7 +120,7 @@ case @osfamily
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
-@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@heap_dump_path} "
+@default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@heap_dump_path}"
 
 # All variables have been set, so we can load the puppetdb tasks
 Dir[ File.join(RAKE_ROOT, 'tasks','*.rake') ].sort.each { |t| load t }
