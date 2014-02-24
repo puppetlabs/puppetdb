@@ -70,11 +70,15 @@ processed.
 
 ### "replace catalog", version 1
 
+> **Note:** This version is deprecated, use the latest version instead.
+
 The payload is expected to be a Puppet catalog, as a JSON string, including the
 fields of the [catalog wire format][catalog]. Extra fields are
 ignored.
 
 ### "replace catalog", version 2
+
+> **Note:** This version is deprecated, use the latest version instead.
 
 The payload is expected to be a Puppet catalog, as either a JSON string or an
 object, conforming exactly to the [catalog wire
@@ -102,6 +106,8 @@ The payload is expected to be the name of a node, as a JSON string, which will b
 effective as of the time the command is *processed*.
 
 ### "store report", version 1
+
+> **Note:** This version is deprecated, use the latest version instead.
 
 The payload is expected to be a report, containing events that occurred on Puppet
 resources.  It is structured as a JSON object, conforming to the
