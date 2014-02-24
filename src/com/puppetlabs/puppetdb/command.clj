@@ -321,6 +321,7 @@
 (defmethod process-command! [(command-names :replace-catalog) 1]
   [{:keys [version payload] :as command} options]
   {:pre [(= version 1)]}
+  (log/warn "command 'replace catalog' version 1 is deprecated, use the latest version")
   (when-not (string? payload)
     (throw (IllegalArgumentException.
              (format "Payload for a '%s' v1 command must be a JSON string."
@@ -330,6 +331,7 @@
 (defmethod process-command! [(command-names :replace-catalog) 2]
   [{:keys [version] :as  command} options]
   {:pre [(= version 2)]}
+  (log/warn "command 'replace catalog' version 2 is deprecated, use the latest version")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 3]
@@ -381,6 +383,7 @@
 (defmethod process-command! [(command-names :store-report) 1]
   [{:keys [version] :as command} {:keys [db]}]
   {:pre [(= version 1)]}
+  (log/warn "command 'store report' version 1 is deprecated, use the latest version")
   (store-report* 1 db command))
 
 (defmethod process-command! [(command-names :store-report) 2]
