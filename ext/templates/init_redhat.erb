@@ -38,7 +38,7 @@ PATH=/opt/puppet/bin:/opt/puppet/sbin:/sbin:/usr/sbin:/bin:/usr/bin
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 <% end -%>
 JARFILE="puppetdb.jar"
-JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
+JAVA_ARGS="${JAVA_ARGS} -cp ${INSTALL_DIR}/${JARFILE} clojure.main -m com.puppetlabs.puppetdb.core services -c ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
 lockfile=/var/lock/subsys/$prog
 EXEC="$JAVA_BIN -XX:OnOutOfMemoryError=\"kill -9 %p\" $JAVA_ARGS"

@@ -33,7 +33,7 @@ JARFILE="puppetdb.jar"
 PIDFILE=/var/run/$NAME/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
-JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} services -c ${CONFIG} "
+JAVA_ARGS="${JAVA_ARGS} -cp ${INSTALL_DIR}/${JARFILE} clojure.main -m com.puppetlabs.puppetdb.core services -c ${CONFIG} "
 
 # Exit if the package is not installed
 [ -x "$JAVA_BIN" ] || exit 0
