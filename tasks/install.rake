@@ -45,7 +45,7 @@ task :install => [  JAR_FILE  ] do
   cp_pr "ext/files/jetty.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/repl.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/puppetdb.logrotate", "#{DESTDIR}/etc/logrotate.d/#{@name}"
-  cp_pr "ext/files/log4j.properties", "#{DESTDIR}/#{@config_dir}/.."
+  cp_pr "ext/files/logback.xml", "#{DESTDIR}/#{@config_dir}/.."
   cp_pr "ext/files/puppetdb", "#{DESTDIR}/#{@sbin_dir}"
 
   # Copy legacy wrapper for deprecated hyphenated sub-commands
@@ -104,7 +104,7 @@ task :install => [  JAR_FILE  ] do
     raise "Unknown or unsupported osfamily: #{@osfamily}"
   end
   chmod 0750, "#{DESTDIR}/#{@config_dir}"
-  chmod 0640, "#{DESTDIR}/#{@config_dir}/../log4j.properties"
+  chmod 0640, "#{DESTDIR}/#{@config_dir}/../logback.xml"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-ssl-setup"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-foreground"
   chmod 0700, "#{DESTDIR}/#{@sbin_dir}/puppetdb-import"

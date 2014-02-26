@@ -1,0 +1,22 @@
+<configuration scan="true">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Silence particularly noisy packages -->
+    <logger name="org.apache.activemq" level="warn"/>
+    <logger name="org.springframework.jms.connection" level="warn"/>
+
+    <!-- turn on to see verbose storage activity -->
+    <!--
+    <logger name="com.puppetlabs.puppetdb.scf.storage" level="debug"/>
+    -->
+    <logger name="com.puppetlabs.puppetdb.scf.migrate" level="warn"/>
+
+    <root level="info">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>
+

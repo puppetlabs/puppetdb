@@ -5,8 +5,8 @@
 # Store mq/db data in a custom directory
 vardir = <%= @lib_dir -%>
 
-# Use an external log4j config file
-logging-config = <%= @etc_dir -%>/log4j.properties
+# Use an external logback config file
+logging-config = <%= @etc_dir -%>/logback.xml
 
 <% if @pe -%>
 product-name = pe-puppetdb

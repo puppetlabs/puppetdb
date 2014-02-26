@@ -41,7 +41,7 @@
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.catalog.utils :as catutils]
-            [com.puppetlabs.utils.logging :as logutils]
+            [puppetlabs.trapperkeeper.logging :as logutils]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.cheshire :as json]
@@ -252,6 +252,7 @@
   (let [[options _]     (kitchensink/cli! args supported-cli-options required-cli-options)
         config          (-> (:config options)
                             (kitchensink/inis-to-map)
+                            (get-in [:global :logging-config])
                             (logutils/configure-logging!))
 
         _ (validate-nummsgs options #(System/exit 1))

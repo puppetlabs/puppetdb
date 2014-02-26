@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/maintain_and_tune.html"
 [node_ttl]: ./configure.html#node-ttl
 [report_ttl]: ./configure.html#report-ttl
 [resources_type]: /references/latest/type.html#resources
-[log4j]: ./configure.html#the-log4j-logging-config-file
+[logback]: ./configure.html#the-logback-logging-config-file
 [dashboard]: #monitor-the-performance-dashboard
 
 PuppetDB requires a relatively small amount of maintenance and tuning. You should become familiar with the following occasional tasks:
@@ -58,7 +58,7 @@ When the [PuppetDB report processor][puppetdb_report_processor] is enabled on yo
 
 ## View the Log
 
-PuppetDB's log file lives at `/var/log/pe-puppetdb/pe-puppetdb.log` (for PE users) or `/var/log/puppetdb/puppetdb.log` (for open source users). Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [log4j.properties file][log4j] to find the log.
+PuppetDB's log file lives at `/var/log/pe-puppetdb/pe-puppetdb.log` (for PE users) or `/var/log/puppetdb/puppetdb.log` (for open source users). Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [logback.xml file][logback] to find the log.
 
 The PuppetDB packages install a logrotate job in `/etc/logrotate.d/puppetdb`, which will keep the log from becoming too large.
 

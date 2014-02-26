@@ -4,6 +4,7 @@ task :template => [ :clean ] do
   shared_templates = {
     # files for deb and rpm
     "ext/templates/log4j.properties.erb"    => "ext/files/log4j.properties",
+    "ext/templates/logback.xml.erb"         => "ext/files/logback.xml",
     "ext/templates/config.ini.erb"          => "ext/files/config.ini",
     "ext/templates/jetty.ini.erb"           => "ext/files/jetty.ini",
     "ext/templates/repl.ini.erb"            => "ext/files/repl.ini",

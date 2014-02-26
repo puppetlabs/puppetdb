@@ -3,7 +3,12 @@
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :as testutils]
             [fs.core :as fs]
-            [com.puppetlabs.puppetdb.cli.services :as svcs]))
+            [com.puppetlabs.puppetdb.cli.services :as svcs]
+            [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
+            [com.puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
+            [puppetlabs.trapperkeeper.core :as tk]
+            [puppetlabs.trapperkeeper.app :as tka]
+            [clojure.tools.namespace.repl :refer (refresh)]))
 
 (defn launch-puppetdb
   "Starts a puppetdb instance with defaults from config.sample.ini.  This is useful
@@ -41,3 +46,27 @@
 #_(def mem-puppetdb
      (future
        (launch-mem-puppetdb)))
+
+;; Example of "reloaded" pattern with trapperkeeper
+
+(def system nil)
+
+(defn start [config-path]
+  (alter-var-root #'system
+                  (fn [_] (tk/boot-services-with-cli-data
+                            [jetty9-service puppetdb-service]
+                            {:config config-path}))))
+
+(defn stop []
+  (alter-var-root #'system
+                  (fn [s] (when s (tka/stop s)))))
+
+(defn context []
+  @(tka/app-context system))
+
+(defn print-context []
+  (clojure.pprint/pprint (context)))
+
+(defn reset []
+  (stop)
+  (refresh :after 'com.puppetlabs.puppetdb.repl/start))

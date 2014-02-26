@@ -79,12 +79,6 @@
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
 
-(def context
-  "An atom that keeps a reference to all of the stateful parts of the PuppetDB
-  system.  In the future, this could be used to enable dynamic reloading or
-  restarting of subsystems, or for improved control over the system from the REPL."
-  (atom {}))
-
 (defn load-from-mq
   "Process commands from the indicated endpoint on the supplied message queue.
 
@@ -218,44 +212,41 @@
           (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
           false)))))
 
-(defn on-shutdown
+(defn stop-puppetdb
   "Callback to execute any necessary cleanup during a normal shutdown."
-  []
-  (log/info "Shutdown request received; puppetdb exiting."))
+  [context]
+  (log/info "Shutdown request received; puppetdb exiting.")
+  context)
 
 (defn error-shutdown!
   "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
-  []
+  [context]
   (log/error "A fatal error occurred; shutting down all subsystems.")
-  (when-let [command-procs (@context :command-procs)]
+  (when-let [command-procs (context :command-procs)]
     (log/info "Shutting down command processing threads.")
     (doseq [cp command-procs]
            (future-cancel cp)))
 
-  (when-let [updater (@context :updater)]
+  (when-let [updater (context :updater)]
     (log/info "Shutting down updater thread.")
     (future-cancel updater))
 
-  (when-let [web-app (@context :web-app)]
-    (log/info "Shutting down web app thread.")
-    (future-cancel web-app))
-
-  (when-let [broker (@context :broker)]
+  (when-let [broker (context :broker)]
     (log/info "Shutting down message broker.")
     ;; Stop the mq the old-fashioned way
     (mq/stop-broker! broker)))
 
 
-(defservice puppetdb-service
-  "Defines a trapperkeeper service for PuppetDB; this service is responsible
-  for initializing all of the PuppetDB subsystems and registering shutdown hooks
-  that trapperkeeper will call on exit."
-  {:depends  [[:config-service get-config]
-              [:webserver-service add-ring-handler join]
-              [:shutdown-service shutdown-on-error]]
-   :provides [shutdown]}
+(defn start-puppetdb
+  [context config service-id add-ring-handler shutdown-on-error]
+  {:pre [(map? context)
+         (map? config)
+         (ifn? add-ring-handler)
+         (ifn? shutdown-on-error)]
+   :post [(map? %)
+          (every? (partial contains? %) [:broker :command-procs :updater])]}
   (let [{:keys [jetty database read-database global command-processing]
-            :as config}                            (conf/process-config! (get-config))
+         :as config}                            (conf/process-config! config)
         product-name                               (:product-name global)
         update-server                              (:update-server global)
         ;; TODO: revisit the choice of 20000 as a default value for event queries
@@ -286,48 +277,44 @@
     ;; confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
     (sql/with-connection write-db
-      (scf-store/validate-database-version #(System/exit 1))
-      (migrate!))
+                         (scf-store/validate-database-version #(System/exit 1))
+                         (migrate!))
 
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics write-db)
 
-    (let [broker        (try
-                          (log/info "Starting broker")
-                          (mq/build-and-start-broker! "localhost" mq-dir command-processing)
-                          (catch java.io.EOFException e
-                            (log/error
-                              "EOF Exception caught during broker start, this "
-                              "might be due to KahaDB corruption. Consult the "
-                              "PuppetDB troubleshooting guide.")
-                            (throw e)))
-          _             (swap! context assoc :broker broker)
+    (let [broker (try
+                   (log/info "Starting broker")
+                   (mq/build-and-start-broker! "localhost" mq-dir command-processing)
+                   (catch java.io.EOFException e
+                     (log/error
+                       "EOF Exception caught during broker start, this "
+                       "might be due to KahaDB corruption. Consult the "
+                       "PuppetDB troubleshooting guide.")
+                     (throw e)))
+          context (assoc context :broker broker)
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
                                  (future (shutdown-on-error
+                                           service-id
                                            #(load-from-mq
-                                              mq-addr
-                                              mq-endpoint
-                                              discard-dir
-                                              {:db write-db
-                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
+                                             mq-addr
+                                             mq-endpoint
+                                             discard-dir
+                                             {:db                     write-db
+                                              :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
                                            error-shutdown!)))))
-          _             (swap! context assoc :command-procs command-procs)
-          updater       (future (maybe-check-for-updates product-name update-server read-db))
-          _             (swap! context assoc :updater updater)
-          web-app       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
-                                            (build-whitelist-authorizer wl)
-                                            (constantly true))
-                              app         (server/build-app :globals globals :authorized? authorized?)]
-                          (log/info "Starting query server")
-                          (future (shutdown-on-error
-                                    #(do
-                                       (add-ring-handler app "")
-                                       (join))
-                                    error-shutdown!)))
-          _             (swap! context assoc :web-app web-app)
-          job-pool      (mk-pool)]
+          context (assoc context :command-procs command-procs)
+          updater (future (maybe-check-for-updates product-name update-server read-db))
+          context (assoc context :updater updater)
+          _       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
+                                      (build-whitelist-authorizer wl)
+                                      (constantly true))
+                        app (server/build-app :globals globals :authorized? authorized?)]
+                    (log/info "Starting query server")
+                    (add-ring-handler app ""))
+          job-pool (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [gc-interval-millis (to-millis gc-interval)
@@ -348,11 +335,21 @@
         (when (kitchensink/true-str? enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
+      context)))
 
-      ;; Return a map containing our trapperkeeper service functions, which in
-      ;; our case is just a single shutdown function that it can use to clean
-      ;; things up when the container is shutting down.
-      {:shutdown on-shutdown})))
+(defservice puppetdb-service
+  "Defines a trapperkeeper service for PuppetDB; this service is responsible
+  for initializing all of the PuppetDB subsystems and registering shutdown hooks
+  that trapperkeeper will call on exit."
+  [[:ConfigService get-config]
+   [:WebserverService add-ring-handler]
+   [:ShutdownService shutdown-on-error]]
+
+  (start [this context]
+         (start-puppetdb context (get-config) (service-id this) add-ring-handler shutdown-on-error))
+
+  (stop [this context]
+        (stop-puppetdb context)))
 
 (defn -main
   [& args]

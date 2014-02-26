@@ -4,10 +4,11 @@
             [com.puppetlabs.jdbc :as pjdbc]
             [com.puppetlabs.puppetdb.schema :as pls]
             [com.puppetlabs.puppetdb.config :as cfg]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
+        [puppetlabs.trapperkeeper.logging :only [reset-logging]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
 
 (def ^:dynamic *db* nil)
@@ -89,7 +90,8 @@
   error conditions, to prevent them from cluttering up the test output with log
   messages."
   [f]
-  (with-log-output logs
+  (reset-logging)
+  (with-test-logging
     (f)))
 
 (defn internal-request
