@@ -32,13 +32,16 @@ DUPE
   step "Update puppetdb database.ini to include a read database" do
     on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini #{puppetdb_confdir(database)}/conf.d/database.ini.bak"
 
-    on database, "echo '[read-database]
-classname = org.postgresql.Driver
-subprotocol = postgresql
-subname = //localhost:5432/puppetdb2
-username = puppetdb2
-password = puppetdb2
-' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+    modify_config_setting(database, "database.ini", "read-database",
+                          "classname", "org.postgresql.Driver")
+    modify_config_setting(database, "database.ini", "read-database",
+                          "subprotocol", "postgresql")
+    modify_config_setting(database, "database.ini", "read-database",
+                          "subname", "//localhost:5432/puppetdb2")
+    modify_config_setting(database, "database.ini", "read-database",
+                          "username", "puppetdb2")
+    modify_config_setting(database, "database.ini", "read-database",
+                          "password", "puppetdb2")
 
     restart_puppetdb database
     sleep 5

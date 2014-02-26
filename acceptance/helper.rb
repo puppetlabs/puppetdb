@@ -531,6 +531,18 @@ module PuppetDBExtensions
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 
+  def modify_config_setting(host, config_file_name, section, setting, value)
+    manifest_content = <<EOS
+ini_setting {'puppetdb-config-#{setting}':
+    path => '#{puppetdb_confdir(host)}/conf.d/#{config_file_name}',
+    section => '#{section}',
+    setting => '#{setting}',
+    value => '#{value}'
+}
+EOS
+    apply_manifest_on(host, manifest_content)
+  end
+
   def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
     desired_exit_codes = [desired_exit_codes].flatten
     result = on host, "curl #{curl_args}", :acceptable_exit_codes => (0...127)

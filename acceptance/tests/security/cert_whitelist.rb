@@ -10,7 +10,8 @@ test_name "certificate whitelisting" do
     on database, "cp #{confd}/jetty.ini #{confd}/jetty.ini.bak"
     on database, "grep -v ^certificate-whitelist #{confd}/jetty.ini > #{confd}/jetty.ini.tmp"
     on database, "mv -f #{confd}/jetty.ini.tmp #{confd}/jetty.ini"
-    on database, "echo 'certificate-whitelist = #{confd}/whitelist' >> #{confd}/jetty.ini"
+    modify_config_setting(database, "jetty.ini", "jetty",
+                          "certificate-whitelist", "#{confd}/whitelist")
   end
 
   # Execute a curl from the database to itself using HTTPS, using the

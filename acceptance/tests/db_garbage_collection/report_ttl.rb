@@ -32,8 +32,8 @@ test_name "validate that reports are deleted based on report-ttl setting" do
 
   step "Back up the database.ini file and create a temp one with a ttl" do
     on database, "cp #{confd}/database.ini #{confd}/database.ini.bak"
-    # TODO: this could/should be done via the module once we support it
-    on database, "echo 'report-ttl = 1s' >> #{confd}/database.ini"
+    modify_config_setting(database, "database.ini", "database",
+                          "report-ttl", "1s")
   end
 
 

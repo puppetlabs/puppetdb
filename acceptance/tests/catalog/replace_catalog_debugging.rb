@@ -9,10 +9,8 @@ test_name "validation of basic PuppetDB resource event queries" do
 
     on database, "cp -p #{puppetdb_confdir(database)}/conf.d/config.ini #{puppetdb_confdir(database)}/conf.d/config.ini.bak"
 
-    on database, "echo '
-[global]
-catalog-hash-conflict-debugging=true
-' >> #{puppetdb_confdir(database)}/conf.d/config.ini"
+    modify_config_setting(database, "config.ini", "global",
+                          "catalog-hash-conflict-debugging", "true")
 
     restart_puppetdb(database)
     sleep_until_started(database)
