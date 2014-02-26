@@ -555,13 +555,11 @@ Set to `true` to enable the REPL. Defaults to false.
 
 ### `type`
 
-Either `nrepl` or `swank` or `telnet`.
+Either `nrepl` or `telnet`.
 
 The _telnet_ repl type opens up a socket you can connect to via telnet. The interface is pretty low-level and raw (no completion or command history), but it is nonetheless usable on just about any system without the need of any external tools other than telnet itself.
 
 The _nrepl_ repl type opens up a socket you can connect to via any nrepl-protocol client, such as via [Leiningen](https://github.com/technomancy/leiningen) using `lein repl :connect localhost:8082` or via Emacs (via `M-x nrepl`), Vim, or integration with other editors like Netbeans or Eclipse. This is much more user-friendly than telnet.
-
-The _swank_ type allows emacs' clojure-mode to connect directly to a running PuppetDB instance by using `M-x slime-connect`. This is not recommended, as the upstream Swank project has been deprecated in favor of nrepl.
 
 ### `port`
 

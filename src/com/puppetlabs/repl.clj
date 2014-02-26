@@ -2,8 +2,7 @@
   (:import [vimclojure.nailgun NGServer])
   (:require [clojure.string :as string]
             [clojure.tools.nrepl.server :as nrepl]
-            [clojure.tools.nrepl.transport :as nrepl-transport]
-            [swank.swank :as swank]))
+            [clojure.tools.nrepl.transport :as nrepl-transport]))
 
 (defmulti start-repl
   "Starts and instance of the specified `kind` of REPL, listening on `host` and
@@ -18,10 +17,6 @@
 (defmethod start-repl "nrepl"
   [kind host port]
   (nrepl/start-server :bind host :port port))
-
-(defmethod start-repl "swank"
-  [kind host port]
-  (swank/start-server :host host :port port))
 
 (defmethod start-repl "vimclojure"
   [kind host port]
