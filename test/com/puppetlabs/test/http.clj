@@ -2,7 +2,7 @@
   (:import [java.io InputStream StringWriter])
   (:require [clj-http.client :as client]
             [cheshire.core :as json]
-            [puppetlabs.trapperkeeper.testutils.jetty :refer [with-test-jetty]]
+            [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock])
   (:use [com.puppetlabs.http]
         [clojure.test]
@@ -121,7 +121,7 @@
 (deftest utf-8-json-responses
   (testing "JSON responses should be encoded as utf-8"
     (let [app  (fn [req] (json-response "N�rnberg"))]
-      (with-test-jetty app port
+      (with-test-webserver app port
         (let [resp (client/get (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp

@@ -15,9 +15,9 @@
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
-  requests come in.  To enable, add this line to your log4j.properties:
+  requests come in.  To enable, add this line to your logback.xml:
 
-  `log4j.logger.com.puppetlabs.middleware=DEBUG`"
+  `<logger name=\"com.puppetlabs.middleware\" level=\"debug\"/>`"
   [app]
   (fn [req]
     (log/debug (str "Processing HTTP request to URI: '" (:uri req) "'"))

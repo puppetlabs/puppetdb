@@ -36,8 +36,9 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
 
   step "Back up the database.ini file and create a temp one with a node-purge-ttl" do
     on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini #{puppetdb_confdir(database)}/conf.d/database.ini.bak"
-    # TODO: this could/should be done via the module once we support it
-    on database, "echo 'node-purge-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+
+    modify_config_setting(database, "database.ini", "database",
+                          "node-purge-ttl", "1s")
   end
 
   restart_to_gc database
@@ -50,7 +51,9 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
 
   step "Restore the original database.ini and add a node-ttl" do
     on database, "cp -p #{puppetdb_confdir(database)}/conf.d/database.ini.bak #{puppetdb_confdir(database)}/conf.d/database.ini"
-    on database, "echo 'node-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+
+    modify_config_setting(database, "database.ini", "database",
+                          "node-ttl", "1s")
   end
 
   restart_to_gc database
@@ -74,7 +77,8 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
   end
 
   step "Add a purge ttl to the database.ini file" do
-    on database, "echo 'node-purge-ttl = 1s' >> #{puppetdb_confdir(database)}/conf.d/database.ini"
+    modify_config_setting(database, "database.ini", "database",
+                          "node-purge-ttl", "1s")
   end
 
   # In case there are any catalogs/facts/reports waiting to be processed, let

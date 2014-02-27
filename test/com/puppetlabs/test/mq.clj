@@ -9,7 +9,6 @@
         [com.puppetlabs.puppetdb.fixtures :only [with-test-logging-silenced]]
         [clojure.test]))
 
-
 (use-fixtures :each with-test-logging-silenced)
 
 (deftest delay-calc

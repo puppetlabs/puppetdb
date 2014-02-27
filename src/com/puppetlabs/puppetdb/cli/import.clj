@@ -100,9 +100,9 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs    [["-i" "--infile" "Path to backup file (required)"]
-                  ["-H" "--host" "Hostname of PuppetDB server" :default "localhost"]
-                  ["-p" "--port" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
+  (let [specs    [["-i" "--infile INFILE" "Path to backup file (required)"]
+                  ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
+                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:infile]]
     (try+
       (cli! args specs required)

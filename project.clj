@@ -15,8 +15,9 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
-(def tk-version "0.1.1")
-(def ks-version "0.4.2")
+(def tk-version "0.3.4")
+(def tk-jetty9-version "0.3.3")
+(def ks-version "0.5.3")
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -46,13 +47,9 @@
                  [overtone/at-at "1.2.0"]
                  ;; Nicer exception handling with try+/throw+
                  [slingshot "0.10.3"]
-                 [log4j "1.2.17" :exclusions [javax.mail/mail
-                                              javax.jms/jms
-                                              com.sun.jdmk/jmxtools
-                                              com.sun.jmx/jmxri]]
+
                  ;; Database connectivity
                  [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]
-                 [org.slf4j/slf4j-log4j12 "1.7.5"]
                  [org.clojure/java.jdbc "0.1.1"]
                  [org.hsqldb/hsqldb "2.2.8"]
                  [org.postgresql/postgresql "9.2-1003-jdbc4"]
@@ -60,13 +57,16 @@
                  ;; MQ connectivity
                  [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
                  [org.apache.activemq/activemq-core "5.6.0" :exclusions [org.slf4j/slf4j-api org.fusesource.fuse-extra/fusemq-leveldb]]
+                 ;; bridge to allow some spring/activemq stuff to log over slf4j
+                 [org.slf4j/jcl-over-slf4j "1.7.5"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [clj-http "0.5.3"]
-                 [ring/ring-core "1.1.8"]
+                 [ring/ring-core "1.1.8" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
+                 [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
                  [prismatic/schema "0.2.0"]
                  [org.clojure/tools.macro "0.1.5"]]
 
@@ -84,6 +84,7 @@
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]]}}
 
   :jar-exclusions [#"leiningen/"]

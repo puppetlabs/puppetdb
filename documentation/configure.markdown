@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/configure.html"
 ---
 
-[log4j]: http://logging.apache.org/log4j/1.2/manual.html
+[logback]: http://logback.qos.ch/manual/configuration.html
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [repl]: ./repl.html
 [postgres_ssl]: ./postgres_ssl.html
@@ -18,7 +18,7 @@ Summary
 PuppetDB has three main groups of settings:
 
 * The init script's configuration file, which sets the Java heap size and the location of PuppetDB's main config file
-* Logging settings, which go in the [log4j.properties](#logging-config) file and can be changed without restarting PuppetDB
+* Logging settings, which go in the [logback.xml](#logging-config) file and can be changed without restarting PuppetDB
 * All other settings, which go in PuppetDB's configuration file(s) and take effect after the service is restarted
 
 
@@ -81,12 +81,12 @@ up a JMX socket on port 1099:
     JAVA_ARGS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=1099"
 
 
-The log4j Logging Config File
+The logback Logging Config File
 -----
 
-Logging is configured with a log4j.properties file, whose location is defined with the [`logging-config`](#logging-config) setting. If you change the log settings while PuppetDB is running, it will apply the new settings without requiring a restart. 
+Logging is configured with a logback.xml file, whose location is defined with the [`logging-config`](#logging-config) setting. If you change the log settings while PuppetDB is running, it will apply the new settings without requiring a restart.
 
-[See the log4j documentation][log4j] for more information about logging options.
+[See the logback documentation][logback] for more information about logging options.
 
 
 The PuppetDB Configuration File(s)
@@ -104,7 +104,7 @@ An example configuration file:
 
     [global]
     vardir = /var/lib/puppetdb
-    logging-config = /var/lib/puppetdb/log4j.properties
+    logging-config = /var/lib/puppetdb/logback.xml
 
     [database]
     classname = org.postgresql.Driver
@@ -164,11 +164,11 @@ This defines the parent directory for the MQ's data directory. Also, if a databa
 
 ### `logging-config`
 
-This describes the full path to a [log4j.properties](http://logging.apache.org/log4j/1.2/manual.html) file. Covering all the options available for configuring log4j is outside the scope of this document; see the aforementioned link for exhaustive information.
+This describes the full path to a [logback.xml](http://logback.qos.ch/manual/configuration.html) file. Covering all the options available for configuring logback is outside the scope of this document; see the aforementioned link for exhaustive information.
 
 If this setting isn't provided, PuppetDB defaults to logging at INFO level to standard out.
 
-If you installed from packages, PuppetDB will use the log4j.properties file in the `/etc/puppetdb/` or `/etc/puppetlabs/puppetdb` directory. Otherwise, you can find an example file in the `ext` directory of the source.
+If you installed from packages, PuppetDB will use the logback.xml file in the `/etc/puppetdb/` or `/etc/puppetlabs/puppetdb` directory. Otherwise, you can find an example file in the `ext` directory of the source.
 
 You can edit the logging configuration file while PuppetDB is running, and it will automatically react to changes after a few seconds.
 

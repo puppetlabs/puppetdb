@@ -9,7 +9,6 @@
             [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.time :as pl-time]
-            [com.puppetlabs.utils.logging :refer [configure-logging!]]
             [clj-time.core :as time]
             [clojure.java.io :as io]
             [fs.core :as fs]

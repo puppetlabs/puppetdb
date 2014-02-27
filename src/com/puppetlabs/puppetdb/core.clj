@@ -13,7 +13,7 @@
 
 (ns com.puppetlabs.puppetdb.core
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.utils.logging :as logging-utils]
+            [puppetlabs.trapperkeeper.logging :as logging-utils]
             [clojure.tools.namespace :as ns]
             [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.utils :as utils])
