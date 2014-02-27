@@ -170,10 +170,10 @@
 (defn- validate-cli!
   [args]
   (let [profiles (string/join ", " (keys anon-profiles))
-        specs    [["-o" "--outfile" "Path to output file (required)"]
-                  ["-i" "--infile" "Path to input file (required)"]
-                  ["-p" "--profile" (str "Choice of anonymization profile: " profiles) :default "moderate"]
-                  ["-c" "--config" "Configuration file path for extra profile definitions (experimental) (optional)"]]
+        specs    [["-o" "--outfile OUTFILE" "Path to output file (required)"]
+                  ["-i" "--infile INFILE" "Path to input file (required)"]
+                  ["-p" "--profile PROFILE" (str "Choice of anonymization profile: " profiles) :default "moderate"]
+                  ["-c" "--config CONFIG" "Configuration file path for extra profile definitions (experimental) (optional)"]]
         required [:outfile :infile]]
     (try+
       (cli! args specs required)

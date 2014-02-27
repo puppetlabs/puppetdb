@@ -220,13 +220,13 @@
   (assoc report "certname" hostname))
 
 (def supported-cli-options
-  [["-c" "--config" "Path to config.ini or conf.d directory (required)"]
-   ["-C" "--catalogs" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
-   ["-R" "--reports" "Path to a directory containing sample JSON reports (files must end with .json)"]
-   ["-i" "--runinterval" "What runinterval (in minutes) to use during simulation"]
-   ["-n" "--numhosts" "How many hosts to use during simulation"]
-   ["-rp" "--rand-perc" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
-   ["-N" "--nummsgs" "Number of commands and/or reports to send for each host"]])
+  [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
+   ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
+   ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
+   ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"]
+   ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation"]
+   ["-rp" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
+   ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"]])
 
 (def required-cli-options
   [:config])
