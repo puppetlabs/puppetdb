@@ -17,7 +17,9 @@ Puppet::Reports.register_report(:puppetdb) do
 
 
   def process
-    submit_command(self.host, report_to_hash, CommandStoreReport, 2)
+    profile "report#process" do
+      submit_command(self.host, report_to_hash, CommandStoreReport, 2)
+    end
   end
 
   # TODO: It seems unfortunate that we have to access puppet_version and
@@ -44,36 +46,40 @@ Puppet::Reports.register_report(:puppetdb) do
   #
   # @api private
   def report_to_hash
-    add_v4_fields_to_report(
-      {
-        "certname"                => host,
-        "puppet-version"          => puppet_version,
-        "report-format"           => report_format,
-        "configuration-version"   => configuration_version.to_s,
-        "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
-        "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-        "resource-events"         => build_events_list
-      })
+    profile "Convert report to wire format hash" do
+      add_v4_fields_to_report(
+        {
+          "certname"                => host,
+          "puppet-version"          => puppet_version,
+          "report-format"           => report_format,
+          "configuration-version"   => configuration_version.to_s,
+          "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
+          "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
+          "resource-events"         => build_events_list
+        })
+    end
   end
 
   # @api private
   def build_events_list
-    filter_events(resource_statuses.inject([]) do |events, status_entry|
-      _, status = *status_entry
-      if ! (status.events.empty?)
-        events.concat(status.events.map { |event| event_to_hash(status, event) })
-      elsif status.skipped
-        events.concat([fabricate_event(status, "skipped")])
-      elsif status.failed
-        # PP-254:
-        #   We have to fabricate resource events here due to a bug/s in report providers
-        #   that causes them not to include events on a resource status that has failed.
-        #   When PuppetDB is able to make a hard break from older version of Puppet that
-        #   have this bug, we can remove this behavior.
-        events.concat([fabricate_event(status, "failure")])
-      end
-      events
-    end)
+    profile "Build events list (count: #{resource_statuses.count})" do
+      filter_events(resource_statuses.inject([]) do |events, status_entry|
+        _, status = *status_entry
+        if ! (status.events.empty?)
+          events.concat(status.events.map { |event| event_to_hash(status, event) })
+        elsif status.skipped
+          events.concat([fabricate_event(status, "skipped")])
+        elsif status.failed
+          # PP-254:
+          #   We have to fabricate resource events here due to a bug/s in report providers
+          #   that causes them not to include events on a resource status that has failed.
+          #   When PuppetDB is able to make a hard break from older version of Puppet that
+          #   have this bug, we can remove this behavior.
+          events.concat([fabricate_event(status, "failure")])
+        end
+        events
+      end)
+    end
   end
 
   # @api private
@@ -162,7 +168,9 @@ Puppet::Reports.register_report(:puppetdb) do
   # @api private
   def filter_events(events)
     if config.ignore_blacklisted_events?
-      events.select { |e| ! config.is_event_blacklisted?(e) }
+      profile "Filter blacklisted events" do
+        events.select { |e| ! config.is_event_blacklisted?(e) }
+      end
     else
       events
     end

@@ -6,6 +6,7 @@ require 'puppet/util/puppetdb/char_encoding'
 require 'json'
 
 class Puppet::Util::Puppetdb::Command
+  include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
   Url                = "/v3/commands"
@@ -24,19 +25,27 @@ class Puppet::Util::Puppetdb::Command
     @command = command
     @version = version
     @certname = certname
-    @payload = self.class.format_payload(command, version, payload)
+    profile "Format payload" do
+      @payload = self.class.format_payload(command, version, payload)
+    end
   end
 
   attr_reader :command, :version, :certname, :payload
 
   def submit
     checksum = Digest::SHA1.hexdigest(payload)
-    escaped_payload = CGI.escape(payload)
+
+    escaped_payload = profile "URI escape command payload (size: #{payload.size})" do
+      CGI.escape(payload)
+    end
+
     for_whom = " for #{certname}" if certname
 
     begin
-      http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
-      response = http.post(Url, "checksum=#{checksum}&payload=#{escaped_payload}", headers)
+      response = profile "Submit command HTTP post" do
+        http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
+        http.post(Url, "checksum=#{checksum}&payload=#{escaped_payload}", headers)
+      end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
 

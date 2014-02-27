@@ -1,5 +1,6 @@
 require 'puppet/util'
 require 'puppet/util/logging'
+require 'puppet/util/profiler'
 require 'puppet/util/puppetdb/global_check'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/command'
@@ -61,9 +62,32 @@ module Puppet::Util::Puppetdb
 
   # @!group Public instance methods
 
+  # Submit a command to PuppetDB.
+  #
+  # @param certname [String] hostname name of puppetdb instance
+  # @param payload [String] payload
+  # @param command_name [String] name of command
+  # @param version [Number] version number of command
   def submit_command(certname, payload, command_name, version)
-    command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
-    command.submit
+    profile "Submitted command '#{command_name}' version '#{version}'" do
+      command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
+      command.submit
+    end
+  end
+
+  # Profile a block of code and log the time it took to execute.
+  #
+  # This outputs logs entries to the Puppet masters logging destination
+  # providing the time it took, a message describing the profiled code
+  # and a leaf location marking where the profile method was called
+  # in the profiled hierachy.
+  #
+  # @param message [String] A description of the profiled event
+  # @param block [Block] The segment of code to profile
+  # @api public
+  def profile(message, &block)
+    message = "PuppetDB: " + message
+    Puppet::Util::Profiler.profile(message, &block)
   end
 
   # @!group Private instance methods
