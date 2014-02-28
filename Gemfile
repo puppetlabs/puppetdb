@@ -13,7 +13,5 @@ group :test do
 end
 
 group :acceptance do
-#  gem 'beaker', '~> 1.0'
-  # TODO: this needs to be changed back once 1.6.3 of beaker is released
-  gem 'beaker', :git => 'git://github.com/puppetlabs/beaker', :ref => 'c7a388a484e4c53735a5d84bce93f844881290dc'
+  gem 'beaker', '~> 1.7'
 end
