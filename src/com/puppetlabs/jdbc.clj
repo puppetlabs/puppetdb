@@ -284,7 +284,7 @@
   "Create a new database connection pool"
   [{:keys [classname subprotocol subname user username password
            partition-conn-min partition-conn-max partition-count
-           stats log-statements log-slow-statements
+           stats log-statements log-slow-statements statements-cache-size
            conn-max-age conn-lifetime conn-keep-alive read-only?]
     :as   db}]
   ;; Load the database driver class
@@ -303,6 +303,7 @@
                           ;; paste the URL back together from parts.
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
                           (.setConnectionHook (connection-hook log-statements log-slow-statements-duration))
+                          (.setStatementsCacheSize statements-cache-size)
                           (.setDefaultReadOnly read-only?))
         user (or user username)]
     ;; configurable without default
