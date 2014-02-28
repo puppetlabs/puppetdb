@@ -41,7 +41,8 @@
    (s/optional-key :partition-conn-max) (pls/defaulted-maybe s/Int 25)
    (s/optional-key :partition-count) (pls/defaulted-maybe s/Int 1)
    (s/optional-key :stats) (pls/defaulted-maybe String "true")
-   (s/optional-key :log-statements) (pls/defaulted-maybe String "true")})
+   (s/optional-key :log-statements) (pls/defaulted-maybe String "true")
+   (s/optional-key :statements-cache-size) (pls/defaulted-maybe s/Int 1000)})
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -66,6 +67,7 @@
    :partition-count s/Int
    :stats pls/SchemaBoolean
    :log-statements pls/SchemaBoolean
+   :statements-cache-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe pls/Minutes)
    (s/optional-key :username) String
    (s/optional-key :password) String
