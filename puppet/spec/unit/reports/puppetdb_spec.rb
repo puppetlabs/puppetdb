@@ -35,17 +35,15 @@ describe processor do
       subject.stubs(:run_duration).returns(10)
 
       payload = {
-          :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
-          :version => 2,
-          :payload => subject.send(:report_to_hash)
+        :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
+        :version => 2,
+        :payload => subject.send(:report_to_hash),
       }.to_json
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|
-        path.should == Puppet::Util::Puppetdb::Command::Url
-        match = /payload=(.+)/.match(CGI.unescape(body))
-        match.should_not be_nil
-        match[1].should == payload
+        expect(path).to include(Puppet::Util::Puppetdb::Command::Url)
+        expect(body).to eq(payload)
       }.returns(httpok)
 
       subject.process

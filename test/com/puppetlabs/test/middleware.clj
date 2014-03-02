@@ -3,7 +3,9 @@
             [com.puppetlabs.http :as pl-http]
             [fs.core :as fs]
             [ring.util.response :as rr]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [clojure.java.io :as io])
+  (:import [java.io ByteArrayInputStream])
   (:use [com.puppetlabs.middleware]
         [puppetlabs.kitchensink.core :only (keyset)]
         [clojure.test]))
@@ -188,3 +190,41 @@
              :offset    10
              :order-by  [[:foo :descending]]
              :count?    true })))))
+
+(deftest payload-to-body-string-test
+  (let [test-content "test content"
+        test-stream  #(ByteArrayInputStream. (.getBytes test-content "UTF-8"))
+        app-fn       (fn [req] req)
+        wrapped-fn   (payload-to-body-string app-fn)]
+
+    (doseq [mt ["application/json" "application/json;charset=UTF8"]]
+      (testing (str "for content-type " mt " body should populate body-string"
+        (let [test-req {:body    (test-stream)
+                        :headers {"content-type" "application/json"}}]
+          (is (= (wrapped-fn test-req)
+                 (assoc test-req :body-string test-content)))))))
+
+    (testing "url encoded payload should populate body-string"
+      (let [test-req {:params {"payload" test-content}
+                      :headers {"content-type" "application/x-www-form-urlencoded"}}]
+        (is (= (wrapped-fn test-req)
+               (assoc test-req :body-string test-content)))))))
+
+(deftest verify-checksum-test
+  (let [test-content "test content"
+        checksum     "1eebdf4fdc9fc7bf283031b93f9aef3338de9052"
+        app-fn       (fn [req] req)
+        wrapped-fn   (verify-checksum app-fn)]
+
+    (testing "ensure fn succeeds with matching checksum"
+      (let [test-req {:body-string test-content
+                      :params {"checksum" checksum}}]
+        (is (= (wrapped-fn test-req)
+               {:body-string test-content
+                :params {"checksum" checksum}}))))
+
+    (testing "ensure fn call with mismatching checksum fails"
+      (let [test-req {:body-string test-content
+                      :params {"checksum" "asdf"}}]
+        (is (= (wrapped-fn test-req)
+               {:status 400 :headers {} :body "checksums don't match"}))))))

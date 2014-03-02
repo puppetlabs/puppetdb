@@ -35,16 +35,12 @@ class Puppet::Util::Puppetdb::Command
   def submit
     checksum = Digest::SHA1.hexdigest(payload)
 
-    escaped_payload = profile "URI escape command payload (size: #{payload.size})" do
-      CGI.escape(payload)
-    end
-
     for_whom = " for #{certname}" if certname
 
     begin
       response = profile "Submit command HTTP post" do
         http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
-        http.post(Url, "checksum=#{checksum}&payload=#{escaped_payload}", headers)
+        http.post(Url + "?checksum=#{checksum}", payload, headers)
       end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
@@ -98,7 +94,7 @@ class Puppet::Util::Puppetdb::Command
   def headers
     {
       "Accept" => "application/json",
-      "Content-Type" => "application/x-www-form-urlencoded; charset=UTF-8",
+      "Content-Type" => "application/json",
     }
   end
 

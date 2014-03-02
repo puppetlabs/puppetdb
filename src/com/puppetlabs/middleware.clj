@@ -5,10 +5,12 @@
             [com.puppetlabs.utils.metrics :refer [multitime!]]
             [com.puppetlabs.http :as pl-http]
             [ring.util.response :as rr]
+            [ring.util.request :as request]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [pantomime.media :as media])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]
         [clojure.walk :only (keywordize-keys)]))
@@ -116,19 +118,19 @@
          (= #{} (kitchensink/keyset (dissoc param-specs :required :optional)))
          (every? string? (:required param-specs))
          (every? string? (:optional param-specs))]}
-    (fn [{:keys [params] :as req}]
-      (kitchensink/cond-let [p]
-        (kitchensink/excludes-some params (:required param-specs))
-        (pl-http/error-response (str "Missing required query parameter '" p "'"))
+  (fn [{:keys [params] :as req}]
+    (kitchensink/cond-let [p]
+      (kitchensink/excludes-some params (:required param-specs))
+      (pl-http/error-response (str "Missing required query parameter '" p "'"))
 
-        (let [diff (set/difference (kitchensink/keyset params)
-                      (set (:required param-specs))
-                      (set (:optional param-specs)))]
-          (when (seq diff) diff))
-        (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
+      (let [diff (set/difference (kitchensink/keyset params)
+                    (set (:required param-specs))
+                    (set (:optional param-specs)))]
+        (when (seq diff) diff))
+      (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
-        :else
-        (app req))))
+      :else
+      (app req))))
 
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.
@@ -147,14 +149,14 @@
    (verify-accepts-content-type app "application/json")))
 
 (defn verify-checksum
-  "Ring middleware which will verify that the content of the `payload` param
+  "Ring middleware which will verify that the content of the body-string
   has the checksum specified in the `checksum` parameter. If no checksum is
   provided, this check will be skipped. If the checksum doesn't match, a 400
   Bad Request error is returned."
   [app]
-  (fn [{:keys [params] :as req}]
+  (fn [{:keys [params body-string] :as req}]
     (let [expected-checksum (params "checksum")
-          payload           (params "payload")]
+          payload           body-string]
       (if (and expected-checksum
                (not= expected-checksum (kitchensink/utf8-string->sha1 payload)))
         (pl-http/error-response "checksums don't match")
@@ -229,3 +231,27 @@
   [app storage normalize-uri]
   `(let [prefix# ~(str *ns*)]
      (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))
+
+(defn payload-to-body-string
+  "Middleware to move the payload from the body or the payload param into the
+  request property `:body-string`.
+
+  Usually the body is an InputStream, it is first converted to a string."
+  [app]
+  (fn [{:keys [body params headers] :as req}]
+    (let [content-type (headers "content-type")
+          mediatype (if (nil? content-type) nil
+                        (str (media/base-type content-type)))]
+      (case mediatype
+        "application/x-www-form-urlencoded"
+          (if-let [payload (params "payload")]
+            (app (assoc req :body-string payload))
+            (pl-http/error-response (str "Missing required parameter 'payload'")))
+        "application/json"
+          (let [body-string (request/body-string req)]
+            (if (nil? body-string)
+              (pl-http/error-response (str "Empty body for application/json submission"))
+              (app (assoc req :body-string body-string))))
+        (if-let [payload (params "payload")]
+          (app (assoc req :body-string payload))
+          (pl-http/error-response (str "Missing required parameter 'payload'")))))))
