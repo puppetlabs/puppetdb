@@ -20,7 +20,8 @@
             [com.puppetlabs.archive :as archive]
             [slingshot.slingshot :refer [try+]]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [clojure.string :as str]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
@@ -28,6 +29,12 @@
 (def tar-item {:msg String
                :file-suffix [String]
                :contents String})
+
+(def node-map {:catalog_timestamp (s/maybe String)
+               :facts_timestamp (s/maybe String)
+               :report_timestamp (s/maybe String)
+               :name String
+               :deactivated (s/maybe String)})
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
@@ -154,13 +161,16 @@
    node, ready for being written to the filesystem"
   [host :- String
    port :- s/Int
-   node :- String]
-  {:node node
-   :facts [(facts->tar node (facts-for-node host port node))]
-   :reports (report->tar node (reports-for-node host port node))
-   :catalog [(catalog->tar node (catalog-for-node host port node))]})
+   {:keys [name] :as node-data} :- node-map]
+  {:node name
+   :facts (when-not (str/blank? (:facts_timestamp node-data))
+            [(facts->tar name (facts-for-node host port name))])
+   :reports (when-not (str/blank? (:report_timestamp node-data))
+              (report->tar name (reports-for-node host port name)))
+   :catalog (when-not (str/blank? (:catalog_timestamp node-data))
+              [(catalog->tar name (catalog-for-node host port name))])})
 
-(defn get-active-node-names
+(defn get-nodes
   "Get a list of the names of all active nodes."
   [host port]
   {:pre  [(string? host)
@@ -170,9 +180,7 @@
                                 (format "http://%s:%s/v3/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
-      (map :name
-        (filter #(not (nil? (:catalog_timestamp %)))
-          (json/parse-string body true))))))
+      (json/parse-string body true))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
@@ -192,7 +200,7 @@
                 ;;  version of a command is.  We should improve that.
                 {:replace-catalog catalog-version
                  :store-report 2
-                 :facts 1}})})
+                 :replace-facts 1}})})
 
 (defn- validate-cli!
   [args]
@@ -221,7 +229,7 @@
 (defn -main
   [& args]
   (let [[{:keys [outfile host port]} _] (validate-cli! args)
-        nodes                           (get-active-node-names host port)]
+        nodes (get-nodes host port)]
     ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-writer (archive/tarball-writer outfile)]
       (add-entry tar-writer (export-metadata))

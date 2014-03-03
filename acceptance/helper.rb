@@ -616,9 +616,14 @@ EOS
       relative_path = f.sub(/^#{export_dir1}\//, "")
       export1_files.add(relative_path)
       expected_path = File.join(export_dir2, relative_path)
-      assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+
+      if(relative_path !~ /^puppetdb-bak\/facts.*/ || opts[:facts])
+          assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+      end
+
       puts "Comparing file '#{relative_path}'"
       next if File.directory?(f)
+
       export_entry_type = get_export_entry_type(relative_path)
       case export_entry_type
         when :catalog
