@@ -21,14 +21,11 @@
             [slingshot.slingshot :refer [try+]]
             [com.puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [com.puppetlabs.puppetdb.utils :as utils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
-
-(def tar-item {:msg String
-               :file-suffix [String]
-               :contents String})
 
 (def node-map {:catalog_timestamp (s/maybe String)
                :facts_timestamp (s/maybe String)
@@ -39,7 +36,6 @@
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
 (def export-metadata-file-name "export-metadata.json")
-(def export-root-dir           "puppetdb-bak")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Exporting
@@ -58,7 +54,7 @@
                                  { :accept :json})]
     (when (= status 200) body)))
 
-(pls/defn-validated catalog->tar :- tar-item
+(pls/defn-validated catalog->tar :- utils/tar-item
   "Create a tar-item map for the `catalog`"
   [node :- String
    catalog-json-str :- String]
@@ -85,7 +81,7 @@
                 (assoc acc name value))
               {} (json/parse-string body)))))
 
-(pls/defn-validated facts->tar :- tar-item
+(pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
   [node :- String
    facts :- {String s/Any}]
@@ -137,7 +133,7 @@
           #(merge % {:resource-events (events-for-report-hash host port (get % :hash))})
           (json/parse-string body true))))))
 
-(pls/defn-validated report->tar :- [tar-item]
+(pls/defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
   [node :- String
    reports :- [{:configuration-version s/Any
@@ -154,9 +150,9 @@
 
 (pls/defn-validated get-node-data
   :- {:node String
-      :facts [tar-item]
-      :reports [tar-item]
-      :catalog [tar-item]}
+      :facts [utils/tar-item]
+      :reports [utils/tar-item]
+      :catalog [utils/tar-item]}
   "Returns tar-item maps for the reports, facts and catalog of the given
    node, ready for being written to the filesystem"
   [host :- String
@@ -185,7 +181,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
 
-(pls/defn-validated export-metadata :- tar-item
+(pls/defn-validated export-metadata :- utils/tar-item
   "Metadata about this export; used during import to ensure version compatibility."
   []
   {:msg (str "Exporting PuppetDB metadata")
@@ -216,25 +212,15 @@
           :puppetlabs.kitchensink.core/cli-error (System/exit 1)
           :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
-(pls/defn-validated add-entry
-  :- nil
-  "Writes the given `tar-item` to `tar-writer` using
-   export-root-directory as the base directory for contents"
-  [tar-writer
-   {:keys [file-suffix contents]} :- tar-item]
-  (archive/add-entry tar-writer "UTF-8"
-                     (.getPath (apply io/file export-root-dir file-suffix))
-                     contents))
-
 (defn -main
   [& args]
   (let [[{:keys [outfile host port]} _] (validate-cli! args)
         nodes (get-nodes host port)]
     ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-writer (archive/tarball-writer outfile)]
-      (add-entry tar-writer (export-metadata))
+      (utils/add-tar-entry tar-writer (export-metadata))
       (doseq [node nodes
               :let [node-data (get-node-data host port node)]]
         (doseq [{:keys [msg] :as tar-item} (mapcat node-data [:catalog :reports :facts])]
           (println msg)
-          (add-entry tar-writer tar-item))))))
+          (utils/add-tar-entry tar-writer tar-item))))))
