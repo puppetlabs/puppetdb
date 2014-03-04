@@ -595,6 +595,7 @@ EOS
       :catalogs => true,
       :metadata => true,
       :reports => true,
+      :facts => true
     }.merge(opts)
 
     # NOTE: I'm putting this tmpdir inside of cwd because I expect for that to
@@ -615,9 +616,14 @@ EOS
       relative_path = f.sub(/^#{export_dir1}\//, "")
       export1_files.add(relative_path)
       expected_path = File.join(export_dir2, relative_path)
-      assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+
+      if(relative_path !~ /^puppetdb-bak\/facts.*/ || opts[:facts])
+          assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+      end
+
       puts "Comparing file '#{relative_path}'"
       next if File.directory?(f)
+
       export_entry_type = get_export_entry_type(relative_path)
       case export_entry_type
         when :catalog
@@ -626,6 +632,8 @@ EOS
           compare_metadata(f, expected_path) if opts[:metadata]
         when :report
           compare_report(f, expected_path) if opts[:reports]
+        when :facts
+          compare_facts(f, expected_path) if opts[:facts]
         when :unknown
           fail("Unrecognized file found in archive: '#{relative_path}'")
       end
@@ -633,6 +641,10 @@ EOS
 
     export2_files = Set.new(
       Dir.glob("#{export_dir2}/**/*").map { |f| f.sub(/^#{Regexp.escape(export_dir2)}\//, "") })
+
+    export1_files.delete_if{ |path| !opts[:facts] && /^puppetdb-bak\/facts.*/.match(path)}
+    export2_files.delete_if{ |path| !opts[:facts] && /^puppetdb-bak\/facts.*/.match(path)}
+
     diff = export2_files - export1_files
 
     assert(diff.empty?, "Export file '#{export_file2}' contains extra file entries: '#{diff.to_a.join("', '")}'")
@@ -648,11 +660,25 @@ EOS
         :catalog
       when /^puppetdb-bak\/reports\/.*\.json$/
         :report
+      when /^puppetdb-bak\/facts\/.*\.json$/
+        :facts
       else
         :unknown
     end
   end
 
+  def compare_facts(facts1_path, facts2_path)
+    f1 = JSON.parse(File.read(facts1_path))
+    f2 = JSON.parse(File.read(facts2_path))
+
+    diff = hash_diff(f1, f2)
+
+    if (diff)
+      diff = JSON.pretty_generate(diff)
+    end
+
+    assert(diff == nil, "Catalogs '#{facts1_path}' and '#{facts2_path}' don't match!' Diff:\n#{diff}")
+  end
 
   def compare_catalog(cat1_path, cat2_path)
     cat1 = munge_catalog_for_comparison(cat1_path)
@@ -1011,7 +1037,8 @@ EOS
     remote_path
   end
 
-  def run_agents_with_new_site_pp(host, manifest)
+  def run_agents_with_new_site_pp(host, manifest, env_vars = {})
+
     manifest_path = create_remote_site_pp(host, manifest)
     with_puppet_running_on host, {
       'master' => {
@@ -1020,7 +1047,9 @@ EOS
         'autosign' => 'true',
         'manifest' => manifest_path
       }} do
-      run_agent_on agents, "--test --server #{host}", :acceptable_exit_codes => [0,2]
+      #only some of the opts work on puppet_agent, acceptable exit codes does not
+      agents.each{ |agent| on agent, puppet_agent("--test --server #{host}", { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
+
     end
   end
 

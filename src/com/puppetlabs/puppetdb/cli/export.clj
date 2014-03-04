@@ -18,12 +18,31 @@
             [clojure.java.io :as io]
             [clj-http.client :as client]
             [com.puppetlabs.archive :as archive]
-            [slingshot.slingshot :refer [try+]]))
+            [slingshot.slingshot :refer [try+]]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]
+            [clojure.string :as str]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Internal Schemas
+
+(def tar-item {:msg String
+               :file-suffix [String]
+               :contents String})
+
+(def node-map {:catalog_timestamp (s/maybe String)
+               :facts_timestamp (s/maybe String)
+               :report_timestamp (s/maybe String)
+               :name String
+               :deactivated (s/maybe String)})
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 
 (def export-metadata-file-name "export-metadata.json")
 (def export-root-dir           "puppetdb-bak")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Catalog Exporting
 
 (defn catalog-for-node
   "Given a node name, retrieve the catalog for the node."
@@ -38,6 +57,46 @@
                                    host port node)
                                  { :accept :json})]
     (when (= status 200) body)))
+
+(pls/defn-validated catalog->tar :- tar-item
+  "Create a tar-item map for the `catalog`"
+  [node :- String
+   catalog-json-str :- String]
+  {:msg (format "Writing catalog for node '%s'" node)
+   :file-suffix ["catalogs" (format "%s.json" node)]
+   :contents catalog-json-str})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Fact Exporting
+
+(pls/defn-validated facts-for-node
+  :- {String s/Any}
+  "Given a node name, retrieve the catalog for the node."
+  [host :- String
+   port :- s/Int
+   node :- String]
+  (let [{:keys [status body]} (client/get
+                               (format
+                                "http://%s:%s/v3/nodes/%s/facts"
+                                host port node)
+                               {:accept :json})]
+    (when (= status 200)
+      (reduce (fn [acc {:strs [name value]}]
+                (assoc acc name value))
+              {} (json/parse-string body)))))
+
+(pls/defn-validated facts->tar :- tar-item
+  "Creates a tar-item map for the collection of facts"
+  [node :- String
+   facts :- {String s/Any}]
+  {:msg (format "Writing facts for node '%s'" node)
+   :file-suffix ["facts" (format "%s.json" node)]
+   :contents (json/generate-pretty-string
+               {"name" node
+                "values" facts})})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Report Exporting
 
 (defn events-for-report-hash
   "Given a report hash, returns all events as a vector of maps."
@@ -78,7 +137,40 @@
           #(merge % {:resource-events (events-for-report-hash host port (get % :hash))})
           (json/parse-string body true))))))
 
-(defn get-active-node-names
+(pls/defn-validated report->tar :- [tar-item]
+  "Create a tar-item map for the `report`"
+  [node :- String
+   reports :- [{:configuration-version s/Any
+                :start-time s/Any
+                s/Any s/Any}]]
+  (mapv (fn [{:keys [configuration-version start-time] :as report}]
+          {:msg (format "Writing report '%s-%s' for node '%s'" start-time configuration-version node)
+           :file-suffix ["reports" (format "%s-%s-%s.json" node start-time configuration-version)]
+           :contents (json/generate-pretty-string (dissoc report :hash))})
+        reports))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Node Exporting
+
+(pls/defn-validated get-node-data
+  :- {:node String
+      :facts [tar-item]
+      :reports [tar-item]
+      :catalog [tar-item]}
+  "Returns tar-item maps for the reports, facts and catalog of the given
+   node, ready for being written to the filesystem"
+  [host :- String
+   port :- s/Int
+   {:keys [name] :as node-data} :- node-map]
+  {:node name
+   :facts (when-not (str/blank? (:facts_timestamp node-data))
+            [(facts->tar name (facts-for-node host port name))])
+   :reports (when-not (str/blank? (:report_timestamp node-data))
+              (report->tar name (reports-for-node host port name)))
+   :catalog (when-not (str/blank? (:catalog_timestamp node-data))
+              [(catalog->tar name (catalog-for-node host port name))])})
+
+(defn get-nodes
   "Get a list of the names of all active nodes."
   [host port]
   {:pre  [(string? host)
@@ -88,54 +180,27 @@
                                 (format "http://%s:%s/v3/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
-      (map :name
-        (filter #(not (nil? (:catalog_timestamp %)))
-          (json/parse-string body true))))))
+      (json/parse-string body true))))
 
-(def export-metadata
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Metadata Exporting
+
+(pls/defn-validated export-metadata :- tar-item
   "Metadata about this export; used during import to ensure version compatibility."
-  {:timestamp (now)
-   :command-versions
-    ;; This is not ideal that we are hard-coding the command version here, but
-    ;;  in our current architecture I don't believe there is any way to introspect
-    ;;  on which version of the `replace catalog` matches up with the current
-    ;;  version of the `catalog` endpoint... or even to query what the latest
-    ;;  version of a command is.  We should improve that.
-    {:replace-catalog catalog-version
-     :store-report 2}})
-
-(defn get-catalog-for-node
-  "Utility function for retrieving catalog data from the PuppetDB web service.
-  Returns a map containing the node name and the corresponding catalog; this
-  allows us to run this function against multiple nodes in parallel, and still
-  be able to identify which node we've retrieved the data for when it returns."
-  [host port node]
-  {:pre  [(string? host)
-          (integer? port)
-          (string? node)]
-   :post [(map? %)
-          (contains? % :node)
-          (contains? % :catalog)]}
-  {:node    node
-   :catalog (catalog-for-node host port node)})
-
-(defn get-reports-for-node
-  "Utility function for retrieving report data from the PuppetDB web service.
-  Returns a map containing the node name and all the reports related to the
-  node; this allows us to run this function against multiple nodes in parallel,
-  and still be able to identify which node we've retrieved the data for when
-  it returns."
-  [host port node]
-  {:pre  [(string? host)
-          (integer? port)
-          (string? node)]
-   :post [(map? %)
-          (contains? % :node)
-          (string? (get % :node))
-          (contains? % :reports)
-          (seq? (get % :reports))]}
-  {:node    node
-   :reports (reports-for-node host port node)})
+  []
+  {:msg (str "Exporting PuppetDB metadata")
+   :file-suffix [export-metadata-file-name]
+   :contents (json/generate-pretty-string 
+               {:timestamp (now)
+                :command-versions
+                ;; This is not ideal that we are hard-coding the command version here, but
+                ;;  in our current architecture I don't believe there is any way to introspect
+                ;;  on which version of the `replace catalog` matches up with the current
+                ;;  version of the `catalog` endpoint... or even to query what the latest
+                ;;  version of a command is.  We should improve that.
+                {:replace-catalog catalog-version
+                 :store-report 2
+                 :replace-facts 1}})})
 
 (defn- validate-cli!
   [args]
@@ -151,32 +216,25 @@
           :puppetlabs.kitchensink.core/cli-error (System/exit 1)
           :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
+(pls/defn-validated add-entry
+  :- nil
+  "Writes the given `tar-item` to `tar-writer` using
+   export-root-directory as the base directory for contents"
+  [tar-writer
+   {:keys [file-suffix contents]} :- tar-item]
+  (archive/add-entry tar-writer "UTF-8"
+                     (.getPath (apply io/file export-root-dir file-suffix))
+                     contents))
+
 (defn -main
   [& args]
   (let [[{:keys [outfile host port]} _] (validate-cli! args)
-        nodes                           (get-active-node-names host port)
-        get-catalog-fn                  (partial get-catalog-for-node host port)
-        get-reports-fn                  (partial get-reports-for-node host port)]
-;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
+        nodes (get-nodes host port)]
+    ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-writer (archive/tarball-writer outfile)]
-      (archive/add-entry tar-writer "UTF-8"
-        (.getPath (io/file export-root-dir export-metadata-file-name))
-        (json/generate-string export-metadata {:pretty true}))
-
-      ;; Write out catalogs
-      (doseq [node nodes]
-        (println (format "Writing catalog for node '%s'" node))
-        (archive/add-entry tar-writer "UTF-8"
-          (.getPath (io/file export-root-dir "catalogs" (format "%s.json" node)))
-          (:catalog (get-catalog-fn node))))
-
-      ;; Write out reports
+      (add-entry tar-writer (export-metadata))
       (doseq [node nodes
-              report (:reports (get-reports-fn node))]
-        (let [confversion (get report :configuration-version)
-              starttime (get report :start-time)
-              reportstr (json/generate-string (dissoc report :hash) {:pretty true})]
-          (println (format "Writing report '%s-%s' for node '%s'" starttime confversion node))
-          (archive/add-entry tar-writer "UTF-8"
-            (.getPath (io/file export-root-dir "reports" (format "%s-%s-%s.json" node starttime confversion)))
-            reportstr))))))
+              :let [node-data (get-node-data host port node)]]
+        (doseq [{:keys [msg] :as tar-item} (mapcat node-data [:catalog :reports :facts])]
+          (println msg)
+          (add-entry tar-writer tar-item))))))

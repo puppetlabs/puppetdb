@@ -47,11 +47,11 @@ test_name "anonymize tool - with profile anonymization" do
 
     if type == "none"
       step "verify original export data matches new export data" do
-        compare_export_data(export_file1, export_file2)
+        compare_export_data(export_file1, export_file2, :facts => false)
       end
     else
       step "verify anonymized data matches new export data" do
-        compare_export_data(anon_file, export_file2)
+        compare_export_data(anon_file, export_file2, :facts => false)
       end
     end
   end
