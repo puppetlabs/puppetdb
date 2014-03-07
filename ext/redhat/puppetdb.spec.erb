@@ -6,7 +6,7 @@
 %global open_jdk          pe-java
 <% else -%>
 # Fedora 17 ships with openjdk 1.7.0
-%if 0%{?fedora} >= 17 || ( 0%{?suse_version} >= 1200 && %{undefined sles_version} )
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7 || ( 0%{?suse_version} >= 1200 && %{undefined sles_version} )
 %global open_jdk          java-1.7.0-openjdk
 %else
 %if 0%{?sles_version}
@@ -26,7 +26,7 @@
 <% if @pe -%>
 %global puppet_libdir     %(PATH=/opt/puppet/bin:$PATH ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 <% else -%>
-%if 0%{?fedora} >= 17
+%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
 %global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['vendorlibdir']")
 %else
 %global puppet_libdir     %(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
