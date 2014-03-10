@@ -69,7 +69,8 @@
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
-            [com.puppetlabs.jdbc :as jdbc])
+            [com.puppetlabs.jdbc :as jdbc]
+            [clojure.walk :as walk])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
@@ -159,28 +160,26 @@
 
 (defmulti parse-command
   "Take a wire-format command and parse it into a command object."
-  class)
+  (comp class :body))
 
 (defmethod parse-command (class (byte-array 0))
-  [command-bytes]
-  (parse-command (String. command-bytes "UTF-8")))
+  [bytes-message]
+  (parse-command (update-in bytes-message [:body] #(String. % "UTF-8"))))
 
 (defmethod parse-command String
-  [command-string]
-  {:pre  [(string? command-string)]
+  [{:keys [headers body]}]
+  {:pre  [(string? body)]
    :post [(map? %)
           (:payload %)
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message     (json/parse-string command-string true)
-        annotations (get message :annotations {})
-        received    (get annotations :received (kitchensink/timestamp))
-        id          (get annotations :id (kitchensink/uuid))
-        annotations (-> annotations
-                        (assoc :received received)
-                        (assoc :id id))]
-    (assoc message :annotations annotations)))
+  (let [message     (json/parse-string body true)
+        received    (get headers :received (kitchensink/timestamp))
+        id          (get headers :id (kitchensink/uuid))]
+    (-> message
+        (assoc-in [:annotations :received] received)
+        (assoc-in [:annotations :id] id))))
 
 (defn assemble-command
   "Builds a command-map from the supplied parameters"
@@ -244,15 +243,10 @@
           (string? mq-endpoint)
           (string? raw-command)]
    :post [(string? %)]}
-  (let [[msg id] (try
-                   (let [cmd (-> raw-command
-                                 (parse-command)
-                                 (annotate-command))]
-                     [(json/generate-string cmd) (get-in cmd [:annotations :id])])
-                   (catch com.fasterxml.jackson.core.JsonParseException e
-                     [raw-command (kitchensink/uuid)]))]
-    (with-open [conn (mq/connect! mq-spec)]
-      (mq/connect-and-publish! conn mq-endpoint msg))
+  (let [id (kitchensink/uuid)]
+    (with-open [conn (mq/activemq-connection mq-spec)]
+      (mq/connect-and-publish! conn mq-endpoint raw-command {"received" (kitchensink/timestamp)
+                                                             "id" id}))
     id))
 
 (defn enqueue-command!
@@ -267,7 +261,7 @@
           (string? command)
           (number? version)]
    :post [(string? %)]}
-  (with-open [conn (mq/connect! mq-spec)]
+  (with-open [conn (mq/activemq-connection mq-spec)]
     (let [command-map (annotate-command (assemble-command command version payload))]
       (mq/publish-json! conn mq-endpoint command-map)
       (get-in command-map [:annotations :id]))))

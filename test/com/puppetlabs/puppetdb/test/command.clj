@@ -32,7 +32,7 @@
 (deftest command-parsing
   (testing "Command parsing"
 
-    (let [command "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"]
+    (let [command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"}]
       (testing "should work for strings"
         (let [parsed (parse-command command)]
           ;; :annotations will have a :attempts element with a time, which
@@ -42,30 +42,30 @@
           (is (map? (:annotations parsed)))))
 
       (testing "should work for byte arrays"
-        (let [parsed (parse-command (.getBytes command "UTF-8"))]
+        (let [parsed (parse-command (update-in command [:body] #(.getBytes % "UTF-8")))]
           (is (= (dissoc parsed :annotations)
                  {:command "foo" :version 2 :payload "meh"}))
           (is (map? (:annotations parsed))))))
 
     (testing "should reject invalid input"
-      (is (thrown? AssertionError (parse-command "")))
-      (is (thrown? AssertionError (parse-command "{}")))
+      (is (thrown? AssertionError (parse-command {:body ""})))
+      (is (thrown? AssertionError (parse-command {:body "{}"})))
 
       ;; Missing required attributes
-      (is (thrown? AssertionError (parse-command "{\"version\": 2, \"payload\": \"meh\"}")))
-      (is (thrown? AssertionError (parse-command "{\"version\": 2}")))
+      (is (thrown? AssertionError (parse-command {:body "{\"version\": 2, \"payload\": \"meh\"}"})))
+      (is (thrown? AssertionError (parse-command {:body "{\"version\": 2}"})))
 
       ;; Non-numeric version
-      (is (thrown? AssertionError (parse-command "{\"version\": \"2\", \"payload\": \"meh\"}")))
+      (is (thrown? AssertionError (parse-command {:body "{\"version\": \"2\", \"payload\": \"meh\"}"})))
 
       ;; Non-string command
-      (is (thrown? AssertionError (parse-command "{\"command\": 123, \"version\": 2, \"payload\": \"meh\"}")))
+      (is (thrown? AssertionError (parse-command {:body "{\"command\": 123, \"version\": 2, \"payload\": \"meh\"}"})))
 
       ;; Non-JSON payload
-      (is (thrown? Exception (parse-command "{\"command\": \"foo\", \"version\": 2, \"payload\": #{}")))
+      (is (thrown? Exception (parse-command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": #{}"})))
 
       ;; Non-UTF-8 byte array
-      (is (thrown? Exception (parse-command (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")))))))
+      (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
 
 (defn global-count
   "Returns the counter for the given global metric"
@@ -149,7 +149,7 @@
       (let [called (call-counter)
             failed (call-counter)
             parser (wrap-with-command-parser called failed)]
-        (parser "/s++-")
+        (parser {:body "/s++-"})
         (is (= 0 (times-called called)))
         (is (= 1 (times-called failed)))))
 
@@ -157,7 +157,7 @@
       (let [called (call-counter)
             failed (call-counter)
             parser (wrap-with-command-parser called failed)]
-        (parser "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}")
+        (parser {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"})
         (is (= 1 (times-called called)))
         (is (= 0 (times-called failed)))))))
 
@@ -220,7 +220,9 @@
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir)
          handle-message# (produce-message-handler publish# discard-dir# ~opts-map)
-         msg#            (json/generate-string ~command)]
+         msg#            {:headers {:id "foo-id-1"
+                                    :received "2014-03-11T16:41:58.158Z"}
+                          :body (json/generate-string ~command)}]
      (try
        (binding [*logger-factory* (atom-logger log-output#)]
          (handle-message# msg#))
@@ -271,7 +273,7 @@
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
               (let [[msg & _] (first (args-supplied publish))
-                    published (parse-command msg)
+                    published (parse-command {:body msg})
                     attempt   (first (get-in published [:annotations :attempts]))]
                 (is (re-find #"java.lang.Exception: non-fatal error" (:error attempt)))
                 (is (:trace attempt)))))))

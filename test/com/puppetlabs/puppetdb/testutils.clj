@@ -106,7 +106,7 @@
        (mq/start-broker! broker#)
 
        (try
-         (with-open [~conn-var (mq/connect! conn-str#)]
+         (with-open [~conn-var (mq/activemq-connection conn-str#)]
            ~@body)
          (finally
            (mq/stop-broker! broker#)
