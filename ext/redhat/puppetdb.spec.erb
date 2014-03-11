@@ -84,12 +84,12 @@ Group:         System Environment/Daemons
 %endif
 
 <% if @pe -%>
-BuildRequires: pe-facter >= 1.6.2, pe-puppet
+BuildRequires: pe-facter >= 1.7.0, pe-puppet
 BuildRequires: pe-rubygem-rake
 BuildRequires: pe-ruby
 Requires:      pe-puppet >= 2.7.12
 <% else -%>
-BuildRequires: facter >= 1.6.8
+BuildRequires: facter >= 1.7.0
 BuildRequires: puppet >= 2.7.12
 BuildRequires: rubygem-rake
 BuildRequires: ruby
