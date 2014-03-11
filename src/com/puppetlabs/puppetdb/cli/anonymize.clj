@@ -92,12 +92,12 @@
         "fact-value"
         [{"context" {"fact-name" ["/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
           "anonymize" true}
-         {"context" {"fact-name" ["/architecture/" "/augeasversion.*/" "/bios_.*/" "/blockdevice.*/" "/board.*/" "/facterversion/"
-                                  "/hardwareisa/" "/hardwaremodel/" "/id/" "/interfaces/" "/iptables.*/" "/ip6tables.*/" "/is_pe/"
-                                  "/is_virtual/" "/kernel.*/" "/lsb.*/" "/macosx.*/" "/memory.*/" "/mtu_.*/" "/netmask.*/"
-                                  "/operatingsystem.*/" "/osfamily/" "/postgres_.*/" "/processor.*/" "/physicalprocessorcount.*/"
-                                  "/productname/" "/ps/" "/puppetversion/" "/rubysitedir/" "/rubyversion/" "/selinux.*/"
-                                  "/swapencrypted/" "/swapfree.*/" "/swapsize.*/" "/timezone/" "/uptime.*/" "/virtual/"]}
+         {"context" {"fact-name" ["architecture" "/^augeasversion.*/" "/^bios_.*/" "/^blockdevice.*/" "/^board.*/" "facterversion"
+                                  "hardwareisa" "hardwaremodel" "id" "interfaces" "/^iptables.*/" "/^ip6tables.*/" "is_pe"
+                                  "is_virtual" "/^kernel.*/" "/^lsb.*/" "/^macosx.*/" "/^memory.*/" "/^mtu_.*/" "/^netmask.*/"
+                                  "/^operatingsystem.*/" "osfamily" "/^postgres_.*/" "/^processor.*/" "/^physicalprocessorcount.*/"
+                                  "productname" "ps" "puppetversion" "rubysitedir" "rubyversion" "/^selinux.*/"
+                                  "swapencrypted" "/^swapfree.*/" "/^swapsize.*/" "timezone" "/^uptime.*/" "virtual"]}
           "anonymize" false}
          {"context" {} "anonymize" true}]}
     }
