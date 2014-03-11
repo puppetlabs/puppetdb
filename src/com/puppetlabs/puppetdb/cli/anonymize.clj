@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.cli.anonymize
   (:use [puppetlabs.kitchensink.core :only (cli!)]
-        [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
+        [com.puppetlabs.puppetdb.cli.export :only [export-metadata-file-name]]
         [com.puppetlabs.puppetdb.cli.import :only [parse-metadata]])
   (:import  [com.puppetlabs.archive TarGzReader TarGzWriter]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
@@ -9,7 +9,10 @@
             [clojure.string :as string]
             [com.puppetlabs.archive :as archive]
             [com.puppetlabs.puppetdb.anonymizer :as anon]
-            [slingshot.slingshot :refer [try+]]))
+            [slingshot.slingshot :refer [try+]]
+            [com.puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (def cli-description "Anonymize puppetdb dump files")
 
@@ -73,7 +76,30 @@
         "transaction-uuid" [
           {"context" {} "anonymize" false}
         ]
-      }
+
+        "fact-name"
+        [{"context" {"fact-name" ["architecture" "/^augeasversion.*/" "/^bios_.*/" "/^blockdevice.*/" "/^board.*/" "domain"
+                                  "facterversion" "fqdn" "hardwareisa" "hardwaremodel" "hostname" "id" "interfaces"
+                                  "/^ipaddress.*/" "/^iptables.*/" "/^ip6tables.*/" "is_pe" "is_virtual" "/^kernel.*/" "/^lsb.*/"
+                                  "/^macaddress.*/" "/^macosx.*/" "/^memoryfree.*/" "/^memorysize.*/" "memorytotal" "/^mtu_.*/"
+                                  "/^netmask.*/" "/^network.*/" "/^operatingsystem.*/" "osfamily" "path" "/^postgres_.*/"
+                                  "/^processor.*/" "/^physicalprocessorcount.*/" "productname" "ps" "puppetversion"
+                                  "rubysitedir" "rubyversion" "/^selinux.*/" "/^sp_.*/" "/^ssh.*/" "swapencrypted"
+                                  "/^swapfree.*/" "/^swapsize.*/" "timezone" "/^uptime.*/" "uuid" "virtual"]}
+          "anonymize" false}
+         {"context" {} "anonymize" true}]
+
+        "fact-value"
+        [{"context" {"fact-name" ["/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
+          "anonymize" true}
+         {"context" {"fact-name" ["architecture" "/^augeasversion.*/" "/^bios_.*/" "/^blockdevice.*/" "/^board.*/" "facterversion"
+                                  "hardwareisa" "hardwaremodel" "id" "interfaces" "/^iptables.*/" "/^ip6tables.*/" "is_pe"
+                                  "is_virtual" "/^kernel.*/" "/^lsb.*/" "/^macosx.*/" "/^memory.*/" "/^mtu_.*/" "/^netmask.*/"
+                                  "/^operatingsystem.*/" "osfamily" "/^postgres_.*/" "/^processor.*/" "/^physicalprocessorcount.*/"
+                                  "productname" "ps" "puppetversion" "rubysitedir" "rubyversion" "/^selinux.*/"
+                                  "swapencrypted" "/^swapfree.*/" "/^swapsize.*/" "timezone" "/^uptime.*/" "virtual"]}
+          "anonymize" false}
+         {"context" {} "anonymize" true}]}
     }
     "low" {
       "rules" {
@@ -113,6 +139,14 @@
         "transaction-uuid" [
           {"context" {} "anonymize" false}
         ]
+
+        "fact-name"
+        [{"context" {} "anonymize" false}]
+
+        "fact-value" [
+         {"context" {"fact-name" ["/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
+          "anonymize" true}
+         {"context" {} "anonymize" false}]
       }
     }
     "none" {
@@ -126,9 +160,26 @@
         "message" [ {"context" {} "anonymize" false} ]
         "parameter-value" [ {"context" {} "anonymize" false} ]
         "transaction-uuid" [ {"context" {} "anonymize" false} ]
+        "fact-name" [{"context" {} "anonymize" false}]
+        "fact-value" [{"context" {} "anonymize" false}]
       }
     }
   })
+
+(pls/defn-validated add-json-tar-entry
+  "Add a new entry in `tar-writer` using the tar-item data structure"
+  [tar-writer :- TarGzWriter
+   suffix :- [String]
+   contents :- {s/Any s/Any}]
+  (add-tar-entry tar-writer {:file-suffix suffix
+                             :contents (json/generate-pretty-string contents)}))
+
+(defn next-json-tar-entry
+  "Read and parse a JSON item from `tar-reader`"
+  [tar-reader]
+  (->> tar-reader
+       archive/read-entry-content
+       json/parse-string))
 
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
@@ -139,33 +190,38 @@
           (instance? TarGzWriter tar-writer)]}
   (let [path    (.getName tar-entry)
         catalog-pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")
-        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")]
+        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")
+        facts-pattern (str "^" (.getPath (io/file export-root-dir "facts" ".*\\.json")) "$")]
 
     ;; Process catalogs
     (when (re-find (re-pattern catalog-pattern) path)
       (let [[_ hostname] (re-matches #".+\/(.+)\.json" path)
-            newpath      (.getPath (io/file export-root-dir "catalogs" (format "%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config))))]
+            file-suffix ["catalogs" (format "%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config))]
+            newpath      (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path newpath))
-        (archive/add-entry tar-writer "UTF-8" newpath
-          (json/generate-string
-            (->> tar-reader
-              (archive/read-entry-content)
-              (json/parse-string)
-              (anon/anonymize-catalog config))
-            {:pretty true}))))
+        (->> (next-json-tar-entry tar-reader)
+             (anon/anonymize-catalog config)
+             (add-json-tar-entry tar-writer file-suffix))))
 
     ;; Process reports
     (when (re-find (re-pattern report-pattern) path)
       (let [[_ hostname starttime confversion] (re-matches #".+\/(.+?)-(\d{4}\-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-(.+)\.json" path)
-            newpath     (.getPath (io/file export-root-dir "reports" (format "%s-%s-%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config) starttime confversion)))]
+            file-suffix ["reports" (format "%s-%s-%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config) starttime confversion)]
+            newpath     (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing report from archive entry '%s' to '%s'" path newpath))
-        (archive/add-entry tar-writer "UTF-8" newpath
-          (json/generate-string
-            (->> tar-reader
-              (archive/read-entry-content)
-              (json/parse-string)
-              (anon/anonymize-report config (:store-report (:command-versions metadata))))
-            {:pretty true}))))))
+        (->> (next-json-tar-entry tar-reader)
+             (anon/anonymize-report config (get-in metadata [:command-versions :store-report]))
+             (add-json-tar-entry tar-writer file-suffix))))
+
+    ;; Process facts
+    (when (re-find (re-pattern facts-pattern) path)
+      (let [[_ hostname] (re-matches #".+\/(.+)\.json" path)
+            file-suffix ["facts" (format "%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config))]
+            newpath     (.getPath (apply io/file export-root-dir file-suffix))]
+        (println (format "Anonymizing facts from archive entry '%s' to '%s'" path newpath))
+        (->> (next-json-tar-entry tar-reader)
+             (anon/anonymize-facts config)
+             (add-json-tar-entry tar-writer file-suffix))))))
 
 (defn- validate-cli!
   [args]
@@ -195,10 +251,8 @@
     (with-open [tar-reader (archive/tarball-reader infile)]
       (with-open [tar-writer (archive/tarball-writer outfile)]
         ;; Write out the metadata first
-        (archive/add-entry tar-writer "UTF-8"
-          (.getPath (io/file export-root-dir export-metadata-file-name))
-          (json/generate-string metadata {:pretty true}))
 
+        (add-json-tar-entry tar-writer [export-metadata-file-name] metadata)
         ;; Now process each entry
         (doseq [tar-entry (archive/all-entries tar-reader)]
           (process-tar-entry tar-reader tar-entry tar-writer profile-config metadata))))

@@ -12,11 +12,12 @@
             [com.puppetlabs.cheshire :as json]
             [clojure.java.io :as io]
             [slingshot.slingshot :refer [try+]]
-            [com.puppetlabs.puppetdb.reports :as reports])
+            [com.puppetlabs.puppetdb.reports :as reports]
+            [com.puppetlabs.puppetdb.utils :refer [export-root-dir]])
   (:import  [com.puppetlabs.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:use [puppetlabs.kitchensink.core :only (cli!)]
-        [com.puppetlabs.puppetdb.cli.export :only [export-root-dir export-metadata-file-name]]
+        [com.puppetlabs.puppetdb.cli.export :only [export-metadata-file-name]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")

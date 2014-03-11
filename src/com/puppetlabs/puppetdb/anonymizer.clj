@@ -84,7 +84,7 @@
     (string? test) (if (pattern-string? test)
                      (let [pattern (pattern->regexp test)]
                        (boolean (and (not (nil? value)) (re-find pattern value))))
-                       (= test value))
+                     (= test value))
     (vector? test) (boolean (some true? (map #(matcher-match? % value) test)))))
 
 (defn rule-match?
@@ -152,7 +152,9 @@
         :message (random-string 50)
         :file (random-pp-path)
         :line (rand-int 300)
-        :transaction-uuid (uuid)))))
+        :transaction-uuid (uuid)
+        :fact-name (random-string 15)
+        :fact-value (random-string 30)))))
 
 (defn anonymize-leaf
   "Anonymize leaf data, if the context matches a rule"
@@ -385,3 +387,22 @@
       (update-in ["certname"]         anonymize-leaf :node context config)
       (update-in ["resource-events"]  anonymize-resource-events context config)
       (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config))))
+
+(defn anonymize-fact-values
+  "Anonymizes fact names and values"
+  [facts context config]
+  (reduce-kv (fn [acc k v]
+               (assoc acc
+                 (anonymize-leaf k :fact-name (assoc context "fact-name" k) config)
+                 (anonymize-leaf v :fact-value (assoc context
+                                                 "fact-name" k
+                                                 "fact-value" v) config)))
+             {} facts))
+
+(defn anonymize-facts
+  "Anonymize a fact set"
+  [config wire-facts]
+  (let [context {"node" (get wire-facts "name")}]
+    (-> wire-facts
+        (update-in ["name"] anonymize-leaf :node context config)
+        (update-in ["values"] anonymize-fact-values context config))))
