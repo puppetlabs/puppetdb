@@ -63,7 +63,7 @@ task :install => [  JAR_FILE  ] do
   # figure out which init script to install based on facter
   if @osfamily == "redhat"
     @operatingsystem = Facter.value(:operatingsystem).downcase
-    @operatingsystemrelease = `cat /etc/redhat-release | awk '{print $3}'`.chomp
+    @operatingsystemrelease = Facter.value(:operatingsystemmajrelease)
     puts "operatingsystem is #{@operatingsystem}"
     puts "operatingsystemrelease is #{@operatingsystemrelease}"
     if (@operatingsystem == "fedora" && @operatingsystemrelease.to_i >= 17) || (@operatingsystem =~ /redhat|centos/ && @operatingsystemrelease.to_f >= 7 )

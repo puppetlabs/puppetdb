@@ -162,6 +162,12 @@ export NO_BRP_CHECK_BYTECODE_VERSION=true
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_initddir}
 
+# Explicitly set environment variable LANG,
+# because otherwise it gets set to 'C' and that
+# is wrong, wrong, wrong. There may be a better
+# way to handle this, so this may change.
+export LANG=en_US.UTF-8
+
 <% if @pe -%>
 PATH=/opt/puppet/bin:$PATH rake install PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
 PATH=/opt/puppet/bin:$PATH rake terminus PARAMS_FILE= DESTDIR=$RPM_BUILD_ROOT PE_BUILD=true
