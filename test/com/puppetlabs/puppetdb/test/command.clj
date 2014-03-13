@@ -6,7 +6,8 @@
             [com.puppetlabs.puppetdb.catalogs :as catalog]
             [com.puppetlabs.puppetdb.examples.reports :as report-examples]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]])
+            [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
+            [clj-time.format :as tfmt])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
@@ -15,7 +16,7 @@
         [com.puppetlabs.puppetdb.testutils.reports :only [munge-example-report-for-storage]]
         [com.puppetlabs.puppetdb.command.constants :only [command-names]]
         [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [days ago]]
+        [clj-time.core :only [days ago now]]
         [clojure.test]
         [clojure.tools.logging :only [*logger-factory*]]
         [slingshot.slingshot :only [try+ throw+]]))
@@ -221,7 +222,7 @@
          discard-dir#    (fs/temp-dir)
          handle-message# (produce-message-handler publish# discard-dir# ~opts-map)
          msg#            {:headers {:id "foo-id-1"
-                                    :received "2014-03-11T16:41:58.158Z"}
+                                    :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]
      (try
        (binding [*logger-factory* (atom-logger log-output#)]
