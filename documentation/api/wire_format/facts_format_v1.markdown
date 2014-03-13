@@ -1,9 +1,14 @@
 ---
-title: "PuppetDB 1.6 » API » Facts Wire Format"
+title: "PuppetDB 1.6 » API » Facts Wire Format v1"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/facts_format.html"
+canonical: "/puppetdb/latest/api/wire_format/facts_format_v1.html"
 ---
 
+[facts_v2]: facts_format_v2.html
+
+### Version
+
+This is **version 1** of the facts interchange format and has been deprecated. See [version 2][facts_v2] for the currently supported version of this wire format.
 
 ## Format
 

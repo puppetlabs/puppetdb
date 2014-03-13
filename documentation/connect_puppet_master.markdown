@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [event]: ./api/query/v3/event.html
 [report]: ./api/query/v3/report.html
 [store_report]: ./api/commands.html#store-report-version-1
-[report_format]: ./api/wire_format/report_format.html
+[report_format]: ./api/wire_format/report_format_v3.html
 
 > Note: To use PuppetDB, your site's puppet master(s) must be running Puppet 3.4.2 or later .
 

@@ -19,8 +19,10 @@
    :start-time               :datetime
    :end-time                 :datetime
    :resource-events          :coll
-   :transaction-uuid         { :optional? true
-                               :type      :string }
+   :transaction-uuid         {:optional? true
+                              :type      :string}
+   :environment              {:optional? true
+                              :type :string}
    })
 
 (def report-fields
@@ -94,6 +96,13 @@
       (throw (IllegalArgumentException.
                (format "Containment path should only contain strings: '%s'"
                        (resource-event :containment-path))))))
+  report)
+
+(defmethod validate! 3
+  [_ report]
+  (validate! 2 report)
+  (when (nil? (:environment report))
+    (throw (IllegalArgumentException. "Version 3 of reports must contain an environment")))
   report)
 
 (defn sanitize-events

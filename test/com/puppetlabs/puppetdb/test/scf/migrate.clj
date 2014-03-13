@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env]])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now ago days secs]]
@@ -11,8 +12,7 @@
         [puppetlabs.kitchensink.core :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
-        [com.puppetlabs.puppetdb.examples.reports]
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
+        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report! store-v2-example-report!]]))
 
 (def db (test-db))
 
@@ -87,10 +87,11 @@
             node1                     "foocertname"
             node2                     "barcertname"
             store-report-fn           (fn [certname end-time received-time]
-                                        (store-example-report!
+                                        (store-v2-example-report!
                                           (-> basic
-                                            (assoc :certname certname)
-                                            (assoc :end-time end-time))
+                                            (assoc :certname certname
+                                                   :end-time end-time)
+                                            dissoc-env)
                                           received-time
                                           false))]
         ;; first we run all of the schema migrations *prior* to the
