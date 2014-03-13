@@ -107,6 +107,20 @@
       (rr/status (rr/response (str "must accept " content-type))
                  pl-http/status-not-acceptable))))
 
+(defn verify-content-type
+  "Verification for the specified list of content-types."
+  [app content-types]
+  {:pre [(coll? content-types)
+         (every? string? content-types)]}
+  (fn [{:keys [headers] :as req}]
+    (let [content-type (headers "content-type")
+          mediatype (if (nil? content-type) nil
+                        (str (media/base-type content-type)))]
+      (if (or (nil? mediatype) (some #{mediatype} content-types))
+        (app req)
+        (rr/status (rr/response (str "content type " mediatype " not supported"))
+                   pl-http/status-unsupported-type)))))
+
 (defn validate-query-params
   "Ring middleware that verifies that the query params in the request
   are legal based on the map `param-specs`, which contains a list of

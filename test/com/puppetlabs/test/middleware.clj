@@ -228,3 +228,18 @@
                       :params {"checksum" "asdf"}}]
         (is (= (wrapped-fn test-req)
                {:status 400 :headers {} :body "checksums don't match"}))))))
+
+(deftest verify-content-type-test
+  (let [app-fn       (fn [req] req)
+        test-req    {:content-type "application/json"
+                      :headers {"content-type" "application/json"}}]
+
+    (testing "should succeed with matching content type"
+      (let [wrapped-fn   (verify-content-type app-fn ["application/json"])]
+        (is (= (wrapped-fn test-req) test-req))))
+
+    (testing "should fail with no matching content type"
+      (let [wrapped-fn   (verify-content-type app-fn ["application/bson" "application/msgpack"])]
+        (is (= (wrapped-fn test-req)
+               {:status 415 :headers {}
+                :body "content type application/json not supported"}))))))

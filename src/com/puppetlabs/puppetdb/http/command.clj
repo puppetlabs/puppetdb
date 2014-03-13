@@ -31,17 +31,18 @@
         mid/verify-checksum
         (mid/validate-query-params {:required ["payload"]
                                     :optional ["checksum"]})
-        mid/payload-to-body-string)
+        mid/payload-to-body-string
+        (mid/verify-content-type ["application/x-www-form-urlencoded"]))
     :v3
       (-> enqueue-command
         mid/verify-accepts-json
         mid/verify-checksum
-        ;; TODO: would be nicer to apply the optional/required based on media type
         (mid/validate-query-params {:optional ["checksum" "payload"]})
-        ;; TODO: if we could test for acceptable media-types that would be great
-        mid/payload-to-body-string)
+        mid/payload-to-body-string
+        (mid/verify-content-type ["application/json" "application/x-www-form-urlencoded"]))
     (-> enqueue-command
       mid/verify-accepts-json
       mid/verify-checksum
       (mid/validate-query-params {:optional ["checksum"]})
-      (mid/payload-to-body-string))))
+      mid/payload-to-body-string
+      (mid/verify-content-type ["application/json"]))))
