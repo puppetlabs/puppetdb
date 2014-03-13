@@ -105,7 +105,10 @@
   #{:contains :required-by :notifies :before :subscription-of})
 
 (def ^:const catalog-attributes
-  #{:certname :puppetdb-version :api-version :transaction-uuid :version :edges :resources})
+  #{:certname :puppetdb-version :api-version :transaction-uuid :version :edges :resources :environment})
+
+(def v4-catalog-attributes
+  (disj catalog-attributes :api-version))
 
 ;; ## Utility functions
 
@@ -209,21 +212,28 @@
   catalog)
 
 (defn validate-keys
-  "Ensure that the set of keys in the catalog is exactly the set specified in `catalog-attributes`."
-  [catalog]
-  {:pre [(map? catalog)]
-   :post [(= % catalog)]}
-  (let [present-keys (kitchensink/keyset catalog)
-        extra-keys (set/difference present-keys catalog-attributes)
-        missing-keys (set/difference catalog-attributes present-keys)]
-    (when (seq extra-keys)
-      (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
-    (when (seq missing-keys)
-      (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
-  catalog)
+  "Ensure that the set of keys in the catalog is exactly the set specified in `valid-catalog-attrs`."
+  [valid-catalog-attrs]
+  (fn [catalog]
+    {:pre [(map? catalog)]
+     :post [(= % catalog)]}
+    (let [present-keys (kitchensink/keyset catalog)
+          extra-keys (set/difference present-keys valid-catalog-attrs)
+          missing-keys (set/difference valid-catalog-attrs present-keys)]
+      (when (seq extra-keys)
+        catalog
+        (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
+      (when (seq missing-keys)
+        (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
+    catalog))
 
 (def validate
-  (comp validate-edges validate-resources validate-keys))
+  "Function for validating v1->v3 of the catalogs"
+  (comp validate-edges validate-resources (validate-keys catalog-attributes)))
+
+(def validate-v4
+  "Function for validating version 4 catalogs"
+  (comp validate-edges validate-resources (validate-keys v4-catalog-attributes)))
 
 ;; ## High-level parsing routines
 
@@ -251,12 +261,14 @@
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
-          (number? (:api-version %))
+          (if (contains? % :api-version)
+            (number? (:api-version %))
+            true)
           (contains? % :transaction-uuid)]}
   (-> catalog
-    (update-in [:version] str)
-    (assoc :puppetdb-version catalog-version)
-    (set/rename-keys {:name :certname :api_version :api-version})))
+      (update-in [:version] str)
+      (assoc :puppetdb-version catalog-version)
+      (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform
   "Applies every transformation to the catalog, converting it from wire format
@@ -264,8 +276,7 @@
   (comp
     transform-edges
     transform-resources
-    transform-metadata
-    collapse))
+    transform-metadata))
 
 ;; ## Deserialization
 
@@ -302,7 +313,7 @@
          (number? version)]
    :post [(map? %)]}
   (-> catalog
-      (update-in [:data] dissoc :classes :tags :environment)
+      (update-in [:data] dissoc :classes :tags)
       (parse-catalog (inc version))))
 
 (defmethod parse-catalog 2
@@ -319,7 +330,18 @@
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-  (validate (transform catalog)))
+  (-> catalog
+      (assoc-in [:data :environment] nil)
+      collapse
+      transform
+      validate))
+
+(defmethod parse-catalog 4
+  [catalog version]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (validate-v4 (transform catalog)))
 
 (defmethod parse-catalog :default
   [catalog version]

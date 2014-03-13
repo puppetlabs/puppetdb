@@ -429,7 +429,7 @@
       catalog_version text NOT NULL,
       transaction_uuid character varying(255) DEFAULT NULL)"
 
-    ;; catalogs: Insert data from old table
+    ;; Catalogs: Insert data from old table
     "INSERT INTO catalogs_transform (hash, api_version, catalog_version, transaction_uuid)
       SELECT hash, api_version, catalog_version, transaction_uuid
         FROM catalogs"
@@ -655,6 +655,28 @@
             "ALTER TABLE catalog_resources DROP CONSTRAINT catalog_resources_pkey"
             "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"])))
 
+(defn add-environments []
+  (sql/create-table :environments
+                    ["id" "bigserial NOT NULL PRIMARY KEY"]
+                    ["name" "TEXT NOT NULL" "UNIQUE"])
+
+  (sql/do-commands
+
+   "ALTER TABLE catalogs ADD environment_id integer"
+   "ALTER TABLE catalogs ALTER COLUMN api_version SET NULL"
+   "ALTER TABLE certname_facts_metadata ADD environment_id integer"
+   "ALTER TABLE reports ADD environment_id integer"
+
+   "ALTER TABLE catalogs
+    ADD CONSTRAINT catalogs_env_fkey FOREIGN KEY (environment_id)
+    REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+   "ALTER TABLE certname_facts_metadata
+    ADD CONSTRAINT facts_env_fkey FOREIGN KEY (environment_id)
+    REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+   "ALTER TABLE reports
+    ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id)
+    REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -676,7 +698,8 @@
    17 use-bigint-instead-of-catalog-hash
    18 add-index-on-exported-column
    19 differential-edges
-   20 differential-catalog-resources})
+   20 differential-catalog-resources
+   21 add-environments})
 
 (def desired-schema-version (apply max (keys migrations)))
 

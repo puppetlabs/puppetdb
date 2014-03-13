@@ -2,11 +2,11 @@
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.kitchensink.core :as kitchensink])
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports report=]])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
         [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
         [clj-time.coerce :only [to-date-time to-string]]
@@ -29,7 +29,7 @@
     [:start-time :end-time]
     ;; the response won't include individual events, so we need to pluck those
     ;; out of the example report object before comparison
-    (dissoc report :resource-events)))
+    (dissoc report :resource-events :environment)))
 
 (defn reports-response
   [reports]
@@ -69,16 +69,16 @@
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")
         (let [results       (paged-results
-                              {:app-fn  *app*
-                               :path    endpoint
-                               :query   ["=" "certname" (:certname basic1)]
-                               :limit   1
-                               :total   2
-                               :include-total  count?})]
+                             {:app-fn  *app*
+                              :path    endpoint
+                              :query   ["=" "certname" (:certname basic1)]
+                              :limit   1
+                              :total   2
+                              :include-total  count?})]
           (is (= 2 (count results)))
           (is (= (reports-response
-                    [(assoc basic1 :hash basic1-hash)
-                     (assoc basic2 :hash basic2-hash)])
+                  [(assoc basic1 :hash basic1-hash)
+                   (assoc basic2 :hash basic2-hash)])
                 (set (remove-receive-times results)))))))))
 
 (deftest invalid-queries
