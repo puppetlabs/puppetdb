@@ -140,7 +140,7 @@
       (let [diff (set/difference (kitchensink/keyset params)
                     (set (:required param-specs))
                     (set (:optional param-specs)))]
-        (when (seq diff) diff))
+        (seq diff))
       (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
       :else
