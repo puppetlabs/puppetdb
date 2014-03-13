@@ -20,10 +20,9 @@
   (tu/get-request path nil params))
 
 (defn post-request*
-  "Marks a post body request"
+  "Makes a post body request"
   [path params payload]
-  (let [body (if (nil? payload)
-               nil
+  (let [body (when-not (nil? payload)
                (ByteArrayInputStream. (.getBytes payload "UTF-8")))]
     (tu/post-request path nil params {"content-type" "application/json"
                                       "accept" "application/json"} body)))

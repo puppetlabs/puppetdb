@@ -194,8 +194,7 @@
 (deftest payload-to-body-string-test
   (let [test-content "test content"
         test-stream  #(ByteArrayInputStream. (.getBytes test-content "UTF-8"))
-        app-fn       (fn [req] req)
-        wrapped-fn   (payload-to-body-string app-fn)]
+        wrapped-fn   (payload-to-body-string identity)]
 
     (doseq [mt ["application/json" "application/json;charset=UTF8"]]
       (testing (str "for content-type " mt " body should populate body-string"
@@ -213,8 +212,7 @@
 (deftest verify-checksum-test
   (let [test-content "test content"
         checksum     "1eebdf4fdc9fc7bf283031b93f9aef3338de9052"
-        app-fn       (fn [req] req)
-        wrapped-fn   (verify-checksum app-fn)]
+        wrapped-fn   (verify-checksum identity)]
 
     (testing "ensure fn succeeds with matching checksum"
       (let [test-req {:body-string test-content
@@ -230,16 +228,32 @@
                {:status 400 :headers {} :body "checksums don't match"}))))))
 
 (deftest verify-content-type-test
-  (let [app-fn       (fn [req] req)
-        test-req    {:content-type "application/json"
-                      :headers {"content-type" "application/json"}}]
+  (testing "with content-type of application/json"
+    (let [test-req {:content-type "application/json"
+                    :headers {"content-type" "application/json"}}]
 
-    (testing "should succeed with matching content type"
-      (let [wrapped-fn   (verify-content-type app-fn ["application/json"])]
-        (is (= (wrapped-fn test-req) test-req))))
+      (testing "should succeed with matching content type"
+        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
+          (is (= (wrapped-fn test-req) test-req))))
 
-    (testing "should fail with no matching content type"
-      (let [wrapped-fn   (verify-content-type app-fn ["application/bson" "application/msgpack"])]
-        (is (= (wrapped-fn test-req)
-               {:status 415 :headers {}
-                :body "content type application/json not supported"}))))))
+      (testing "should fail with no matching content type"
+        (let [wrapped-fn   (verify-content-type identity ["application/bson" "application/msgpack"])]
+          (is (= (wrapped-fn test-req)
+                 {:status 415 :headers {}
+                  :body "content type application/json not supported"}))))))
+
+  (testing "with content-type of APPLICATION/JSON"
+    (let [test-req {:content-type "APPLICATION/JSON"
+                    :headers {"content-type" "APPLICATION/JSON"}}]
+
+      (testing "should succeed with matching content type"
+        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
+          (is (= (wrapped-fn test-req) test-req))))))
+
+  (testing "with content-type of application/json;parameter=foo"
+    (let [test-req {:content-type "application/json;parameter=foo"
+                    :headers {"content-type" "application/json;parameter=foo"}}]
+
+      (testing "should succeed with matching content type"
+        (let [wrapped-fn   (verify-content-type identity ["application/json"])]
+          (is (= (wrapped-fn test-req) test-req)))))))
