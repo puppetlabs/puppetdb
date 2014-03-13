@@ -221,13 +221,11 @@
             (integer? port)
             (map? command-map)]}
      (let [message (json/generate-string command-map)
-           body    (format "checksum=%s&payload=%s"
-                           (kitchensink/utf8-string->sha1 message)
-                           (url-encode message))
-           url     (format "http://%s:%s/v3/commands" host port)]
-       (client/post url {:body               body
+           checksum (kitchensink/utf8-string->sha1 message)
+           url     (format "http://%s:%s/v3/commands?checksum=%s" host port checksum)]
+       (client/post url {:body               message
                          :throw-exceptions   false
-                         :content-type       :x-www-form-urlencoded
+                         :content-type       :json
                          :character-encoding "UTF-8"
                          :accept             :json}))))
 
