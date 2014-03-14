@@ -118,13 +118,13 @@
         command-app-v3)
 
     (let [[good-msg bad-msg] (mq/bounded-drain-into-vec! fixt/*conn* "com.puppetlabs.puppetdb.commands" 2)
-          good-command       (json/parse-string good-msg true)]
+          good-command       (json/parse-string (:body good-msg) true)]
       (testing "should be timestamped when parseable"
-        (let [timestamp (get-in good-command [:annotations :received])]
+        (let [timestamp (get-in good-msg [:headers :received])]
           (time/parse (time/formatters :date-time) timestamp)))
 
       (testing "should be left alone when not parseable"
-        (is (= bad-msg bad-payload))))))
+        (is (= (:body bad-msg) bad-payload))))))
 
 (deftest receipt-timestamping-v4
   (let [good-payload  (json/generate-string {:command "my command" :version 1 :payload "{}"})
