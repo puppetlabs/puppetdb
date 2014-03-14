@@ -268,7 +268,7 @@
                          "type"       "Package"}
           result        (anonymize-resource test-resource {} {})]
       (is (map? result))
-      (is (= ["parameters" "exported" "line" "title" "tags" "type" "file"] (keys result)))))
+      (is (= #{"parameters" "exported" "line" "title" "tags" "type" "file"} (ks/keyset result)))))
   (testing "should handle nil for file and line"
     (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
@@ -277,7 +277,7 @@
                          "type"       "Package"}
           result        (anonymize-resource test-resource {} {})]
       (is (map? result))
-      (is (= ["parameters" "exported" "title" "tags" "type"] (keys result))))))
+      (is (= #{"parameters" "exported" "title" "tags" "type"} (ks/keyset result))))))
 
 (deftest test-anonymize-resources
   (testing "should handle a resource"
