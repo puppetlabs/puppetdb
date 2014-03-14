@@ -76,6 +76,13 @@
                (:status v4-resp)
                pl-http/status-bad-request))))))
 
+(defn round-trip-date-time
+  "Parse a DateTime string, then emits the string from that DateTime"
+  [date]
+  (->> date
+       (time/parse (time/formatters :date-time))
+       (time/unparse (time/formatters :date-time))))
+
 (deftest receipt-timestamping
   (let [good-payload       (json/generate-string {:command "my command" :version 1 :payload "{}"})
         good-checksum      (kitchensink/utf8-string->sha1 good-payload)
@@ -89,10 +96,11 @@
         command)
 
     (let [[good-msg bad-msg] (mq/bounded-drain-into-vec! fixt/*conn* "com.puppetlabs.puppetdb.commands" 2)
-          good-command       (json/parse-string good-msg true)]
+          good-command (json/parse-string (:body good-msg) true)
+          received-time (get-in good-msg [:headers :received])]
       (testing "should be timestamped when parseable"
-        (let [timestamp (get-in good-command [:annotations :received])]
-          (time/parse (time/formatters :date-time) timestamp)))
+        (is (= received-time (round-trip-date-time received-time)))
+        (is (map? good-command)))
 
       (testing "should be left alone when not parseable"
-        (is (= bad-msg bad-payload))))))
+        (is (= (:body bad-msg) bad-payload))))))

@@ -3,14 +3,20 @@
 (ns com.puppetlabs.mq
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage]
-           [org.apache.activemq.usage SystemUsage])
+           [org.apache.activemq.usage SystemUsage]
+           [javax.jms Message TextMessage BytesMessage ExceptionListener MessageListener]
+           [org.apache.activemq ActiveMQConnectionFactory]
+           [org.springframework.jms.connection CachingConnectionFactory]
+           [org.springframework.jms.listener DefaultMessageListenerContainer])
   (:require [com.puppetlabs.cheshire :as json]
             [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
             [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clamq.protocol.consumer :as consumer]
+            [clamq.jms :as jms])
   (:use [cheshire.custom :only (JSONable)]))
 
 (defn- set-usage!*
@@ -131,12 +137,6 @@
              "KahaDB corruption."))
       (start-broker! (build-embedded-broker brokername dir config)))))
 
-(defn connect!
-  "Connect to the specified broker URI."
-  [uri]
-  {:pre [(string? uri)]}
-  (activemq/activemq-connection uri))
-
 (defn connect-and-publish!
   "Construct an MQ producer and send the indicated message.
 
@@ -232,3 +232,102 @@
              (pos? millis)]
       :post [(map? %)]}
      {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
+
+(defn convert-message
+  "Convert the given `message` to a string using the type-specific method."
+  [^Message message]
+  (cond
+   (instance? javax.jms.TextMessage message)
+   (let [^TextMessage text-message message]
+     (.getText text-message))
+   (instance? javax.jms.BytesMessage message)
+   (let [^BytesMessage bytes-message message]
+     (.readUTF8 bytes-message))
+   :else
+   (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
+
+(defn extract-headers
+  "Creates a map of custom headers included in `message`, currently only
+   supports String headers."
+  [^Message msg]
+  (reduce (fn [acc k]
+            (assoc acc
+              (keyword k)
+              (.getStringProperty msg k)))
+          {} (enumeration-seq (.getPropertyNames msg))))
+
+(defn create-message-listener
+  "Creates an implementation of the MessageListener interface needed by JMS for
+   consuming messages. This is based on a related clamq macro, but includes all
+   message headers"
+  [handler-fn failure-fn limit container]
+  (let [counter (atom 0)]
+    (reify MessageListener
+      (onMessage [this message]
+        (let [converted-message (convert-message message)]
+          (swap! counter inc)
+          (try
+            (handler-fn {:headers (extract-headers message)
+                         :body converted-message})
+            (catch Exception ex
+              (failure-fn {:message converted-message :exception ex}))
+            (finally
+              (when (= limit @counter)
+                (do (.stop container)
+                    (future (.shutdown container)))))))))))
+
+
+(defn message-consumer
+  "Instantiates the MQ listening container along with the
+   correct message listener"
+  [connection {endpoint :endpoint
+               handler-fn :on-message
+               transacted :transacted
+               pubSub :pubSub
+               limit :limit
+               failure-fn :on-failure
+               :or {pubSub false
+                    limit 0}}]
+  (let [container (DefaultMessageListenerContainer.)
+        listener (create-message-listener handler-fn failure-fn limit container)]
+    (doto container
+      (.setConnectionFactory connection)
+      (.setDestinationName endpoint)
+      (.setMessageListener listener)
+      (.setSessionTransacted transacted)
+      (.setPubSubDomain pubSub)
+      (.setConcurrentConsumers 1))
+    (reify consumer/Consumer
+      (start [self] (do
+                      (doto container
+                        (.start)
+                        (.initialize))
+                        nil))
+      (close [self] (do
+                      (.shutdown container)
+                      nil)))))
+
+(defn wrap-connection
+  "Provides a shim between the clamq JMS implementation and it's usage.
+   Most functions delegate directly to clamq ones, but the consumer function
+   uses the above functions instead to include all the headers in the message"
+  [conn-factory shutdown-fn]
+  (let [jms-conn (jms/jms-connection conn-factory shutdown-fn)]
+    (reify mq-conn/Connection
+      (producer [self]
+        (mq-conn/producer jms-conn))
+      (producer [self conf]
+        (mq-conn/producer jms-conn conf))
+      (consumer [self conf]
+        (message-consumer conn-factory conf))
+      (seqable [self conf]
+        (mq-conn/seqable jms-conn conf))
+      (close [self]
+        (mq-conn/close jms-conn)))))
+
+(defn activemq-connection [broker]
+  "Returns an ActiveMQ connection wrapped in our connection protocol shim"
+  (let [pool (-> broker
+                 ActiveMQConnectionFactory.
+                 CachingConnectionFactory.)]
+    (wrap-connection pool #(.destroy pool))))

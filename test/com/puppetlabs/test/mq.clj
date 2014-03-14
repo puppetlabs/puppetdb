@@ -27,7 +27,7 @@
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
           (connect-and-publish! conn "queue" tracer-msg)
-          (is (= [tracer-msg] (bounded-drain-into-vec! conn "queue" 1))))))
+          (is (= [tracer-msg] (map :body (bounded-drain-into-vec! conn "queue" 1)))))))
 
     (testing "should respect delayed message sending properties"
       (let [tracer-msg "This is a test message"]
@@ -41,7 +41,7 @@
           ;; scheduler resolves delays to a second tick boundary (ignoring
           ;; or diluting milliseconds) so may appear to take almost 4 seconds
           ;; sometimes. This is to avoid potential races in the test.
-          (is (= [tracer-msg] (timed-drain-into-vec! conn "queue" 3000))))))))
+          (is (= [tracer-msg] (map :body (timed-drain-into-vec! conn "queue" 3000)))))))))
 
 (deftest corrupt-kahadb-journal
   (testing "corrupt kahadb journal handling"
@@ -116,4 +116,4 @@
     (testing "should published a serialized version of the object"
       (with-test-broker "test" conn
         (publish-json! conn "queue" "foo")
-        (is (= ["\"foo\""] (bounded-drain-into-vec! conn "queue" 1)))))))
+        (is (= ["\"foo\""] (map :body (bounded-drain-into-vec! conn "queue" 1))))))))

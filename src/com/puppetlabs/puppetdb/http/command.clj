@@ -24,4 +24,4 @@
       mid/verify-accepts-json
       mid/verify-checksum
       (mid/validate-query-params {:required ["payload"]
-                              :optional ["checksum"]})))
+                                  :optional ["checksum"]})))

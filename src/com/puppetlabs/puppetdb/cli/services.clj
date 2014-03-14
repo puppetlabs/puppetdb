@@ -92,7 +92,7 @@
      (log/error exception "Error during command processing; reestablishing connection after 10s")
      (Thread/sleep 10000))
 
-   (with-open [conn (mq/connect! mq)]
+   (with-open [conn (mq/activemq-connection mq)]
      (command/process-commands! conn mq-endpoint discard-dir opt-map))))
 
 (defn auto-deactivate-nodes!
