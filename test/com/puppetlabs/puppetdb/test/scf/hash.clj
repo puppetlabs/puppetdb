@@ -25,7 +25,7 @@
                       (func b)))))))
 
     (testing "should return the expected string in a sorted and predictable way"
-      (let [input {:b "asdf" :a {:z "asdf" :k [:z {:z #{:a {:a [1 2] :b 2}} :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
+      (let [input {:b "asdf" :a {:z "asdf" :k [:z {:z [:a {:a [1 2] :b 2}] :a 1} :c] :a {:m "asdf" :b "asdf"}}}]
         (testing "generic-identity-string"
           (let [output (generic-identity-string ["Type" "title" {:foo input}])]
             (is (= output
