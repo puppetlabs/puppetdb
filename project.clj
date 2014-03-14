@@ -62,13 +62,14 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [clj-http "0.5.3"]
-                 [ring/ring-core "1.1.8" :exclusions [javax.servlet/servlet-api]]
+                 [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.4.1"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
                  [prismatic/schema "0.2.0"]
-                 [org.clojure/tools.macro "0.1.5"]]
+                 [org.clojure/tools.macro "0.1.5"]
+                 [com.novemberain/pantomime "2.1.0"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below

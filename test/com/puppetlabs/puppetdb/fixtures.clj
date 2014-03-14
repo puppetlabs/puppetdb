@@ -7,6 +7,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]])
+  (:import [java.io ByteArrayInputStream])
   (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
         [puppetlabs.trapperkeeper.logging :only [reset-logging]]
         [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
@@ -104,7 +105,9 @@
      (internal-request {} params))
   ([global-overrides params]
      {:params params
-      :headers {"accept" "application/json"}
+      :headers {"accept" "application/json"
+                "content-type" "application/x-www-form-urlencoded"}
+      :content-type "application/x-www-form-urlencoded"
       :globals (merge {:update-server "FOO"
                        :scf-read-db          *db*
                        :scf-write-db         *db*
@@ -113,6 +116,25 @@
                        :event-query-limit    20000
                        :product-name         "puppetdb"}
                       global-overrides)}))
+
+(defn internal-request-post
+  "A variant of internal-request designed to submit application/json requests
+  instead."
+  ([body]
+    (internal-request-post body {}))
+  ([body params]
+     {:params params
+      :headers {"accept" "application/json"
+                "content-type" "application/json"}
+      :content-type "application/json"
+      :globals (merge {:update-server "FOO"
+                       :scf-read-db          *db*
+                       :scf-write-db         *db*
+                       :command-mq           *mq*
+                       :resource-query-limit 20000
+                       :event-query-limit    20000
+                       :product-name         "puppetdb"})
+      :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
 (defmacro defixture
   "Defs a var `name` that is the composed fixtures for the ns and then uses those fixtures.
@@ -136,4 +158,3 @@
     `(do
        (def ~name (join-fixtures ~(vec fixtures)))
        (apply use-fixtures ~each-or-once ~(vec fixtures)))))
-

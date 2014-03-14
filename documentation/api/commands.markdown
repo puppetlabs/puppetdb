@@ -28,17 +28,15 @@ The entire command MUST be encoded as UTF-8.
 
 ## Command submission
 
-Commands are submitted via HTTP to the `/commands/` URL and must
+Commands are submitted via HTTP to the `/commands` URL and must
 conform to the following rules:
 
 * A `POST` is used
-* There is a parameter, `payload`, that contains the entire command object as
-  outlined above. (Not to be confused with the `payload` field inside the command object.)
+* The `POST` body must contain the JSON payload.
 * There is an `Accept` header that matches `application/json`.
-* The POST body is url-encoded
-* The content-type is `x-www-form-urlencoded`.
+* The content-type is `application/json`.
 
-Optionally, there may be a parameter, `checksum`, that contains a SHA-1 hash of
+Optionally, there may be a query parameter, `checksum`, that contains a SHA-1 hash of
 the payload which will be used for verification.
 
 When a command is successfully submitted, the submitter will
@@ -122,3 +120,21 @@ This version of the command introduces support for the `transaction-uuid`,
 The payload is expected to be a report, containing events that occurred on Puppet
 resources.  It is structured as a JSON object, conforming to the
 [report wire format][report].
+
+## Examples using curl
+
+To post a `replace facts` command you can use the following curl command:
+
+    curl -X POST \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      -d '{"command":"replace facts","version":1,"payload":"{\"name\":\"test1\",\"values\":{\"myfact\":\"myvalue\"}}"}' \
+      http://localhost:8080/v3/commands
+
+An example of `deactivate node`:
+
+    curl -X POST \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      -d '{"command":"deactivate node","version":1,"payload":"\"test1\""}' \
+      http://localhost:8080/v3/commands

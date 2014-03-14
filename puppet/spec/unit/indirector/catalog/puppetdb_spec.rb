@@ -30,7 +30,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       subject.save(Puppet::Resource::Catalog.indirection.request(:save, catalog.name, catalog))
     end
 
-    it "should POST the catalog command as a URL-encoded PSON string" do
+    it "should POST the catalog command as a JSON string" do
       command_payload = subject.munge_catalog(catalog)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
@@ -39,13 +39,10 @@ describe Puppet::Resource::Catalog::Puppetdb do
       }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
-        body =~ /payload=(.+)/
-        @sent_payload = $1
+        expect(body).to eq(payload)
       end.returns response
 
       save
-
-      CGI.unescape(@sent_payload).should == payload
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do

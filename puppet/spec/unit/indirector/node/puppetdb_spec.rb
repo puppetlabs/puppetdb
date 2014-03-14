@@ -37,13 +37,10 @@ describe Puppet::Node::Puppetdb do
       }.to_json
 
       http.expects(:post).with do |uri,body,headers|
-        body =~ /payload=(.+)/
-        @sent_payload = $1
+        expect(body).to eq(payload)
       end.returns response
 
       destroy
-
-      CGI.unescape(@sent_payload).should == payload
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do

@@ -19,7 +19,8 @@
 (def v3-app
   (moustache/app
    ["commands"]
-   {:any cmd/command}
+   {:any (cmd/command-app version)}
+
    ["facts" &]
    {:any (facts/facts-app version)}
 

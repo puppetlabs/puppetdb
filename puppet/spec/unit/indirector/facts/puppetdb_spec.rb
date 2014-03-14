@@ -29,7 +29,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts))
     end
 
-    it "should POST the facts command as a URL-encoded JSON string" do
+    it "should POST the facts as a JSON string" do
       facts.stringify
       f = {"name" => facts.name, "values" => facts.values}
       payload = {
@@ -39,26 +39,23 @@ describe Puppet::Node::Facts::Puppetdb do
       }.to_json
 
       http.expects(:post).with do |uri, body, headers|
-        body =~ /payload=(.+)/
-        @sent_payload = $1
+        expect(body).to eq(payload)
       end.returns response
 
       save
-
-      CGI.unescape(@sent_payload).should == payload
     end
 
     it "should stringify fact values before submitting" do
       facts.values['something'] = 100
 
+      sent_payload = nil
       http.expects(:post).with do |uri, body, headers|
-        body =~ /payload=(.+)/
-        @sent_payload = $1
+        sent_payload = body
       end.returns response
 
       save
 
-      message = JSON.parse(CGI.unescape(@sent_payload))
+      message = JSON.parse(sent_payload)
       sent_facts = JSON.parse(message['payload'])
 
       # We shouldn't modify the original instance

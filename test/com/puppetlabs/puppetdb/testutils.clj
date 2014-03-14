@@ -202,6 +202,21 @@
           orig-headers (:headers request)]
       (assoc request :headers (merge orig-headers headers)))))
 
+(defn post-request
+  "Submit a POST request against path, suitable as an argument to a ring
+  app."
+  ([path] (post-request path nil))
+  ([path query] (post-request path query {}))
+  ([path query params] (post-request path query params {"accept" c-t "content-type" c-t}))
+  ([path query params headers] (post-request path query params headers nil))
+  ([path query params headers body]
+    (let [request (mock/request :post path)
+          orig-headers (:headers request)]
+      (assoc request :headers (merge orig-headers headers)
+                     :content-type c-t
+                     :body body
+                     :params params))))
+
 (defn content-type
   "Returns the content type of the ring response"
   [resp]
