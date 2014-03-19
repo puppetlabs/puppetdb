@@ -2,8 +2,10 @@ language: clojure
 lein: lein2
 env:
   - T_TEST=java:oraclejdk7:embedded
+  - T_TEST=java:oraclejdk8:embedded
   - T_TEST=java:openjdk7:embedded
   - T_TEST=java:oraclejdk7:postgres
+  - T_TEST=java:oraclejdk8:postgres
   - T_TEST=java:openjdk7:postgres
   - T_TEST=ruby:default:none
 script: ./ext/travisci/test.sh
