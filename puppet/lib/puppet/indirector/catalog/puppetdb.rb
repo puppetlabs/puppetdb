@@ -15,7 +15,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     profile "catalog#save" do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
 
-      submit_command(request.key, catalog, CommandReplaceCatalog, 3)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 4)
     end
   end
 
@@ -26,7 +26,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @api private
   def extract_extra_request_data(request)
     {
-      :transaction_uuid => request.options[:transaction_uuid]
+      :transaction_uuid => request.options[:transaction_uuid],
+      :environment => request.environment,
     }
   end
 
@@ -44,10 +45,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       sort_unordered_metaparams(data)
       munge_edges(data)
       synthesize_edges(data, catalog)
-      filter_keys(hash)
+      filter_keys(data)
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
+      add_environment(data, extra_request_data[:environment])
 
-      hash
+      data
     end
   end
 
@@ -62,6 +64,24 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # fundamentally unordered
   UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
 
+  # Include environment in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param environment [String] environment
+  # @return [Hash] returns original hash augmented with environment
+  # @api private
+  def add_environment(hash, environment)
+    hash['environment'] = environment
+
+    hash
+  end
+
+  # Include transaction_uuid in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param transaction_uuid [String] transaction_uuid
+  # @return [Hash] returns original hash augmented with transaction_uuid
+  # @api private
   def add_transaction_uuid(hash, transaction_uuid)
     hash['transaction-uuid'] = transaction_uuid
 
@@ -297,16 +317,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
   def filter_keys(hash)
     profile "Filter extraneous keys from the catalog" do
-      hash['metadata'].delete_if do |k,v|
-        k != 'api_version'
-      end
-
-      hash['data'].delete_if do |k,v|
-        ! ['name', 'version', 'edges', 'resources'].include?(k)
-      end
-
       hash.delete_if do |k,v|
-        ! ['metadata', 'data'].include?(k)
+        ! ['name', 'version', 'edges', 'resources'].include?(k)
       end
     end
   end

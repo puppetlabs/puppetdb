@@ -18,7 +18,7 @@ Puppet::Reports.register_report(:puppetdb) do
 
   def process
     profile "report#process" do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 2)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 3)
     end
   end
 
@@ -55,7 +55,8 @@ Puppet::Reports.register_report(:puppetdb) do
           "configuration-version"   => configuration_version.to_s,
           "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
           "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-          "resource-events"         => build_events_list
+          "resource-events"         => build_events_list,
+          "environment"             => environment,
         })
     end
   end

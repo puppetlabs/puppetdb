@@ -20,6 +20,10 @@ describe Puppet::Resource::Catalog::Puppetdb do
       cat.add_resource(Puppet::Resource.new(:file, 'my_file'))
       cat
     end
+    let(:options) {{
+      :transaction_uuid => 'abcdefg',
+      :environment => 'my_environment',
+    }}
 
     before :each do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
@@ -27,14 +31,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     def save
-      subject.save(Puppet::Resource::Catalog.indirection.request(:save, catalog.name, catalog))
+      subject.save(Puppet::Resource::Catalog.indirection.request(:save, catalog.name, catalog, options))
     end
 
     it "should POST the catalog command as a JSON string" do
-      command_payload = subject.munge_catalog(catalog)
+      command_payload = subject.munge_catalog(catalog, options)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
-        :version => 3,
+        :version => 4,
         :payload => command_payload,
       }.to_pson
 
@@ -364,7 +368,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should add edges defined on collected exported resources" do
@@ -380,7 +384,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should fail if an edge refers to an uncollected exported resource" do
@@ -408,7 +412,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should_not include(edge)
+          result['edges'].should_not include(edge)
         end
       end
 
@@ -434,7 +438,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should add edges defined on collected virtual resources" do
@@ -450,7 +454,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should add edges which refer to realized virtual resources" do
@@ -466,7 +470,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should add edges defined on realized virtual resources" do
@@ -482,7 +486,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should fail if an edge refers to an uncollected virtual resource" do
@@ -510,7 +514,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
           result = subject.munge_catalog(catalog)
 
-          result['data']['edges'].should_not include(edge)
+          result['edges'].should_not include(edge)
         end
       end
 
@@ -588,7 +592,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
-        result['data']['edges'].should include(edge)
+        result['edges'].should include(edge)
       end
 
       context "when dealing with file resources and trailing slashes in their titles" do
@@ -603,7 +607,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                   'target' => {'type' => 'Notify', 'title' => 'anyone'},
                   'relationship' => 'required-by'}
 
-          result['data']['edges'].should include(edge)
+          result['edges'].should include(edge)
         end
 
         it "should make an edge if the other end is a file resource with a missing trailing slash" do
@@ -634,7 +638,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
                 'relationship' => 'required-by'}
 
-        result['data']['edges'].should include(edge)
+        result['edges'].should include(edge)
       end
 
       it "should not include virtual resources" do
@@ -644,7 +648,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         result = subject.munge_catalog(catalog)
 
-        result['data']['resources'].each do |res|
+        result['resources'].each do |res|
           [res['type'], res['title']].should_not == ['Notify', 'something']
         end
       end
@@ -652,9 +656,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
       it "should have the correct set of keys" do
         result = subject.munge_catalog(catalog)
 
-        result.keys.should =~ ['metadata', 'data']
-        result['metadata'].keys.should =~ ['api_version']
-        result['data'].keys.should =~ ['name', 'version', 'edges', 'resources', 'transaction-uuid']
+        result.keys.should =~ ['name', 'version', 'edges', 'resources',
+          'transaction-uuid', 'environment']
       end
     end
   end

@@ -19,6 +19,7 @@ describe Puppet::Node::Facts::Puppetdb do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:facts)    { Puppet::Node::Facts.new('foo') }
     let(:http)     { mock 'http' }
+    let(:env)      { "my_environment" }
 
     before :each do
       Puppet::Network::HttpPool.expects(:http_instance).returns http
@@ -26,15 +27,20 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     def save
-      subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts))
+      subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts, :environment => env))
     end
 
     it "should POST the facts as a JSON string" do
       facts.stringify
-      f = {"name" => facts.name, "values" => facts.values}
+      f = {
+        "name" => facts.name,
+        "values" => facts.values,
+        "environment" => env,
+      }
+
       payload = {
         :command => CommandReplaceFacts,
-        :version => 1,
+        :version => 2,
         :payload => f.to_pson,
       }.to_json
 
