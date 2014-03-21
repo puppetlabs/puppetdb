@@ -61,7 +61,8 @@
                                                           sql-current-connection-database-name
                                                           sql-current-connection-database-version
                                                           postgres?
-                                                          pg-newer-than-8-1?]]))
+                                                          pg-newer-than-8-1?
+                                                          fix-identity-sequence]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -87,31 +88,6 @@
   selecting a single key to drop."
   [table]
   (drop-constraints table "foreign key"))
-
-(defn fix-identity-sequence
-  "Resets a sequence to the maximum value used in a column. Useful when a
-  sequence gets out of sync due to a bug or after a transfer."
-  [table column]
-  {:pre [(string? table)
-         (string? column)]}
-  (if (postgres?)
-    ;; PostgreSQL specific way
-    (sql/with-query-results _
-      [(str "SELECT setval(
-        pg_get_serial_sequence(?, ?),
-        (SELECT max(" column ") FROM " table "))") table column])
-
-    ;; HSQLDB specific way
-    (let [maxid (sql/with-query-results result-set
-                    [(str "SELECT max(" column ") as id FROM " table)]
-                    (:id (first result-set)))
-          ;; While postgres handles a nil case gracefully, hsqldb does not
-          restart (if (nil? maxid) 1 (inc maxid))]
-      (sql/do-commands
-        (str "ALTER TABLE " table " ALTER COLUMN " column
-          " RESTART WITH " restart)))))
-
-;; Migration functions
 
 (defn initialize-store
   "Create the initial database schema."
