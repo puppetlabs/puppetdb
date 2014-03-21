@@ -134,7 +134,12 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
 
   def resource_to_hash(resource)
     parameters = resource.param_values.inject({}) do |params,param_value|
-      params.merge(param_value.param_name.name => param_value.value)
+      if params.has_key?(param_value.param_name.name)
+        value = [params[param_value.param_name.name],param_value.value].flatten
+      else
+        value = param_value.value
+      end
+      params.merge(param_value.param_name.name => value)
     end
 
     tags = resource.puppet_tags.map(&:name).uniq.sort
