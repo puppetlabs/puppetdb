@@ -146,3 +146,32 @@ must be supplied as the value to be matched."
   [value]
   (json/generate-string (kitchensink/sort-nested-maps value)))
 
+(defn fix-identity-sequence
+  "Resets a sequence to the maximum value used in a column. Useful when a
+  sequence gets out of sync due to a bug or after a transfer."
+  [table column]
+  {:pre [(string? table)
+         (string? column)]}
+  (sql/transaction
+    (if (postgres?)
+      ;; PostgreSQL specific way
+      (do
+        (sql/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
+        (sql/with-query-results _
+          [(str "SELECT setval(
+            pg_get_serial_sequence(?, ?),
+            (SELECT max(" column ") FROM " table "))") table column]))
+
+      ;; HSQLDB specific way
+      (let [_ (sql/do-commands (str "LOCK TABLE " table " WRITE"))
+            maxid (sql/with-query-results result-set
+                      [(str "SELECT max(" column ") as id FROM " table)]
+                      (:id (first result-set)))
+            ;; While postgres handles a nil case gracefully, hsqldb does not
+            ;; so here we return 1 if the maxid is nil, and otherwise return
+            ;; maxid +1 to indicate that the next number should be higher
+            ;; then the current one.
+            restartid (if (nil? maxid) 1 (inc maxid))]
+        (sql/do-commands
+          (str "ALTER TABLE " table " ALTER COLUMN " column
+            " RESTART WITH " restartid))))))

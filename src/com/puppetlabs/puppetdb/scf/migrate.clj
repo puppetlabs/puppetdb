@@ -61,7 +61,8 @@
                                                           sql-current-connection-database-name
                                                           sql-current-connection-database-version
                                                           postgres?
-                                                          pg-newer-than-8-1?]]))
+                                                          pg-newer-than-8-1?
+                                                          fix-identity-sequence]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -659,6 +660,9 @@
             "ALTER TABLE catalog_resources DROP CONSTRAINT catalog_resources_pkey"
             "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"])))
 
+(defn reset-catalog-sequence-to-latest-id []
+  (fix-identity-sequence "catalogs" "id"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -680,7 +684,8 @@
    17 use-bigint-instead-of-catalog-hash
    18 add-index-on-exported-column
    19 differential-edges
-   20 differential-catalog-resources})
+   20 differential-catalog-resources
+   21 reset-catalog-sequence-to-latest-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 
