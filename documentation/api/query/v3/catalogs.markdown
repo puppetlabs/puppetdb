@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/query/v3/catalogs.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[catalog]: ../../wire_format/catalog_format.html
+[catalog]: ../../wire_format/catalog_format_v1.html
 
 Querying catalogs occurs via an HTTP request to the
 `/catalogs` REST endpoint.

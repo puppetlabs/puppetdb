@@ -405,10 +405,10 @@
              (scf-store/add-certname! "foo2")
              (scf-store/add-certname! "foo3")
              (scf-store/add-certname! "foo4")
-             (scf-store/add-facts! "foo1" facts1 (now))
-             (scf-store/add-facts! "foo2" facts2 (now))
-             (scf-store/add-facts! "foo3" facts3 (now))
-             (scf-store/add-facts! "foo4" facts3 (now))
+             (scf-store/add-facts! "foo1" facts1 (now) "DEV")
+             (scf-store/add-facts! "foo2" facts2 (now) "DEV")
+             (scf-store/add-facts! "foo3" facts3 (now) "DEV")
+             (scf-store/add-facts! "foo4" facts3 (now) "DEV")
              (scf-store/deactivate-node! "foo4"))
 
            (testing "query without param should not fail"
@@ -446,9 +446,9 @@
          (scf-store/add-certname! "foo")
          (scf-store/add-certname! "bar")
          (scf-store/add-certname! "baz")
-         (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000} (now))
-         (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12} (now))
-         (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000} (now))
+         (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000} (now) "DEV")
+         (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12} (now) "DEV")
+         (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000} (now) "DEV")
 
          (let [catalog (:empty catalogs)
                apache-resource {:type "Class" :title "Apache"}
@@ -493,7 +493,7 @@
 
                  (with-transacted-connection write-db
                    (scf-store/add-certname! "foo1")
-                   (scf-store/add-facts! "foo1" facts1 (now)))
+                   (scf-store/add-facts! "foo1" facts1 (now) "DEV"))
 
                  (testing "queries only use the read database"
                    (let [request (get-request endpoint (json/parse-string nil))
@@ -541,8 +541,8 @@
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
-      (scf-store/add-facts! "foo1" facts1 (now))
-      (scf-store/add-facts! "foo2" facts2 (now)))
+      (scf-store/add-facts! "foo1" facts1 (now) "DEV")
+      (scf-store/add-facts! "foo2" facts2 (now) "DEV"))
 
     (testing "v3 should support fact paging"
       (doseq [[label counts?] [["without" false]
@@ -598,13 +598,13 @@
         fact-count 4]
 
     (scf-store/add-certname! "c.local")
-    (scf-store/add-facts! "c.local" {"hostname" "c-host"} (now))
+    (scf-store/add-facts! "c.local" {"hostname" "c-host"} (now) "DEV")
     (scf-store/add-certname! "a.local")
-    (scf-store/add-facts! "a.local" {"hostname" "a-host"} (now))
+    (scf-store/add-facts! "a.local" {"hostname" "a-host"} (now) "DEV")
     (scf-store/add-certname! "d.local")
-    (scf-store/add-facts! "d.local" {"uptime_days" "2"} (now))
+    (scf-store/add-facts! "d.local" {"uptime_days" "2"} (now) "DEV")
     (scf-store/add-certname! "b.local")
-    (scf-store/add-facts! "b.local" {"uptime_days" "4"} (now))
+    (scf-store/add-facts! "b.local" {"uptime_days" "4"} (now) "DEV")
 
     (testing "include total results count"
       (let [actual (:count (raw-query-facts nil {:include-total true}))]

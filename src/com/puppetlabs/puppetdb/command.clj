@@ -312,7 +312,6 @@
 
 (defmethod process-command! [(command-names :replace-catalog) 1]
   [{:keys [version payload] :as command} options]
-  {:pre [(= version 1)]}
   (log/warn "command 'replace catalog' version 1 is deprecated, use the latest version")
   (when-not (string? payload)
     (throw (IllegalArgumentException.
@@ -322,20 +321,33 @@
 
 (defmethod process-command! [(command-names :replace-catalog) 2]
   [{:keys [version] :as  command} options]
-  {:pre [(= version 2)]}
   (log/warn "command 'replace catalog' version 2 is deprecated, use the latest version")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 3]
   [{:keys [version] :as  command} options]
-  {:pre [(= version 3)]}
+  (log/warn "command 'replace catalog' version 2 is deprecated, use the latest version")
+  (replace-catalog* command options))
+
+(defmethod process-command! [(command-names :replace-catalog) 4]
+  [{:keys [version] :as  command} options]
   (replace-catalog* command options))
 
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 1]
+  [command config]
+  (-> command
+      (assoc :version 2)
+      (update-in [:payload] #(upon-error-throw-fatality (json/parse-string %)))
+      (assoc-in [:payload "environment"] nil)
+      (process-command! config)))
+
+(defmethod process-command! [(command-names :replace-facts) 2]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:strs [name] :as facts} (upon-error-throw-fatality (json/parse-string payload))
+  (let [{:strs [name] :as facts} (if (string? payload)
+                                   (upon-error-throw-fatality (json/parse-string payload))
+                                   payload)
         id                       (:id annotations)
         timestamp                (:received annotations)]
     
@@ -374,14 +386,16 @@
 
 (defmethod process-command! [(command-names :store-report) 1]
   [{:keys [version] :as command} {:keys [db]}]
-  {:pre [(= version 1)]}
   (log/warn "command 'store report' version 1 is deprecated, use the latest version")
   (store-report* 1 db command))
 
 (defmethod process-command! [(command-names :store-report) 2]
-  [{:keys [version] :as command} {:keys [db]}]
-  {:pre [(= version 2)]}
+  [{:keys [version] :as command} {:keys [db] :as config}]
   (store-report* 2 db command))
+
+(defmethod process-command! [(command-names :store-report) 3]
+  [{:keys [version] :as command} {:keys [db]}]
+  (store-report* 3 db command))
 
 ;; ## MQ I/O
 ;;

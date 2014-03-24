@@ -2,11 +2,11 @@
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.kitchensink.core :as kitchensink])
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env report=]])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
         [com.puppetlabs.puppetdb.testutils :only (response-equal? assert-success! get-request paged-results)]
         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
         [clj-time.coerce :only [to-date-time to-string]]
@@ -33,7 +33,7 @@
 
 (defn reports-response
   [reports]
-  (set (map report-response reports)))
+  (set (map (comp dissoc-env report-response) reports)))
 
 (defn remove-receive-times
   [reports]
@@ -69,17 +69,18 @@
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")
         (let [results       (paged-results
-                              {:app-fn  *app*
-                               :path    endpoint
-                               :query   ["=" "certname" (:certname basic1)]
-                               :limit   1
-                               :total   2
-                               :include-total  count?})]
+                             {:app-fn  *app*
+                              :path    endpoint
+                              :query   ["=" "certname" (:certname basic1)]
+                              :limit   1
+                              :total   2
+                              :include-total  count?})]
           (is (= 2 (count results)))
-          (is (= (reports-response
-                    [(assoc basic1 :hash basic1-hash)
-                     (assoc basic2 :hash basic2-hash)])
-                (set (remove-receive-times results)))))))))
+          (is (report= (sort-by :hash
+                                (vec (reports-response
+                                      [(assoc basic1 :hash basic1-hash)
+                                       (assoc basic2 :hash basic2-hash)])))
+                       (sort-by :hash (vec (remove-receive-times results))))))))))
 
 (deftest invalid-queries
   (let [response (get-response ["<" "timestamp" 0])]

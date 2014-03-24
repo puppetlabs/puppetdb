@@ -16,7 +16,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [clojure.string :as str])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
-        [com.puppetlabs.puppetdb.examples.reports :only [reports]]
+        [com.puppetlabs.puppetdb.examples.reports :only [reports report=]]
         [com.puppetlabs.puppetdb.testutils.reports]
         [com.puppetlabs.puppetdb.testutils.events]
         [com.puppetlabs.puppetdb.query.reports :only [is-latest-report?]]
@@ -46,7 +46,7 @@
             (certname-facts-metadata! "some_certname"))))
       (is (empty? (cert-fact-map "some_certname")))
       
-      (add-facts! certname facts (-> 2 days ago))
+      (add-facts! certname facts (-> 2 days ago) nil)
       (testing "should have entries for each fact"
         (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
                [{:certname certname :name "domain" :value "mydomain.com"}
@@ -74,7 +74,7 @@
                            "hostname" "myhost"
                            "kernel" "Linux"
                            "uptime_seconds" "3600"}]
-            (replace-facts! {"name"  certname "values" new-facts} (now))
+            (replace-facts! {"name"  certname "values" new-facts "environment" "DEV"} (now))
             (testing "should have only the new facts"
               (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
                      [{:name "domain" :value "mynewdomain.com"}
@@ -92,35 +92,80 @@
                           (and (= :certname_facts_metadata (first update-call))
                                (:timestamp (last update-call)))) @updates)))
             (testing "should only insert uptime_seconds"
-              (is (= [[:certname_facts {:value "3600", :name "uptime_seconds", :certname "some_certname"}]]
+              (is (= [[:environments {:name "DEV"}]
+                      [:certname_facts {:value "3600"
+                                        :name "uptime_seconds"
+                                        :certname "some_certname"}]]
                      @adds))))))
 
       (testing "replacing all new facts"
         (delete-facts! certname)
         (replace-facts! {"name" certname
-                         "values" facts} (now))
+                         "values" facts
+                         "environment" "DEV"} (now))
         (is (= facts (cert-fact-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
-        (add-facts! certname facts (-> 2 days ago))
+        (add-facts! certname facts (-> 2 days ago) nil)
         (replace-facts! {"name" certname
-                         "values" {"foo" "bar"}} (now))
+                         "values" {"foo" "bar"}
+                         "environment" "DEV"} (now))
         (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
       
       (testing "replace-facts with only additions"
         (let [fact-map (cert-fact-map "some_certname")]
           (replace-facts! {"name" certname
-                           "values" (assoc fact-map "one more" "here")} (now))
+                           "values" (assoc fact-map "one more" "here")
+                           "environment" "DEV"} (now))
           (is (= (assoc fact-map  "one more" "here")
                  (cert-fact-map "some_certname")))))
 
       (testing "replace-facts with no change"
         (let [fact-map (cert-fact-map "some_certname")]
           (replace-facts! {"name" certname
-                           "values" fact-map} (now))
+                           "values" fact-map
+                           "environment" "DEV"} (now))
           (is (= fact-map
                  (cert-fact-map "some_certname"))))))))
+
+(deftest fact-persistance-with-environment
+    (testing "Persisted facts"
+    (let [certname "some_certname"
+          facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"}]
+      (add-certname! certname)
+
+      (is (nil?
+           (sql/transaction
+            (certname-facts-metadata! "some_certname"))))
+      (is (empty? (cert-fact-map "some_certname")))
+      (is (nil? (environment-id "PROD")))
+
+      (add-facts! certname facts (-> 2 days ago) "PROD")
+
+      (testing "should have entries for each fact"
+        (is (= facts
+               (into {} (map (juxt :name :value) (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")))))
+
+        (is (= [{:certname "some_certname"
+                 :environment_id (environment-id "PROD")}]
+               (query-to-vec "SELECT certname, environment_id FROM certname_facts_metadata"))))
+
+      (is (nil? (environment-id "DEV")))
+
+      (update-facts! certname facts (-> 1 days ago) "DEV")
+
+      (testing "should have the same entries for each fact"
+        (is (= facts
+               (into {} (map (juxt :name :value) (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")))))
+
+        (is (= [{:certname "some_certname"
+                 :environment_id (environment-id "DEV")}]
+               (query-to-vec "SELECT certname, environment_id FROM certname_facts_metadata")))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
@@ -174,6 +219,42 @@
                  [{:type "Class" :title "foobar" :tags [] :exported false :file nil :line nil}
                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :file "/tmp/foo" :line 10}
                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :file "/tmp/bar" :line 20}])))))))
+
+(deftest catalog-persistence-with-environment
+  (let [other-certname "notbasic.catalogs.com"]
+    (testing "Persisted catalogs"
+      (add-certname! certname)
+      (add-certname! other-certname)
+
+      (is (nil? (environment-id "PROD")))
+
+      (add-catalog! (assoc catalog :environment "PROD"))
+
+      (testing "should persist environment if the environment is new"
+        (let [id (environment-id "PROD")]
+          (is (number? (environment-id "PROD")))
+          (is (= [{:certname certname :api_version 1 :catalog_version "123456789" :environment_id id}]
+                 (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"])))
+
+          (testing "Adding another catalog with the same environment should just use the existing environment"
+            (add-catalog! (assoc catalog :environment "PROD" :certname other-certname))
+
+            (is (= [{:certname other-certname :api_version 1 :catalog_version "123456789" :environment_id id}]
+                   (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs where certname=?" other-certname])))))))))
+
+(deftest updating-catalog-environment
+  (testing "should persist environment if the environment is new"
+    (let [prod-id (ensure-environment "PROD")
+          dev-id (ensure-environment "DEV")]
+
+      (add-certname! certname)
+      (add-catalog! (assoc catalog :environment "DEV"))
+      (is (= [{:certname certname :api_version 1 :catalog_version "123456789" :environment_id dev-id}]
+             (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"])))
+
+      (add-catalog! (assoc catalog :environment "PROD"))
+      (is (= [{:certname certname :api_version 1 :catalog_version "123456789" :environment_id prod-id}]
+             (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"]))))))
 
 (deftest catalog-replacement
   (testing "should noop if replaced by themselves"
@@ -808,7 +889,7 @@
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
     (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
-                    #(replace-facts! {"name" "node1" "values" {"foo" "bar"}} (ago (days 2)))]]
+                    #(replace-facts! {"name" "node1" "values" {"foo" "bar"} "environment" "DEV"} (ago (days 2)))]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
         (dorun (map #(%) func-set))
@@ -860,6 +941,31 @@
         (assoc report
           :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
+  (deftest report-storage-with-environment
+    (testing "should store reports"
+      (is (nil? (environment-id "DEV")))
+
+      (store-example-report! (assoc report :environment "DEV") timestamp)
+
+      (is (number? (environment-id "DEV")))
+
+      (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
+             [{:certname (:certname report)
+               :environment_id (environment-id "DEV")}]))
+
+      (is (= (query-to-vec ["SELECT hash FROM reports"])
+            [{:hash report-hash}]))))
+
+  (deftest report-storage-with-existing-environment
+    (testing "should store reports"
+      (let [env-id (ensure-environment "DEV")]
+
+        (store-example-report! (assoc report :environment "DEV") timestamp)
+
+        (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
+               [{:certname (:certname report)
+                 :environment_id env-id}])))))
+
   (deftest latest-report
     (testing "should flag report as 'latest'"
       (let [node        (:certname report)
@@ -884,7 +990,7 @@
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
             actual        (reports-query-result ["=" "certname" certname])]
-        (is (= expected actual)))))
+        (is (report= expected actual)))))
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"

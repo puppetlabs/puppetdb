@@ -64,9 +64,9 @@
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
-    (scf-store/add-facts! "host1" facts1 (now))
-    (scf-store/add-facts! "host2" facts2 (now))
-    (scf-store/add-facts! "host3" facts3 (now))
+    (scf-store/add-facts! "host1" facts1 (now) "DEV")
+    (scf-store/add-facts! "host2" facts2 (now) "DEV")
+    (scf-store/add-facts! "host3" facts3 (now) "DEV")
     (scf-store/deactivate-node! "host3")
 
     (doseq [version (keys versions)

@@ -59,10 +59,10 @@
              (scf-store/add-certname! "foo1")
              (scf-store/add-certname! "foo2")
              (scf-store/add-certname! "foo3")
-             (scf-store/add-facts! "foo2" facts2 (now))
-             (scf-store/add-facts! "foo3" facts3 (now))
+             (scf-store/add-facts! "foo2" facts2 (now) "DEV")
+             (scf-store/add-facts! "foo3" facts3 (now) "DEV")
              (scf-store/deactivate-node! "foo1")
-             (scf-store/add-facts! "foo1" facts1 (now)))
+             (scf-store/add-facts! "foo1" facts1 (now) "DEV"))
 
            (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
              (let [request (get-request route)

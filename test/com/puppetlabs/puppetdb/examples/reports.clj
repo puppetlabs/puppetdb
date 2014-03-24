@@ -10,6 +10,7 @@
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"
+    :environment            "DEV"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -68,6 +69,7 @@
     :configuration-version  "bja3985a23"
     :start-time             "2013-08-28T19:00:00-03:00"
     :end-time               "2013-08-28T19:10:00-03:00"
+    :environment            "DEV"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname on input, but they will have one on output.  To make it
@@ -126,6 +128,7 @@
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-03T12:00:00-03:00"
     :end-time               "2011-01-03T12:10:00-03:00"
+    :environment            "DEV"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -184,6 +187,7 @@
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-03T12:00:00-03:00"
     :end-time               "2011-01-03T12:10:00-03:00"
+    :environment            "DEV"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -233,5 +237,21 @@
       :line             3
       :containment-path ["Foo" "" "Bar[Baz]"]
       :containing-class "Foo"}]}
-
    })
+
+(defn dissoc-env
+  "Removes the environment key (keyword or string) from a catalog"
+  [catalog]
+  (dissoc catalog :environment "environment"))
+
+(defn report=
+  "Checks to see that reports are equal. Can also compare lists of catalogs.
+   Ignores environment so results queried from the web api cand be compared with
+   the command values. This function is not needed once the query API supports
+   returning environments"
+  [& args]
+  (apply = (map #(if (seq? %)
+                   (map dissoc-env %)
+                   (dissoc-env %))
+                args)))
+

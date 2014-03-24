@@ -109,17 +109,17 @@
     (testing "key validation"
       (testing "should accept catalogs with the correct set of keys"
         (let [catalog (:basic catalogs)]
-          (is (= catalog (validate-keys catalog)))))
+          (is (= catalog ((validate-keys catalog-attributes) catalog)))))
 
       (testing "should fail if the catalog has an extra key"
         (let [catalog (assoc (:basic catalogs) :classes #{})]
           (is (thrown-with-msg? IllegalArgumentException #"Catalog has unexpected keys: classes"
-                                (validate-keys catalog)))))
+                                ((validate-keys catalog-attributes) catalog)))))
 
       (testing "should fail if the catalog is missing a key"
         (let [catalog (dissoc (:basic catalogs) :version)]
           (is (thrown-with-msg? IllegalArgumentException #"Catalog is missing keys: version"
-                                (validate-keys catalog))))))))
+                                ((validate-keys catalog-attributes) catalog))))))))
 
 (deftest resource-normalization
   (let [; Synthesize some fake resources
@@ -335,7 +335,8 @@
                   :title "/tmp/quux",
                   :type "File"}},
      :version "1330995750",
-     :transaction-uuid nil}))
+     :transaction-uuid nil
+     :environment nil}))
 
 (deftest complete-transformation-v2
   (catalog-before-and-after 2
@@ -508,7 +509,8 @@
                   :title "/tmp/quux",
                   :type "File"}},
      :version "1330995750",
-     :transaction-uuid nil}))
+     :transaction-uuid nil
+     :environment nil}))
 
 
 (deftest complete-transformation-v3
@@ -683,4 +685,5 @@
                   :title "/tmp/quux",
                   :type "File"}},
      :version "1330995750",
-     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"}))
+     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+     :environment nil}))
