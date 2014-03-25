@@ -28,7 +28,7 @@ Catalog Interchange Format
 
 ### Version
 
-This is **version 4** of the catalog interchange format, which is used by PuppetDB 2.0.0.
+This is **version 4** of the catalog interchange format.
 
 
 ### Encoding
@@ -55,7 +55,7 @@ The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. 
 : String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](/references/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
 
 `"environment"`
-: String. The envrionment associated to then node when the catalog was compiled.
+: String. The envrionment associated to the node when the catalog was compiled.
 
 `"edges"`
 : List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between any two resources in the catalog, which may have been made with [chaining arrows][chain], [metaparameters][], or [the `require` function][require].
@@ -209,5 +209,5 @@ command is tied to a the wire format version of the same number.
 
 There were a number of small changes to the previous (v1) of the catalog wire format
 
-1. The top-level object, containing the "metadata" and "data" keys was removed. What was the value of "data" is now the top level object.
+1. The top-level object, containing the "metadata" and "data" keys was removed. "api_version" is no longer included in the command. What was the value of "data" is now the top level object.
 2. A new top-level key "environment" was added
