@@ -12,8 +12,13 @@ group :test do
   gem 'mocha', '~> 1.0'
 
   # Since newer versions of rake are not supported, we pin
-  if RUBY_VERSION == '1.8.5'
+  case RUBY_VERSION
+  when '1.8.5'
     gem 'rake', '<= 0.8.7'
+  when '1.8.7'
+    gem 'rake', '<= 10.1.1'
+  else
+    gem 'rake'
   end
 end
 
