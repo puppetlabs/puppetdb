@@ -10,6 +10,14 @@ group :test do
   gem 'puppet', '>= 3.4.2', :require => false
 
   gem 'mocha', '~> 1.0'
+
+  # Since newer versions of rake are not supported, we pin
+  case RUBY_VERSION
+  when '1.8.7'
+    gem 'rake', '<= 10.1.1'
+  else
+    gem 'rake'
+  end
 end
 
 group :acceptance do
