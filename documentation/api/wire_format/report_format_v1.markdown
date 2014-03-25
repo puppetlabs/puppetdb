@@ -1,10 +1,15 @@
 ---
 title: "PuppetDB 1.6 » API » Report Wire Format, Version 1"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/report_format.html"
+canonical: "/puppetdb/latest/api/wire_format/report_format_v1.html"
 ---
 
 [api]: ../index.html
+[report_v3]: report_format_v3.html
+
+### Version
+
+This is **version 1** of the report interchange format and has been deprecated. See [version 3][report_v3] for the currently supported version of this wire format.
 
 ## Report interchange format
 

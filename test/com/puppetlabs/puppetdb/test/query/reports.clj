@@ -1,8 +1,9 @@
 (ns com.puppetlabs.puppetdb.test.query.reports
-  (:require [com.puppetlabs.puppetdb.query.reports :as query])
+  (:require [com.puppetlabs.puppetdb.query.reports :as query]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports report=]])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
+
         com.puppetlabs.puppetdb.testutils.reports
         [com.puppetlabs.time :only [to-secs]]
         [clj-time.core :only [now ago days]]))
@@ -50,12 +51,12 @@
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result ["=" "certname" (:certname basic)])]
-        (is (= expected actual))))
+        (is (report= expected actual))))
 
     (testing "should return reports based on hash"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result ["=" "hash" report-hash])]
-        (is (= expected actual))))))
+        (is (report= expected actual))))))
 
 (deftest paging-results
   (let [hash1        (:hash (store-example-report! (:basic  my-reports) (now)))
@@ -91,7 +92,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
                                                  {:order-by [[:report-format order]]})]
-              (is (= actual expected))))))
+              (is (report= actual expected))))))
 
       (testing "alphabetical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
@@ -100,7 +101,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
                              {:order-by [[:transaction-uuid order]]})]
-              (is (= actual expected))))))
+              (is (report= actual expected))))))
 
       (testing "timestamp fields"
         (doseq [[order expecteds] [[:ascending  [report2 report3 report4 report1]]
@@ -109,7 +110,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
                              {:order-by [[:start-time order]]})]
-              (is (= actual expected))))))
+              (is (report= actual expected))))))
 
       (testing "multiple fields"
         (doseq [[[puppet-version-order conf-version-order] expecteds] [[[:ascending :descending] [report1 report2 report4 report3]]
@@ -119,7 +120,7 @@
                   actual   (reports-query-result ["=" "certname" "foo.local"]
                              {:order-by [[:puppet-version puppet-version-order]
                                          [:configuration-version conf-version-order]]})]
-              (is (= actual expected)))))))
+              (is (report= actual expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [[:ascending  [[0 [report1 report2 report4 report3]]
@@ -137,4 +138,4 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result ["=" "certname" "foo.local"]
                              {:order-by [[:report-format order]] :offset offset})]
-              (is (= actual expected)))))))))
+              (is (report= actual expected)))))))))

@@ -36,13 +36,15 @@
       {"operatingsystem" "Debian"
        "kernel" "Linux"
        "uptime_seconds" 50000}
-      (now))
+      (now)
+      "DEV")
     (add-facts! "two.local"
       {"operatingsystem" "Ubuntu"
        "kernel" "Linux"
        "uptime_seconds" 10000
        "message" "hello"}
-      (now))
+      (now)
+      "DEV")
     (sql/insert-records :catalog_resources
       {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
       {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}

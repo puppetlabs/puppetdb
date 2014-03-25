@@ -19,7 +19,7 @@
         f4         "fqdn"
         fact-count 4]
     (scf-store/add-certname! "foo.local")
-    (scf-store/add-facts! "foo.local" (into {} (map (fn [x] [x "unused"]) [f2 f4 f1 f3])) (now))
+    (scf-store/add-facts! "foo.local" (into {} (map (fn [x] [x "unused"]) [f2 f4 f1 f3])) (now) "DEV")
 
     (testing "include total results count"
       (let [actual (:count (facts/fact-names {:count? true}))]
