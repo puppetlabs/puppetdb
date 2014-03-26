@@ -4,6 +4,66 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+1.6.3
+-----
+
+PuppetDB 1.6.3 is a bugfix release.
+
+Notable improvements and fixes:
+
+* (PDB-510) Add migration to fix sequence for catalog.id
+
+  The sequence for catalog.id had not been incremented during insert for migration
+  20 'differential-catalog-resources'.
+
+  This meant that the catalog.id column would throw a constraint exception during
+  insertion until the sequence had increased enough to be greater then the max id
+  already used in the column.
+
+  While this was only a temporary error, it does cause puppetdb to start to throw
+  errors and potentially dropping some catalog updates until a certain number of
+  catalogs had been attempted. In some cases catalogs had been queued up and
+  retried successfully, other cases meant they were simply dropped into the DLQ.
+
+  The fix is to reset the sequence to match the max id on the catalogs.id column.
+
+* RHEL 7 beta packages are now included
+
+* (PDB-343) Fedora 18 packages are no longer to be built
+
+* (PDB-468) Update CLI tools to use correct JAVA_BIN and JAVA_ARGS
+
+  Some tools such as `puppetdb import|export` and `puppetdb foreground` where not
+  honouring the JAVA_BIN defined in /etc/default|sysconfig/puppetdb.
+
+* (PDB-437) Reduce API source code and version inconsistencies
+
+  The API code when split between different versions created an opportunity for
+  inconsistencies to grow. For example, some versioning inside the code supported
+  this file based way of abstracting versions, but other functions required
+  version specific handling.
+
+  This patch solidifies the version handling to ensure we reduce in regressions
+  relating to different versions of the query API and different operator handling.
+
+* Use v3 end-point for import and benchmark tools
+
+* (PDB-80)(packaging) Fixup logic in defaults file for java on EL
+
+* (PDB-463) Fix assertion error in /v1/resources
+
+* (PDB-238) - Some code reduction work related to simplifying future query API removal
+
+* (PDB-446) Start in on the merge of v2 and v3 test namespaces for testing
+
+* (PDB-435) Travis no longer has bundler installed by default, now installing it explicitly
+
+* PDB-437 Clojure lint cleanups
+
+* Change tutorial and curl documentation examples to use v3 API
+
+* Added examples to documentation for latest-report? and file
+
 1.6.2
 -----
 
