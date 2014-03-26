@@ -19,10 +19,14 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         facts = request.instance.dup
         facts.values = facts.values.dup
         facts.stringify
-        {"name" => facts.name, "values" => facts.values}.to_json
+        {
+          "name" => facts.name,
+          "values" => facts.values,
+          "environment" => request.environment,
+        }.to_json
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 1)
+      submit_command(request.key, payload, CommandReplaceFacts, 2)
     end
   end
 
