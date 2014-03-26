@@ -52,13 +52,13 @@ Notable improvements and fixes:
 
 * (PDB-463) Fix assertion error in /v1/resources
 
-* (PDB-238) - Some code reduction work related to simplifying future query API removal
+* (PDB-238) Some code reduction work related to simplifying future query API version removal
 
 * (PDB-446) Start in on the merge of v2 and v3 test namespaces for testing
 
 * (PDB-435) Travis no longer has bundler installed by default, now installing it explicitly
 
-* PDB-437 Clojure lint cleanups
+* (PDB-437) Clojure lint cleanups
 
 * Change tutorial and curl documentation examples to use v3 API
 
