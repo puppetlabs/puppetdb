@@ -52,7 +52,7 @@ type 'Service':
             
 To retrieve latest events that are tied to the class found in your update.pp file    
     
-    ["and", ["latest-report?", true],
+    ["and", ["=", "latest-report?", true],
             [ "~", "file", "update.pp"]]
 
 For more information on the available values for `FIELD`, see the [fields](#fields) section below.
