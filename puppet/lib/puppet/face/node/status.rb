@@ -10,8 +10,8 @@ Puppet::Face.define(:node, '0.0.1') do
     DESC
 
     when_invoked do |*args|
-      require 'puppet/network/http_pool'
       require 'puppet/util/puppetdb'
+      require 'puppet/util/puppetdb/http_client'
       require 'json'
 
       Puppet::Util::Puppetdb::GlobalCheck.run
@@ -22,7 +22,7 @@ Puppet::Face.define(:node, '0.0.1') do
       server = Puppet::Util::Puppetdb.server
       port = Puppet::Util::Puppetdb.port
 
-      http = Puppet::Network::HttpPool.http_instance(server, port)
+      http = Puppet::Util::Puppetdb::HttpClient.instance(server, port)
 
       args.map do |node|
         begin

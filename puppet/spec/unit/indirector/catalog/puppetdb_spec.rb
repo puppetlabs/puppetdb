@@ -4,6 +4,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/catalog/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'puppet/util/puppetdb/http_client'
 require 'json'
 
 describe Puppet::Resource::Catalog::Puppetdb do
@@ -23,7 +24,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
     before :each do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Util::Puppetdb::HttpClient.expects(:instance).returns http
     end
 
     def save

@@ -4,6 +4,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/node/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'puppet/util/puppetdb/http_client'
 require 'json'
 
 describe Puppet::Node::Puppetdb do
@@ -24,7 +25,7 @@ describe Puppet::Node::Puppetdb do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:http)     { mock 'http' }
     before :each do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Util::Puppetdb::HttpClient.expects(:instance).returns http
     end
 
     it "should POST a '#{CommandDeactivateNode}' command as a URL-encoded JSON string" do

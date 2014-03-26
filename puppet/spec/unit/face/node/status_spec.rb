@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'puppet'
 require 'puppet/face'
-require 'puppet/network/http_pool'
+require 'puppet/util/puppetdb/http_client'
 
 describe "node face: status" do
   let(:subject) { Puppet::Face[:node, :current] }
@@ -20,7 +20,7 @@ describe "node face: status" do
 
   it "should fetch the status of each node" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+    Puppet::Util::Puppetdb::HttpClient.stubs(:instance).returns(http)
 
     nodes = %w[a b c d e]
     nodes.each do |node|
@@ -32,7 +32,7 @@ describe "node face: status" do
 
   it "should CGI escape the node names" do
     http = stub 'http'
-    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+    Puppet::Util::Puppetdb::HttpClient.stubs(:instance).returns(http)
 
     node = "foo/+*&bar"
 

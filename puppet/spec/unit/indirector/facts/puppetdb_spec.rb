@@ -3,6 +3,7 @@ require 'spec_helper'
 
 require 'puppet/indirector/facts/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'puppet/util/puppetdb/http_client'
 require 'json'
 
 describe Puppet::Node::Facts::Puppetdb do
@@ -21,7 +22,7 @@ describe Puppet::Node::Facts::Puppetdb do
     let(:http)     { mock 'http' }
 
     before :each do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Util::Puppetdb::HttpClient.expects(:instance).returns http
       response.stubs(:body).returns '{"uuid": "a UUID"}'
     end
 
