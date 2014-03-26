@@ -218,6 +218,26 @@
 (def node-columns {"name"         "certnames"
                    "deactivated"  "certnames"})
 
+(def event-columns
+  {"certname"               ["reports"]
+   "configuration_version"  ["reports"]
+   "start_time"             ["reports" "run_start_time"]
+   "end_time"               ["reports" "run_end_time"]
+   "receive_time"           ["reports" "report_receive_time"]
+   "report"                 ["resource_events"]
+   "status"                 ["resource_events"]
+   "timestamp"              ["resource_events"]
+   "resource_type"          ["resource_events"]
+   "resource_title"         ["resource_events"]
+   "property"               ["resource_events"]
+   "new_value"              ["resource_events"]
+   "old_value"              ["resource_events"]
+   "message"                ["resource_events"]
+   "file"                   ["resource_events"]
+   "line"                   ["resource_events"]
+   "containment_path"       ["resource_events"]
+   "containing_class"       ["resource_events"]})
+
 (defn column-map->sql
   "Helper function that converts one of our column maps to a SQL string suitable
   for use in a SELECT"
@@ -248,6 +268,10 @@
 (defmethod queryable-fields :node
   [_ _]
   (keyset node-columns))
+
+(defmethod queryable-fields :event
+  [_ _]
+  (keyset event-columns))
 
 (def subquery->type
   {"select-resources" :resource
