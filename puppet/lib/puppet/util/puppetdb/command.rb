@@ -1,8 +1,8 @@
 require 'puppet/error'
-require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
+require 'puppet/util/puppetdb/http_client'
 require 'json'
 
 class Puppet::Util::Puppetdb::Command
@@ -39,7 +39,7 @@ class Puppet::Util::Puppetdb::Command
 
     begin
       response = profile "Submit command HTTP post" do
-        http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
+        http = Puppet::Util::Puppetdb::HttpClient.instance(config.server, config.port)
         http.post(Url + "?checksum=#{checksum}", payload, headers)
       end
 

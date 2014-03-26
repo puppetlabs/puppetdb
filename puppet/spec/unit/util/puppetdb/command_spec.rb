@@ -1,7 +1,7 @@
 require 'spec_helper'
 require 'digest/sha1'
-require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/http_client'
 
 
 describe Puppet::Util::Puppetdb::Command do
@@ -13,7 +13,7 @@ describe Puppet::Util::Puppetdb::Command do
   describe "#submit" do
     let(:http) { mock 'http' }
     before(:each) do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
+      Puppet::Util::Puppetdb::HttpClient.expects(:instance).returns http
     end
 
     context "when the submission succeeds" do

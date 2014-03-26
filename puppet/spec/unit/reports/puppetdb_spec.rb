@@ -3,9 +3,9 @@
 require 'spec_helper'
 require 'puppet/reports'
 require 'net/http'
-require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/config'
+require 'puppet/util/puppetdb/http_client'
 require 'json'
 
 processor = Puppet::Reports.report(:puppetdb)
@@ -40,7 +40,7 @@ describe processor do
         :payload => subject.send(:report_to_hash),
       }.to_json
 
-      Puppet::Network::HttpPool.expects(:http_instance).returns(http)
+      Puppet::Util::Puppetdb::HttpClient.expects(:instance).returns(http)
       http.expects(:post).with {|path, body, headers|
         expect(path).to include(Puppet::Util::Puppetdb::Command::Url)
         expect(body).to eq(payload)
