@@ -188,9 +188,8 @@
           ;; Functions that tweak various attributes of a catalog
           tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
           tweak-version      #(assoc % :version (str (:version %) "?"))
-          tweak-puppetdb-version #(assoc % :puppetdb-version (inc (:puppetdb-version %)))
           ;; List of all the tweaking functions
-          chaos-monkeys      [tweak-api-version tweak-version tweak-puppetdb-version]
+          chaos-monkeys      [tweak-api-version tweak-version]
           ;; Function that will apply a random tweak function
           apply-monkey       #((rand-nth chaos-monkeys) %)]
 

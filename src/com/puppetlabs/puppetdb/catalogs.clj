@@ -97,15 +97,15 @@
   (:use [clojure.core.match :only [match]]))
 
 (def ^:const catalog-version
-  ^{:doc "Constant representing the version number of the PuppetDB
-  catalog format"}
-  (Integer. 3))
+  "Constant representing the version number of the PuppetDB
+  catalog format"
+  3)
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
 
 (def ^:const catalog-attributes
-  #{:certname :puppetdb-version :api-version :transaction-uuid :version :edges :resources :environment})
+  #{:certname :api-version :transaction-uuid :version :edges :resources :environment})
 
 (def v4-catalog-attributes
   (disj catalog-attributes :api-version))
@@ -250,14 +250,12 @@
 (defn transform-metadata
   "Standardizes the metadata in the given `catalog`. In particular:
     * Stringifies the `version`
-    * Adds a `puppetdb-version` with the current catalog format version
     * Renames `api_version` to `api-version`
     * Renames `name` to `certname`
     * If we don't have  a `transaction-uuid` key, adds one with a value of `nil`."
   [catalog]
   {:pre [(map? catalog)]
    :post [(string? (:version %))
-          (= (:puppetdb-version %) catalog-version)
           (:certname %)
           (= (:certname %) (:name catalog))
           (= (:api-version %) (:api_version catalog))
@@ -267,7 +265,6 @@
           (contains? % :transaction-uuid)]}
   (-> catalog
       (update-in [:version] str)
-      (assoc :puppetdb-version catalog-version)
       (set/rename-keys {:name :certname :api_version :api-version})))
 
 (def transform

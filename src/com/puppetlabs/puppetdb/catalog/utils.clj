@@ -18,7 +18,7 @@
       (update-in [:resources] vals)
       (update-in [:edges] (fn [edges]
                             (map #(update-in % [:relationship] name) edges)))
-      (dissoc :puppetdb-version :api-version)
+      (dissoc :api-version)
       (set/rename-keys {:certname :name})
       walk/stringify-keys))
 

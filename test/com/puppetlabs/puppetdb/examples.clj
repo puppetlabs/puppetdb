@@ -1,10 +1,8 @@
-(ns com.puppetlabs.puppetdb.examples
-  (:use [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
+(ns com.puppetlabs.puppetdb.examples)
 
 (def catalogs
   {:empty
    {:certname         "empty.catalogs.com"
-    :puppetdb-version catalog-version
     :api-version      1
     :version          "1330463884"
     :edges            #{{:source       {:type "Stage" :title "main"}
@@ -31,7 +29,6 @@
 
    :basic
    {:certname         "basic.catalogs.com"
-    :puppetdb-version catalog-version
     :api-version      1
     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
@@ -68,7 +65,6 @@
 
    :invalid
    {:certname         "invalid.catalogs.com"
-    :puppetdb-version catalog-version
     :api-version      1
     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
