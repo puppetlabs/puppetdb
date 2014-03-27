@@ -31,9 +31,9 @@ to the result of the form supplied to this method."
 (deftest collected-exported-resources
   (let [catalog (:basic catalogs)
         resources (:resources catalog)
-        collector-catalog (assoc catalog :certname "collector")
+        collector-catalog (assoc catalog :name "collector")
         exporter-catalog (-> catalog
-                           (assoc :certname "exporter")
+                           (assoc :name "exporter")
                            (assoc :resources (into {} (for [[spec resource] resources]
                                                         [spec (assoc resource :exported true)]))))]
     (scf-store/add-certname! "collector")

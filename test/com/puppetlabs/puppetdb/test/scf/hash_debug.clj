@@ -15,7 +15,7 @@
 (defn persist-catalog
   "Adds the certname and full catalog to the database, returns the catalog map with
    the generated as as `:persisted-hash`"
-  [{:keys [certname] :as catalog}]
+  [{certname :name :as catalog}]
   (store/add-certname! certname)
   (let [persisted-hash (store/add-catalog! catalog)]
     (assoc catalog :persisted-hash persisted-hash)))
@@ -106,7 +106,7 @@
                "database name"
                "database version")
 
-          (are [metadata-key] (and (kitchensink/string-contains? (:certname new-catalog)
+          (are [metadata-key] (and (kitchensink/string-contains? (:name new-catalog)
                                                            (get catalog-metadata metadata-key))
                                    (.startsWith (get catalog-metadata metadata-key) debug-dir))
                "old catalog path - edn"

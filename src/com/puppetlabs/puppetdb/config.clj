@@ -14,7 +14,8 @@
             [fs.core :as fs]
             [clojure.string :as str]
             [schema.core :as s]
-            [com.puppetlabs.puppetdb.schema :as pls]))
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.utils :as utils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -279,13 +280,6 @@
       (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
-(defn assoc-when
-  "Assoc to `m` only when `k` is not already present in `m`"
-  [m k v]
-  (if (get m k)
-    m
-    (assoc m k v)))
-
 (defn normalize-product-name
   "Checks that `product-name` is specified as a legal value, throwing an
   exception if not. Returns `product-name` if it's okay."
@@ -306,8 +300,8 @@
                (fn [global-config]
                  (-> global-config
                      (assoc :product-name product-name)
-                     (assoc-when :event-query-limit 20000)
-                     (assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
+                     (utils/assoc-when :event-query-limit 20000
+                                       :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

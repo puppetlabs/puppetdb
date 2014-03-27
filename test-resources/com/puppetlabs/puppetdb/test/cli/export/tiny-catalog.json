@@ -1,52 +1,46 @@
 {
-    "data" : {
-        "name" : "myhost.localdomain",
-        "edges" : [ {
-            "relationship" : "contains",
-            "target" : {
-                "title" : "/etc/apt/preferences.d/puppetlabs.pref",
-                "type" : "File"
-            },
-            "source" : {
-                "title" : "puppetlabs",
-                "type" : "Apt::Pin"
-            }
-        } ],
-        "resources" : [ {
-            "exported" : false,
+    "name" : "myhost.localdomain",
+    "edges" : [ {
+        "relationship" : "contains",
+        "target" : {
             "title" : "/etc/apt/preferences.d/puppetlabs.pref",
-            "line" : 60,
-            "parameters" : {
-                "group" : "root",
-                "mode" : "0644",
-                "content" : "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
-                "ensure" : "present",
-                "owner" : "root"
-            },
-            "tags" : [ "file", "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain" ],
-            "type" : "File",
-            "file" : "/Users/nicklewis/projects/puppetlabs-modules/dist/apt/manifests/pin.pp"
-        }, {
-            "exported" : false,
+            "type" : "File"
+        },
+        "source" : {
             "title" : "puppetlabs",
-            "line" : 74,
-            "parameters" : {
-                "priority" : "900",
-                "origin" : "apt.puppetlabs.com",
-                "wildcard" : true,
-                "ensure" : "present",
-                "release" : ""
-            },
-            "tags" : [ "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain" ],
-            "type" : "Apt::Pin",
-            "file" : "/Users/nicklewis/projects/puppetlabs-modules/site/os/manifests/linux/debian.pp"
-        } ],
-        "version" : 1330463446,
-        "transaction-uuid" : null
-    },
-    "metadata" : {
-        "api_version" : 1
-    }
+            "type" : "Apt::Pin"
+        }
+    } ],
+    "resources" : [ {
+        "exported" : false,
+        "title" : "/etc/apt/preferences.d/puppetlabs.pref",
+        "line" : 60,
+        "parameters" : {
+            "group" : "root",
+            "mode" : "0644",
+            "content" : "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
+            "ensure" : "present",
+            "owner" : "root"
+        },
+        "tags" : [ "file", "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain" ],
+        "type" : "File",
+        "file" : "/Users/nicklewis/projects/puppetlabs-modules/dist/apt/manifests/pin.pp"
+    }, {
+        "exported" : false,
+        "title" : "puppetlabs",
+        "line" : 74,
+        "parameters" : {
+            "priority" : "900",
+            "origin" : "apt.puppetlabs.com",
+            "wildcard" : true,
+            "ensure" : "present",
+            "release" : ""
+        },
+        "tags" : [ "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain" ],
+        "type" : "Apt::Pin",
+        "file" : "/Users/nicklewis/projects/puppetlabs-modules/site/os/manifests/linux/debian.pp"
+    } ],
+    "version" : "1330463446",
+    "transaction-uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294c",
+    "environment" : "DEV"
 }
-
-

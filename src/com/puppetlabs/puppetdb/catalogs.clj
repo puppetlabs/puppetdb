@@ -78,7 +78,6 @@
 ;; map with the following structure:
 ;;
 ;;     {:certname    "..."
-;;      :api-version "..."
 ;;      :version     "..."
 ;;      :resources   {<resource-spec> <resource>
 ;;                    <resource-spec> <resource>
@@ -93,22 +92,145 @@
             [clojure.set :as set]
             [com.puppetlabs.cheshire :as json]
             [digest]
-            [puppetlabs.kitchensink.core :as kitchensink])
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [schema.core :as s]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [clojure.walk :as walk]
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [clojure.core.match :only [match]]))
 
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  3)
+  4)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Catalog Schemas
+
+;;; Schemas for all catalog versions, still a WIP, need to get
+;;; edges/resources in here and more of the codebase switched over to
+;;; using the new schemas
+
+(def full-catalog
+  "This flattened catalog schema is for the superset of catalog information.
+   Use this when in the general case as it can be converted to any of the other
+   (v1-v4) schemas"
+  {:name s/Str
+   :version s/Str
+   :environment (s/maybe s/Str)
+   :transaction-uuid (s/maybe s/Str)
+
+   ;; This is a crutch. We use sets for easier searching and avoid
+   ;; reliance on ordering. We should pick one of the below (probably
+   ;; set) and make the conversion earlier in the pipeline, then all
+   ;; code would rely on the edges to be in that format
+   :edges (s/either [{s/Any s/Any}]
+                    #{{s/Any s/Any}})
+
+   ;; This is a crutch, some areas of the code expect the first
+   ;; format, others expect the second, ideally we would make the
+   ;; transformation to the second earlier in the process, then all of
+   ;; the code can expect it (it's just a faster access version of the first)
+   :resources (s/either [{s/Any s/Any}]
+                        {s/Any {s/Any s/Any}})
+   :api_version (s/maybe s/Int)})
+
+(def v4-catalog
+  "Used for v4 commands and responses"
+  (dissoc full-catalog :api_version))
+
+(def v3-catalog
+  "Used for v3 commands and responses"
+  (dissoc full-catalog :environment))
+
+(def v2-catalog
+  "Used for v2 commands and responses"
+  (dissoc v3-catalog :transaction-uuid))
+
+(def v1-catalog
+  "Used for v1 commands and respones, allows additional unrecognized keys"
+  (assoc v2-catalog s/Any s/Any))
+
+(defn catalog-schema
+  "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
+  [version]
+  (case version
+    :all full-catalog
+    :v1 v1-catalog
+    :v2 v2-catalog
+    :v3 v3-catalog
+    v4-catalog))
+
+(defn old-wire-format-schema
+  "Function for converting a v1-v3 schema into the wire format for that version"
+  [canonical-catalog-schema]
+  {:metadata {:api_version (:api_version canonical-catalog-schema)}
+   :data (dissoc canonical-catalog-schema :api_version)})
+
+(def v3-wire-format-catalog
+  "v3 wire format for commands, always uses keywords"
+  (old-wire-format-schema v3-catalog))
+
+(def v2-wire-format-catalog
+  "v2 wire format for commands, always uses keywords"
+  (old-wire-format-schema v2-catalog))
+
+(def v1-wire-format-catalog
+  "v1 wire format for commands, always uses keywords, allows extra keys
+   in addition to metadata and data at the top level of the map"
+  (assoc (old-wire-format-schema v1-catalog) s/Any s/Any))
+
+(defn wire-format-schema
+  "Returns the correct schema wire format schema for `version`. Does not recognize
+   :all as a version"
+  [version]
+  (case version
+    :v1 v1-wire-format-catalog
+    :v2 v2-wire-format-catalog
+    :v3 v3-wire-format-catalog
+    v4-catalog))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Catalog Conversion functions
+
+(defn default-missing-keys
+  "Given a catalog (any canonical version) and add any missing
+   keys for it to be the full version"
+  [catalog]
+  (utils/assoc-when catalog
+                    :transaction-uuid nil
+                    :environment nil
+                    :api_version 1))
+
+(pls/defn-validated canonical-catalog
+  "Converts `catalog` to `version` in the canonical format, adding
+   and removing keys as needed"
+  [version catalog]
+  (let [target-schema (catalog-schema version)
+        strip-keys #(pls/strip-unknown-keys target-schema %)]
+    (s/validate target-schema
+                (case version
+                  :v1 (dissoc catalog :transaction-uuid :environment)
+                  :v2 (strip-keys (dissoc catalog :transaction-uuid :environment))
+                  :v3 (strip-keys (dissoc catalog :environment))
+                  :all (strip-keys (default-missing-keys catalog))
+                  (strip-keys (dissoc catalog :api_version))))))
+
+(pls/defn-validated canonical->wire-format
+  "Converts the `catalog` in the canonical format to the correct wire-format version.
+   Note that the wire format is still in keywords"
+  [version catalog]
+  (let [versioned-catalog (->> catalog
+                               (canonical-catalog :all)
+                               (canonical-catalog version))]
+    (s/validate (wire-format-schema version)
+                (case version
+                  (:v1 :v2 :v3) {:metadata {:api_version (:api_version versioned-catalog)}
+                                 :data (dissoc versioned-catalog :api_version)}
+                  versioned-catalog))))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
-
-(def ^:const catalog-attributes
-  #{:certname :api-version :transaction-uuid :version :edges :resources :environment})
-
-(def v4-catalog-attributes
-  (disj catalog-attributes :api-version))
 
 ;; ## Utility functions
 
@@ -229,11 +351,7 @@
 
 (def validate
   "Function for validating v1->v3 of the catalogs"
-  (comp validate-edges validate-resources (validate-keys catalog-attributes)))
-
-(def validate-v4
-  "Function for validating version 4 catalogs"
-  (comp validate-edges validate-resources (validate-keys v4-catalog-attributes)))
+  (comp validate-edges validate-resources #(s/validate (catalog-schema :all) %)))
 
 ;; ## High-level parsing routines
 
@@ -247,33 +365,12 @@
    :post [(map? %)]}
   (merge metadata data))
 
-(defn transform-metadata
-  "Standardizes the metadata in the given `catalog`. In particular:
-    * Stringifies the `version`
-    * Renames `api_version` to `api-version`
-    * Renames `name` to `certname`
-    * If we don't have  a `transaction-uuid` key, adds one with a value of `nil`."
-  [catalog]
-  {:pre [(map? catalog)]
-   :post [(string? (:version %))
-          (:certname %)
-          (= (:certname %) (:name catalog))
-          (= (:api-version %) (:api_version catalog))
-          (if (contains? % :api-version)
-            (number? (:api-version %))
-            true)
-          (contains? % :transaction-uuid)]}
-  (-> catalog
-      (update-in [:version] str)
-      (set/rename-keys {:name :certname :api_version :api-version})))
-
 (def transform
   "Applies every transformation to the catalog, converting it from wire format
   to our internal structure."
   (comp
     transform-edges
-    transform-resources
-    transform-metadata))
+    transform-resources))
 
 ;; ## Deserialization
 
@@ -318,27 +415,28 @@
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-  (-> catalog
-    (assoc-in [:data :transaction-uuid] nil)
-    (parse-catalog (inc version))))
+  (parse-catalog catalog (inc version)))
 
 (defmethod parse-catalog 3
   [catalog version]
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-  (-> catalog
-      (assoc-in [:data :environment] nil)
-      collapse
-      transform
-      validate))
+  (->> catalog
+       collapse
+       transform
+       (canonical-catalog :all)
+       validate))
 
 (defmethod parse-catalog 4
   [catalog version]
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-  (validate-v4 (transform catalog)))
+  (->> catalog
+       transform
+       (canonical-catalog :all)
+       validate))
 
 (defmethod parse-catalog :default
   [catalog version]

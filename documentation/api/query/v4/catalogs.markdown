@@ -23,16 +23,12 @@ This will return the most recent catalog for the given node.
     curl -X GET http://puppetdb:8080/v4/catalogs/foo.localdomain
 
     {
-      "data" : {
-        "name" : "yo.delivery.puppetlabs.net",
-        "version" : "e4c339f",
-        "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
-        "edges" : [...],
-        "resources" : [...],
-      },
-      "metadata" : {
-        "api_version" : 1
-      }
+      "name" : "yo.delivery.puppetlabs.net",
+      "version" : "e4c339f",
+      "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+      "environment" : "production",
+      "edges" : [...],
+      "resources" : [...],
     }
 
 **Note:** the `edges` and `resources` fields above will be populated with data

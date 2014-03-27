@@ -113,7 +113,7 @@
   a catalog's attributes. For example, two otherwise identical
   catalogs with different :version's would have the same similarity
   hash, but don't represent the same catalog across time."
-  [{:keys [certname resources edges] :as catalog}]
+  [{:keys [name resources edges] :as catalog}]
   {:post [(string? %)]}
   ;; deepak: This could probably be coded more compactly by just
   ;; dissociating the keys we don't want involved in the computation,
@@ -121,7 +121,7 @@
   ;; explicit about the exact attributes of a catalog that we care
   ;; about when we think about "uniqueness".
   (generic-identity-hash
-   (catalog-similarity-format certname (vals resources) edges)))
+   (catalog-similarity-format name (vals resources) edges)))
 
 (defn resource-event-identity-string
   "Compute a string suitable for hashing a resource event

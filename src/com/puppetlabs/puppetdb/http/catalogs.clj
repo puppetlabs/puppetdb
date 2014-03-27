@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalogs :as c]
+            [com.puppetlabs.puppetdb.catalogs :as cats]
             [ring.util.response :as rr]
             [com.puppetlabs.middleware :as middleware])
   (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
@@ -12,7 +13,7 @@
   [version node db]
   (if-let [catalog (with-transacted-connection db
                      (c/catalog-for-node version node))]
-    (pl-http/json-response catalog)
+    (pl-http/json-response (cats/canonical->wire-format version catalog))
     (pl-http/json-response {:error (str "Could not find catalog for " node)} pl-http/status-not-found)))
 
 (defn routes

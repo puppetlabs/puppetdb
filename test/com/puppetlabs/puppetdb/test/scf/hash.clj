@@ -73,7 +73,7 @@
              "b4199f8703c5dc208054a62203db132c3d12581c"))))
 
   (testing "catalog-similarity-hash"
-    (let [sample {:certname  "foobar.baz"
+    (let [sample {:name  "foobar.baz"
                   :resources {:foo {:type "Type" :title "foo" :parameters {:a 1 :c 3 :b {:z 26 :c 3}} :file "/tmp" :line 3 :tags ["foo" "bar"]}}
                   :edges     [{:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]}]
 
@@ -186,8 +186,8 @@
     (let [catalog            (:basic catalogs)
           hash               (catalog-similarity-hash catalog)
           ;; Functions that tweak various attributes of a catalog
-          tweak-api-version  #(assoc % :api-version (inc (:api-version %)))
-          tweak-version      #(assoc % :version (str (:version %) "?"))
+          tweak-api-version  #(update-in % [:api_version] inc)
+          tweak-version      #(update-in % [:version] str)
           ;; List of all the tweaking functions
           chaos-monkeys      [tweak-api-version tweak-version]
           ;; Function that will apply a random tweak function

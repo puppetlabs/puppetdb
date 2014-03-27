@@ -13,24 +13,24 @@
   "Tags from JSON parse as a list, change that to a set for
    easier comparison."
   [resource]
-  (update-in resource ["tags"] set))
+  (update-in resource [:tags] set))
 
 (def wire-catalog
   "Basic test wire-format catalog"
-  (json/parse-string (slurp (io/resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json"))))
+  (json/parse-string (slurp (io/resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json")) true))
 
 (defn wire-resources
   "Returns the resources from a wire-format catalog"
   [wire-catalog]
-  (get-in wire-catalog ["data" "resources"]))
+  (:resources wire-catalog))
 
 (defn wire-edges
   "Returns the edges from a wire-format catalog"
   [wire-catalog]
-  (get-in wire-catalog ["data" "edges"]))
+  (get wire-catalog :edges))
 
 (deftest test-wire-catalog-conversion-fn
-  (let [{:strs [edges resources]} (get wire-catalog "data")
+  (let [{:keys [edges resources]} wire-catalog
         result ((convert-internal-catalog-fn identity) wire-catalog)]
 
     (is (= (set (map convert-tags resources))
@@ -38,8 +38,8 @@
 
     (is (= (set edges)
            (set (wire-edges result))))
-    (is (= (get-in wire-catalog ["data" "name"])
-           (get-in result ["data" "name"])))))
+    (is (= (get-in wire-catalog [:name])
+           (get-in result [:name])))))
 
 (deftest test-add-random-resource-to-catalog
   (let [catalog (:basic ex/catalogs)]
@@ -51,8 +51,8 @@
     (is (= (inc (count (wire-resources wire-catalog)))
            (count (wire-resources result))))
 
-    (is (= (get-in wire-catalog ["data" "name"])
-           (get-in result ["data" "name"])))))
+    (is (= (get-in wire-catalog [:name])
+           (get-in result [:name])))))
 
 (deftest test-add-random-edge-to-catalog
   (let [catalog (:basic ex/catalogs)]

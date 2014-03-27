@@ -168,7 +168,7 @@
                (query-to-vec "SELECT certname, environment_id FROM certname_facts_metadata")))))))
 
 (def catalog (:basic catalogs))
-(def certname (:certname catalog))
+(def certname (:name catalog))
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
@@ -237,7 +237,7 @@
                  (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"])))
 
           (testing "Adding another catalog with the same environment should just use the existing environment"
-            (add-catalog! (assoc catalog :environment "PROD" :certname other-certname))
+            (add-catalog! (assoc catalog :environment "PROD" :name other-certname))
 
             (is (= [{:certname other-certname :api_version 1 :catalog_version "123456789" :environment_id id}]
                    (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs where certname=?" other-certname])))))))))
@@ -401,7 +401,7 @@
     (add-certname! "myhost2.mydomain.com")
     (let [hash1 (add-catalog! catalog)
           ;; Store the same catalog for a different host
-          hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
+          hash2 (add-catalog! (assoc catalog :name "myhost2.mydomain.com"))]
       (delete-catalog! hash1))
 
     ;; myhost should still be present in the database
@@ -470,7 +470,7 @@
   (apply = (map sort args)))
 
 (deftest existing-catalog-update
-  (let [{:keys [certname] :as catalog} (:basic catalogs)
+  (let [{certname :name :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
 
@@ -543,7 +543,7 @@
           (is (not= orig-timestamp new-timestamp)))))))
 
 (deftest add-resource-to-existing-catalog
-  (let [{:keys [certname] :as catalog} (:basic catalogs)
+  (let [{certname :name :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
     (add-certname! certname)
@@ -690,7 +690,7 @@
              set))))
 
 (deftest removing-resources
-  (let [{:keys [certname] :as catalog} (:basic catalogs)
+  (let [{certname :name :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))
         catalog-with-extra-resource (assoc-in catalog
@@ -704,7 +704,7 @@
                                                :parameters {:ensure "directory"
                                                             :group  "root"
                                                             :user   "root"}})]
-    (add-certname! certname)    
+    (add-certname! certname)
     (add-catalog! catalog-with-extra-resource nil old-date)
 
     (let [catalog-id (:id (first (query-to-vec "SELECT id from catalogs where certname=?" certname)))]
@@ -736,7 +736,7 @@
     ["SELECT p.name AS k, p.value AS v
       FROM catalog_resources cr, catalogs c, resource_params p
       WHERE cr.catalog_id = c.id AND cr.resource = p.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
     (reduce (fn [acc row]
               (assoc acc (keyword (:k row))
                      (json/parse-string (:v row))))
@@ -747,7 +747,7 @@
     ["SELECT rpc.parameters as params
       FROM catalog_resources cr, catalogs c, resource_params_cache rpc
       WHERE cr.catalog_id = c.id AND cr.resource = rpc.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
     (-> result-set
         first
         :params
@@ -758,16 +758,16 @@
     ["SELECT cr.resource hash
       FROM catalog_resources cr, catalogs c
       WHERE cr.catalog_id = c.id AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
     (-> result-set
         first
         :hash)))
 
 (deftest catalog-resource-parameter-changes
-  (let [{:keys [certname] :as catalog} (:basic catalogs)
+  (let [{certname :name :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
-    (add-certname! certname)    
+    (add-certname! certname)
     (add-catalog! catalog nil old-date)
 
     (let [orig-resource-hash (foobar-param-hash)
@@ -881,14 +881,14 @@
 
       (testing "should return nothing if all nodes are more recent than max age"
         (let [catalog (:empty catalogs)
-              certname (:certname catalog)]
+              certname (:name catalog)]
           (add-certname! certname)
           (replace-catalog! catalog (now))
           (is (= (stale-nodes (ago (days 1))) [])))))))
 
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
-    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
+    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :name "node1") (ago (days 2)))
                     #(replace-facts! {"name" "node1" "values" {"foo" "bar"} "environment" "DEV"} (ago (days 2)))]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
@@ -900,8 +900,8 @@
     (let [catalog (:empty catalogs)]
       (add-certname! "node1")
       (add-certname! "node2")
-      (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
-      (replace-catalog! (assoc catalog :certname "node2") (now))
+      (replace-catalog! (assoc catalog :name "node1") (ago (days 2)))
+      (replace-catalog! (assoc catalog :name "node2") (now))
 
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
 

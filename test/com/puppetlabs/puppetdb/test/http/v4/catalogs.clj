@@ -20,11 +20,16 @@
 (deftest catalog-retrieval
   (let [original-catalog-str (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/big-catalog.json"))
         original-catalog     (json/parse-string original-catalog-str)
-        certname             (get-in original-catalog ["data" "name"])
-        catalog-version      (str (get-in original-catalog ["data" "version"]))]
+        certname             (get original-catalog "name")
+        catalog-version      (get original-catalog "version")]
     (testcat/replace-catalog original-catalog-str)
     (testing "it should return the catalog if it's present"
-      (let [{:keys [status body] :as response} (get-response certname)]
+      (let [{:keys [status body] :as response} (get-response certname)
+            result (json/parse-string body)]
         (is (= status 200))
-        (is (= (testcat/munge-catalog-for-comparison original-catalog)
-               (testcat/munge-catalog-for-comparison (json/parse-string body))))))))
+        
+        (is (string? (get result "environment")))
+        (is (= (get original-catalog "environment")
+               (get result "environment")))
+        (is (= (testcat/munge-catalog-for-comparison :v4 original-catalog)
+               (testcat/munge-catalog-for-comparison :v4 result)))))))

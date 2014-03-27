@@ -453,9 +453,9 @@
          (let [catalog (:empty catalogs)
                apache-resource {:type "Class" :title "Apache"}
                apache-catalog (update-in catalog [:resources] conj {apache-resource (assoc apache-resource :exported false)})]
-           (scf-store/replace-catalog! (assoc apache-catalog :certname "foo") (now))
-           (scf-store/replace-catalog! (assoc apache-catalog :certname "bar") (now))
-           (scf-store/replace-catalog! (assoc catalog :certname "baz") (now)))
+           (scf-store/replace-catalog! (assoc apache-catalog :name "foo") (now))
+           (scf-store/replace-catalog! (assoc apache-catalog :name "bar") (now))
+           (scf-store/replace-catalog! (assoc catalog :name "baz") (now)))
 
          (doseq [[query results] (get versioned-subqueries endpoint)]
            (testing (str "query: " query " should match expected output")

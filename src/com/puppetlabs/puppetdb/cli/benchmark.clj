@@ -208,10 +208,9 @@
   "Takes the given `catalog` and transforms it to appear related to
   `hostname`"
   [hostname catalog]
-  (-> catalog
-      (assoc-in ["data" "name"] hostname)
-      (assoc-in ["data" "resources"] (for [resource (get-in catalog ["data" "resources"])]
-                                       (update-in resource ["tags"] conj hostname)))))
+  (assoc catalog
+    "name" hostname
+    "resources" (map #(update-in % ["tags"] conj hostname) (get catalog "resources"))))
 
 (defn associate-report-with-host
   "Takes the given `report` and transforms it to appear related to
