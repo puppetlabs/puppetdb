@@ -39,7 +39,7 @@ task :install => [  JAR_FILE  ] do
     mkdir_p "#{DESTDIR}/etc/puppetlabs/puppetdb"
   end
 
-  cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}"
+  cp_p JAR_FILE, "#{DESTDIR}/#{@install_dir}" unless File.exist?(JAR_FILE)
   cp_pr "ext/files/config.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/database.ini", "#{DESTDIR}/#{@config_dir}"
   cp_pr "ext/files/jetty.ini", "#{DESTDIR}/#{@config_dir}"
