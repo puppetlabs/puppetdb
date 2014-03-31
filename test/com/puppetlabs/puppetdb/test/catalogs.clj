@@ -43,7 +43,7 @@
         (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar" :transaction-uuid "HIYA"}
                         :metadata {:api_version 1}}]
           (is (= (transform-fn (assoc-in catalog [:data :transaction-uuid] "HIYA"))
-                {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :puppetdb-version catalog-version :transaction-uuid "HIYA"}))))
+                {:certname "myhost" :version "12345" :api-version 1 :foo "bar" :transaction-uuid "HIYA"}))))
 
       (testing "should error on malformed input"
         (is (thrown? AssertionError (transform-fn {})))
@@ -250,7 +250,6 @@
 
     {:certname "nick-lewis.puppetlabs.lan",
      :api-version 1,
-     :puppetdb-version catalog-version,
      :edges #{{:source {:title "/tmp/baz", :type "File"},
                :target {:title "/tmp/bar", :type "File"},
                :relationship :required-by}
@@ -424,7 +423,6 @@
 
     {:certname "nick-lewis.puppetlabs.lan",
      :api-version 1,
-     :puppetdb-version catalog-version,
      :edges #{{:source {:title "/tmp/baz", :type "File"},
                :target {:title "/tmp/bar", :type "File"},
                :relationship :required-by}
@@ -600,7 +598,6 @@
 
     {:certname "nick-lewis.puppetlabs.lan",
      :api-version 1,
-     :puppetdb-version catalog-version,
      :edges #{{:source {:title "/tmp/baz", :type "File"},
                :target {:title "/tmp/bar", :type "File"},
                :relationship :required-by}

@@ -76,7 +76,6 @@
   {(s/optional-key :api-version) s/Int
    :version String
    :certname String
-   :puppetdb-version s/Int
    :resources resource-ref->resource-schema
    :edges #{edge-schema}
    (s/optional-key :transaction-uuid) (s/maybe s/Str)
