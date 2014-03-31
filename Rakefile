@@ -79,11 +79,18 @@ if @pe
     @pe_version = ENV['PE_VER'] || '3.0'
     @java_bin = "/opt/puppet/bin/java"
 else
-    @install_dir = "/usr/share/puppetdb"
+    @install_dir = case @osfamily
+      when /openbsd/
+        "/usr/local/share/puppetdb"
+      else
+        "/usr/share/puppetdb"
+      end
     @etc_dir = "/etc/puppetdb"
     @config_dir = "/etc/puppetdb/conf.d"
     @lib_dir = "/var/lib/puppetdb"
     @libexec_dir = case @osfamily
+      when /openbsd/
+        "/usr/local/libexec/puppetdb"
       when /redhat/, /suse/, /darwin/, /bsd/
         "/usr/libexec/puppetdb"
       else
