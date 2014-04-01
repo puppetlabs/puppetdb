@@ -23,5 +23,7 @@ group :test do
 end
 
 group :acceptance do
-  gem 'beaker', '~> 1.7'
+#  gem 'beaker', '~> 1.7'
+  # My branch with custom debugging and tracing work
+  gem 'beaker', :git => 'git://github.com/kbarber/beaker.git', :branch => 'ticket/master/pdb-554'
 end
