@@ -880,7 +880,7 @@ module PuppetDBExtensions
       repositories.each do |repository|
         step "Install #{repository[:name]}"
         install_from_git host, source_path, repository,
-          :refspec => '+refs/heads/*:refs/remotes/origin/*'
+          :refspec => '+refs/pull/*:refs/remotes/origin/pr/*'
       end
 
       on host, "getent group puppet || groupadd puppet"
