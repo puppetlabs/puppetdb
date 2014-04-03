@@ -42,6 +42,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_parameters_if_missing(data)
       add_namevar_aliases(data, catalog)
       stringify_titles(data)
+      stringify_version(data)
       sort_unordered_metaparams(data)
       munge_edges(data)
       synthesize_edges(data, catalog)
@@ -84,6 +85,17 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @api private
   def add_transaction_uuid(hash, transaction_uuid)
     hash['transaction-uuid'] = transaction_uuid
+
+    hash
+  end
+
+  # Version is an integer (time since epoch in millis). The wire
+  # format specifies version should be a string
+  #
+  # @param hash [hash] original data hash
+  # @return [Hash] returns a modified original hash
+  def stringify_version(hash)
+    hash['version'] = hash['version'].to_s
 
     hash
   end

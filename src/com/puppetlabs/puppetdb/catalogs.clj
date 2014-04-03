@@ -297,6 +297,11 @@
                                  [resource-spec new-resource]))]
     (assoc catalog :resources new-resources)))
 
+(defn transform-catalog
+  "Does any munging needed for the catalog properties itself before being validated"
+  [catalog]
+  (update-in catalog [:version] str))
+
 ;; ## Integrity checking
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
@@ -370,7 +375,8 @@
   to our internal structure."
   (comp
     transform-edges
-    transform-resources))
+    transform-resources
+    transform-catalog))
 
 ;; ## Deserialization
 

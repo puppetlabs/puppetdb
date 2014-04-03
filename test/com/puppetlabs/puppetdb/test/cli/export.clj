@@ -12,8 +12,7 @@
             [com.puppetlabs.puppetdb.testutils.repl :as turepl])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
-         [com.puppetlabs.puppetdb.fixtures]
-         [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
+         [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)
 
@@ -44,7 +43,7 @@
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)
           metadata (json/parse-string contents true)]
-      (is (= {:replace-catalog catalog-version
+      (is (= {:replace-catalog 3
               :store-report 2
               :replace-facts 1}
              (:command-versions metadata)))

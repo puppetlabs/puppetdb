@@ -11,8 +11,7 @@
   (:use [puppetlabs.kitchensink.core :only (cli!)]
         [clj-time.core :only [now]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
-        [clj-http.util :only [url-encode]]
-        [com.puppetlabs.puppetdb.catalogs :only [catalog-version]])
+        [clj-http.util :only [url-encode]])
   (:require [com.puppetlabs.cheshire :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -194,7 +193,7 @@
                 ;;  on which version of the `replace catalog` matches up with the current
                 ;;  version of the `catalog` endpoint... or even to query what the latest
                 ;;  version of a command is.  We should improve that.
-                {:replace-catalog catalog-version
+                {:replace-catalog 3 ;;<-- Still TODO to migrat to v4
                  :store-report 2
                  :replace-facts 1}})})
 
