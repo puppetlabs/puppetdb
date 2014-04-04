@@ -59,6 +59,9 @@ The `query` parameter is described by the following grammar:
 `line`
 : the line of the manifest on which the resource was declared
 
+`environment`
+: the environment of the node associated to the resource
+
 For example, for file resources, tagged "magical", on any host except
 for "example.local" the JSON query structure would be:
 

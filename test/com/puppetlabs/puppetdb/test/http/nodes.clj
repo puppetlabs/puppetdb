@@ -139,7 +139,7 @@
             (is-query-result v4-endpoint query expected))))
 
   (testing "subqueries: invalid"
-    (doseq [endpoint [v3-endpoint v4-endpoint]
+    (doseq [[version endpoint] [[:v3 v3-endpoint] [:v4 v4-endpoint]]
             [query msg] {
               ;; Ensure the v2 version of sourcefile/sourceline returns
               ;; a proper error.
@@ -150,7 +150,7 @@
                   ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
                   ["=" "sourceline" 1]]]]]
 
-              "sourcefile is not a queryable object for resources"}]
+              (format "'sourcefile' is not a queryable object for resources in the version %s API" (last (name version)))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (fixt/*app* request)]

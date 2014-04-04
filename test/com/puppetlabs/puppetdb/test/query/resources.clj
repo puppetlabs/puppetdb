@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.query.resources
   (:require [com.puppetlabs.puppetdb.query.resources :as s]
             [clojure.java.jdbc :as sql]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :refer [ensure-environment]])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.jdbc]
@@ -53,8 +54,8 @@
    {:name "subset.local"})
   (sql/insert-records
     :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local"}
-    {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local"})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV")}
+    {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil})
 
   (sql/insert-records :catalog_resources
     {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
@@ -76,6 +77,7 @@
               :exported   true
               :file "a"
               :line 1
+              :environment "DEV"
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -87,6 +89,7 @@
               :exported   true
               :file "b"
               :line 1
+              :environment nil
               :parameters {"ensure" "file"
                            "owner"  "root"
                            "group"  "root"}}
@@ -98,6 +101,7 @@
               :exported   true
               :file "a"
               :line 2
+              :environment "DEV"
               :parameters {"random" "true"}}
         foo3 {:certname   "example.local"
               :resource   "3"
@@ -107,6 +111,7 @@
               :exported   true
               :file "c"
               :line 1
+              :environment "DEV"
               :parameters {}}
         bar3 {:certname   "subset.local"
               :resource   "3"
@@ -116,6 +121,7 @@
               :exported   false
               :file "c"
               :line 2
+              :environment nil
               :parameters {}}
         foo4 {:certname   "example.local"
               :resource   "4"
@@ -125,6 +131,7 @@
               :exported   false
               :file "d"
               :line 1
+              :environment "DEV"
               :parameters {"ensure"  "present"
                            "content" "#!/usr/bin/make\nall:\n\techo done\n"}}
         foo5 {:certname   "example.local"
@@ -135,6 +142,7 @@
               :exported   false
               :file "d"
               :line 2
+              :environment "DEV"
               :parameters {"random" "false"}}
         bar5 {:certname   "subset.local"
               :resource   "5"
@@ -144,6 +152,7 @@
               :exported   false
               :file "d"
               :line 3
+              :environment nil
               :parameters {"random" "false"}}
         foo6 {:certname   "example.local"
               :resource   "6"
@@ -153,6 +162,7 @@
               :exported   false
               :file "e"
               :line 1
+              :environment "DEV"
               :parameters {"multi" ["one" "two" "three"]}}
         foo7 {:certname   "example.local"
               :resource   "7"
@@ -162,6 +172,7 @@
               :exported   false
               :file "f"
               :line 1
+              :environment "DEV"
               :parameters {"hash" {"foo" 5 "bar" 10}}}
         foo8 {:certname   "example.local"
               :resource   "8"
@@ -171,6 +182,7 @@
               :exported   false
               :file "f"
               :line 1
+              :environment "DEV"
               :parameters {}}
         ]
     ;; ...and, finally, ready for testing.
@@ -325,17 +337,17 @@
   (sql/insert-records :certnames
     {:name "foo.local"})
   (sql/insert-records :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local"})
+    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
   (sql/insert-records :catalog_resources
     {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
     {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
     {:catalog_id 1 :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
     {:catalog_id 1 :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
 
-  (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :parameters {"ensure" "file" "group" "root" "owner" "root"}}
-        r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :parameters {"enabled" "false" "random" "true"}}
-        r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
-        r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :parameters {"content" "contents" "ensure" "present"}}]
+  (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :environment "DEV" :parameters {"ensure" "file" "group" "root" "owner" "root"}}
+        r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :environment "DEV" :parameters {"enabled" "false" "random" "true"}}
+        r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :environment "DEV" :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
+        r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :environment "DEV" :parameters {"content" "contents" "ensure" "present"}}]
 
     (doseq [version [:v3 :v4]]
 

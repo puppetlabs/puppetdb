@@ -138,15 +138,15 @@ to the result of the form supplied to this method."
       (let [query ["=" "sourceline" 22]
             response (get-response v3-endpoint query)]
         (is (= pl-http/status-bad-request (:status response)))
-        (is (= "sourceline is not a queryable object for resources" (:body response))))
+        (is (re-find #"'sourceline' is not a queryable object for resources" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (get-response v3-endpoint query)]
         (is (= pl-http/status-bad-request (:status response)))
-        (is (= "sourcefile cannot be the target of a regexp match" (:body response))))
+        (is (re-find #"'sourcefile' cannot be the target of a regexp match" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (get-response v3-endpoint query)]
         (is (= pl-http/status-bad-request (:status response)))
-        (is (= "sourcefile is not a queryable object for resources" (:body response)))))
+        (is (re-find #"'sourcefile' is not a queryable object for resources" (:body response)))))
 
     (testing "querying by file and line is not supported for v2"
       (let [query ["=" "line" 22]
@@ -205,4 +205,33 @@ to the result of the form supplied to this method."
         (is (= pl-http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
+(deftest query-environments
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+    (testing "querying by equality and regexp should be allowed"
+      (are [query] (is-response-equal (get-response v4-endpoint query) #{foo1 foo2})
+           ["=" "environment" "DEV"]
+           ["~" "environment" ".*V"]
+           ["not" ["~" "environment" "PR.*"]]
+           ["not" ["=" "environment" "PROD"]])
+      (are [query] (is-response-equal (get-response v4-endpoint query) #{bar1 bar2})
+           ["=" "environment" "PROD"]
+           ["~" "environment" "PR.*"]
+           ["not" ["=" "environment" "DEV"]])
+      (are [query] (is-response-equal (get-response v4-endpoint query) #{foo1 foo2 bar1 bar2})
+           ["not" ["=" "environment" "null"]]))
+    (testing "querying environment not allowed in v1-v3"
+      (doseq [[version endpoint] [[:v2 v2-endpoint]
+                                  [:v3 v3-endpoint]]]
+        (testing (format "version %s for enviornment support"version)
+          (let [response (get-response endpoint ["=" "environment" "DEV"])]
+            (is (re-find #"'environment' is not a queryable.*" (:body response)))
+            (is (= 400 (:status response))))
+          (let [response (get-response endpoint ["~" "environment" "DEV"])]
+            (is (re-find #"'environment' cannot be the target.*version 3*" (:body response)))
+            (is (= 400 (:status response)))))))))
 
+(deftest query-null-environments
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources false)]
+    (testing "querying by equality and regexp should be allowed"
+      (is (is-response-equal (get-response v4-endpoint ["=" "type" "File"]) #{foo1 bar1}))
+      (is (is-response-equal (get-response v4-endpoint ["=" "type" "Notify"]) #{foo2 bar2})))))
