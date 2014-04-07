@@ -17,10 +17,7 @@
   (-> catalog
       (update-in [:resources] vals)
       (update-in [:edges] (fn [edges]
-                            (map #(update-in % [:relationship] name) edges)))
-      (dissoc :api-version)
-      (set/rename-keys {:certname :name})
-      walk/stringify-keys))
+                            (map #(update-in % [:relationship] name) edges)))))
 
 (defn convert-internal-catalog-fn
   "Takes a function that transforms a catalog in the internal format
@@ -28,11 +25,11 @@
    converts the catalog back to a the wire format"
   [f]
   (fn [wire-catalog]
-    (let [version (get-in wire-catalog ["metadata" "api_version"])
-          converted-catalog (cat/parse-catalog (walk/keywordize-keys wire-catalog) version)]
-      (assoc wire-catalog "data" (-> converted-catalog
-                                     f
-                                     convert-to-wire)))))
+    (-> wire-catalog
+        walk/keywordize-keys
+        (cat/parse-catalog 4)
+        f
+        convert-to-wire)))
 
 (defn add-random-resource-to-catalog
   "Adds a random resource to the given catalog"

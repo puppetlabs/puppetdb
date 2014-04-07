@@ -2,9 +2,11 @@
 
 (def catalogs
   {:empty
-   {:certname         "empty.catalogs.com"
-    :api-version      1
+   {:name             "empty.catalogs.com"
+    :api_version      1
     :version          "1330463884"
+    :transaction-uuid nil
+    :environment      nil
     :edges            #{{:source       {:type "Stage" :title "main"}
                          :target       {:type "Class" :title "Settings"}
                          :relationship :contains}
@@ -28,8 +30,8 @@
                                                           :type     "Stage"}}}
 
    :basic
-   {:certname         "basic.catalogs.com"
-    :api-version      1
+   {:name             "basic.catalogs.com"
+    :api_version      1
     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
@@ -64,8 +66,8 @@
                                                                              :require "File[/etc/foobar]"}}}}
 
    :invalid
-   {:certname         "invalid.catalogs.com"
-    :api-version      1
+   {:name             "invalid.catalogs.com"
+    :api_version      1
     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
     :edges            #{{:source       {:type "Class" :title "foobar"}
@@ -120,26 +122,29 @@
       :type       "Node"}]
     :tags             ["settings" "default" "node"]
     :classes          ["settings" "default"]
-    :version          1332533763
+    :version          "1332533763"
     :transaction-uuid nil}})
 
 (defn v1->v2-catalog
   "Converts a v1 wire catalog to v2"
   [catalog]
-  (dissoc catalog :tags :classes))
+  (-> catalog
+      (dissoc :document_type)
+      (update-in [:data] dissoc :tags :classes)))
 
 (defn v2->v3-catalog
   "Converts a v2 wire catalog to v3"
   [catalog]
   (-> catalog
       v1->v2-catalog
-      (assoc :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b")))
+      (assoc-in [:data :transaction-uuid] "68b08e2a-eeb1-4322-b241-bfdf151d294b")))
 
 (defn v3->v4-catalog
   "Converts a v3 wire catalog to v4"
   [catalog]
   (-> catalog
       v1->v2-catalog
+      :data
       (assoc :environment "DEV")))
 
 (def wire-catalogs
@@ -149,20 +154,18 @@
 
    ;; Below is really a v3 catalog that works in a v2 command
    2 {:empty
-      (update-in v1-empty-wire-catalog [:data] v2->v3-catalog)
+      (v2->v3-catalog v1-empty-wire-catalog)
       :basic
-      (update-in v1-empty-wire-catalog [:data]
-                 (fn [catalog]
-                   (-> catalog
-                       v2->v3-catalog
-                       (assoc :name "basic.wire-catalogs.com")
-                       (update-in [:resources] conj {:type       "File"
-                                                     :title      "/etc/foobar"
-                                                     :exported   false
-                                                     :file       "/tmp/foo"
-                                                     :line       10
-                                                     :tags       ["file" "class" "foobar"]
-                                                     :parameters {:ensure "directory"
-                                                                  :group  "root"
-                                                                  :user   "root"}}))))}
+      (-> v1-empty-wire-catalog
+          v2->v3-catalog
+          (assoc-in [:data :name]  "basic.wire-catalogs.com")
+          (update-in [:data :resources] conj {:type       "File"
+                                              :title      "/etc/foobar"
+                                              :exported   false
+                                              :file       "/tmp/foo"
+                                              :line       10
+                                              :tags       ["file" "class" "foobar"]
+                                              :parameters {:ensure "directory"
+                                                           :group  "root"
+                                                           :user   "root"}}))}
    4 {:empty (v3->v4-catalog (:data v1-empty-wire-catalog))}})

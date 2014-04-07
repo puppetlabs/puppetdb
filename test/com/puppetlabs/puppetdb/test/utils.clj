@@ -48,3 +48,15 @@
           (is (empty? @log))
           (is (str/blank? result))
           (is (false? @fail?)))))))
+
+(deftest test-assoc-when
+  (is (= {:a 1 :b 2}
+         (assoc-when {:a 1 :b 2} :b 100)))
+  (is (= {:a 1 :b 100}
+         (assoc-when {:a 1} :b 100)))
+  (is (= {:b 100}
+         (assoc-when nil :b 100)))
+  (is (= {:b 100}
+         (assoc-when {} :b 100)))
+  (is (= {:a 1 :b 2 :c  3}
+         (assoc-when {:a 1} :b 2 :c 3))))

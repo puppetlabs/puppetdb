@@ -12,8 +12,7 @@
             [com.puppetlabs.puppetdb.testutils.repl :as turepl])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
-         [com.puppetlabs.puppetdb.fixtures]
-         [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
+         [com.puppetlabs.puppetdb.fixtures]))
 
 (use-fixtures :each with-test-db)
 
@@ -24,10 +23,11 @@
             original-catalog      (json/parse-string original-catalog-str)]
         (testcat/replace-catalog original-catalog-str)
 
-        ;; This is explicitly set to v3, as per the current CLI tooling
-        (let [exported-catalog (c/catalog-for-node :v3 "myhost.localdomain")]
-          (is (= (testcat/munge-catalog-for-comparison original-catalog)
-                 (testcat/munge-catalog-for-comparison exported-catalog)))))))
+        ;; This is explicitly set to v4, as per the current CLI tooling
+        (let [exported-catalog (c/catalog-for-node :v4 "myhost.localdomain")]
+
+          (is (= (testcat/munge-catalog-for-comparison :v4 original-catalog)
+                 (testcat/munge-catalog-for-comparison :v4 exported-catalog)))))))
 
   (testing "Exporting a JSON report"
     (testing "the exported JSON should match the original import JSON"
@@ -43,7 +43,7 @@
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)
           metadata (json/parse-string contents true)]
-      (is (= {:replace-catalog catalog-version
+      (is (= {:replace-catalog 3
               :store-report 2
               :replace-facts 1}
              (:command-versions metadata)))

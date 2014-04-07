@@ -438,21 +438,21 @@
   [command]
   (-> command
       (assoc :version 2)
-      (update-in [:payload :data] v1->v2-catalog)))
+      (update-in [:payload] v1->v2-catalog)))
 
 (defn v2->v3-catalog-command
   "Converts a version 2 catalog command to version 3"
   [command]
   (-> command
       (assoc :version 3)
-      (update-in [:payload :data] v2->v3-catalog)))
+      (update-in [:payload] v2->v3-catalog)))
 
 (defn v3->v4-catalog-command
   "Converts a version 3 catalog command to version 4"
   [command]
   (-> command
       (assoc :version 4
-             :payload (v3->v4-catalog (get-in command [:payload :data])))))
+             :payload (v3->v4-catalog (get-in command [:payload])))))
 
 (defn default-catalog-munging
   "Returns a function appropriate for converting a command to
@@ -603,7 +603,9 @@
 
 (deftest catalog-with-updated-resource-line
   (doverseq [version catalog-versions
-             :let [command (munge-catalog-command version {:command (command-names :replace-catalog) :version 2 :payload basic-wire-catalog})
+             :let [command (munge-catalog-command version {:command (command-names :replace-catalog)
+                                                           :version 2
+                                                           :payload basic-wire-catalog})
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
     (test-msg-handler command-1 publish discard-dir

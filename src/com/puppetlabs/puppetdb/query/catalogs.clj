@@ -5,7 +5,9 @@
 ;;
 
 (ns com.puppetlabs.puppetdb.query.catalogs
-  (:require [com.puppetlabs.puppetdb.query.resources :as r])
+  (:require [com.puppetlabs.puppetdb.query.resources :as r]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.catalogs :as cats])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
         [puppetlabs.kitchensink.core :only [dissoc-if-nil mapkeys]]))
 
@@ -19,10 +21,11 @@
   [node]
   {:pre  [(string? node)]
    :post [((some-fn nil? map?) %)]}
-  (let [query (str "SELECT catalog_version, transaction_uuid "
-               "FROM catalogs "
-               "WHERE certname = ?")]
-    (mapkeys underscores->dashes (first (query-to-vec query node)))))
+  (let [query (str "SELECT catalog_version as version, transaction_uuid as \"transaction-uuid\", "
+                   "e.name as environment, COALESCE(c.api_version, 1) as api_version "
+                   "FROM catalogs c left outer join environments e on c.environment_id = e.id "
+                   "WHERE certname = ?")]
+    (first (query-to-vec query node))))
 
 (defn resource-to-wire-format
   "Given a resource as returned by our resource database query functions,
@@ -82,24 +85,20 @@
        :target       {:type target_type :title target_title}
        :relationship relationship})))
 
-(defn catalog-for-node
+(defn get-full-catalog [catalog-version node]
+  (let [{:keys [version transaction-uuid environment api_version]} (get-catalog-info node)]
+    (when catalog-version
+      {:name             node
+       :edges            (get-edges node)
+       :resources        (get-resources version node)
+       :version          version
+       :transaction-uuid transaction-uuid
+       :environment environment
+       :api_version api_version})))
+
+(pls/defn-validated catalog-for-node
   "Retrieve the catalog for `node`."
   [version node]
-  {:pre  [(string? node)]
-   :post [(or (nil? %)
-              (and (map? %)
-                   (= node  (:name (:data %)))
-                   (seq?    (:resources (:data %)))
-                   (seq?    (:edges (:data %)))
-                   (map?    (:metadata %))))]
-   }
-  ;; the main use of get-catalog-info here is just to do a quick check to
-  ;; see if we actually have a catalog for the node
-  (let [info (get-catalog-info node)]
-    (when-let [catalog-version (:catalog-version info)]
-      { :data          {:name             node
-                        :edges            (get-edges node)
-                        :resources        (get-resources version node)
-                        :version          catalog-version
-                        :transaction-uuid (:transaction-uuid info)}
-        :metadata      {:api_version 1 }})))
+  {:pre  [(string? node)]}
+  (when-let [catalog (get-full-catalog version node)]
+    (cats/canonical-catalog version catalog)))

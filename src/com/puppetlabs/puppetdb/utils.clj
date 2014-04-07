@@ -77,3 +77,14 @@
                      (.getPath (apply io/file export-root-dir file-suffix))
                      contents))
 
+(defn assoc-when
+  "Assoc to `m` only when `k` is not already present in `m`"
+  [m & kvs]
+  {:pre [(even? (count kvs))]}
+  (let [missing-map-entries (for [[k v] (partition 2 kvs)
+                                 :when (= ::not-found (get m k ::not-found))]
+                             [k v])]
+    (if (seq missing-map-entries)
+      (apply assoc m (apply concat missing-map-entries))
+      m)))
+

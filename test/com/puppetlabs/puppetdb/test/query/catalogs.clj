@@ -12,15 +12,13 @@
 
 (deftest catalog-query
   (let [catalog-str      (slurp (resource "com/puppetlabs/puppetdb/test/cli/export/tiny-catalog.json"))
-        catalog          (json/parse-string catalog-str)
-        certname         (get-in catalog ["data" "name"])
-        catalog-version  (str (get-in catalog ["data" "version"]))
-        transaction-uuid (get-in catalog ["data" "transaction-uuid"])]
+        {:strs [name version transaction-uuid environment] :as catalog}    (json/parse-string catalog-str)]
     (testcat/replace-catalog catalog-str)
-    (doseq [version [:v3 :v4]]
+    (doseq [cmd-version [:v3 :v4]]
       (testing "get-catalog-info"
-        (is (= catalog-version  (:catalog-version (c/get-catalog-info certname))))
-        (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info certname)))))
+        (is (= (str version)  (:version (c/get-catalog-info name))))
+        (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info name))))
+        (is (= environment (:environment (c/get-catalog-info name)))))
       (testing "catalog-for-node"
-        (is (= (testcat/munge-catalog-for-comparison catalog)
-               (testcat/munge-catalog-for-comparison (c/catalog-for-node version certname))))))))
+        (is (= (testcat/munged-canonical->wire-format cmd-version (json/parse-string catalog-str true))
+               (testcat/munged-canonical->wire-format cmd-version (c/catalog-for-node cmd-version name))))))))

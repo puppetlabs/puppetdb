@@ -36,15 +36,15 @@ to the result of the form supplied to this method."
 (deftest catalog-retrieval
   (let [basic-catalog (:basic catalogs)
         empty-catalog (:empty catalogs)]
-    (scf-store/add-certname! (:certname basic-catalog))
-    (scf-store/add-certname! (:certname empty-catalog))
+    (scf-store/add-certname! (:name basic-catalog))
+    (scf-store/add-certname! (:name empty-catalog))
     (scf-store/replace-catalog! basic-catalog (now))
     (scf-store/replace-catalog! empty-catalog (now))
 
     (testing "should return the catalog if it's present"
-      (is-response-equal (get-response (:certname empty-catalog))
-        {"name" (:certname empty-catalog)
-         "resources" {"Class[Main]" {"certname"   (:certname empty-catalog)
+      (is-response-equal (get-response (:name empty-catalog))
+        {"name" (:name empty-catalog)
+         "resources" {"Class[Main]" {"certname"   (:name empty-catalog)
                                      "type"       "Class"
                                      "title"      "Main"
                                      "resource"   "4e52e8387f0766e007a450c63ee7a37b9c16a016"
@@ -54,7 +54,7 @@ to the result of the form supplied to this method."
                                      "count"      1
                                      "tags"       ["class" "main"]
                                      "parameters" {"name" "main"}}
-                     "Class[Settings]" {"certname"   (:certname empty-catalog)
+                     "Class[Settings]" {"certname"   (:name empty-catalog)
                                         "type"       "Class"
                                         "title"      "Settings"
                                         "resource"   "e07ed40565f4d82e468b47b627df444557e132f6"
@@ -64,7 +64,7 @@ to the result of the form supplied to this method."
                                         "count"      1
                                         "tags"       ["class" "settings"]
                                         "parameters" {}}
-                     "Stage[main]" {"certname"   (:certname empty-catalog)
+                     "Stage[main]" {"certname"   (:name empty-catalog)
                                     "type"       "Stage"
                                     "title"      "main"
                                     "resource"   "76c4350dca7f6dc2f900be31b7ac5eecf6c54b4e"

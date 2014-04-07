@@ -300,7 +300,7 @@
 (defn replace-catalog*
   [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
   (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
-        certname (:certname catalog)
+        certname (:name catalog)
         id (:id annotations)
         timestamp (:received annotations)]
     (jdbc/with-transacted-connection' db :repeatable-read
@@ -592,7 +592,6 @@
                    (rand-int (Math/pow 2 n)))
         error-msg (format "[%s] [%s] Retrying after attempt %d, due to: %s"
                           id command attempt e)]
-
     (if (> n (/ maximum-allowable-retries 4))
       (log/error e error-msg)
       (log/debug e error-msg))

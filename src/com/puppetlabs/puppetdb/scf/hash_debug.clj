@@ -47,11 +47,10 @@
    for easy diffing."
   [certname]
   (-> (qcat/catalog-for-node :latest certname)
-      :data
       (update-in [:edges] edge-relationships->kwds)
       (update-in [:resources] resource-params->kwds)))
 
-(defn debug-catalog [debug-output-dir new-hash {certname :certname new-resources :resources new-edges :edges :as catalog}]
+(defn debug-catalog [debug-output-dir new-hash {certname :name new-resources :resources new-edges :edges :as catalog}]
   (let [{old-resources :resources old-edges :edges} (diffable-old-catalog certname)
         old-catalog (shash/catalog-similarity-format certname old-resources old-edges)
         new-catalog (shash/catalog-similarity-format certname (vals new-resources) new-edges)
