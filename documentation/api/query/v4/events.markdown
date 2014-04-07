@@ -158,6 +158,9 @@ operators.
 value of this field is always boolean (`true` or `false` without quotes), and it
 is not supported by the regex match operator.
 
+`environment`
+: the environment associated with the reporting node
+
 ##### Notes on fields that allow `NULL` values
 
 In the case of a `skipped` resource event, some of the fields of an event may

@@ -75,7 +75,7 @@
     (validate-fn)
     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
     (scf-store/add-report!* example-report timestamp update-latest-report?)
-    (query/report-for-hash report-hash)))
+    (query/report-for-hash :v4 report-hash)))
 
 (defn store-example-report!
   "See store-example-reports*! calls that, passing in a version 3 validation function"
@@ -106,23 +106,24 @@
   (map expected-report example-reports))
 
 (defn raw-reports-query-result
-  [query paging-options]
+  [version query paging-options]
   (letfn [(munge-fn
             [reports]
             (map #(dissoc % :receive-time) reports))]
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
-    (update-in (->> (query/report-query->sql query)
-                    (query/query-reports paging-options))
+    (update-in (->> query
+                    (query/report-query->sql version)
+                    (query/query-reports :v4 paging-options))
                [:result]
                munge-fn)))
 
 (defn reports-query-result
-  ([query]
-   (reports-query-result query nil))
-  ([query paging-options]
-   (:result (raw-reports-query-result query paging-options))))
+  ([version query]
+   (reports-query-result version query nil))
+  ([version query paging-options]
+   (:result (raw-reports-query-result version query paging-options))))
 
 (defn get-events-map
   [example-report]

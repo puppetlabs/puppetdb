@@ -1,7 +1,9 @@
 (ns com.puppetlabs.puppetdb.testutils.events
   (:require [com.puppetlabs.puppetdb.query.events :as query]
-            [com.puppetlabs.puppetdb.reports :as report])
-  (:use [clj-time.coerce :only [to-timestamp]]))
+            [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment]]
+            [clojure.walk :as walk])
+  (:use [clj-time.coerce :only [to-timestamp to-string]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -36,10 +38,15 @@
   ;; report submission.
   (dissoc example-event :certname :test-id :containing-class))
 
+(defn add-environment [resource-event report version]
+  (if (= :v4 version)
+    (assoc resource-event :environment (:environment report))
+    resource-event))
+
 (defn expected-resource-event
   "Given a resource event from the example data, plus a report hash, coerce the
   event into the format that we expect to be returned from a real query."
-  [example-resource-event report]
+  [version example-resource-event report]
   (-> example-resource-event
     ;; the examples don't have the report-id or configuration-version,
     ;; but the results from the database do... so we need to munge those in.
@@ -51,6 +58,7 @@
     ;; we need to convert the datetime fields from the examples to timestamp objects
     ;; in order to compare them.
     (update-in [:timestamp] to-timestamp)
+    (add-environment report version)
     (dissoc :test-id)))
 
 (defn raw-expected-resource-events
@@ -58,14 +66,30 @@
   coerce the events into the format that we expected to be returned from a real query.
   Unlike the more typical `expected-resource-events`, this does not put the events
   into a set, which makes this function useful for testing the order of results."
-  [example-resource-events report]
-  (map #(expected-resource-event % report) example-resource-events))
+  [version example-resource-events report]
+  (map #(expected-resource-event version % report) example-resource-events))
+
+(defn timestamps->str
+  "Walks events and stringifies all timestamps"
+  [events]
+  (walk/postwalk (fn [x]
+                   (if (instance? java.sql.Timestamp x)
+                     (to-string x)
+                     x))
+                 events))
+
+(defn http-expected-resource-events
+  "Returns an HTTPish version of resource events"
+  [version example-resource-events report]
+  (-> (raw-expected-resource-events version example-resource-events report)
+      timestamps->str
+      set))
 
 (defn expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,
   coerce the events into the format that we expect to be returned from a real query."
-  [example-resource-events report]
-  (set (raw-expected-resource-events example-resource-events report)))
+  [version example-resource-events report]
+  (set (raw-expected-resource-events version example-resource-events report)))
 
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
@@ -76,7 +100,7 @@
     (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
     (->> (query/query->sql version query-options query)
-         (query/query-resource-events paging-options)
+         (query/query-resource-events version paging-options)
          (:result)
          (set))))
 
@@ -87,7 +111,7 @@
     (resource-events-limited-query-result version limit query nil))
   ([version limit query paging-options]
     (->> (query/query->sql version nil query)
-         (query/limited-query-resource-events limit paging-options)
+         (query/limited-query-resource-events version limit paging-options)
          (:result)
          (set))))
 
@@ -99,4 +123,4 @@
     (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
     (->> (query/query->sql version query-options query)
-         (query/query-resource-events paging-options))))
+         (query/query-resource-events version paging-options))))

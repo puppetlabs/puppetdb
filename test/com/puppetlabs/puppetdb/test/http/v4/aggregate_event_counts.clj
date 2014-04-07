@@ -65,3 +65,60 @@
                        "distinct-end-time" (now)})]
       (assert-success! response)
       (is (= expected (json/parse-string (:body response) true))))))
+
+(deftest query-with-environment
+  (store-example-report! (:basic reports) (now))
+  (store-example-report! (assoc (:basic2 reports)
+                           :certname "bar.local"
+                           :environment "PROD") (now))
+  (are [result query] (= result (-> (get-response endpoint
+                                                  query
+                                                  "resource"
+                                                  {"distinct-resources" false
+                                                   "distinct-start-time" 0
+                                                   "distinct-end-time" (now)})
+                                    :body
+                                    (json/parse-string true)))
+       {:successes 2
+        :skips 1
+        :failures 0
+        :noops 0
+        :total 3}
+       ["=" "environment" "DEV"]
+
+       {:successes 2
+        :skips 1
+        :failures 0
+        :noops 0
+        :total 3}
+       ["~" "environment" "DE"]
+
+       {:successes 3
+        :skips 0
+        :failures 0
+        :noops 0
+        :total 3}
+       ["=" "environment" "PROD"]
+
+       {:successes 3
+        :skips 0
+        :failures 0
+        :noops 0
+        :total 3}
+       ["~" "environment" "PR"]
+
+       {:successes 5
+        :skips 1
+        :failures 0
+        :noops 0
+        :total 6}
+       ["~" "environment" "D"]
+
+       {:successes 5
+        :skips 1
+        :failures 0
+        :noops 0
+        :total 6}
+       ["OR"
+        ["=" "environment" "DEV"]
+        ["=" "environment" "PROD"]]))

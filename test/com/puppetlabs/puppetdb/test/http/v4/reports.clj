@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports report=]])
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
@@ -29,7 +29,7 @@
     [:start-time :end-time]
     ;; the response won't include individual events, so we need to pluck those
     ;; out of the example report object before comparison
-    (dissoc report :resource-events :environment)))
+    (dissoc report :resource-events)))
 
 (defn reports-response
   [reports]
@@ -49,10 +49,12 @@
     ;; TODO: test invalid requests
 
     (testing "should return all reports for a certname"
-      (response-equal?
-        (get-response ["=" "certname" (:certname basic)])
-        (reports-response [(assoc basic :hash report-hash)])
-        remove-receive-times))
+      (let [result (get-response ["=" "certname" (:certname basic)])]
+        (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+        (response-equal?
+         result
+         (reports-response [(assoc basic :hash report-hash)])
+         remove-receive-times)))
 
     (testing "should return all reports for a hash"
       (response-equal?
@@ -86,5 +88,5 @@
     (is (re-matches #".*query operator '<' is unknown" (:body response)))
     (is (= 400 (:status response))))
   (let [response (get-response ["=" "timestamp" 0])]
-    (is (= "'timestamp' is not a valid query term" (:body response)))
+    (is (re-find #"'timestamp' is not a valid query term" (:body response)))
     (is (= 400 (:status response)))))

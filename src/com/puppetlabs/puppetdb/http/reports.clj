@@ -14,14 +14,13 @@
   with the query results.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
-  [query paging-options db]
+  [version query paging-options db]
   (try
     (with-transacted-connection db
-      (-> query
-          (json/parse-string true)
-          (query/report-query->sql)
-          ((partial query/query-reports paging-options))
-          (query-result-response)))
+      (->> (json/parse-string query true)
+           (query/report-query->sql version)
+           (query/query-reports version paging-options)
+           (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
@@ -29,18 +28,21 @@
     (catch IllegalStateException e
       (pl-http/error-response e pl-http/status-internal-error))))
 
-(def routes
+(defn routes
+  [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (produce-body
-              (params "query")
-              paging-options
-              (:scf-read-db globals)))}))
+   [""]
+   {:get (fn [{:keys [params globals paging-options]}]
+           (produce-body
+            version
+            (params "query")
+            paging-options
+            (:scf-read-db globals)))}))
 
-(def reports-app
+(defn reports-app
   "Ring app for querying reports"
-  (-> routes
+  [version]
+  (-> (routes version)
     verify-accepts-json
     (validate-query-params {:required ["query"]
                             :optional paging/query-params})

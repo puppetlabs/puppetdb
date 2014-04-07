@@ -48,3 +48,8 @@
   "Removes environment from a seq of results"
   [version rows]
   (map #(remove-environment % version) rows))
+
+(defn v4?
+  "Returns a function that always returns true if `version` is :v4"
+  [version]
+  (constantly (= :v4 version)))

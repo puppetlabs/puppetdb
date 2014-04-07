@@ -2,7 +2,9 @@
 
 (ns com.puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment v4?]]
+            [clojure.core.match :refer [match]])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query :only [execute-query compile-term]]
         [com.puppetlabs.puppetdb.query.events :only [events-for-report-hash]]
@@ -16,29 +18,41 @@
 (defn compile-equals-term
   "Compile a report query into a structured map reflecting the terms
    of the query. Currnetly only the `=` operator is supported"
-  [& [path value :as term]]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (let [num-args (count term)]
-    (when-not (= 2 num-args)
-      (throw (IllegalArgumentException.
-              (format "= requires exactly two arguments, but we found %d" num-args)))))
-  (case path
-    "certname" {:where "reports.certname = ?"
-                :params [value] }
-    "hash"     {:where "reports.hash = ?"
-                :params [value]}
-    (throw (IllegalArgumentException.
-            (format "'%s' is not a valid query term" path)))))
+  [version]
+  (fn [& [path value :as term]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (let [num-args (count term)]
+      (when-not (= 2 num-args)
+        (throw (IllegalArgumentException.
+                (format "= requires exactly two arguments, but we found %d" num-args)))))
+    (match [path]
+           ["certname"]
+           {:where "reports.certname = ?"
+            :params [value] }
 
-(def report-term-map {"=" compile-equals-term})
+           ["hash"]
+           {:where "reports.hash = ?"
+            :params [value]}
+
+           ["environment" :guard (v4? version)]
+           {:where "environments.name = ?"
+            :params [value]}
+
+           :else
+           (throw (IllegalArgumentException.
+                   (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
+
+(defn report-terms
+  [version]
+  {"=" (compile-equals-term version)})
 
 (defn report-query->sql
   "Compile a report query into an SQL expression."
-  [query]
+  [version query]
   {:pre [(sequential? query)]
    :post [(valid-jdbc-query? %)]}
-  (let [{:keys [where params]} (compile-term report-term-map query)]
+  (let [{:keys [where params]} (compile-term (report-terms version) query)]
     (apply vector (format " WHERE %s" where) params)))
 
 (def report-columns
@@ -50,22 +64,24 @@
    "start_time"
    "end_time"
    "receive_time"
-   "transaction_uuid"])
+   "transaction_uuid"
+   "environments.name as environment"])
 
 (defn query-reports
   "Take a query and its parameters, and return a vector of matching reports."
-  ([sql-and-params] (query-reports {} sql-and-params))
-  ([paging-options [sql & params]]
-    {:pre [(string? sql)]}
-    (validate-order-by! (map keyword report-columns) paging-options)
-    (let [query   (format "SELECT %s FROM reports %s ORDER BY start_time DESC"
-                    (string/join ", " report-columns)
-                    sql)
-          results (execute-query
+  ([version sql-and-params] (query-reports version {} sql-and-params))
+  ([version paging-options [sql & params]]
+     {:pre [(string? sql)]}
+     (validate-order-by! (map keyword report-columns) paging-options)
+     (let [query   (format "SELECT %s FROM reports LEFT OUTER JOIN environments on reports.environment_id = environments.id %s ORDER BY start_time DESC"
+                           (string/join ", " report-columns)
+                           sql)
+           results (execute-query
                     (apply vector query params)
                     paging-options)]
-      (update-in results [:result]
-        (fn [rs] (map #(kitchensink/mapkeys underscores->dashes %) rs))))))
+       (update-in results [:result]
+                  (fn [rs] (map (comp #(kitchensink/mapkeys underscores->dashes %)
+                                     #(remove-environment % version)) rs))))))
 
 (defn reports-for-node
   "Return reports for a particular node."
@@ -74,31 +90,31 @@
    :post [(or (nil? %)
               (seq? %))]}
   (let [query ["=" "certname" node]
-        reports (-> query
-                  (report-query->sql)
-                  (query-reports)
-                  ;; We don't support paging in this code path, so we
-                  ;; can just pull the results out of the return value
-                  (:result))]
+        reports (->> query
+                     (report-query->sql version)
+                     (query-reports version)
+                     ;; We don't support paging in this code path, so we
+                     ;; can just pull the results out of the return value
+                     :result)]
     (map
-      #(merge % {:resource-events (events-for-report-hash version (get % :hash))})
-      reports)))
+     #(merge % {:resource-events (events-for-report-hash version (get % :hash))})
+     reports)))
 
 (defn report-for-hash
   "Convenience function; given a report hash, return the corresponding report object
   (without events)."
-  [hash]
+  [version hash]
   {:pre  [(string? hash)]
    :post [(or (nil? %)
-            (map? %))]}
+              (map? %))]}
   (let [query ["=" "hash" hash]]
-    (-> query
-      (report-query->sql)
-      (query-reports)
-      ;; We don't support paging in this code path, so we
-      ;; can just pull the results out of the return value
-      (:result)
-      (first))))
+    (->> query
+         (report-query->sql version)
+         (query-reports version)
+         ;; We don't support paging in this code path, so we
+         ;; can just pull the results out of the return value
+         (:result)
+         (first))))
 
 (defn is-latest-report?
   "Given a node and a report hash, return `true` if the report is the most recent one for the node,

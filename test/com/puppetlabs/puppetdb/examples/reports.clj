@@ -243,15 +243,3 @@
   "Removes the environment key (keyword or string) from a catalog"
   [catalog]
   (dissoc catalog :environment "environment"))
-
-(defn report=
-  "Checks to see that reports are equal. Can also compare lists of catalogs.
-   Ignores environment so results queried from the web api cand be compared with
-   the command values. This function is not needed once the query API supports
-   returning environments"
-  [& args]
-  (apply = (map #(if (seq? %)
-                   (map dissoc-env %)
-                   (dissoc-env %))
-                args)))
-

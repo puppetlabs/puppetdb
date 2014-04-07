@@ -3,7 +3,8 @@
 (ns com.puppetlabs.puppetdb.query.events
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
-            [com.puppetlabs.cheshire :as json])
+            [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment v4?]])
   (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-regexp-match]]
         [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not execute-query]]
@@ -38,73 +39,83 @@
 (defn compile-resource-event-equality
   "Compile an = predicate for resource event query. `path` represents the field to
   query against, and `value` is the value."
-  [& [path value :as args]]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (when-not (= (count args) 2)
-    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [path (dashes->underscores path)]
-    (match [path]
-      ["certname"]
-      {:where (format "reports.certname = ?")
-       :params [value]}
+  [version]
+  (fn [& [path value :as args]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (when-not (= (count args) 2)
+      (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+    (let [path (dashes->underscores path)]
+      (match [path]
+             ["certname"]
+             {:where (format "reports.certname = ?")
+              :params [value]}
 
-      ["latest_report?"]
-      {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
-                      (if value "IN" "NOT IN"))}
+             ["latest_report?"]
+             {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+                             (if value "IN" "NOT IN"))}
 
-      [(field :guard #{"report" "resource_type" "resource_title" "status"})]
-      {:where (format "resource_events.%s = ?" field)
-       :params [value] }
+             ["environment" :guard (v4? version)]
+             {:where "environments.name = ?"
+              :params [value]}
 
-      ;; these fields allow NULL, which causes a change in semantics when
-      ;; wrapped in a NOT(...) clause, so we have to be very explicit
-      ;; about the NULL case.
-      [(field :guard #{"property" "message" "file" "line" "containing_class"})]
-      (if-not (nil? value)
-        {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
-         :params [value] }
-        {:where (format "resource_events.%s IS NULL" field)
-         :params nil })
+             [(field :guard #{"report" "resource_type" "resource_title" "status"})]
+             {:where (format "resource_events.%s = ?" field)
+              :params [value] }
 
-      ;; these fields require special treatment for NULL (as described above),
-      ;; plus a serialization step since the values can be complex data types
-      [(field :guard #{"old_value" "new_value"})]
-      {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
-       :params [(db-serialize value)] }
+             ;; these fields allow NULL, which causes a change in semantics when
+             ;; wrapped in a NOT(...) clause, so we have to be very explicit
+             ;; about the NULL case.
+             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             (if-not (nil? value)
+               {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+                :params [value] }
+               {:where (format "resource_events.%s IS NULL" field)
+                :params nil })
 
-      :else (throw (IllegalArgumentException.
-                     (str path " is not a queryable object for resource events"))))))
+             ;; these fields require special treatment for NULL (as described above),
+             ;; plus a serialization step since the values can be complex data types
+             [(field :guard #{"old_value" "new_value"})]
+             {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+              :params [(db-serialize value)] }
+
+             :else (throw (IllegalArgumentException.
+                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
 
 (defn compile-resource-event-regexp
   "Compile an ~ predicate for resource event query. `path` represents the field
    to query against, and `pattern` is the regular expression to match."
-    [& [path pattern :as args]]
+  [version]
+  (fn [& [path pattern :as args]]
     {:post [(map? %)
             (string? (:where %))]}
     (when-not (= (count args) 2)
       (throw (IllegalArgumentException. (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
     (let [path (dashes->underscores path)]
       (match [path]
-        ["certname"]
-        {:where (sql-regexp-match "reports.certname")
-         :params [pattern]}
+             ["certname"]
+             {:where (sql-regexp-match "reports.certname")
+              :params [pattern]}
 
-        [(field :guard #{"report" "resource_type" "resource_title" "status"})]
-        {:where  (sql-regexp-match (format "resource_events.%s" field))
-         :params [pattern] }
+             ["environment" :guard (v4? version)]
+             {:where (sql-regexp-match "environments.name")
+              :params [pattern]}
 
-        ;; these fields allow NULL, which causes a change in semantics when
-        ;; wrapped in a NOT(...) clause, so we have to be very explicit
-        ;; about the NULL case.
-        [(field :guard #{"property" "message" "file" "line" "containing_class"})]
-        {:where (format "%s AND resource_events.%s IS NOT NULL"
-                    (sql-regexp-match (format "resource_events.%s" field))
-                    field)
-         :params [pattern] }
+             [(field :guard #{"report" "resource_type" "resource_title" "status"})]
+             {:where  (sql-regexp-match (format "resource_events.%s" field))
+              :params [pattern] }
 
-        :else (throw (IllegalArgumentException.
-                       (str path " is not a queryable object for resource events"))))))
+             ;; these fields allow NULL, which causes a change in semantics when
+             ;; wrapped in a NOT(...) clause, so we have to be very explicit
+             ;; about the NULL case.
+             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             {:where (format "%s AND resource_events.%s IS NOT NULL"
+                             (sql-regexp-match (format "resource_events.%s" field))
+                             field)
+              :params [pattern] }
+
+             :else (throw (IllegalArgumentException.
+                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
 
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
@@ -116,12 +127,12 @@
     (fn [op]
       (let [op (string/lower-case op)]
         (cond
-          (= op "=") compile-resource-event-equality
-          (= op "and") (partial compile-and (resource-event-ops version))
-          (= op "or") (partial compile-or (resource-event-ops version))
-          (= op "not") (partial compile-not version (resource-event-ops version))
-          (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-          (= op "~") compile-resource-event-regexp)))))
+         (= op "=") (compile-resource-event-equality version)
+         (= op "and") (partial compile-and (resource-event-ops version))
+         (= op "or") (partial compile-or (resource-event-ops version))
+         (= op "not") (partial compile-not version (resource-event-ops version))
+         (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+         (= op "~") (compile-resource-event-regexp version))))))
 
 (def event-columns
   {"certname"               ["reports"]
@@ -141,7 +152,8 @@
    "file"                   ["resource_events"]
    "line"                   ["resource_events"]
    "containment_path"       ["resource_events"]
-   "containing_class"       ["resource_events"]})
+   "containing_class"       ["resource_events"]
+   "name"                   ["environments" "environment"]})
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -159,6 +171,7 @@
      "SELECT %s
          FROM resource_events
          JOIN reports ON resource_events.report = reports.hash
+         LEFT OUTER JOIN environments on reports.environment_id = environments.id
          WHERE %s"
      select-fields
      where)
@@ -181,6 +194,7 @@
      "SELECT %s
          FROM resource_events
          JOIN reports ON resource_events.report = reports.hash
+         LEFT OUTER JOIN environments ON reports.environment_id = environments.id
          JOIN (SELECT reports.certname,
                       resource_events.resource_type,
                       resource_events.resource_title,
@@ -235,7 +249,7 @@
 
   Throws an exception if the query would return more than `limit` results.
   (A value of `0` for `limit` means that the query should not be limited.)"
-  [limit paging-options [query & params]]
+  [version limit paging-options [query & params]]
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))
           (map? %)
@@ -250,17 +264,18 @@
     (assoc results :result
       (map
         #(-> (kitchensink/mapkeys underscores->dashes %)
-           (update-in [:old-value] json/parse-string)
-           (update-in [:new-value] json/parse-string))
+             (update-in [:old-value] json/parse-string)
+             (update-in [:new-value] json/parse-string)
+             (remove-environment version))
         (:result results)))))
 
 (defn query-resource-events
   "Take a paging-options map, a query, and its parameters, and return a map
   containing matching resource events and metadata.  For more information about
   the return value, see `limited-query-resource-events`."
-  [paging-options [sql & params]]
+  [version paging-options [sql & params]]
   {:pre [(string? sql)]}
-  (limited-query-resource-events 0 paging-options (apply vector sql params)))
+  (limited-query-resource-events version 0 paging-options (apply vector sql params)))
 
 (defn events-for-report-hash
   "Given a particular report hash, this function returns all events for that
@@ -271,12 +286,12 @@
   (let [query          ["=" "report" report-hash]
         ;; we aren't actually supporting paging through this code path for now
         paging-options {}]
-    (vec
-      (->> query
-        (query->sql version nil)
-        (query-resource-events paging-options)
-        (:result)
-        (map #(-> %
-                (dissoc :run-start-time)
-                (dissoc :run-end-time)
-                (dissoc :report-receive-time)))))))
+    (->> query
+         (query->sql version nil)
+         (query-resource-events version paging-options)
+         :result
+         (mapv #(dissoc %
+                        :run-start-time
+                        :run-end-time
+                        :report-receive-time
+                        :environment)))))

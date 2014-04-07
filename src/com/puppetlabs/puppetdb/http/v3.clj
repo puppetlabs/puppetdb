@@ -63,7 +63,7 @@
    {:any (aec/aggregate-event-counts-app version)}
 
    ["reports" &]
-   {:any reports/reports-app}
+   {:any (reports/reports-app version)}
 
    ["server-time" &]
    {:any st/server-time-app}))
