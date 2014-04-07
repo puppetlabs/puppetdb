@@ -375,8 +375,7 @@
   to our internal structure."
   (comp
     transform-edges
-    transform-resources
-    transform-catalog))
+    transform-resources))
 
 ;; ## Deserialization
 
@@ -431,6 +430,7 @@
   (->> catalog
        collapse
        transform
+       transform-catalog
        (canonical-catalog :all)
        validate))
 

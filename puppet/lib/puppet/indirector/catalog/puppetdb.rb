@@ -92,7 +92,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # Version is an integer (time since epoch in millis). The wire
   # format specifies version should be a string
   #
-  # @param hash [hash] original data hash
+  # @param hash [Hash] original data hash
   # @return [Hash] returns a modified original hash
   def stringify_version(hash)
     hash['version'] = hash['version'].to_s
