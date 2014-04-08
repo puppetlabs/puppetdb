@@ -37,12 +37,22 @@ Use your system's package tools to ensure that the following prerequisites are i
 Step 2, Option A: Install from Source
 -----
 
-Run the following commands:
+Install Leiningen:
 
+    $ mkdir ~/bin && cd ~/bin
+    $ curl 'https://raw.github.com/technomancy/leiningen/stable/bin/lein' -o lein
+    $ chmod ugo+x lein
+    $ ./lein
+    # symlink lein to somewhere in your $PATH
+    $ sudo ln -s /full/path/to/bin/lein /usr/local/bin
+
+Run the following commands:
+  
     $ mkdir -p ~/git && cd ~/git
     $ git clone git://github.com/puppetlabs/puppetdb
     $ cd puppetdb
-    $ sudo rake install
+    $ rake package:boostrap
+    $ sudo LEIN_ROOT=true rake install
 
 This will install PuppetDB, put a `puppetdb` init script in `/etc/init.d` and create a default configuration directory in `/etc/puppetdb`.
 
