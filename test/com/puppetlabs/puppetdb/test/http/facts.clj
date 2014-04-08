@@ -6,7 +6,8 @@
             [com.puppetlabs.puppetdb.http.server :as server]
             [clojure.java.io :as io]
             [flatland.ordered.map :as omap]
-            [puppetlabs.kitchensink.core :as ks])
+            [puppetlabs.kitchensink.core :as ks]
+            [com.puppetlabs.puppetdb.http :refer [remove-all-environments]])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.fixtures]
@@ -18,7 +19,9 @@
 (def v2-endpoint "/v2/facts")
 (def v3-endpoint "/v3/facts")
 (def v4-endpoint "/v4/facts")
-(def endpoints [v2-endpoint v3-endpoint v4-endpoint])
+(def endpoints [[:v2 v2-endpoint]
+                [:v3 v3-endpoint]
+                [:v4 v4-endpoint]])
 
 (defixture super-fixture :each with-test-db with-http-app)
 
@@ -376,7 +379,7 @@
       (sql/do-commands "SHUTDOWN"))))
 
 (deftest fact-queries
-  (doseq [endpoint endpoints]
+  (doseq [[version endpoint] endpoints]
     (super-fixture
      (fn []
        (testing (str "fact queries for " endpoint ":")
@@ -423,7 +426,7 @@
                        {:keys [status body headers]} (*app* request)]
                    (is (= status pl-http/status-ok))
                    (is (= (headers "Content-Type") c-t))
-                   (is (= (set result) (set (json/parse-string (slurp body) true)))))))
+                   (is (= (set (remove-all-environments version result)) (set (json/parse-string (slurp body) true)))))))
 
              (testing "malformed, yo"
                (let [request (get-request endpoint (json/generate-string []))
@@ -439,7 +442,7 @@
 
 
 (deftest fact-subqueries
-  (doseq [endpoint endpoints]
+  (doseq [[version endpoint] endpoints]
     (super-fixture
      (fn []
        (testing (str "subqueries: valid for endpoint " endpoint ":")
@@ -459,7 +462,7 @@
 
          (doseq [[query results] (get versioned-subqueries endpoint)]
            (testing (str "query: " query " should match expected output")
-             (is-query-result endpoint query results))))
+             (is-query-result endpoint query (set (remove-all-environments version results))))))
 
        (testing "subqueries: invalid"
          (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
@@ -470,7 +473,7 @@
                (is (= status pl-http/status-bad-request))))))))))
 
 (deftest ^{:postgres false} two-database-fact-query-config
-  (doseq [endpoint endpoints]
+  (doseq [[version endpoint] endpoints]
     (super-fixture
      (fn []
        (testing (str "endpoint " endpoint ":")
@@ -507,12 +510,13 @@
                          {:keys [status body headers]} (one-db-app request)]
                      (is (= status pl-http/status-ok))
                      (is (= (headers "Content-Type") c-t))
-                     (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
-                             {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
-                             {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
-                             {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
-                             {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
-                             {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}]
+                     (is (= (remove-all-environments version
+                                                     [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+                                                      {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+                                                      {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+                                                      {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+                                                      {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+                                                      {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}])
                             (json/parse-stream (io/reader body) true))))))))))))))
 
 
@@ -555,8 +559,7 @@
             (is (= (set (map (fn [[k v]]
                                {:certname "foo1"
                                 :name     k
-                                :value    v
-                                 :environment "DEV"})
+                                :value    v})
                              facts1))
                    (set results)))))))
 
@@ -627,7 +630,7 @@
           (testing order
             (let [actual (query-facts
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}})]
-              (is (= actual expected))))))
+              (is (= actual (remove-all-environments :v3 expected)))))))
 
       (testing "multiple fields"
         (doseq [[[name-order value-order] expected] [[["DESC" "ASC"]  [f4 f2 f1 f3]]
@@ -638,7 +641,7 @@
             (let [actual (query-facts
                           {:params {:order-by (json/generate-string [{"field" "name" "order" name-order}
                                                                      {"field" "value" "order" value-order}])}})]
-              (is (= actual expected)))))))
+              (is (= actual (remove-all-environments :v3 expected))))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4]]
@@ -656,7 +659,7 @@
             (let [actual (query-facts
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
-              (is (= actual expected)))))))))
+              (is (= actual (remove-all-environments :v3 expected))))))))))
 
 
 (deftest fact-environment-queries

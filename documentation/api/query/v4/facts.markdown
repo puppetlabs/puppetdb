@@ -29,7 +29,8 @@ deactivated nodes are not included in the response.
 * `"name"`: matches facts of the given name
 * `"value"`: matches facts with the given value
 * `"certname"`: matches facts for the given node
-* `"environment"`: matches facts for nodes with the given environment 
+* `"environment"`: matches facts for nodes with the given environment
+
 #### Operators
 
 See [the Operators page](./operators.html)

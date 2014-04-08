@@ -4,7 +4,8 @@
             [com.puppetlabs.http :as pl-http]
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
-            [com.puppetlabs.puppetdb.testutils :as tu])
+            [com.puppetlabs.puppetdb.testutils :as tu]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment]])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.puppetdb.testutils :only [get-request paged-results]]
@@ -38,15 +39,24 @@ to the result of the form supplied to this method."
                 nil))))
 
 (defn v3->v2-results
-  "Munge example resource output from latest API format to v2 format"
+  "Munge example resource output from v3 API format to v2 format"
   [example-resources]
-  (ks/mapvals #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
-              example-resources))
+  (ks/mapvals #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) example-resources))
+
+(defn v4->v3-results
+  "Munge example resource output from v4 API to v3"
+  [example-resources]
+  (ks/mapvals #(remove-environment % :v3) example-resources))
+
+(defn v4->v2-results
+  "Munge the example resource output from v4 to v2"
+  [example-resources]
+  (-> example-resources v4->v3-results v3->v2-results))
 
 (deftest resource-endpoint-tests
   (let [results (store-example-resources)
-        versioned-results {v2-endpoint (v3->v2-results results)
-                           v3-endpoint results
+        versioned-results {v2-endpoint (v4->v2-results results)
+                           v3-endpoint (v4->v3-results results)
                            v4-endpoint results}]
     (doseq [endpoint endpoints]
       (testing  (str "resource queries for " endpoint ":")
@@ -126,7 +136,7 @@ to the result of the form supplied to this method."
                  (is-response-equal (get-response endpoint query) result))))))))))
 
 (deftest query-sourcefile-sourceline
-  (let [{v3-bar2 :bar2 :as v3-results} (store-example-resources)
+  (let [{v3-bar2 :bar2 :as v3-results} (v4->v3-results (store-example-resources))
         {v2-bar2 :bar2} (v3->v2-results v3-results)]
     (testing "sourcefile and sourceline is queryable in v2"
       (are [query] (is-response-equal (get-response v2-endpoint query) #{v2-bar2})
@@ -181,7 +191,7 @@ to the result of the form supplied to this method."
         (is (= body (format "Unsupported query parameter '%s'" (name k)))))))
 
   (testing "v3 supports paging via include-total"
-    (let [expected (store-example-resources)]
+    (let [expected (v4->v3-results (store-example-resources))]
       (doseq [[label count?] [["without" false]
                               ["with" true]]]
         (testing (str "should support paging through nodes " label " counts")
@@ -196,7 +206,7 @@ to the result of the form supplied to this method."
                    (set results)))))))))
 
 (deftest resource-query-result-ordering
-  (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
+  (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (v4->v3-results (store-example-resources))]
     (testing "ordering results with order-by"
       (let [order-by {:order-by (json/generate-string [{"field" "certname" "order" "DESC"}
                                                        {"field" "resource" "order" "DESC"}])}
