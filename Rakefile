@@ -124,8 +124,8 @@ case @osfamily
     @plibdir = @pe ? PE_SITELIBDIR : (%x(ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']").chomp)
   when /openbsd/
     @plibdir = @pe ? PE_SITELIBDIR : '/usr/local/lib/ruby/site_ruby/1.9.1'
-  when /Archlinux/
-    @plibdir = @pe ? PE_SITELIBDIR : '/usr/lib/ruby/gems/2.1.0'
+  when /archlinux/
+    @plibdir = @pe ? PE_SITELIBDIR : (%x(ruby -rrbconfig -e 'puts RbConfig::CONFIG["vendorlibdir"]').chomp)
 end
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
