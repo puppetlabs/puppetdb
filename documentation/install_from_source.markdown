@@ -51,7 +51,7 @@ Run the following commands:
     $ mkdir -p ~/git && cd ~/git
     $ git clone git://github.com/puppetlabs/puppetdb
     $ cd puppetdb
-    $ rake package:boostrap
+    $ rake package:bootstrap
     $ sudo LEIN_ROOT=true rake install
 
 This will install PuppetDB, put a `puppetdb` init script in `/etc/init.d` and create a default configuration directory in `/etc/puppetdb`.
