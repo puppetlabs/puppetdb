@@ -37,7 +37,7 @@
    :post [(map? %)
           (empty? (select-keys % [:certname :resource]))]}
   (-> resource
-    (dissoc :certname :resource)
+    (dissoc :certname :resource :environment)
     ;; All of the sample JSON catalogs I've seen do not include the `file`/`line`
     ;; fields if we don't have actual values for them.
     (dissoc-if-nil :line :file)))

@@ -36,3 +36,15 @@
   (->
     (json-response (:result query-result))
     (add-headers (dissoc query-result :result))))
+
+(defn remove-environment
+  "dissocs the :environment key when the version is :v4"
+  [result-map version]
+  (if-not (= :v4 version)
+    (dissoc result-map :environment)
+    result-map))
+
+(defn remove-all-environments
+  "Removes environment from a seq of results"
+  [version rows]
+  (map #(remove-environment % version) rows))

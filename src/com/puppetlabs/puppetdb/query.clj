@@ -191,11 +191,13 @@
 ;;  corresponding table names where the fields reside
 (def fact-columns {"certname" "certname_facts"
                    "name"     "certname_facts"
-                   "value"    "certname_facts"})
+                   "value"    "certname_facts"
+                   "environment" "certname_facts"})
 
 ;; This map's keys are the queryable fields for resources, and the values are the
 ;;  corresponding table names where the fields reside
 (def resource-columns {"certname"   "catalogs"
+                       "environment" "catalog_resources"
                        "catalog"    "catalog_resources"
                        "resource"   "catalog_resources"
                        "type"       "catalog_resources"
@@ -290,11 +292,13 @@
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
-                       FROM (SELECT c.hash as catalog, catalog_id, resource,
-                                   type, title, tags, exported, file, line
-                               FROM catalog_resources cr, catalogs c
-                               WHERE c.id = cr.catalog_id) AS catalog_resources
-                       JOIN catalogs ON catalog_resources.catalog_id = catalogs.id WHERE %s"
+                       FROM (SELECT c.hash as catalog, e.name as environment, catalog_id, resource,
+                                    type, title, tags, exported, file, line
+                             FROM catalog_resources cr, catalogs c LEFT OUTER JOIN environments e
+                                  on c.environment_id = e.id
+                             WHERE c.id = cr.catalog_id) AS catalog_resources
+                       JOIN catalogs ON catalog_resources.catalog_id = catalogs.id
+                     WHERE %s"
                     (column-map->sql resource-columns) where)]
     (apply vector sql params)))
 
@@ -304,7 +308,11 @@
   [ops query]
   {:post [valid-jdbc-query? %]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM certname_facts WHERE %s" (column-map->sql fact-columns) where)]
+        sql (format "SELECT %s FROM (select cf.certname, cf.name, cf.value, env.name as environment
+                                     FROM certname_facts cf INNER JOIN certname_facts_metadata cfm on cf.certname = cfm.certname
+                                                            LEFT OUTER JOIN environments as env on cfm.environment_id = env.id)
+                                     as certname_facts
+                     WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
 (defn node-query->sql
@@ -315,6 +323,12 @@
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
     (apply vector sql params)))
+
+(defn v4?
+  "When `version` is :v4, returns a function that will always
+   return true, otherwise will always return false"
+  [version]
+  (constantly (= version :v4)))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
@@ -334,37 +348,40 @@
           (when (contains? (valset v3-renamed-resource-columns) path)
             (throw (IllegalArgumentException. (format "%s is not a queryable object for resources" path))))
           (compile-resource-equality :v3 (get v3-renamed-resource-columns path path) value))
-    (do
-      (match [path]
-             ;; tag join. Tags are case-insensitive but always lowercase, so
-             ;; lowercase the query value.
-             ["tag"]
-             {:where  (sql-array-query-string "tags")
-              :params [(string/lower-case value)]}
+    (match [path]
+           ;; tag join. Tags are case-insensitive but always lowercase, so
+           ;; lowercase the query value.
+           ["tag"]
+           {:where  (sql-array-query-string "tags")
+            :params [(string/lower-case value)]}
 
-             ;; node join.
-             ["certname"]
-             {:where  "catalogs.certname = ?"
-              :params [value]}
+           ;; node join.
+           ["certname"]
+           {:where  "catalogs.certname = ?"
+            :params [value]}
 
-             ;; {in,}active nodes.
-             [["node" "active"]]
-             {
-               :where (format "catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+           ["environment" :guard (v4? version)]
+           {:where  "catalog_resources.environment = ?"
+            :params [value]}
 
-             ;; param joins.
-             [["parameter" (name :guard string?)]]
-             {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
-              :params [name (db-serialize value)]}
+           ;; {in,}active nodes.
+           [["node" "active"]]
+           {
+            :where (format "catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
 
-             ;; metadata match.
-             [(metadata :guard #{"catalog" "resource" "type" "title" "tags" "exported" "file" "line"})]
-               {:where  (format "catalog_resources.%s = ?" metadata)
-                :params [value]}
+           ;; param joins.
+           [["parameter" (name :guard string?)]]
+           {:where  "catalog_resources.resource IN (SELECT rp.resource FROM resource_params rp WHERE rp.name = ? AND rp.value = ?)"
+            :params [name (db-serialize value)]}
 
-             ;; ...else, failure
-             :else (throw (IllegalArgumentException.
-                           (str path " is not a queryable object for resources")))))))
+           ;; metadata match.
+           [(metadata :guard #{"catalog" "resource" "type" "title" "tags" "exported" "file" "line"})]
+           {:where  (format "catalog_resources.%s = ?" metadata)
+            :params [value]}
+
+           ;; ...else, failure
+           :else (throw (IllegalArgumentException.
+                         (format "'%s' is not a queryable object for resources in the version %s API" path (last (name version))))))))
 
 (defn compile-resource-regexp
   "Compile an '~' predicate for a resource query, which does regexp matching.
@@ -389,6 +406,10 @@
            {:where  (sql-regexp-match "catalogs.certname")
             :params [value]}
 
+           ["environment" :guard (v4? version)]
+           {:where  (sql-regexp-match "catalog_resources.environment")
+            :params [value]}
+
            ;; metadata match.
            [(metadata :guard #{"type" "title" "exported" "file"})]
            {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
@@ -396,55 +417,64 @@
 
            ;; ...else, failure
            :else (throw (IllegalArgumentException.
-                          (str path " cannot be the target of a regexp match"))))))
+                         (format "'%s' cannot be the target of a regexp match for version %s of the resources API" path (last (name version))))))))
 
 (defn compile-fact-equality
   "Compile an = predicate for a fact query. `path` represents the field to
   query against, and `value` is the value."
-  [path value]
-  {:post [(map? %)
-          (:where %)]}
-  (match [path]
-         ["name"]
-         {:where "certname_facts.name = ?"
-          :params [value]}
+  [version]
+  (fn [path value]
+    {:post [(map? %)
+            (:where %)]}
+    (match [path]
+           ["name"]
+           {:where "certname_facts.name = ?"
+            :params [value]}
 
-         ["value"]
-         {:where "certname_facts.value = ?"
-          :params [(str value)]}
+           ["value"]
+           {:where "certname_facts.value = ?"
+            :params [(str value)]}
 
-         ["certname"]
-         {:where "certname_facts.certname = ?"
-          :params [value]}
+           ["certname"]
+           {:where "certname_facts.certname = ?"
+            :params [value]}
 
-         [["node" "active"]]
-         {
-          :where (format "certname_facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
-         :else
-         (throw (IllegalArgumentException. (str path " is not a queryable object for facts")))))
+           ["environment" :guard (v4? version)]
+           {:where "certname_facts.environment = ?"
+            :params [value]}
+
+           [["node" "active"]]
+           {:where (format "certname_facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+
+           :else
+           (throw (IllegalArgumentException. (format "%s is not a queryable object for version %s of the facts query api" path (last (name version))))))))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
   is done by leveraging the correct database-specific regexp syntax to return
   only rows where the supplied `path` match the given `pattern`."
-  [path pattern]
-  {:pre [(string? path)
-         (string? pattern)]
-   :post [(map? %)
-          (string? (:where %))]}
-  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
-    (match [path]
-           ["certname"]
-           (query "certname_facts.certname")
+  [version]
+  (fn [path pattern]
+    {:pre [(string? path)
+           (string? pattern)]
+     :post [(map? %)
+            (string? (:where %))]}
+    (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+      (match [path]
+             ["certname"]
+             (query "certname_facts.certname")
 
-           ["name"]
-           (query "certname_facts.name")
+             ["environment" :guard (v4? version)]
+             (query "certname_facts.environment")
 
-           ["value"]
-           (query "certname_facts.value")
+             ["name"]
+             (query "certname_facts.name")
 
-           :else (throw (IllegalArgumentException.
-                          (str path " is not a valid operand for regexp comparison"))))))
+             ["value"]
+             (query "certname_facts.value")
+
+             :else (throw (IllegalArgumentException.
+                           (format "%s is not a valid version %s operand for regexp comparison" path (last (name version)))))))))
 
 (defn compile-fact-inequality
   "Compile a numeric inequality for a fact query (> < >= <=). The `value` for
@@ -557,8 +587,8 @@
           (#{">" "<" ">=" "<="} op)
           (partial compile-fact-inequality op)
 
-          (= op "=") compile-fact-equality
-          (= op "~") compile-fact-regexp
+          (= op "=") (compile-fact-equality version)
+          (= op "~") (compile-fact-regexp version)
           ;; We pass this function along so the recursive calls know which set of
           ;; operators/functions to use, depending on the API version.
           (= op "and") (partial compile-and (fact-operators version))

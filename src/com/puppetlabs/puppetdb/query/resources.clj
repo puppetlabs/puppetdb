@@ -47,7 +47,7 @@
           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
                                   "subquery1.type, subquery1.title, subquery1.tags, "
                                   "subquery1.exported, subquery1.file, "
-                                  "subquery1.line, rpc.parameters "
+                                  "subquery1.line, rpc.parameters, subquery1.environment "
                             "FROM (%s) subquery1 "
                             "LEFT OUTER JOIN resource_params_cache rpc "
                                 "ON rpc.resource = subquery1.resource")

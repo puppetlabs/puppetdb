@@ -53,6 +53,7 @@ to the result of the form supplied to this method."
                                      "line" nil
                                      "count"      1
                                      "tags"       ["class" "main"]
+                                     "environment" nil
                                      "parameters" {"name" "main"}}
                      "Class[Settings]" {"certname"   (:name empty-catalog)
                                         "type"       "Class"
@@ -63,6 +64,7 @@ to the result of the form supplied to this method."
                                         "line"       1
                                         "count"      1
                                         "tags"       ["class" "settings"]
+                                        "environment" nil
                                         "parameters" {}}
                      "Stage[main]" {"certname"   (:name empty-catalog)
                                     "type"       "Stage"
@@ -73,6 +75,7 @@ to the result of the form supplied to this method."
                                     "line" nil
                                     "count"      1
                                     "tags"       ["main" "stage"]
+                                    "environment" nil
                                     "parameters" {}}}
          "edges" #{{"source" {"type" "Stage" "title" "main"}
                    "target" {"type" "Class" "title" "Settings"}

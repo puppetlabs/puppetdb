@@ -39,7 +39,7 @@
   [operators query paging-options]
   (if query
     (let [[subselect & params] (fact-query->sql operators query)
-          sql (format "SELECT facts.certname, facts.name, facts.value FROM (%s) facts" subselect)]
+          sql (format "SELECT facts.certname, facts.environment, facts.name, facts.value FROM (%s) facts" subselect)]
       (apply vector sql params))
     ["SELECT certname, name, value FROM certname_facts"]))
 

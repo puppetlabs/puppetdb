@@ -5,7 +5,8 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr])
+            [ring.util.response :as rr]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]])
   (:use [net.cgrand.moustache :only [app]]
         com.puppetlabs.middleware
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
@@ -29,7 +30,8 @@
              resp (pl-http/json-response*
                    (pl-http/streamed-response buffer
                       (with-transacted-connection db
-                        (f/with-queried-facts sql paging-options params #(pl-http/stream-json % buffer)))))]
+                        (f/with-queried-facts sql paging-options params
+                          #(pl-http/stream-json (remove-all-environments version %) buffer)))))]
 
         (if count-query
           (add-headers resp {:count (get-result-count count-query)})

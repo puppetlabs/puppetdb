@@ -4,7 +4,8 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resources :as r]
             [ring.util.response :as rr]
-            [com.puppetlabs.cheshire :as json])
+            [com.puppetlabs.cheshire :as json]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
@@ -12,8 +13,10 @@
 
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the v2 API specification"
-  [rows]
-  (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) rows))
+  [version]
+  (fn [rows]
+    (map (comp #(remove-environment % version)
+               #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})) rows)))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query results.
@@ -37,8 +40,8 @@
                        (r/with-queried-resources sql params
                          (case version
                            :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-                           :v2 (comp #(pl-http/stream-json % buffer) munge-result-rows)
-                           #(pl-http/stream-json % buffer))))))]
+                           :v2 (comp #(pl-http/stream-json % buffer) (munge-result-rows :v2))
+                           #(pl-http/stream-json (remove-all-environments version %) buffer))))))]
 
         (if count-query
           (add-headers resp {:count (get-result-count count-query)})
