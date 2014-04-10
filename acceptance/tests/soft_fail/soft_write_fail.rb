@@ -17,7 +17,7 @@ test_name "soft write failure" do
     start_puppetdb(database)
   end
 
-  names = hosts.map(&:name)
+  names = hosts.map(&:hostname)
   tmpdir = master.tmpdir('storeconfigs')
 
   manifest_file_export = manifest_file_collect = nil
