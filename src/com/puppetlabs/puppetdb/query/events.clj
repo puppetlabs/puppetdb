@@ -6,7 +6,7 @@
             [com.puppetlabs.cheshire :as json])
   (:use [com.puppetlabs.jdbc :only [underscores->dashes dashes->underscores valid-jdbc-query? add-limit-clause]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-regexp-match]]
-        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not execute-query]]
+        [com.puppetlabs.puppetdb.query :only [compile-term compile-and compile-or compile-not compile-extract compile-in execute-query resource-query->sql fact-query->sql resource-operators fact-operators event-columns]]
         [clojure.core.match :only [match]]
         [clj-time.coerce :only [to-timestamp]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
@@ -121,27 +121,11 @@
           (= op "or") (partial compile-or (resource-event-ops version))
           (= op "not") (partial compile-not version (resource-event-ops version))
           (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-          (= op "~") compile-resource-event-regexp)))))
-
-(def event-columns
-  {"certname"               ["reports"]
-   "configuration_version"  ["reports"]
-   "start_time"             ["reports" "run_start_time"]
-   "end_time"               ["reports" "run_end_time"]
-   "receive_time"           ["reports" "report_receive_time"]
-   "report"                 ["resource_events"]
-   "status"                 ["resource_events"]
-   "timestamp"              ["resource_events"]
-   "resource_type"          ["resource_events"]
-   "resource_title"         ["resource_events"]
-   "property"               ["resource_events"]
-   "new_value"              ["resource_events"]
-   "old_value"              ["resource_events"]
-   "message"                ["resource_events"]
-   "file"                   ["resource_events"]
-   "line"                   ["resource_events"]
-   "containment_path"       ["resource_events"]
-   "containing_class"       ["resource_events"]})
+          (= op "~") compile-resource-event-regexp
+          (= op "extract") (partial compile-extract version (resource-event-ops version))
+          (= op "in") (partial compile-in :event version (resource-event-ops version))
+          (= op "select-resources") (partial resource-query->sql (resource-operators version))
+          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
