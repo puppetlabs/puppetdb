@@ -3,7 +3,7 @@ test_name "general collection should get all exported resources except the host'
     clear_and_restart_puppetdb(database)
   end
 
-  names = hosts.map(&:name)
+  names = hosts.map(&:hostname)
 
   manifest = names.map do |name|
     <<-PIECE
