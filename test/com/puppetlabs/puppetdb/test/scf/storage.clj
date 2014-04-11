@@ -16,7 +16,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [clojure.string :as str])
   (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
-        [com.puppetlabs.puppetdb.examples.reports :only [reports report=]]
+        [com.puppetlabs.puppetdb.examples.reports :only [reports]]
         [com.puppetlabs.puppetdb.testutils.reports]
         [com.puppetlabs.puppetdb.testutils.events]
         [com.puppetlabs.puppetdb.query.reports :only [is-latest-report?]]
@@ -989,8 +989,8 @@
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
-            actual        (reports-query-result ["=" "certname" certname])]
-        (is (report= expected actual)))))
+            actual        (reports-query-result :v4 ["=" "certname" certname])]
+        (is (= expected actual)))))
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"

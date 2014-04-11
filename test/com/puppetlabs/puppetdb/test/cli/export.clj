@@ -5,7 +5,6 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [com.puppetlabs.puppetdb.testutils.reports :as testrep]
-            [com.puppetlabs.puppetdb.examples.reports :refer [report=]]
             [com.puppetlabs.puppetdb.cli.export :as export]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -35,10 +34,9 @@
             original-report      (clojure.walk/keywordize-keys (json/parse-string original-report-str))]
         (testrep/store-example-report! original-report "2012-10-09T22:15:17-07:00")
 
-        ;; This is explicitly set to v3, as per the current CLI tooling
-        (let [exported-report (first (r/reports-for-node :v3 "myhost.localdomain"))]
-          (is (report= (testrep/munge-report-for-comparison original-report)
-                       (testrep/munge-report-for-comparison exported-report)))))))
+        (let [exported-report (first (r/reports-for-node :v4 "myhost.localdomain"))]
+          (is (= (testrep/munge-report-for-comparison original-report)
+                 (testrep/munge-report-for-comparison exported-report)))))))
 
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)

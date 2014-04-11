@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 ---
 
 [event-counts]: ./event-counts.html
+[events]: ./events.html
 [curl]: ../curl.html
 
 > **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
@@ -23,7 +24,7 @@ This endpoint builds on top of the [`event-counts`][event-counts] endpoint and w
 parameters. Supported parameters are listed below for reference.
 
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`event-counts`][event-counts] endpoint - see there for additional documentation.
+This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
 
 * `summarize-by`: Required. A string specifying which type of object you'd like count. Supported values are
 `resource`, `containing-class`, and `certname`.

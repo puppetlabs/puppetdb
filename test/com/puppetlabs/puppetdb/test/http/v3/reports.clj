@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env report=]])
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env]])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
@@ -49,10 +49,12 @@
     ;; TODO: test invalid requests
 
     (testing "should return all reports for a certname"
-      (response-equal?
-        (get-response ["=" "certname" (:certname basic)])
-        (reports-response [(assoc basic :hash report-hash)])
-        remove-receive-times))
+      (let [result (get-response ["=" "certname" (:certname basic)])]
+        (is (not-any? :environment (json/parse-string (:body result) true)))
+        (response-equal?
+         result
+         (reports-response [(assoc basic :hash report-hash)])
+         remove-receive-times)))
 
     (testing "should return all reports for a hash"
       (response-equal?
@@ -76,7 +78,7 @@
                               :total   2
                               :include-total  count?})]
           (is (= 2 (count results)))
-          (is (report= (sort-by :hash
+          (is (= (sort-by :hash
                                 (vec (reports-response
                                       [(assoc basic1 :hash basic1-hash)
                                        (assoc basic2 :hash basic2-hash)])))
@@ -87,5 +89,8 @@
     (is (re-matches #".*query operator '<' is unknown" (:body response)))
     (is (= 400 (:status response))))
   (let [response (get-response ["=" "timestamp" 0])]
-    (is (= "'timestamp' is not a valid query term" (:body response)))
+    (is (re-find #"'timestamp' is not a valid query term" (:body response)))
+    (is (= 400 (:status response))))
+  (let [response (get-response ["=" "environment" "FOO"])]
+    (is (re-find #"'environment' is not a valid query term" (:body response)))
     (is (= 400 (:status response)))))

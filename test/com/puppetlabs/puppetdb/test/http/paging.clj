@@ -22,7 +22,6 @@
                     "/v4/nodes"
                     "/v4/reports"
                     "/v4/resources"]]
-
     (testing (str endpoint " 'order-by' should properly handle malformed JSON input")
       (let [malformed-JSON  "[{\"field\":\"status\" \"order\":\"DESC\"}]"
             response        (*app* (get-request endpoint

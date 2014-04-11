@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.query.reports
   (:require [com.puppetlabs.puppetdb.query.reports :as query]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports report=]])
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]])
   (:use clojure.test
         com.puppetlabs.puppetdb.fixtures
 
@@ -37,26 +37,26 @@
 
 (deftest test-compile-report-term
   (testing "should successfully compile a valid equality query"
-    (is (= (query/compile-equals-term "certname" "foo.local")
+    (is (= ((query/compile-equals-term :v4) "certname" "foo.local")
            {:where   "reports.certname = ?"
             :params  ["foo.local"]})))
   (testing "should fail with an invalid equality query"
     (is (thrown-with-msg?
           IllegalArgumentException #"is not a valid query term"
-          (query/compile-equals-term "foo" "foo")))))
+          ((query/compile-equals-term :v4) "foo" "foo")))))
 
 (deftest reports-retrieval
   (let [basic         (:basic reports)
         report-hash   (:hash (store-example-report! basic (now)))]
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
-            actual    (reports-query-result ["=" "certname" (:certname basic)])]
-        (is (report= expected actual))))
+            actual    (reports-query-result :v4 ["=" "certname" (:certname basic)])]
+        (is (= expected actual))))
 
     (testing "should return reports based on hash"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
-            actual    (reports-query-result ["=" "hash" report-hash])]
-        (is (report= expected actual))))))
+            actual    (reports-query-result :v4 ["=" "hash" report-hash])]
+        (is (= expected actual))))))
 
 (deftest paging-results
   (let [hash1        (:hash (store-example-report! (:basic  my-reports) (now)))
@@ -70,72 +70,77 @@
         report-count 4]
 
     (testing "include total results count"
-      (let [actual (:count (raw-reports-query-result ["=" "certname" "foo.local"] {:count? true}))]
+      (let [actual (:count (raw-reports-query-result :v4 ["=" "certname" "foo.local"] {:count? true}))]
         (is (= actual report-count))))
 
     (testing "limit results"
       (doseq [[limit expected] [[1 1] [2 2] [100 report-count]]]
-        (let [results (reports-query-result ["=" "certname" "foo.local"] {:limit limit})
+        (let [results (reports-query-result :v4 ["=" "certname" "foo.local"] {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
 
     (testing "order-by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (reports-query-result ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
                                    [:descending [report3 report4 report2 report1]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"]
+                  actual   (reports-query-result :v4
+                                                 ["=" "certname" "foo.local"]
                                                  {:order-by [[:report-format order]]})]
-              (is (report= actual expected))))))
+              (is (= actual expected))))))
 
       (testing "alphabetical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
                                    [:descending [report3 report4 report2 report1]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"]
-                             {:order-by [[:transaction-uuid order]]})]
-              (is (report= actual expected))))))
+                  actual   (reports-query-result :v4
+                                                 ["=" "certname" "foo.local"]
+                                                 {:order-by [[:transaction-uuid order]]})]
+              (is (= actual expected))))))
 
       (testing "timestamp fields"
         (doseq [[order expecteds] [[:ascending  [report2 report3 report4 report1]]
                                    [:descending [report1 report4 report3 report2]]]]
           (testing order
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"]
-                             {:order-by [[:start-time order]]})]
-              (is (report= actual expected))))))
+                  actual   (reports-query-result :v4
+                                                 ["=" "certname" "foo.local"]
+                                                 {:order-by [[:start-time order]]})]
+              (is (= actual expected))))))
 
       (testing "multiple fields"
         (doseq [[[puppet-version-order conf-version-order] expecteds] [[[:ascending :descending] [report1 report2 report4 report3]]
                                                                        [[:descending :ascending] [report3 report4 report2 report1]]]]
           (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"]
-                             {:order-by [[:puppet-version puppet-version-order]
-                                         [:configuration-version conf-version-order]]})]
-              (is (report= actual expected)))))))
+                  actual   (reports-query-result :v4
+                                                 ["=" "certname" "foo.local"]
+                                                 {:order-by [[:puppet-version puppet-version-order]
+                                                             [:configuration-version conf-version-order]]})]
+              (is (= actual expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [[:ascending  [[0 [report1 report2 report4 report3]]
-                                                       [1 [report2 report4 report3]]
-                                                       [2 [report4 report3]]
-                                                       [3 [report3]]
-                                                       [4 []]]]
+                                                        [1 [report2 report4 report3]]
+                                                        [2 [report4 report3]]
+                                                        [3 [report3]]
+                                                        [4 []]]]
                                           [:descending [[0 [report3 report4 report2 report1]]
-                                                       [1 [report4 report2 report1]]
-                                                       [2 [report2 report1]]
-                                                       [3 [report1]]
-                                                       [4 []]]]]]
+                                                        [1 [report4 report2 report1]]
+                                                        [2 [report2 report1]]
+                                                        [3 [report1]]
+                                                        [4 []]]]]]
         (testing order
           (doseq [[offset expecteds] expected-sequences]
             (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result ["=" "certname" "foo.local"]
-                             {:order-by [[:report-format order]] :offset offset})]
-              (is (report= actual expected)))))))))
+                  actual   (reports-query-result :v4
+                                                 ["=" "certname" "foo.local"]
+                                                 {:order-by [[:report-format order]] :offset offset})]
+              (is (= actual expected)))))))))

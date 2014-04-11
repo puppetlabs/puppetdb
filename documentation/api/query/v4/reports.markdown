@@ -42,6 +42,9 @@ The only available [OPERATOR][] is `=`.
 : the id of the report; these ids can be acquired
   via event queries (see the [`/events`][event] query endpoint).
 
+`environment`
+: the environment associated to report's node
+
 #### Response format
 
 The response is a JSON array of report summaries for all reports

@@ -62,7 +62,8 @@
 ;;
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [com.puppetlabs.puppetdb.http :refer [v4?]])
   (:use [puppetlabs.kitchensink.core :only [parse-number keyset valset order-by-expr?]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
@@ -323,12 +324,6 @@
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
     (apply vector sql params)))
-
-(defn v4?
-  "When `version` is :v4, returns a function that will always
-   return true, otherwise will always return false"
-  [version]
-  (constantly (= version :v4)))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
