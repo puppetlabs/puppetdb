@@ -41,17 +41,18 @@
 
 (defn catalog-for-node
   "Given a node name, retrieve the catalog for the node."
-  [host port node]
-  {:pre  [(string? host)
-          (integer? port)
-          (string? node)]
-   :post [((some-fn string? nil?) %)]}
-  (let [{:keys [status body]} (client/get
-                                 (format
-                                   "http://%s:%s/v3/catalogs/%s"
-                                   host port node)
-                                 { :accept :json})]
-    (when (= status 200) body)))
+  ([host port node] (catalog-for-node host port :v4 node))
+  ([host port version node]
+     {:pre  [(string? host)
+             (integer? port)
+             (string? node)]
+      :post [((some-fn string? nil?) %)]}
+     (let [{:keys [status body]} (client/get
+                                  (format
+                                   "http://%s:%s/%s/catalogs/%s"
+                                   host port (name version) node)
+                                  { :accept :json})]
+       (when (= status 200) body))))
 
 (pls/defn-validated catalog->tar :- utils/tar-item
   "Create a tar-item map for the `catalog`"
@@ -65,72 +66,83 @@
 ;;; Fact Exporting
 
 (pls/defn-validated facts-for-node
-  :- {String s/Any}
+  :- {s/Keyword s/Any}
   "Given a node name, retrieve the catalog for the node."
-  [host :- String
-   port :- s/Int
-   node :- String]
-  (let [{:keys [status body]} (client/get
-                               (format
-                                "http://%s:%s/v3/nodes/%s/facts"
-                                host port node)
-                               {:accept :json})]
-    (when (= status 200)
-      (reduce (fn [acc {:strs [name value]}]
-                (assoc acc name value))
-              {} (json/parse-string body)))))
+  ([host :- String
+    port :- s/Int
+    node :- String]
+     (facts-for-node host port :v4 node))
+  ([host :- String
+    port :- s/Int
+    version :- s/Keyword
+    node :- String]
+     (let [{:keys [status body]} (client/get
+                                  (format
+                                   "http://%s:%s/%s/nodes/%s/facts"
+                                   host port (name version) node)
+                                  {:accept :json})]
+       (when (= status 200)
+         (let [facts (json/parse-string body true)
+               facts-result {:name node
+                             :values (reduce (fn [acc {:keys [name value]}]
+                                               (assoc acc (keyword name) value))
+                                             {} facts)}]
+           (if (= :v4 version)
+             (assoc facts-result :environment (:environment (first facts)))
+             facts-result))))))
+
 
 (pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
   [node :- String
-   facts :- {String s/Any}]
+   facts :- {s/Keyword s/Any}]
   {:msg (format "Writing facts for node '%s'" node)
    :file-suffix ["facts" (format "%s.json" node)]
-   :contents (json/generate-pretty-string
-               {"name" node
-                "values" facts})})
+   :contents (json/generate-pretty-string facts)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Report Exporting
 
 (defn events-for-report-hash
   "Given a report hash, returns all events as a vector of maps."
-  [host port report-hash]
-  {:pre  [(string? host)
-          (integer? port)
-          (string? report-hash)]
-   :post [vector? %]}
-  (let [{:keys [status body]} (client/get
-                                 (format
-                                   "http://%s:%s/v3/events?query=%s"
-                                   host port (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash))))]
-    (when
-      (= status 200)
-      (sort-by
-        #(mapv % [:timestamp :resource-type :resource-title :property])
-        (map
-          #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time)
-          (json/parse-string body true))))))
+  ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
+  ([host port version report-hash]
+     {:pre  [(string? host)
+             (integer? port)
+             (string? report-hash)]
+      :post [vector? %]}
+     (let [{:keys [status body]} (client/get
+                                  (format
+                                   "http://%s:%s/%s/events?query=%s"
+                                   host port (name version) (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash))))]
+       (when
+           (= status 200)
+         (sort-by
+          #(mapv % [:timestamp :resource-type :resource-title :property])
+          (map
+           #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time :environment)
+           (json/parse-string body true)))))))
 
 (defn reports-for-node
   "Given a node name, retrieves the reports for the node."
-  [host port node]
-  {:pre  [(string? host)
-          (integer? port)
-          (string? node)]
-   :post [seq? %]}
-  (let [{:keys [status body]} (client/get
-                                 (format
-                                   "http://%s:%s/v3/reports?query=%s"
-                                   host port (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
-                                 { :accept :json})]
-    (when
-      (= status 200)
-      (map
-        #(dissoc % :receive-time)
-        (map
-          #(merge % {:resource-events (events-for-report-hash host port (get % :hash))})
-          (json/parse-string body true))))))
+  ([host port node] (reports-for-node host port :v4 node))
+  ([host port version node]
+     {:pre  [(string? host)
+             (integer? port)
+             (string? node)]
+      :post [seq? %]}
+     (let [{:keys [status body]} (client/get
+                                  (format
+                                   "http://%s:%s/%s/reports?query=%s"
+                                   host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
+                                  {:accept :json})]
+       (when
+           (= status 200)
+         (map
+          #(dissoc % :receive-time)
+          (map
+           #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
+           (json/parse-string body true)))))))
 
 (pls/defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
@@ -172,7 +184,7 @@
           (integer? port)]
    :post ((some-fn nil? seq?) %)}
   (let [{:keys [status body]} (client/get
-                                (format "http://%s:%s/v3/nodes" host port)
+                                (format "http://%s:%s/v4/nodes" host port)
                                 {:accept :json})]
     (if (= status 200)
       (json/parse-string body true))))
@@ -180,12 +192,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
 
-(pls/defn-validated export-metadata :- utils/tar-item
+(pls/defn-validated ^:dynamic export-metadata :- utils/tar-item
   "Metadata about this export; used during import to ensure version compatibility."
   []
   {:msg (str "Exporting PuppetDB metadata")
    :file-suffix [export-metadata-file-name]
-   :contents (json/generate-pretty-string 
+   :contents (json/generate-pretty-string
                {:timestamp (now)
                 :command-versions
                 ;; This is not ideal that we are hard-coding the command version here, but
@@ -193,9 +205,9 @@
                 ;;  on which version of the `replace catalog` matches up with the current
                 ;;  version of the `catalog` endpoint... or even to query what the latest
                 ;;  version of a command is.  We should improve that.
-                {:replace-catalog 3 ;;<-- Still TODO to migrat to v4
-                 :store-report 2
-                 :replace-facts 1}})})
+                {:replace-catalog 4
+                 :store-report 3
+                 :replace-facts 2}})})
 
 (defn- validate-cli!
   [args]

@@ -1,14 +1,10 @@
 (ns com.puppetlabs.puppetdb.test.cli.export
   (:require [com.puppetlabs.puppetdb.query.catalogs :as c]
             [com.puppetlabs.puppetdb.query.reports :as r]
-            [com.puppetlabs.puppetdb.query.events :as e]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [com.puppetlabs.puppetdb.testutils.reports :as testrep]
-            [com.puppetlabs.puppetdb.cli.export :as export]
-            [com.puppetlabs.puppetdb.command :as command]
-            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [com.puppetlabs.puppetdb.testutils.repl :as turepl])
+            [com.puppetlabs.puppetdb.cli.export :as export])
   (:use  [clojure.java.io :only [resource]]
          clojure.test
          [com.puppetlabs.puppetdb.fixtures]))
@@ -41,10 +37,9 @@
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)
           metadata (json/parse-string contents true)]
-      (is (= {:replace-catalog 3
-              :store-report 2
-              :replace-facts 1}
+      (is (= {:replace-catalog 4
+              :store-report 3
+              :replace-facts 2}
              (:command-versions metadata)))
       (is (= ["export-metadata.json"] file-suffix))
       (is (= "Exporting PuppetDB metadata" msg)))))
-

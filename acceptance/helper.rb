@@ -374,7 +374,7 @@ module PuppetDBExtensions
 
 
     ############################################################################
-    # NOTE: A lot of the differences between the PE and FOSS manifests here is 
+    # NOTE: A lot of the differences between the PE and FOSS manifests here is
     #   only necessary because the puppetdb::database::postgresql module
     #   doesn't parameterize things like the service name. It would be nice
     #   to simplify this once we've added more paramters to the module.
@@ -726,9 +726,9 @@ EOS
 
   def munge_catalog_for_comparison(cat_path)
     meta = JSON.parse(File.read(cat_path))
-    munged_resources = meta["data"]["resources"].map { |resource| munge_resource_for_comparison(resource) }
-    meta["data"]["resources"] = Set.new(munged_resources)
-    meta["data"]["edges"] = Set.new(meta["data"]["edges"])
+    munged_resources = meta["resources"].map { |resource| munge_resource_for_comparison(resource) }
+    meta["resources"] = Set.new(munged_resources)
+    meta["edges"] = Set.new(meta["edges"])
     meta
   end
 

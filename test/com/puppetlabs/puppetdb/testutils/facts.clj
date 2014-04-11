@@ -18,10 +18,10 @@
   {"facts"
    {node
     {"name" node
+     "environment" "DEV"
      "values" (merge base-facts additional-facts)}}})
 
 (defn spit-facts-tarball
   "Merges fact-maps, then spits the file to disk at `f`"
   [f & fact-maps]
   (tar/spit-tar f (apply merge-with merge fact-maps)))
-

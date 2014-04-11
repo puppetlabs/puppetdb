@@ -57,8 +57,8 @@
   ;; that the master gives us.
   (and
     (map? catalog)
-    (contains? catalog "data")
-    (contains? catalog "metadata")))
+    (contains? catalog "name")
+    (contains? catalog "version")))
 
 ;; Rules engine functions
 
@@ -154,7 +154,8 @@
         :line (rand-int 300)
         :transaction-uuid (uuid)
         :fact-name (random-string 15)
-        :fact-value (random-string 30)))))
+        :fact-value (random-string 30)
+        :environment (random-string 15)))))
 
 (defn anonymize-leaf
   "Anonymize leaf data, if the context matches a rule"
@@ -370,12 +371,13 @@
   [config catalog]
   {:pre  [(catalog? catalog)]
    :post [(catalog? %)]}
-  (let [context {"node" (get catalog ["data" "name"])}]
+  (let [context {"node" (get catalog ["name"])}]
     (-> catalog
-      (update-in ["data" "resources"]        anonymize-resources context config)
-      (update-in ["data" "edges"]            anonymize-edges context config)
-      (update-in ["data" "name"]             anonymize-leaf :node context config)
-      (update-in ["data" "transaction-uuid"] anonymize-leaf :transaction-uuid context config))))
+      (update-in ["resources"]        anonymize-resources context config)
+      (update-in ["edges"]            anonymize-edges context config)
+      (update-in ["name"]             anonymize-leaf :node context config)
+      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
+      (update-in ["environment"] anonymize-leaf :environment context config))))
 
 (defn anonymize-report
   "Anonymize a report"
@@ -386,7 +388,8 @@
     (-> report
       (update-in ["certname"]         anonymize-leaf :node context config)
       (update-in ["resource-events"]  anonymize-resource-events context config)
-      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config))))
+      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
+      (update-in ["environment"] anonymize-leaf :environment context config))))
 
 (defn anonymize-fact-values
   "Anonymizes fact names and values"
@@ -405,4 +408,5 @@
   (let [context {"node" (get wire-facts "name")}]
     (-> wire-facts
         (update-in ["name"] anonymize-leaf :node context config)
-        (update-in ["values"] anonymize-fact-values context config))))
+        (update-in ["values"] anonymize-fact-values context config)
+        (update-in ["environment"] anonymize-leaf :environment context config))))

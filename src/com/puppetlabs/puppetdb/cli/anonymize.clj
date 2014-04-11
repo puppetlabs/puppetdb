@@ -99,7 +99,10 @@
                                   "productname" "ps" "puppetversion" "rubysitedir" "rubyversion" "/^selinux.*/"
                                   "swapencrypted" "/^swapfree.*/" "/^swapsize.*/" "timezone" "/^uptime.*/" "virtual"]}
           "anonymize" false}
-         {"context" {} "anonymize" true}]}
+         {"context" {} "anonymize" true}]
+
+        "environment"
+        [{"context" {} "anonymize" true}]}
     }
     "low" {
       "rules" {
@@ -147,6 +150,8 @@
          {"context" {"fact-name" ["/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
           "anonymize" true}
          {"context" {} "anonymize" false}]
+
+        "environment" [{"context" {} "anonymize" false}]
       }
     }
     "none" {
@@ -162,6 +167,7 @@
         "transaction-uuid" [ {"context" {} "anonymize" false} ]
         "fact-name" [{"context" {} "anonymize" false}]
         "fact-value" [{"context" {} "anonymize" false}]
+        "environment" [{"context" {} "anonymize" false}]
       }
     }
   })

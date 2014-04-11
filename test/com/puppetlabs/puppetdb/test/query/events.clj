@@ -338,7 +338,7 @@
                 actual    (resource-events-query-result version ["and" ["=" "resource-type" "File"] ["=" "latest-report?" true]])]
             (is (= actual expected)))))
 
-      (testing "retrieval of events prior to latest report"
+      (testing (str "retrieval of events prior to latest report " version)
         (testing "applied to entire query"
           (let [expected  (expected-resource-events version events1 basic1)
                 actual    (resource-events-query-result version ["=" "latest-report?" false])]

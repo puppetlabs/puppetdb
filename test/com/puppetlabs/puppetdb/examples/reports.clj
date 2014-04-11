@@ -24,6 +24,7 @@
           :timestamp        "2011-01-01T12:00:01-03:00"
           :resource-type    "Notify"
           :resource-title   "notify, yo"
+          :environment      "DEV"
           :property         "message"
           :new-value        "notify, yo"
           :old-value        ["what" "the" "woah"]
@@ -37,6 +38,7 @@
           :status           "success"
           :timestamp        "2011-01-01T12:00:03-03:00"
           :resource-type    "Notify"
+          :environment      "DEV"
           :resource-title   "notify, yar"
           :property         "message"
           :new-value        {"absent" 5}
@@ -50,6 +52,7 @@
           :certname         "foo.local"
           :status           "skipped"
           :timestamp        "2011-01-01T12:00:02-03:00"
+          :environment      "DEV"
           :resource-type    "Notify"
           :resource-title   "hi"
           :property         nil

@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.events :as query]
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.http :refer [remove-environment]]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [com.puppetlabs.puppetdb.utils :refer [assoc-when]])
   (:use [clj-time.coerce :only [to-timestamp to-string]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,12 +37,12 @@
   ;; Because we want to compare 'certname' in the output of event queries, the
   ;; example data includes it... but it is not a legal key for an event during
   ;; report submission.
-  (dissoc example-event :certname :test-id :containing-class))
+  (dissoc example-event :certname :test-id :containing-class :environment))
 
-(defn add-environment [resource-event report version]
-  (if (= :v4 version)
-    (assoc resource-event :environment (:environment report))
-    resource-event))
+(defn environment [resource-event report version]
+  (if (and (= :v4 version))
+    (assoc-when resource-event :environment (:environment report))
+    (dissoc resource-event :environment)))
 
 (defn expected-resource-event
   "Given a resource event from the example data, plus a report hash, coerce the
@@ -58,7 +59,7 @@
     ;; we need to convert the datetime fields from the examples to timestamp objects
     ;; in order to compare them.
     (update-in [:timestamp] to-timestamp)
-    (add-environment report version)
+    (environment report version)
     (dissoc :test-id)))
 
 (defn raw-expected-resource-events

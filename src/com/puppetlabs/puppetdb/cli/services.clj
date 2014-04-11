@@ -212,10 +212,19 @@
           (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
           false)))))
 
+(defn shutdown-mq-broker
+  "Explicitly shut down the queue `broker`"
+  [{:keys [broker]}]
+  (when broker
+    (log/info "Shutting down message broker.")
+    ;; Stop the mq the old-fashioned way
+    (mq/stop-broker! broker)))
+
 (defn stop-puppetdb
   "Callback to execute any necessary cleanup during a normal shutdown."
   [context]
   (log/info "Shutdown request received; puppetdb exiting.")
+  (shutdown-mq-broker context)
   context)
 
 (defn error-shutdown!
@@ -231,10 +240,7 @@
     (log/info "Shutting down updater thread.")
     (future-cancel updater))
 
-  (when-let [broker (context :broker)]
-    (log/info "Shutting down message broker.")
-    ;; Stop the mq the old-fashioned way
-    (mq/stop-broker! broker)))
+  (shutdown-mq-broker context))
 
 
 (defn start-puppetdb

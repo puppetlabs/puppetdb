@@ -143,7 +143,7 @@
   "Converts a v3 wire catalog to v4"
   [catalog]
   (-> catalog
-      v1->v2-catalog
+      v2->v3-catalog
       :data
       (assoc :environment "DEV")))
 
@@ -168,4 +168,4 @@
                                               :parameters {:ensure "directory"
                                                            :group  "root"
                                                            :user   "root"}}))}
-   4 {:empty (v3->v4-catalog (:data v1-empty-wire-catalog))}})
+   4 {:empty (v3->v4-catalog v1-empty-wire-catalog)}})
