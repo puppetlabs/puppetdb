@@ -86,8 +86,8 @@
        :relationship relationship})))
 
 (defn get-full-catalog [catalog-version node]
-  (let [{:keys [version transaction-uuid environment api_version]} (get-catalog-info node)]
-    (when catalog-version
+  (let [{:keys [version transaction-uuid environment api_version] :as catalog} (get-catalog-info node)]
+    (when (and catalog-version catalog)
       {:name             node
        :edges            (get-edges node)
        :resources        (get-resources version node)
