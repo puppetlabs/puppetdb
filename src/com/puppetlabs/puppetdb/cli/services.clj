@@ -319,13 +319,16 @@
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
-            db-maintenance-tasks [garbage-collect!
-                                  (when (pos? (to-secs node-ttl))
+            db-maintenance-tasks [(when (pos? (to-secs node-ttl))
                                     (partial auto-deactivate-nodes! node-ttl))
                                   (when (pos? (to-secs node-purge-ttl))
                                     (partial purge-nodes! node-purge-ttl))
                                   (when (pos? (to-secs report-ttl))
-                                    (partial sweep-reports! report-ttl))]]
+                                    (partial sweep-reports! report-ttl))
+                                  ;; Order is important here to ensure
+                                  ;; anything referencing an env or resource
+                                  ;; param is purged first
+                                  garbage-collect!]]
 
         (gc-task #(apply perform-db-maintenance! write-db (remove nil? db-maintenance-tasks)))
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
