@@ -27,9 +27,17 @@
       (let [{:keys [status body] :as response} (get-response certname)
             result (json/parse-string body)]
         (is (= status 200))
-        
+
         (is (string? (get result "environment")))
         (is (= (get original-catalog "environment")
                (get result "environment")))
         (is (= (testcat/munge-catalog-for-comparison :v4 original-catalog)
                (testcat/munge-catalog-for-comparison :v4 result)))))))
+
+(deftest catalog-not-found
+  (testing
+      (let [result (get-response "something-random.com")]
+        (is (= 404 (:status result)))
+        (is (re-find #"Could not find catalog" (-> (:body result)
+                                                   (json/parse-string true)
+                                                   :error))))))
