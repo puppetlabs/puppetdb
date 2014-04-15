@@ -417,8 +417,8 @@
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
            [{:c 3}]))))
 
-(deftest catalog-delete-without-gc
-  (testing "when deleted without GC, should leave params"
+(deftest catalog-delete-with-gc-params
+  (testing "when deleted but no GC should leave params"
     (add-certname! certname)
     (let [hash1 (add-catalog! catalog)]
       (delete-catalog! hash1))
@@ -427,18 +427,52 @@
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
            [{:c 7}]))
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params_cache"])
-           [{:c 3}]))))
+           [{:c 3}])))
 
-(deftest catalog-delete-with-gc
-  (testing "when deleted and GC'ed, should leave no dangling params or edges"
-    (add-certname! certname)
-    (let [hash1 (add-catalog! catalog)]
-      (delete-catalog! hash1))
+  (testing "when GC'ed, should leave no dangling params"
     (garbage-collect!)
 
+    ;; And now they are gone
     (is (= (query-to-vec ["SELECT * FROM resource_params"])
            []))
     (is (= (query-to-vec ["SELECT * FROM resource_params_cache"])
+           []))))
+
+(deftest catalog-delete-with-gc-environments
+  (testing "when deleted but no GC should leave environments"
+    (add-certname! certname)
+
+    ;; Add a catalog with an environment
+    (let [catalog (assoc catalog :environment "ENV1")
+          hash1 (add-catalog! catalog)]
+      (delete-catalog! hash1))
+
+    ;; Add a report with an environment
+    (let [timestamp     (now)
+          report        (-> (:basic reports)
+                            (assoc :environment "ENV2")
+                            (assoc :end-time (to-string (ago (days 5)))))
+          report-hash   (shash/report-identity-hash report)
+          certname      (:certname report)]
+      (store-example-report! report timestamp)
+      (delete-reports-older-than! (ago (days 2))))
+
+    ;; Add some facts
+    (let [facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"}]
+      (add-facts! certname facts (-> 2 days ago) "ENV3")
+      (delete-facts! certname))
+
+    (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
+           [{:c 3}])))
+
+  (testing "when GC should leave no dangling environments"
+    (garbage-collect!)
+
+    (is (= (query-to-vec ["SELECT * FROM environments"])
            []))))
 
 (deftest catalog-bad-input

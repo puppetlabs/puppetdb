@@ -185,6 +185,7 @@
    :gc                 (timer [ns-str "default" "gc-time"])
    :gc-catalogs        (timer [ns-str "default" "gc-catalogs-time"])
    :gc-params          (timer [ns-str "default" "gc-params-time"])
+   :gc-environments    (timer [ns-str "default" "gc-environments-time"])
 
    :updated-catalog    (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
@@ -693,12 +694,27 @@
   (time! (:gc-params metrics)
          (sql/delete-rows :resource_params_cache ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params_cache.resource)"])))
 
+
+(defn delete-unassociated-environments!
+  "Remove any environments that aren't associated with a catalog, report or factset"
+  []
+  (time! (:gc-environments metrics)
+         (sql/delete-rows :environments
+           ["ID NOT IN
+              (SELECT environment_id FROM catalogs
+               UNION ALL
+               SELECT environment_id FROM reports
+               UNION ALL
+               SELECT environment_id FROM certname_facts_metadata)"])))
+
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
   (time! (:gc metrics)
          (sql/transaction
-          (delete-unassociated-params!))))
+          (delete-unassociated-params!))
+         (sql/transaction
+          (delete-unassociated-environments!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
