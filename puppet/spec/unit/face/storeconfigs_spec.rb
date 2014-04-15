@@ -66,6 +66,13 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
         Puppet::Resource.new(:notify, title, :parameters => {:message => title}, :exported => exported)
       end
 
+      def user(name)
+        Puppet::Resource.new(:user, name,
+                             :parameters => {:groups => ['foo', 'bar', 'baz'],
+                                             :profiles => ['stuff', 'here'] #<-- Uses an ordered list
+                             }, :exported => true)
+      end
+
       def save_catalog(catalog)
         request = Puppet::Resource::Catalog.indirection.request(:save, catalog.name, catalog)
         Puppet::Resource::Catalog::ActiveRecord.new.save(request)
@@ -76,7 +83,7 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         catalog.add_resource notify('not exported')
         catalog.add_resource notify('exported', true)
-
+        catalog.add_resource user('someuser')
         save_catalog(catalog)
       end
 
@@ -103,11 +110,13 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
         data.keys.should =~ ['name', 'version', 'edges', 'resources']
 
         data['name'].should == 'foo'
-        data['edges'].should == [{
+        data['edges'].to_set.should == [{
           'source' => {'type' => 'Stage', 'title' => 'main'},
           'target' => {'type' => 'Notify', 'title' => 'exported'},
-          'relationship' => 'contains',
-        }]
+          'relationship' => 'contains'},
+         {"source"=>{"type"=>"Stage", "title"=>"main"},
+          "target"=>{"type"=>"User", "title"=>"someuser"},
+          "relationship"=>"contains"}].to_set
 
         data['resources'].should include({
           'type'       => 'Stage',
@@ -126,6 +135,17 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
             'message' => 'exported',
           },
         })
+
+        data['resources'].should include({
+          'type'       => 'User',
+          'title'      => 'someuser',
+          'exported'   => true,
+          'tags'       => ['someuser', 'user'],
+          'parameters' => {
+            'groups'   => ['foo', 'bar', 'baz'],
+            'profiles' => ['stuff', 'here']
+          },
+        })
       end
 
       it "should only include exported resources and Stage[main]" do
@@ -142,9 +162,10 @@ describe Puppet::Face[:storeconfigs, '0.0.1'], :if => (Puppet.features.sqlite? a
 
         data['edges'].map do |edge|
           [edge['source']['type'], edge['source']['title'], edge['relationship'], edge['target']['type'], edge['target']['title']]
-        end.should == [['Stage', 'main', 'contains', 'Notify', 'exported']]
+        end.to_set.should == [['Stage', 'main', 'contains', 'Notify', 'exported'],
+                              ['Stage', 'main', 'contains', 'User', 'someuser']].to_set
 
-        data['resources'].map { |resource| [resource['type'], resource['title']] }.should == [['Notify', 'exported'], ['Stage', 'main']]
+        data['resources'].map { |resource| [resource['type'], resource['title']] }.to_set.should == [['Notify', 'exported'], ["User", "someuser"], ['Stage', 'main']].to_set
 
         notify = data['resources'].find {|resource| resource['type'] == 'Notify'}
 
