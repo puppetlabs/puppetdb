@@ -74,7 +74,7 @@
 (defn submit-facts
   "Send the given wire-format `facts` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port fact-payload]
+  [puppetdb-host puppetdb-port facts-version fact-payload]
   {:pre  [(string?  puppetdb-host)
           (integer? puppetdb-port)
           (string?  fact-payload)]}
@@ -83,7 +83,7 @@
         result  (command/submit-command-via-http!
                  puppetdb-host puppetdb-port
                  (command-names :replace-facts)
-                 1
+                 facts-version
                  fact-payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
@@ -118,7 +118,7 @@
         (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern facts-pattern) path)
       (println (format "Importing facts from archive entry '%s'" path))
-      (submit-facts host port
+      (submit-facts host port (get-in metadata [:command-versions :replace-facts])
         (archive/read-entry-content tar-reader)))))
 
 (defn- validate-cli!

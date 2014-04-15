@@ -222,7 +222,7 @@
             (map? command-map)]}
      (let [message (json/generate-string command-map)
            checksum (kitchensink/utf8-string->sha1 message)
-           url     (format "http://%s:%s/v3/commands?checksum=%s" host port checksum)]
+           url     (format "http://%s:%s/v4/commands?checksum=%s" host port checksum)]
        (client/post url {:body               message
                          :throw-exceptions   false
                          :content-type       :json
@@ -350,7 +350,7 @@
                                    payload)
         id                       (:id annotations)
         timestamp                (:received annotations)]
-    
+
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
       (scf-storage/replace-facts! facts timestamp))
@@ -374,7 +374,7 @@
   [version db {:keys [payload annotations]}]
   (let [id          (:id annotations)
         report      (upon-error-throw-fatality
-                      (report/validate! version payload))
+                     (report/validate! version payload))
         certname    (:certname report)
         timestamp   (:received annotations)]
     (jdbc/with-transacted-connection db
