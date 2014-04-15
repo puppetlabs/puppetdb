@@ -9,9 +9,6 @@ group :test do
 
   gem 'puppet', :require => false
 
-  gem 'activerecord', '2.3.14'
-  gem 'sqlite3'
-
   gem 'mocha', '~> 1.0'
 
   # Since newer versions of rake are not supported, we pin
@@ -21,6 +18,8 @@ group :test do
   when '1.8.7'
     gem 'rake', '<= 10.1.1'
   else
+    gem 'activerecord', '2.3.14'
+    gem 'sqlite3'
     gem 'rake'
   end
 end
