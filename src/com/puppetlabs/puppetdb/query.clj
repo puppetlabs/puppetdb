@@ -63,7 +63,10 @@
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string]
             [clojure.set :as set]
-            [com.puppetlabs.puppetdb.http :refer [v4?]])
+            [com.puppetlabs.puppetdb.http :refer [v4?]]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.jdbc :as jdbc]
+            [clj-time.coerce :refer [to-timestamp]])
   (:use [puppetlabs.kitchensink.core :only [parse-number keyset valset order-by-expr?]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
@@ -218,6 +221,27 @@
 (def node-columns {"name"         "certnames"
                    "deactivated"  "certnames"})
 
+(def event-columns
+  {"certname"               ["reports"]
+   "configuration_version"  ["reports"]
+   "start_time"             ["reports" "run_start_time"]
+   "end_time"               ["reports" "run_end_time"]
+   "receive_time"           ["reports" "report_receive_time"]
+   "report"                 ["resource_events"]
+   "status"                 ["resource_events"]
+   "timestamp"              ["resource_events"]
+   "resource_type"          ["resource_events"]
+   "resource_title"         ["resource_events"]
+   "property"               ["resource_events"]
+   "new_value"              ["resource_events"]
+   "old_value"              ["resource_events"]
+   "message"                ["resource_events"]
+   "file"                   ["resource_events"]
+   "line"                   ["resource_events"]
+   "containment_path"       ["resource_events"]
+   "containing_class"       ["resource_events"]
+   "name"                   ["environments" "environment"]})
+
 (defn column-map->sql
   "Helper function that converts one of our column maps to a SQL string suitable
   for use in a SELECT"
@@ -248,6 +272,10 @@
 (defmethod queryable-fields :node
   [_ _]
   (keyset node-columns))
+
+(defmethod queryable-fields :event
+  [_ _]
+  (keyset event-columns))
 
 (def subquery->type
   {"select-resources" :resource
@@ -549,6 +577,112 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
+(defn compile-resource-event-inequality
+  "Compile a timestamp inequality for a resource event query (> < >= <=).
+  The `value` for comparison must be coercible to a timestamp via
+  `clj-time.coerce/to-timestamp` (e.g., an ISO-8601 compatible date-time string)."
+  [& [op path value :as args]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (when-not (= (count args) 3)
+    (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count
+args))))))
+
+  (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
+                          "run-start-time"      "reports.start_time"
+                          "run-end-time"        "reports.end_time"
+                          "report-receive-time" "reports.receive_time"}]
+    (match [path]
+      [(field :guard (kitchensink/keyset timestamp-fields))]
+      (if-let [timestamp (to-timestamp value)]
+        {:where (format "%s %s ?" (timestamp-fields field) op)
+         :params [(to-timestamp value)]}
+        (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
+
+      :else (throw (IllegalArgumentException.
+                     (str op " operator does not support object '" path "' for resource events"))))))
+
+(defn compile-resource-event-equality
+  "Compile an = predicate for resource event query. `path` represents the field to
+  query against, and `value` is the value."
+  [version]
+  (fn [& [path value :as args]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (when-not (= (count args) 2)
+      (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+    (let [path (jdbc/dashes->underscores path)]
+      (match [path]
+             ["certname"]
+             {:where (format "reports.certname = ?")
+              :params [value]}
+
+             ["latest_report?"]
+             {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+                             (if value "IN" "NOT IN"))}
+
+             ["environment" :guard (v4? version)]
+             {:where "environments.name = ?"
+              :params [value]}
+
+             [(field :guard #{"report" "resource_type" "resource_title" "status"})]
+             {:where (format "resource_events.%s = ?" field)
+              :params [value] }
+
+             ;; these fields allow NULL, which causes a change in semantics when
+             ;; wrapped in a NOT(...) clause, so we have to be very explicit
+             ;; about the NULL case.
+             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             (if-not (nil? value)
+               {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+                :params [value] }
+               {:where (format "resource_events.%s IS NULL" field)
+                :params nil })
+
+             ;; these fields require special treatment for NULL (as described above),
+             ;; plus a serialization step since the values can be complex data types
+             [(field :guard #{"old_value" "new_value"})]
+             {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+              :params [(db-serialize value)] }
+
+             :else (throw (IllegalArgumentException.
+                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
+
+(defn compile-resource-event-regexp
+  "Compile an ~ predicate for resource event query. `path` represents the field
+   to query against, and `pattern` is the regular expression to match."
+  [version]
+  (fn [& [path pattern :as args]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (when-not (= (count args) 2)
+      (throw (IllegalArgumentException. (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
+    (let [path (jdbc/dashes->underscores path)]
+      (match [path]
+             ["certname"]
+             {:where (sql-regexp-match "reports.certname")
+              :params [pattern]}
+
+             ["environment" :guard (v4? version)]
+             {:where (sql-regexp-match "environments.name")
+              :params [pattern]}
+
+             [(field :guard #{"report" "resource_type" "resource_title" "status"})]
+             {:where  (sql-regexp-match (format "resource_events.%s" field))
+              :params [pattern] }
+
+             ;; these fields allow NULL, which causes a change in semantics when
+             ;; wrapped in a NOT(...) clause, so we have to be very explicit
+             ;; about the NULL case.
+             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             {:where (format "%s AND resource_events.%s IS NOT NULL"
+                             (sql-regexp-match (format "resource_events.%s" field))
+                             field)
+              :params [pattern] }
+
+             :else (throw (IllegalArgumentException.
+                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
+
 (declare fact-operators)
 
 (defn resource-operators
@@ -611,5 +745,35 @@
           (= op "not") (partial compile-not version (node-operators version))
           (= op "extract") (partial compile-extract version (node-operators version))
           (= op "in") (partial compile-in :node version (node-operators version))
+          (= op "select-resources") (partial resource-query->sql (resource-operators version))
+          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+
+(defn resource-event-ops
+  "Maps resource event query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    :v2 (throw (IllegalArgumentException. (str "Resource events end-point not available for api version " version)))
+    :v3 (fn [op]
+          (let [op (string/lower-case op)]
+            (cond
+              (= op "=") (compile-resource-event-equality version)
+              (= op "and") (partial compile-and (resource-event-ops version))
+              (= op "or") (partial compile-or (resource-event-ops version))
+              (= op "not") (partial compile-not version (resource-event-ops version))
+              (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+              (= op "~") (compile-resource-event-regexp version))))
+    (fn [op]
+      (let [op (string/lower-case op)]
+        (cond
+          (= op "=") (compile-resource-event-equality version)
+          (= op "and") (partial compile-and (resource-event-ops version))
+          (= op "or") (partial compile-or (resource-event-ops version))
+          (= op "not") (partial compile-not version (resource-event-ops version))
+          (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+          (= op "~") (compile-resource-event-regexp version)
+          (= op "extract") (partial compile-extract version (resource-event-ops version))
+          (= op "in") (partial compile-in :event version (resource-event-ops version))
           (= op "select-resources") (partial resource-query->sql (resource-operators version))
           (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))

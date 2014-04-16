@@ -17,7 +17,7 @@
 
 (defn compile-equals-term
   "Compile a report query into a structured map reflecting the terms
-   of the query. Currnetly only the `=` operator is supported"
+   of the query. Currently only the `=` operator is supported"
   [version]
   (fn [& [path value :as term]]
     {:post [(map? %)

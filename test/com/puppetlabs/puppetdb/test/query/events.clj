@@ -18,7 +18,7 @@
 
 (deftest test-compile-resource-event-term
   (doseq [version [:v3 :v4]]
-    (let [ops (event-query/resource-event-ops version)]
+    (let [ops (query/resource-event-ops version)]
       (testing "should succesfully compile a valid equality query"
         (is (= (query/compile-term ops ["=" "report" "blah"])
                {:where   "resource_events.report = ?"
