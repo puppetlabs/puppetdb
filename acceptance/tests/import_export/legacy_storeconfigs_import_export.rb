@@ -1,6 +1,5 @@
 test_name "storeconfigs export and import" do
   skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
-  skip_test "Skipping test because sqlite3 isn't installed" unless is_gem_installed_on? master, 'sqlite3'
 
   db_path = master.tmpfile('storeconfigs.sqlite3')
   manifest_path = master.tmpfile('storeconfigs.pp')
@@ -62,13 +61,9 @@ test_name "storeconfigs export and import" do
 
   step "Verify imported catalogs" do
     hosts.each do |host|
-      result = on database, %Q|curl -G http://localhost:8080/v3/catalogs/#{host.node_name}|
+      result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{host.node_name}|
       result_catalog = JSON.parse(result.stdout)
       assert_equal(host.node_name, result_catalog['name'], "Catalog for node #{host.node_name} not found")
     end
-  end
-
-  step "verify legacy export data matches new export data - catalog data only" do
-    compare_export_data(driver_legacy_export_file, driver_new_export_file, :metadata => false, :reports => false)
   end
 end
