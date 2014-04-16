@@ -60,10 +60,12 @@ test_name "storeconfigs export and import" do
     on database, "puppetdb import --infile #{db_legacy_export_file}"
   end
 
-  step "export data from puppetdb" do
-    db_new_export_file = "./puppetdb-export.tar.gz"
-    on database, "puppetdb export --outfile #{db_new_export_file}"
-    scp_from(database, db_new_export_file, ".")
+  step "Verify imported catalogs" do
+    hosts.each do |host|
+      result = on database, %Q|curl -G http://localhost:8080/v3/catalogs/#{host.node_name}|
+      result_catalog = JSON.parse(result.stdout)
+      assert_equal(host.node_name, result_catalog['name'], "Catalog for node #{host.node_name} not found")
+    end
   end
 
   step "verify legacy export data matches new export data - catalog data only" do
