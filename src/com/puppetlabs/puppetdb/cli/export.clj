@@ -8,11 +8,11 @@
 ;; database.
 
 (ns com.puppetlabs.puppetdb.cli.export
-  (:use [puppetlabs.kitchensink.core :only (cli!)]
-        [clj-time.core :only [now]]
+  (:use [clj-time.core :only [now]]
         [com.puppetlabs.concurrent :only [bounded-pmap]]
         [clj-http.util :only [url-encode]])
-  (:require [com.puppetlabs.cheshire :as json]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.cheshire :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]
@@ -151,9 +151,11 @@
                 :start-time s/Any
                 s/Any s/Any}]]
   (mapv (fn [{:keys [configuration-version start-time] :as report}]
-          {:msg (format "Writing report '%s-%s' for node '%s'" start-time configuration-version node)
-           :file-suffix ["reports" (format "%s-%s-%s.json" node start-time configuration-version)]
-           :contents (json/generate-pretty-string (dissoc report :hash))})
+          (let [unique-seed (str start-time configuration-version)
+                hash (kitchensink/utf8-string->sha1 unique-seed)]
+            {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)" node start-time configuration-version hash)
+             :file-suffix ["reports" (format "%s-%s.json" node hash)]
+             :contents (json/generate-pretty-string (dissoc report :hash))}))
         reports))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -216,7 +218,7 @@
                   ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:outfile]]
     (try+
-      (cli! args specs required)
+      (kitchensink/cli! args specs required)
       (catch map? m
         (println (:message m))
         (case (:type m)

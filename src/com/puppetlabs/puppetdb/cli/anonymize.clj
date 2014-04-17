@@ -1,10 +1,10 @@
 (ns com.puppetlabs.puppetdb.cli.anonymize
-  (:use [puppetlabs.kitchensink.core :only (cli!)]
-        [com.puppetlabs.puppetdb.cli.export :only [export-metadata-file-name]]
+  (:use [com.puppetlabs.puppetdb.cli.export :only [export-metadata-file-name]]
         [com.puppetlabs.puppetdb.cli.import :only [parse-metadata]])
   (:import  [com.puppetlabs.archive TarGzReader TarGzWriter]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
-  (:require [com.puppetlabs.cheshire :as json]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.cheshire :as json]
             [clojure.java.io :as io]
             [clojure.string :as string]
             [com.puppetlabs.archive :as archive]
@@ -102,8 +102,10 @@
          {"context" {} "anonymize" true}]
 
         "environment"
-        [{"context" {} "anonymize" true}]}
+        [{"context" {} "anonymize" true}]
+      }
     }
+
     "low" {
       "rules" {
         "node" [
@@ -201,33 +203,38 @@
 
     ;; Process catalogs
     (when (re-find (re-pattern catalog-pattern) path)
-      (let [[_ hostname] (re-matches #".+\/(.+)\.json" path)
-            file-suffix ["catalogs" (format "%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config))]
-            newpath      (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path newpath))
-        (->> (next-json-tar-entry tar-reader)
-             (anon/anonymize-catalog config)
-             (add-json-tar-entry tar-writer file-suffix))))
+      (let [new-catalog  (->> (next-json-tar-entry tar-reader)
+                              (anon/anonymize-catalog config))
+            new-hostname (get new-catalog "name")
+            file-suffix  ["catalogs" (format "%s.json" new-hostname)]
+            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
+        (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path new-path))
+        (add-json-tar-entry tar-writer file-suffix new-catalog)))
 
     ;; Process reports
     (when (re-find (re-pattern report-pattern) path)
-      (let [[_ hostname starttime confversion] (re-matches #".+\/(.+?)-(\d{4}\-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-(.+)\.json" path)
-            file-suffix ["reports" (format "%s-%s-%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config) starttime confversion)]
-            newpath     (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing report from archive entry '%s' to '%s'" path newpath))
-        (->> (next-json-tar-entry tar-reader)
-             (anon/anonymize-report config (get-in metadata [:command-versions :store-report]))
-             (add-json-tar-entry tar-writer file-suffix))))
+      (let [cmd-version  (get-in metadata [:command-versions :store-report])
+            new-report   (->> (next-json-tar-entry tar-reader)
+                              (anon/anonymize-report config cmd-version))
+            new-hostname (get new-report "certname")
+            new-hash     (kitchensink/utf8-string->sha1
+                          (str
+                           (get new-report "start-time")
+                           (get new-report "configuration-version")))
+            file-suffix  ["reports" (format "%s-%s.json" new-hostname new-hash)]
+            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
+        (println (format "Anonymizing report from archive entry '%s' to '%s'" path new-path))
+        (add-json-tar-entry tar-writer file-suffix new-report)))
 
     ;; Process facts
     (when (re-find (re-pattern facts-pattern) path)
-      (let [[_ hostname] (re-matches #".+\/(.+)\.json" path)
-            file-suffix ["facts" (format "%s.json" (anon/anonymize-leaf hostname :node {:node hostname} config))]
-            newpath     (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing facts from archive entry '%s' to '%s'" path newpath))
-        (->> (next-json-tar-entry tar-reader)
-             (anon/anonymize-facts config)
-             (add-json-tar-entry tar-writer file-suffix))))))
+      (let [new-facts    (->> (next-json-tar-entry tar-reader)
+                              (anon/anonymize-facts config))
+            new-hostname (get new-facts "name")
+            file-suffix  ["facts" (format "%s.json" new-hostname)]
+            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
+        (println (format "Anonymizing facts from archive entry '%s' to '%s'" path new-path))
+        (add-json-tar-entry tar-writer file-suffix new-facts)))))
 
 (defn- validate-cli!
   [args]
@@ -238,7 +245,7 @@
                   ["-c" "--config CONFIG" "Configuration file path for extra profile definitions (experimental) (optional)"]]
         required [:outfile :infile]]
     (try+
-      (cli! args specs required)
+      (kitchensink/cli! args specs required)
       (catch map? m
         (println (:message m))
         (case (:type m)
