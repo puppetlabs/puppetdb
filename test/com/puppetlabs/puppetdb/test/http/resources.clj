@@ -14,6 +14,7 @@
 (def v2-endpoint "/v2/resources")
 (def v3-endpoint "/v3/resources")
 (def v4-endpoint "/v4/resources")
+(def v4-environments-endpoint "/v4/environments/DEV/resources")
 
 (def endpoints [v2-endpoint v3-endpoint v4-endpoint])
 
@@ -134,6 +135,43 @@ to the result of the form supplied to this method."
                                        [["=" ["parameter" "owner"] "root"] #{bar1}]
                                        [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
                  (is-response-equal (get-response endpoint query) result))))))))))
+
+(deftest environments-resource-endpoint
+  (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
+        dev-endpoint "/v4/environments/DEV/resources"
+        prod-endpoint "/v4/environments/PROD/resources"]
+
+    (doseq [endpoint [dev-endpoint prod-endpoint]]
+      (testing (str "query without filter should not fail for endpoint " endpoint)
+        (let [response (get-response endpoint)
+              body     (get response :body "null")]
+          (is (= 200 (:status response))))))
+
+    (testing "DEV query with filter"
+      (doseq [[query result] [[["=" "type" "File"] #{foo1}]
+                              [["=" "tag" "one"] #{foo1}]
+                              [["=" "tag" "two"] #{foo1}]
+                              [["and"
+                                ["=" "certname" "one.local"]
+                                ["=" "type" "File"]]
+                               #{foo1}]
+                              [["=" ["parameter" "ensure"] "file"] #{foo1}]
+                              [["=" ["parameter" "owner"] "root"] #{foo1}]
+                              [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1}]]]
+        (is-response-equal (get-response dev-endpoint query) result)))
+
+    (testing "PROD query with filter"
+      (doseq [[query result] [[["=" "type" "File"] #{bar1}]
+                              [["=" "tag" "one"] #{bar1}]
+                              [["=" "tag" "two"] #{bar1}]
+                              [["and"
+                                ["=" "certname" "one.local"]
+                                ["=" "type" "File"]]
+                               #{}]
+                              [["=" ["parameter" "ensure"] "file"] #{bar1}]
+                              [["=" ["parameter" "owner"] "root"] #{bar1}]
+                              [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
+        (is-response-equal (get-response prod-endpoint query) result)))))
 
 (deftest query-sourcefile-sourceline
   (let [{v3-bar2 :bar2 :as v3-results} (v4->v3-results (store-example-resources))

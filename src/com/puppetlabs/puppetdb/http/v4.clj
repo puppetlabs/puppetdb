@@ -12,6 +12,7 @@
             [com.puppetlabs.puppetdb.http.facts :as facts]
             [com.puppetlabs.puppetdb.http.resources :as resources]
             [com.puppetlabs.puppetdb.http.nodes :as nodes]
+            [com.puppetlabs.puppetdb.http.environments :as envs]
             [net.cgrand.moustache :as moustache]))
 
 (def version :v4)
@@ -29,6 +30,9 @@
 
    ["nodes" &]
    {:any (nodes/node-app version)}
+
+   ["environments" &]
+   {:any (envs/environments-app version)}
 
    ["resources" &]
    {:any (resources/resources-app version)}

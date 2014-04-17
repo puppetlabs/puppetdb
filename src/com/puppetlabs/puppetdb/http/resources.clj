@@ -5,7 +5,8 @@
             [com.puppetlabs.puppetdb.query.resources :as r]
             [ring.util.response :as rr]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]])
+            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]]
+            [com.puppetlabs.puppetdb.query :as query])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
@@ -15,8 +16,7 @@
   "Munge the result rows so that they will be compatible with the v2 API specification"
   [version]
   (fn [rows]
-    (map (comp #(remove-environment % version)
-               #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})) rows)))
+    (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) rows)))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query results.
@@ -28,20 +28,13 @@
       (let [parsed-query (json/parse-string query true)
             {[sql & params] :results-query
              count-query    :count-query} (r/query->sql version parsed-query paging-options)
-
-             resp (pl-http/json-response*
-                   (pl-http/streamed-response buffer
-                     ; NOTE - we we don't have a transaction here,
-                     ; then the outer transaction can end up being
-                     ; closed *after* the stream has been opened but
-                     ; before it's been read, causing a connection
-                     ; error when the caller tries to read it.
-                     (with-transacted-connection db
-                       (r/with-queried-resources sql params
-                         (case version
-                           :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-                           :v2 (comp #(pl-http/stream-json % buffer) (munge-result-rows :v2))
-                           #(pl-http/stream-json (remove-all-environments version %) buffer))))))]
+            row-munge (case version
+                        :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+                        :v2 (comp r/deserialize-params (munge-result-rows :v2))
+                        r/deserialize-params)
+            resp (pl-http/stream-json-results
+                  (fn [f]
+                    ((query/streamed-query-result db version sql params) (comp f row-munge))))]
 
         (if count-query
           (add-headers resp {:count (get-result-count count-query)})

@@ -19,6 +19,7 @@
 
 (def v3-endpoint "/v3/events")
 (def v4-endpoint "/v4/events")
+(def v4-environment-endpoint "/v4/environments/DEV/events")
 (def endpoints [[:v3 v3-endpoint]
                 [:v4 v4-endpoint]])
 
@@ -169,6 +170,44 @@
                     body      (get response :body "null")]
                 (is (= (:status response) pl-http/status-bad-request))
                 (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body))))))))))
+
+(deftest query-by-report-with-environment-endpoint
+  (let [basic             (store-example-report! (:basic reports) (now))
+        basic-events      (get-in reports [:basic :resource-events])
+        basic-events-map  (get-events-map (:basic reports))
+        report-hash       (:hash basic)]
+
+    (testing "should return the list of resource events for a given report hash"
+      (let [response (get-response v4-environment-endpoint ["=" "report" report-hash])
+            expected (http-expected-resource-events :v4 basic-events basic)]
+        (response-equal? response expected munge-event-values)))
+
+    (testing "compound queries"
+      (doseq [[query matches]
+              [[["and"
+                 ["or"
+                  ["=" "resource-title" "hi"]
+                  ["=" "resource-title" "notify, yo"]]
+                 ["=" "status" "success"]]                       [1]]
+               [["or"
+                 ["and"
+                  ["=" "resource-title" "hi"]
+                  ["=" "status" "success"]]
+                 ["and"
+                  ["=" "resource-type" "Notify"]
+                  ["=" "property" "message"]]]                  [1 2]]
+               [["and"
+                 ["=" "status" "success"]
+                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
+               [["or"
+                 ["=" "status" "skipped"]
+                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
+        (let [response  (get-response v4-environment-endpoint query)
+              expected  (http-expected-resource-events
+                         :v4
+                         (kitchensink/select-values basic-events-map matches)
+                         basic)]
+          (response-equal? response expected munge-event-values))))))
 
 (deftest query-distinct-resources
   (doseq [[version endpoint] endpoints]

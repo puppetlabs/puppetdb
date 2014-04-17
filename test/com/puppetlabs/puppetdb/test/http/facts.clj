@@ -19,9 +19,11 @@
 (def v2-endpoint "/v2/facts")
 (def v3-endpoint "/v3/facts")
 (def v4-endpoint "/v4/facts")
+(def v4-environment "/v4/environments/DEV/facts")
 (def endpoints [[:v2 v2-endpoint]
                 [:v3 v3-endpoint]
-                [:v4 v4-endpoint]])
+                [:v4 v4-endpoint]
+                [:v4 v4-environment]])
 
 (defixture super-fixture :each with-test-db with-http-app)
 

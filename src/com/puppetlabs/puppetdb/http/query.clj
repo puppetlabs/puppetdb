@@ -45,6 +45,16 @@
                    ["=" ["node" "active"] true]]
                   req))
 
+(defn restrict-query-to-environment
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied environment"
+  [node req]
+  {:pre  [(string? node)]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["and"
+                   ["=" "environment" node]]
+                  req))
+
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
   only returns facts with the given name"
