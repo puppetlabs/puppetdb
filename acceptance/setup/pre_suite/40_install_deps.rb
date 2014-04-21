@@ -53,13 +53,16 @@ step "Install rubygems and sqlite3 on master" do
   os = test_config[:os_families][master.name]
 
   case os
-  when :redhat, :fedora
+  when :redhat
     if master['platform'].include? 'el-5'
       on master, "yum install -y rubygems sqlite-devel rubygem-activerecord ruby-devel.x86_64"
       on master, "gem install sqlite3"
     else
       on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
     end
+  when :fedora
+    on master, "yum install -y rubygems ruby-sqlite3"
+    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc -V --backtrace"
   when :debian
     on master, "apt-get install -y rubygems libsqlite3-ruby"
     # this is to work around the absense of a decent package in lucid
