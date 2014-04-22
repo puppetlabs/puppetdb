@@ -60,10 +60,13 @@ step "Install rubygems and sqlite3 on master" do
     else
       on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
     end
+  when :fedora
+    on master, "yum install -y rubygems ruby-sqlite3"
+    on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
   when :debian
     on master, "apt-get install -y rubygems libsqlite3-ruby"
     # this is to work around the absense of a decent package in lucid
-    on master, "gem install activerecord -v 2.3.17 --no-ri --no-rdoc -V --backtrace"
+    on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end
