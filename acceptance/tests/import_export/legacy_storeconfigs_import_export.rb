@@ -1,6 +1,5 @@
 test_name "storeconfigs export and import" do
   skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
-  skip_test "Skipping test because sqlite3 isn't installed" unless is_gem_installed_on? master, 'sqlite3'
 
   db_path = master.tmpfile('storeconfigs.sqlite3')
   manifest_path = master.tmpfile('storeconfigs.pp')
