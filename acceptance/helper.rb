@@ -317,13 +317,6 @@ module PuppetDBExtensions
     end
   end
 
-  def is_gem_installed_on?(host, gem)
-    # Include a trailing space when grep'ing to force an exact match of the gem name,
-    # so, for example, when checking for 'rspec' we don't match with 'rspec-core'.
-    result = on host, "gem list #{gem} | grep \"#{gem} \"", :acceptable_exit_codes => [0,1]
-    result.exit_code == 0
-  end
-
   def current_time_on(host)
     result = on host, %Q|date --rfc-2822|
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
