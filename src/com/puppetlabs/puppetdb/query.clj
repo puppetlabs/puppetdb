@@ -219,8 +219,22 @@
 
 ;; This map's keys are the queryable fields for nodes, and the values are the
 ;;  corresponding table names where the fields reside
-(def node-columns {"name"         "certnames"
-                   "deactivated"  "certnames"})
+(defn node-columns
+  "Return the queryable set of fields and corresponding table names where they reside"
+  [version]
+  (case version
+    (:v1 :v2 :v3)
+    {"name"                     "certnames"
+     "deactivated"              "certnames"}
+
+    {"name"                     "certnames"
+     "deactivated"              "certnames"
+     "facts_last_environment"   "certnames"
+     "report_last_environment"  "certnames"
+     "catalog_last_environment" "certnames"
+     "facts_timestamp"          "certnames"
+     "report_timestamp"         "certnames"
+     "catalog_timestamp"        "certnames"}))
 
 (def event-columns
   {"certname"               ["reports"]
@@ -271,8 +285,8 @@
   (keyset fact-columns))
 
 (defmethod queryable-fields :node
-  [_ _]
-  (keyset node-columns))
+  [_ version]
+  (keyset (node-columns version)))
 
 (defmethod queryable-fields :event
   [_ _]
@@ -348,11 +362,43 @@
 (defn node-query->sql
   "Compile a node query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
-  [ops query]
+  [version ops query]
   {:post [valid-jdbc-query? %]}
-  (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
-    (apply vector sql params)))
+  (let [sql (case version
+              (:v1 :v2 :v3)
+              (format "SELECT %s FROM certnames"
+                      (column-map->sql (node-columns version)))
+
+              (format "SELECT %s FROM (SELECT
+                       certnames.name,
+                       certnames.deactivated,
+                       catalogs.timestamp AS catalog_timestamp,
+                       certname_facts_metadata.timestamp AS facts_timestamp,
+                       reports.end_time AS report_timestamp,
+                       catalog_environment.name AS catalog_last_environment,
+                       facts_environment.name AS facts_last_environment,
+                       reports_environment.name AS report_last_environment
+                       FROM certnames
+                         LEFT OUTER JOIN catalogs
+                           ON certnames.name = catalogs.certname
+                         LEFT OUTER JOIN certname_facts_metadata
+                           ON certnames.name = certname_facts_metadata.certname
+                         LEFT OUTER JOIN reports
+                           ON certnames.name = reports.certname
+                             AND reports.hash
+                               IN (SELECT report FROM latest_reports)
+                         LEFT OUTER JOIN environments AS catalog_environment
+                           ON catalog_environment.id = catalogs.environment_id
+                         LEFT OUTER JOIN environments AS facts_environment
+                           ON facts_environment.id = certname_facts_metadata.environment_id
+                         LEFT OUTER JOIN environments AS reports_environment
+                           ON reports_environment.id = reports.environment_id) as certnames"
+                      (column-map->sql (node-columns version))))]
+    (if query
+      (let [{:keys [where params]} (compile-term ops query)
+            sql (str sql (format " WHERE %s" where))]
+        (apply vector sql params))
+      (vector sql))))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
@@ -527,33 +573,39 @@
   [version path value]
   {:post [(map? %)
           (string? (:where %))]}
-  (case version
-    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+  (let [std-fields (case version
+                     (:v1 :v2 :v3) #{"name"}
+                     #{"name" "facts-last-environment" "catalog-last-environment" "report-last-environment"})]
     (match [path]
-           ["name"]
-           {:where "certnames.name = ?"
-            :params [value]}
+           [(field :guard std-fields)]
+           {:where (format "%s = ?" (jdbc/dashes->underscores field))
+            :params [value] }
+
            [["fact" (name :guard string?)]]
            {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
             :params [name (str value)]}
+
            [["node" "active"]]
            {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
            :else (throw (IllegalArgumentException.
-                          (str path " is not a queryable object for nodes"))))))
+                         (str path " is not a queryable object for nodes"))))))
 
 (defn compile-node-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
   is done by leveraging the correct database-specific regexp syntax to return
   only rows where the supplied `path` match the given `pattern`."
-  [path pattern]
+  [version path pattern]
   {:pre [(string? pattern)]
    :post [(map? %)
           (string? (:where %))]}
-  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})
+        std-fields (case version
+                     (:v1 :v2 :v3) #{"name"}
+                     #{"name" "facts-last-environment" "catalog-last-environment" "report-last-environment"})]
     (match [path]
-           ["name"]
-           {:where (sql-regexp-match "certnames.name")
+           [(field :guard std-fields)]
+           {:where (sql-regexp-match (jdbc/dashes->underscores field))
             :params [pattern]}
 
            [["fact" (name :guard string?)]]
@@ -561,7 +613,7 @@
             :params [name pattern]}
 
            :else (throw (IllegalArgumentException.
-                          (str path " is not a valid operand for regexp comparison"))))))
+                         (str path " is not a valid operand for regexp comparison"))))))
 
 (defn compile-node-inequality
   [op path value]
@@ -739,7 +791,7 @@ args))))))
       (let [op (string/lower-case op)]
         (cond
           (= op "=") (partial compile-node-equality version)
-          (= op "~") compile-node-regexp
+          (= op "~") (partial compile-node-regexp version)
           (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
           (= op "and") (partial compile-and (node-operators version))
           (= op "or") (partial compile-or (node-operators version))

@@ -262,7 +262,7 @@
     (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
                          "file"       "/etc/puppet/modules/foo/manifests/init.pp"
-                         "line"       250
+                         "line"       25000000
                          "tags"       ["package"]
                          "title"      "foo"
                          "type"       "Package"}
@@ -284,7 +284,7 @@
     (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
                          "file"       "/etc/puppet/modules/foo/manifests/init.pp"
-                         "line"       250
+                         "line"       25000000
                          "tags"       ["package"]
                          "title"      "foo"
                          "type"       "Package"}

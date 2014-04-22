@@ -138,6 +138,7 @@
      (let [msg (if (instance? Throwable error)
                  (.getMessage error)
                  (str error))]
+       (log/debug error "Caught HTTP processing exception")
        (-> msg
            (rr/response)
            (rr/status code)))))

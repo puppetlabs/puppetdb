@@ -12,8 +12,8 @@
 
 (defn- raw-retrieve-nodes
   [version filter-expr paging-options]
-  (-> (node/query->sql version filter-expr)
-      (node/query-nodes paging-options)))
+  (let [sql (node/query->sql version filter-expr)]
+    (node/query-nodes version sql paging-options)))
 
 (defn- retrieve-node-names
   ([version filter-expr] (retrieve-node-names version filter-expr {}))
@@ -24,11 +24,39 @@
 
 (def names #{"node_a" "node_b" "node_c" "node_d" "node_e"})
 
+(defn- combination-tests
+  [versions test-cases]
+  (doseq [version versions
+          size (range 1 (inc (count test-cases)))
+          terms (combinations test-cases size)
+          :let [exprs      (map first terms)
+                results    (map (comp set last) terms)
+                and-expr   (cons "and" exprs)
+                and-result (apply set/intersection results)
+                or-expr    (cons "or" exprs)
+                or-result  (apply set/union results)
+                not-expr   ["not" (cons "or" exprs)]
+                not-result (apply set/difference names results)]]
+    (testing (str "for version " version)
+      (is (= (set (retrieve-node-names version and-expr))
+             (set and-result))
+          (format "%s => %s" and-expr and-result))
+      (is (= (set (retrieve-node-names version or-expr))
+             (set or-result))
+          (format "%s => %s" or-expr or-result))
+      (is (= (set (retrieve-node-names version not-expr))
+             (set not-result))
+          (format "%s => %s" not-expr not-result)))))
+
 (deftest query-nodes
   (let [timestamp (to-timestamp (now))]
+    (sql/insert-records
+     :environments
+     {:name "production"})
+
     (doseq [name names]
       (sql/insert-record :certnames {:name name})
-      (sql/insert-record :certname_facts_metadata {:certname name :timestamp timestamp}))
+      (sql/insert-record :certname_facts_metadata {:certname name :timestamp timestamp :environment_id 1}))
 
     (sql/insert-records
       :certname_facts
@@ -38,35 +66,20 @@
       {:certname "node_d" :name "uptime_seconds" :value "10000"})
 
     (let [test-cases {["=" ["fact" "kernel"] "Linux"]
-                       #{"node_a" "node_b"}
-                       ["=" ["fact" "kernel"] "Darwin"]
-                       #{"node_c"}
-                       ["=" ["fact" "kernel"] "Nothing"]
-                       #{}
-                       ["=" ["fact" "uptime"] "Linux"]
-                       #{}
-                       ["=" ["fact" "uptime_seconds"] "10000"]
-                       #{"node_d"}}]
-      (doseq [version [:v2 :v3 :v4]
-              size (range 1 (inc (count test-cases)))
-              terms (combinations test-cases size)
-              :let [exprs      (map first terms)
-                    results    (map (comp set last) terms)
-                    and-expr   (cons "and" exprs)
-                    and-result (apply set/intersection results)
-                    or-expr    (cons "or" exprs)
-                    or-result  (apply set/union results)
-                    not-expr   ["not" (cons "or" exprs)]
-                    not-result (apply set/difference names results)]]
-        (is (= (retrieve-node-names version and-expr)
-               (sort and-result))
-            (format "%s => %s" and-expr and-result))
-        (is (= (retrieve-node-names version or-expr)
-               (sort or-result))
-            (format "%s => %s" or-expr or-result))
-        (is (= (retrieve-node-names version not-expr)
-               (sort not-result))
-            (format "%s => %s" not-expr not-result))))))
+                      #{"node_a" "node_b"}
+                      ["=" ["fact" "kernel"] "Darwin"]
+                      #{"node_c"}
+                      ["=" ["fact" "kernel"] "Nothing"]
+                      #{}
+                      ["=" ["fact" "uptime"] "Linux"]
+                      #{}
+                      ["=" ["fact" "uptime_seconds"] "10000"]
+                      #{"node_d"}}]
+      (combination-tests [:v2 :v3 :v4] test-cases))
+
+    (let [test-cases {["=" "facts-last-environment" "production"]
+                      #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
+      (combination-tests [:v4] test-cases))))
 
 (deftest paging-results
   (let [right-now (now)]

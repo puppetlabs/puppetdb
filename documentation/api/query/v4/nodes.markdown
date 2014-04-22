@@ -27,13 +27,13 @@ aren't included in the response.
 
 The `query` parameter is a similar format to [resource queries][resource].
 
-Only queries against `"name"` and facts are currently supported.
+Only queries against `"name"`, `"catalog-last-environment"`, `"facts-last-environment"`, `"report-last-environment"` and facts are currently supported.
 
 Fact terms must be of the form `["fact", <fact name>]`.
 
 Node query supports [all available operators](./operators.html). Inequality
 operators are only supported for fact queries, but regular expressions are
-supported for both name and facts.
+supported for all valid query parameters.
 
 Inequality operators are strictly arithmetic, and will ignore any fact values
 which are not numeric.
@@ -56,11 +56,39 @@ The response is a JSON array of hashes of the form:
 
     {"name": <string>,
      "deactivated": <timestamp>,
-     "catalog_timestamp": <timestamp>,
-     "facts_timestamp": <timestamp>,
-     "report_timestamp": <timestamp>}
+     "catalog-timestamp": <timestamp>,
+     "facts-timestamp": <timestamp>,
+     "report-timestamp": <timestamp>,
+     "catalog-last-environment": <string>,
+     "facts-last-environment": <string>,
+     "report-last-environment": <string}
 
-The array is sorted alphabetically by `name`.
+The array is unsorted.
+
+##### Fields
+
+Valid fields returned by the query are as follows.
+
+`name`
+: the name of the node
+
+`catalog-timestamp`
+: last time a catalog was received
+
+`facts-timestamp`
+: last time a fact set was received
+
+`report-timestamp`
+: last time a report run was complete
+
+`catalog-last-environment`
+: the environment for the last received catalog
+
+`facts-last-environment`
+: the environment for the last received fact set
+
+`report-last-environment`
+: the environment for the last received report
 
 #### Example
 

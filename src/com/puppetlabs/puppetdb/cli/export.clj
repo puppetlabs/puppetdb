@@ -26,9 +26,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
 
-(def node-map {:catalog_timestamp (s/maybe String)
-               :facts_timestamp (s/maybe String)
-               :report_timestamp (s/maybe String)
+(def node-map {:catalog-timestamp (s/maybe String)
+               :facts-timestamp (s/maybe String)
+               :report-timestamp (s/maybe String)
+               :catalog-last-environment (s/maybe String)
+               :facts-last-environment (s/maybe String)
+               :report-last-environment (s/maybe String)
                :name String
                :deactivated (s/maybe String)})
 
@@ -172,11 +175,11 @@
    port :- s/Int
    {:keys [name] :as node-data} :- node-map]
   {:node name
-   :facts (when-not (str/blank? (:facts_timestamp node-data))
+   :facts (when-not (str/blank? (:facts-timestamp node-data))
             [(facts->tar name (facts-for-node host port name))])
-   :reports (when-not (str/blank? (:report_timestamp node-data))
+   :reports (when-not (str/blank? (:report-timestamp node-data))
               (report->tar name (reports-for-node host port name)))
-   :catalog (when-not (str/blank? (:catalog_timestamp node-data))
+   :catalog (when-not (str/blank? (:catalog-timestamp node-data))
               [(catalog->tar name (catalog-for-node host port name))])})
 
 (defn get-nodes
