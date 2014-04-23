@@ -64,7 +64,7 @@ step "Install rubygems and sqlite3 on master" do
     on master, "yum install -y rubygems rubygem-sqlite3"
     on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
   when :debian
-    on master, "apt-get install -y rubygems"
+    on master, "apt-get install -y rubygems libsqlite3-dev"
     # this is to work around the absense of a decent package in lucid
     on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
     # Puppet needs at least 1.3.5 which most older debians/ubuntu's do not have yet
