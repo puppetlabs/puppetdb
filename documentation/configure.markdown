@@ -84,7 +84,7 @@ up a JMX socket on port 1099:
 The log4j Logging Config File
 -----
 
-Logging is configured with a log4j.properties file, whose location is defined with the [`logging-config`](#logging-config) setting. If you change the log settings while PuppetDB is running, it will apply the new settings without requiring a restart. 
+Logging is configured with a log4j.properties file, whose location is defined with the [`logging-config`](#logging-config) setting. If you change the log settings while PuppetDB is running, it will apply the new settings without requiring a restart.
 
 [See the log4j documentation][log4j] for more information about logging options.
 
@@ -116,9 +116,11 @@ An example configuration file:
 
 ### Playing Nice With the PuppetDB Module
 
-If you [installed PuppetDB with the puppetlabs-puppetdb module][module], the config file(s) will be managed by Puppet. However, since the module manages these files on a per-setting basis, you can still configure additional settings that the module doesn't set. 
+If you [installed PuppetDB with the puppetlabs-puppetdb module][module], PuppetDB's settings will be managed by Puppet. Most of the settings you care about can be configured with the module's class parameters; see [the module's documentation](https://forge.puppetlabs.com/puppetlabs/puppetdb) for details.
 
-To do this, you should create a new class (something like `site::puppetdb::server::extra`), declare any number of `ini_setting` resources as shown below, set the class to refresh the `puppetdb::server` class, and assign it to your PuppetDB server. 
+If you _do_ need to change rare settings that the module doesn't manage, you can do the following:
+
+Create a new class in a new module (something like `site::puppetdb::server::extra`), declare any number of `ini_setting` resources as shown below, set the class to refresh the `puppetdb::server` class, and assign it to your PuppetDB server.
 
 {% highlight ruby %}
     # Site-specific PuppetDB settings. Declare this class on any node that gets the puppetdb::server class.
@@ -126,27 +128,29 @@ To do this, you should create a new class (something like `site::puppetdb::serve
 
       # Restart the PuppetDB service if settings change
       Class[site::puppetdb::server::extra] ~> Class[puppetdb::server]
-      
+
       # Get PuppetDB confdir
       include puppetdb::params
       $confdir = $puppetdb::params::confdir
 
-      # Set resource defaults assuming we're only doing [database] settings
+      # Set resource defaults
       Ini_setting {
-        path => "${confdir}/database.ini",
-        ensure => present,
-        section => 'database',
+        ensure  => present,
         require => Class['puppetdb::server::validate_db'],
       }
 
-      ini_setting {'puppetdb_node_ttl':
-        setting => 'node_ttl',
-        value => '5d',
+      ini_setting {'puppetdb-catalog-hash-conflict-debugging':
+        path    => "${confdir}/global.ini",
+        section => 'global',
+        setting => 'catalog-hash-conflict-debugging',
+        value   => 'true',
       }
 
-      ini_setting {'puppetdb_report_ttl':
-        setting => 'report_ttl',
-        value => '30d',
+      ini_setting {'puppetdb-event-query-limit':
+        path    => "${confdir}/global.ini",
+        section => 'global',
+        setting => 'event-query-limit',
+        value   => '30000',
       }
 
     }
@@ -196,7 +200,7 @@ The `[database]` section configures PuppetDB's database settings.
 
 PuppetDB can use either **a built-in HSQLDB database** or **a PostgreSQL database.** If no database information is supplied, an HSQLDB database at `<vardir>/db` will be used.
 
-> **FAQ: Why no MySQL or Oracle support?** 
+> **FAQ: Why no MySQL or Oracle support?**
 >
 > MySQL lacks several features that PuppetDB relies on; the most notable is recursive queries. We have no plans to ever support MySQL.
 >
@@ -209,7 +213,7 @@ To use an HSQLDB database at the default `<vardir>/db`, you can simply remove al
     classname = org.hsqldb.jdbcDriver
     subprotocol = hsqldb
     subname = file:</PATH/TO/DB>;hsqldb.tx=mvcc;sql.syntax_pgs=true
-  
+
 Replace `</PATH/TO/DB>` with the filesystem location in which you'd like to persist the database.
 
 Do not use the `username` or `password` settings.
