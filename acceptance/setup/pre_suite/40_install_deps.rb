@@ -64,16 +64,13 @@ step "Install rubygems and sqlite3 on master" do
     on master, "yum install -y rubygems rubygem-sqlite3"
     on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
   when :debian
-    on master, "apt-get install -y rubygems libsqlite3-dev"
-    # ubuntu-10.04's version of rubygems doesn't follow dependencies at
-    # times, this seems to solve that. Ordinarily you should just be
-    # able to use gem install activerecord, so consider removing this
-    # once we no longer support 10.04.
-    on master, "gem install i18n -v 0.6.9 --no-ri --no-rdoc -V --backtrace"
-    on master, "gem install builder -v 3.0.0 --no-ri --no-rdoc -V --backtrace"
-    on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
-    # Puppet needs at least 1.3.5 which most older debians/ubuntu's do not have yet
-    on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
+    # Ubuntu has rubygems 1.3.5 which is known to not be reliable, so therefore
+    # we skip.
+    confine :except, :platform => 'ubuntu-10.04-amd64' do
+      on master, "apt-get install -y rubygems libsqlite3-dev"
+      on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
+      on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
+    end
   else
     raise ArgumentError, "Unsupported OS '#{os}'"
   end
