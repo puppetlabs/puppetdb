@@ -69,6 +69,7 @@ step "Install rubygems and sqlite3 on master" do
     # times, this seems to solve that. Ordinarily you should just be
     # able to use gem install activerecord, so consider removing this
     # once we no longer support 10.04.
+    on master, "gem install i18n -v 0.6.9 --no-ri --no-rdoc -V --backtrace"
     on master, "gem install builder -v 3.0.0 --no-ri --no-rdoc -V --backtrace"
     on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
     # Puppet needs at least 1.3.5 which most older debians/ubuntu's do not have yet
