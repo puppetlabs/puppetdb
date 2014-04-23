@@ -25,7 +25,7 @@ module Puppet::Util::Puppetdb
     #
     # @throws [Puppet::Error] raised for any validation errors
     def self.run
-      self.puppet_version_check("3.4.2")
+      self.puppet_version_check("3.5.1")
     end
   end
 end
