@@ -1,4 +1,7 @@
 test_name "storeconfigs export and import" do
+
+  confine :except, :platform => 'ubuntu-10.04-amd64'
+
   skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
 
   db_path = master.tmpfile('storeconfigs.sqlite3')
