@@ -630,7 +630,7 @@
 
             ;;Rename catalogs_transform to catalogs, replace constraints
             "ALTER TABLE catalogs_transform RENAME to catalogs"
-            
+
             (when (postgres?)
               "ALTER TABLE catalogs
                ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)")
@@ -639,7 +639,7 @@
              ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
              REFERENCES catalogs (id)
              ON UPDATE NO ACTION ON DELETE CASCADE"
-            
+
             "ALTER TABLE catalogs
              ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname)
              REFERENCES certnames (name)
@@ -678,12 +678,21 @@
    "ALTER TABLE catalogs
     ADD CONSTRAINT catalogs_env_fkey FOREIGN KEY (environment_id)
     REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+
+   "CREATE INDEX idx_catalogs_env ON catalogs(environment_id)"
+
    "ALTER TABLE certname_facts_metadata
     ADD CONSTRAINT facts_env_fkey FOREIGN KEY (environment_id)
     REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+
+   "CREATE INDEX idx_certname_facts_env ON certname_facts_metadata(environment_id)"
+
    "ALTER TABLE reports
     ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id)
-    REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"))
+    REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+
+   "CREATE INDEX idx_reports_env ON reports(environment_id)"
+   ))
 
 
 ;; The available migrations, as a map from migration version to migration function.
