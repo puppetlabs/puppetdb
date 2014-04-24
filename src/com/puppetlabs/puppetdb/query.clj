@@ -66,7 +66,8 @@
             [com.puppetlabs.puppetdb.http :refer [v4?]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
-            [clj-time.coerce :refer [to-timestamp]])
+            [clj-time.coerce :refer [to-timestamp]]
+            [com.puppetlabs.puppetdb.http :refer [remove-all-environments]])
   (:use [puppetlabs.kitchensink.core :only [parse-number keyset valset order-by-expr?]]
         [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
         [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
@@ -777,3 +778,13 @@ args))))))
           (= op "in") (partial compile-in :event version (resource-event-ops version))
           (= op "select-resources") (partial resource-query->sql (resource-operators version))
           (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+
+(defn streamed-query-result
+  "Uses a cursored resultset (for streaming), removing environments when not
+   in version ;v4. Returns a function that accepts a single function. That function
+   with get the results of the query"
+  [db version sql params]
+  (fn [f]
+    (jdbc/with-transacted-connection db
+      (jdbc/with-query-results-cursor sql params rs
+        (f (remove-all-environments version rs))))))

@@ -17,10 +17,11 @@
 (use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
-  [query] (*app* (get-request endpoint query)))
+  ([query] (get-response endpoint query))
+  ([endpoint query] (*app* (get-request endpoint query))))
 
 (defn report-response
-  [report]
+ [report]
   (kitchensink/mapvals
     ;; the timestamps are already strings, but calling to-string on them forces
     ;; them to be coerced to dates and then back to strings, which normalizes
@@ -49,7 +50,7 @@
     ;; TODO: test invalid requests
 
     (testing "should return all reports for a certname"
-      (let [result (get-response ["=" "certname" (:certname basic)])]
+      (let [result (get-response endpoint ["=" "certname" (:certname basic)])]
         (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
         (response-equal?
          result
@@ -61,6 +62,20 @@
         (get-response ["=" "hash" report-hash])
         (reports-response [(assoc basic :hash report-hash)])
         remove-receive-times))))
+
+(deftest query-by-certname-with-environment
+  (let [basic         (:basic reports)
+        report-hash   (:hash (store-example-report! basic (now)))]
+
+    (testing "should return all reports for a certname"
+      (let [result (get-response "/v4/environments/DEV/reports" ["=" "certname" (:certname basic)])]
+        (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+        (response-equal?
+         result
+         (reports-response [(assoc basic :hash report-hash)])
+         remove-receive-times)))
+    (testing "PROD environment"
+      (is (empty? (json/parse-string (:body (get-response "/v4/environments/PROD/reports" ["=" "certname" (:certname basic)]))))))))
 
 (deftest query-with-paging
   (let [basic1        (:basic reports)

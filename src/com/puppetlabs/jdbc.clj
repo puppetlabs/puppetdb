@@ -230,7 +230,7 @@
 
 (defmacro with-transacted-connection'
   "Like `clojure.java.jdbc/with-connection`, except this automatically
-  wraps `body` in a database transaction with the specified transaction 
+  wraps `body` in a database transaction with the specified transaction
   isolation level.  See isolation-levels for possible values."
   [db-spec tx-isolation-level & body]
   `(with-transacted-connection-fn ~db-spec ~tx-isolation-level

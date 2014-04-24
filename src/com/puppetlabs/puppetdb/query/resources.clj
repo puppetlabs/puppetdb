@@ -15,8 +15,7 @@
                                     valid-jdbc-query?
                                     get-result-count
                                     paged-sql
-                                    count-sql
-                                    with-query-results-cursor]]
+                                    count-sql]]
         [com.puppetlabs.puppetdb.query :only [resource-query->sql
                                               resource-operators
                                               resource-columns]]
@@ -68,12 +67,6 @@
   [resources]
   (let [parse-params #(if % (json/parse-string %) {})]
     (map #(update-in % [:parameters] parse-params) resources)))
-
-(defn with-queried-resources
-  [query params func]
-  (let [parse-params #(if % (json/parse-string %) {})]
-    (with-query-results-cursor query params rs
-      (func (deserialize-params rs)))))
 
 (defn limited-query-resources
   "Take a limit, and a map of SQL queries as produced by `query->sql`, return

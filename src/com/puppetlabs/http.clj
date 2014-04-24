@@ -203,6 +203,16 @@
           (catch Exception e#
             (log/error e# "Error streaming response")))))))
 
+(defn stream-json-results
+  "Encapsulates streaming results from `f` to a piped-input-stream.
+   `f` is a function of one argument, which is another function. The
+    the function it accepts will accept one argument that is an individual
+    result (i.e. a single row) that should be streamed."
+  [f]
+  (json-response*
+   (streamed-response buffer
+     (f #(stream-json % buffer)))))
+
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be
   a boolean.  In the case where the HTTP request contains the query parameter but
@@ -214,10 +224,10 @@
   (if (contains? params k)
     (let [val (params k)]
       (cond
-        ;; If the original query string contains the query param w/o a
-        ;; a value, it will show up here as nil.  We assume that in that
-        ;; case, the caller intended to use it as a flag.
-        (nil? val)                   true
-        (Boolean/parseBoolean val)   true
-        :else                        false))
+       ;; If the original query string contains the query param w/o a
+       ;; a value, it will show up here as nil.  We assume that in that
+       ;; case, the caller intended to use it as a flag.
+       (nil? val)                   true
+       (Boolean/parseBoolean val)   true
+       :else                        false))
     false))

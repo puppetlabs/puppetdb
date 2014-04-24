@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.http :refer [remove-environment v4?]]
             [clojure.core.match :refer [match]])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
-        [com.puppetlabs.puppetdb.query :only [execute-query compile-term]]
+        [com.puppetlabs.puppetdb.query :only [execute-query compile-term compile-and]]
         [com.puppetlabs.puppetdb.query.events :only [events-for-report-hash]]
         [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
 
@@ -45,7 +45,9 @@
 
 (defn report-terms
   [version]
-  {"=" (compile-equals-term version)})
+  {"=" (compile-equals-term version)
+   "and" (fn [& args]
+           (apply compile-and (report-terms version) args))})
 
 (defn report-query->sql
   "Compile a report query into an SQL expression."
