@@ -36,7 +36,7 @@ conform to the following rules:
   outlined above. (Not to be confused with the `payload` field inside the command object.)
 * There is an `Accept` header that matches `application/json`.
 * The POST body is url-encoded
-* The content-type is `x-www-form-urlencoded`.
+* The content-type is `application/x-www-form-urlencoded`.
 
 Optionally, there may be a parameter, `checksum`, that contains a SHA-1 hash of
 the payload which will be used for verification.
