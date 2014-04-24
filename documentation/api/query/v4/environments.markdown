@@ -48,41 +48,16 @@ The response is a JSON hash of the form:
 
     curl 'http://localhost:8080/v4/environments/production'
 
-### `GET /v4/environments/<ENVIRONMENT>/facts`
+### `GET /v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
 
-This route is identical to issuing a request to the '/v4/facts' route,
-with a query parameter of ["=" "environment" "<ENVIRONMENT>"]. All
-query parameters and route suffixes are the same as the facts route.
-The result format is also the same as the facts route. Additional
-query parameters are ANDed with the environment clause. See
-[/v4/facts](./facts.html) for more info.
-
-### `GET /v4/environments/<ENVIRONMENT>/resources`
-
-This route is identical to issuing a request to the '/v4/resources' route,
-with a query parameter of ["=" "environment" "<ENVIRONMENT>"]. All
-query parameters and route suffixes are the same as the resources route.
-The result format is also the same as the resources route. Additional
-query parameters are ANDed with the environment clause. See
-[/v4/resources](./resources.html) for more info.
-
-### `GET /v4/environments/<ENVIRONMENT>/reports`
-
-This route is identical to issuing a request to the '/v4/reports' route,
-with a query parameter of ["=" "environment" "<ENVIRONMENT>"]. All
-query parameters and route suffixes are the same as the reports route.
-The result format is also the same as the reports route. Additional
-query parameters are ANDed with the environment clause. See
-[/v4/reports](./reports.html) for more info.
-
-### `GET /v4/environments/<ENVIRONMENT>/events`
-
-This route is identical to issuing a request to the '/v4/events' route,
-with a query parameter of ["=" "environment" "<ENVIRONMENT>"]. All
-query parameters and route suffixes are the same as the events route.
-The result format is also the same as the events route. Additional
-query parameters are ANDed with the environment clause. See
-[/v4/events](./events.html) for more info.
+These routes are identical to issuing a request to
+'/v4/[events|facts|reports|resources]', with a query parameter of
+["=" "environment" "<ENVIRONMENT>"]. All query parameters and route
+suffixes from the original routes are supported. The result format is also
+the same. Additional query parameters are ANDed with the environment
+clause. See [/v4/events](./events.html), [/v4/facts](./facts.html),
+[/v4/reports](./reports.html) or [/v4/resources](./resources.html) for
+more info.
 
 ## Paging
 
