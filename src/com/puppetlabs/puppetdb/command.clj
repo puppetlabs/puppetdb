@@ -310,9 +310,14 @@
         (scf-storage/replace-catalog! catalog timestamp catalog-hash-debug-dir)))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-catalog) certname))))
 
+(defn warn-deprecated
+  "Logs a deprecation warning message for the given `command` and `version`"
+  [version command]
+  (log/warn (format "command '%s' version %s is deprecated, use the latest version" command version)))
+
 (defmethod process-command! [(command-names :replace-catalog) 1]
   [{:keys [version payload] :as command} options]
-  (log/warn "command 'replace catalog' version 1 is deprecated, use the latest version")
+  (warn-deprecated version "replace catalog")
   (when-not (string? payload)
     (throw (IllegalArgumentException.
              (format "Payload for a '%s' v1 command must be a JSON string."
@@ -321,12 +326,12 @@
 
 (defmethod process-command! [(command-names :replace-catalog) 2]
   [{:keys [version] :as  command} options]
-  (log/warn "command 'replace catalog' version 2 is deprecated, use the latest version")
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 3]
   [{:keys [version] :as  command} options]
-  (log/warn "command 'replace catalog' version 2 is deprecated, use the latest version")
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
@@ -336,7 +341,8 @@
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 1]
-  [command config]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "replace facts")
   (-> command
       (assoc :version 2)
       (update-in [:payload] #(upon-error-throw-fatality (json/parse-string %)))
@@ -386,11 +392,12 @@
 
 (defmethod process-command! [(command-names :store-report) 1]
   [{:keys [version] :as command} {:keys [db]}]
-  (log/warn "command 'store report' version 1 is deprecated, use the latest version")
+  (warn-deprecated version "store report")
   (store-report* 1 db command))
 
 (defmethod process-command! [(command-names :store-report) 2]
   [{:keys [version] :as command} {:keys [db] :as config}]
+  (warn-deprecated version "store report")
   (store-report* 2 db command))
 
 (defmethod process-command! [(command-names :store-report) 3]
