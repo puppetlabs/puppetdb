@@ -1,5 +1,6 @@
 (ns com.puppetlabs.puppetdb.fixtures
   (:require [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.internal :as jint]
             [com.puppetlabs.puppetdb.http.server :as server]
             [com.puppetlabs.jdbc :as pjdbc]
             [com.puppetlabs.puppetdb.schema :as pls]
@@ -34,6 +35,18 @@
       (clear-db-for-testing!)
       (migrate!)
       (f))))
+
+(defn without-db-var
+  "Binds the java.jdbc dtabase connection to nil. When running a unit
+   test using `with-test-db`, jint/*db* will be bound. If the routes
+   being tested don't explicitly bind the db connection, it will use
+   one bound in with-test-db. This causes a problem at runtime that
+   won't show up in the unit tests. This fixture can be used around
+   route testing code to ensure that the route has it's own db
+   connection."
+  [f]
+  (binding [jint/*db* nil]
+    (f)))
 
 (defn with-test-mq
   "A fixture to start an MQ broker, making the broker information available as
@@ -149,8 +162,8 @@
 
      but is also usable individually:
 
-     (super-fixture 
-       (fn [] 
+     (super-fixture
+       (fn []
          ;; --> Do stuff, the drop the database at the end
        ))"
   [name & args]

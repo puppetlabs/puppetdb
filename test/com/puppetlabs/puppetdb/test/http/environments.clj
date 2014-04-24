@@ -23,19 +23,34 @@
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
-    (is (= #{{:name "foo"}
-             {:name "bar"}
-             {:name "baz"}}
-           (set (json/parse-string (:body (fixt/*app* (get-request "/v4/environments")))
-                                   true))))))
+
+    (fixt/without-db-var
+     (fn []
+       (is (= #{{:name "foo"}
+                {:name "bar"}
+                {:name "baz"}}
+              (set (json/parse-string (:body (fixt/*app* (get-request "/v4/environments")))
+                                      true))))))
+    (fixt/without-db-var
+     (fn []
+       (let [res (fixt/*app* (get-request "/v4/environments"))]
+         (is (= #{{:name "foo"}
+                  {:name "bar"}
+                  {:name "baz"}}
+                (set @(future (json/parse-string (:body res)
+                                                 true))))))))))
 
 (deftest test-query-environment
   (testing "without environments"
-    (is (empty? (json/parse-string (:body (fixt/*app* (get-request "/v4/environments/foo")))))))
+    (fixt/without-db-var
+     (fn []
+       (is (empty? (json/parse-string (:body (fixt/*app* (get-request "/v4/environments/foo")))))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
-    (is (= {:name "foo"}
-           (json/parse-string (:body (fixt/*app* (get-request "/v4/environments/foo")))
-                              true)))))
+    (fixt/without-db-var
+     (fn []
+       (is (= {:name "foo"}
+              (json/parse-string (:body (fixt/*app* (get-request "/v4/environments/foo")))
+                                 true)))))))

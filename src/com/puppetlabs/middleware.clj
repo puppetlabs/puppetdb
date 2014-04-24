@@ -10,7 +10,8 @@
             [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
-            [pantomime.media :as media])
+            [pantomime.media :as media]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]])
   (:use [metrics.timers :only (timer time!)]
         [metrics.meters :only (meter mark!)]
         [clojure.walk :only (keywordize-keys)]))
@@ -70,6 +71,13 @@
   (fn [req]
     (let [new-req (assoc req :globals globals)]
       (app new-req))))
+
+(defn wrap-read-db-tx
+  "Ring middleware that creates a database transaction on the read-db"
+  [handler]
+  (fn [{:keys [globals] :as req}]
+    (with-transacted-connection (:scf-read-db globals)
+      (handler req))))
 
 (defn wrap-with-paging-options
   "Ring middleware that will add to each request a :paging-options attribute:

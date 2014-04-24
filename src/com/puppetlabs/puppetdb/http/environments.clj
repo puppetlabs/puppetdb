@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.query.environments :as e]
             [com.puppetlabs.puppetdb.http :as http]
             [net.cgrand.moustache :refer [app]]
-            [com.puppetlabs.middleware :refer [verify-accepts-json]]
+            [com.puppetlabs.middleware :refer [verify-accepts-json wrap-read-db-tx]]
             [com.puppetlabs.puppetdb.http.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.http.resources :as r]
@@ -12,6 +12,7 @@
 (defn routes
   [version]
   (app
+   wrap-read-db-tx
    []
    {:get (fn [req]
            (http/query-result-response (e/all-environments)))}
