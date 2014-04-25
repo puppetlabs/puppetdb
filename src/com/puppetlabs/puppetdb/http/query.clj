@@ -48,11 +48,11 @@
 (defn restrict-query-to-environment
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied environment"
-  [node req]
-  {:pre  [(string? node)]
+  [environment req]
+  {:pre  [(string? environment)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["and"
-                   ["=" "environment" node]]
+                   ["=" "environment" environment]]
                   req))
 
 (defn restrict-fact-query-to-name

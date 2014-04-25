@@ -18,6 +18,19 @@ endpoint.
 
 This will return all environments known to PuppetDB
 
+#### URL Parameters
+
+* `query`: Optional. A JSON array containing the query in prefix notation. If
+  not provided, all results will be returned.
+
+#### Available Fields
+
+* `"name"`: matches environments of the given name
+
+#### Operators
+
+See [the Operators page](./operators.html)
+
 #### Response format
 
 The response is a JSON array of hashes of the form:
@@ -34,7 +47,7 @@ The array is unsorted.
 
 ### `GET /v4/environments/<ENVIRONMENT>`
 
-This will return the name of the environment if it currently exists in PuppetDB.
+This will return the name of the environment if it currently exists in PuppetDB. This route also supports the same URL parameters and operators as the '/v4/environments' route above.
 
 #### Response format
 
