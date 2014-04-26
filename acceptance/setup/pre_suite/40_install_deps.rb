@@ -41,7 +41,7 @@ deb http://s3-us-west-2.amazonaws.com/puppetdb-jdk/jpkg/ pljdk main
       which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
       needs_lein = which_result.exit_code == 1
       if (needs_lein)
-        on database, "curl -k https://raw.github.com/technomancy/leiningen/preview/bin/lein -o /usr/local/bin/lein"
+        on database, "curl -k https://raw.githubusercontent.com/technomancy/leiningen/2.3.4/bin/lein -o /usr/local/bin/lein"
         on database, "chmod +x /usr/local/bin/lein"
         on database, "LEIN_ROOT=true lein"
       end
