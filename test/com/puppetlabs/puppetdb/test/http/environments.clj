@@ -4,7 +4,8 @@
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.scf.storage :as storage]
             [clojure.test :refer :all]
-            [com.puppetlabs.puppetdb.testutils :refer [get-request]]))
+            [com.puppetlabs.puppetdb.testutils :refer [get-request]]
+            [com.puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
 
 (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
 
@@ -54,3 +55,61 @@
        (is (= {:name "foo"}
               (json/parse-string (:body (fixt/*app* (get-request "/v4/environments/foo")))
                                  true)))))))
+
+(deftest environment-subqueries
+  (let [{:keys [web1 web2 db puppet]} (tu-nodes/store-example-nodes)]
+    (doseq [env ["foo" "bar" "baz"]]
+      (storage/ensure-environment env))
+
+    (are [query expected] (= expected (json/parse-string (:body (fixt/*app* (get-request "/v4/environments" query))) true))
+
+         ["in" "name"
+          ["extract" "environment"
+           ["select-facts"
+            ["and"
+             ["=" "name" "operatingsystem"]
+             ["=" "value" "Debian"]]]]]
+         [{:name "DEV"}]
+
+         ["not"
+          ["in" "name"
+           ["extract" "environment"
+            ["select-facts"
+             ["and"
+              ["=" "name" "operatingsystem"]
+              ["=" "value" "Debian"]]]]]]
+         [{:name "foo"}
+          {:name "bar"}
+          {:name "baz"}]
+
+         ["in" "name"
+          ["extract" "environment"
+           ["select-facts"
+            ["and"
+             ["=" "name" "hostname"]
+             ["in" "value"
+              ["extract" "title"
+               ["select-resources"
+                ["and"
+                 ["=" "type" "Class"]]]]]]]]]
+         [{:name "DEV"}])
+
+        (are [env query expected] (= expected (json/parse-string (:body (fixt/*app* (get-request (str "/v4/environments/" env) query))) true))
+
+         "DEV"
+         ["in" "name"
+          ["extract" "environment"
+           ["select-facts"
+            ["and"
+             ["=" "name" "operatingsystem"]
+             ["=" "value" "Debian"]]]]]
+         {:name "DEV"}
+
+         "foo"
+         ["in" "name"
+          ["extract" "environment"
+           ["select-facts"
+            ["and"
+             ["=" "name" "operatingsystem"]
+             ["=" "value" "Debian"]]]]]
+         nil)))

@@ -222,6 +222,8 @@
 (def node-columns {"name"         "certnames"
                    "deactivated"  "certnames"})
 
+(def environments-columns {"name" "environments"})
+
 (def event-columns
   {"certname"               ["reports"]
    "configuration_version"  ["reports"]
@@ -273,6 +275,10 @@
 (defmethod queryable-fields :node
   [_ _]
   (keyset node-columns))
+
+(defmethod queryable-fields :environments
+  [_ _]
+  (keyset environments-columns))
 
 (defmethod queryable-fields :event
   [_ _]
@@ -353,6 +359,17 @@
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM certnames WHERE %s" (column-map->sql node-columns) where)]
     (apply vector sql params)))
+
+(defn environments-query->sql
+  "Compile a environments query, returning a vector containing the SQL and parameters
+  for the query. All node columns are selected, and no order is applied."
+  [ops query]
+  {:post [valid-jdbc-query? %]}
+  (let [{:keys [where params]} (when query (compile-term ops query))
+        projection (format "SELECT %s FROM environments " (column-map->sql environments-columns))
+        where-clause (when where
+                       (format "WHERE %s"  where))]
+    (apply vector (str projection where-clause) params)))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
@@ -578,6 +595,40 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
+(defn compile-environments-equality
+  "Compile an equality operator for environments. This can either be for the value of
+  a specific fact, or based on node activeness."
+  [version path value]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    (:v2 :v3) (throw (IllegalArgumentException. (format "Querying for environments not supported in version %s" (last (name version)))))
+    (match [path]
+           ["name"]
+           {:where "environments.name = ?"
+            :params [value]}
+
+           :else (throw (IllegalArgumentException.
+                          (str path " is not a queryable object for environments"))))))
+
+(defn compile-environments-regexp
+  "Compile an '~' predicate for an environments query, which does regexp matching.  This
+  is done by leveraging the correct database-specific regexp syntax to return
+  only rows where the supplied `path` match the given `pattern`."
+  [path pattern]
+  {:pre [(string? pattern)]
+   :post [(map? %)
+          (string? (:where %))]}
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+    (match [path]
+           ["name"]
+           {:where (sql-regexp-match "environments.name")
+            :params [pattern]}
+
+           :else (throw (IllegalArgumentException.
+                          (str path " is not a valid operand for regexp comparison"))))))
+
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
   The `value` for comparison must be coercible to a timestamp via
@@ -748,6 +799,27 @@ args))))))
           (= op "in") (partial compile-in :node version (node-operators version))
           (= op "select-resources") (partial resource-query->sql (resource-operators version))
           (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+
+(defn environments-operators
+  "Maps environment query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    (fn [op]
+      (let [op (string/lower-case op)]
+        (cond
+          (= op "=") (partial compile-environments-equality version)
+          (= op "~") compile-environments-regexp
+          (= op "and") (partial compile-and (environments-operators version))
+          (= op "or") (partial compile-or (environments-operators version))
+          (= op "not") (partial compile-not version (environments-operators version))
+          (= op "extract") (partial compile-extract version (environments-operators version))
+          (= op "in") (partial compile-in :environments version (environments-operators version))
+          (= op "select-resources") (partial resource-query->sql (resource-operators version))
+          (= op "select-facts") (partial fact-query->sql (fact-operators version))
+          (#{">" "<" ">=" "<="} op) (fn [& [_ value]]
+                                      (throw (IllegalArgumentException. (format "Value %s must be a number for %s comparison." value op)))))))))
 
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
