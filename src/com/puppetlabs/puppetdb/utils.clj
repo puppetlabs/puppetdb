@@ -6,7 +6,8 @@
             [com.puppetlabs.puppetdb.schema :as pls]
             [com.puppetlabs.archive :as archive]
             [clojure.java.io :as io]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [clojure.walk :as walk]))
 
 (defn jdk6?
   "Returns true when the current JDK version is 1.6"
@@ -88,3 +89,12 @@
       (apply assoc m (apply concat missing-map-entries))
       m)))
 
+(defn stringify-keys
+  "Recursively transforms all map keys from keywords to strings. This improves
+   on clojure.walk/stringify-keys by supporting the conversion of hyphenated
+   keywords to strings instead of trying to resolve them in a namespace first."
+  [m]
+  (let [f (fn [[k v]] (if (keyword? k)
+                       [(subs (str k) 1) v] [k v]))]
+    ;; only apply to maps
+    (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))

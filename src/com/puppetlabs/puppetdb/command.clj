@@ -70,7 +70,8 @@
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
             [com.puppetlabs.jdbc :as jdbc]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [slingshot.slingshot :only [try+ throw+]]
         [cheshire.custom :only (JSONable)]
         [clj-http.util :only [url-encode]]
@@ -325,17 +326,17 @@
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 2]
-  [{:keys [version] :as  command} options]
+  [{:keys [version] :as command} options]
   (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 3]
-  [{:keys [version] :as  command} options]
+  [{:keys [version] :as command} options]
   (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
-  [{:keys [version] :as  command} options]
+  [{:keys [version] :as command} options]
   (replace-catalog* command options))
 
 ;; Fact replacement
@@ -345,17 +346,18 @@
   (warn-deprecated version "replace facts")
   (-> command
       (assoc :version 2)
-      (update-in [:payload] #(upon-error-throw-fatality (json/parse-string %)))
-      (assoc-in [:payload "environment"] nil)
+      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (json/parse-string %))))
+      (assoc-in [:payload :environment] nil)
       (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 2]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:strs [name] :as facts} (if (string? payload)
-                                   (upon-error-throw-fatality (json/parse-string payload))
-                                   payload)
-        id                       (:id annotations)
-        timestamp                (:received annotations)]
+  (let [{:keys [name values] :as facts} payload
+        ;; TODO: probably need to investigate if we really need to
+        ;; re-stringify this first.
+        facts     (upon-error-throw-fatality (update-in facts [:values] utils/stringify-keys))
+        id        (:id annotations)
+        timestamp (:received annotations)]
 
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
@@ -365,8 +367,16 @@
 ;; Node deactivation
 
 (defmethod process-command! [(command-names :deactivate-node) 1]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "deactivate node")
+  (-> command
+      (assoc :version 2)
+      (update-in [:payload] #(upon-error-throw-fatality (json/parse-string %)))
+      (process-command! config)))
+
+(defmethod process-command! [(command-names :deactivate-node) 2]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [certname (upon-error-throw-fatality (json/parse-string payload))
+  (let [certname payload
         id       (:id annotations)]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)

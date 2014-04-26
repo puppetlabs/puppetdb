@@ -17,6 +17,6 @@ class Puppet::Node::Puppetdb < Puppet::Indirector::REST
   end
 
   def destroy(request)
-    submit_command(request.key, request.key.to_pson, CommandDeactivateNode, 1)
+    submit_command(request.key, request.key, CommandDeactivateNode, 2)
   end
 end

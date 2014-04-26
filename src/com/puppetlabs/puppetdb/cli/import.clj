@@ -78,13 +78,14 @@
   {:pre  [(string?  puppetdb-host)
           (integer? puppetdb-port)
           (string?  fact-payload)]}
-  (let [payload (-> fact-payload
-                    json/parse-string)
+  (let [payload (case facts-version
+                  1 fact-payload
+                  (json/parse-string fact-payload))
         result  (command/submit-command-via-http!
                  puppetdb-host puppetdb-port
                  (command-names :replace-facts)
                  facts-version
-                 fact-payload)]
+                 payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 

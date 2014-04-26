@@ -456,7 +456,7 @@
 
 (defn default-catalog-munging
   "Returns a function appropriate for converting a command to
-   the format needee for `version`"
+   the format needed for `version`"
   [version]
   (case version
     :v1 identity
@@ -699,12 +699,12 @@
       (assoc-in [:payload :environment] "DEV")))
 
 (defn default-fact-munging
-  "Converts the command to the `target-version`. Stringifies the payload
-   like the command expects"
+  "Converts the command to the `target-version`. For :v1, stringifies the payload
+   like the command expects."
   [target-version]
   (case target-version
     :v1 stringify-payload
-    (comp stringify-payload v2-fact-munge)))
+    v2-fact-munge))
 
 (defn munge-version-only
   "Only changes the version to `target-version` of the given command"
@@ -867,7 +867,7 @@
                           "operatingsystem" "Debian"}}
           command   {:command (command-names :replace-facts)
                      :version 2
-                     :payload (json/generate-string facts)}
+                     :payload facts}
 
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-facts! scf-store/update-facts!]
@@ -1005,8 +1005,8 @@
 
 (let [certname "foo.example.com"
       command {:command (command-names :deactivate-node)
-               :version 1
-               :payload (json/generate-string certname)}]
+               :version 2
+               :payload certname}]
   (deftest deactivate-node-node-active
     (sql/insert-record :certnames {:name certname})
 

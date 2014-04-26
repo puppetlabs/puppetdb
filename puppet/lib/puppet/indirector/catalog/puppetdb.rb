@@ -23,6 +23,10 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     nil
   end
 
+  def destroy(request)
+    nil
+  end
+
   # @api private
   def extract_extra_request_data(request)
     {

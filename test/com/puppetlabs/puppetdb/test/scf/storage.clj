@@ -74,7 +74,7 @@
                            "hostname" "myhost"
                            "kernel" "Linux"
                            "uptime_seconds" "3600"}]
-            (replace-facts! {"name"  certname "values" new-facts "environment" "DEV"} (now))
+            (replace-facts! {:name certname :values new-facts :environment "DEV"} (now))
             (testing "should have only the new facts"
               (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
                      [{:name "domain" :value "mynewdomain.com"}
@@ -100,32 +100,32 @@
 
       (testing "replacing all new facts"
         (delete-facts! certname)
-        (replace-facts! {"name" certname
-                         "values" facts
-                         "environment" "DEV"} (now))
+        (replace-facts! {:name certname
+                         :values facts
+                         :environment "DEV"} (now))
         (is (= facts (cert-fact-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
         (add-facts! certname facts (-> 2 days ago) nil)
-        (replace-facts! {"name" certname
-                         "values" {"foo" "bar"}
-                         "environment" "DEV"} (now))
+        (replace-facts! {:name certname
+                         :values {"foo" "bar"}
+                         :environment "DEV"} (now))
         (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
       
       (testing "replace-facts with only additions"
         (let [fact-map (cert-fact-map "some_certname")]
-          (replace-facts! {"name" certname
-                           "values" (assoc fact-map "one more" "here")
-                           "environment" "DEV"} (now))
+          (replace-facts! {:name certname
+                           :values (assoc fact-map "one more" "here")
+                           :environment "DEV"} (now))
           (is (= (assoc fact-map  "one more" "here")
                  (cert-fact-map "some_certname")))))
 
       (testing "replace-facts with no change"
         (let [fact-map (cert-fact-map "some_certname")]
-          (replace-facts! {"name" certname
-                           "values" fact-map
-                           "environment" "DEV"} (now))
+          (replace-facts! {:name certname
+                           :values fact-map
+                           :environment "DEV"} (now))
           (is (= fact-map
                  (cert-fact-map "some_certname"))))))))
 
@@ -923,7 +923,10 @@
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
     (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :name "node1") (ago (days 2)))
-                    #(replace-facts! {"name" "node1" "values" {"foo" "bar"} "environment" "DEV"} (ago (days 2)))]]
+                    #(replace-facts! {:name "node1"
+                                      :values {"foo" "bar"}
+                                      :environment "DEV"}
+                                     (ago (days 2)))]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
         (dorun (map #(%) func-set))
