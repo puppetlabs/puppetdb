@@ -34,9 +34,9 @@ class Puppet::Util::Puppetdb::Command
 
   attr_reader :command, :version, :certname, :payload
 
-  # Submit the command.
+  # Submit the command, returning the result hash.
   #
-  # @return [void]
+  # @return [Hash <String, String>]
   def submit
     checksum = Digest::SHA1.hexdigest(payload)
 
@@ -77,8 +77,6 @@ class Puppet::Util::Puppetdb::Command
         raise Puppet::Error, error
       end
     end
-
-    nil
   end
 
 
