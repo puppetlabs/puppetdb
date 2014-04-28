@@ -11,7 +11,9 @@
 (def v2-endpoint "/v2/nodes")
 (def v3-endpoint "/v3/nodes")
 (def v4-endpoint "/v4/nodes")
-(def endpoints [v2-endpoint v3-endpoint v4-endpoint])
+(def endpoints {:v2 v2-endpoint
+                :v3 v3-endpoint
+                :v4 v4-endpoint})
 
 (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
 
@@ -21,19 +23,23 @@
   ([endpoint query params] (fixt/*app* (get-request endpoint query params))))
 
 (defn is-query-result
-  [endpoint query expected]
-  (let [{:keys [body status]} (get-response endpoint query)
+  [version query expected]
+  (let [{:keys [body status]} (get-response (get endpoints version) query)
         result (try
                  (json/parse-string body true)
                  (catch com.fasterxml.jackson.core.JsonParseException e
                    body))]
     (doseq [res result]
-      (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res))))
+      (case version
+        (:v2 :v3)
+        (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
+        (is (= #{:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
+                 :catalog-environment :facts-environment :report-environment} (keyset res)))))
     (is (= status pl-http/status-ok))
-    (is (= expected (mapv :name result)))))
+    (is (= (set expected) (set (mapv :name result))))))
 
 (deftest node-queries
-  (doseq [endpoint endpoints]
+  (doseq [[version endpoint] endpoints]
     (super-fixture
      (fn []
        (testing (str "node queries for " endpoint ":")
@@ -44,46 +50,60 @@
                  (is (nil? (:deactivated (status-for-node web1)))))
 
                (testing "when node has facts, but no catalog"
-                 (is (:facts_timestamp (status-for-node web2)))
-                 (is (nil? (:catalog_timestamp (status-for-node web2)))))
+                 (case version
+                   (:v2 :v3)
+                   (do
+                     (is (:facts_timestamp (status-for-node web2)))
+                     (is (nil? (:catalog_timestamp (status-for-node web2)))))
+
+                   (do
+                     (is (:facts-timestamp (status-for-node web2)))
+                     (is (nil? (:catalog-timestamp (status-for-node web2)))))))
 
                (testing "when node has an associated catalog and facts"
-                 (is (:catalog_timestamp (status-for-node web1)))
-                 (is (:facts_timestamp (status-for-node web1))))))
+                 (case version
+                   (:v2 :v3)
+                   (do
+                     (is (:catalog_timestamp (status-for-node web1)))
+                     (is (:facts_timestamp (status-for-node web1))))
+
+                   (do
+                     (is (:catalog-timestamp (status-for-node web1)))
+                     (is (:facts-timestamp (status-for-node web1))))))))
 
            (testing "basic equality is supported for name"
-             (is-query-result endpoint ["=" "name" "web1.example.com"] [web1]))
+             (is-query-result version ["=" "name" "web1.example.com"] [web1]))
 
            (testing "regular expressions are supported for name"
-             (is-query-result endpoint ["~" "name" "web\\d+.example.com"] [web1 web2])
-             (is-query-result endpoint ["~" "name" "\\w+.example.com"] [db puppet web1 web2])
-             (is-query-result endpoint ["~" "name" "example.net"] []))
+             (is-query-result version ["~" "name" "web\\d+.example.com"] [web1 web2])
+             (is-query-result version ["~" "name" "\\w+.example.com"] [db puppet web1 web2])
+             (is-query-result version ["~" "name" "example.net"] []))
 
            (testing "basic equality works for facts, and is based on string equality"
-             (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
-             (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000] [web1])
-             (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] [web1])
-             (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] [])
-             (is-query-result endpoint ["=" ["fact" "uptime_seconds"] true] [])
-             (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 0] []))
+             (is-query-result version ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
+             (is-query-result version ["=" ["fact" "uptime_seconds"] 10000] [web1])
+             (is-query-result version ["=" ["fact" "uptime_seconds"] "10000"] [web1])
+             (is-query-result version ["=" ["fact" "uptime_seconds"] 10000.0] [])
+             (is-query-result version ["=" ["fact" "uptime_seconds"] true] [])
+             (is-query-result version ["=" ["fact" "uptime_seconds"] 0] []))
 
            (testing "missing facts are not equal to anything"
-             (is-query-result endpoint ["=" ["fact" "fake_fact"] "something"] [])
-             (is-query-result endpoint ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
+             (is-query-result version ["=" ["fact" "fake_fact"] "something"] [])
+             (is-query-result version ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
 
            (testing "arithmetic works on facts"
-             (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000] [web1])
-             (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
-             (is-query-result endpoint ["<" ["fact" "uptime_seconds"] "12000"] [web1])
-             (is-query-result endpoint ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
-             (is-query-result endpoint ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
+             (is-query-result version ["<" ["fact" "uptime_seconds"] 12000] [web1])
+             (is-query-result version ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
+             (is-query-result version ["<" ["fact" "uptime_seconds"] "12000"] [web1])
+             (is-query-result version ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
+             (is-query-result version ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
 
            (testing "regular expressions work on facts"
-             (is-query-result endpoint ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
-             (is-query-result endpoint ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))))))
+             (is-query-result version ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
+             (is-query-result version ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))))))
 
 (deftest node-subqueries
-  (doseq [endpoint endpoints]
+  (doseq [[version endpoint] endpoints]
     (super-fixture
      (fn []
        (testing (str "valid node subqueries for " endpoint ":")
@@ -113,7 +133,7 @@
 
                                      [web1]}]
              (testing (str "query: " query " is supported")
-               (is-query-result endpoint query expected)))))))))
+               (is-query-result version query expected)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -135,8 +155,8 @@
 
                   ["db.example.com" "puppet.example.com" "web1.example.com"]}]
           (testing (str "query: " query " is supported")
-            (is-query-result v3-endpoint query expected))
-            (is-query-result v4-endpoint query expected))))
+            (is-query-result :v3 query expected))
+            (is-query-result :v4 query expected))))
 
   (testing "subqueries: invalid"
     (doseq [[version endpoint] [[:v3 v3-endpoint] [:v4 v4-endpoint]]

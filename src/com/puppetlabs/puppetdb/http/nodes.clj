@@ -19,7 +19,7 @@
     (with-transacted-connection db
       (let [query (if query (json/parse-string query true))
             sql   (node/query->sql version query)
-            nodes (node/query-nodes sql paging-options)]
+            nodes (node/query-nodes version sql paging-options)]
         (query-result-response nodes)))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
