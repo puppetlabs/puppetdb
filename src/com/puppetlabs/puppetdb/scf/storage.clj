@@ -34,8 +34,7 @@
             [schema.core :as s]
             [schema.macros :as sm]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [com.puppetlabs.puppetdb.utils :as utils]
-            [clojure.walk :as walk])
+            [com.puppetlabs.puppetdb.utils :as utils])
   (:use [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [ago secs now before?]]
         [metrics.meters :only (meter mark!)]

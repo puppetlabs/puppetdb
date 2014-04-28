@@ -375,14 +375,12 @@
       (process-command! config)))
 
 (defmethod process-command! [(command-names :deactivate-node) 2]
-  [{:keys [payload annotations]} {:keys [db]}]
-  (let [certname payload
-        id       (:id annotations)]
-    (jdbc/with-transacted-connection db
-      (when-not (scf-storage/certname-exists? certname)
-        (scf-storage/add-certname! certname))
-      (scf-storage/deactivate-node! certname))
-    (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname))))
+  [{certname :payload {:keys [id]} :annotations} {:keys [db]}]
+  (jdbc/with-transacted-connection db
+    (when-not (scf-storage/certname-exists? certname)
+      (scf-storage/add-certname! certname))
+    (scf-storage/deactivate-node! certname))
+  (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 ;; Report submission
 
