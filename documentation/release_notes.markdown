@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » Release Notes"
+title: "PuppetDB 2.0 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 1.6.3
 -----
 
-PuppetDB 1.6.3 is a bugfix release.
+PuppetDB 2.0.3 is a bugfix release.
 
 Notable improvements and fixes:
 
@@ -67,7 +67,7 @@ Notable improvements and fixes:
 1.6.2
 -----
 
-PuppetDB 1.6.2 is a bugfix release.
+PuppetDB 2.0.2 is a bugfix release.
 
 Notable improvements and fixes:
 
@@ -137,7 +137,7 @@ Not released due to SystemD-related packaging issues on Fedora
 1.6.0
 -----
 
-PuppetDB 1.6.0 is a performance and bugfix release.
+PuppetDB 2.0.0 is a performance and bugfix release.
 
 Notable improvements and fixes:
 

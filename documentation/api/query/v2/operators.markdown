@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » API » v2 » Query Operators"
+title: "PuppetDB 2.0 » API » v2 » Query Operators"
 layout: default
 canonical: "/puppetdb/latest/api/query/v2/operators.html"
 ---
