@@ -32,8 +32,8 @@ describe Puppet::Node::Puppetdb do
 
       payload = {
         :command => CommandDeactivateNode,
-        :version => 1,
-        :payload => node.to_json,
+        :version => 2,
+        :payload => node,
       }.to_json
 
       http.expects(:post).with do |uri,body,headers|

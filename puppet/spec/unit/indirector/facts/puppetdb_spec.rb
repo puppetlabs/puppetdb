@@ -41,7 +41,7 @@ describe Puppet::Node::Facts::Puppetdb do
       payload = {
         :command => CommandReplaceFacts,
         :version => 2,
-        :payload => f.to_pson,
+        :payload => f,
       }.to_json
 
       http.expects(:post).with do |uri, body, headers|
@@ -62,7 +62,7 @@ describe Puppet::Node::Facts::Puppetdb do
       save
 
       message = JSON.parse(sent_payload)
-      sent_facts = JSON.parse(message['payload'])
+      sent_facts = message['payload']
 
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
