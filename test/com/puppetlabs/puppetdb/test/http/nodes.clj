@@ -33,9 +33,8 @@
       (case version
         (:v2 :v3)
         (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
-
-        (:v4)
-        (is (= #{:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp :catalog-last-environment :facts-last-environment :report-last-environment} (keyset res)))))
+        (is (= #{:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
+                 :catalog-environment :facts-environment :report-environment} (keyset res)))))
     (is (= status pl-http/status-ok))
     (is (= (set expected) (set (mapv :name result))))))
 

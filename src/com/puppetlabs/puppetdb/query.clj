@@ -229,12 +229,19 @@
 
     {"name"                     "certnames"
      "deactivated"              "certnames"
-     "facts_last_environment"   "certnames"
-     "report_last_environment"  "certnames"
-     "catalog_last_environment" "certnames"
+     "facts_environment"   "certnames"
+     "report_environment"  "certnames"
+     "catalog_environment" "certnames"
      "facts_timestamp"          "certnames"
      "report_timestamp"         "certnames"
      "catalog_timestamp"        "certnames"}))
+
+(defn node-std-fields
+  "Return the set of standard parameters (these support all operators) for nodes"
+  [version]
+  (case version
+    (:v1 :v2 :v3) #{"name"}
+    #{"name" "facts-environment" "catalog-environment" "report-environment"}))
 
 (def event-columns
   {"certname"               ["reports"]
@@ -375,9 +382,9 @@
                        catalogs.timestamp AS catalog_timestamp,
                        certname_facts_metadata.timestamp AS facts_timestamp,
                        reports.end_time AS report_timestamp,
-                       catalog_environment.name AS catalog_last_environment,
-                       facts_environment.name AS facts_last_environment,
-                       reports_environment.name AS report_last_environment
+                       catalog_environment.name AS catalog_environment,
+                       facts_environment.name AS facts_environment,
+                       reports_environment.name AS report_environment
                        FROM certnames
                          LEFT OUTER JOIN catalogs
                            ON certnames.name = catalogs.certname
@@ -573,23 +580,20 @@
   [version path value]
   {:post [(map? %)
           (string? (:where %))]}
-  (let [std-fields (case version
-                     (:v1 :v2 :v3) #{"name"}
-                     #{"name" "facts-last-environment" "catalog-last-environment" "report-last-environment"})]
-    (match [path]
-           [(field :guard std-fields)]
-           {:where (format "%s = ?" (jdbc/dashes->underscores field))
-            :params [value] }
+  (match [path]
+         [(field :guard (node-std-fields version))]
+         {:where (format "%s = ?" (jdbc/dashes->underscores field))
+          :params [value] }
 
-           [["fact" (name :guard string?)]]
-           {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
-            :params [name (str value)]}
+         [["fact" (name :guard string?)]]
+         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
+          :params [name (str value)]}
 
-           [["node" "active"]]
-           {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
+         [["node" "active"]]
+         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
 
-           :else (throw (IllegalArgumentException.
-                         (str path " is not a queryable object for nodes"))))))
+         :else (throw (IllegalArgumentException.
+                       (str path " is not a queryable object for nodes")))))
 
 (defn compile-node-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
@@ -599,12 +603,9 @@
   {:pre [(string? pattern)]
    :post [(map? %)
           (string? (:where %))]}
-  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})
-        std-fields (case version
-                     (:v1 :v2 :v3) #{"name"}
-                     #{"name" "facts-last-environment" "catalog-last-environment" "report-last-environment"})]
+  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
     (match [path]
-           [(field :guard std-fields)]
+           [(field :guard (node-std-fields version))]
            {:where (sql-regexp-match (jdbc/dashes->underscores field))
             :params [pattern]}
 

@@ -20,7 +20,7 @@
               :catalog_timestamp :facts_timestamp :report_timestamp]]
     (case version
       (:v1 :v2 :v3) base
-      (concat base [:catalog_last_environment :facts_last_environment :report_last_environment]))))
+      (concat base [:catalog_environment :facts_environment :report_environment]))))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will

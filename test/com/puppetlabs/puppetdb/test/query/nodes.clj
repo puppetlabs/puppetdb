@@ -77,7 +77,7 @@
                       #{"node_d"}}]
       (combination-tests [:v2 :v3 :v4] test-cases))
 
-    (let [test-cases {["=" "facts-last-environment" "production"]
+    (let [test-cases {["=" "facts-environment" "production"]
                       #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
       (combination-tests [:v4] test-cases))))
 

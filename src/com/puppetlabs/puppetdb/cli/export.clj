@@ -29,9 +29,9 @@
 (def node-map {:catalog-timestamp (s/maybe String)
                :facts-timestamp (s/maybe String)
                :report-timestamp (s/maybe String)
-               :catalog-last-environment (s/maybe String)
-               :facts-last-environment (s/maybe String)
-               :report-last-environment (s/maybe String)
+               :catalog-environment (s/maybe String)
+               :facts-environment (s/maybe String)
+               :report-environment (s/maybe String)
                :name String
                :deactivated (s/maybe String)})
 

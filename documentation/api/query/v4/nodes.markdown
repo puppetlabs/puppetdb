@@ -27,7 +27,7 @@ aren't included in the response.
 
 The `query` parameter is a similar format to [resource queries][resource].
 
-Only queries against `"name"`, `"catalog-last-environment"`, `"facts-last-environment"`, `"report-last-environment"` and facts are currently supported.
+Only queries against `"name"`, `"catalog-environment"`, `"facts-environment"`, `"report-environment"` and facts are currently supported.
 
 Fact terms must be of the form `["fact", <fact name>]`.
 
@@ -59,9 +59,9 @@ The response is a JSON array of hashes of the form:
      "catalog-timestamp": <timestamp>,
      "facts-timestamp": <timestamp>,
      "report-timestamp": <timestamp>,
-     "catalog-last-environment": <string>,
-     "facts-last-environment": <string>,
-     "report-last-environment": <string}
+     "catalog-environment": <string>,
+     "facts-environment": <string>,
+     "report-environment": <string}
 
 The array is unsorted.
 
@@ -81,13 +81,13 @@ Valid fields returned by the query are as follows.
 `report-timestamp`
 : last time a report run was complete
 
-`catalog-last-environment`
+`catalog-environment`
 : the environment for the last received catalog
 
-`facts-last-environment`
+`facts-environment`
 : the environment for the last received fact set
 
-`report-last-environment`
+`report-environment`
 : the environment for the last received report
 
 #### Example
