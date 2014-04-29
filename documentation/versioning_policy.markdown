@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » Versioning Policy"
+title: "PuppetDB 2.0 » Versioning Policy"
 layout: default
 canonical: "/puppetdb/latest/versioning_policy.html"
 ---
@@ -21,7 +21,7 @@ Some general statements about this policy:
 
 ## PuppetDB Software
 
-This related to the version associated with an overall PuppetDB release. In this case, we follow the rules of [Semantic Versioning][semver] as closely as possible. And we’ll speak about that in this document using the X.Y.Z notation:
+This relates to the versionioning associated with an overall PuppetDB release. In this case, we follow the rules of [Semantic Versioning][semver] as closely as possible. And we’ll speak about that in this document using the X.Y.Z notation:
 
 > "A normal version number MUST take the form X.Y.Z where X, Y, and Z are non-negative integers, and MUST NOT contain leading zeroes. X is the major version, Y is the minor version, and Z is the patch version." - semver.org
 
