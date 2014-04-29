@@ -128,7 +128,7 @@ agent runs, the amount of changes to the nodes on each run etc. One
 possible cause of execessive load on the database server is a low
 catalog duplication rate. See the [PuppetDB dashboard][maintaining_tuning]
 to find this rate for your PuppetDB instance. If this rate is
-significantly lower than 90%, see [Why is my catalog duplication rate so low?][#why-is-my-catalog-duplication-rate-so-low].
+significantly lower than 90%, see [Why is my catalog duplication rate so low?](#why-is-my-catalog-duplication-rate-so-low).
 
 ## Why is my catalog duplication rate so low?
 
