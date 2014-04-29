@@ -6,6 +6,10 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
+[events]: ./events.html
+[reports]: ./reports.html
+[resources]: ./resources.html
+[facts]: ./facts.html
 
 Environments can be queried by making an HTTP request to the `/environments` REST
 endpoint.
@@ -68,8 +72,8 @@ These routes are identical to issuing a request to
 ["=" "environment" "<ENVIRONMENT>"]. All query parameters and route
 suffixes from the original routes are supported. The result format is also
 the same. Additional query parameters are ANDed with the environment
-clause. See [/v4/events](./events.html), [/v4/facts](./facts.html),
-[/v4/reports](./reports.html) or [/v4/resources](./resources.html) for
+clause. See [/v4/events][events], [/v4/facts][facts],
+[/v4/reports][reports] or [/v4/resources][resources] for
 more info.
 
 ## Paging
