@@ -50,12 +50,12 @@ commonly, this is caused by an admin initiated change to a host (i.e.
 adding a new package to the configuration of a web server).
 
 Prior to
-PuppetDB 2.0, this could also be caused by a subtle reordering of
+PuppetDB 1.6, this could also be caused by a subtle reordering of
 resources or properties. One example of that scenario is in a two
 puppet master setup, one puppet master would send its resources in a
 different order than the other puppet master. This would cause the
 catalogs to hash differently, even though their content was the same.
-This issue has been fixed in PuppetDB 2.0.
+This issue has been fixed in PuppetDB 1.6.
 
 How Can I Detect the Cause of Catalogs Hashing Differently?
 -----
