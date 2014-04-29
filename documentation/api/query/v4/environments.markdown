@@ -69,7 +69,7 @@ The response is a JSON hash of the form:
 
 These routes are identical to issuing a request to
 `/v4/[events|facts|reports|resources]`, with a query parameter of
-`["=" "environment" "<ENVIRONMENT>"]`. All query parameters and route
+`["=","environment","<ENVIRONMENT>"]`. All query parameters and route
 suffixes from the original routes are supported. The result format is also
 the same. Additional query parameters are ANDed with the environment
 clause. See [/v4/events][events], [/v4/facts][facts],
