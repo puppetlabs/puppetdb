@@ -4,7 +4,8 @@
             [com.puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.walk :as walk]))
 
 (deftest test-println-err
   (is (= "foo\n"
@@ -60,3 +61,10 @@
          (assoc-when {} :b 100)))
   (is (= {:a 1 :b 2 :c  3}
          (assoc-when {:a 1} :b 2 :c 3))))
+
+(deftest stringify-keys-test
+  (let [sample-data1 {"foo/bar" "data" "key with space" {"child/foo" "baz"}}
+        sample-data2 {:foo/bar "data" :fuz/bash "data2"}
+        keys         (walk/keywordize-keys sample-data1)]
+    (is (= sample-data1 (stringify-keys keys)))
+    (is (= {"foo/bar" "data" "fuz/bash" "data2"} (stringify-keys sample-data2)))))

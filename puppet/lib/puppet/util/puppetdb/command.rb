@@ -13,11 +13,13 @@ class Puppet::Util::Puppetdb::Command
 
   # Public instance methods
 
-  # Constructor;
+  # Initialize a Command object, for later submission.
   #
   # @param command String the name of the command; should be one of the
   #   constants defined in `Puppet::Util::Puppetdb::CommandNames`
   # @param version Integer the command version number
+  # @param certname The certname that this command operates on (is not
+  #   included in the actual submission)
   # @param payload Object the payload of the command.  This object should be a
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
@@ -32,6 +34,9 @@ class Puppet::Util::Puppetdb::Command
 
   attr_reader :command, :version, :certname, :payload
 
+  # Submit the command, returning the result hash.
+  #
+  # @return [Hash <String, String>]
   def submit
     checksum = Digest::SHA1.hexdigest(payload)
 

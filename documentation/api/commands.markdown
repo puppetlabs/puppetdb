@@ -107,9 +107,9 @@ couples the version of the command with the same version of the wire
 format. Other changes in this version were related to removing unused
 metadata fields added by puppet.
 
-The payload is expected to be a Puppet catalog, as either a JSON
-string or an object, conforming exactly to the [catalog wire format v4][catalog].
-Extra or missing fields are an error.
+The payload is expected to be a Puppet catalog, as a JSON object, conforming
+exactly to the [catalog wire format v4][catalog]. Extra or missing fields
+are an error.
 
 ### "replace facts", version 1
 
@@ -123,13 +123,20 @@ the [fact wire format v1][facts]
 Similar to version 4 of replace catalog, this version of replace facts adds support
 for environments and an explicit coupling between command version and wire format
 version. See [fact wire format v2][factsv2] for more information on the payload of
-this command
-
+this command.
 
 ### "deactivate node", version 1
 
-The payload is expected to be the name of a node, as a JSON string, which will be deactivated
+> **Note:** This version is deprecated, use the latest version instead.
+
+The payload is expected to be the name of a node, as a serialized JSON string, which will be deactivated
 effective as of the time the command is *processed*.
+
+### "deactivate node", version 2
+
+The payload is expected to be the name of a node, as a raw JSON string, which will be deactivated
+effective as of the time the command is *processed*. Serialization of the payload is no
+longer required.
 
 ### "store report", version 1
 
@@ -168,7 +175,7 @@ To post a `replace facts` command you can use the following curl command:
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":1,"payload":"{\"name\":\"test1\",\"values\":{\"myfact\":\"myvalue\"}}"}' \
+      -d '{"command":"replace facts","version":2,"payload":{"name":"test1","values":{"myfact":"myvalue"}}}' \
       http://localhost:8080/v3/commands
 
 An example of `deactivate node`:
@@ -176,6 +183,6 @@ An example of `deactivate node`:
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"deactivate node","version":1,"payload":"\"test1\""}' \
+      -d '{"command":"deactivate node","version":2,"payload":"test1"}' \
       http://localhost:8080/v3/commands
 =======

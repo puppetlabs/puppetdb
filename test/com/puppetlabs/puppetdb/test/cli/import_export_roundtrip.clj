@@ -147,7 +147,7 @@
        (is (empty? (export/get-nodes "localhost" *port*)))
        (submit-command :replace-catalog 4 catalog)
        (submit-command :store-report 3 (tur/munge-example-report-for-storage report))
-       (submit-command :replace-facts 2 (json/generate-string facts))
+       (submit-command :replace-facts 2 facts)
 
        (block-on-node (:name facts))
 

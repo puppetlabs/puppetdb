@@ -85,15 +85,15 @@
   {String json-primitive-schema})
 
 (def facts-schema
-  {(s/required-key "name") String
-   (s/required-key "values") fact-map-schema
+  {(s/required-key :name) String
+   (s/required-key :values) fact-map-schema
    ;;These next two should not be necessary, it's due to a bug in the
    ;;terminus code.  Leaving this in until 2.0.  If the user hasn't
    ;;and the below two lines are in, it will fails (sees keys it
    ;;doesn't recognize).  Remove this at 2.0.
-   (s/optional-key "timestamp") s/Any
-   (s/optional-key "expiration") s/Any
-   (s/required-key "environment") (s/maybe s/Str)})
+   (s/optional-key :timestamp) s/Any
+   (s/optional-key :expiration) s/Any
+   (s/required-key :environment) (s/maybe s/Str)})
 
 (def environments-schema
   {:id s/Int
@@ -752,7 +752,7 @@
        (sql/delete-rows :certname_facts
                         (into [(str "certname=? and name " (jdbc/in-clause fact-names)) certname]  fact-names)))))
 
-(pls/defn-validated cert-fact-map
+(pls/defn-validated cert-fact-map :- fact-map-schema
   "Return all facts and their values for a given certname as a map"
   [certname :- String]
   (sql/with-query-results result-set
@@ -972,7 +972,7 @@
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the certname_facts_metadata will have changed while the transaction was in-flight."
-  [{:strs [name values environment]} :- facts-schema
+  [{:keys [name values environment]} :- facts-schema
    timestamp :- pls/Timestamp]
   (time! (:replace-facts metrics)
          (if-let [facts-meta-ts (certname-facts-metadata! name)]

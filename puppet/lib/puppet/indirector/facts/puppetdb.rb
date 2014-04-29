@@ -26,7 +26,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
           # legacy storeconfigs.
           "environment" => request.environment.to_s,
-        }.to_json
+        }
       end
 
       submit_command(request.key, payload, CommandReplaceFacts, 2)
