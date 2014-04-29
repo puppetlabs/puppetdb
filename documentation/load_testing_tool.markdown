@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » Load Testing"
+title: "PuppetDB 2.0 » Load Testing"
 layout: default
 canonical: "/puppetdb/latest/anonymization.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » Upgrading PuppetDB"
+title: "PuppetDB 2.0 » Upgrading PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/upgrade.html"
 ---

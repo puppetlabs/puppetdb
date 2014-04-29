@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 1.6 » API » Report Wire Format, Version 3"
+title: "PuppetDB 2.0 » API » Report Wire Format, Version 3"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/report_format_v3.html"
 ---
