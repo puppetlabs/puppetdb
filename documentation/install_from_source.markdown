@@ -28,7 +28,7 @@ Step 1: Install Prerequisites
 
 Use your system's package tools to ensure that the following prerequisites are installed:
 
-* Facter, version 1.6.8 or higher <!-- TODO find the actual required version. Problem was a rake aborted! undefined method `downcase' for nil:NilClass error. -->
+* Facter, version 1.7.0 or higher
 * JDK 1.7 or higher
 * [Leiningen][]
 * Git (for checking out the source code)
