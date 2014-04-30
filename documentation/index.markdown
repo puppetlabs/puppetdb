@@ -86,9 +86,9 @@ If you're willing to do some manual configuration, PuppetDB can run on any Unix-
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 3.4.2
+### Puppet 3.5.1
 
-Your site's puppet masters must be running Puppet 3.4.2 or later. [You will need to connect your puppet masters to PuppetDB after installing it][connect]. If you wish to use PuppetDB with [standalone nodes that are running puppet apply][apply], every node must be running 3.4.2 or later.
+Your site's puppet masters must be running Puppet 3.5.1 or later. [You will need to connect your puppet masters to PuppetDB after installing it][connect]. If you wish to use PuppetDB with [standalone nodes that are running puppet apply][apply], every node must be running 3.4.2 or later.
 
 > #### Note about Puppet Enterprise
 >
