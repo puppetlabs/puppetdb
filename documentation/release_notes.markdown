@@ -15,7 +15,7 @@ breaking changes" section below for more information.
 
 New features:
 
-* (PDB-452,454,457,453,526) Adding support for storing, querying and importing/exporting environments
+* (PDB-452,453,454,456,457,526,557) Adding support for storing, querying and importing/exporting environments
 
   This change forced a new revision of the `replace facts`,
   `replace catalog` and `store report` commands. The PuppetDB terminus
@@ -48,12 +48,13 @@ New features:
   This release also includes a new environments query endpoint to list
   all known environments and allow an easy filtering based on
   environment for things like events, facts reports and resources. See
-  the query API docs for more information. PuppetDB import/export and
-  anonymization also now have environment support. Storeconfigs export
-  does not include environments as that information is not being
-  stored in the old storeconfigs module. Environments that are no
-  longer associated with a fact set, report or catalog will be
-  "garbage collected" by being removed from the database.
+  the query API docs for more information. PuppetDB
+  import/export/anonymization and benchmark tool also now have
+  environment support. Storeconfigs export does not include
+  environments as that information is not being stored in the old
+  storeconfigs module. Environments that are no longer associated with
+  a fact set, report or catalog will be "garbage collected" by being
+  removed from the database.
 
 * (PDB-581) Add subqueries to events query endpoint
 
@@ -115,12 +116,31 @@ Deprecations and potentially breaking changes:
   * Contrib gemspec has been updated
   * Gemfile for tests have been updated
 
+* (PDB-552) Pin support for Puppet to 3.5.1 and above
+
+  Starting PuppetDB with a Puppet earlier than 3.5.1 will now fail on startup.
+
+* (PDB-605) Pin facter requirement to 1.7.0
+
+  Using prior versions of Facter will cause PuppetDB to fail on startup
+
+* (PDB-592) Removing support for Ubuntu Raring
+
+  Raring went EOL in Jan 2014, so we are no longer building packages for it.
+
 * (PDB-79) Drop support for Postgres < 8.4
 
   PuppetDB will now log an error and exit if it connects to an instance of Postgres
   older than 8.4. Users of older versions will need to upgrade (especially EL 5
   users as it defaults to 8.1).  The acceptance tests for EL 5 have been updated
   to be explicit about using Postgres 8.4 packages instead.
+
+* (PDB-204) Ensure all commands no longer need a serialized payload
+
+  Some previous commands required the payload of the command to be
+  JSON serialized strings as opposed to the relevant JSON type
+  directly in the payload. All commands no longer require the payload
+  to be serialized to a string first.
 
 * (PDB-238) - Remove v1 API
 
@@ -136,6 +156,10 @@ Deprecations and potentially breaking changes:
   This patch drops a warning whenever an old version of the commands API is used
   and updates the documentation to warn the user these old commands are
   deprecated.
+
+* (PDB-570) Remove planetarium endpoint
+
+  Old endpoint that had significant overlap with the current catalogs endpoint
 
 * (PDB-113) Remove swank
 
@@ -165,6 +189,11 @@ Notable improvements and fixes:
   is not set to application/x-www-form-urlencoded. This provides a convenient
   backwards compatible layer so that the old form url encoding can still be
   supported for older versions of the API.
+
+* (PDB-567,191) Use hash not config_version for report export files
+
+  This fixes a bug related to config_versions containing characts not
+  safe to be use in file names (such as '/').
 
 * (PDB-518) Fix bug storeconfig export of arrays
 
@@ -282,6 +311,19 @@ Notable improvements and fixes:
   at random.  This commit also adds a new parameter to benchmark.clj
   to allow the syncronous sending of a specified number of commands
   (per host) via the -N argument
+
+* (PDB-591) Allow gem source to come from env vars
+
+* (PDB-595) Added docs for the load testing and benchmarking tool
+
+  Mostly a developer tool, but documented how to use it in case it's
+  useful to others. See "Load Testing" in the Usage / Admin section of
+  the docs site
+
+* (PDB-602) Updated acceptance tests to use a proper release of leiningen
+
+* (DOCUMENT-6) Update config page for PuppetDB module's improved settings behavior
+
 
 1.6.3
 -----
