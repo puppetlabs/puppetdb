@@ -51,11 +51,11 @@
   {:type String
    :title String})
 
-(def json-primitive-schema (s/either String Number pls/SchemaBoolean))
+(def json-primitive-schema (s/either String Number Boolean))
 
 (def resource-schema
   (merge resource-ref-schema
-         {(s/optional-key :exported) pls/SchemaBoolean
+         {(s/optional-key :exported) Boolean
           (s/optional-key :file) String
           (s/optional-key :line) s/Int
           (s/optional-key :tags) #{String}
