@@ -17,7 +17,7 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 [settings_namespace]: /puppet/3/reference/lang_variables.html#master-set-variables
 [ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
 
-> Note:  To use PuppetDB, the nodes at your site must be running Puppet 3.4.2 or later.
+> Note:  To use PuppetDB, the nodes at your site must be running Puppet 3.5.1 or later.
 
 PuppetDB can also be used with standalone Puppet deployments where each node runs `puppet apply`. Once connected to PuppetDB, `puppet apply` will do the following:
 

@@ -4,6 +4,327 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+2.0.0
+-----
+
+PuppetDB 2.0.0 is a feature release focusing on environments support.
+Note that this is a major version bump and there are several breaking
+changes, including dropping support for versions of PostgreSQL prior to
+version 8.4 and Java 1.6. See the "Deprecations and potentially
+breaking changes" section below for more information.
+
+New features:
+
+* (PDB-452,453,454,456,457,526,557) Adding support for storing, querying and importing/exporting environments
+
+  This change forced a new revision of the `replace facts`,
+  `replace catalog` and `store report` commands. The PuppetDB terminus
+  also needed to be updated to support new environment information
+  being sent to PuppetDB. USERS MUST ALSO UPDATE THE PUPPETDB
+  TERMINUS. Previous versions of those commands (and wire formats) are
+  now deprecated. See the PuppetDB API docs for more information.
+  Environments support has been added to the new v4 (currently
+  experimental) query API. The following query endpoints now include
+  environment in the response:
+
+  - facts
+  - resources
+  - nodes
+  - catalogs
+  - reports
+  - events
+  - event counts
+  - aggregate event counts
+
+  The below query endpoints now allow query/filtering by environment:
+
+  - facts
+  - resources
+  - nodes
+  - catalogs
+  - reports
+  - events
+
+  This release also includes a new environments query endpoint to list
+  all known environments and allow an easy filtering based on
+  environment for things like events, facts reports and resources. See
+  the query API docs for more information. PuppetDB
+  import/export/anonymization and benchmark tool also now have
+  environment support. Storeconfigs export does not include
+  environments as that information is not being stored in the old
+  storeconfigs module. Environments that are no longer associated with
+  a fact set, report or catalog will be "garbage collected" by being
+  removed from the database.
+
+* (PDB-581) Add subqueries to events query endpoint
+
+  The events endpoint now supports select-resources and select-facts
+
+* (PDB-234) Add v4 query API, deprecate v2 query API
+
+  This patch adds the new code relevant for doing any future v4 work. It has been
+  raised as an experimental end-point only so there are no commitments to its
+  interface yet. Once stable we will need another patch to declare it as so.
+
+  This patch also deprecates the v2 end-point in documentation and by adding the
+  same headers we used to use for the v1 end-point.
+
+* (PDB-470) Provide new db setting 'statements-cache-size' with a default of 1000
+
+  This setting adjusts how many SQL prepared statements get cached via BoneCP.
+
+  By using this setting we've seen an almost 40% decrease in wall clock time it
+  takes to store a new catalog.
+
+  This patch adds the new configuration item as a user configurable one, with a
+  default set to 1000 for now. Documentation has also been added for this
+  setting.
+
+* (PDB-221) Add facts to import/export
+
+  This commit imports/exports facts similar to how we currently import/export
+  catalogs and reports. Anonymize doesn't currently work for facts, which is
+  going to be added separately.
+
+* (PDB-469) - Support Anonymizing Facts
+
+  This commit adds support for the anonymization of facts. The levels of
+  anonymization supported are:
+
+  - none - no anonymization
+  - low - only values with a fact name of secret, password etc
+  - moderate - recognized "safe" facts are untouched, recognized
+                facts with sensitive information (i.e. ipaddress)
+                have their values anonymized
+  - full - all fact names and values are anonymized
+
+
+Deprecations and potentially breaking changes:
+
+* (PDB-88, PDB-271) JDK 1.6 no longer supported
+
+* (PDB-308) Drop 2.7.x support
+
+  This patch removes support for Puppet 2.7.x in several ways:
+
+  * New check for every entry point in terminus will return an error if the
+    version of Puppet is not supported. This is done in a 'soft' manner to
+    avoid Puppet from not working.
+  * Documentation now only references Puppet 3
+  * Documentation now states only latest version of Puppet is supported
+  * Packaging now has hard dependencies on the latest version of Puppet
+  * Contrib gemspec has been updated
+  * Gemfile for tests have been updated
+
+* (PDB-552) Pin support for Puppet to 3.5.1 and above
+
+  Starting PuppetDB with a Puppet earlier than 3.5.1 will now fail on startup.
+
+* (PDB-605) Pin facter requirement to 1.7.0
+
+  Using prior versions of Facter will cause PuppetDB to fail on startup
+
+* (PDB-592) Removing support for Ubuntu Raring
+
+  Raring went EOL in Jan 2014, so we are no longer building packages for it.
+
+* (PDB-79) Drop support for Postgres < 8.4
+
+  PuppetDB will now log an error and exit if it connects to an instance of Postgres
+  older than 8.4. Users of older versions will need to upgrade (especially EL 5
+  users as it defaults to 8.1).  The acceptance tests for EL 5 have been updated
+  to be explicit about using Postgres 8.4 packages instead.
+
+* (PDB-204) Ensure all commands no longer need a serialized payload
+
+  Some previous commands required the payload of the command to be
+  JSON serialized strings as opposed to the relevant JSON type
+  directly in the payload. All commands no longer require the payload
+  to be serialized to a string first.
+
+* (PDB-238) - Remove v1 API
+
+  This commit removes the v1 API and builds on the HTTP api refactor.
+  This commit contains:
+
+  - Remove all v1 namespaces and the namespaces calling them
+  - Remove api tests excercising the v1 routes
+  - Remove v1 references in the docs
+
+* (PDB-354) Deprecate old versions of commands
+
+  This patch drops a warning whenever an old version of the commands API is used
+  and updates the documentation to warn the user these old commands are
+  deprecated.
+
+* (PDB-570) Remove planetarium endpoint
+
+  Old endpoint that had significant overlap with the current catalogs endpoint
+
+* (PDB-113) Remove swank
+
+  As swank is now a deprecated project. This patch removes swank support
+  completely from the code base.
+
+
+Notable improvements and fixes:
+
+* (PDB-473) Support POST using application/json data in the body
+
+  This patch adds to the commands end-point the ability to simply POST using
+  application/json with the JSON content in the body.
+
+  It also switches the terminus to use this mechanism.
+
+  We found that the url encode/decode required to support x-www-form-urlencoded
+  was actually quite an overhead in a number of ways:
+
+  * The urlencode on the terminus added overhead
+  * The urldecode in the server added overhead
+  * The interim strings created during this encode/decode process can get quite
+    large increasing the amount of garbage collection required
+
+  This feature has been implemented by providing a new middleware that will move
+  the body into the parameter :body-string of the request when the content-type
+  is not set to application/x-www-form-urlencoded. This provides a convenient
+  backwards compatible layer so that the old form url encoding can still be
+  supported for older versions of the API.
+
+* (PDB-567,191) Use hash not config_version for report export files
+
+  This fixes a bug related to config_versions containing characts not
+  safe to be use in file names (such as '/').
+
+* (PDB-518) Fix bug storeconfig export of arrays
+
+  For exported Resources with parameters which value is a Array the
+  storeconfig export fails to collect them. Instead of collecting all
+  the parameter values into a array it simply override the value with
+  each value in turn.
+
+* (PDB-228) Use JSON in terminus instead of PSON
+
+  The PuppetDB API specifies that it is JSON, so we should parse it as
+  that and not as PSON.
+
+  Some Puppet classes (Puppet::Node and Puppet::Node::Facts) don't
+  support JSON serialization, so continue to use PSON serialization
+  for them. In Puppet 3.4.0+ they have methods to do seralization in
+  other formats than PSON though, so once support for older versions
+  of Puppet is dropped they can be seralized in JSON as well.
+
+* (PDB-476) Decorate the terminus code with Puppet profiling blocks
+
+  This patch adds some select profiling blocks to the PuppetDB terminus code.
+
+  The profiler is provided by puppet core from Puppet::Util::Puppetdb#profile,
+  which has recently become public for our use. We provide here in our own utils
+  library our own wrapper implementation that can be mixed in.
+
+  Key areas of our terminus functionality have now been profiled with this
+  patch:
+
+  * Entry points are profiled and identified by their entry methods (save, find,
+    search etc.)
+  * Remote calls, HTTP gets/posts
+  * Code that does any form of encoding/decoding that might be potentially slow
+    at capacity.
+
+  The style of messages I've used follow along with the existing Puppet profiling
+  examples already in place so as to be readable together. We have prefixed our
+  profile message with "PuppetDB" for easy searchability also.
+
+  I have provided a small FAQ entry that explains in brief the process of
+  debugging, although we lack something to link to in Puppet for a more detailed
+  explanation. This will probably need to be fixed if better documentation comes
+  available.
+
+* (PDB-472) - Annotate MQ messages without parsing payload
+
+  Received time and a UUID are currently added to incoming (via HTTP) messages
+  before placing them on the queue. This commit adds those annotations to the
+  MQ message header no longer requires parsing the incoming message payload
+  before placing it on the queue.
+
+* (PDB-87) Port PuppetDB to TrapperKeeper
+
+  TrapperKeeper is a new container that PuppetDB will be deployed in.
+  This is mainly a refactoring of existing code and error handling to
+  use the centralized TrapperKeeper service. More information on
+  TrapperKeeper can be found here:
+  http://puppetlabs.com/blog/new-era-application-services-puppet-labs.
+
+* (PDB-401) Upgrade to TrapperKeeper 0.3.4
+
+  This commit updates PuppetDB to use the new trapperkeeper 0.3.4
+  API.  This includes:
+
+  * Slightly modified syntax for defining services and service
+    lifecycle behavior
+  * Switch from log4j to logback, update documentation and packaging
+    accordingly
+  * Switch from jetty7 to jetty9
+  * Add example of how to use "reloaded" interactive development pattern
+    in REPL
+  * Upgrade to kitchensink 0.5.3, with bouncycastle fix for improved
+    HTTPS performance
+
+* (PDB-529) Added latest-report? example to the events docs
+
+* (PDB-512) Upgrade to Clojure 1.6.0
+
+* (PDB-521) Switch to using /dev/urandom (using java.security.egd)
+
+* (PDB-564) Added OpenBSD-specific variables to puppetdb.env
+
+  Adding OpenBSD specific variables allows the OpenBSD package
+  maintained downstream in the OpenBSD ports tree to be greatly
+  simplified.
+
+* (PDB-177) Replace ssl-host default with 0.0.0.0
+
+  By trying to use a hostname, the amount of issues people suffer with during
+  setup times related to hostname resolution is quite high. This patch
+  replaces the hostname with 0.0.0.0 which by default listens on all
+  interfaces.
+
+* (PDB-402) Remove ahead-of-time compilation
+
+  This patch removes AOT compilation from our leiningen project and updates
+  all relevant shell scripts to use the non-AOT methodology for invoking
+  clojure projects.
+
+* (PDB-576) Update beaker tests to use host.hostname instead of host.name
+
+* (PDB-481) Added Arch Linux build/install support
+
+* (PDB-572) New community packages of puppet install in vendorlibdir
+
+* (PDB-575) Updated install from source docs
+
+* (PDB-254)  Change benchmark to mutate catalog resources and edges send a defined number of messages
+
+  Previously benchmark.clj when it would mutate a catalog would only
+  add a single resource.  This change will add a new resource or
+  mutate a random existing resource.  It will also add a new or
+  change an existing edge.  One of these four mutations is picked
+  at random.  This commit also adds a new parameter to benchmark.clj
+  to allow the syncronous sending of a specified number of commands
+  (per host) via the -N argument
+
+* (PDB-591) Allow gem source to come from env vars
+
+* (PDB-595) Added docs for the load testing and benchmarking tool
+
+  Mostly a developer tool, but documented how to use it in case it's
+  useful to others. See "Load Testing" in the Usage / Admin section of
+  the docs site
+
+* (PDB-602) Updated acceptance tests to use a proper release of leiningen
+
+* (DOCUMENT-6) Update config page for PuppetDB module's improved settings behavior
+
+
 1.6.3
 -----
 
@@ -87,7 +408,7 @@ Notable improvements and fixes:
   native JDK 7 packages can build their own Oracle Java 7 package (see
   https://wiki.debian.org/JavaPackage) and we will pull it in as a
   dependency.
- 
+
 * (PDB-106) - Added an explicit log message upon a failed agent run
   (previously would fail with “undefined method `[]' for nil:NilClass”)
 
@@ -132,7 +453,7 @@ Notable improvements and fixes:
 -----
 
 Not released due to SystemD-related packaging issues on Fedora
-  
+
 
 1.6.0
 -----
