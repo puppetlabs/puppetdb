@@ -15,52 +15,41 @@ Puppet::Reports.register_report(:puppetdb) do
   command.
   DESC
 
-
+  # Process the report by formatting it into a PuppetDB 'store report'
+  # command and submitting it.
+  #
+  # @return [void]
   def process
     profile "report#process" do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 3)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 4)
     end
-  end
 
-  # TODO: It seems unfortunate that we have to access puppet_version and
-  # report_format directly as instance variables.  I've filed the following
-  # ticket / pull req against puppet to expose them via accessors, which
-  # seems more consistent and safer for the long-term.  However, for reasons
-  # relating to backwards compatibility we won't be able to switch over to
-  # the accessors until version 3.x of puppet is our oldest supported version.
-  #
-  # This was resolved in puppet 3.x via ticket #16139 (puppet pull request #1073).
-
-  # @api private
-  def report_format
-    @report_format
-  end
-
-  # @api private
-  def puppet_version
-    @puppet_version
+    nil
   end
 
   # Convert `self` (an instance of `Puppet::Transaction::Report`) to a hash
   # suitable for sending over the wire to PuppetDB
   #
+  # @return Hash[<String, Object>]
   # @api private
   def report_to_hash
     profile "Convert report to wire format hash" do
-      add_v4_fields_to_report(
-        {
-          "certname"                => host,
-          "puppet-version"          => puppet_version,
-          "report-format"           => report_format,
-          "configuration-version"   => configuration_version.to_s,
-          "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
-          "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-          "resource-events"         => build_events_list,
-          "environment"             => environment,
-        })
+      {
+        "certname"                => host,
+        "puppet-version"          => puppet_version,
+        "report-format"           => report_format,
+        "configuration-version"   => configuration_version.to_s,
+        "start-time"              => Puppet::Util::Puppetdb.to_wire_time(time),
+        "end-time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
+        "resource-events"         => build_events_list,
+        "environment"             => environment,
+        "transaction-uuid"        => transaction_uuid,
+        "status"                  => status,
+      }
     end
   end
 
+  # @return Array[Hash]
   # @api private
   def build_events_list
     profile "Build events list (count: #{resource_statuses.count})" do
@@ -70,19 +59,13 @@ Puppet::Reports.register_report(:puppetdb) do
           events.concat(status.events.map { |event| event_to_hash(status, event) })
         elsif status.skipped
           events.concat([fabricate_event(status, "skipped")])
-        elsif status.failed
-          # PP-254:
-          #   We have to fabricate resource events here due to a bug/s in report providers
-          #   that causes them not to include events on a resource status that has failed.
-          #   When PuppetDB is able to make a hard break from older version of Puppet that
-          #   have this bug, we can remove this behavior.
-          events.concat([fabricate_event(status, "failure")])
         end
         events
       end)
     end
   end
 
+  # @return Number
   # @api private
   def run_duration
     # TODO: this is wrong in puppet.  I am consistently seeing reports where
@@ -97,71 +80,49 @@ Puppet::Reports.register_report(:puppetdb) do
     if metrics["time"] and metrics["time"]["total"]
       metrics["time"]["total"]
     else
-      raise Puppet::Error, "Report from #{host} contained no metrics, which is often caused by a failed catalog compilation. Unable to process."
+      0
     end
   end
 
   # Convert an instance of `Puppet::Transaction::Event` to a hash
   # suitable for sending over the wire to PuppetDB
   #
+  # @return Hash[<String, Object>]
   # @api private
   def event_to_hash(resource_status, event)
-    add_v4_fields_to_event(resource_status,
-      {
-        "status"            => event.status,
-        "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-        "resource-type"     => resource_status.resource_type,
-        "resource-title"    => resource_status.title,
-        "property"          => event.property,
-        "new-value"         => event.desired_value,
-        "old-value"         => event.previous_value,
-        "message"           => event.message,
-        "file"              => resource_status.file,
-        "line"              => resource_status.line
-      })
+    {
+      "status"            => event.status,
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
+      "resource-type"     => resource_status.resource_type,
+      "resource-title"    => resource_status.title,
+      "property"          => event.property,
+      "new-value"         => event.desired_value,
+      "old-value"         => event.previous_value,
+      "message"           => event.message,
+      "file"              => resource_status.file,
+      "line"              => resource_status.line,
+      "containment-path"  => resource_status.containment_path,
+    }
   end
 
-  # Given an instance of `Puppet::Resource::Status` and a status string,
-  # this method fabricates a PuppetDB event object with the provided
-  # `"status"`.
+  # Given an instance of `Puppet::Resource::Status` and a status
+  # string, this method fabricates a PuppetDB event object with the
+  # provided `"status"`.
   #
   # @api private
   def fabricate_event(resource_status, event_status)
-    add_v4_fields_to_event(resource_status,
-      {
-        "status"            => event_status,
-        "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
-        "resource-type"     => resource_status.resource_type,
-        "resource-title"    => resource_status.title,
-        "property"          => nil,
-        "new-value"         => nil,
-        "old-value"         => nil,
-        "message"           => nil,
-        "file"              => resource_status.file,
-        "line"              => resource_status.line
-      })
-  end
-
-  # Backwards compatibility with versions of Puppet prior to report format 4
-  #
-  # @api private
-  def add_v4_fields_to_report(report_hash)
-    if report_format >= 4
-      report_hash.merge("transaction-uuid" => transaction_uuid)
-    else
-      report_hash.merge("transaction-uuid" => nil)
-    end
-  end
-
-  # Backwards compatibility with versions of Puppet prior to report format 4
-  #
-  # @api private
-  def add_v4_fields_to_event(resource_status, event_hash)
-    if report_format >= 4
-      event_hash.merge("containment-path" => resource_status.containment_path)
-    else
-      event_hash.merge("containment-path" => nil)
-    end
+    {
+      "status"            => event_status,
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+      "resource-type"     => resource_status.resource_type,
+      "resource-title"    => resource_status.title,
+      "property"          => nil,
+      "new-value"         => nil,
+      "old-value"         => nil,
+      "message"           => nil,
+      "file"              => resource_status.file,
+      "line"              => resource_status.line,
+    }
   end
 
   # Filter out blacklisted events, if we're configured to do so
