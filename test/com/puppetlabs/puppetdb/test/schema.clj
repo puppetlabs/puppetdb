@@ -4,7 +4,9 @@
             [schema.core :as s]
             [clj-time.core :as time]
             [clj-time.coerce :as tc]
-            [com.puppetlabs.time :as pl-time]))
+            [com.puppetlabs.time :as pl-time]
+            [schema.coerce :as sc])
+  (:import [org.joda.time Minutes Days Seconds Period]))
 
 (deftest defaulted-maybe-test
   (let [defaulted-schema {:foo (defaulted-maybe Number 10)}]
@@ -134,7 +136,7 @@
 
 (deftest schema-type-construction
   (are [expected target-schema source-schema value]
-    (= expected ((get-construct-fn target-schema) source-schema value))
+    (= expected ((sc/coercer target-schema conversion-fns) value))
 
     (time/minutes 10) Minutes String "10"
     (time/minutes 10) Minutes Number 10
@@ -150,13 +152,13 @@
     :foo s/Keyword s/Keyword :foo
     10 s/Int s/Int 10
 
-    true SchemaBoolean String "true"
-    false SchemaBoolean String "false"
-    true SchemaBoolean String "TRUE"
-    false SchemaBoolean String "FALSE"
-    true SchemaBoolean String "True"
-    false SchemaBoolean String "False"
-    false SchemaBoolean String "really false"))
+    true Boolean String "true"
+    false Boolean String "false"
+    true Boolean String "TRUE"
+    false Boolean String "FALSE"
+    true Boolean String "True"
+    false Boolean String "False"
+    false Boolean String "really false"))
 
 (deftest schema-conversion
   (testing "conversion of days/minutes/seconds"

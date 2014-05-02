@@ -13,9 +13,9 @@
 
   (testing "can construct pool with numeric usernames and passwords"
     (let [pool (-> (test-db)
-                   (assoc :username 1234 :password 1234)
+                   (assoc :username "1234" :password "1234")
                    fixt/defaulted-write-db-config
-                   (subject/pooled-datasource))]
+                   subject/pooled-datasource)]
       (.close (:datasource pool))))
 
   (testing "writes not allowed on read-only pools"
@@ -29,7 +29,7 @@
       (subject/with-transacted-connection read-pool
         (is (thrown-with-msg? java.sql.SQLException #"read-only.*transaction"
                               (insert-map {"bar" 1}))))
-      
+
       (.close (:datasource write-pool))
       (.close (:datasource read-pool)))))
 

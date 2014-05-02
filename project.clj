@@ -67,7 +67,7 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [prismatic/schema "0.2.0"]
+                 [prismatic/schema "0.2.1"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]]
 
