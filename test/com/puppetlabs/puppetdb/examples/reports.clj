@@ -11,6 +11,7 @@
     :start-time             "2011-01-01T12:00:00-03:00"
     :end-time               "2011-01-01T12:10:00-03:00"
     :environment            "DEV"
+    :status                 "unchanged"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -73,6 +74,7 @@
     :start-time             "2013-08-28T19:00:00-03:00"
     :end-time               "2013-08-28T19:10:00-03:00"
     :environment            "DEV"
+    :status                 "unchanged"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname on input, but they will have one on output.  To make it
@@ -132,6 +134,7 @@
     :start-time             "2011-01-03T12:00:00-03:00"
     :end-time               "2011-01-03T12:10:00-03:00"
     :environment            "DEV"
+    :status                 "unchanged"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -191,6 +194,7 @@
     :start-time             "2011-01-03T12:00:00-03:00"
     :end-time               "2011-01-03T12:10:00-03:00"
     :environment            "DEV"
+    :status                 "unchanged"
     :resource-events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -241,8 +245,3 @@
       :containment-path ["Foo" "" "Bar[Baz]"]
       :containing-class "Foo"}]}
    })
-
-(defn dissoc-env
-  "Removes the environment key (keyword or string) from a catalog"
-  [catalog]
-  (dissoc catalog :environment "environment"))

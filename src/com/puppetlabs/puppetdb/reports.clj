@@ -23,6 +23,8 @@
                               :type      :string}
    :environment              {:optional? true
                               :type :string}
+   :status                   {:optional? true
+                              :type :string}
    })
 
 (def report-fields
@@ -103,6 +105,15 @@
   (validate! 2 report)
   (when (nil? (:environment report))
     (throw (IllegalArgumentException. "Version 3 of reports must contain an environment")))
+  report)
+
+(defmethod validate! 4
+  [_ report]
+  (validate! 2 report)
+  (when (nil? (:environment report))
+    (throw (IllegalArgumentException. "Version 4 of reports must contain an environment")))
+  (when (nil? (:status report))
+    (throw (IllegalArgumentException. "Version 4 of reports must contain a status")))
   report)
 
 (defn sanitize-events

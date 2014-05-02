@@ -8,7 +8,8 @@
             [com.puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment]])
   (:use [com.puppetlabs.puppetdb.command]
         [com.puppetlabs.puppetdb.testutils]
         [com.puppetlabs.puppetdb.fixtures]
@@ -1072,7 +1073,7 @@
    default-report-munging if a munge function has not been specified"
   (munge-command default-report-munging))
 
-(let [report (munge-example-report-for-storage (report-examples/dissoc-env (:basic report-examples/reports)))
+(let [report (munge-example-report-for-storage (remove-environment (:basic report-examples/reports) :v2))
       v2-command {:command (command-names :store-report)
                   :version 2
                   :payload report}]

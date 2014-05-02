@@ -52,6 +52,7 @@
     (testing "should return all reports for a certname"
       (let [result (get-response endpoint ["=" "certname" (:certname basic)])]
         (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+        (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))
         (response-equal?
          result
          (reports-response [(assoc basic :hash report-hash)])
@@ -62,6 +63,45 @@
         (get-response ["=" "hash" report-hash])
         (reports-response [(assoc basic :hash report-hash)])
         remove-receive-times))))
+
+(deftest query-by-status
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+        basic3 (assoc (:basic3 reports) :status "changed")
+        hash3 (:hash (store-example-report! basic3 (now)))
+        basic4 (assoc (:basic4 reports) :status "failed")
+        hash4 (:hash (store-example-report! basic4 (now)))]
+
+    (testing "should return all reports for a certname"
+      (let [unchanged-result (get-response endpoint ["=" "status" "unchanged"])
+            unchanged-reports (json/parse-string (:body unchanged-result) true)
+            changed-result (get-response endpoint ["=" "status" "changed"])
+            changed-reports (json/parse-string (:body changed-result) true)
+            failed-result (get-response endpoint ["=" "status" "failed"])
+            failed-reports (json/parse-string (:body failed-result) true)]
+
+        (is (= 2 (count unchanged-reports)))
+        (is (every? #(= "unchanged" (:status %)) unchanged-reports))
+
+        (response-equal?
+         unchanged-result
+         (reports-response [(assoc basic :hash hash1)
+                            (assoc basic2 :hash hash2)])
+         remove-receive-times)
+
+        (is (= 1 (count changed-reports)))
+        (response-equal?
+         changed-result
+         (reports-response [(assoc basic3 :hash hash3)])
+         remove-receive-times)
+
+        (is (= 1 (count failed-reports)))
+        (response-equal?
+         failed-result
+         (reports-response [(assoc basic4 :hash hash4)])
+         remove-receive-times)))))
 
 (deftest query-by-certname-with-environment
   (let [basic         (:basic reports)

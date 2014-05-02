@@ -3,7 +3,7 @@
 (ns com.puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment v4?]]
+            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-status v4?]]
             [clojure.core.match :refer [match]])
   (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
         [com.puppetlabs.puppetdb.query :only [execute-query compile-term compile-and]]
@@ -39,6 +39,10 @@
            {:where "environments.name = ?"
             :params [value]}
 
+           ["status" :guard (v4? version)]
+           {:where "report_statuses.status = ?"
+            :params [value]}
+
            :else
            (throw (IllegalArgumentException.
                    (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
@@ -67,7 +71,8 @@
    "end_time"
    "receive_time"
    "transaction_uuid"
-   "environments.name as environment"])
+   "environments.name as environment"
+   "report_statuses.status as status"])
 
 (defn query-reports
   "Take a query and its parameters, and return a vector of matching reports."
@@ -75,7 +80,11 @@
   ([version paging-options [sql & params]]
      {:pre [(string? sql)]}
      (validate-order-by! (map keyword report-columns) paging-options)
-     (let [query   (format "SELECT %s FROM reports LEFT OUTER JOIN environments on reports.environment_id = environments.id %s ORDER BY start_time DESC"
+     (let [query   (format "SELECT %s
+                            FROM reports
+                                 LEFT OUTER JOIN environments on reports.environment_id = environments.id
+                                 LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id
+                            %s ORDER BY start_time DESC"
                            (string/join ", " report-columns)
                            sql)
            results (execute-query
@@ -83,7 +92,8 @@
                     paging-options)]
        (update-in results [:result]
                   (fn [rs] (map (comp #(kitchensink/mapkeys underscores->dashes %)
-                                     #(remove-environment % version)) rs))))))
+                                     #(remove-environment % version)
+                                     #(remove-status % version)) rs))))))
 
 (defn reports-for-node
   "Return reports for a particular node."

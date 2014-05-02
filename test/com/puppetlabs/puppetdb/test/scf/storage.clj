@@ -45,7 +45,7 @@
            (sql/transaction
             (certname-facts-metadata! "some_certname"))))
       (is (empty? (cert-fact-map "some_certname")))
-      
+
       (add-facts! certname facts (-> 2 days ago) nil)
       (testing "should have entries for each fact"
         (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
@@ -58,7 +58,7 @@
         (is (sql/transaction
              (certname-facts-metadata! "some_certname")))
         (is (= facts (cert-fact-map "some_certname"))))
-      
+
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
@@ -112,7 +112,7 @@
                          :values {"foo" "bar"}
                          :environment "DEV"} (now))
         (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
-      
+
       (testing "replace-facts with only additions"
         (let [fact-map (cert-fact-map "some_certname")]
           (replace-facts! {:name certname
@@ -475,6 +475,22 @@
     (is (= (query-to-vec ["SELECT * FROM environments"])
            []))))
 
+(deftest delete-with-gc-report-statuses
+  (add-certname! certname)
+
+  (let [timestamp     (now)
+        report        (:basic reports)
+        certname      (:certname report)]
+    (store-example-report! report timestamp)
+
+    (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
+
+    (delete-reports-older-than! (ago (days 2)))
+
+    (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
+    (garbage-collect!)
+    (is (= [{:c 0}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))))
+
 (deftest catalog-bad-input
   (testing "should noop"
     (testing "on bad input"
@@ -520,7 +536,7 @@
 
         (is (= 1 (count results)))
         (is (= (to-timestamp old-date) (to-timestamp timestamp)))))
-    
+
     (testing "changing a resource title"
       (let [{orig-id :id
              orig-tx-id :transaction_uuid
@@ -532,7 +548,7 @@
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar"}
                  {:type "File" :title "/etc/foobar/baz"}}
-               (set (query-to-vec "SELECT cr.type, cr.title 
+               (set (query-to-vec "SELECT cr.type, cr.title
                                    FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
                                    WHERE c.certname=?" certname))))
 
@@ -560,7 +576,7 @@
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar2"}
                  {:type "File" :title "/etc/foobar/baz"}}
-               (set (query-to-vec "SELECT cr.type, cr.title 
+               (set (query-to-vec "SELECT cr.type, cr.title
                                    FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
                                    WHERE c.certname=?" certname))))
 
@@ -622,7 +638,7 @@
     (add-catalog! (update-in catalog [:resources]
                              (fn [resources]
                                (kitchensink/mapvals #(assoc % :line 1000) resources))))
-    
+
     (is (= [{:line 1000}
             {:line 1000}
             {:line 1000}]
@@ -631,7 +647,7 @@
 (deftest change-exported-resource-metadata
   (add-certname! certname)
   (add-catalog! catalog)
-  
+
   (testing "changing exported"
     (is (= #{{:exported false
               :title "foobar"}
@@ -747,7 +763,7 @@
       (tu/with-wrapped-fn-args [inserts sql/insert-records
                                 updates sql/update-values
                                 deletes sql/delete-rows]
-        
+
         (add-catalog! catalog nil yesterday)
         (is (empty? @inserts))
         (is (= [:catalogs]
@@ -758,7 +774,7 @@
       (let [catalog-results (query-to-vec "SELECT timestamp from catalogs where certname=?" certname)
             {:keys [timestamp]} (first catalog-results)
             resources (set (query-to-vec "SELECT type, title from catalog_resources where catalog_id = ?" catalog-id))]
-        
+
         (is (= 1 (count catalog-results)))
         (is (= 3 (count resources)))
         (is (= (set (keys (:resources catalog)))
@@ -808,28 +824,28 @@
           add-param-catalog (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters :uid] "100")]
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params)))
-      
+
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
       (tu/with-wrapped-fn-args [inserts sql/insert-records
                                 updates sql/update-values
                                 deletes sql/delete-rows]
-        
+
         (add-catalog! add-param-catalog nil yesterday)
         (is (sort= [:catalogs :catalog_resources]
                    (table-args @updates)))
-        
+
         (is (empty? (remove-edge-changes @deletes)))
 
         (is (sort= [:resource_params_cache :resource_params]
                    (table-args @inserts))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
-      
+
       (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params)))
-      
+
       (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
       (tu/with-wrapped-fn-args [inserts sql/insert-records
@@ -846,7 +862,7 @@
 
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params)))
-      
+
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache))))))
 
@@ -979,19 +995,26 @@
           :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
   (deftest report-storage-with-environment
-    (testing "should store reports"
-      (is (nil? (environment-id "DEV")))
+    (is (nil? (environment-id "DEV")))
 
-      (store-example-report! (assoc report :environment "DEV") timestamp)
+    (store-example-report! (assoc report :environment "DEV") timestamp)
 
-      (is (number? (environment-id "DEV")))
+    (is (number? (environment-id "DEV")))
 
-      (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
-             [{:certname (:certname report)
-               :environment_id (environment-id "DEV")}]))
+    (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
+           [{:certname (:certname report)
+             :environment_id (environment-id "DEV")}])))
 
-      (is (= (query-to-vec ["SELECT hash FROM reports"])
-            [{:hash report-hash}]))))
+  (deftest report-storage-with-status
+    (is (nil? (status-id "unchanged")))
+
+    (store-example-report! (assoc report :status "unchanged") timestamp)
+
+    (is (number? (status-id "unchanged")))
+
+    (is (= (query-to-vec ["SELECT certname, status_id FROM reports"])
+           [{:certname (:certname report)
+             :status_id (status-id "unchanged")}])))
 
   (deftest report-storage-with-existing-environment
     (testing "should store reports"
@@ -1196,17 +1219,17 @@
 (deftest test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}
                        {:line 10}
-          
+
                        {:type "File" :title "/tmp/bar"}
                        {:line 20}}
         ref->hash {{:type "File" :title "/tmp/foo"}
                    "foo hash"
-          
+
                    {:type "File" :title "/tmp/bar"}
                    "bar hash"}]
     (is (= {{:type "File" :title "/tmp/foo"}
             {:line 10 :resource "foo hash"}
-          
+
             {:type "File" :title "/tmp/bar"}
             {:line 20 :resource "bar hash"}}
 
