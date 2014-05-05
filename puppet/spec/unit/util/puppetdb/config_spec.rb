@@ -32,6 +32,7 @@ describe Puppet::Util::Puppetdb::Config do
         config.server.should == 'puppetdb'
         config.port.should == 8081
         config.ignore_blacklisted_events?.should == true
+        config.url_prefix.should == ""
       end
 
     end
@@ -62,12 +63,14 @@ server = main_server
 port = 1234
 ignore_blacklisted_events = false
 soft_write_failure = true
+url_prefix = /puppetdb
 CONF
         config = described_class.load
         config.server.should == 'main_server'
         config.port.should == 1234
         config.ignore_blacklisted_events?.should == false
         config.soft_write_failure.should be_true
+        config.url_prefix.should == "/puppetdb"
       end
 
       it "should use the default if no value is specified" do
@@ -78,6 +81,17 @@ CONF
         config.port.should == 8081
         config.ignore_blacklisted_events?.should == true
         config.soft_write_failure.should be_false
+        config.url_prefix.should == ""
+      end
+
+      it "should add a leading slash to url_prefix if needed" do
+        write_config <<CONF
+[main]
+url_prefix = puppetdb
+CONF
+
+        config = described_class.load
+        config.url_prefix.should == "/puppetdb"
       end
 
       it "should be insensitive to whitespace" do

@@ -54,6 +54,23 @@ describe Puppet::Util::Puppetdb::Command do
         subject.submit
       end
     end
+
+    context "when an alternate url_prefix is configured" do
+      let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
+
+      it "should make a request to the correct url" do
+        config = Puppet::Util::Puppetdb.config
+        config.stubs(:url_prefix).returns "/puppetdb"
+        Puppet::Util::Puppetdb.expects(:config).at_least_once.returns(config)
+
+        httpok.stubs(:body).returns '{"uuid": "a UUID"}'
+        http.expects(:post).with { |path|
+          path.start_with?("/puppetdb" + Puppet::Util::Puppetdb::Command::CommandsUrl)
+        }.returns httpok
+
+        subject.submit
+      end
+    end
   end
 
 end
