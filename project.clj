@@ -61,6 +61,7 @@
                  [org.slf4j/jcl-over-slf4j "1.7.5"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
+                 [compojure "1.1.6"]
                  [clj-http "0.5.3"]
                  [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
