@@ -68,6 +68,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Fact Exporting
 
+(defn parse-response
+  "The parsed JSON response body"
+  [{:keys [status body]}]
+  (when (= status 200)
+    (seq (json/parse-string body true))))
+
 (pls/defn-validated facts-for-node
   :- {s/Keyword s/Any}
   "Given a node name, retrieve the catalog for the node."
@@ -79,20 +85,19 @@
     port :- s/Int
     version :- s/Keyword
     node :- String]
-     (let [{:keys [status body]} (client/get
-                                  (format
-                                   "http://%s:%s/%s/nodes/%s/facts"
-                                   host port (name version) node)
-                                  {:accept :json})]
-       (when (= status 200)
-         (let [facts (json/parse-string body true)
-               facts-result {:name node
-                             :values (reduce (fn [acc {:keys [name value]}]
-                                               (assoc acc (keyword name) value))
-                                             {} facts)}]
-           (if (= :v4 version)
-             (assoc facts-result :environment (:environment (first facts)))
-             facts-result))))))
+     (when-let [facts (parse-response
+                       (client/get
+                        (format
+                         "http://%s:%s/%s/nodes/%s/facts"
+                         host port (name version) node)
+                        {:accept :json}))]
+       (let [facts-result {:name node
+                           :values (reduce (fn [acc {:keys [name value]}]
+                                             (assoc acc (keyword name) value))
+                                           {} facts)}]
+         (if (= :v4 version)
+           (assoc facts-result :environment (:environment (first facts)))
+           facts-result)))))
 
 
 (pls/defn-validated facts->tar :- utils/tar-item
@@ -114,17 +119,16 @@
              (integer? port)
              (string? report-hash)]
       :post [vector? %]}
-     (let [{:keys [status body]} (client/get
-                                  (format
-                                   "http://%s:%s/%s/events?query=%s"
-                                   host port (name version) (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash))))]
-       (when
-           (= status 200)
-         (sort-by
-          #(mapv % [:timestamp :resource-type :resource-title :property])
-          (map
-           #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time :environment)
-           (json/parse-string body true)))))))
+     (when-let [body (parse-response
+                      (client/get
+                       (format
+                        "http://%s:%s/%s/events?query=%s"
+                        host port (name version) (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
+       (sort-by
+        #(mapv % [:timestamp :resource-type :resource-title :property])
+        (map
+         #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time :environment)
+         body)))))
 
 (defn reports-for-node
   "Given a node name, retrieves the reports for the node."
@@ -133,19 +137,18 @@
      {:pre  [(string? host)
              (integer? port)
              (string? node)]
-      :post [seq? %]}
-     (let [{:keys [status body]} (client/get
-                                  (format
-                                   "http://%s:%s/%s/reports?query=%s"
-                                   host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
-                                  {:accept :json})]
-       (when
-           (= status 200)
-         (map
-          #(dissoc % :receive-time)
-          (map
-           #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
-           (json/parse-string body true)))))))
+      :post [(or (nil? %) (seq? %))]}
+     (when-let [body (parse-response
+                      (client/get
+                       (format
+                        "http://%s:%s/%s/reports?query=%s"
+                        host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
+                       {:accept :json}))]
+       (map
+        #(dissoc % :receive-time)
+        (map
+         #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
+         body)))))
 
 (pls/defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
@@ -187,12 +190,11 @@
   [host port]
   {:pre  [(string? host)
           (integer? port)]
-   :post ((some-fn nil? seq?) %)}
-  (let [{:keys [status body]} (client/get
-                                (format "http://%s:%s/v4/nodes" host port)
-                                {:accept :json})]
-    (if (= status 200)
-      (json/parse-string body true))))
+   :post [((some-fn nil? seq?) %)]}
+  (parse-response
+   (client/get
+    (format "http://%s:%s/v4/nodes" host port)
+    {:accept :json})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
