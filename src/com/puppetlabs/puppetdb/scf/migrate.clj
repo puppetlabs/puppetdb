@@ -694,6 +694,20 @@
    "CREATE INDEX idx_reports_env ON reports(environment_id)"
    ))
 
+(defn add-report-status []
+  (sql/create-table :report_statuses
+                    ["id" "bigserial NOT NULL PRIMARY KEY"]
+                    ["status" "TEXT NOT NULL" "UNIQUE"])
+
+  (sql/do-commands
+   "ALTER TABLE reports ADD status_id integer"
+
+   "ALTER TABLE reports
+    ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id)
+    REFERENCES report_statuses (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+
+   "CREATE INDEX idx_reports_status ON reports(status_id)"))
+
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
@@ -718,7 +732,8 @@
    19 differential-edges
    20 differential-catalog-resources
    21 reset-catalog-sequence-to-latest-id
-   22 add-environments})
+   22 add-environments
+   23 add-report-status})
 
 (def desired-schema-version (apply max (keys migrations)))
 

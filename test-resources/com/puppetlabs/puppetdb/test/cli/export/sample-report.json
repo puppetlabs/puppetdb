@@ -36,5 +36,6 @@
   "puppet-version": "3.0.0",
   "report-format": 4,
   "transaction-uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b",
-  "environment": "DEV"
+  "environment": "DEV",
+  "status" : "unchanged"
 }

@@ -82,7 +82,7 @@
   ([example-report timestamp]
      (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-     (store-example-report*! #(report/validate! 3 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
+     (store-example-report*! #(report/validate! 4 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
 
 (defn store-v2-example-report!
   "See store-example-reports*! calls that, passing in a version 2 validation function"

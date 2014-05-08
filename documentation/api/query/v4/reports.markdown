@@ -8,6 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [operator]: ../v4/operators.html
 [event]: ./events.html
 [paging]: ./paging.html
+[statues]: ./puppet/3/reference/format_report.html#puppettransactionreport
 
 Querying reports is accomplished by making an HTTP request to the `/reports` REST
 endpoint.
@@ -45,6 +46,9 @@ The only available [OPERATOR][] is `=`.
 `environment`
 : the environment associated to report's node
 
+`status`
+: the status associated to report's node, possible values for this field come from Puppet's report status which can be found [here][statuses]
+
 #### Response format
 
 The response is a JSON array of report summaries for all reports
@@ -61,7 +65,9 @@ the completion time of the report, in descending order:
         "hash": "bd899b1ee825ec1d2c671fe5541b5c8f4a783472",
         "certname": "foo.local",
         "report-format": 4,
-        "transaction-uuid": "030c1717-f175-4644-b048-ac9ea328f221"
+        "transaction-uuid": "030c1717-f175-4644-b048-ac9ea328f221",
+        "environment": "DEV",
+        "status": "unchanged"
         },
       {
         "end-time": "2012-10-26T22:39:32.000Z",
@@ -73,6 +79,8 @@ the completion time of the report, in descending order:
         "certname": "foo.local",
         "report-format": 4,
         "transaction-uuid": null
+        "environment": "DEV",
+        "status": "unchanged"
         }
     ]
 

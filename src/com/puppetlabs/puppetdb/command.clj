@@ -412,6 +412,10 @@
   [{:keys [version] :as command} {:keys [db]}]
   (store-report* 3 db command))
 
+(defmethod process-command! [(command-names :store-report) 4]
+  [{:keys [version] :as command} {:keys [db]}]
+  (store-report* 4 db command))
+
 ;; ## MQ I/O
 ;;
 ;; The data flow through the code is as follows:

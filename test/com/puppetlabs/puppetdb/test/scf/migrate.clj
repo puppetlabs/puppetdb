@@ -2,8 +2,7 @@
   (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env]])
+            [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
         [clj-time.coerce :only [to-timestamp]]
         [clj-time.core :only [now ago days secs]]

@@ -3,7 +3,8 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports dissoc-env]])
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [com.puppetlabs.puppetdb.http :refer [remove-status remove-environment]])
   (:use clojure.test
         ring.mock.request
         com.puppetlabs.puppetdb.fixtures
@@ -33,7 +34,7 @@
 
 (defn reports-response
   [reports]
-  (set (map (comp dissoc-env report-response) reports)))
+  (set (map (comp #(remove-status % :v3) #(remove-environment % :v3) report-response) reports)))
 
 (defn remove-receive-times
   [reports]
@@ -79,10 +80,10 @@
                               :include-total  count?})]
           (is (= 2 (count results)))
           (is (= (sort-by :hash
-                                (vec (reports-response
-                                      [(assoc basic1 :hash basic1-hash)
-                                       (assoc basic2 :hash basic2-hash)])))
-                       (sort-by :hash (vec (remove-receive-times results))))))))))
+                          (vec (reports-response
+                                [(assoc basic1 :hash basic1-hash)
+                                 (assoc basic2 :hash basic2-hash)])))
+                 (sort-by :hash (vec (remove-receive-times results))))))))))
 
 (deftest invalid-queries
   (let [response (get-response ["<" "timestamp" 0])]
