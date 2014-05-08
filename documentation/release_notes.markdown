@@ -13,6 +13,32 @@ changes, including dropping support for versions of PostgreSQL prior to
 version 8.4 and Java 1.6. See the "Deprecations and potentially
 breaking changes" section below for more information.
 
+Things to take note of before upgrading:
+
+* There is a known issue in Puppet 3.4.0, 3.4.1 and 3.4.2 with
+duplicate failed events being tracked here:
+https://tickets.puppetlabs.com/browse/PUP-1524. This is being fixed in
+an upcoming release of Puppet. Since 1.6.0 this error will become more
+obvious as we are now raising full stack traces, so you may notice it
+more readily after the upgrade.
+
+* If you receive the error “Could not open
+/etc/puppet/log4j.properties” or "Problem parsing XML document",
+this is because we have changed the packaged config.ini to point at a new logging configuration file:
+logback.xml. However during package installation some package managers
+will cowardly refuse to just update config.ini, this in particular
+affects RPM. After upgrading you should ensure any .rpmnew files are
+reviewed and that changes to our vendored version are now merged with
+your version of config.ini on disk. See this ticket for more
+information: https://tickets.puppetlabs.com/browse/PDB-656
+
+* Make sure all your PuppetDB instances are shut down and only upgrade
+one at a time.
+
+* As usual, don’t forget to upgrade your puppetdb-terminus package
+also (on the host where your Puppet Master lives), and restart your
+master service.
+
 New features:
 
 * (PDB-452,453,454,456,457,526,557) Adding support for storing, querying and importing/exporting environments
