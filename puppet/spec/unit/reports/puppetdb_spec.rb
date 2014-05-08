@@ -15,13 +15,7 @@ describe processor do
   subject {
     s = Puppet::Transaction::Report.new("foo").extend(processor)
     s.configuration_version = 123456789
-
-    # For backwards compatibility with versions of Puppet that don't
-    # have an accessor method for the report_format variable
-    if !s.respond_to?(:report_format)
-      s.stubs(:report_format).returns(s.instance_variable_get(:@report_format))
-    end
-
+    s.environment = "foo"
     s
   }
 
