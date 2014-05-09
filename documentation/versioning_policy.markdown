@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/versioning_policy.html"
 ---
 
 [semver]: http://semver.org
+[commands]: ./api/commands.html
 
 This document aims to create some transparency about how we version the PuppetDB software, so that both developers and users can understand what rules we try to follow internally.
 
@@ -21,13 +22,9 @@ Some general statements about this policy:
 
 ## PuppetDB Software
 
-This relates to the versionioning associated with an overall PuppetDB release. In this case, we follow the rules of [Semantic Versioning][semver] as closely as possible. And we’ll speak about that in this document using the X.Y.Z notation:
+This relates to the versioning associated with an overall PuppetDB release. In this case, we follow the rules of [Semantic Versioning][semver] as closely as possible. And we’ll speak about that in this document using the X.Y.Z notation:
 
 > "A normal version number MUST take the form X.Y.Z where X, Y, and Z are non-negative integers, and MUST NOT contain leading zeroes. X is the major version, Y is the minor version, and Z is the patch version." - semver.org
-
-There are some ambiguities in semver which we have debated already, and other parts we disagree with. The exceptions/policies we have adopted on top of semver include:
-
-* If we want to release a new distro of an existing release (say 1.6.1); we can cut a Z release (in this case 1.6.2) with that distro only. We do not consider supporting a new OS distro as a mandatory Y axis increment.
 
 ## HTTP API
 
@@ -40,7 +37,7 @@ There are 4 states a versioned API can be in:
 * Deprecated
 * Retired
 
-> **Note:** The commands end-point are also versioned with the query end-points, however commands themselves have their own versioning independently (which we talk about in another section).
+> **Note:** The commands end-point is also versioned with the query end-points, however commands themselves have their own versioning and as such fall under different versioning rules.
 
 ### Current
 
@@ -53,34 +50,25 @@ For example:
 * New content-type support for submission (for example: application/json or application/msgpack)
 * New optional parameter for /command submission
 
-Now to be clear, all new ‘features’ are Y releases from a PuppetDB software perspective at the very least.
+Changes that remove or rename end-points, fields and query operators however must be performed in experimental only.
 
 ### Experimental
 
-This versioning state is for future versioning.
+The experimental API is where breaking changes belong, changes that are not backwards compatible and unable to be place in current. This also includes features that require some experimentation and user testing before they are able to be moved into current.
 
-Now for us to trigger something going into the ‘experimental’ version of an API, that would indicate a non-backwards compatible behaviour, generally meaning that old queries or commands would accept old parameters, or would stop returning old parameters in responses.
+The experimental API may change without notice to allow us to refine this future API rapidly, however we will endevaour to notify users of this change in our release notes.
 
-This layers also provides for features that are generally not ‘stable’ in their implementation, and we want features to soak before they are provided in a stable release.
-
-A new version of the Experimental API is creatable for a PuppetDB Y release as long as the current and old API’s are still maintained.
-
-Some examples of changes that need to be in the 'Experimental' API:
-
-* Retiring parameters from an existing query end-point
-* Change to existing query operator
-
-The experimental API is implicitly marked as experimental until it becomes current and may change without notice to allow us to refine this future API, however we will endevaour to notify users of this change and keep breaking API changes confined to Y releases of the software (5.1.0, 6.3.0 etc.).
+The experimental API will usually become current on the next major version boundary of PuppetDB (a version X release from a semver perspective).
 
 ### Deprecated
 
-Deprecated API's are on their way to retirement and are thus no longer actively maintained/changed. Once an API version is graduated from Future/Experimental to Current the existing current MUST be marked as deprecated. All bug-fixes and improvements only go into other versions of the API, with the exception of security fixes. As soon as a version is marked as deprecated, users should be moving off of it immediately.
+Deprecated API's are no longer current and are on their way to retirement and are thus no longer actively maintained/changed. As soon as a version is marked as deprecated, users should be moving off of it immediately.
 
-Retirement of an old API version implies retirement on the next major version boundary of PuppetDB (that is, the X in X.Y.Z from a semver perspective). So if the API is old in 7.3.2, it will be removed in 8.0.0.
+Retirement of an old API version implies retirement on the next major version boundary of PuppetDB (a version X release from a semver perspective).
 
 ### Retired
 
-Retired API’s were already deprecated API’s that have now been removed. Deprecated API’s can only move into a retired state during an X release (eg 3.0.0, 4.0.0).
+Retired API’s that have now been removed and no longer function. A deprecated API will usually become retired implicitly on the next PuppetDB X release boundary.
 
 At this stage all functionality is removed and documentation is removed.
 
@@ -88,7 +76,7 @@ At this stage all functionality is removed and documentation is removed.
 
 Commands can be versioned on an individual command basis so they are fairly flexible in that respect and we generally freely create new revisions as required. This is quite different to the query API, where we need to version all end-points at the same time.
 
-Commands are primarily represented by a corresponding wire format (with the exception of “deactivate node” which only takes 1 parameter). Wire formats are versioned along with their corresponding command.
+Commands are primarily represented by a corresponding wire format. Wire formats are versioned along with the corresponding command.
 
 The reasons to trigger a new command version are more common, and in general if we aren’t sure its easy enough to create another version anyway.
 
@@ -97,4 +85,4 @@ Some examples of changes that will require a new command version:
 * Any change to the parameters or parameter values within a command or wire format.
 * Change to serialization for wire formats inside payload.
 
-All new commands will start at version 1.
+The [API Commands][commands] documentation contains more concrete information about the existing commands, versions and statuses for this version of PuppetDB.
