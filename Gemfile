@@ -25,7 +25,5 @@ group :test do
 end
 
 group :acceptance do
-#  gem 'beaker', '~> 1.7'
-  # Temp branch with new ec2 backend
-  gem 'beaker', :git => 'git://github.com/kbarber/beaker.git', :branch => 'ticket/master/pdb-554'
+  gem 'beaker', '~> 1.11'
 end
