@@ -28,6 +28,7 @@
                                       "accept" "application/json"} body)))
 
 (def command-app-v3 (command-app :v3))
+;; TODO: this is wrong it would seem, need to fix
 (def command-app-v4 (command-app :v3))
 
 (deftest command-endpoint

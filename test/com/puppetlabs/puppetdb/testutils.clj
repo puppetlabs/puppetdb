@@ -44,10 +44,8 @@
     (try
       (load "/config/local")
       (catch java.io.FileNotFoundException ex
-          (load "/config/default")))
-    {
-      :testdb-config-fn test-db-config
-    }))
+        (load "/config/default")))
+    {:testdb-config-fn test-db-config}))
 
 ;; Memoize the loading of the test config file so that we don't have to
 ;; keep going back to disk for it.
@@ -143,7 +141,7 @@
   "Given a `Throwable`, returns a String containing the message and stack trace.
   If passed `nil`, returns `nil`."
   [ex]
-  (if ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
+  (when ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
 
 (defmacro with-fixtures
   "Evaluates `body` wrapped by the `each` fixtures of the current namespace."
