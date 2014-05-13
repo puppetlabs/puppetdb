@@ -37,7 +37,7 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 1.6.x series of PuppetDB releases, which is backwards-compatible with the 1.5.x series but adds several new features. [See the release notes][releasenotes] for information on all changes since the final 1.0.x release.
+This manual covers the 2.0.x series of PuppetDB releases, which adds several new features and contains some breaking changes since the 1.x series. [See the release notes][releasenotes] for information on all changes.
 
 
 What Data?
