@@ -75,10 +75,17 @@ to the result of the form supplied to this method."
       (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
                               [["=" "tag" "one"] #{foo1 bar1}]
                               [["=" "tag" "two"] #{foo1 bar1}]
+                              [["~" "tag" "tw"] #{foo1 bar1}]
+
                               [["and"
                                 ["=" "certname" "one.local"]
                                 ["=" "type" "File"]]
                                #{foo1}]
+                              [["and"
+                                ["~" "certname" "one.lo.*"]
+                                ["=" "type" "File"]]
+                               #{foo1}]
+
                               [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
                               [["=" ["parameter" "owner"] "root"] #{foo1 bar1}]
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
@@ -140,7 +147,6 @@ to the result of the form supplied to this method."
 (deftestseq environments-resource-endpoint
   [[version endpoint] endpoints
    :when (not-any? #(= version %) [:v2 :v3])]
-
   (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
         dev-endpoint (str "/" (name version) "/environments/DEV/resources")
         prod-endpoint (str "/" (name version) "/environments/PROD/resources")]
@@ -207,7 +213,7 @@ to the result of the form supplied to this method."
           (is (= pl-http/status-bad-request (:status response)))
           (is (= "file is not a queryable object for resources" (:body response))))))
 
-    (when (not= version :v2)
+    (when (= version :v3)
       (testing "sourcefile and source is not supported"
         (let [query ["=" "sourceline" 22]
               response (get-response endpoint query)]
@@ -221,6 +227,32 @@ to the result of the form supplied to this method."
               response (get-response endpoint query)]
           (is (= pl-http/status-bad-request (:status response)))
           (is (re-find #"'sourcefile' is not a queryable object for resources" (:body response)))))
+
+      (testing "query by file and line is supported"
+        (let [query ["=" "file" "/foo/bar"]
+              result #{bar2}]
+          (is-response-equal (get-response endpoint query) result))
+        (let [query ["~" "file" "foo"]
+              result #{bar2}]
+          (is-response-equal (get-response endpoint query) result))
+        (let [query ["=" "line" 22]
+              result #{bar2}]
+          (is-response-equal (get-response endpoint query) result))))
+
+    (when-not (contains? #{:v2 :v3} version)
+      (testing "sourcefile and source is not supported"
+        (let [query ["=" "sourceline" 22]
+              response (get-response endpoint query)]
+          (is (= pl-http/status-bad-request (:status response)))
+          (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
+        (let [query ["~" "sourcefile" "foo"]
+              response (get-response endpoint query)]
+          (is (= pl-http/status-bad-request (:status response)))
+          (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
+        (let [query ["=" "sourcefile" "/foo/bar"]
+              response (get-response endpoint query)]
+          (is (= pl-http/status-bad-request (:status response)))
+          (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
 
       (testing "query by file and line is supported"
         (let [query ["=" "file" "/foo/bar"]

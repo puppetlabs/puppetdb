@@ -6,7 +6,8 @@
             [ring.util.response :as rr]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]]
-            [com.puppetlabs.puppetdb.query :as query])
+            [com.puppetlabs.puppetdb.query :as query]
+            [com.puppetlabs.puppetdb.query-eng :as querye])
   (:use [net.cgrand.moustache :only [app]]
         [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
         [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
@@ -25,9 +26,12 @@
   [version query paging-options db]
   (try
     (with-transacted-connection db
-      (let [parsed-query (json/parse-string query true)
+      (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
-             count-query    :count-query} (r/query->sql version parsed-query paging-options)
+             count-query    :count-query} (if (= :v4 version)
+                                            (querye/compile-user-query->sql querye/resources-query parsed-query paging-options)
+                                            (r/query->sql version parsed-query paging-options))
+
             row-munge (case version
                         :v1 (throw (IllegalArgumentException. "api v1 is retired"))
                         :v2 (comp r/deserialize-params (munge-result-rows :v2))
