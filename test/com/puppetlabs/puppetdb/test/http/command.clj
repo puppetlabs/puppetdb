@@ -3,7 +3,9 @@
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.http.command :refer :all]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
-            [com.puppetlabs.puppetdb.testutils :as tu]
+            [com.puppetlabs.puppetdb.testutils :refer [get-request post-request
+                                                       content-type uuid-in-response?
+                                                       assert-success! deftestseq]]
             [com.puppetlabs.puppetdb.version :as version]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.http :as pl-http]
@@ -11,92 +13,70 @@
             [clj-time.format :as time])
   (:import [java.io ByteArrayInputStream]))
 
-
 (use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
+
+(def endpoints [[:v2 "/v2/commands"]
+                [:v3 "/v3/commands"]
+                [:v4 "/v4/commands"]])
 
 (defn get-request*
   "Makes a parameter only request"
   [path params]
-  (tu/get-request path nil params))
+  (get-request path nil params))
 
 (defn post-request*
   "Makes a post body request"
   [path params payload]
   (let [body (when-not (nil? payload)
                (ByteArrayInputStream. (.getBytes payload "UTF-8")))]
-    (tu/post-request path nil params {"content-type" "application/json"
-                                      "accept" "application/json"} body)))
+    (post-request path nil params {"content-type" "application/json"
+                                   "accept" "application/json"} body)))
 
-(def command-app-v3 (command-app :v3))
-;; TODO: this is wrong it would seem, need to fix
-(def command-app-v4 (command-app :v3))
+(deftestseq command-endpoint
+  [[version endpoint] endpoints]
 
-(deftest command-endpoint
   (testing "Commands submitted via REST"
 
     (testing "should work when well-formed"
       (let [payload  "This is a test"
             checksum (kitchensink/utf8-string->sha1 payload)
             req (fixt/internal-request {"payload" payload "checksum" checksum})
-            api-v3-resp (command-app-v3 req)
-            api-v4-resp (command-app-v4 req)
-            v2-resp (fixt/*app* (get-request* "/v2/commands" {"payload" payload "checksum" checksum}))
-            v3-resp (fixt/*app* (get-request* "/v3/commands" {"payload" payload "checksum" checksum}))
-            v4-resp (fixt/*app* (post-request* "/v4/commands" {"checksum" checksum} payload))]
-        (tu/assert-success! api-v3-resp)
-        (tu/assert-success! api-v4-resp)
-        (tu/assert-success! v2-resp)
-        (tu/assert-success! v3-resp)
-        (tu/assert-success! v4-resp)
+            response (fixt/*app* (case version
+                                   (:v2 :v3)
+                                   (get-request* endpoint {"payload" payload "checksum" checksum})
 
-        (is (= (tu/content-type api-v3-resp)
-               (tu/content-type api-v4-resp)
-               (tu/content-type v2-resp)
-               (tu/content-type v3-resp)
-               (tu/content-type v4-resp)
+                                   (post-request* endpoint {"checksum" checksum} payload)))]
+        (assert-success! response)
+
+        (is (= (content-type response)
                pl-http/json-response-content-type))
-        (is (tu/uuid-in-response? api-v3-resp))
-        (is (tu/uuid-in-response? api-v4-resp))
-        (is (tu/uuid-in-response? v2-resp))
-        (is (tu/uuid-in-response? v3-resp))
-        (is (tu/uuid-in-response? v4-resp))))
+        (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [api-v3-resp (command-app-v3 (fixt/internal-request {}))
-            api-v4-resp (command-app-v4 (fixt/internal-request {}))
-            v2-resp (fixt/*app* (tu/get-request "/v2/commands"))
-            v3-resp (fixt/*app* (tu/get-request "/v3/commands"))
-            v4-resp (fixt/*app* (post-request* "/v4/commands" nil nil))]
-        (is (= (:status api-v3-resp)
-               (:status api-v4-resp)
-               (:status v2-resp)
-               (:status v3-resp)
-               (:status v4-resp)
+      (let [response (fixt/*app* (case version
+                                   (:v2 :v3)
+                                   (get-request endpoint)
+
+                                   (post-request* endpoint nil nil)))]
+        (is (= (:status response)
                pl-http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
-      (let [api-v3-resp (command-app-v3 (fixt/internal-request {"payload" "my payload!"}))
-            api-v4-resp (command-app-v4 (fixt/internal-request {"payload" "my payload!"}))
-            v2-resp (fixt/*app* (get-request* "/v2/commands" {"payload" "my payload!"}))
-            v3-resp (fixt/*app* (get-request* "/v3/commands" {"payload" "my payload!"}))
-            v4-resp (fixt/*app* (post-request* "/v4/commands" nil "my payload!"))]
-        (tu/assert-success! api-v3-resp)
-        (tu/assert-success! api-v4-resp)
-        (tu/assert-success! v2-resp)
-        (tu/assert-success! v3-resp)
-        (tu/assert-success! v4-resp)))
+      (let [response (fixt/*app* (case version
+                                   (:v2 :v3)
+                                   (get-request* endpoint {"payload" "my payload!"})
+
+                                   (post-request* endpoint nil "my payload!")))]
+        (assert-success! response)))
 
     (testing "should return 400 when checksums don't match"
-      (let [api-v3-resp (command-app-v3 (fixt/internal-request {"payload" "Testing" "checksum" "something bad"}))
-            api-v4-resp (command-app-v4 (fixt/internal-request-post "Testing" {"checksum" "something bad"}))
-            v2-resp (fixt/*app* (get-request* "/v2/commands" {"payload" "Testing" "checksum" "something bad"}))
-            v3-resp (fixt/*app* (get-request* "/v3/commands" {"payload" "Testing" "checksum" "something bad"}))
-            v4-resp (fixt/*app* (post-request* "/v4/commands" {"checksum" "something bad"} "Testing"))]
-        (is (= (:status api-v3-resp)
-               (:status api-v4-resp)
-               (:status v2-resp)
-               (:status v3-resp)
-               (:status v4-resp)
+      (let [response (fixt/*app* (case version
+                                   (:v2 :v3)
+                                   (get-request* endpoint {"payload" "Testing"
+                                                           "checksum" "something bad"})
+
+                                   (post-request* endpoint {"checksum" "something bad"} "Testing")))]
+        (is (= (:status response)
                pl-http/status-bad-request))))))
 
 (defn round-trip-date-time
@@ -106,43 +86,26 @@
        (time/parse (time/formatters :date-time))
        (time/unparse (time/formatters :date-time))))
 
-(deftest receipt-timestamping-v3
+(deftestseq receipt-timestamping
+  [[version endpoint] endpoints]
+
   (let [good-payload  (json/generate-string {:command "my command" :version 1 :payload "{}"})
         good-checksum (kitchensink/utf8-string->sha1 good-payload)
         bad-payload   "some test message"
-        bad-checksum  (kitchensink/utf8-string->sha1 bad-payload)]
-    (-> {"payload" good-payload "checksum" good-checksum}
-        fixt/internal-request
-        command-app-v3)
-    (-> {"payload" bad-payload "checksum" bad-checksum}
-        fixt/internal-request
-        command-app-v3)
+        bad-checksum  (kitchensink/utf8-string->sha1 bad-payload)
+        request       (fn [payload checksum]
+                        (case version
+                          (:v2 :v3)
+                          (get-request* endpoint {"payload" payload "checksum" checksum})
+                          (post-request* endpoint {"checksum" checksum} payload)))]
+    (fixt/*app* (request good-payload good-checksum))
+    (fixt/*app* (request bad-payload bad-checksum))
 
     (let [[good-msg bad-msg] (mq/bounded-drain-into-vec! fixt/*conn* "com.puppetlabs.puppetdb.commands" 2)
           good-command       (json/parse-string (:body good-msg) true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-msg [:headers :received])]
           (time/parse (time/formatters :date-time) timestamp)))
-
-      (testing "should be left alone when not parseable"
-        (is (= (:body bad-msg) bad-payload))))))
-
-(deftest receipt-timestamping-v4
-  (let [good-payload  (json/generate-string {:command "my command" :version 1 :payload "{}"})
-        good-checksum (kitchensink/utf8-string->sha1 good-payload)
-        bad-payload   "some test message"
-        bad-checksum  (kitchensink/utf8-string->sha1 bad-payload)]
-    (-> (fixt/internal-request-post good-payload {"checksum" good-checksum})
-        command-app-v4)
-    (-> (fixt/internal-request-post bad-payload {"checksum" bad-checksum})
-        command-app-v4)
-
-    (let [[good-msg bad-msg] (mq/bounded-drain-into-vec! fixt/*conn* "com.puppetlabs.puppetdb.commands" 2)
-          good-command (json/parse-string (:body good-msg) true)
-          received-time (get-in good-msg [:headers :received])]
-      (testing "should be timestamped when parseable"
-        (is (= received-time (round-trip-date-time received-time)))
-        (is (map? good-command)))
 
       (testing "should be left alone when not parseable"
         (is (= (:body bad-msg) bad-payload))))))

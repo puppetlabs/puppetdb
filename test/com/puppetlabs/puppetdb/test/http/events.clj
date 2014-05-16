@@ -9,23 +9,23 @@
             [com.puppetlabs.puppetdb.examples :refer [catalogs]]
             [clj-time.core :refer [ago now secs]]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
-            [com.puppetlabs.puppetdb.testutils :refer [response-equal? assert-success! get-request paged-results]]
+            [com.puppetlabs.puppetdb.testutils :refer [response-equal? assert-success!
+                                                       get-request paged-results
+                                                       deftestseq]]
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
-            [clojure.walk :refer [stringify-keys]])
-  (:use clojure.test
-        ring.mock.request
-        com.puppetlabs.puppetdb.examples.reports
-        com.puppetlabs.puppetdb.fixtures))
+            [clojure.walk :refer [stringify-keys]]
+            [clojure.test :refer :all]
+            [ring.mock.request :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
-(def v3-endpoint "/v3/events")
-(def v4-endpoint "/v4/events")
-(def v4-environment-endpoint "/v4/environments/DEV/events")
-(def endpoints [[:v3 v3-endpoint]
-                [:v4 v4-endpoint]])
+(def endpoints [[:v3 "/v3/events"]
+                [:v4 "/v4/events"]
+                [:v4 "/v4/environments/DEV/events"]])
 
 (def content-type-json pl-http/json-response-content-type)
 
-(defixture super-fixture :each with-test-db with-http-app)
+(use-fixtures :each with-test-db with-http-app)
 
 (defn get-response
   ([endpoint query]
@@ -65,122 +65,51 @@
   ;; tests.
   (map #(kitchensink/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
-(deftest query-by-report
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-        (let [basic             (store-example-report! (:basic reports) (now))
-              basic-events      (get-in reports [:basic :resource-events])
-              basic-events-map  (get-events-map (:basic reports))
-              report-hash       (:hash basic)]
+(deftestseq query-by-report
+  [[version endpoint] endpoints]
 
-          ;; TODO: test invalid requests
-
-          (testing "should return the list of resource events for a given report hash"
-            (let [response (get-response endpoint ["=" "report" report-hash])
-                  expected (http-expected-resource-events version basic-events basic)]
-              (response-equal? response expected munge-event-values)))
-
-          (testing "query exceeding event-query-limit"
-            (with-http-app {:event-query-limit 1}
-              (fn []
-                (let [response (get-response endpoint ["=" "report" report-hash])
-                      body     (get response :body "null")]
-                  (is (= (:status response) pl-http/status-internal-error))
-                  (is (re-find #"more than the maximum number of results" body))))))
-
-          ;; NOTE: more exhaustive testing for these queries can be found in
-          ;; `com.puppetlabs.puppetdb.test.query.event`
-          (testing "should support querying resource events by timestamp"
-            (let [start-time  "2011-01-01T12:00:01-03:00"
-                  end-time    "2011-01-01T12:00:03-03:00"]
-
-              (testing "should support single term timestamp queries"
-                (let [response (get-response endpoint ["<" "timestamp" end-time])
-                      expected (http-expected-resource-events
-                                version
-                                (kitchensink/select-values basic-events-map [1 3])
-                                basic)]
-                  (response-equal? response expected munge-event-values)))
-
-              (testing "should support compound timestamp queries"
-                (let [response (get-response endpoint ["and" [">" "timestamp" start-time]
-                                                       ["<" "timestamp" end-time]])
-                      expected (http-expected-resource-events
-                                version
-                                (kitchensink/select-values basic-events-map [3])
-                                basic)]
-                  (response-equal? response expected munge-event-values)))))
-
-          (testing "compound queries"
-            (doseq [[query matches]
-                    [[["and"
-                       ["or"
-                        ["=" "resource-title" "hi"]
-                        ["=" "resource-title" "notify, yo"]]
-                       ["=" "status" "success"]]                       [1]]
-                     [["or"
-                       ["and"
-                        ["=" "resource-title" "hi"]
-                        ["=" "status" "success"]]
-                       ["and"
-                        ["=" "resource-type" "Notify"]
-                        ["=" "property" "message"]]]                  [1 2]]
-                     [["and"
-                       ["=" "status" "success"]
-                       ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
-                     [["or"
-                       ["=" "status" "skipped"]
-                       ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
-              (let [response  (get-response endpoint query)
-                    expected  (http-expected-resource-events
-                               version
-                               (kitchensink/select-values basic-events-map matches)
-                               basic)]
-                (response-equal? response expected munge-event-values))))
-
-
-          (doseq [[label count?] [["without" false]
-                                  ["with" true]]]
-            (testing (str "should support paging through events " label " counts")
-              (let [results (paged-results
-                             {:app-fn  *app*
-                              :path    endpoint
-                              :query   ["=" "report" report-hash]
-                              :limit   1
-                              :total   (count basic-events)
-                              :include-total  count?
-                              :params  {:order-by (json/generate-string [{"field" "status"}])}})]
-                (is (= (count basic-events) (count results)))
-                (is (= (http-expected-resource-events
-                        version
-                        basic-events
-                        basic)
-                       (set (munge-event-values results)))))))
-
-          (testing "order-by field names"
-            (testing "should accept dashes"
-              (let [expected  (http-expected-resource-events version basic-events basic)
-                    response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
-                (is (= (:status response) pl-http/status-ok))
-                (response-equal? response expected munge-event-values)))
-
-            (testing "should reject underscores"
-              (let [response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})
-                    body      (get response :body "null")]
-                (is (= (:status response) pl-http/status-bad-request))
-                (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body))))))))))
-
-(deftest query-by-report-with-environment-endpoint
   (let [basic             (store-example-report! (:basic reports) (now))
         basic-events      (get-in reports [:basic :resource-events])
         basic-events-map  (get-events-map (:basic reports))
         report-hash       (:hash basic)]
 
+    ;; TODO: test invalid requests
+
     (testing "should return the list of resource events for a given report hash"
-      (let [response (get-response v4-environment-endpoint ["=" "report" report-hash])
-            expected (http-expected-resource-events :v4 basic-events basic)]
+      (let [response (get-response endpoint ["=" "report" report-hash])
+            expected (http-expected-resource-events version basic-events basic)]
         (response-equal? response expected munge-event-values)))
+
+    (testing "query exceeding event-query-limit"
+      (with-http-app {:event-query-limit 1}
+        (fn []
+          (let [response (get-response endpoint ["=" "report" report-hash])
+                body     (get response :body "null")]
+            (is (= (:status response) pl-http/status-internal-error))
+            (is (re-find #"more than the maximum number of results" body))))))
+
+    ;; NOTE: more exhaustive testing for these queries can be found in
+    ;; `com.puppetlabs.puppetdb.test.query.event`
+    (testing "should support querying resource events by timestamp"
+      (let [start-time  "2011-01-01T12:00:01-03:00"
+            end-time    "2011-01-01T12:00:03-03:00"]
+
+        (testing "should support single term timestamp queries"
+          (let [response (get-response endpoint ["<" "timestamp" end-time])
+                expected (http-expected-resource-events
+                          version
+                          (kitchensink/select-values basic-events-map [1 3])
+                          basic)]
+            (response-equal? response expected munge-event-values)))
+
+        (testing "should support compound timestamp queries"
+          (let [response (get-response endpoint ["and" [">" "timestamp" start-time]
+                                                 ["<" "timestamp" end-time]])
+                expected (http-expected-resource-events
+                          version
+                          (kitchensink/select-values basic-events-map [3])
+                          basic)]
+            (response-equal? response expected munge-event-values)))))
 
     (testing "compound queries"
       (doseq [[query matches]
@@ -202,122 +131,151 @@
                [["or"
                  ["=" "status" "skipped"]
                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
-        (let [response  (get-response v4-environment-endpoint query)
+        (let [response  (get-response endpoint query)
               expected  (http-expected-resource-events
-                         :v4
+                         version
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
-          (response-equal? response expected munge-event-values))))))
+          (response-equal? response expected munge-event-values))))
 
-(deftest query-distinct-resources
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-        (let [basic             (store-example-report! (:basic reports) (now))
-              basic-events      (get-in reports [:basic :resource-events])
-              basic-events-map  (get-events-map (:basic reports))
 
-              basic3            (store-example-report! (:basic3 reports) (now))
-              basic3-events     (get-in reports [:basic3 :resource-events])
-              basic3-events-map (get-events-map (:basic3 reports))]
+    (doseq [[label count?] [["without" false]
+                            ["with" true]]]
+      (testing (str "should support paging through events " label " counts")
+        (let [results (paged-results
+                       {:app-fn  *app*
+                        :path    endpoint
+                        :query   ["=" "report" report-hash]
+                        :limit   1
+                        :total   (count basic-events)
+                        :include-total  count?
+                        :params  {:order-by (json/generate-string [{"field" "status"}])}})]
+          (is (= (count basic-events) (count results)))
+          (is (= (http-expected-resource-events
+                  version
+                  basic-events
+                  basic)
+                 (set (munge-event-values results)))))))
 
-          (testing "should return an error if the caller passes :distinct-resources without timestamps"
-            (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true})
-                  body      (get response :body "null")]
-              (is (= (:status response) pl-http/status-bad-request))
-              (is (re-find
-                    #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
-                    body)))
-            (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
-                                                                                 :distinct-start-time 0})
-                  body      (get response :body "null")]
-              (is (= (:status response) pl-http/status-bad-request))
-              (is (re-find
-                    #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
-                    body)))
-            (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
-                                                                                 :distinct-end-time 0})
-                  body      (get response :body "null")]
-              (is (= (:status response) pl-http/status-bad-request))
-              (is (re-find
-                    #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
-                    body))))
+    (testing "order-by field names"
+      (testing "should accept dashes"
+        (let [expected  (http-expected-resource-events version basic-events basic)
+              response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
+          (is (= (:status response) pl-http/status-ok))
+          (response-equal? response expected munge-event-values)))
 
-          (testing "should return only one event for a given resource"
-            (let [expected  (http-expected-resource-events version basic3-events basic3)
-                  response  (get-response endpoint ["=", "certname", "foo.local"] {:distinct-resources true
-                                                                                   :distinct-start-time 0
-                                                                                   :distinct-end-time (now)})]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values)))
+      (testing "should reject underscores"
+        (let [response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})
+              body      (get response :body "null")]
+          (is (= (:status response) pl-http/status-bad-request))
+          (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
 
-          (testing "events should be contained within distinct resource timestamps"
-            (let [expected  (http-expected-resource-events version basic-events basic)
-                  response  (get-response endpoint ["=", "certname", "foo.local"]
-                                                   {:distinct-resources true
-                                                    :distinct-start-time 0
-                                                    :distinct-end-time "2011-01-02T12:00:01-03:00"})]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values)))
+(deftestseq query-distinct-resources
+  [[version endpoint] endpoints]
 
-          (testing "filters (such as status) should be applied *after* the distinct list of most recent events has been built up"
-            (let [expected  #{}
-                  response (get-response endpoint ["and" ["=" "certname" "foo.local"]
-                                                   ["=" "status" "success"]
-                                                   ["=" "resource-title" "notify, yar"]]
-                                                  {:distinct-resources true
-                                                   :distinct-start-time 0
-                                                   :distinct-end-time (now)})]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values))))))))
+  (let [basic             (store-example-report! (:basic reports) (now))
+        basic-events      (get-in reports [:basic :resource-events])
+        basic-events-map  (get-events-map (:basic reports))
 
-(deftest query-by-puppet-report-timestamp
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-        (let [basic         (store-example-report! (:basic reports) (now))
-              basic-events  (get-in reports [:basic :resource-events])
+        basic3            (store-example-report! (:basic3 reports) (now))
+        basic3-events     (get-in reports [:basic3 :resource-events])
+        basic3-events-map (get-events-map (:basic3 reports))]
 
-              basic3        (store-example-report! (:basic3 reports) (now))
-              basic3-events (get-in reports [:basic3 :resource-events])]
+    (testing "should return an error if the caller passes :distinct-resources without timestamps"
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true})
+            body      (get response :body "null")]
+        (is (= (:status response) pl-http/status-bad-request))
+        (is (re-find
+             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             body)))
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
+                                                                           :distinct-start-time 0})
+            body      (get response :body "null")]
+        (is (= (:status response) pl-http/status-bad-request))
+        (is (re-find
+             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             body)))
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
+                                                                           :distinct-end-time 0})
+            body      (get response :body "null")]
+        (is (= (:status response) pl-http/status-bad-request))
+        (is (re-find
+             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             body))))
 
-          (testing "query by report start time"
-            (let [expected  (http-expected-resource-events version basic-events basic)
-                  response  (get-response endpoint ["<", "run-start-time" "2011-01-02T00:00:00-03:00"])]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values)))
+    (testing "should return only one event for a given resource"
+      (let [expected  (http-expected-resource-events version basic3-events basic3)
+            response  (get-response endpoint ["=", "certname", "foo.local"] {:distinct-resources true
+                                                                             :distinct-start-time 0
+                                                                             :distinct-end-time (now)})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
 
-          (testing "query by report end time"
-            (let [expected  (http-expected-resource-events version basic3-events basic3)
-                  response  (get-response endpoint [">", "run-end-time" "2011-01-02T00:00:00-03:00"])]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values)))
+    (testing "events should be contained within distinct resource timestamps"
+      (let [expected  (http-expected-resource-events version basic-events basic)
+            response  (get-response endpoint ["=", "certname", "foo.local"]
+                                    {:distinct-resources true
+                                     :distinct-start-time 0
+                                     :distinct-end-time "2011-01-02T12:00:01-03:00"})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
 
-          (testing "query by end time w/no results"
-            (let [expected  #{}
-                  response  (get-response endpoint [">", "run-end-time" "2011-01-04T00:00:00-03:00"])]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values))))))))
+    (testing "filters (such as status) should be applied *after* the distinct list of most recent events has been built up"
+      (let [expected  #{}
+            response (get-response endpoint ["and" ["=" "certname" "foo.local"]
+                                             ["=" "status" "success"]
+                                             ["=" "resource-title" "notify, yar"]]
+                                   {:distinct-resources true
+                                    :distinct-start-time 0
+                                    :distinct-end-time (now)})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))))
 
-(deftest query-by-report-receive-timestamp
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-        (let [test-start-time (ago (secs 1))
+(deftestseq query-by-puppet-report-timestamp
+  [[version endpoint] endpoints]
 
-              basic           (store-example-report! (:basic reports) (now))
-              basic-events    (get-in reports [:basic :resource-events])]
-          (testing "query by report receive time"
-            (let [expected  (http-expected-resource-events version basic-events basic)
-                  response  (get-response endpoint [">", "report-receive-time" (to-string test-start-time)])]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values)))
+  (let [basic         (store-example-report! (:basic reports) (now))
+        basic-events  (get-in reports [:basic :resource-events])
 
-          (testing "query by receive time w/no results"
-            (let [expected  #{}
-                  response  (get-response endpoint ["<", "report-receive-time" (to-string test-start-time)])]
-              (assert-success! response)
-              (response-equal? response expected munge-event-values))))))))
+        basic3        (store-example-report! (:basic3 reports) (now))
+        basic3-events (get-in reports [:basic3 :resource-events])]
+
+    (testing "query by report start time"
+      (let [expected  (http-expected-resource-events version basic-events basic)
+            response  (get-response endpoint ["<", "run-start-time" "2011-01-02T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query by report end time"
+      (let [expected  (http-expected-resource-events version basic3-events basic3)
+            response  (get-response endpoint [">", "run-end-time" "2011-01-02T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query by end time w/no results"
+      (let [expected  #{}
+            response  (get-response endpoint [">", "run-end-time" "2011-01-04T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))))
+
+(deftestseq query-by-report-receive-timestamp
+  [[version endpoint] endpoints]
+
+  (let [test-start-time (ago (secs 1))
+
+        basic           (store-example-report! (:basic reports) (now))
+        basic-events    (get-in reports [:basic :resource-events])]
+    (testing "query by report receive time"
+      (let [expected  (http-expected-resource-events version basic-events basic)
+            response  (get-response endpoint [">", "report-receive-time" (to-string test-start-time)])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query by receive time w/no results"
+      (let [expected  #{}
+            response  (get-response endpoint ["<", "report-receive-time" (to-string test-start-time)])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))))
 
 (def versioned-subqueries
   (omap/ordered-map
@@ -373,21 +331,21 @@
         :certname "basic.catalogs.com"
         :message nil}})))
 
-(deftest valid-subqueries
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-        (let [catalog (:basic catalogs)
-              certname (str (:name catalog))
-              report (assoc (:basic reports) :certname certname)
-              timestamp "2014-04-16T12:44:40.978Z"]
-          (scf-store/add-certname! certname)
-          (store-example-report! report timestamp)
-          (scf-store/replace-catalog! catalog (now))
-          (scf-store/add-facts! certname {"ipaddress" "1.1.1.1"} (now) nil))
-        (doseq [[query results] (get versioned-subqueries endpoint)]
-          (testing (str "query: " query " should match expected output")
-            (is-query-result endpoint query results)))))))
+(deftestseq valid-subqueries
+  [[version endpoint] endpoints]
+
+  (let [catalog (:basic catalogs)
+        certname (str (:name catalog))
+        report (assoc (:basic reports) :certname certname)
+        timestamp "2014-04-16T12:44:40.978Z"]
+    (scf-store/add-certname! certname)
+    (store-example-report! report timestamp)
+    (scf-store/replace-catalog! catalog (now))
+    (scf-store/add-facts! certname {"ipaddress" "1.1.1.1"} (now) nil))
+
+  (doseq [[query results] (get versioned-subqueries endpoint)]
+    (testing (str "query: " query " should match expected output")
+      (is-query-result endpoint query results))))
 
 (def versioned-invalid-subqueries
   (omap/ordered-map
@@ -402,13 +360,12 @@
                                                        ["=" "type" "Class"]]]]
                 "Can't match on unknown event field 'nothing' for 'in'. Acceptable fields are: certname, configuration_version, containing_class, containment_path, end_time, file, line, message, name, new_value, old_value, property, receive_time, report, resource_title, resource_type, start_time, status, timestamp")))
 
-(deftest invalid-subqueries
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-      (fn []
-         (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
-           (testing (str "query: " query " should fail with msg: " msg)
-             (let [request (get-request endpoint (json/generate-string query))
-                   {:keys [status body] :as result} (*app* request)]
-               (is (= body msg))
-               (is (= status pl-http/status-bad-request)))))))))
+(deftestseq invalid-subqueries
+  [[version endpoint] endpoints]
+
+  (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [request (get-request endpoint (json/generate-string query))
+            {:keys [status body] :as result} (*app* request)]
+        (is (= body msg))
+        (is (= status pl-http/status-bad-request))))))

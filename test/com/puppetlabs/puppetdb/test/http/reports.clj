@@ -9,19 +9,16 @@
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :refer [response-equal? assert-success!
-                                                       get-request paged-results]]
+                                                       get-request paged-results
+                                                       deftestseq]]
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]))
 
-(def v3-endpoint "/v3/reports")
-(def v4-endpoint "/v4/reports")
-(def endpoints {:v3 v3-endpoint
-                :v4 v4-endpoint})
-(def endpoint "/v4/reports")
-(def version :v4)
+(def endpoints [[:v3 "/v3/reports"]
+                [:v4 "/v4/reports"]])
 
-(fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
 (defn get-response
   [endpoint query] (fixt/*app* (get-request endpoint query)))
@@ -51,76 +48,74 @@
   ;; for test comparison
   (map #(dissoc % :receive-time) reports))
 
-(deftest query-by-certname
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-     (fn []
-       (testing (str "endpoint " endpoint)
-         (let [basic         (:basic reports)
-               report-hash   (:hash (store-example-report! basic (now)))]
+(deftestseq query-by-certname
+  [[version endpoint] endpoints]
 
-           ;; TODO: test invalid requests
+  (let [basic         (:basic reports)
+        report-hash   (:hash (store-example-report! basic (now)))]
 
-           (testing "should return all reports for a certname"
-             (let [result (get-response endpoint ["=" "certname" (:certname basic)])]
-               (case version
-                 :v3 (is (not-any? :environment (json/parse-string (:body result) true)))
-                 (do
-                   (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
-                   (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))))
-               (response-equal?
-                result
-                (reports-response version [(assoc basic :hash report-hash)])
-                remove-receive-times)))
+    ;; TODO: test invalid requests
 
-           (testing "should return all reports for a hash"
-             (response-equal?
-              (get-response endpoint ["=" "hash" report-hash])
-              (reports-response version [(assoc basic :hash report-hash)])
-              remove-receive-times))))))))
+    (testing "should return all reports for a certname"
+      (let [result (get-response endpoint ["=" "certname" (:certname basic)])]
+        (case version
+          :v3 (is (not-any? :environment (json/parse-string (:body result) true)))
+          (do
+            (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+            (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))))
+        (response-equal?
+         result
+         (reports-response version [(assoc basic :hash report-hash)])
+         remove-receive-times)))
 
-(deftest query-with-paging
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-     (fn []
-       (testing (str "endpoint " endpoint)
-         (let [basic1        (:basic reports)
-               basic1-hash   (:hash (store-example-report! basic1 (now)))
-               basic2        (:basic2 reports)
-               basic2-hash   (:hash (store-example-report! basic2 (now)))]
-           (doseq [[label count?] [["without" false]
-                                   ["with" true]]]
-             (testing (str "should support paging through reports " label " counts")
-               (let [results       (paged-results
-                                    {:app-fn  fixt/*app*
-                                     :path    endpoint
-                                     :query   ["=" "certname" (:certname basic1)]
-                                     :limit   1
-                                     :total   2
-                                     :include-total  count?})]
-                 (is (= 2 (count results)))
-                 (is (= (reports-response version
-                                          [(assoc basic1 :hash basic1-hash)
-                                           (assoc basic2 :hash basic2-hash)])
-                        (set (remove-receive-times results)))))))))))))
+    (testing "should return all reports for a hash"
+      (response-equal?
+       (get-response endpoint ["=" "hash" report-hash])
+       (reports-response version [(assoc basic :hash report-hash)])
+       remove-receive-times))))
 
-(deftest invalid-queries
-  (doseq [[version endpoint] endpoints]
-    (super-fixture
-     (fn []
-       (testing (str "endpoint " endpoint)
-         (let [response (get-response endpoint ["<" "timestamp" 0])]
-           (is (re-matches #".*query operator '<' is unknown" (:body response)))
-           (is (= 400 (:status response))))
-         (let [response (get-response endpoint ["=" "timestamp" 0])]
-           (is (re-find #"'timestamp' is not a valid query term" (:body response)))
-           (is (= 400 (:status response))))
-         (when (= version :v3)
-           (let [response (get-response endpoint ["=" "environment" "FOO"])]
-             (is (re-find #"'environment' is not a valid query term" (:body response)))
-             (is (= 400 (:status response))))))))))
+(deftestseq query-with-paging
+  [[version endpoint] endpoints]
 
-(deftest query-by-status
+  (let [basic1        (:basic reports)
+        basic1-hash   (:hash (store-example-report! basic1 (now)))
+        basic2        (:basic2 reports)
+        basic2-hash   (:hash (store-example-report! basic2 (now)))]
+
+    (doseq [[label count?] [["without" false]
+                            ["with" true]]]
+      (testing (str "should support paging through reports " label " counts")
+        (let [results       (paged-results
+                             {:app-fn  fixt/*app*
+                              :path    endpoint
+                              :query   ["=" "certname" (:certname basic1)]
+                              :limit   1
+                              :total   2
+                              :include-total  count?})]
+          (is (= 2 (count results)))
+          (is (= (reports-response version
+                                   [(assoc basic1 :hash basic1-hash)
+                                    (assoc basic2 :hash basic2-hash)])
+                 (set (remove-receive-times results)))))))))
+
+(deftestseq invalid-queries
+  [[version endpoint] endpoints]
+
+  (let [response (get-response endpoint ["<" "timestamp" 0])]
+    (is (re-matches #".*query operator '<' is unknown" (:body response)))
+    (is (= 400 (:status response))))
+  (let [response (get-response endpoint ["=" "timestamp" 0])]
+    (is (re-find #"'timestamp' is not a valid query term" (:body response)))
+    (is (= 400 (:status response))))
+  (when (= version :v3)
+    (let [response (get-response endpoint ["=" "environment" "FOO"])]
+      (is (re-find #"'environment' is not a valid query term" (:body response)))
+      (is (= 400 (:status response))))))
+
+(deftestseq query-by-status
+  [[version endpoint] endpoints
+   :when (not= version :v3)]
+
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
         basic2 (:basic2 reports)
@@ -144,7 +139,7 @@
         (response-equal?
          unchanged-result
          (reports-response version [(assoc basic :hash hash1)
-                            (assoc basic2 :hash hash2)])
+                                    (assoc basic2 :hash hash2)])
          remove-receive-times)
 
         (is (= 1 (count changed-reports)))
@@ -159,7 +154,10 @@
          (reports-response version [(assoc basic4 :hash hash4)])
          remove-receive-times)))))
 
-(deftest query-by-certname-with-environment
+(deftestseq query-by-certname-with-environment
+  [[version endpoint] endpoints
+   :when (not= version :v3)]
+
   (let [basic         (:basic reports)
         report-hash   (:hash (store-example-report! basic (now)))]
 
@@ -171,5 +169,7 @@
          (reports-response version [(assoc basic :hash report-hash)])
          remove-receive-times)))
     (testing "PROD environment"
-      (is (empty? (json/parse-string (:body (get-response "/v4/environments/PROD/reports" ["=" "certname" (:certname basic)]))))))))
-
+      (is (empty? (json/parse-string
+                   (:body
+                    (get-response "/v4/environments/PROD/reports"
+                                  ["=" "certname" (:certname basic)]))))))))
