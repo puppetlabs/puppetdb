@@ -492,7 +492,7 @@
           (compile-resource-regexp :v3 (get v3-renamed-resource-columns path path) value))
     (match [path]
            ["tag"]
-           {:where (sql-regexp-array-match "catalog_resources" "tags")
+           {:where (sql-regexp-array-match "catalog_resources" "catalog_resources" "tags")
             :params [value]}
 
            ;; node join.

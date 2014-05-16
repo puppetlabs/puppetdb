@@ -74,8 +74,14 @@ to the result of the form supplied to this method."
                (doseq [[query result] [[["=" "type" "File"] #{foo1 bar1}]
                                        [["=" "tag" "one"] #{foo1 bar1}]
                                        [["=" "tag" "two"] #{foo1 bar1}]
+                                       [["~" "tag" "tw"] #{foo1 bar1}]
+
                                        [["and"
                                          ["=" "certname" "one.local"]
+                                         ["=" "type" "File"]]
+                                        #{foo1}]
+                                       [["and"
+                                         ["~" "certname" "one.lo.*"]
                                          ["=" "type" "File"]]
                                         #{foo1}]
                                        [["=" ["parameter" "ensure"] "file"] #{foo1 bar1}]
@@ -117,7 +123,9 @@ to the result of the form supplied to this method."
                (let [response (get-response endpoint ["="])
                      body     (get response :body "null")]
                  (is (= (:status response) pl-http/status-bad-request))
-                 (is (re-find #"= requires exactly two arguments" body))))
+                 (if (= endpoint v4-endpoint)
+                   (is (re-find #"= requires exactly two string arguments" body))
+                   (is (re-find #"= requires exactly two arguments" body)))))
 
              (testing "query with filter should exclude deactivated nodes"
                ;; After deactivating one.local, it's resources should not appear
