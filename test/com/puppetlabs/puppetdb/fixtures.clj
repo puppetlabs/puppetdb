@@ -71,8 +71,6 @@
                                 {:scf-read-db          *db*
                                  :scf-write-db         *db*
                                  :command-mq           *mq*
-                                 :resource-query-limit 20000
-                                 :event-query-limit    20000
                                  :product-name         "puppetdb"}
                                 globals-overrides))]
        (f))))
@@ -125,8 +123,6 @@
                        :scf-read-db          *db*
                        :scf-write-db         *db*
                        :command-mq           *mq*
-                       :resource-query-limit 20000
-                       :event-query-limit    20000
                        :product-name         "puppetdb"}
                       global-overrides)}))
 
@@ -144,8 +140,6 @@
                        :scf-read-db          *db*
                        :scf-write-db         *db*
                        :command-mq           *mq*
-                       :resource-query-limit 20000
-                       :event-query-limit    20000
                        :product-name         "puppetdb"})
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 

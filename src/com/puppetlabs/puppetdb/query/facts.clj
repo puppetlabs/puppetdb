@@ -4,9 +4,8 @@
   (:refer-clojure :exclude [case compile conj! distinct disj! drop sort take])
   (:require [clojure.string :as string]
             [com.puppetlabs.jdbc :as sql]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]])
-  (:use [com.puppetlabs.puppetdb.query :only [fact-query->sql fact-operators execute-query]]
-        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
+            [com.puppetlabs.puppetdb.query :refer [fact-query->sql fact-operators execute-query]]
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
 
 (defn flat-facts-by-node
   "Similar to `facts-for-node`, but returns facts in the form:

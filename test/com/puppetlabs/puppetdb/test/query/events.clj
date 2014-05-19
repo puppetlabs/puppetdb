@@ -3,14 +3,14 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.events :as event-query]
-            [puppetlabs.kitchensink.core :as kitchensink])
-  (:use clojure.test
-         com.puppetlabs.puppetdb.fixtures
-         com.puppetlabs.puppetdb.examples.reports
-         [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report! get-events-map]]
-         com.puppetlabs.puppetdb.testutils.events
-         [clj-time.coerce :only [to-string to-timestamp to-long]]
-         [clj-time.core :only [now ago days]]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
+            [com.puppetlabs.puppetdb.testutils.events :refer :all]
+            [clj-time.coerce :refer [to-string to-timestamp to-long]]
+            [clj-time.core :refer [now ago days]]))
 
 (use-fixtures :each with-test-db)
 
@@ -104,16 +104,6 @@
                              ["and"   [">=" "timestamp" start-time]
                               ["<=" "timestamp" end-time]])]
             (is (= actual expected)))))
-
-      (testing "when querying with a limit"
-        (let [num-events (count basic-events)]
-          (testing "should succeed if the number of returned events is less than the limit"
-            (is (= num-events
-                   (count (resource-events-limited-query-result version (inc num-events) ["=" "report" report-hash])))))
-          (testing "should fail if the number of returned events would exceed the limit"
-            (is (thrown-with-msg?
-                 IllegalStateException #"Query returns more than the maximum number of results"
-                 (resource-events-limited-query-result version (dec num-events) ["=" "report" report-hash]))))))
 
       (testing "equality queries"
         (doseq [[field value matches]

@@ -31,7 +31,10 @@
   ([endpoint query]
     (get-response endpoint query {}))
   ([endpoint query extra-query-params]
-    (*app* (get-request endpoint query extra-query-params))))
+     (let [resp (*app* (get-request endpoint query extra-query-params))]
+       (if (string? (:body resp))
+         resp
+         (update-in resp [:body] slurp)))))
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -80,19 +83,11 @@
             expected (http-expected-resource-events version basic-events basic)]
         (response-equal? response expected munge-event-values)))
 
-    (testing "query exceeding event-query-limit"
-      (with-http-app {:event-query-limit 1}
-        (fn []
-          (let [response (get-response endpoint ["=" "report" report-hash])
-                body     (get response :body "null")]
-            (is (= (:status response) pl-http/status-internal-error))
-            (is (re-find #"more than the maximum number of results" body))))))
-
     ;; NOTE: more exhaustive testing for these queries can be found in
     ;; `com.puppetlabs.puppetdb.test.query.event`
     (testing "should support querying resource events by timestamp"
-      (let [start-time  "2011-01-01T12:00:01-03:00"
-            end-time    "2011-01-01T12:00:03-03:00"]
+      (let [start-time "2011-01-01T12:00:01-03:00"
+            end-time   "2011-01-01T12:00:03-03:00"]
 
         (testing "should support single term timestamp queries"
           (let [response (get-response endpoint ["<" "timestamp" end-time])
@@ -124,7 +119,7 @@
                   ["=" "status" "success"]]
                  ["and"
                   ["=" "resource-type" "Notify"]
-                  ["=" "property" "message"]]]                  [1 2]]
+                  ["=" "property" "message"]]]                   [1 2]]
                [["and"
                  ["=" "status" "success"]
                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
@@ -242,19 +237,19 @@
 
     (testing "query by report start time"
       (let [expected  (http-expected-resource-events version basic-events basic)
-            response  (get-response endpoint ["<", "run-start-time" "2011-01-02T00:00:00-03:00"])]
+            response  (get-response endpoint ["<" "run-start-time" "2011-01-02T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by report end time"
       (let [expected  (http-expected-resource-events version basic3-events basic3)
-            response  (get-response endpoint [">", "run-end-time" "2011-01-02T00:00:00-03:00"])]
+            response  (get-response endpoint [">" "run-end-time" "2011-01-02T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by end time w/no results"
       (let [expected  #{}
-            response  (get-response endpoint [">", "run-end-time" "2011-01-04T00:00:00-03:00"])]
+            response  (get-response endpoint [">" "run-end-time" "2011-01-04T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 
@@ -267,13 +262,13 @@
         basic-events    (get-in reports [:basic :resource-events])]
     (testing "query by report receive time"
       (let [expected  (http-expected-resource-events version basic-events basic)
-            response  (get-response endpoint [">", "report-receive-time" (to-string test-start-time)])]
+            response  (get-response endpoint [">" "report-receive-time" (to-string test-start-time)])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by receive time w/no results"
       (let [expected  #{}
-            response  (get-response endpoint ["<", "report-receive-time" (to-string test-start-time)])]
+            response  (get-response endpoint ["<" "report-receive-time" (to-string test-start-time)])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 

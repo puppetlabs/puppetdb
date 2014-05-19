@@ -1,11 +1,11 @@
 (ns com.puppetlabs.puppetdb.query.event-counts
   (:require [com.puppetlabs.puppetdb.query.events :as events]
-            [clojure.string :as string])
-  (:use [com.puppetlabs.jdbc :only [valid-jdbc-query? dashes->underscores underscores->dashes]]
-        [com.puppetlabs.puppetdb.query :only [compile-term execute-query]]
-        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]
-        [puppetlabs.kitchensink.core :only [contains-some]]
-        [clojure.core.match :only [match]]))
+            [clojure.string :as string]
+            [com.puppetlabs.jdbc :refer [valid-jdbc-query? dashes->underscores underscores->dashes]]
+            [com.puppetlabs.puppetdb.query :refer [compile-term execute-query]]
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
+            [puppetlabs.kitchensink.core :refer [contains-some]]
+            [clojure.core.match :refer [match]]))
 
 (defn- compile-event-count-equality
   "Compile an = predicate for event-count query.  The `path` represents
@@ -176,10 +176,12 @@
           group-by                        (get-group-by summarize-by)
           {counts-filter-where  :where
            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-          [event-sql & event-params]      (events/query->sql version
+          [event-sql & event-params]      (:results-query
+                                           (events/query->sql
+                                            version
                                             (select-keys query-options
-                                              [:distinct-resources? :distinct-start-time :distinct-end-time])
-                                            query)
+                                                         [:distinct-resources? :distinct-start-time :distinct-end-time])
+                                            query nil))
           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
           event-count-sql                 (get-event-count-sql count-by-sql group-by)
           filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]

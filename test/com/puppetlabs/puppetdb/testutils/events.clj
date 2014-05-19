@@ -1,10 +1,10 @@
 (ns com.puppetlabs.puppetdb.testutils.events
   (:require [com.puppetlabs.puppetdb.query.events :as query]
+            [com.puppetlabs.puppetdb.query :refer [remove-environment]]
             [com.puppetlabs.puppetdb.reports :as report]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment]]
             [clojure.walk :as walk]
-            [com.puppetlabs.puppetdb.utils :refer [assoc-when]])
-  (:use [clj-time.coerce :only [to-timestamp to-string]]))
+            [com.puppetlabs.puppetdb.utils :refer [assoc-when]]
+            [clj-time.coerce :refer [to-timestamp to-string]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -100,21 +100,10 @@
   ([version query paging-options]
     (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-    (->> (query/query->sql version query-options query)
-         (query/query-resource-events version paging-options)
-         (:result)
-         (set))))
-
-(defn resource-events-limited-query-result
-  "Utility function that executes a resource events query with a limit, and returns
-  a set of results for use in test comparisons."
-  ([version limit query]
-    (resource-events-limited-query-result version limit query nil))
-  ([version limit query paging-options]
-    (->> (query/query->sql version nil query)
-         (query/limited-query-resource-events version limit paging-options)
-         (:result)
-         (set))))
+     (->> (query/query->sql version query-options query paging-options)
+          (query/query-resource-events version)
+          :result
+          set)))
 
 (defn raw-resource-events-query-result
   "Utility function that executes a resource events query with paging options and
@@ -123,5 +112,5 @@
   ([version query paging-options]
     (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-    (->> (query/query->sql version query-options query)
-         (query/query-resource-events version paging-options))))
+     (->> (query/query->sql version query-options query paging-options)
+          (query/query-resource-events version))))

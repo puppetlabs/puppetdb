@@ -3,11 +3,11 @@
             [com.puppetlabs.puppetdb.query.reports :as query]
             [ring.util.response :as rr]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.query.paging :as paging])
-  (:use [net.cgrand.moustache :only [app]]
-        com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [net.cgrand.moustache :refer [app]]
+            [com.puppetlabs.middleware :refer :all]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [com.puppetlabs.puppetdb.http :refer [query-result-response]]))
 
 (defn produce-body
   "Given an optional `query` and a database connection, return a Ring response

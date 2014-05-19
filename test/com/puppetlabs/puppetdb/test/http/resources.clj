@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :as tu]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment]]
+            [com.puppetlabs.puppetdb.query :refer [remove-environment]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.testutils :refer [get-request paged-results

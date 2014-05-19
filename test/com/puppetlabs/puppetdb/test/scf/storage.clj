@@ -14,20 +14,20 @@
             [metrics.histograms :refer [sample histogram]]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
-            [clojure.string :as str])
-  (:use [com.puppetlabs.puppetdb.examples :only [catalogs]]
-        [com.puppetlabs.puppetdb.examples.reports :only [reports]]
-        [com.puppetlabs.puppetdb.testutils.reports]
-        [com.puppetlabs.puppetdb.testutils.events]
-        [com.puppetlabs.puppetdb.query.reports :only [is-latest-report?]]
-        [com.puppetlabs.puppetdb.scf.storage]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [clojure.test]
-        [clojure.math.combinatorics :only (combinations subsets)]
-        [clj-time.core :only [ago from-now now days]]
-        [clj-time.coerce :only [to-timestamp to-string]]
-        [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection convert-result-arrays]]
-        [com.puppetlabs.puppetdb.fixtures]))
+            [clojure.string :as str]
+            [com.puppetlabs.puppetdb.examples :refer [catalogs]]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [com.puppetlabs.puppetdb.testutils.reports :refer :all]
+            [com.puppetlabs.puppetdb.testutils.events :refer :all]
+            [com.puppetlabs.puppetdb.query.reports :refer [is-latest-report?]]
+            [com.puppetlabs.puppetdb.scf.storage :refer :all]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [clojure.test :refer :all]
+            [clojure.math.combinatorics :refer [combinations subsets]]
+            [clj-time.core :refer [ago from-now now days]]
+            [clj-time.coerce :refer [to-timestamp to-string]]
+            [com.puppetlabs.jdbc :refer [query-to-vec with-transacted-connection convert-result-arrays]]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
 (use-fixtures :each with-test-db)
 

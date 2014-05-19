@@ -67,12 +67,11 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
             [clj-time.coerce :refer [to-timestamp]]
-            [com.puppetlabs.puppetdb.http :refer [remove-all-environments]])
-  (:use [puppetlabs.kitchensink.core :only [parse-number keyset valset order-by-expr?]]
-        [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
-        [com.puppetlabs.jdbc :only [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
-        [com.puppetlabs.puppetdb.query.paging :only [requires-paging?]]
-        [clojure.core.match :only [match]]))
+            [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
+            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+            [com.puppetlabs.jdbc :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
+            [com.puppetlabs.puppetdb.query.paging :refer [requires-paging?]]
+            [clojure.core.match :refer [match]]))
 
 (defn execute-paged-query*
   "Helper function to executed paged queries.  Builds up the paged sql string,
@@ -904,12 +903,31 @@ args))))))
           (= op "select-resources") (partial resource-query->sql (resource-operators version))
           (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
+(defn remove-environment
+  "dissocs the :environment key when the version is :v4"
+  [result-map version]
+  (if-not (= :v4 version)
+    (dissoc result-map :environment)
+    result-map))
+
+(defn remove-all-environments
+  "Removes environment from a seq of results"
+  [version rows]
+  (map #(remove-environment % version) rows))
+
 (defn streamed-query-result
   "Uses a cursored resultset (for streaming), removing environments when not
-   in version ;v4. Returns a function that accepts a single function. That function
-   with get the results of the query"
-  [db version sql params]
-  (fn [f]
-    (jdbc/with-transacted-connection db
-      (jdbc/with-query-results-cursor sql params rs
-        (f (remove-all-environments version rs))))))
+   in version :v4. Returns the results after running the function `f` with the
+   resultset.
+
+   That function will get the results of the query. Ordinarily some sort of
+   munging and finally serialization is performed within this function. See
+   http/stream-json-response for a function to provide JSON streaming for
+   example.
+
+   If all you want is an unstreamed Seq, pass the function `doall` as `f` to
+   convert the LazySeq to a Seq by full traversing it. This is useful for tests,
+   that cannot analyze results easily in a streamed way."
+  [version sql params f]
+  (jdbc/with-query-results-cursor sql params rs
+    (f (remove-all-environments version rs))))

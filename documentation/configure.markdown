@@ -145,14 +145,6 @@ Create a new class in a new module (something like `site::puppetdb::server::extr
         setting => 'catalog-hash-conflict-debugging',
         value   => 'true',
       }
-
-      ini_setting {'puppetdb-event-query-limit':
-        path    => "${confdir}/global.ini",
-        section => 'global',
-        setting => 'event-query-limit',
-        value   => '30000',
-      }
-
     }
 {% endhighlight %}
 
@@ -177,6 +169,8 @@ If you installed from packages, PuppetDB will use the logback.xml file in the `/
 You can edit the logging configuration file while PuppetDB is running, and it will automatically react to changes after a few seconds.
 
 ### `event-query-limit`
+
+> **Deprecated:** With event streaming this setting is now ignored and will be removed in the future.
 
 The maximum number of legal results that a resource event query can return.  If you issue a query that would result in more results than this value, the query will simply return an error.  (This can be used to prevent accidental queries that would yield huge numbers of results from consuming undesirable amounts of resources on the server.)
 

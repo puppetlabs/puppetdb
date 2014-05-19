@@ -6,14 +6,13 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.http :as pl-http]
-            [ring.util.response :as rr]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]])
-  (:use [net.cgrand.moustache :only [app]]
-        com.puppetlabs.middleware
-        [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
-        [com.puppetlabs.puppetdb.http :only (query-result-response add-headers)]))
+            [net.cgrand.moustache :refer [app]]
+            [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
+                                               wrap-with-paging-options]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
 
-(defn query-facts
+(defn produce-body
   "Accepts a `query` and a `db` connection, and returns facts matching the
   query. If the query can't be parsed or is invalid, a 400 error will be
   returned, and a 500 if something else goes wrong."
@@ -22,16 +21,19 @@
     (case version
       :v1 (throw (IllegalArgumentException. "api v1 is retired"))
       :v2 nil
-      (paging/validate-order-by! [:certname :name :value] paging-options))
-    (with-transacted-connection db
-      (let [parsed-query (json/parse-string query true)
-            {[sql & params] :results-query
-             count-query :count-query} (f/query->sql version parsed-query paging-options)
-             resp (pl-http/stream-json-results (query/streamed-query-result db version sql params))]
+      (paging/validate-order-by! [:certname :name :value :environment] paging-options))
+    (let [parsed-query (json/parse-string query true)
+          {[sql & params] :results-query
+           count-query :count-query} (f/query->sql version parsed-query paging-options)
+          resp (pl-http/stream-json-response
+                (fn [f]
+                  (with-transacted-connection db
+                    (query/streamed-query-result version sql params f))))]
 
-        (if count-query
-          (add-headers resp {:count (get-result-count count-query)})
-          resp)))
+      (if count-query
+        (add-headers resp {:count (with-transacted-connection db
+                                    (get-result-count count-query))})
+        resp))
 
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -43,7 +45,11 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (query-facts version (params "query") paging-options (:scf-read-db globals)))
+                  (produce-body
+                   version
+                   (params "query")
+                   paging-options
+                   (:scf-read-db globals)))
             http-q/restrict-query-to-active-nodes)}))
 
 (defn build-facts-app

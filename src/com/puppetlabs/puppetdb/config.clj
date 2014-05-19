@@ -305,8 +305,7 @@
                (fn [global-config]
                  (-> global-config
                      (assoc :product-name product-name)
-                     (utils/assoc-when :event-query-limit 20000
-                                       :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
+                     (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

@@ -7,7 +7,7 @@
             [clojure.java.io :as io]
             [flatland.ordered.map :as omap]
             [puppetlabs.kitchensink.core :as ks]
-            [com.puppetlabs.puppetdb.http :refer [remove-all-environments]]
+            [com.puppetlabs.puppetdb.query :refer [remove-all-environments]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.fixtures :refer :all]
@@ -373,7 +373,6 @@
       :globals {:scf-read-db          read-db
                 :scf-write-db         write-db
                 :command-mq           *mq*
-                :event-query-limit    20000
                 :product-name         "puppetdb"})))
 
 (defn with-shutdown-after [dbs f]

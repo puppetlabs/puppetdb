@@ -3,12 +3,13 @@
 (ns com.puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-status v4?]]
-            [clojure.core.match :refer [match]])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes valid-jdbc-query?]]
-        [com.puppetlabs.puppetdb.query :only [execute-query compile-term compile-and]]
-        [com.puppetlabs.puppetdb.query.events :only [events-for-report-hash]]
-        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
+            [com.puppetlabs.puppetdb.http :refer [remove-status v4?]]
+            [clojure.core.match :refer [match]]
+            [com.puppetlabs.jdbc :refer [query-to-vec underscores->dashes valid-jdbc-query?]]
+            [com.puppetlabs.puppetdb.query :refer [execute-query compile-term
+                                                   compile-and remove-environment]]
+            [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
 
 ;; ## Report query functions
 ;;
