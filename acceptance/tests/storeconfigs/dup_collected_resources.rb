@@ -46,7 +46,7 @@ MANIFEST
       collectors.each do |collector|
         result = on collector, "puppet agent --test --server #{master}",
                     :acceptable_exit_codes => [1]
-        assert_match("Another local or imported resource exists with the type and title Notify[DUPE NOTIFY]",
+        assert_match("A duplicate resource was found while collecting exported resources, with the type and title Notify[DUPE NOTIFY]",
                      result.output,
                      "#{collector.node_name} collected duplicate resources without failing!")
       end
