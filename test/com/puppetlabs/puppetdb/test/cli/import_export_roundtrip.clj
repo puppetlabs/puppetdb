@@ -226,7 +226,7 @@
                                                          (export/catalog-for-node "localhost" *port* :v3)
                                                          json/parse-string))))
        (is (= (tur/munge-report-for-comparison (-> report
-                                                   (dissoc :environment)
+                                                   (dissoc :environment :status)
                                                    tur/munge-example-report-for-storage))
               (tur/munge-report-for-comparison (-> (first (export/reports-for-node "localhost" *port* :v3 (:certname report)))
                                                    (update-in [:resource-events] vec)))))

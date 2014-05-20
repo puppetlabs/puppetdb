@@ -49,6 +49,13 @@
   [version rows]
   (map #(remove-environment % version) rows))
 
+(defn remove-status
+  "Status is only for the v4 version of the reports response"
+  [result-map version]
+  (if-not (= :v4 version)
+    (dissoc result-map :status)
+    result-map))
+
 (defn v4?
   "Returns a function that always returns true if `version` is :v4"
   [version]

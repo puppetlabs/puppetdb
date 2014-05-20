@@ -3,7 +3,10 @@
             [clj-time.core :as time]
             [schema.core :as s]
             [schema.macros :as sm]
-            [puppetlabs.kitchensink.core :as kitchensink]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [schema.coerce :as sc]
+            [schema.utils :as su]
+            [slingshot.slingshot :refer [throw+]]))
 
 (defrecord DefaultedMaybe [schema default]
   s/Schema
@@ -30,96 +33,22 @@
   [x]
   (instance? com.puppetlabs.puppetdb.schema.DefaultedMaybe x))
 
-(defprotocol PredConstructFn
-  (get-construct-fn [pred]
-    "Returns the construct-fn for a given predicate schema, when more
-     than one construct is present, pick the first."))
-
-(defrecord ConstructedPred [predicate-rec construct-fn]
-
-  PredConstructFn
-  (get-construct-fn [_]
-    construct-fn)
-
-  s/Schema
-  (s/walker [this]
-    (s/walker predicate-rec))
-  (s/explain [this]
-    (s/explain predicate-rec)))
-
-(defn constructed-pred
-  "Create a predicate with `construct-fn` that can create a new instance
-   of a type that will return true when passed into `pred`"
-  ([pred construct-fn]
-     (ConstructedPred. pred construct-fn))
-  ([p? pred-name construct-fn]
-     (ConstructedPred. (s/pred p? pred-name) construct-fn)))
-
 (defn maybe? [x]
   (instance? schema.core.Maybe x))
 
-(defn constructed-pred?
-  "True if `x` is a ConstructedPred and thus able to be converted to a new type
-   from an existing value"
-  [x]
-  (cond
-   (instance? ConstructedPred x) true
-   (maybe? x) (instance? ConstructedPred (:schema x))
-   :else false))
-
-(defn pred-name
-  "Grabs the pred-name, typically a symbol representing the predicate
-   function, from schema the `constructed-pred` is wrapping."
-  [constructed-pred]
-  (get-in constructed-pred [:schema :pred-name]))
-
-(defn create-minutes
-  "Create a JodaTime Minutes instance given the constructed predicate and a value"
-  [pred val]
-  (case (pred-name pred)
-    'integer? (time/minutes val)
-    (time/minutes (Integer/valueOf (str val)))))
-
-(def Minutes
-  "Schema type for a JodaTime Minutes instance"
-  (constructed-pred time/minutes? 'minutes? create-minutes))
-
-(defn create-period
-  "Create a JodaTime Period instance given the constructed predicate and a
-   value (something like 10d for 10 days)"
-  [pred val]
-  (pl-time/parse-period (str val)))
-
-(defn create-days
-  "Create a JodaTime Days instance given the constructed predicate and a value"
-  [pred val]
-  (case (pred-name pred)
-    'integer? (time/days val)
-    (time/days (Integer/valueOf (str val)))))
-
-(def Days
-  "Schema type for a JodaTime Days instance"
-  (constructed-pred time/days? 'days? create-days))
-
-(defn create-seconds
-  "Creates a JodaTime Seconds instance given the constructed predicate `pred` and a value"
-  [pred val]
-  (case (pred-name pred)
-    'integer? (time/secs val)
-    (time/secs (Integer/valueOf (str val)))))
-
-(def Seconds
-  "Schema type for a JodaTime Seconds instance"
-  (constructed-pred time/secs? 'secs? create-seconds))
+(def coerce-to-int
+  "Attempts to convert `x` to an integer. Failures will just return
+   the original value (intending to fail on validation)"
+  (sc/safe
+   (fn [x]
+     (if (integer? x)
+       x
+       (Integer/valueOf x)))))
 
 (defn period?
   "True if `x` is a JodaTime Period"
   [x]
   (instance? org.joda.time.Period x))
-
-(def Period
-  "Schema type for JodaTime Period instances"
-  (constructed-pred period? 'period? create-period))
 
 (def Timestamp
   "Schema type for JodaTime timestamps"
@@ -128,22 +57,12 @@
 (def Function
   (s/pred fn? 'fn?))
 
-(defn convert-boolean
-  "Converts stringified boolean values to booleans, ignores the first
-   (ConstructedPred) argument as it always uses the stringified version."
-  [_ s]
-  (Boolean/valueOf (str s)))
-
 (defn boolean?
   "Predicate for finding true and false values, not
    truthy or falsey values but real true/false values."
   [x]
   (or (true? x)
       (false? x)))
-
-(def SchemaBoolean
-  "Schema type for a boolean"
-  (constructed-pred boolean? 'boolean? convert-boolean))
 
 (defn schema-key->data-key
   "Returns the key from the `schema` map used for retrieving
@@ -160,11 +79,6 @@
         :when (defaulted-maybe? v)]
     k))
 
-(defn construct-fn?
-  "Returns true if x supports the PredConstructFn protocol"
-  [x]
-  (satisfies? PredConstructFn x))
-
 (defn defaulted-data
   "Default missing values in the `data` map with values specified in `schema`"
   [schema data]
@@ -177,33 +91,35 @@
                 (assoc acc data-key (:default schema-value)))))
           data (defaulted-maybe-keys schema)))
 
-(extend-protocol PredConstructFn
-  schema.core.Either
-  (get-construct-fn [pred]
-    (get-construct-fn (first (:schemas pred))))
-  schema.core.Both
-  (get-construct-fn [pred]
-    (get-construct-fn (first (:schemas pred))))
-  schema.core.Maybe
-  (get-construct-fn [pred]
-    (get-construct-fn (:schema pred)))
-  schema.core.Predicate
-  (get-construct-fn [pred]
-    (fn [pred val] val))
-  DefaultedMaybe
-  (get-construct-fn [pred]
-    (get-construct-fn (:schema pred))))
+(defn-validated convert-if-needed
+  "Wraps each coercion function (value in the map) with a check
+   to only covert the type if it's not already of that type."
+  [m :- {Class (s/make-fn-schema s/Any s/Any)}]
+  (reduce-kv (fn [acc clazz f]
+               (assoc acc
+                 clazz
+                 (fn [obj]
+                   (if (instance? clazz obj)
+                     obj
+                     (f obj))) ))
+             {} m))
+
+(def conversion-fns
+  "Basic conversion functions for use by Schema"
+  (convert-if-needed
+   {org.joda.time.Minutes (comp time/minutes coerce-to-int)
+    org.joda.time.Period (comp pl-time/parse-period str)
+    org.joda.time.Days (comp time/days coerce-to-int)
+    org.joda.time.Seconds (comp time/secs coerce-to-int)
+    Boolean (comp #(Boolean/valueOf %) str)}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
   [schema data]
-  (reduce-kv (fn [acc k pred]
-               (let [data-key (schema-key->data-key k)]
-                 (if-let [d (and (construct-fn? pred)
-                                 (get data data-key))]
-                   (assoc acc data-key ( (get-construct-fn pred) (get schema k) d))
-                   acc)))
-             data schema))
+  (let [result ((sc/coercer schema conversion-fns) data)]
+    (if (su/error? result)
+      (throw+ (su/error-val result))
+      result)))
 
 (defn strip-unknown-keys
   "Remove all keys from `data` not specified by `schema`"
@@ -217,4 +133,3 @@
   (->> data
        (defaulted-data in-schema)
        (convert-to-schema out-schema)))
-

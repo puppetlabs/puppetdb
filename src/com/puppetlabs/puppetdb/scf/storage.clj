@@ -51,11 +51,11 @@
   {:type String
    :title String})
 
-(def json-primitive-schema (s/either String Number pls/SchemaBoolean))
+(def json-primitive-schema (s/either String Number Boolean))
 
 (def resource-schema
   (merge resource-ref-schema
-         {(s/optional-key :exported) pls/SchemaBoolean
+         {(s/optional-key :exported) Boolean
           (s/optional-key :file) String
           (s/optional-key :line) s/Int
           (s/optional-key :tags) #{String}
@@ -186,6 +186,7 @@
    :gc-catalogs        (timer [ns-str "default" "gc-catalogs-time"])
    :gc-params          (timer [ns-str "default" "gc-params-time"])
    :gc-environments    (timer [ns-str "default" "gc-environments-time"])
+   :gc-report-statuses (timer [ns-str "default" "gc-report-statuses"])
 
    :updated-catalog    (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
@@ -262,29 +263,61 @@
                      ["name=?" certname]
                      {:deactivated nil}))
 
+
+(pls/defn-validated create-row :- s/Int
+  "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
+  [table :- s/Keyword
+   row-map :- {s/Keyword s/Any}]
+  (:id (first (sql/insert-records table row-map))))
+
+(pls/defn-validated query-id :- (s/maybe s/Int)
+  "Returns the id (primary key) from `table` that contain `row-map` values"
+  [table :- s/Keyword
+   row-map :- {s/Keyword s/Any}]
+  (let [cols (keys row-map)
+        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
+    (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
+      (:id (first rs)))))
+
+(pls/defn-validated ensure-row :- (s/maybe s/Int)
+  "Check if the given row (defined by `row-map` exists in `table`, creates it if it does not. Always returns
+   the id of the row (whether created or existing)"
+  [table :- s/Keyword
+   row-map :- {s/Keyword s/Any}]
+  (when row-map
+    (if-let [id (query-id table row-map)]
+      id
+      (create-row table row-map))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
-
-
-(pls/defn-validated create-environment :- s/Int
-  "Inserts `env-name` into the environments table"
-  [env-name :- s/Str]
-  (:id (first (sql/insert-records :environments {:name env-name}))))
 
 (pls/defn-validated environment-id :- (s/maybe s/Int)
   "Returns the id (primary key) from the environments table for the given `env-name`"
   [env-name :- s/Str]
-  (sql/with-query-results rs ["select id from environments where name=?" env-name]
-    (:id (first rs))))
+  (query-id :environments {:name env-name}))
 
 (pls/defn-validated ensure-environment :- (s/maybe s/Int)
   "Check if the given `env-name` exists, creates it if it does not. Always returns
    the id of the `env-name` (whether created or existing)"
   [env-name :- (s/maybe s/Str)]
   (when env-name
-    (if-let [id (environment-id env-name)]
-      id
-      (create-environment env-name))))
+    (ensure-row :environments {:name env-name})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Status querying/updating
+
+(pls/defn-validated status-id :- (s/maybe s/Int)
+  "Returns the id (primary key) from the result_statuses table for the given `status`"
+  [status :- s/Str]
+  (query-id :report_statuses {:status status}))
+
+(pls/defn-validated ensure-status :- (s/maybe s/Int)
+  "Check if the given `status` exists, creates it if it does not. Always returns
+   the id of the `status` (whether created or existing)"
+  [status :- (s/maybe s/Str)]
+  (when status
+    (ensure-row :report_statuses {:status status})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog updates/changes
@@ -707,6 +740,13 @@
                UNION ALL
                SELECT environment_id FROM certname_facts_metadata)"])))
 
+(defn delete-unassociated-statuses!
+  "Remove any statuses that aren't associated with a report"
+  []
+  (time! (:gc-report-statuses metrics)
+         (sql/delete-rows :report_statuses
+           ["ID NOT IN (SELECT status_id FROM reports)"])))
+
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
@@ -714,7 +754,9 @@
          (sql/transaction
           (delete-unassociated-params!))
          (sql/transaction
-          (delete-unassociated-environments!))))
+          (delete-unassociated-environments!))
+         (sql/transaction
+          (delete-unassociated-statuses!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
@@ -850,7 +892,8 @@
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
   [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events transaction-uuid environment]
+           start-time end-time resource-events transaction-uuid environment
+           status]
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
@@ -879,7 +922,9 @@
                                  :end_time               (to-timestamp end-time)
                                  :receive_time           (to-timestamp timestamp)
                                  :transaction_uuid       transaction-uuid
-                                 :environment_id         (ensure-environment environment)}))
+                                 :environment_id         (ensure-environment environment)
+                                 :status_id              (ensure-status status)}))
+
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?
               (update-latest-report! certname))))))
