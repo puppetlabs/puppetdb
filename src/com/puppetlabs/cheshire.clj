@@ -63,6 +63,8 @@
 
 (def parse-string core/parse-string)
 
+(def parse-strict-string core/parse-string-strict)
+
 (def parse-stream core/parse-stream)
 
 (defn spit-json
