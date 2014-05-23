@@ -9,8 +9,8 @@
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
 
-(def endpoints {:v3 "/v3/event-counts"
-                :v4 "/v4/event-counts"})
+(def endpoints [[:v3 "/v3/event-counts"]
+                [:v4 "/v4/event-counts"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 

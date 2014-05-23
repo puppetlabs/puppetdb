@@ -19,8 +19,7 @@
 
 (def endpoints [[:v2 v2-endpoint]
                 [:v3 v3-endpoint]
-                [:v4 v4-endpoint]
-                #_[:v4 v4-environments-endpoint]])
+                [:v4 v4-endpoint]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 

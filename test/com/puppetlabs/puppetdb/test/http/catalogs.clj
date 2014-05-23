@@ -8,8 +8,8 @@
             [com.puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
             [com.puppetlabs.puppetdb.fixtures :as fixt]))
 
-(def endpoints {:v3 "/v3/catalogs"
-                :v4 "/v4/catalogs"})
+(def endpoints [[:v3 "/v3/catalogs"]
+                [:v4 "/v4/catalogs"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 

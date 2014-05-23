@@ -9,8 +9,8 @@
             [com.puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
-(def endpoints {:v3 "/v3/aggregate-event-counts"
-                :v4 "/v4/aggregate-event-counts"})
+(def endpoints [[:v3 "/v3/aggregate-event-counts"]
+                [:v4 "/v4/aggregate-event-counts"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
