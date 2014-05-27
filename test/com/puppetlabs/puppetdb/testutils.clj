@@ -9,11 +9,11 @@
             [fs.core :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [slingshot.slingshot :refer [throw+]]
-            [ring.mock.request :as mock])
-  (:use     [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-current-connection-table-names]]
-            [puppetlabs.kitchensink.core :only [parse-int excludes? keyset]]
-            [clojure.test]
-            [clojure.set :only [difference]]))
+            [ring.mock.request :as mock]
+            [com.puppetlabs.puppetdb.scf.storage-utils :refer [sql-current-connection-table-names]]
+            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
+            [clojure.test :refer :all]
+            [clojure.set :refer [difference]]))
 
 (def c-t "application/json")
 
@@ -44,10 +44,8 @@
     (try
       (load "/config/local")
       (catch java.io.FileNotFoundException ex
-          (load "/config/default")))
-    {
-      :testdb-config-fn test-db-config
-    }))
+        (load "/config/default")))
+    {:testdb-config-fn test-db-config}))
 
 ;; Memoize the loading of the test config file so that we don't have to
 ;; keep going back to disk for it.
@@ -143,7 +141,7 @@
   "Given a `Throwable`, returns a String containing the message and stack trace.
   If passed `nil`, returns `nil`."
   [ex]
-  (if ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
+  (when ex (str (.getMessage ex) "\n" (string/join "\n" (.getStackTrace ex)))))
 
 (defmacro with-fixtures
   "Evaluates `body` wrapped by the `each` fixtures of the current namespace."
@@ -327,3 +325,31 @@
                  (json/parse-string true)
                  :uuid
                  java.util.UUID/fromString)))
+
+(defmacro wrap-with-testing
+  "If `version` is bound in this context, wrap the form in a testing
+   macro to indicate the version being tested"
+  [body]
+  `(if ~(contains? &env 'version)
+     (testing (str "Testing version " ~'version)
+       ~@body)
+     (do ~@body)))
+
+(defmacro doverseq
+  "Loose wrapper around `doseq` to support testing multiple versions of commands. Will run
+   the test fixtures around each tested version and if `version` is chosen as the let bound
+   variable to hold the current version being tested, with wrap it in a (testing...) block
+   indicating the version being tested"
+  [seq-exprs & body]
+  `(let [each-fixture# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
+     (doseq ~seq-exprs
+       (each-fixture#
+         (fn []
+           (wrap-with-testing ~body))))))
+
+(defmacro deftestseq
+  "Def test wrapper around a doverseq."
+  [name seq-exprs & body]
+  (when *load-tests*
+    `(def ~(vary-meta name assoc :test `(fn [] (doverseq ~seq-exprs ~@body)))
+       (fn [] (test-var (var ~name))))))

@@ -5,9 +5,14 @@
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.http.metrics :refer :all]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
-            [com.puppetlabs.puppetdb.testutils :as tu]))
+            [com.puppetlabs.puppetdb.testutils :refer [get-request deftestseq
+                                                       content-type]]))
 
 (use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
+
+(def endpoints [[:v2 "/v2/metrics"]
+                [:v3 "/v3/metrics"]
+                [:v4 "/v4/metrics"]])
 
 (deftest mean-filtering
   (testing "MBean filtering"
@@ -32,97 +37,45 @@
   [req]
   (assoc-in req [:headers "accept"] "text/plain"))
 
-(deftest metrics-set-handler
+(deftestseq metrics-set-handler
+  [[version endpoint] endpoints]
+
   (testing "Remote metrics endpoint"
     (testing "should return a pl-http/status-not-found for an unknown metric"
-      (let [request (fixt/internal-request)
-            api-response ((mbean ["does_not_exist"]) request)
-            v2-response (fixt/*app* (tu/get-request "/v2/metrics/does_not_exist"))
-            v3-response (fixt/*app* (tu/get-request "/v3/metrics/does_not_exist"))
-            v4-response (fixt/*app* (tu/get-request "/v4/metrics/does_not_exist"))]
-        (is (= (:status api-response)
-               (:status v2-response)
-               (:status v3-response)
-               (:status v4-response)
+      (let [response (fixt/*app* (get-request (str endpoint "/mbean/does_not_exist")))]
+        (is (= (:status response)
                pl-http/status-not-found))))
 
     (testing "should return a pl-http/status-not-acceptable for unacceptable content type"
-      (let [request (accepts-plain-text (fixt/internal-request))
-            api-response (list-mbeans request)
-            v2-response (fixt/*app* (accepts-plain-text (tu/get-request "/v2/metrics/mbeans")))
-            v3-response (fixt/*app* (accepts-plain-text (tu/get-request "/v3/metrics/mbeans")))
-            v4-response (fixt/*app* (accepts-plain-text (tu/get-request "/v4/metrics/mbeans")))]
-        (is (= (:status api-response)
-               (:status v2-response)
-               (:status v3-response)
-               (:status v4-response)
+      (let [response (fixt/*app* (accepts-plain-text (get-request (str endpoint "/mbeans"))))]
+        (is (= (:status response)
                pl-http/status-not-acceptable))))
 
     (testing "should return a pl-http/status-ok for an existing metric"
-      (let [request (fixt/internal-request)
-            api-response ((mbean ["java.lang:type=Memory"]) request)
-            v2-response (fixt/*app* (tu/get-request "/v2/metrics/mbean/java.lang:type=Memory"))
-            v3-response (fixt/*app* (tu/get-request "/v3/metrics/mbean/java.lang:type=Memory"))
-            v4-response (fixt/*app* (tu/get-request "/v4/metrics/mbean/java.lang:type=Memory"))]
-        (is (= (:status api-response)
-               (:status v2-response)
-               (:status v3-response)
-               (:status v4-response)
+      (let [response (fixt/*app* (get-request (str endpoint "/mbean/java.lang:type=Memory")))]
+        (is (= (:status response)
                pl-http/status-ok))
-        (is (= (tu/content-type api-response)
-               (tu/content-type v2-response)
-               (tu/content-type v3-response)
-               (tu/content-type v4-response)
+        (is (= (content-type response)
                pl-http/json-response-content-type))
-        (is (true? (map? (json/parse-string (:body api-response) true))))
-        (is (true? (map? (json/parse-string (:body v2-response) true))))
-        (is (true? (map? (json/parse-string (:body v3-response) true))))
-        (is (true? (map? (json/parse-string (:body v4-response) true))))))
+        (is (true? (map? (json/parse-string (:body response) true))))))
 
     (testing "should return a list of all mbeans"
-      (let [api-response (list-mbeans (fixt/internal-request))
-            v2-response (fixt/*app* (tu/get-request "/v2/metrics/mbeans"))
-            v3-response (fixt/*app* (tu/get-request "/v3/metrics/mbeans"))
-            v4-response (fixt/*app* (tu/get-request "/v4/metrics/mbeans"))]
-        (is (= (:status api-response)
-               (:status v2-response)
-               (:status v3-response)
-               (:status v4-response)
+      (let [response (fixt/*app* (get-request (str endpoint "/mbeans")))]
+        (is (= (:status response)
                pl-http/status-ok))
-        (is (= (tu/content-type api-response)
-               (tu/content-type v2-response)
-               (tu/content-type v3-response)
-               (tu/content-type v4-response)
+        (is (= (content-type response)
                pl-http/json-response-content-type))
 
         ;; Retrieving all the resulting mbeans should work
-        (let [api-mbeans (json/parse-string (:body api-response))
-              v2-mbeans (json/parse-string (:body v2-response))
-              v3-mbeans (json/parse-string (:body v3-response))
-              v4-mbeans (json/parse-string (:body v4-response))]
+        (let [api-mbeans (json/parse-string (:body response))]
 
           (is (map? api-mbeans))
-          (is (map? v2-mbeans))
-          (is (map? v3-mbeans))
-          (is (map? v4-mbeans))
 
-          (doseq [[name uri] (take 100 api-mbeans)
-                  :let [response ((mbean [name]) (fixt/internal-request))]]
-
-            (is (= (:status response pl-http/status-ok)))
-            (is (= (tu/content-type response) pl-http/json-response-content-type)))
-
-          (doseq [[name uri] (take 100 v2-mbeans)
-                  :let [response (fixt/*app* (tu/get-request (str "/v2" uri))) ]]
-            (is (= (:status response pl-http/status-ok)))
-            (is (= (tu/content-type response) pl-http/json-response-content-type)))
-
-          (doseq [[name uri] (take 100 v3-mbeans)
-                  :let [response (fixt/*app* (tu/get-request (str "/v3" uri)))]]
-            (is (= (:status response pl-http/status-ok)))
-            (is (= (tu/content-type response) pl-http/json-response-content-type)))
-
-          (doseq [[name uri] (take 100 v4-mbeans)
-                  :let [response (fixt/*app* (tu/get-request (str "/v4" uri)))]]
-            (is (= (:status response pl-http/status-ok)))
-            (is (= (tu/content-type response) pl-http/json-response-content-type))))))))
+          (doseq [[_ uri] (take 100 api-mbeans)
+                  :let [response (fixt/*app*
+                                  (get-request
+                                   (str "/" (name version) uri)))]]
+            (is (= (:status response)
+                   pl-http/status-ok))
+            (is (= (content-type response)
+                   pl-http/json-response-content-type))))))))

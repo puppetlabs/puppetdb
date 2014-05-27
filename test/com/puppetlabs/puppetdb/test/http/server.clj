@@ -1,22 +1,30 @@
 (ns com.puppetlabs.puppetdb.test.http.server
-  (:require [com.puppetlabs.http :as pl-http])
-  (:use clojure.test
-        ring.mock.request
-        com.puppetlabs.puppetdb.fixtures
-        [clojure.java.io :only [file]]))
+  (:require [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.testutils :refer [deftestseq]]
+            [clojure.test :refer :all]
+            [ring.mock.request :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [clojure.java.io :refer [file]]))
+
+;; This test file is for tests that aren't for any specific end-point.
 
 (use-fixtures :each with-http-app)
 
+(def versions [:v2 :v3 :v4])
+
 (def c-t "application/json")
 
-(deftest method-not-allowed
+(deftestseq method-not-allowed
+  [version versions]
+
   (testing "provides a useful error message"
-    (let [request (header (request :post "/v3/nodes") "Accept" c-t)
+    (let [endpoint (str "/" (name version) "/nodes")
+          request (header (request :post endpoint) "Accept" c-t)
           {:keys [status body]} (*app* request)]
       (is (= status pl-http/status-bad-method))
-      (is (= body "The POST method is not allowed for /v3/nodes")))))
+      (is (= body (str "The POST method is not allowed for " endpoint))))))
 
-(deftest resource-requests
+(deftest misc-resource-requests
   (testing "/ redirects to the dashboard"
     (let [request (request :get "/")
           {:keys [status headers]} (*app* request)]

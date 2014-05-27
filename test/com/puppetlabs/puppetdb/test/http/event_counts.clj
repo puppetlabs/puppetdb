@@ -1,19 +1,22 @@
-(ns com.puppetlabs.puppetdb.test.http.v4.event-counts
-  (:require [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json])
-  (:use clojure.test
-        [clj-time.core :only [now]]
-        com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
-        [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
-        [com.puppetlabs.puppetdb.testutils :only [response-equal? paged-results]]
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
+(ns com.puppetlabs.puppetdb.test.http.event-counts
+  (:require [cheshire.core :as json]
+            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.fixtures :as fixt]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [com.puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
+            [com.puppetlabs.puppetdb.testutils :refer [response-equal? paged-results deftestseq]]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
+            [clj-time.core :refer [now]]))
 
-(def endpoint "/v4/event-counts")
+(def endpoints [[:v3 "/v3/event-counts"]
+                [:v4 "/v4/event-counts"]])
 
-(use-fixtures :each with-test-db with-http-app)
+(use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-(deftest query-event-counts
+(deftestseq query-event-counts
+  [[version endpoint] endpoints]
+
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
@@ -67,17 +70,19 @@
                          :noops           0
                          :skips           1}}
             results (paged-results
-                      {:app-fn  *app*
-                       :path    endpoint
-                       :query   [">" "timestamp" 0]
-                       :params  {:summarize-by "resource"}
-                       :limit   1
-                       :total   (count expected)
-                       :include-total count?})]
+                     {:app-fn  fixt/*app*
+                      :path    endpoint
+                      :query   [">" "timestamp" 0]
+                      :params  {:summarize-by "resource"}
+                      :limit   1
+                      :total   (count expected)
+                      :include-total count?})]
         (is (= (count expected) (count results)))
         (is (= expected (set results)))))))
 
-(deftest query-distinct-event-counts
+(deftestseq query-distinct-event-counts
+  [[version endpoint] endpoints]
+
   (store-example-report! (:basic reports) (now))
   (store-example-report! (:basic3 reports) (now))
   (testing "should only count the most recent event for each resource"
@@ -100,14 +105,17 @@
                        :noops 0
                        :skips 1}}
           response  (get-response endpoint
-                      ["=" "certname" "foo.local"]
-                      "resource"
-                      {"distinct-resources" true
-                       "distinct-start-time" 0
-                       "distinct-end-time" (now)})]
+                                  ["=" "certname" "foo.local"]
+                                  "resource"
+                                  {"distinct-resources" true
+                                   "distinct-start-time" 0
+                                   "distinct-end-time" (now)})]
       (response-equal? response expected))))
 
-(deftest query-with-environment
+(deftestseq query-with-environment
+  [[version endpoint] endpoints
+   :when (not= version :v3)]
+
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"

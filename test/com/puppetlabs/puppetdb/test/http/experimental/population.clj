@@ -2,13 +2,13 @@
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http])
-  (:use clojure.test
-        ring.mock.request
-        [clj-time.core :only [now]]
-        [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.examples]
-        [com.puppetlabs.puppetdb.testutils :only [get-request]]))
+            [com.puppetlabs.http :as pl-http]
+            [clojure.test :refer :all]
+            [ring.mock.request :refer :all]
+            [clj-time.core :refer [now]]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.examples :refer :all]
+            [com.puppetlabs.puppetdb.testutils :refer [get-request]]))
 
 (use-fixtures :each with-test-db with-http-app)
 

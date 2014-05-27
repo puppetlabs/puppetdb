@@ -355,27 +355,6 @@
   [catalog]
   (update-in catalog [:payload] json/generate-string))
 
-(defmacro wrap-with-testing
-  "If `version` is bound in this context, wrap the form in a testing
-   macro to indicate the version being tested"
-  [body]
-  `(if ~(contains? &env 'version)
-     (testing (str "Testing version " ~'version)
-       ~@body)
-     (do ~@body)))
-
-(defmacro doverseq
-  "Loose wrapper around `doseq` to support testing multiple versions of commands. Will run
-   the test fixtures around each tested version and if `version` is chosen as the let bound
-   variable to hold the current version being tested, with wrap it in a (testing...) block
-   indicating the version being tested"
-  [seq-exprs & body]
-  `(let [each-fixture# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
-     (doseq ~seq-exprs
-       (each-fixture#
-         (fn []
-           (wrap-with-testing ~body))))))
-
 (defn with-env
   "Returns a function that will update the `row-map` to include
    environment information if `env-version` is the same as `current-version`.

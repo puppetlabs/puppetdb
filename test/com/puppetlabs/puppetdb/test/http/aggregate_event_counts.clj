@@ -1,19 +1,22 @@
-(ns com.puppetlabs.puppetdb.test.http.v4.aggregate-event-counts
+(ns com.puppetlabs.puppetdb.test.http.aggregate-event-counts
   (:require [com.puppetlabs.http :as pl-http]
-            [cheshire.core :as json])
-  (:use clojure.test
-        [clj-time.core :only [now]]
-        com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
-        [com.puppetlabs.puppetdb.testutils :only [assert-success!]]
-        [com.puppetlabs.puppetdb.testutils.event-counts :only [get-response]]
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]))
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.fixtures :as fixt]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [clj-time.core :refer [now]]
+            [com.puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
+            [com.puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
-(def endpoint "/v4/aggregate-event-counts")
+(def endpoints [[:v3 "/v3/aggregate-event-counts"]
+                [:v4 "/v4/aggregate-event-counts"]])
 
-(use-fixtures :each with-test-db with-http-app)
+(use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-(deftest query-aggregate-event-counts
+(deftestseq query-aggregate-event-counts
+  [[version endpoint] endpoints]
+
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize-by rejects unsupported values"
@@ -42,13 +45,15 @@
                      :total 1}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                   "containing-class"
-                                   {"count-by"      "certname"
-                                    "counts-filter" ["<" "successes" 1]})
+                                  "containing-class"
+                                  {"count-by"      "certname"
+                                   "counts-filter" ["<" "successes" 1]})
           actual    (json/parse-string (:body response) true)]
       (is (= actual expected)))))
 
-(deftest query-distinct-event-counts
+(deftestseq query-distinct-event-counts
+  [[version endpoint] endpoints]
+
   (store-example-report! (:basic reports) (now))
   (store-example-report! (:basic3 reports) (now))
   (testing "should only count the most recent event for each resource"
@@ -58,15 +63,18 @@
                      :noops 0
                      :total 3}
           response  (get-response endpoint
-                      ["=" "certname" "foo.local"]
-                      "resource"
-                      {"distinct-resources" true
-                       "distinct-start-time" 0
-                       "distinct-end-time" (now)})]
+                                  ["=" "certname" "foo.local"]
+                                  "resource"
+                                  {"distinct-resources" true
+                                   "distinct-start-time" 0
+                                   "distinct-end-time" (now)})]
       (assert-success! response)
       (is (= expected (json/parse-string (:body response) true))))))
 
-(deftest query-with-environment
+(deftestseq query-with-environment
+  [[version endpoint] endpoints
+   :when (not= version :v3)]
+
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"
