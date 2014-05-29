@@ -10,6 +10,7 @@ canonical: "/puppetdb/latest/configure.html"
 [postgres_ssl]: ./postgres_ssl.html
 [module]: ./install_via_module.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
+[puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
 
 Summary
 -----
@@ -186,6 +187,12 @@ and override this setting to point to your proxy server.
 ### `catalog-hash-conflict-debugging`
 
 When this is set to true, debugging information will be written to `<vardir>/debug/catalog-hashes` every time a catalog is received with a hash that is different than the previously received catalog for that host. Note that this should only be enabled when troubleshooting performance related issues with PuppetDB and the database server. This will output many files and could potentially slow down a production PuppetDB instance. See the [Troubleshooting Low Catalog Duplication guide][low_catalog_dupe] for more information on the outputted files and debugging this problem.
+
+### `url-prefix`
+
+This optional setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
+unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
+this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
 
 `[database]` Settings
 -----

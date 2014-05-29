@@ -14,6 +14,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [report]: ./api/query/v3/report.html
 [store_report]: ./api/commands.html#store-report-version-1
 [report_format]: ./api/wire_format/report_format_v3.html
+[url_prefix_setting]: ./configure.html#url-prefix
 
 > Note: To use PuppetDB, your site's puppet master(s) must be running Puppet 3.5.1 or later .
 
@@ -64,6 +65,8 @@ The [puppetdb.conf][puppetdb_conf] file will probably not exist yet. Create it, 
 PuppetDB's port for secure traffic defaults to 8081. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
 
 For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB terminus to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
+
+You may also, optionally, specify a setting named `url_prefix` if you have configured your PuppetDB server to run the web application at a URL other than "/".  This should not be necessary in most cases, and should only be used if you have modified the corresponding [`url-prefix` setting in your PuppetDB configuration][url_prefix_setting].
 
 If no puppetdb.conf file exists, the following default values will be used:
 
