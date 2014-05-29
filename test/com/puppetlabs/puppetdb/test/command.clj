@@ -9,19 +9,19 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
             [clojure.walk :as walk]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment]])
-  (:use [com.puppetlabs.puppetdb.command]
-        [com.puppetlabs.puppetdb.testutils]
-        [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.jdbc :only [query-to-vec]]
-        [com.puppetlabs.puppetdb.examples]
-        [com.puppetlabs.puppetdb.testutils.reports :only [munge-example-report-for-storage]]
-        [com.puppetlabs.puppetdb.command.constants :only [command-names]]
-        [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [days ago now]]
-        [clojure.test]
-        [clojure.tools.logging :only [*logger-factory*]]
-        [slingshot.slingshot :only [try+ throw+]]))
+            [com.puppetlabs.puppetdb.query :refer [remove-environment]]
+            [com.puppetlabs.puppetdb.command :refer :all]
+            [com.puppetlabs.puppetdb.testutils :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.jdbc :refer [query-to-vec]]
+            [com.puppetlabs.puppetdb.examples :refer :all]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :refer [days ago now]]
+            [clojure.test :refer :all]
+            [clojure.tools.logging :refer [*logger-factory*]]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
 (use-fixtures :each with-test-db)
 

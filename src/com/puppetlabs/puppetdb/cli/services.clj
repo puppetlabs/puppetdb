@@ -255,8 +255,6 @@
          :as config}                            (conf/process-config! config)
         product-name                               (:product-name global)
         update-server                              (:update-server global)
-        ;; TODO: revisit the choice of 20000 as a default value for event queries
-        event-query-limit                          (:event-query-limit global)
         write-db                                   (pl-jdbc/pooled-datasource database)
         read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         gc-interval                                (get database :gc-interval)
@@ -270,7 +268,6 @@
                                                     :scf-write-db         write-db
                                                     :command-mq           {:connection-string mq-addr
                                                                            :endpoint          mq-endpoint}
-                                                    :event-query-limit    event-query-limit
                                                     :update-server        update-server
                                                     :product-name         product-name}]
 

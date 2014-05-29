@@ -3,12 +3,12 @@
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]
-            [com.puppetlabs.puppetdb.query.paging :as paging])
-  (:use     [com.puppetlabs.jdbc :only (with-transacted-connection)]
-            [com.puppetlabs.middleware :only [verify-accepts-json validate-query-params wrap-with-paging-options]]
-            [net.cgrand.moustache :only [app]]
-            [com.puppetlabs.http :only [parse-boolean-query-param]]
-            [com.puppetlabs.puppetdb.http :only (query-result-response)]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
+            [net.cgrand.moustache :refer [app]]
+            [com.puppetlabs.http :refer [parse-boolean-query-param]]
+            [com.puppetlabs.puppetdb.http :refer [query-result-response]]))
 
 (defn produce-body
   "Given a database connection, a query, a value to summarize by, and optionally

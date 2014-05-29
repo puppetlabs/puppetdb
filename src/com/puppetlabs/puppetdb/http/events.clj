@@ -2,15 +2,16 @@
   (:import (java.sql Timestamp))
   (:require [com.puppetlabs.http :as pl-http]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.query.events :as query]
+            [com.puppetlabs.puppetdb.query.events :as events]
             [com.puppetlabs.cheshire :as json]
-            [ring.util.response :as rr]
             [com.puppetlabs.puppetdb.query.paging :as paging]
+            [com.puppetlabs.puppetdb.query :as query]
             [clj-time.coerce :refer [to-timestamp]]
-            [com.puppetlabs.middleware :as middleware])
-  (:use [net.cgrand.moustache :only [app]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.puppetdb.http :only (query-result-response)]))
+            [com.puppetlabs.middleware :as middleware]
+            [net.cgrand.moustache :refer [app]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection
+                                         get-result-count]]
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct-resources` query.  Return a
@@ -48,28 +49,30 @@
                "'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'")))))
 
 (defn produce-body
-  "Given a `limit`, a query and a database connection, return a Ring response
-  with the query results.
+  "Given a query, options and a database connection, return a Ring response with the
+  query results.
 
-  If the query can't be parsed, an HTTP `Bad Request` (400) is returned.
-
-  If the query would return more than `limit` results, `status-internal-error`
-  is returned."
-  [version limit query query-options paging-options db]
-  {:pre [(and (integer? limit) (>= limit 0))]}
+  If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
+  [version json-query query-options paging-options db]
   (try
     (with-transacted-connection db
-      (-> query
-          (json/parse-string true)
-          ((partial query/query->sql version query-options))
-          ((partial query/limited-query-resource-events version limit paging-options))
-          (query-result-response)))
+      (let [parsed-query (json/parse-string json-query true)
+            {[sql & params] :results-query
+             count-query    :count-query} (events/query->sql version query-options parsed-query paging-options)
+            resp (pl-http/stream-json-response
+                  (fn [f]
+                    (with-transacted-connection db
+                      (query/streamed-query-result version sql params
+                                                   (comp f (events/munge-result-rows version))))))]
+
+        (if count-query
+          (add-headers resp {:count (get-result-count count-query)})
+          resp)))
+
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+      (pl-http/error-response e))))
 
 (defn routes
   [version]
@@ -77,11 +80,9 @@
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
             (try
-              (let [query-options (validate-distinct-options! params)
-                    limit         (:event-query-limit globals)]
+              (let [query-options (validate-distinct-options! params)]
                 (produce-body
                   version
-                  limit
                   (params "query")
                   query-options
                   paging-options
@@ -96,8 +97,8 @@
     middleware/verify-accepts-json
     (middleware/validate-query-params {:required ["query"]
                                        :optional (concat
-                                                   ["distinct-resources"
-                                                    "distinct-start-time"
-                                                    "distinct-end-time"]
-                                                   paging/query-params)})
+                                                  ["distinct-resources"
+                                                   "distinct-start-time"
+                                                   "distinct-end-time"]
+                                                  paging/query-params)})
     middleware/wrap-with-paging-options))

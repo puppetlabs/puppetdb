@@ -3,24 +3,18 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resources :as r]
-            [ring.util.response :as rr]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment remove-all-environments]]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query-eng :as querye])
-  (:use [net.cgrand.moustache :only [app]]
-        [com.puppetlabs.middleware :only (verify-accepts-json validate-query-params wrap-with-paging-options)]
-        [com.puppetlabs.jdbc :only (with-transacted-connection get-result-count)]
-        [com.puppetlabs.puppetdb.http :only (add-headers)]))
-
-(defn munge-result-rows
-  "Munge the result rows so that they will be compatible with the v2 API specification"
-  [version]
-  (fn [rows]
-    (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) rows)))
+            [com.puppetlabs.puppetdb.query-eng :as qe]
+            [net.cgrand.moustache :refer [app]]
+            [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
+                                               wrap-with-paging-options]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
 
 (defn produce-body
-  "Given a query, and database connection, return a Ring response with the query results.
+  "Given a query, and database connection, return a Ring response with the query
+  results.
 
   If the query can't be parsed, a 400 is returned."
   [version query paging-options db]
@@ -28,17 +22,17 @@
     (with-transacted-connection db
       (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
-             count-query    :count-query} (if (= :v4 version)
-                                            (querye/compile-user-query->sql querye/resources-query parsed-query paging-options)
-                                            (r/query->sql version parsed-query paging-options))
+             count-query    :count-query} (case version
+                                            (:v2 :v3)
+                                            (r/query->sql version parsed-query paging-options)
 
-            row-munge (case version
-                        :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-                        :v2 (comp r/deserialize-params (munge-result-rows :v2))
-                        r/deserialize-params)
-            resp (pl-http/stream-json-results
+                                            (qe/compile-user-query->sql
+                                             qe/resources-query parsed-query paging-options))
+            resp (pl-http/stream-json-response
                   (fn [f]
-                    ((query/streamed-query-result db version sql params) (comp f row-munge))))]
+                    (with-transacted-connection db
+                      (query/streamed-query-result version sql params
+                                                   (comp f (r/munge-result-rows version))))))]
 
         (if count-query
           (add-headers resp {:count (get-result-count count-query)})

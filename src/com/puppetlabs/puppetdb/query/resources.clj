@@ -7,19 +7,12 @@
 (ns com.puppetlabs.puppetdb.query.resources
   (:require [com.puppetlabs.cheshire :as json]
             [clojure.string :as string]
-            [puppetlabs.kitchensink.core :as kitchensink])
-  (:use [com.puppetlabs.jdbc :only [limited-query-to-vec
-                                    convert-result-arrays
-                                    with-transacted-connection
-                                    add-limit-clause
-                                    valid-jdbc-query?
-                                    get-result-count
-                                    paged-sql
-                                    count-sql]]
-        [com.puppetlabs.puppetdb.query :only [resource-query->sql
-                                              resource-operators
-                                              resource-columns]]
-        [com.puppetlabs.puppetdb.query.paging :only [validate-order-by!]]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.jdbc :as jdbc]
+            [com.puppetlabs.puppetdb.query :refer [resource-query->sql
+                                                  resource-operators
+                                                  resource-columns]]
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the
@@ -36,10 +29,10 @@
   ([version query paging-options]
    {:pre  [(sequential? query)]
     :post [(map? %)
-           (valid-jdbc-query? (:results-query %))
+           (jdbc/valid-jdbc-query? (:results-query %))
            (or
              (not (:count? paging-options))
-             (valid-jdbc-query? (:count-query %)))]}
+             (jdbc/valid-jdbc-query? (:count-query %)))]}
     (validate-order-by! (map keyword (keys resource-columns)) paging-options)
     (let [operators (resource-operators version)
           [subselect & params] (resource-query->sql operators query)
@@ -51,7 +44,7 @@
                             "LEFT OUTER JOIN resource_params_cache rpc "
                                 "ON rpc.resource = subquery1.resource")
                 subselect)
-          paged-select (paged-sql sql paging-options)
+          paged-select (jdbc/paged-sql sql paging-options)
           ;; This is a little more complex than I'd prefer; the general query paging
           ;;  functions are built to work for SQL queries that return 1 row per
           ;;  PuppetDB result.  Since that's not the case for resources right now,
@@ -60,13 +53,26 @@
           ;;  alleviate this problem and allow us to simplify this code.
           result               {:results-query (apply vector paged-select params)}]
       (if (:count? paging-options)
-        (assoc result :count-query (apply vector (count-sql subselect) params))
+        (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
         result))))
 
 (defn deserialize-params
   [resources]
   (let [parse-params #(if % (json/parse-string %) {})]
     (map #(update-in % [:parameters] parse-params) resources)))
+
+(defn munge-result-rows
+  "Munge the result rows so that they will be compatible with the version
+  specified API specification"
+  [version]
+  (let [rename-file-line
+        (fn [rows]
+          (map #(clojure.set/rename-keys % {:file :sourcefile
+                                            :line :sourceline})
+               rows))]
+    (case version
+      :v2 (comp deserialize-params rename-file-line)
+      deserialize-params)))
 
 (defn limited-query-resources
   "Take a limit, and a map of SQL queries as produced by `query->sql`, return
@@ -83,13 +89,11 @@
   {:pre  [(and (integer? limit) (>= limit 0))]
    :post [(or (zero? limit) (<= (count %) limit))]}
   (let [[query & params] results-query
-        limited-query (add-limit-clause limit query)
-        results       (limited-query-to-vec limit (apply vector limited-query params))
-        metadata_cols [:certname :resource :type :title :tags :exported :file :line]
-        metadata      (apply juxt metadata_cols)
+        limited-query (jdbc/add-limit-clause limit query)
+        results       (jdbc/limited-query-to-vec limit (apply vector limited-query params))
         results       {:result (deserialize-params results)}]
     (if count-query
-      (assoc results :count (get-result-count count-query))
+      (assoc results :count (jdbc/get-result-count count-query))
       results)))
 
 (defn query-resources
@@ -98,5 +102,5 @@
   see `limited-query-resources`"
   [queries-map]
   {:pre [(map? queries-map)
-         (valid-jdbc-query? (:results-query queries-map))]}
+         (jdbc/valid-jdbc-query? (:results-query queries-map))]}
     (limited-query-resources 0 queries-map))

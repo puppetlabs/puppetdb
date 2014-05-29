@@ -5,10 +5,8 @@
             [clojure.string :as string]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.puppetdb.http :refer [remove-environment v4?]]
-            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize sql-regexp-match]]
-            [com.puppetlabs.puppetdb.query :refer [execute-query event-columns compile-term resource-event-ops]]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
+            [com.puppetlabs.puppetdb.query :as query]
+            [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -73,64 +71,71 @@
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query-options query]
-  {:pre  [(sequential? query)
+  [version query-options query paging-options]
+  {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
             (or (not-any? #(contains? query-options %) distinct-options)
                 (every? #(contains? query-options %) distinct-options)))]
-   :post [(jdbc/valid-jdbc-query? %)]}
-  (let [{:keys [where params]}  (compile-term (resource-event-ops version) query)
+   :post [(map? %)
+          (jdbc/valid-jdbc-query? (:results-query %))
+          (or
+           (not (:count? paging-options))
+           (jdbc/valid-jdbc-query? (:count-query %)))]}
+  (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
+  (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
                                    (map
                                      (fn [[column [table alias]]]
                                        (str table "." column
                                             (if alias (format " AS %s" alias) "")))
-                                     event-columns))
+                                     query/event-columns))
         [sql params]            (if (:distinct-resources? query-options)
                                   (distinct-select select-fields where params
                                     (:distinct-start-time query-options)
                                     (:distinct-end-time query-options))
-                                  (default-select select-fields where params))]
-    (apply vector sql params)))
+                                  (default-select select-fields where params))
+        paged-select (jdbc/paged-sql sql paging-options)
+        result {:results-query (apply vector paged-select params)}]
+    (if (:count? paging-options)
+      (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
+      result)))
 
-(defn limited-query-resource-events
-  "Take a limit, paging-options map, a query, and its parameters,
-  and return a map containing the results and metadata.
+;; Below this line the code is more about turning a query into results,
+;; above is the SQL engine code (as it stands).
 
-  The returned map will contain a key `:result`, whose value is vector of
-  resource events which match the query.  If the paging-options indicate
-  that a total result count should also be returned, then the map will
-  contain an additional key `:count`, whose value is an integer.
+(defn munge-result-rows
+  "Returns a function that munges the resulting rows ready for final
+  presentation.
 
-  Throws an exception if the query would return more than `limit` results.
-  (A value of `0` for `limit` means that the query should not be limited.)"
-  [version limit paging-options [query & params]]
-  {:pre  [(and (integer? limit) (>= limit 0))]
-   :post [(or (zero? limit) (<= (count %) limit))
-          (map? %)
-          (contains? % :result)
-          (sequential? (:result %))]}
-  (validate-order-by! (map keyword (keys event-columns)) paging-options)
-  (let [limited-query   (jdbc/add-limit-clause limit query)
-        results         (execute-query
-                          limit
-                          (apply vector limited-query params)
-                          paging-options)]
-    (assoc results :result
-      (map
-        #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
-             (update-in [:old-value] json/parse-string)
-             (update-in [:new-value] json/parse-string)
-             (remove-environment version))
-        (:result results)))))
+  Version is provided to alter the munge function depending on the API query."
+  [version]
+  (fn [rows]
+    (map
+     ;; TODO: conversion to underscore should be standard anyway
+     ;; at least for V4. Consider moving this operation to
+     ;; query/streamed-query-result in the future.
+     #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
+          (update-in [:old-value] json/parse-string)
+          (update-in [:new-value] json/parse-string))
+     rows)))
 
 (defn query-resource-events
-  "Take a paging-options map, a query, and its parameters, and return a map
-  containing matching resource events and metadata.  For more information about
-  the return value, see `limited-query-resource-events`."
-  [version paging-options [sql & params]]
-  {:pre [(string? sql)]}
-  (limited-query-resource-events version 0 paging-options (apply vector sql params)))
+  "Queries resource events and unstreams, used mainly for testing.
+
+  This wraps the existing streaming query code but returns results
+  and count (if supplied)."
+  [version query-sql]
+  {:pre [(map? query-sql)]}
+  (let [{[sql & params] :results-query
+         count-query    :count-query} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          ;; The doall simply forces the seq to be traversed
+                          ;; fully.
+                          (comp doall (munge-result-rows version)))}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))
 
 (defn events-for-report-hash
   "Given a particular report hash, this function returns all events for that
@@ -141,9 +146,8 @@
   (let [query          ["=" "report" report-hash]
         ;; we aren't actually supporting paging through this code path for now
         paging-options {}]
-    (->> query
-         (query->sql version nil)
-         (query-resource-events version paging-options)
+    (->> (query->sql version nil query paging-options)
+         (query-resource-events version)
          :result
          (mapv #(dissoc %
                         :run-start-time
