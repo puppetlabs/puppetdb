@@ -43,7 +43,8 @@
     "v4 query API is experimental and may change without warning. For stability use the v3 api."
     request))
 
-(def routes
+(defn routes
+  [url-prefix]
   (app
     ["v2" &]
     {:any deprecated-v2-app}
@@ -58,7 +59,7 @@
     {:any experimental-app}
 
     [""]
-    {:get (constantly (redirect "/dashboard/index.html"))}))
+    {:get (constantly (redirect (format "%s/dashboard/index.html" url-prefix)))}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests
@@ -72,7 +73,7 @@
     to authorizing all requests."
   [& options]
   (let [opts (apply hash-map options)]
-    (-> routes
+    (-> (routes (get-in opts [:globals :url-prefix]))
         (wrap-resource "public")
         (wrap-params)
         (wrap-with-authorization (opts :authorized? (constantly true)))
