@@ -9,7 +9,8 @@
             [com.puppetlabs.puppetdb.query :refer [execute-query compile-term
                                                    compile-and remove-environment]]
             [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 ;; ## Report query functions
 ;;
@@ -75,22 +76,31 @@
    "environments.name as environment"
    "report_statuses.status as status"])
 
-(defn query-reports
-  "Take a query and its parameters, and return a vector of matching reports."
-  ([version sql-and-params] (query-reports version {} sql-and-params))
-  ([version paging-options [sql & params]]
-     {:pre [(string? sql)]}
-     (validate-order-by! (map keyword report-columns) paging-options)
-     (let [query   (format "SELECT %s
+(defn create-report-sql
+  "Provide a similar interface as the new query engine, take a `version` and `user-query` and return
+   a SQL vector, ready to run in clojure.jdbc"
+  [version user-query]
+  {:pre [(sequential? user-query)]
+   :post [(valid-jdbc-query? %)]}
+  (if (= :v4 version)
+    (:results-query (qe/compile-user-query->sql qe/reports-query user-query))
+    (let [{:keys [where params]} (compile-term (report-terms version) user-query)]
+      (into [(format "SELECT %s
                             FROM reports
                                  LEFT OUTER JOIN environments on reports.environment_id = environments.id
                                  LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id
-                            %s ORDER BY start_time DESC"
-                           (string/join ", " report-columns)
-                           sql)
-           results (execute-query
-                    (apply vector query params)
-                    paging-options)]
+                            WHERE %s ORDER BY start_time DESC"
+                     (string/join ", " report-columns)
+                     where)]
+            params))))
+
+(defn query-reports
+  "Take a query and its parameters, and return a vector of matching reports."
+  ([version user-query] (query-reports version {} user-query))
+  ([version paging-options user-query]
+     (validate-order-by! (map keyword report-columns) paging-options)
+     (let [query   (create-report-sql version user-query)
+           results (execute-query query paging-options)]
        (update-in results [:result]
                   (fn [rs] (map (comp #(kitchensink/mapkeys underscores->dashes %)
                                      #(remove-environment % version)
@@ -104,7 +114,6 @@
               (seq? %))]}
   (let [query ["=" "certname" node]
         reports (->> query
-                     (report-query->sql version)
                      (query-reports version)
                      ;; We don't support paging in this code path, so we
                      ;; can just pull the results out of the return value
@@ -122,7 +131,6 @@
               (map? %))]}
   (let [query ["=" "hash" hash]]
     (->> query
-         (report-query->sql version)
          (query-reports version)
          ;; We don't support paging in this code path, so we
          ;; can just pull the results out of the return value

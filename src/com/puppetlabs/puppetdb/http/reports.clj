@@ -17,8 +17,7 @@
   [version query paging-options db]
   (try
     (with-transacted-connection db
-      (->> (json/parse-string query true)
-           (query/report-query->sql version)
+      (->> (json/parse-strict-string query true)
            (query/query-reports version paging-options)
            (query-result-response)))
     (catch com.fasterxml.jackson.core.JsonParseException e

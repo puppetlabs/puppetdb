@@ -14,7 +14,8 @@
                                                        deftestseq]]
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.coerce :refer [to-date-time to-string]]
-            [clj-time.core :refer [now]]))
+            [clj-time.core :refer [now]]
+            [clojure.string :as str]))
 
 (def endpoints [[:v3 "/v3/reports"]
                 [:v4 "/v4/reports"]])
@@ -53,27 +54,27 @@
   [[version endpoint] endpoints]
 
   (let [basic         (:basic reports)
-        report-hash   (:hash (store-example-report! basic (now)))]
+        report-hash   (:hash (store-example-report! basic (now)))
+        basic (assoc basic :hash report-hash)]
 
-    ;; TODO: test invalid requests
-
-    (testing "should return all reports for a certname"
-      (let [result (get-response endpoint ["=" "certname" (:certname basic)])]
-        (case version
-          :v3 (is (not-any? :environment (json/parse-string (:body result) true)))
-          (do
-            (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
-            (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))))
-        (response-equal?
-         result
-         (reports-response version [(assoc basic :hash report-hash)])
-         remove-receive-times)))
-
-    (testing "should return all reports for a hash"
-      (response-equal?
-       (get-response endpoint ["=" "hash" report-hash])
-       (reports-response version [(assoc basic :hash report-hash)])
-       remove-receive-times))))
+    (doseq [field (concat ["certname" "hash"]
+                          (when-not (= :v3 version)
+                            ;; "receive_time" is not tested here as it
+                            ;; makes more sense in <,>,<=, >=, which
+                            ;; will be added soon
+                            ["puppet_version" "report_format" "configuration_version" "start_time" "end_time" "transaction_uuid" "status"]))
+            :let [field-kwd (keyword (str/replace field #"_" "-"))]]
+      (testing (format "should return all reports for a %s" field)
+        (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
+          (case version
+            :v3 (is (not-any? :environment (json/parse-string (:body result) true)))
+            (do
+              (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+              (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))))
+          (response-equal?
+           result
+           (reports-response version [basic])
+           remove-receive-times))))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
@@ -102,12 +103,18 @@
 (deftestseq invalid-queries
   [[version endpoint] endpoints]
 
-  (let [response (get-response endpoint ["<" "timestamp" 0])]
-    (is (re-matches #".*query operator '<' is unknown" (:body response)))
+  (let [response (get-response endpoint ["<" "environment" 0])]
+    (if (= version :v3)
+      (is (re-matches #".*query operator '<' is unknown" (:body response)))
+      (is (re-matches #".*Query operators .*<.* not allowed .* environment" (:body response))))
     (is (= 400 (:status response))))
+
   (let [response (get-response endpoint ["=" "timestamp" 0])]
-    (is (re-find #"'timestamp' is not a valid query term" (:body response)))
+    (if (= version :v3)
+      (is (re-find #"'timestamp' is not a valid query term" (:body response)))
+      (is (re-find #"'timestamp' is not a queryable object for reports" (:body response))))
     (is (= 400 (:status response))))
+
   (when (= version :v3)
     (let [response (get-response endpoint ["=" "environment" "FOO"])]
       (is (re-find #"'environment' is not a valid query term" (:body response)))
