@@ -9,7 +9,8 @@
             [com.puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.cheshire :as json]))
+            [com.puppetlabs.cheshire :as json]
+            [clj-time.coerce :refer [to-timestamp]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -79,12 +80,37 @@
                :alias "resources"
                :subquery? false
                :source-table "catalog_resources"
-               :source (str  "SELECT c.certname, c.hash as catalog, e.name as environment, cr.resource,
-                                       type, title, tags, exported, file, line, rpc.parameters
-                                FROM catalog_resources cr
-                                     INNER JOIN catalogs c on cr.catalog_id = c.id
-                                     LEFT OUTER JOIN environments e on c.environment_id = e.id
-                                     LEFT OUTER JOIN resource_params_cache rpc on rpc.resource = cr.resource")}))
+               :source "SELECT c.certname, c.hash as catalog, e.name as environment, cr.resource,
+                               type, title, tags, exported, file, line, rpc.parameters
+                        FROM catalog_resources cr
+                             INNER JOIN catalogs c on cr.catalog_id = c.id
+                             LEFT OUTER JOIN environments e on c.environment_id = e.id
+                             LEFT OUTER JOIN resource_params_cache rpc on rpc.resource = cr.resource"}))
+
+(def reports-query
+  "Query for the top level reports entity"
+  (map->Query {:project {"hash" :string
+                         "certname" :string
+                         "puppet_version" :string
+                         "report_format" :string
+                         "configuration_version" :string
+                         "start_time" :timestamp
+                         "end_time" :timestamp
+                         "receive_time" :timestamp
+                         "transaction_uuid" :string
+                         "environment" :string
+                         "status" :string}
+               :queryable-fields ["hash" "certname" "puppet_version" "report_format" "configuration_version" "start_time" "end_time"
+                                  "receive_time" "transaction_uuid" "environment" "status"]
+               :alias "reports"
+               :subquery? false
+               :source-table "reports"
+               :source "select hash, certname, puppet_version, report_format, configuration_version, start_time, end_time,
+                               receive_time, transaction_uuid, environments.name as environment,
+                               report_statuses.status as status
+                        FROM reports
+                             LEFT OUTER JOIN environments on reports.environment_id = environments.id
+                             LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -237,12 +263,19 @@
                (apply s/either (map s/eq binary-operators))
                :operator)
               (s/one s/Str :field)
-              (s/one (s/either s/Str s/Bool s/Int) :value)]))
+              (s/one (s/either s/Str s/Bool s/Int pls/Timestamp) :value)]))
 
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
   (cm/match [node]
+
+            [[(:or ">" ">=" "<" "<=") field _]]
+            (let [query-context (:query-context (meta node))
+                  column-type (get-in query-context [:project field])]
+              (when (or (= :string column-type)
+                        (= :array column-type))
+                (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field) ))))
 
             [[op & _]]
             (when (and (contains? binary-operators op)
@@ -266,11 +299,17 @@
   (cm/match [node]
             [["=" column value]]
             (let [col-type (get-in query-rec [:project column])]
-              (if (= col-type :string)
-                (map->EqualsExpression {:column column
-                                        :value value})
-                (map->ArrayEqualsExpression {:column column
-                                             :value value})))
+              (cond
+               (= col-type :timestamp)
+               (map->EqualsExpression {:column column
+                                       :value (to-timestamp value)})
+
+               (= col-type :array)
+               (map->ArrayEqualsExpression {:column column
+                                            :value value})
+               :else
+               (map->EqualsExpression {:column column
+                                       :value value})))
 
             [["nil?" column value]]
             (map->NullExpression {:column column
@@ -340,7 +379,7 @@
    by the associated query-context"
   [node state]
   (cm/match [node]
-            [[(:or "=" "~") field _]]
+            [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
             (let [query-context (:query-context (meta node))
                   queryable-fields (:queryable-fields query-context)]
               (when (and (not (vec? field))
