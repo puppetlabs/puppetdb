@@ -217,7 +217,7 @@
   chunked encoding usually).
 
   `f` is a function of one argument, which is another function. The
-  the function `f` expects will accept one argument that is a LazySeq
+  the function `f` will accept one argument that is a LazySeq
   result set. This result set will be piped through a JSON stream.
 
   Returns a Ring response map with the :body containing a Buffer. Processing

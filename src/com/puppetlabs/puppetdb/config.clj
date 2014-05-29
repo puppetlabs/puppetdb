@@ -301,6 +301,8 @@
   "Configures the global properties from the user defined config"
   [{:keys [global] :as config}]
   (let [product-name (normalize-product-name (get global :product-name "puppetdb"))]
+    (when (:event-query-limit global)
+      (log/warn "The configuration item `event-query-limit` in the [global] section is deprecated and now ignored. It will be removed in the future."))
     (update-in config [:global]
                (fn [global-config]
                  (-> global-config
