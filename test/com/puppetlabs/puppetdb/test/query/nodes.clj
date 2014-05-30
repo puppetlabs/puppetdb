@@ -1,19 +1,19 @@
 (ns com.puppetlabs.puppetdb.test.query.nodes
   (:require [clojure.set :as set]
             [com.puppetlabs.puppetdb.query.nodes :as node]
-            [clojure.java.jdbc :as sql])
-  (:use clojure.test
-        [clj-time.core :only [now ago days minus]]
-        [clj-time.coerce :only [to-timestamp]]
-        [clojure.math.combinatorics :only [combinations]]
-        [com.puppetlabs.puppetdb.fixtures]))
+            [clojure.java.jdbc :as sql]
+            [clojure.test :refer :all]
+            [clj-time.core :refer [now ago days minus]]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clojure.math.combinatorics :refer [combinations]]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
 (use-fixtures :each with-test-db)
 
 (defn- raw-retrieve-nodes
   [version filter-expr paging-options]
-  (let [sql (node/query->sql version filter-expr)]
-    (node/query-nodes version sql paging-options)))
+  (let [sql (node/query->sql version filter-expr paging-options)]
+    (node/query-nodes version sql)))
 
 (defn- retrieve-node-names
   ([version filter-expr] (retrieve-node-names version filter-expr {}))

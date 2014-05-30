@@ -23,6 +23,9 @@
 (defn is-query-result
   [endpoint query expected]
   (let [{:keys [body status]} (get-response endpoint query)
+        body   (if (string? body)
+                 body
+                 (slurp body))
         result (try
                  (json/parse-string body true)
                  (catch com.fasterxml.jackson.core.JsonParseException e
@@ -42,7 +45,7 @@
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (testing "status objects should reflect fact/catalog activity"
-      (let [status-for-node #(first (json/parse-string (:body (get-response endpoint ["=" "name" %])) true))]
+      (let [status-for-node #(first (json/parse-string (slurp (:body (get-response endpoint ["=" "name" %]))) true))]
         (testing "when node is active"
           (is (nil? (:deactivated (status-for-node web1)))))
 
