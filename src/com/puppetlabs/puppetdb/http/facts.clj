@@ -10,7 +10,8 @@
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
                                                wrap-with-paging-options]]
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
-            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn produce-body
   "Accepts a `query` and a `db` connection, and returns facts matching the
@@ -18,22 +19,25 @@
   returned, and a 500 if something else goes wrong."
   [version query paging-options db]
   (try
-    (case version
-      :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-      :v2 nil
-      (paging/validate-order-by! [:certname :name :value :environment] paging-options))
-    (let [parsed-query (json/parse-string query true)
-          {[sql & params] :results-query
-           count-query :count-query} (f/query->sql version parsed-query paging-options)
-          resp (pl-http/stream-json-response
-                (fn [f]
-                  (with-transacted-connection db
-                    (query/streamed-query-result version sql params f))))]
+    (with-transacted-connection db
+      (case version
+        :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+        :v2 nil
+        (paging/validate-order-by! [:certname :name :value :environment] paging-options))
+      (let [parsed-query (json/parse-strict-string query true)
+            {[sql & params] :results-query
+             count-query :count-query}  (if (= :v4 version)
+                                          (qe/compile-user-query->sql qe/facts-query parsed-query paging-options)
+                                          (f/query->sql version parsed-query paging-options))
+            resp (pl-http/stream-json-response
+                  (fn [f]
+                    (with-transacted-connection db
+                      (query/streamed-query-result version sql params f))))]
 
-      (if count-query
-        (add-headers resp {:count (with-transacted-connection db
-                                    (get-result-count count-query))})
-        resp))
+        (if count-query
+          (add-headers resp {:count (with-transacted-connection db
+                                      (get-result-count count-query))})
+          resp)))
 
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
