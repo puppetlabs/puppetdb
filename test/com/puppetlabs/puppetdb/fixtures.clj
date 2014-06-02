@@ -71,7 +71,8 @@
                                 {:scf-read-db          *db*
                                  :scf-write-db         *db*
                                  :command-mq           *mq*
-                                 :product-name         "puppetdb"}
+                                 :product-name         "puppetdb"
+                                 :url-prefix           ""}
                                 globals-overrides))]
        (f))))
 
