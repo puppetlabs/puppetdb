@@ -10,17 +10,18 @@
             [schema.core :as s]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.cheshire :as json]
-            [clj-time.coerce :refer [to-timestamp]]))
+            [clj-time.coerce :refer [to-timestamp]]
+            [puppetlabs.kitchensink.core :as ks]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [source source-table alias project where subquery? queryable-fields])
-(defrecord EqualsExpression [column value])
+(defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
 (defrecord NullExpression [column null?])
-(defrecord ArrayEqualsExpression [column value])
+(defrecord ArrayBinaryExpression [column value])
 (defrecord InExpression [column subquery])
 (defrecord AndExpression [clauses])
 (defrecord OrExpression [clauses])
@@ -53,10 +54,11 @@
 (def facts-query
   "Query for the top level facts query"
   (map->Query {:project {"name" :string
-                         "value" :string
-                         "certname" :string}
+                         "value" :coercible-string
+                         "certname" :string
+                         "environment" :string}
                :alias "facts"
-               :queryable-fields ["name" "value" "certname"]
+               :queryable-fields ["name" "value" "certname" "environment"]
                :source-table "certname_facts"
                :subquery? false
                :source "select cf.certname, cf.name, cf.value, env.name as environment
@@ -143,13 +145,14 @@
             (:column expr)
             (-plan->sql (:subquery expr))))
 
-  EqualsExpression
+  BinaryExpression
   (-plan->sql [expr]
-    (format "%s = %s"
+    (format "%s %s %s"
             (-plan->sql (:column expr))
+            (:operator expr)
             (-plan->sql (:value expr))))
 
-  ArrayEqualsExpression
+  ArrayBinaryExpression
   (-plan->sql [expr]
     (su/sql-array-query-string (:column expr)))
 
@@ -171,11 +174,11 @@
 
   AndExpression
   (-plan->sql [expr]
-    (str/join " AND " (map -plan->sql (:clauses expr))))
+    (parenthize true (str/join " AND " (map -plan->sql (:clauses expr)))))
 
   OrExpression
   (-plan->sql [expr]
-    (str/join " OR " (map -plan->sql (:clauses expr))))
+    (parenthize true (str/join " OR " (map -plan->sql (:clauses expr)))))
 
   NotExpression
   (-plan->sql [expr]
@@ -193,9 +196,9 @@
 (defn binary-expression?
   "True if the plan node is a binary expression"
   [node]
-  (or (instance? EqualsExpression node)
+  (or (instance? BinaryExpression node)
       (instance? RegexExpression node)
-      (instance? ArrayEqualsExpression node)
+      (instance? ArrayBinaryExpression node)
       (instance? ArrayRegexExpression node)))
 
 (defn extract-params
@@ -273,9 +276,26 @@
             [[(:or ">" ">=" "<" "<=") field _]]
             (let [query-context (:query-context (meta node))
                   column-type (get-in query-context [:project field])]
-              (when (or (= :string column-type)
-                        (= :array column-type))
+              (when-not (contains? #{:coercible-string :number} column-type)
                 (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field) ))))
+
+            ;;This validation check is added to fix a failing facts
+            ;;test. The facts test is checking that you can't submit
+            ;;an empty query, but a ["=" ["node" "active"] true]
+            ;;clause is automatically added, causing the empty query
+            ;;to fall through to the and clause. Adding this here to
+            ;;pass the test, but better validation for all clauses
+            ;;needs to be added
+            [["and" & clauses]]
+            (when (some (complement seq) clauses)
+              (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
+
+            ;;Facts is doing validation against nots only having 1
+            ;;clause, adding this here to fix that test, need to make
+            ;;another pass once other validations are known
+            [["not" & clauses]]
+            (when (not= 1 (count clauses))
+              (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
 
             [[op & _]]
             (when (and (contains? binary-operators op)
@@ -301,15 +321,26 @@
             (let [col-type (get-in query-rec [:project column])]
               (cond
                (= col-type :timestamp)
-               (map->EqualsExpression {:column column
+               (map->BinaryExpression {:operator "="
+                                       :column column
                                        :value (to-timestamp value)})
 
                (= col-type :array)
-               (map->ArrayEqualsExpression {:column column
+               (map->ArrayBinaryExpression {:column column
                                             :value value})
                :else
-               (map->EqualsExpression {:column column
+               (map->BinaryExpression {:operator "="
+                                       :column column
                                        :value value})))
+
+            [[(op  :guard #{">" "<" ">=" "<="}) column value]]
+            (if-let [number (ks/parse-number (str value))]
+              (map->BinaryExpression {:operator op
+                                      :column (su/sql-as-numeric column)
+                                      :value  number})
+              (throw (IllegalArgumentException.
+                      (format "Value %s must be a number for %s comparison." value op))))
+
 
             [["nil?" column value]]
             (map->NullExpression {:column column
@@ -317,13 +348,13 @@
 
             [["~" column value]]
             (let [col-type (get-in query-rec [:project column])]
-              (if (= :string col-type)
-                (map->RegexExpression {:column column
-                                       :value value})
+              (if (= :array col-type)
                 (map->ArrayRegexExpression {:table (:source-table query-rec)
                                             :alias (:alias query-rec)
                                             :column column
-                                            :value value})))
+                                            :value value})
+                (map->RegexExpression {:column column
+                                       :value value})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
@@ -419,7 +450,7 @@
                                    extract-all-params)
         sql (plan->sql plan)
         paged-sql (if paging-options
-                    (jdbc/paged-sql (plan->sql plan) paging-options)
+                    (jdbc/paged-sql sql paging-options)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?

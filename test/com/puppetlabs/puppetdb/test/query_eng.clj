@@ -15,24 +15,24 @@
   (are [sql plan] (= sql (plan->sql plan))
 
        "foo = ?"
-       (->EqualsExpression "foo" "?")
+       (->BinaryExpression "=" "foo" "?")
 
        (su/sql-regexp-match "foo")
        (->RegexExpression "foo" "?")
 
        (su/sql-array-query-string "foo")
-       (->ArrayEqualsExpression "foo" "?")
+       (->ArrayBinaryExpression "foo" "?")
 
-       "foo = ? AND bar = ?"
-       (->AndExpression [(->EqualsExpression "foo" "?")
-                         (->EqualsExpression "bar" "?")])
+       " ( foo = ? AND bar = ? ) "
+       (->AndExpression [(->BinaryExpression "=" "foo" "?")
+                         (->BinaryExpression "=" "bar" "?")])
 
-       "foo = ? OR bar = ?"
-       (->OrExpression [(->EqualsExpression "foo" "?")
-                        (->EqualsExpression "bar" "?")])
+       " ( foo = ? OR bar = ? ) "
+       (->OrExpression [(->BinaryExpression "=" "foo" "?")
+                        (->BinaryExpression "=" "bar" "?")])
 
        "NOT ( foo = ? )"
-       (->NotExpression (->EqualsExpression "foo" "?"))
+       (->NotExpression (->BinaryExpression "=" "foo" "?"))
 
        "foo IS NULL"
        (->NullExpression "foo" true)
@@ -44,24 +44,24 @@
        (map->Query {:project {"foo" :string}
                     :alias "thefoo"
                     :subquery? false
-                    :where (->EqualsExpression 1 1)
+                    :where (->BinaryExpression "=" 1 1)
                     :source "select foo from table"})))
 
 (deftest test-extract-params
 
   (are [expected plan] (= expected (extract-all-params plan))
 
-       {:plan (->AndExpression [(->EqualsExpression "foo" "?")
+       {:plan (->AndExpression [(->BinaryExpression "="  "foo" "?")
                                 (->RegexExpression "bar" "?")
-                                (->NotExpression (->EqualsExpression "baz" "?"))])
+                                (->NotExpression (->BinaryExpression "=" "baz" "?"))])
         :params ["1" "2" "3"]}
-       (->AndExpression [(->EqualsExpression "foo" "1")
+       (->AndExpression [(->BinaryExpression "=" "foo" "1")
                          (->RegexExpression "bar" "2")
-                         (->NotExpression (->EqualsExpression "baz" "3"))])
+                         (->NotExpression (->BinaryExpression "=" "baz" "3"))])
 
-       {:plan (map->Query {:where (->EqualsExpression "foo" "?")})
+       {:plan (map->Query {:where (->BinaryExpression "=" "foo" "?")})
         :params ["1"]}
-       (map->Query {:where (->EqualsExpression "foo" "1")})))
+       (map->Query {:where (->BinaryExpression "=" "foo" "1")})))
 
 (deftest test-expand-user-query
   (is (= [["=" "prop" "foo"]]
