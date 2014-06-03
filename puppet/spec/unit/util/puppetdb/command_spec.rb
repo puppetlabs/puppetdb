@@ -64,7 +64,7 @@ describe Puppet::Util::Puppetdb::Command do
         Puppet::Util::Puppetdb.expects(:config).at_least_once.returns(config)
 
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
-        http.expects(:post).with { |path|
+        http.expects(:post).with { |path, payload, headers|
           path.start_with?("/puppetdb" + Puppet::Util::Puppetdb::Command::CommandsUrl)
         }.returns httpok
 
