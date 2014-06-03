@@ -17,3 +17,4 @@ Vagrantfile
 .vagrant
 *.tar.gz
 .blimpy.d
+version

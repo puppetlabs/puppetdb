@@ -26,7 +26,7 @@ Puppet::Face.define(:node, '0.0.1') do
 
       args.map do |node|
         begin
-          response = http.get("/v3/nodes/#{CGI.escape(node)}", headers)
+          response = http.get(Puppet::Util::Puppetdb.url_path("/v3/nodes/#{CGI.escape(node)}"), headers)
           if response.is_a? Net::HTTPSuccess
             result = JSON.parse(response.body)
           elsif response.is_a? Net::HTTPNotFound

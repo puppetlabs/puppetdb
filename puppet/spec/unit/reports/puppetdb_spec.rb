@@ -36,7 +36,7 @@ describe processor do
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|
-        expect(path).to include(Puppet::Util::Puppetdb::Command::Url)
+        expect(path).to include(Puppet::Util::Puppetdb::Command::CommandsUrl)
         expect(body).to eq(payload)
       }.returns(httpok)
 

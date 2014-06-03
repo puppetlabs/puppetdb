@@ -9,7 +9,7 @@ class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
-  Url                = "/v3/commands"
+  CommandsUrl = "/v3/commands"
 
   # Public instance methods
 
@@ -45,7 +45,8 @@ class Puppet::Util::Puppetdb::Command
     begin
       response = profile "Submit command HTTP post" do
         http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
-        http.post(Url + "?checksum=#{checksum}", payload, headers)
+        http.post(Puppet::Util::Puppetdb.url_path(CommandsUrl + "?checksum=#{checksum}"),
+                  payload, headers)
       end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)

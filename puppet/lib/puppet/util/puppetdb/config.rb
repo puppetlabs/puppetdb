@@ -11,6 +11,7 @@ class Config
     defaults = {
       :server                    => "puppetdb",
       :port                      => 8081,
+      :url_prefix                => "",
       :soft_write_failure        => false,
       :ignore_blacklisted_events => true,
     }
@@ -52,11 +53,12 @@ class Config
     main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
     # merge with defaults but filter out anything except the legal settings
     config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :ignore_blacklisted_events, :soft_write_failure].include?(k))
+      !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure].include?(k))
     end
 
     config_hash[:server] = config_hash[:server].strip
     config_hash[:port] = config_hash[:port].to_i
+    config_hash[:url_prefix] = normalize_url_prefix(config_hash[:url_prefix].strip)
     config_hash[:ignore_blacklisted_events] =
       Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
     config_hash[:soft_write_failure] =
@@ -84,6 +86,10 @@ class Config
     config[:port]
   end
 
+  def url_prefix
+    config[:url_prefix]
+  end
+
   def ignore_blacklisted_events?
     config[:ignore_blacklisted_events]
   end
@@ -94,6 +100,17 @@ class Config
 
   def soft_write_failure
     config[:soft_write_failure]
+  end
+
+  # @!group Private class methods
+  def self.normalize_url_prefix(prefix)
+    if prefix == ""
+      prefix
+    elsif prefix.start_with?("/")
+      prefix
+    else
+      "/" + prefix
+    end
   end
 
   # @!group Private instance methods

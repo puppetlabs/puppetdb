@@ -36,7 +36,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     profile "facts#find" do
       begin
-        url = "/v3/nodes/#{CGI.escape(request.key)}/facts"
+        url = Puppet::Util::Puppetdb.url_path("/v3/nodes/#{CGI.escape(request.key)}/facts")
         response = profile "Query for nodes facts: #{url}" do
           http_get(request, url, headers)
         end
@@ -105,7 +105,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       query_param = CGI.escape(query.to_json)
 
       begin
-        url = "/v3/nodes?query=#{query_param}"
+        url = Puppet::Util::Puppetdb.url_path("/v3/nodes?query=#{query_param}")
         response = profile "Fact query request: #{URI.unescape(url)}" do
           http_get(request, url, headers)
         end

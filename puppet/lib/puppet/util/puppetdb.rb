@@ -19,6 +19,13 @@ module Puppet::Util::Puppetdb
     config.port
   end
 
+  def self.url_path(path)
+    unless path.start_with?("/")
+      path = "/" + path
+    end
+    config.url_prefix + path
+  end
+
   def self.config
     @config ||= Puppet::Util::Puppetdb::Config.load
     @config
