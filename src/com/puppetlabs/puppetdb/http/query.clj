@@ -55,6 +55,17 @@
                    ["=" "environment" environment]]
                   req))
 
+(defn restrict-environment-query-to-environment
+  "Restricts queries to the providied environment. This differs from
+  restrict-query-to-environment in that it is only used on the environments
+  end-point."
+  [environment req]
+  {:pre  [(string? environment)]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["and"
+                   ["=" "name" environment]]
+                  req))
+
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
   only returns facts with the given name"
