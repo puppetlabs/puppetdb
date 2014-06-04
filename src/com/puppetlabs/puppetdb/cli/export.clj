@@ -32,7 +32,7 @@
                :catalog-environment (s/maybe String)
                :facts-environment (s/maybe String)
                :report-environment (s/maybe String)
-               :name String
+               :certname String
                :deactivated (s/maybe String)})
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
@@ -176,14 +176,14 @@
    node, ready for being written to the filesystem"
   [host :- String
    port :- s/Int
-   {:keys [name] :as node-data} :- node-map]
-  {:node name
+   {:keys [certname] :as node-data} :- node-map]
+  {:node certname
    :facts (when-not (str/blank? (:facts-timestamp node-data))
-            [(facts->tar name (facts-for-node host port name))])
+            [(facts->tar certname (facts-for-node host port certname))])
    :reports (when-not (str/blank? (:report-timestamp node-data))
-              (report->tar name (reports-for-node host port name)))
+              (report->tar certname (reports-for-node host port certname)))
    :catalog (when-not (str/blank? (:catalog-timestamp node-data))
-              [(catalog->tar name (catalog-for-node host port name))])})
+              [(catalog->tar certname (catalog-for-node host port certname))])})
 
 (defn get-nodes
   "Get a list of the names of all active nodes."

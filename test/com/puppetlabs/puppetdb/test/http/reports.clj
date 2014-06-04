@@ -62,7 +62,7 @@
                             ;; "receive_time" is not tested here as it
                             ;; makes more sense in <,>,<=, >=, which
                             ;; will be added soon
-                            ["puppet_version" "report_format" "configuration_version" "start_time" "end_time" "transaction_uuid" "status"]))
+                            ["puppet-version" "report-format" "configuration-version" "start-time" "end-time" "transaction-uuid" "status"]))
             :let [field-kwd (keyword (str/replace field #"_" "-"))]]
       (testing (format "should return all reports for a %s" field)
         (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
