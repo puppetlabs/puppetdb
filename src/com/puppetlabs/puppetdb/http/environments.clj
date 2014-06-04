@@ -50,16 +50,23 @@
   [version]
   (app
    []
-   {:get (fn [{:keys [params globals paging-options]}]
-           (produce-body
-            version
-            (params "query")
-            paging-options
-            (:scf-read-db globals)))}
+   {:get
+    (-> (fn [{:keys [params globals paging-options]}]
+          (produce-body
+           version
+           (params "query")
+           paging-options
+           (:scf-read-db globals)))
+        (validate-query-params
+         {:optional (cons "query" paging/query-params)}))}
 
    [environment]
-   {:get (fn [{:keys [globals]}]
-           (environment-status version environment (:scf-read-db globals)))}
+   {:get
+    (-> (fn [{:keys [globals]}]
+          (environment-status version environment (:scf-read-db globals)))
+        ;; Being a singular item, querying and pagination don't really make
+        ;; sense here
+        (validate-query-params {}))}
 
    [environment "facts" &]
    {:get
