@@ -56,8 +56,12 @@
             http-q/restrict-query-to-active-nodes)}
 
     [node]
-    {:get (fn [{:keys [globals]}]
-            (node-status version node (:scf-read-db globals)))}
+    {:get
+     (-> (fn [{:keys [globals]}]
+           (node-status version node (:scf-read-db globals)))
+         ;; Being a singular item, querying and pagination don't really make
+         ;; sense here
+         (validate-query-params {}))}
 
     [node "facts" &]
     (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
@@ -73,7 +77,7 @@
           verify-accepts-json
           (validate-query-params {:optional ["query"]}))
     (-> (routes version)
-      (verify-accepts-json)
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
-      (wrap-with-paging-options))))
+        (verify-accepts-json)
+        (validate-query-params
+         {:optional (cons "query" paging/query-params)})
+        (wrap-with-paging-options))))

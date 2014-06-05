@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.environments
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.scf.storage :as storage]
@@ -23,7 +23,7 @@
   [[version endpoint] endpoints]
 
   (testing "without environments"
-    (is (empty? (json/parse-string (:body (fixt/*app* (get-request endpoint)))))))
+    (is (empty? (json/parse-string (slurp (:body (fixt/*app* (get-request endpoint))))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -34,7 +34,7 @@
        (is (= #{{:name "foo"}
                 {:name "bar"}
                 {:name "baz"}}
-              (set (json/parse-string (:body (fixt/*app* (get-request endpoint)))
+              (set (json/parse-string (slurp (:body (fixt/*app* (get-request endpoint))))
                                       true))))))
     (fixt/without-db-var
      (fn []
@@ -42,7 +42,7 @@
          (is (= #{{:name "foo"}
                   {:name "bar"}
                   {:name "baz"}}
-                (set @(future (json/parse-string (:body res)
+                (set @(future (json/parse-string (slurp (:body res))
                                                  true))))))))))
 
 (deftestseq test-query-environment
@@ -51,7 +51,7 @@
   (testing "without environments"
     (fixt/without-db-var
      (fn []
-       (is (empty? (json/parse-string (:body (fixt/*app* (get-request (str endpoint "/foo"))))))))))
+       (is (= 404 (:status (fixt/*app* (get-request (str endpoint "/foo")))))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -69,7 +69,8 @@
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (are [query expected] (= expected (json/parse-string (:body (fixt/*app* (get-request endpoint query))) true))
+    (are [query expected] (= expected (json/parse-string (slurp (:body (fixt/*app* (get-request endpoint query))))
+                                                         true))
 
          ["in" "name"
           ["extract" "environment"
@@ -100,24 +101,4 @@
                ["select-resources"
                 ["and"
                  ["=" "type" "Class"]]]]]]]]]
-         [{:name "DEV"}])
-
-        (are [env query expected] (= expected (json/parse-string (:body (fixt/*app* (get-request (str endpoint "/" env) query))) true))
-
-         "DEV"
-         ["in" "name"
-          ["extract" "environment"
-           ["select-facts"
-            ["and"
-             ["=" "name" "operatingsystem"]
-             ["=" "value" "Debian"]]]]]
-         {:name "DEV"}
-
-         "foo"
-         ["in" "name"
-          ["extract" "environment"
-           ["select-facts"
-            ["and"
-             ["=" "name" "operatingsystem"]
-             ["=" "value" "Debian"]]]]]
-         nil)))
+         [{:name "DEV"}])))
