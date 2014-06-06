@@ -23,7 +23,11 @@
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
 (defn get-response
-  [endpoint query] (fixt/*app* (get-request endpoint query)))
+  [endpoint query]
+  (let [resp (fixt/*app* (get-request endpoint query))]
+    (if (string? (:body resp))
+      resp
+      (update-in resp [:body] slurp))))
 
 (defn report-response
  [report]

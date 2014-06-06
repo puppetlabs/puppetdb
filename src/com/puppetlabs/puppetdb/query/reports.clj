@@ -1,110 +1,82 @@
-;; ## SQL/query-related functions for reports
-
 (ns com.puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
             [com.puppetlabs.puppetdb.http :refer [remove-status v4?]]
             [clojure.core.match :refer [match]]
-            [com.puppetlabs.jdbc :refer [query-to-vec underscores->dashes valid-jdbc-query?]]
+            [com.puppetlabs.jdbc :as jdbc]
+            [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query :refer [execute-query compile-term
                                                    compile-and remove-environment]]
             [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
             [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
-;; ## Report query functions
-;;
-;; The following functions provide the basic logic for composing and executing
-;; queries against reports (report summaries / metadata).
-
-(defn compile-equals-term
-  "Compile a report query into a structured map reflecting the terms
-   of the query. Currently only the `=` operator is supported"
-  [version]
-  (fn [& [path value :as term]]
-    {:post [(map? %)
-            (string? (:where %))]}
-    (let [num-args (count term)]
-      (when-not (= 2 num-args)
-        (throw (IllegalArgumentException.
-                (format "= requires exactly two arguments, but we found %d" num-args)))))
-    (match [path]
-           ["certname"]
-           {:where "reports.certname = ?"
-            :params [value] }
-
-           ["hash"]
-           {:where "reports.hash = ?"
-            :params [value]}
-
-           ["environment" :guard (v4? version)]
-           {:where "environments.name = ?"
-            :params [value]}
-
-           ["status" :guard (v4? version)]
-           {:where "report_statuses.status = ?"
-            :params [value]}
-
-           :else
-           (throw (IllegalArgumentException.
-                   (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
-
-(defn report-terms
-  [version]
-  {"=" (compile-equals-term version)
-   "and" (fn [& args]
-           (apply compile-and (report-terms version) args))})
-
-(defn report-query->sql
-  "Compile a report query into an SQL expression."
-  [version query]
-  {:pre [(sequential? query)]
-   :post [(valid-jdbc-query? %)]}
-  (let [{:keys [where params]} (compile-term (report-terms version) query)]
-    (apply vector (format " WHERE %s" where) params)))
-
 (def report-columns
-  ["hash"
-   "certname"
-   "puppet_version"
-   "report_format"
-   "configuration_version"
-   "start_time"
-   "end_time"
-   "receive_time"
-   "transaction_uuid"
-   "environments.name as environment"
-   "report_statuses.status as status"])
+  [:hash
+   :certname
+   :puppet-version
+   :report-format
+   :configuration-version
+   :start-time
+   :end-time
+   :receive-time
+   :transaction-uuid
+   :environment
+   :status])
 
-(defn create-report-sql
-  "Provide a similar interface as the new query engine, take a `version` and `user-query` and return
-   a SQL vector, ready to run in clojure.jdbc"
-  [version user-query]
-  {:pre [(sequential? user-query)]
-   :post [(valid-jdbc-query? %)]}
-  (if (= :v4 version)
-    (:results-query (qe/compile-user-query->sql qe/reports-query user-query))
-    (let [{:keys [where params]} (compile-term (report-terms version) user-query)]
-      (into [(format "SELECT %s
-                            FROM reports
-                                 LEFT OUTER JOIN environments on reports.environment_id = environments.id
-                                 LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id
-                            WHERE %s ORDER BY start_time DESC"
-                     (string/join ", " report-columns)
-                     where)]
-            params))))
+(defn query->sql
+  "Converts a vector-structured `query` to a corresponding SQL query which will
+  return nodes matching the `query`."
+  ([version query]
+     (query->sql version query {}))
+  ([version query paging-options]
+     {:pre  [((some-fn nil? sequential?) query)]
+      :post [(map? %)
+             (jdbc/valid-jdbc-query? (:results-query %))
+             (or
+              (not (:count? paging-options))
+              (jdbc/valid-jdbc-query? (:count-query %)))]}
+     (validate-order-by! report-columns paging-options)
+     (case version
+       (:v3)
+       (let [operators (query/report-ops version)
+             [sql & params] (query/report-query->sql version operators query)
+             paged-select (jdbc/paged-sql sql paging-options)
+             result {:results-query (apply vector paged-select params)}]
+         (if (:count? paging-options)
+           (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
+           result))
+
+       (qe/compile-user-query->sql
+        qe/reports-query query paging-options))))
+
+(defn munge-result-rows
+  "Munge the result rows so that they will be compatible with the version
+  specified API specification"
+  [version]
+  (fn [rows] (map (comp #(kitchensink/mapkeys jdbc/underscores->dashes %)
+                       #(remove-environment % version)
+                       #(remove-status % version))
+                 rows)))
 
 (defn query-reports
-  "Take a query and its parameters, and return a vector of matching reports."
-  ([version user-query] (query-reports version {} user-query))
-  ([version paging-options user-query]
-     (validate-order-by! (map keyword report-columns) paging-options)
-     (let [query   (create-report-sql version user-query)
-           results (execute-query query paging-options)]
-       (update-in results [:result]
-                  (fn [rs] (map (comp #(kitchensink/mapkeys underscores->dashes %)
-                                     #(remove-environment % version)
-                                     #(remove-status % version)) rs))))))
+  "Queries reports and unstreams, used mainly for testing.
+
+  This wraps the existing streaming query code but returns results
+  and count (if supplied)."
+  [version query-sql]
+  {:pre [(map? query-sql)]}
+  (let [{[sql & params] :results-query
+         count-query    :count-query} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          ;; The doall simply forces the seq to be traversed
+                          ;; fully.
+                          (comp doall (munge-result-rows version)))}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))
+
 
 (defn reports-for-node
   "Return reports for a particular node."
@@ -113,7 +85,7 @@
    :post [(or (nil? %)
               (seq? %))]}
   (let [query ["=" "certname" node]
-        reports (->> query
+        reports (->> (query->sql version query)
                      (query-reports version)
                      ;; We don't support paging in this code path, so we
                      ;; can just pull the results out of the return value
@@ -130,7 +102,7 @@
    :post [(or (nil? %)
               (map? %))]}
   (let [query ["=" "hash" hash]]
-    (->> query
+    (->> (query->sql version query)
          (query-reports version)
          ;; We don't support paging in this code path, so we
          ;; can just pull the results out of the return value
@@ -144,7 +116,7 @@
   {:pre  [(string? node)
           (string? report-hash)]
    :post [(kitchensink/boolean? %)]}
-  (= 1 (count (query-to-vec
+  (= 1 (count (jdbc/query-to-vec
                 ["SELECT report FROM latest_reports
                     WHERE certname = ? AND report = ?"
                   node report-hash]))))
