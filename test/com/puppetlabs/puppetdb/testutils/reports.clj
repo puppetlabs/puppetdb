@@ -4,10 +4,10 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.reports :as query]
-            [clj-time.coerce :as time-coerce])
-  (:use [com.puppetlabs.puppetdb.testutils.events :only [munge-example-event-for-storage
-                                                         munge-v2-example-events-to-v1
-                                                         munge-v1-example-events-to-v2]]))
+            [clj-time.coerce :as time-coerce]
+            [com.puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage
+                                                             munge-v2-example-events-to-v1
+                                                             munge-v1-example-events-to-v2]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -113,7 +113,7 @@
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
-    (update-in (query/query-reports :v4 paging-options query)
+    (update-in (query/query-reports version (query/query->sql version query paging-options))
                [:result]
                munge-fn)))
 

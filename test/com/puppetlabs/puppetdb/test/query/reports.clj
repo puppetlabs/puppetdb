@@ -1,12 +1,11 @@
 (ns com.puppetlabs.puppetdb.test.query.reports
-  (:require [com.puppetlabs.puppetdb.query.reports :as query]
-            [com.puppetlabs.puppetdb.examples.reports :refer [reports]])
-  (:use clojure.test
-        com.puppetlabs.puppetdb.fixtures
-
-        com.puppetlabs.puppetdb.testutils.reports
-        [com.puppetlabs.time :only [to-secs]]
-        [clj-time.core :only [now ago days]]))
+  (:require [com.puppetlabs.puppetdb.query :as query]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.testutils.reports :refer :all]
+            [com.puppetlabs.time :refer [to-secs]]
+            [clj-time.core :refer [now ago days]]))
 
 (use-fixtures :each with-test-db)
 
@@ -37,13 +36,13 @@
 
 (deftest test-compile-report-term
   (testing "should successfully compile a valid equality query"
-    (is (= ((query/compile-equals-term :v4) "certname" "foo.local")
+    (is (= ((query/compile-reports-equality :v4) "certname" "foo.local")
            {:where   "reports.certname = ?"
             :params  ["foo.local"]})))
   (testing "should fail with an invalid equality query"
     (is (thrown-with-msg?
           IllegalArgumentException #"is not a valid query term"
-          ((query/compile-equals-term :v4) "foo" "foo")))))
+          ((query/compile-reports-equality :v4) "foo" "foo")))))
 
 (deftest reports-retrieval
   (let [basic         (:basic reports)

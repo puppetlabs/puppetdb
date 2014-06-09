@@ -265,6 +265,21 @@
    "containing_class"       ["resource_events"]
    "name"                   ["environments" "environment"]})
 
+(def report-columns
+  "Return the queryable set of fields and corresponding table names where they reside"
+  {"hash"                  "reports"
+   "certname"              "reports"
+   "puppet_version"        "reports"
+   "report_format"         "reports"
+   "configuration_version" "reports"
+   "start_time"            "reports"
+   "end_time"              "reports"
+   "receive_time"          "reports"
+   "transaction_uuid"      "reports"
+   "environment"           "reports"
+   "status"                "reports"})
+
+
 (defn column-map->sql
   "Helper function that converts one of our column maps to a SQL string suitable
   for use in a SELECT"
@@ -303,6 +318,10 @@
 (defmethod queryable-fields :event
   [_ _]
   (keyset event-columns))
+
+(defmethod queryable-fields :report
+  [_ _]
+  (keyset report-columns))
 
 (def subquery->type
   {"select-resources" :resource
@@ -422,6 +441,34 @@
         where-clause (when where
                        (format "WHERE %s"  where))]
     (apply vector (str projection where-clause) params)))
+
+(defn report-query->sql
+  "Compile a node query, returning a vector containing the SQL and parameters
+  for the query. All node columns are selected, and no order is applied."
+  [version ops query]
+  {:post [valid-jdbc-query? %]}
+  (let [sql (format "SELECT %s FROM (SELECT
+                     reports.hash,
+                     reports.certname,
+                     reports.puppet_version,
+                     reports.report_format,
+                     reports.configuration_version,
+                     reports.start_time,
+                     reports.end_time,
+                     reports.receive_time,
+                     reports.transaction_uuid,
+                     environments.name as environment,
+                     report_statuses.status as status
+                     FROM reports
+                       LEFT OUTER JOIN environments on reports.environment_id = environments.id
+                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id) as reports"
+                    (column-map->sql report-columns))]
+    (if query
+      (let [{:keys [where params]} (compile-term ops query)
+            ;; This order by is for legacy v3 to continue to work the same way
+            sql (str sql (format " WHERE %s ORDER BY start_time DESC" where))]
+        (apply vector sql params))
+      (vector sql))))
 
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
@@ -787,6 +834,38 @@ args))))))
              :else (throw (IllegalArgumentException.
                            (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
 
+(defn compile-reports-equality
+  "Compile a report query into a structured map reflecting the terms
+   of the query. Currently only the `=` operator is supported"
+  [version]
+  (fn [& [path value :as term]]
+    {:post [(map? %)
+            (string? (:where %))]}
+    (let [num-args (count term)]
+      (when-not (= 2 num-args)
+        (throw (IllegalArgumentException.
+                (format "= requires exactly two arguments, but we found %d" num-args)))))
+    (match [path]
+           ["certname"]
+           {:where "reports.certname = ?"
+            :params [value] }
+
+           ["hash"]
+           {:where "reports.hash = ?"
+            :params [value]}
+
+           ["environment" :guard (v4? version)]
+           {:where "environments.name = ?"
+            :params [value]}
+
+           ["status" :guard (v4? version)]
+           {:where "report_statuses.status = ?"
+            :params [value]}
+
+           :else
+           (throw (IllegalArgumentException.
+                   (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
+
 (declare fact-operators)
 
 (defn resource-operators
@@ -902,6 +981,16 @@ args))))))
           (= op "in") (partial compile-in :event version (resource-event-ops version))
           (= op "select-resources") (partial resource-query->sql (resource-operators version))
           (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+
+(defn report-ops
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    (fn [op]
+      (let [op (string/lower-case op)]
+        (cond
+         (= op "=") (compile-reports-equality version)
+         (= op "and") (partial compile-and (report-ops version)))))))
 
 (defn remove-environment
   "dissocs the :environment key when the version is :v4"
