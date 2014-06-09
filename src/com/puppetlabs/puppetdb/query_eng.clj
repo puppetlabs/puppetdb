@@ -171,6 +171,7 @@
                              LEFT OUTER JOIN environments on reports.environment_id = environments.id"}))
 
 (def latest-report-query
+  "Usually used as a subquery of reports"
   (map->Query {:project {"latest_report_hash" :string}
                :queryable-fields ["latest_report_hash"]
                :alias "latest_report"
@@ -178,6 +179,16 @@
                :source-table "latest_report"
                :source "SELECT latest_reports.report as latest_report_hash
                         FROM latest_reports"}))
+
+(def environments-query
+  "Basic environments query, more useful when used with subqueries"
+  (map->Query {:project {"name" :string}
+               :queryable-fields ["name"]
+               :alias "environments"
+               :subquery? false
+               :source-table "environments"
+               :source "SELECT name
+                        FROM environments"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -195,14 +206,20 @@
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
-    (let [alias (:alias query)]
+    (let [alias (:alias query)
+          has-where? (boolean (:where query))]
       (parenthize
        (:subquery? query)
-       (format "SELECT %s FROM ( %s ) AS %s WHERE %s"
+       (format "SELECT %s FROM ( %s ) AS %s %s %s"
                (str/join ", " (map #(format "%s.%s" alias %) (keys (:project query))))
                (:source query)
                (:alias query)
-               (-plan->sql (:where query))))))
+               (if has-where?
+                 "WHERE"
+                 "")
+               (if has-where?
+                 (-plan->sql (:where query))
+                 "")))))
 
   InExpression
   (-plan->sql [expr]

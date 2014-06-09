@@ -20,7 +20,7 @@
              {:name "baz"}}
            (set (:result (query-environments :v4 (query->sql :v4 nil))))))))
 
-(def jsonify (comp json/parse-string json/generate-string))
+(def jsonify (comp json/parse-strict-string json/generate-string))
 
 (deftest test-environment-queries
   (testing "without environments"
@@ -64,8 +64,9 @@
 
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException
-                                 #"Value foo must be a number"
+                                 #"Query operators >,>=,<,<= are not allowed on field name"
                                  (query-environments :v4 (query->sql :v4 (jsonify query))))
+
        '[<= name foo]
        '[>= name foo]
        '[< name foo]
