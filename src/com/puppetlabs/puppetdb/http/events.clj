@@ -11,7 +11,8 @@
             [net.cgrand.moustache :refer [app]]
             [com.puppetlabs.jdbc :refer [with-transacted-connection
                                          get-result-count]]
-            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct-resources` query.  Return a
@@ -56,9 +57,13 @@
   [version json-query query-options paging-options db]
   (try
     (with-transacted-connection db
-      (let [parsed-query (json/parse-string json-query true)
+      (let [parsed-query (json/parse-strict-string json-query true)
             {[sql & params] :results-query
-             count-query    :count-query} (events/query->sql version query-options parsed-query paging-options)
+             count-query    :count-query} (case version
+                                            (:v2 :v3) (events/query->sql version query-options parsed-query paging-options)
+                                            (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                              (events/query->sql version query-options parsed-query paging-options)
+                                              (qe/compile-user-query->sql qe/report-events-query parsed-query paging-options)))
             resp (pl-http/stream-json-response
                   (fn [f]
                     (with-transacted-connection db

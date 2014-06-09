@@ -7,7 +7,9 @@
             [puppetlabs.kitchensink.core :refer [keyset]]
             [com.puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                        deftestseq]]
-            [com.puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]))
+            [com.puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
+            [com.puppetlabs.puppetdb.zip :as zip]
+            [clojure.core.match :as cm]))
 
 (def endpoints [[:v2 "/v2/nodes"]
                 [:v3 "/v3/nodes"]
@@ -20,9 +22,30 @@
   ([endpoint query] (fixt/*app* (get-request endpoint query)))
   ([endpoint query params] (fixt/*app* (get-request endpoint query params))))
 
+
+(defn get-version
+  "Lookup version from endpoint uri"
+  [endpoint]
+  (ffirst (filter (fn [[version version-endpoint]]
+                    (= version-endpoint endpoint))
+                  endpoints)))
+
+(defn update-certname-in-query
+  "Function to convert name to certname when v4 or above"
+  [endpoint query]
+  (case (get-version endpoint)
+    (:v2 :v3) query
+    (:node (zip/post-order-transform (zip/tree-zipper query)
+                                     [(fn [node]
+                                        (cm/match [node]
+                                                  [[op "name" value]]
+                                                  [op "certname" value]
+                                                  :else nil))]))))
+
 (defn is-query-result
   [endpoint query expected]
-  (let [{:keys [body status]} (get-response endpoint query)
+  (let [query (update-certname-in-query endpoint query)
+        {:keys [body status]} (get-response endpoint query)
         body   (if (string? body)
                  body
                  (slurp body))
@@ -31,21 +54,25 @@
                  (catch com.fasterxml.jackson.core.JsonParseException e
                    body))]
     (doseq [res result]
-      (case endpoint
-        ("/v2/nodes" "/v3/nodes")
-        (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
+      (case (get-version endpoint)
+        (:v2 :v3)
+        (do
+          (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
+          (is (= (set expected) (set (mapv :name result)))))
 
-        (is (= #{:name :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
-                 :catalog-environment :facts-environment :report-environment} (keyset res)))))
-    (is (= status pl-http/status-ok))
-    (is (= (set expected) (set (mapv :name result))))))
+        (do
+          (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
+                   :catalog-environment :facts-environment :report-environment} (keyset res)))
+          (is (= (set expected) (set (mapv :certname result)))))))
+
+    (is (= status pl-http/status-ok))))
 
 (deftestseq node-queries
   [[version endpoint] endpoints]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (testing "status objects should reflect fact/catalog activity"
-      (let [status-for-node #(first (json/parse-string (slurp (:body (get-response endpoint ["=" "name" %]))) true))]
+      (let [status-for-node #(first (json/parse-string (slurp (:body (get-response endpoint (update-certname-in-query endpoint ["=" "name" %])))) true))]
         (testing "when node is active"
           (is (nil? (:deactivated (status-for-node web1)))))
 
@@ -83,7 +110,9 @@
       (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000] [web1])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] [web1])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] [])
+      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] (case version
+                                                                          (:v2 :v3) []
+                                                                          [web1]))
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] true] [])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 0] []))
 
@@ -102,7 +131,7 @@
       (is-query-result endpoint ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
       (is-query-result endpoint ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
-(deftestseq node-subqueries
+(deftestseq basic-node-subqueries
   [[version endpoint] endpoints]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
@@ -131,7 +160,7 @@
 
                               [web1]}]
       (testing (str "query: " query " is supported")
-        (is-query-result version query expected)))))
+        (is-query-result endpoint query expected)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -169,12 +198,12 @@
                   ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
                   ["=" "sourceline" 1]]]]]
 
-              (format "'sourcefile' is not a queryable object for resources in the version %s API" (last (name version)))}]
+              (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (fixt/*app* request)]
           (is (= status pl-http/status-bad-request))
-          (is (= body msg)))))))
+          (is (re-find msg body)))))))
 
 (deftestseq node-query-paging
   [[version endpoint] endpoints
@@ -185,12 +214,19 @@
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
-        (let [results (paged-results
-                        {:app-fn  fixt/*app*
-                         :path    endpoint
-                         :limit   1
-                         :total   (count expected)
-                         :include-total  count?})]
+        (let [certname-field (case version
+                               :v3 "name"
+                               "certname")
+              results (paged-results
+                       {:app-fn  fixt/*app*
+                        :path    endpoint
+                        :limit   1
+                        :total   (count expected)
+                        :include-total  count?
+                        :params {:order-by (json/generate-string [{:field certname-field :order "asc"}])}})]
           (is (= (count results) (count expected)))
-          (is (= (set (vals expected))
-                (set (map :name results)))))))))
+          (case version
+            :v3 (is (= (set (vals expected))
+                       (set (map :name results))))
+            (is (= (set (vals expected))
+                   (set (map :certname results))))))))))

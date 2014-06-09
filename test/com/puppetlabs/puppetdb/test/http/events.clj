@@ -345,15 +345,15 @@
 (def versioned-invalid-subqueries
   (omap/ordered-map
    "/v4/events" (omap/ordered-map
-                ;; Extract using an invalid field should throw an error
-                ["in" "certname" ["extract" "nothing" ["select-resources"
-                                                       ["=" "type" "Class"]]]]
-                "Can't extract unknown resource field 'nothing'. Acceptable fields are: catalog, certname, environment, exported, file, line, resource, tags, title, type"
+                 ;; Extract using an invalid field should throw an error
+                 ["in" "certname" ["extract" "nothing" ["select-resources"
+                                                        ["=" "type" "Class"]]]]
+                 #"Can't extract unknown 'resources' field 'nothing'.*Acceptable fields are.*"
 
-                ;; In-query for invalid fields should throw an error
-                ["in" "nothing" ["extract" "certname" ["select-resources"
-                                                       ["=" "type" "Class"]]]]
-                "Can't match on unknown event field 'nothing' for 'in'. Acceptable fields are: certname, configuration_version, containing_class, containment_path, end_time, file, line, message, name, new_value, old_value, property, receive_time, report, resource_title, resource_type, start_time, status, timestamp")))
+                 ;; In-query for invalid fields should throw an error
+                 ["in" "nothing" ["extract" "certname" ["select-resources"
+                                                        ["=" "type" "Class"]]]]
+                 #"Can't match on unknown 'events' field 'nothing' for 'in'.*Acceptable fields are.*")))
 
 (deftestseq invalid-subqueries
   [[version endpoint] endpoints]
@@ -362,5 +362,5 @@
     (testing (str "query: " query " should fail with msg: " msg)
       (let [request (get-request endpoint (json/generate-string query))
             {:keys [status body] :as result} (*app* request)]
-        (is (= body msg))
+        (is (re-find msg body))
         (is (= status pl-http/status-bad-request))))))

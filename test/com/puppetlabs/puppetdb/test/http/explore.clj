@@ -76,7 +76,9 @@
       (testing "/nodes should return all active nodes"
         (check-json-response
          nodes response (get-response "nodes")
-         (is (= (set (mapv :name nodes)) #{"host1" "host2"}))))
+         (case version
+           (:v2 :v3) (is (= (set (mapv :name nodes)) #{"host1" "host2"}))
+           (is (= (set (mapv :certname nodes)) #{"host1" "host2"})))))
 
       (testing "/nodes/<node> should return status info"
         (doseq [host ["host1" "host2"]]

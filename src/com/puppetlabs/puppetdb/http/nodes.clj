@@ -10,15 +10,18 @@
             [net.cgrand.moustache :refer [app]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
-            [com.puppetlabs.puppetdb.http :refer [add-headers]]))
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn produce-body
   [version query paging-options db]
   (try
     (with-transacted-connection db
-      (let [parsed-query (json/parse-string query true)
+      (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
-             count-query    :count-query} (node/query->sql version parsed-query paging-options)
+             count-query    :count-query} (case version
+                                            (:v2 :v3) (node/query->sql version parsed-query paging-options)
+                                            (qe/compile-user-query->sql qe/nodes-query parsed-query paging-options))
             resp (pl-http/stream-json-response
                   (fn [f]
                     (with-transacted-connection db

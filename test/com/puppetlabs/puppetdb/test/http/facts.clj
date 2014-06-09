@@ -423,11 +423,12 @@
     (testing "fact queries"
       (testing "well-formed queries"
         (doseq [[query result] common-well-formed-tests]
-          (let [request (get-request endpoint (json/generate-string query))
-                {:keys [status body headers]} (*app* request)]
-            (is (= status pl-http/status-ok))
-            (is (= (headers "Content-Type") c-t))
-            (is (= (set (remove-all-environments version result)) (set (json/parse-string (slurp body) true)))))))
+          (testing (format "Query %s" query)
+              (let [request (get-request endpoint (json/generate-string query))
+                    {:keys [status body headers]} (*app* request)]
+                (is (= status pl-http/status-ok))
+                (is (= (headers "Content-Type") c-t))
+                (is (= (set (remove-all-environments version result)) (set (json/parse-string (slurp body) true))))))))
 
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
