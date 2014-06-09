@@ -1,52 +1,12 @@
 (ns com.puppetlabs.puppetdb.query.event-counts
   (:require [com.puppetlabs.puppetdb.query.events :as events]
             [clojure.string :as string]
-            [com.puppetlabs.jdbc :refer [valid-jdbc-query? dashes->underscores underscores->dashes]]
-            [com.puppetlabs.puppetdb.query :refer [compile-term execute-query]]
+            [com.puppetlabs.jdbc :as jdbc]
+            [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
             [puppetlabs.kitchensink.core :refer [contains-some]]
             [clojure.core.match :refer [match]]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
-
-(defn- compile-event-count-equality
-  "Compile an = predicate for event-count query.  The `path` represents
-  the field to query against, and `value` is the value of the field."
-  [& [path value :as args]]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (when-not (= (count args) 2)
-    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [db-field (dashes->underscores path)]
-    (match [db-field]
-      [(field :guard #{"successes" "failures" "noops" "skips"})]
-      {:where (format "%s = ?" field)
-       :params [value]}
-
-      :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
-
-(defn- compile-event-count-inequality
-  "Compile an inequality for an event-counts query (> < >= <=).  The `path`
-  represents the field to query against, and the `value` is the value of the field."
-  [& [op path value :as args]]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (when-not (= (count args) 3)
-    (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
-  (match [path]
-    [(field :guard #{"successes" "failures" "noops" "skips"})]
-    {:where (format "%s %s ?" field op)
-     :params [value]}
-
-    :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
-
-(defn- event-count-ops
-  "Maps resource event count operators to the functions implementing them.
-  Returns nil if the operator is unknown."
-  [op]
-  (let [op (string/lower-case op)]
-    (cond
-      (= "=" op) compile-event-count-equality
-      (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
@@ -68,7 +28,7 @@
   {:pre  [((some-fn nil? sequential?) counts-filter)]
    :post [(map? %)]}
   (if counts-filter
-    (compile-term event-count-ops counts-filter)
+    (query/compile-term query/event-count-ops counts-filter)
     {:where nil :params []}))
 
 (defn- get-count-by-sql
@@ -92,7 +52,7 @@
   {:pre [(vector? group-by)]}
   (concat
     ["failures" "successes" "noops" "skips"]
-    (map underscores->dashes group-by)))
+    (map jdbc/underscores->dashes group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -153,28 +113,36 @@
                           (assoc :subject {:title (:containing_class result)})
                           (dissoc :containing_class))))
 
-(defn- munge-subjects
+(defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
-  [summarize-by results]
-  {:pre [(vector? results)]
-   :post [(vector? %)]}
-  (mapv (partial munge-subject summarize-by) results))
+  [summarize-by]
+  (fn [rows]
+    (mapv
+     (partial munge-subject summarize-by)
+     rows)))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
   ([version query summarize-by]
-     (query->sql version query summarize-by {}))
-  ([version query summarize-by {:keys [counts-filter count-by] :as query-options}]
+     (query->sql version query summarize-by {} {}))
+  ([version query summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]
      {:pre  [(sequential? query)
              (string? summarize-by)
              ((some-fn nil? sequential?) counts-filter)
              ((some-fn nil? string?) count-by)]
-      :post [(valid-jdbc-query? %)]}
+      :post [(map? %)
+             (jdbc/valid-jdbc-query? (:results-query %))
+             (or
+              (not (:count? paging-options))
+              (jdbc/valid-jdbc-query? (:count-query %)))]}
      (let [count-by                        (or count-by "resource")
            group-by                        (get-group-by summarize-by)
+           _                               (validate-order-by!
+                                            (map keyword (event-counts-columns group-by))
+                                            paging-options)
            {counts-filter-where  :where
             counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
            distinct-opts                   (select-keys query-options [:distinct-resources? :distinct-start-time :distinct-end-time])
@@ -186,20 +154,25 @@
                                                 (qe/compile-user-query->sql qe/report-events-query query))))
            count-by-sql                    (get-count-by-sql event-sql count-by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
-           filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
-       (apply vector filtered-sql (concat event-params counts-filter-params)))))
+           sql                             (get-filtered-sql event-count-sql counts-filter-where)
+           params                          (concat event-params counts-filter-params)
+           paged-select                    (jdbc/paged-sql sql paging-options)
+           results                         {:results-query (apply vector paged-select params)}]
+       (if (:count? paging-options)
+         (assoc results :count-query (apply vector (jdbc/count-sql sql) params))
+         results))))
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
-  ([sql-and-params summarize-by]
-    (query-event-counts {} summarize-by sql-and-params))
-  ([paging-options summarize-by [sql & params]]
-   {:pre  [(string? sql)]
-    :post [(map? %)
-           (vector? (:result %))]}
-    (let [group-by (get-group-by summarize-by)]
-      (validate-order-by!
-        (map keyword (event-counts-columns group-by))
-        paging-options))
-    (-> (execute-query (apply vector sql params) paging-options)
-      (update-in [:result] (partial munge-subjects summarize-by)))))
+  [version summarize-by query-sql]
+  {:pre  [(map? query-sql)]}
+  (let [{[sql & params] :results-query
+         count-query    :count-query} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          ;; The doall simply forces the seq to be traversed
+                          ;; fully.
+                          (comp doall (munge-result-rows summarize-by)))}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))

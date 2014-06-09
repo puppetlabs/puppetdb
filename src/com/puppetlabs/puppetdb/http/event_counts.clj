@@ -4,16 +4,16 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection
+                                         get-result-count]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [net.cgrand.moustache :refer [app]]
-            [com.puppetlabs.http :refer [parse-boolean-query-param]]
-            [com.puppetlabs.puppetdb.http :refer [query-result-response]]))
+            [com.puppetlabs.puppetdb.http :refer [add-headers]]
+            [com.puppetlabs.puppetdb.query :as query]))
 
 (defn produce-body
-  "Given a database connection, a query, a value to summarize by, and optionally
-  a query to filter the counts and a value to count by, return a Ring response
-  with the the query results.
+  "Given a query, options and a database connection, return a Ring response with the
+  query results.
 
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
   [version {:strs [query summarize-by counts-filter count-by] :as query-params} paging-options db]
@@ -26,17 +26,24 @@
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
           distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
-        (-> (event-counts/query->sql version query summarize-by
-              (merge {:counts-filter counts-filter :count-by count-by}
-                     distinct-options))
-            ((partial event-counts/query-event-counts paging-options summarize-by))
-            (query-result-response))))
+        (let [{[sql & params] :results-query
+               count-query    :count-query} (event-counts/query->sql version query summarize-by
+                                                                     (merge {:counts-filter counts-filter
+                                                                             :count-by count-by}
+                                                                            distinct-options)
+                                                                     paging-options)
+               resp (pl-http/stream-json-response
+                     (fn [f]
+                       (with-transacted-connection db
+                         (query/streamed-query-result version sql params
+                                                      (comp f (event-counts/munge-result-rows summarize-by))))))]
+          (if count-query
+            (add-headers resp {:count (get-result-count count-query)})
+            resp))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch IllegalStateException e
-      (pl-http/error-response e pl-http/status-internal-error))))
+      (pl-http/error-response e))))
 
 (defn routes
   [version]

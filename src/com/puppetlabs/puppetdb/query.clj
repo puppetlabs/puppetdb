@@ -866,6 +866,37 @@ args))))))
            (throw (IllegalArgumentException.
                    (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
 
+(defn compile-event-count-equality
+  "Compile an = predicate for event-count query.  The `path` represents
+  the field to query against, and `value` is the value of the field."
+  [& [path value :as args]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (when-not (= (count args) 2)
+    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+  (let [db-field (jdbc/dashes->underscores path)]
+    (match [db-field]
+      [(field :guard #{"successes" "failures" "noops" "skips"})]
+      {:where (format "%s = ?" field)
+       :params [value]}
+
+      :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
+
+(defn compile-event-count-inequality
+  "Compile an inequality for an event-counts query (> < >= <=).  The `path`
+  represents the field to query against, and the `value` is the value of the field."
+  [& [op path value :as args]]
+  {:post [(map? %)
+          (string? (:where %))]}
+  (when-not (= (count args) 3)
+    (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
+  (match [path]
+    [(field :guard #{"successes" "failures" "noops" "skips"})]
+    {:where (format "%s %s ?" field op)
+     :params [value]}
+
+    :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
+
 (declare fact-operators)
 
 (defn resource-operators
@@ -991,6 +1022,15 @@ args))))))
         (cond
          (= op "=") (compile-reports-equality version)
          (= op "and") (partial compile-and (report-ops version)))))))
+
+(defn event-count-ops
+  "Maps resource event count operators to the functions implementing them.
+  Returns nil if the operator is unknown."
+  [op]
+  (let [op (string/lower-case op)]
+    (cond
+      (= "=" op) compile-event-count-equality
+      (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
 
 (defn remove-environment
   "dissocs the :environment key when the version is :v4"

@@ -1,17 +1,17 @@
 (ns com.puppetlabs.puppetdb.test.query.event-counts
-  (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts])
-  (:use clojure.test
-        com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
-        [clj-time.core :only [now]]))
+  (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
+            [clj-time.core :refer [now]]))
 
 (use-fixtures :each with-test-db)
 
 (defn- raw-event-counts-query-result
   [version query summarize-by query-options paging-options]
-  (->> (event-counts/query->sql version query summarize-by query-options)
-       (event-counts/query-event-counts paging-options summarize-by)))
+  (->> (event-counts/query->sql version query summarize-by query-options paging-options)
+       (event-counts/query-event-counts version summarize-by)))
 
 (defn- event-counts-query-result
   "Utility function that executes an event-counts query and
