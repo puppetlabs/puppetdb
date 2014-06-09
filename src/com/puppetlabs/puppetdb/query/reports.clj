@@ -38,7 +38,7 @@
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (validate-order-by! report-columns paging-options)
      (case version
-       (:v3)
+       :v3
        (let [operators (query/report-ops version)
              [sql & params] (query/report-query->sql version operators query)
              paged-select (jdbc/paged-sql sql paging-options)
