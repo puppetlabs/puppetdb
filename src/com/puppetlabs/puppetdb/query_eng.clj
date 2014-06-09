@@ -481,7 +481,7 @@
             (assoc (user-query->logical-obj subquery-name)
               :project {column nil}
               :where (user-node->plan-node (user-query->logical-obj subquery-name) subquery-expression))
-            :else (do (println "All sorts of nil" node) nil)))
+            :else nil))
 
 (defn convert-to-plan
   "Converts the given `user-query` to a query plan that can later be converted into
@@ -567,6 +567,16 @@
              :state state}
             :else {:node node :state state}))
 
+(defn ops-to-lower
+  "Lower cases operators (such as and/or"
+  [node state]
+  (cm/match [node]
+            [[op & stmt-rest]]
+            {:node (with-meta (vec (cons (str/lower-case op) stmt-rest))
+                     (meta node))
+             :state state}
+            :else {:node node :state state}))
+
 (defn push-down-context
   "Pushes the top level query context down to each query node, throws IllegalArgumentException
    if any unrecognized fields appear in the query"
@@ -574,7 +584,7 @@
   (let [{annotated-query :node
          errors :state} (zip/pre-order-visit (zip/tree-zipper user-query)
                                              []
-                                             [(annotate-with-context context) validate-query-fields dashes-to-underscores])]
+                                             [(annotate-with-context context) validate-query-fields dashes-to-underscores ops-to-lower])]
     (when (seq errors)
       (throw (IllegalArgumentException. (str/join \newline errors))))
 

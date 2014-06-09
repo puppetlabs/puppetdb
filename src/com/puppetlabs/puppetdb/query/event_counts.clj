@@ -5,7 +5,8 @@
             [com.puppetlabs.puppetdb.query :refer [compile-term execute-query]]
             [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
             [puppetlabs.kitchensink.core :refer [contains-some]]
-            [clojure.core.match :refer [match]]))
+            [clojure.core.match :refer [match]]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn- compile-event-count-equality
   "Compile an = predicate for event-count query.  The `path` represents
@@ -165,27 +166,28 @@
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
   ([version query summarize-by]
-    (query->sql version query summarize-by {}))
+     (query->sql version query summarize-by {}))
   ([version query summarize-by {:keys [counts-filter count-by] :as query-options}]
-    {:pre  [(sequential? query)
-            (string? summarize-by)
-            ((some-fn nil? sequential?) counts-filter)
-            ((some-fn nil? string?) count-by)]
-     :post [(valid-jdbc-query? %)]}
-    (let [count-by                        (or count-by "resource")
-          group-by                        (get-group-by summarize-by)
-          {counts-filter-where  :where
-           counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-          [event-sql & event-params]      (:results-query
-                                           (events/query->sql
-                                            version
-                                            (select-keys query-options
-                                                         [:distinct-resources? :distinct-start-time :distinct-end-time])
-                                            query nil))
-          count-by-sql                    (get-count-by-sql event-sql count-by group-by)
-          event-count-sql                 (get-event-count-sql count-by-sql group-by)
-          filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
-      (apply vector filtered-sql (concat event-params counts-filter-params)))))
+     {:pre  [(sequential? query)
+             (string? summarize-by)
+             ((some-fn nil? sequential?) counts-filter)
+             ((some-fn nil? string?) count-by)]
+      :post [(valid-jdbc-query? %)]}
+     (let [count-by                        (or count-by "resource")
+           group-by                        (get-group-by summarize-by)
+           {counts-filter-where  :where
+            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
+           distinct-opts                   (select-keys query-options [:distinct-resources? :distinct-start-time :distinct-end-time])
+           [event-sql & event-params]      (:results-query
+                                            (case version
+                                              (:v2 :v3) (events/query->sql version distinct-opts query nil)
+                                              (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                                (events/query->sql version distinct-opts query nil)
+                                                (qe/compile-user-query->sql qe/report-events-query query))))
+           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+           event-count-sql                 (get-event-count-sql count-by-sql group-by)
+           filtered-sql                    (get-filtered-sql event-count-sql counts-filter-where)]
+       (apply vector filtered-sql (concat event-params counts-filter-params)))))
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
