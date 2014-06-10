@@ -84,12 +84,12 @@
         (doseq [host ["host1" "host2"]]
           (check-json-response
            status response (get-response (str "nodes/" host))
-           (is (= host (:name status)))
+           (is (= host ((case version (:v2 :v3) :name :certname) status)))
            (is (nil? (:deactivated status)))))
         ;; host3 should be deactivated
         (check-json-response
          status response (get-response "nodes/host3")
-         (is (= "host3" (:name status)))
+         (is (= "host3" ((case version (:v2 :v3) :name :certname) status)))
          (is (:deactivated status))))
 
       (testing "/nodes/<node> should return a 404 for unknown nodes"

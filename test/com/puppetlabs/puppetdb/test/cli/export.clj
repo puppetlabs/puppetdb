@@ -4,10 +4,10 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [com.puppetlabs.puppetdb.testutils.reports :as testrep]
-            [com.puppetlabs.puppetdb.cli.export :as export])
-  (:use  [clojure.java.io :only [resource]]
-         clojure.test
-         [com.puppetlabs.puppetdb.fixtures]))
+            [com.puppetlabs.puppetdb.cli.export :as export]
+            [clojure.java.io :refer [resource]]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
 (use-fixtures :each with-test-db)
 

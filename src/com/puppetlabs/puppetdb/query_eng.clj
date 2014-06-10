@@ -41,8 +41,8 @@
                          "facts_timestamp" :timestamp
                          "report_timestamp" :timestamp
                          "catalog_timestamp" :timestamp}
-               :queryable-fields ["certname" "deactivated" "facts_environment" "report_environment" "catalog_environment""facts_timestamp"
-                                  "report_timestamp" "catalog_timestamp"]
+               :queryable-fields ["certname" "deactivated" "facts-environment" "report-environment" "catalog-environment" "facts-timestamp"
+                                  "report-timestamp" "catalog-timestamp"]
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
@@ -158,7 +158,7 @@
                :queryable-fields ["message" "old-value" "report-receive-time" "run-end-time" "containment-path"
                                   "certname" "run-start-time" "timestamp" "configuration-version" "new-value"
                                   "resource-title" "status" "property" "resource-type" "line" "environment"
-                                  "containing-class" "file" "report"]
+                                  "containing-class" "file" "report" "latest-report?"]
                :alias "events"
                :subquery? false
                :source-table "resource_events"
@@ -327,7 +327,7 @@
             ["in" "certname"
              ["extract" "certname"
               ["select-nodes"
-               ["nil?" "deactivated" (not value)]]]]
+               ["nil?" "deactivated" value]]]]
 
             [["=" ["parameter" param-name] param-value]]
             ["in" "resource"
@@ -345,7 +345,7 @@
                 ["=" "name" fact-name]
                 [op "value" fact-value]]]]]
 
-            [["=" "latest-report?" value]]
+            [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"
                                    ["extract" "latest_report_hash"
                                     ["select-latest-report"
@@ -355,6 +355,9 @@
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
+
+            [[op (field :guard #{"new_value" "old_value"}) value]]
+            [op field (db-serialize value)]
 
             [["=" field nil]]
             ["nil?" (jdbc/dashes->underscores field) true]
@@ -477,7 +480,7 @@
 
             [["nil?" column value]]
             (map->NullExpression {:column column
-                                  :null? (not value)})
+                                  :null? value})
 
             [["~" column value]]
             (let [col-type (get-in query-rec [:project column])]

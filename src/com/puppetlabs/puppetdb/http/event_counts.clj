@@ -4,11 +4,11 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.jdbc :refer [with-transacted-connection
-                                         get-result-count]]
-            [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
+            [com.puppetlabs.jdbc :as jdbc]
+            [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
+                                               wrap-with-paging-options]]
             [net.cgrand.moustache :refer [app]]
-            [com.puppetlabs.puppetdb.http :refer [add-headers]]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query :as query]))
 
 (defn produce-body
@@ -25,7 +25,7 @@
     (let [query               (json/parse-strict-string query true)
           counts-filter       (if counts-filter (json/parse-string counts-filter true))
           distinct-options    (events-http/validate-distinct-options! query-params)]
-      (with-transacted-connection db
+      (jdbc/with-transacted-connection db
         (let [{[sql & params] :results-query
                count-query    :count-query} (event-counts/query->sql version query summarize-by
                                                                      (merge {:counts-filter counts-filter
@@ -34,11 +34,11 @@
                                                                      paging-options)
                resp (pl-http/stream-json-response
                      (fn [f]
-                       (with-transacted-connection db
+                       (jdbc/with-transacted-connection db
                          (query/streamed-query-result version sql params
                                                       (comp f (event-counts/munge-result-rows summarize-by))))))]
           (if count-query
-            (add-headers resp {:count (get-result-count count-query)})
+            (http/add-headers resp {:count (jdbc/get-result-count count-query)})
             resp))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
@@ -50,7 +50,11 @@
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
-            (produce-body version params paging-options (:scf-read-db globals)))}))
+            (produce-body
+             version
+             params
+             paging-options
+             (:scf-read-db globals)))}))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."

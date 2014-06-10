@@ -14,7 +14,6 @@
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
             [com.puppetlabs.cheshire :as json]))
 
-
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query
   results.
