@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.testutils.event-counts
-  (:require [cheshire.core :as json])
-  (:use com.puppetlabs.puppetdb.fixtures
-        [com.puppetlabs.puppetdb.testutils :only [get-request assert-success!]]))
+  (:require [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.testutils :refer [get-request assert-success!]]))
 
 (defn- json-encode-counts-filter
   "Given the `params` to an event-counts query, convert the counts-filter
@@ -26,4 +26,6 @@
                                            (json-encode-counts-filter))))]
       (when-not ignore-failure?
         (assert-success! response))
-      response)))
+      (if (string? (:body response))
+        response
+        (update-in response [:body] slurp)))))

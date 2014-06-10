@@ -1,10 +1,10 @@
 (ns com.puppetlabs.puppetdb.test.query.aggregate-event-counts
-  (:require [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts])
-  (:use clojure.test
-        com.puppetlabs.puppetdb.fixtures
-        com.puppetlabs.puppetdb.examples.reports
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report!]]
-        [clj-time.core :only [now]]))
+  (:require [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.examples.reports :refer :all]
+            [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
+            [clj-time.core :refer [now]]))
 
 (use-fixtures :each with-test-db)
 
@@ -14,8 +14,8 @@
   ([version query summarize-by]
    (aggregate-counts-query-result version query summarize-by {}))
   ([version query summarize-by extra-query-params]
-   (-> (aggregate-event-counts/query->sql version query summarize-by extra-query-params)
-       (aggregate-event-counts/query-aggregate-event-counts))))
+     (-> (aggregate-event-counts/query->sql version query summarize-by extra-query-params)
+         (aggregate-event-counts/query-aggregate-event-counts))))
 
 (deftest aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))
