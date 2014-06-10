@@ -14,6 +14,7 @@
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
             [com.puppetlabs.cheshire :as json]))
 
+
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query
   results.
@@ -22,7 +23,7 @@
   [version query paging-options db]
   (try
     (with-transacted-connection db
-      (let [parsed-query (json/parse-string query true)
+      (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
              count-query    :count-query} (e/query->sql version parsed-query paging-options)
             resp (pl-http/stream-json-response

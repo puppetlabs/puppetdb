@@ -1,7 +1,10 @@
 (ns com.puppetlabs.puppetdb.query.environments
   (:require [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
+            [com.puppetlabs.jdbc :refer [valid-jdbc-query?]]
+            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
+            [puppetlabs.kitchensink.core :as ks]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (def environments-columns
   [:name])
@@ -19,13 +22,7 @@
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (validate-order-by! environments-columns paging-options)
-     (let [operators (query/environments-operators version)
-           [sql & params] (query/environments-query->sql operators query)
-           paged-select (jdbc/paged-sql sql paging-options)
-           result {:results-query (apply vector paged-select params)}]
-       (if (:count? paging-options)
-         (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
-         result))))
+     (qe/compile-user-query->sql qe/environments-query query paging-options)))
 
 (defn query-environments
   "Search for environments satisfying the given SQL filter."
