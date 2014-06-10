@@ -114,7 +114,7 @@
   (map->Query {:project {"hash" :string
                          "certname" :string
                          "puppet_version" :string
-                         "report_format" :string
+                         "report_format" :number
                          "configuration_version" :string
                          "start_time" :timestamp
                          "end_time" :timestamp
@@ -360,7 +360,7 @@
             ["nil?" (jdbc/dashes->underscores field) true]
 
             [[op "tag" array-value]]
-            [op "tags" array-value]
+            [op "tags" (str/lower-case array-value)]
 
             :else nil))
 
@@ -448,6 +448,14 @@
                (= col-type :array)
                (map->ArrayBinaryExpression {:column column
                                             :value value})
+
+               (= col-type :number)
+               (map->BinaryExpression {:operator "="
+                                       :column column
+                                       :value (if (string? value)
+                                                (ks/parse-number (str value))
+                                                value)})
+
                :else
                (map->BinaryExpression {:operator "="
                                        :column column
@@ -542,8 +550,9 @@
                    :cut true})
 
                 :else
-                {:node (vary-meta node assoc :query-context context)
-                 :state state}))))
+                (when (instance? clojure.lang.IMeta node)
+                  {:node (vary-meta node assoc :query-context context)
+                   :state state})))))
 
 (defn validate-query-fields
   "Add an error message to `state` if the field is not available for querying

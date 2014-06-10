@@ -2,7 +2,8 @@
   (:require [com.puppetlabs.puppetdb.query.resources :as s]
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
-            [com.puppetlabs.puppetdb.scf.storage :refer [ensure-environment]])
+            [com.puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
+            [com.puppetlabs.puppetdb.query-eng :as qe])
   (:use clojure.test
         ring.mock.request
         [com.puppetlabs.jdbc]
@@ -19,6 +20,13 @@
 (defn query-resources
   [query]
   (:result (s/query-resources query)))
+
+(defn query->sql
+  "Converts the given user query `input` to SQL"
+  [version input]
+  (case version
+    (:v2 :v3) (s/query->sql version input)
+    (qe/compile-user-query->sql qe/resources-query input)))
 
 (deftest test-query-resources
   (sql/insert-records
@@ -202,6 +210,7 @@
                     ["=" ["parameter" "ensure"] "file"] [foo1 bar1]
                     ["=" "certname" "subset.local"] [bar1 bar3 bar5]
                     ["=" "tag" "vivid"] [foo4]
+
                     ;; case-insensitive tags
                     ["=" "tag" "VIVID"] [foo4]
                     ;; array parameter matching
@@ -251,7 +260,7 @@
                      ["=" "tag" "vivid"]]
                     [foo4]
                     ])]
-          (is (= (set (query-resources (s/query->sql version input))) (set expect))
+          (is (= (set (query-resources (query->sql version input))) (set expect))
               (str "  " input " =>\n  " expect)))))
 
     (testing "v2 vs v3"
