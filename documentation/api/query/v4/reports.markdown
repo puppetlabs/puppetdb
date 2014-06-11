@@ -30,7 +30,7 @@ JSON query structure would be:
 
 ##### Operators
 
-The only available [OPERATOR][] is `=`.
+See [the Operators page](./operators.html)
 
 ##### Fields
 
@@ -48,6 +48,27 @@ The only available [OPERATOR][] is `=`.
 
 `status`
 : the status associated to report's node, possible values for this field come from Puppet's report status which can be found [here][statuses]
+
+`puppet-version`
+: the version of puppet that generated the report
+
+`report-format`
+: the version number of the report format that puppet used to generate the original report data
+
+`configuration-version`
+: an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run
+
+`start-time`
+: is the time at which the puppet run began
+
+`end-time`
+: is the time at which the puppet run ended
+
+`receive-time`
+: is the time at which puppetdb recieved the report
+
+`transaction-uuid`
+: string used to identify a puppet run
 
 #### Response format
 

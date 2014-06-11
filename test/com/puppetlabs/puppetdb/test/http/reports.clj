@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.reports
-  (:require [cheshire.core :as json]
+  (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -15,7 +15,9 @@
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clj-time.format :as tfmt]
+            [clj-time.coerce :as tcoerce]))
 
 (def endpoints [[:v3 "/v3/reports"]
                 [:v4 "/v4/reports"]])
@@ -185,3 +187,227 @@
                    (:body
                     (get-response "/v4/environments/PROD/reports"
                                   ["=" "certname" (:certname basic)]))))))))
+
+(deftestseq query-by-puppet-version
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (assoc (:basic2 reports) :puppet-version "3.6.0")
+        hash2 (:hash (store-example-report! basic2 (now)))
+        basic3 (assoc (:basic3 reports) :puppet-version "3.0.3")
+        hash3 (:hash (store-example-report! basic3 (now)))
+
+        v301 (get-response endpoint ["=" "puppet-version" "3.0.1"])
+        v301-body (json/parse-strict-string (:body v301) true)
+        v360 (get-response endpoint ["=" "puppet-version" "3.6.0"])
+        v360-body (json/parse-strict-string (:body v360) true)
+        v30x (get-response endpoint ["~" "puppet-version" "3\\.0\\..*"])
+        v30x-body (json/parse-strict-string (:body v30x) true)]
+
+    (is (= 1 (count v301-body)))
+    (response-equal?
+     v301
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 1 (count v360-body)))
+    (response-equal?
+     v360
+     (reports-response version [(assoc basic2 :hash hash2)])
+     remove-receive-times)
+
+    (is (= 2 (count v30x-body)))
+    (response-equal?
+     v30x
+     (reports-response version [(assoc basic :hash hash1)
+                                (assoc basic3 :hash hash3)])
+     remove-receive-times)))
+
+(deftestseq query-by-report-format
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (assoc (:basic2 reports) :report-format 4)
+        hash2 (:hash (store-example-report! basic2 (now)))
+        basic3 (assoc (:basic3 reports) :report-format 5)
+        hash3 (:hash (store-example-report! basic3 (now)))
+
+        v3-format (get-response endpoint ["=" "report-format" 3])
+        v3-format-body (json/parse-strict-string (:body v3-format) true)
+        v4-format (get-response endpoint ["and"
+                                          [">" "report-format" 3]
+                                          ["<" "report-format" 5]])
+        v4-format-body (json/parse-strict-string (:body v4-format) true)
+        v5-format (get-response endpoint ["and"
+                                          [">" "report-format" 3]
+                                          ["<=" "report-format" 5]])
+        v5-format-body (json/parse-strict-string (:body v5-format) true)]
+
+    (is (= 1 (count v3-format-body)))
+    (response-equal?
+     v3-format
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 1 (count v4-format-body)))
+    (response-equal?
+     v4-format
+     (reports-response version [(assoc basic2 :hash hash2)])
+     remove-receive-times)
+
+    (is (= 2 (count v5-format-body)))
+    (response-equal?
+     v5-format
+     (reports-response version [(assoc basic2 :hash hash2)
+                                (assoc basic3 :hash hash3)])
+     remove-receive-times)))
+
+(deftestseq query-by-configuration-version
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+
+        basic-result (get-response endpoint ["=" "configuration-version" "a81jasj123"])
+        basic-result-body (json/parse-strict-string (:body basic-result) true)
+        basic2-result (get-response endpoint ["~" "configuration-version" ".*23"])
+        basic2-result-body (json/parse-strict-string (:body basic2-result) true)]
+
+    (is (= 1 (count basic-result-body)))
+    (response-equal?
+     basic-result
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 2 (count basic2-result-body)))
+    (response-equal?
+     basic2-result
+     (reports-response version [(assoc basic :hash hash1)
+                                (assoc basic2 :hash hash2)])
+     remove-receive-times)))
+
+(deftestseq query-by-start-and-end-time
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+
+        basic-result (get-response endpoint ["=" "start-time" "2011-01-01T12:00:00-03:00"])
+        basic-result-body (json/parse-strict-string (:body basic-result) true)
+        basic-range (get-response endpoint ["and"
+                                            [">" "start-time" "2010-01-01T12:00:00-03:00"]
+                                            ["<" "end-time" "2012-01-01T12:00:00-03:00"]])
+        basic-range-body (json/parse-strict-string (:body basic-range) true)
+        all-reports (get-response endpoint ["and"
+                                            [">" "start-time" "2010-01-01T12:00:00-03:00"]
+                                            ["<" "end-time" "2014-01-01T12:00:00-03:00"]])
+        all-reports-body (json/parse-strict-string (:body all-reports) true)
+        basic2-result (get-response endpoint ["=" "end-time" "2013-08-28T19:10:00-03:00"])
+        basic2-result-body (json/parse-strict-string (:body basic2-result) true)]
+
+    (is (= 1 (count basic-result-body)))
+    (response-equal?
+     basic-result
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 1 (count basic-range-body)))
+    (response-equal?
+     basic-range
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 1 (count basic2-result-body)))
+    (response-equal?
+     basic2-result
+     (reports-response version [(assoc basic2 :hash hash2)])
+     remove-receive-times)
+
+    (is (= 2 (count all-reports-body)))
+    (response-equal?
+     all-reports
+     (reports-response version [(assoc basic :hash hash1)
+                                (assoc basic2 :hash hash2)])
+     remove-receive-times)))
+
+(defn ts->str [ts]
+  (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
+
+(deftestseq query-by-receive-time
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        stored-basic (store-example-report! basic (now))
+        hash1 (:hash stored-basic)
+
+        basic-result (get-response endpoint ["=" "receive-time" (ts->str (:receive-time stored-basic))])
+        basic-result-body (json/parse-strict-string (:body basic-result) true)]
+
+    (is (= 1 (count basic-result-body)))
+    (response-equal?
+     basic-result
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)))
+
+(deftestseq query-by-transaction-uuid
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+
+        basic-result (get-response endpoint ["=" "transaction-uuid" "68b08e2a-eeb1-4322-b241-bfdf151d294b"])
+        basic-result-body (json/parse-strict-string (:body basic-result) true)
+        all-results (get-response endpoint ["~" "transaction-uuid" "b$"])
+        all-results-body (json/parse-strict-string (:body all-results) true)]
+
+    (is (= 1 (count basic-result-body)))
+    (response-equal?
+     basic-result
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)
+
+    (is (= 2 (count all-results-body)))
+    (response-equal?
+     all-results
+     (reports-response version [(assoc basic :hash hash1)
+                                (assoc basic2 :hash hash2)])
+     remove-receive-times)))
+
+(deftestseq query-by-hash
+  [[version endpoint] endpoints
+   :when (and (not= version :v2)
+              (not= version :v3))]
+
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+
+        basic-result (get-response endpoint ["=" "hash" hash1])
+        basic-result-body (json/parse-strict-string (:body basic-result) true)]
+
+    (is (= 1 (count basic-result-body)))
+    (response-equal?
+     basic-result
+     (reports-response version [(assoc basic :hash hash1)])
+     remove-receive-times)))
