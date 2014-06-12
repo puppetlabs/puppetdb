@@ -23,31 +23,27 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Matches if:** the field's actual value is exactly the same as the provided value. Note that this **does not** coerce values --- the provided value must be the same data type as the field. In particular, be aware that:
+**Matches if:** the field's actual value is exactly the same as the provided value. Note that this **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string
 
 * Most fields are strings.
 * Some fields are booleans.
-* Numbers in resource parameters from Puppet are usually stored as strings, and equivalent numbers will **not** match --- if the value of `someparam` were "0", then `["=", "someparam", "0.0"]` wouldn't match.
+* Numbers in resource parameters from Puppet are usually stored as strings, if the value of `someparam` were "0", then `["=", "someparam", "0.0"]` wouldn't match, use `["=", "someparam", 0.0]`.
 
 ### `>` (greater than)
 
-**Matches if:** the field is greater than the provided value. Coerces both the field and value to floats or integers; if
-they can't be coerced, the operator will not match.
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
 
 ### `<` (less than)
 
-**Matches if:** the field is less than the provided value. Coerces both the field and value to floats or integers; if
-they can't be coerced, the operator will not match.
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
 
 ### `>=` (less than or equal to)
 
-**Matches if:** the field is greater than or equal to the provided value. Coerces both the field and value to floats or integers; if
-they can't be coerced, the operator will not match.
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
 
 ### `<=` (greater than or equal to)
 
-**Matches if:** the field is less than or equal to the provided value. Coerces both the field and value to floats or integers; if
-they can't be coerced, the operator will not match.
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
 
 ### `~` (regexp match)
 

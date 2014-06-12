@@ -42,6 +42,15 @@
                                                   [op "certname" value]
                                                   :else nil))]))))
 
+(defn status-for-node
+  "Returns status information for the given `node-name`"
+  [endpoint node-name]
+  (-> (get-response endpoint (update-certname-in-query endpoint ["=" "name" node-name]))
+      :body
+      slurp
+      (json/parse-string true)
+      first))
+
 (defn is-query-result
   [endpoint query expected]
   (let [query (update-certname-in-query endpoint query)
@@ -72,31 +81,30 @@
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (testing "status objects should reflect fact/catalog activity"
-      (let [status-for-node #(first (json/parse-string (slurp (:body (get-response endpoint (update-certname-in-query endpoint ["=" "name" %])))) true))]
-        (testing "when node is active"
-          (is (nil? (:deactivated (status-for-node web1)))))
+      (testing "when node is active"
+        (is (nil? (:deactivated (status-for-node endpoint web1)))))
 
-        (testing "when node has facts, but no catalog"
-          (case version
-            (:v2 :v3)
-            (do
-              (is (:facts_timestamp (status-for-node web2)))
-              (is (nil? (:catalog_timestamp (status-for-node web2)))))
+      (testing "when node has facts, but no catalog"
+        (case version
+          (:v2 :v3)
+          (do
+            (is (:facts_timestamp (status-for-node endpoint web2)))
+            (is (nil? (:catalog_timestamp (status-for-node endpoint web2)))))
 
-            (do
-              (is (:facts-timestamp (status-for-node web2)))
-              (is (nil? (:catalog-timestamp (status-for-node web2)))))))
+          (do
+            (is (:facts-timestamp (status-for-node endpoint web2)))
+            (is (nil? (:catalog-timestamp (status-for-node endpoint web2)))))))
 
-        (testing "when node has an associated catalog and facts"
-          (case version
-            (:v2 :v3)
-            (do
-              (is (:catalog_timestamp (status-for-node web1)))
-              (is (:facts_timestamp (status-for-node web1))))
+      (testing "when node has an associated catalog and facts"
+        (case version
+          (:v2 :v3)
+          (do
+            (is (:catalog_timestamp (status-for-node endpoint web1)))
+            (is (:facts_timestamp (status-for-node endpoint web1))))
 
-            (do
-              (is (:catalog-timestamp (status-for-node web1)))
-              (is (:facts-timestamp (status-for-node web1))))))))
+          (do
+            (is (:catalog-timestamp (status-for-node endpoint web1)))
+            (is (:facts-timestamp (status-for-node endpoint web1)))))))
 
     (testing "basic equality is supported for name"
       (is-query-result endpoint ["=" "name" "web1.example.com"] [web1]))
@@ -230,3 +238,26 @@
                        (set (map :name results))))
             (is (= (set (vals expected))
                    (set (map :certname results))))))))))
+
+(deftestseq node-timestamp-queries
+  [[version endpoint] endpoints
+   :when ((complement #{:v2 :v3}) version)]
+
+  (let [{:keys [web1 web2 db puppet]} (store-example-nodes)
+        web1-catalog-ts (:catalog-timestamp (status-for-node endpoint web1))
+        web1-facts-ts (:facts-timestamp (status-for-node endpoint web1))
+        web1-report-ts (:report-timestamp (status-for-node endpoint web1))]
+
+    (testing "basic query for timestamps"
+
+      (is-query-result endpoint ["=" "facts_timestamp" web1-facts-ts] [web1])
+      (is-query-result endpoint [">" "facts_timestamp" web1-facts-ts] [web2 db puppet])
+      (is-query-result endpoint [">=" "facts_timestamp" web1-facts-ts] [web1 web2 db puppet])
+
+      (is-query-result endpoint ["=" "catalog_timestamp" web1-catalog-ts] [web1])
+      (is-query-result endpoint [">" "catalog_timestamp" web1-catalog-ts] [db puppet])
+      (is-query-result endpoint [">=" "catalog_timestamp" web1-catalog-ts] [web1 db puppet])
+
+      (is-query-result endpoint ["=" "report_timestamp" web1-report-ts] [web1])
+      (is-query-result endpoint [">" "report_timestamp" web1-report-ts] [db puppet])
+      (is-query-result endpoint [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))

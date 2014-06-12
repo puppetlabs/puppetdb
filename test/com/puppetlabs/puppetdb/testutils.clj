@@ -13,7 +13,9 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [sql-current-connection-table-names]]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
             [clojure.test :refer :all]
-            [clojure.set :refer [difference]]))
+            [clojure.set :refer [difference]]
+            [clj-time.format :as tfmt]
+            [clj-time.coerce :as tcoerce]))
 
 (def c-t "application/json")
 
