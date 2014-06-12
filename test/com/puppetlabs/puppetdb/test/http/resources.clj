@@ -10,7 +10,9 @@
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                        deftestseq]]
-            [com.puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]))
+            [com.puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
+            [clojure.java.jdbc :as sql]
+            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]))
 
 (def v2-endpoint "/v2/resources")
 (def v3-endpoint "/v3/resources")

@@ -1,7 +1,26 @@
 (ns com.puppetlabs.puppetdb.testutils.nodes
-  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store])
-  (:use [com.puppetlabs.puppetdb.examples]
-        [clj-time.core :only [now]]))
+  (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [com.puppetlabs.puppetdb.examples :refer :all]
+            [com.puppetlabs.puppetdb.zip :as zip]
+            [com.puppetlabs.puppetdb.testutils.reports :as tur]
+            [clj-time.core :refer [now plus secs]]))
+
+(defn change-certname
+  "Changes [:certname certname] anywhere in `data` to `new-certname`"
+  [data new-certname]
+  (:node (zip/post-order-transform (zip/tree-zipper data) [(fn [node]
+                                                             (when (and (map? node)
+                                                                        (contains? node :certname))
+                                                               (assoc node :certname new-certname)))])))
+
+(defn basic-report-for-node
+  "Creates a report from `reports` for `node-name`"
+  [node-name]
+  (-> (:basic reports)
+      (change-certname node-name)
+      tur/munge-example-report-for-storage
+      (assoc :end-time (now))))
 
 (defn store-example-nodes
   []
@@ -24,6 +43,9 @@
     (scf-store/replace-catalog! (assoc web1-catalog :name web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :name puppet) (now))
     (scf-store/replace-catalog! (assoc db-catalog :name db) (now))
+    (scf-store/add-report! (basic-report-for-node web1) (now))
+    (scf-store/add-report! (basic-report-for-node puppet) (now))
+    (scf-store/add-report! (basic-report-for-node db) (now))
     {:web1    web1
      :web2    web2
      :db      db

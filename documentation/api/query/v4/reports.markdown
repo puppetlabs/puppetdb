@@ -34,7 +34,7 @@ See [the Operators page](./operators.html)
 
 ##### Fields
 
-`FIELD` may be any of the following.  All fields support only the equality operator.
+`FIELD` may be any of the following:
 
 `certname`
 : the name of the node that the report was received from.

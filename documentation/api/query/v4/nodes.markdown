@@ -22,24 +22,48 @@ aren't included in the response.
 
 #### Parameters
 
-* `query`: Optional. A JSON array of query predicates, in prefix form,
-  conforming to the format described below.
+* `query`: Required. A JSON array of query predicates, in prefix form. (The standard `["<OPERATOR>", "<FIELD>", "<VALUE>"]` format.)
 
-The `query` parameter is a similar format to [resource queries][resource].
+To query for the latest fact/catalog/report timestamp submitted by 'example.local', the JSON query structure would be:
 
-Only queries against `"name"`, `"catalog-environment"`, `"facts-environment"`, `"report-environment"` and facts are currently supported.
+    ["=", "certname", "example.local"]
 
-Fact terms must be of the form `["fact", <fact name>]`.
+##### Operators
 
-Node query supports [all available operators](./operators.html). Inequality
-operators are only supported for fact queries, but regular expressions are
-supported for all valid query parameters.
+See [the Operators page](./operators.html)
 
-Inequality operators are strictly arithmetic, and will ignore any fact values
-which are not numeric.
+##### Fields
+
+The below fields are allowed as filter criteria and are returned in all responses.
+
+`certname`
+: the name of the node that the report was received from.
+
+`catalog-environment`
+: the environment for the last received catalog
+
+`facts-environment`
+: the environment for the last received fact set
+
+`report-environment`
+: the environment for the last received report
+
+`catalog-timestamp`
+: last time a catalog was received
+
+`facts-timestamp`
+: last time a fact set was received
+
+`report-timestamp`
+: last time a report run was complete
+
+`["fact", <fact name>]`
+: queries for <fact name> associated to a node, inequality operators are allowed, non-numeric values will be skipped
 
 Note that nodes which are missing a fact referenced by a `not` query will match
 the query.
+
+##### Query Example
 
 This query will return nodes whose kernel is Linux and whose uptime is less
 than 30 days:
@@ -64,31 +88,6 @@ The response is a JSON array of hashes of the form:
      "report-environment": <string}
 
 The array is unsorted.
-
-##### Fields
-
-Valid fields returned by the query are as follows.
-
-`name`
-: the name of the node
-
-`catalog-timestamp`
-: last time a catalog was received
-
-`facts-timestamp`
-: last time a fact set was received
-
-`report-timestamp`
-: last time a report run was complete
-
-`catalog-environment`
-: the environment for the last received catalog
-
-`facts-environment`
-: the environment for the last received fact set
-
-`report-environment`
-: the environment for the last received report
 
 #### Example
 
@@ -210,4 +209,3 @@ for this route.
 This query endpoint supports paged results via the common PuppetDB paging
 query parameters.  For more information, please see the documentation
 on [paging][paging].
-
