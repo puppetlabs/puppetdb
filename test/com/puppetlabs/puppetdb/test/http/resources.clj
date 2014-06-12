@@ -265,6 +265,17 @@ to the result of the form supplied to this method."
           (is-response-equal (get-response endpoint query) result))
         (let [query ["=" "line" 22]
               result #{bar2}]
+          (is-response-equal (get-response endpoint query) result))
+
+        (let [query ["and"
+                     [">" "line" 21]
+                     ["<" "line" 23]]
+              result #{bar2}]
+          (is-response-equal (get-response endpoint query) result))
+        (let [query ["and"
+                     [">" "line" "21"]
+                     ["<" "line" "23"]]
+              result #{bar2}]
           (is-response-equal (get-response endpoint query) result))))))
 
 (deftestseq resource-query-paging

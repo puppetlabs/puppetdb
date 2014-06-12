@@ -96,7 +96,7 @@
                          "tags" :array
                          "exported" :string
                          "file" :string
-                         "line" :string
+                         "line" :number
                          "parameters" :string}
                :queryable-fields ["certname" "environment" "resource" "type" "title" "tag" "exported" "file" "line" "parameters"]
                :alias "resources"
@@ -151,7 +151,7 @@
                          "old_value" :string
                          "message" :string
                          "file" :string
-                         "line" :string
+                         "line" :number
                          "containment_path" :array
                          "containing_class" :string
                          "environment" :string}
@@ -327,7 +327,7 @@
             ["in" "certname"
              ["extract" "certname"
               ["select-nodes"
-               ["nil?" "deactivated" value]]]]
+               ["null?" "deactivated" value]]]]
 
             [["=" ["parameter" param-name] param-value]]
             ["in" "resource"
@@ -357,7 +357,7 @@
             [op field (db-serialize value)]
 
             [["=" field nil]]
-            ["nil?" (jdbc/dashes->underscores field) true]
+            ["null?" (jdbc/dashes->underscores field) true]
 
             [[op "tag" array-value]]
             [op "tags" (str/lower-case array-value)]
@@ -475,7 +475,7 @@
                         (format "Value %s must be a number for %s comparison." value op)))))
 
 
-            [["nil?" column value]]
+            [["null?" column value]]
             (map->NullExpression {:column column
                                   :null? value})
 

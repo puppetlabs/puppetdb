@@ -71,7 +71,7 @@
           ["in" "certname"
            ["extract" "certname"
             ["select-nodes"
-             ["nil?" "deactivated" true]]]]]
+             ["null?" "deactivated" true]]]]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]

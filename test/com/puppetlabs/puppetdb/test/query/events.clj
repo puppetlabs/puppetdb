@@ -9,10 +9,13 @@
             [com.puppetlabs.puppetdb.examples.reports :refer :all]
             [com.puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [com.puppetlabs.puppetdb.testutils.events :refer :all]
+            [com.puppetlabs.puppetdb.testutils :refer [deftestseq]]
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
             [clj-time.core :refer [now ago days]]))
 
 (use-fixtures :each with-test-db)
+
+(def versions [:v2 :v3 :v4])
 
 ;; Begin tests
 
@@ -325,6 +328,42 @@
                 actual    (resource-events-query-result version query)]
             (is (= actual expected)
                 (format "Results didn't match for query '%s'" query))))))))
+
+(deftestseq resource-event-queries-for-v4+
+  [version versions
+   :when (not (contains? #{:v2 :v3} version))]
+  (let [basic             (store-example-report! (:basic reports) (now))
+        basic2            (store-example-report! (:basic2 reports) (now))
+        report-hash       (:hash basic)
+        actual* #(resource-events-query-result version %)
+        expected* (fn [events-map event-ids report]
+                    (expected-resource-events version (kitchensink/select-values events-map event-ids) report))
+        basic-events-map  (get-events-map (:basic reports))
+        basic2-events-map (get-events-map (:basic2 reports))]
+
+    (are [query event-ids] (= (actual* query)
+                              (expected* basic-events-map event-ids basic))
+
+         ["=" "configuration-version" "a81jasj123"] [1 2 3]
+         ["=" "run-start-time" "2011-01-01T12:00:00-03:00"] [1 2 3]
+         ["=" "run-end-time" "2011-01-01T12:10:00-03:00"] [1 2 3]
+         ["=" "timestamp" "2011-01-01T12:00:01-03:00"] [1]
+         ["~" "configuration-version" "a81jasj"] [1 2 3]
+         ["<" "line" 2] [1]
+         ["null?" "line" true] [2]
+         ["or"
+          ["<" "line" 2]
+          ["null?" "line" true]] [1 2]
+         ["<=" "line" 2] [1 3])
+
+    (are [query basic-event-ids basic2-event-ids] (= (actual* query)
+                                                     (into (expected* basic-events-map basic-event-ids basic)
+                                                           (expected* basic2-events-map basic2-event-ids basic2)))
+         ["=" "containment-path" "Foo"] [3] [6]
+         ["~" "containment-path" "Fo"] [3] [6]
+         [">" "line" 1] [3] [4 5 6]
+         [">=" "line" 1] [1 3] [4 5 6]
+         ["null?" "line" false] [1 3] [4 5 6])))
 
 (deftest latest-report-resource-event-queries
   (let [basic1        (store-example-report! (:basic reports) (now))

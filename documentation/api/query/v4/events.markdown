@@ -49,9 +49,9 @@ type 'Service':
     ["and", ["=", "status", "failure"],
             ["~", "certname", "^foo\\."],
             ["=", "resource-type", "Service"]]
-            
-To retrieve latest events that are tied to the class found in your update.pp file    
-    
+
+To retrieve latest events that are tied to the class found in your update.pp file
+
     ["and", ["=", "latest-report?", true],
             ["~", "file", "update.pp"]]
 
@@ -161,13 +161,18 @@ is not supported by the regex match operator.
 `environment`
 : the environment associated with the reporting node
 
+`configuration-version`
+: an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run
+
+`containment-path`
+: checks for the supplied string in the collection of containment path strings associated to the event
+
 ##### Notes on fields that allow `NULL` values
 
 In the case of a `skipped` resource event, some of the fields of an event may
-not have values.  We handle this case in a slightly special way when these
-fields are used in equality (`=`) or inequality (`!=`) queries; specifically,
-an equality query will always return `false` for an event with no value for
-the field, and an inequality query will always return `true`.
+not have values. Queries using equality (`=`) and inequality (`!=`) will not return
+null values. See the `null?` operator, if you want to query for nodes that do not
+have a value.
 
 #### Response format
 
