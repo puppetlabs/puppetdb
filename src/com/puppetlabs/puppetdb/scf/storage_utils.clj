@@ -128,7 +128,7 @@ must be supplied as the value to be matched."
 
 (defmethod sql-regexp-match "PostgreSQL"
   [column]
-  (format "%s ~ ?" column))
+  (format "(%s ~ ? AND %s IS NOT NULL)" column column))
 
 (defmethod sql-regexp-match "HSQL Database Engine"
   [column]

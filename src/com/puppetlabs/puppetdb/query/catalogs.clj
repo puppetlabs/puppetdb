@@ -5,11 +5,11 @@
 ;;
 
 (ns com.puppetlabs.puppetdb.query.catalogs
-  (:require [com.puppetlabs.puppetdb.query.resources :as r]
+  (:require [com.puppetlabs.puppetdb.query.resources :as resources]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [com.puppetlabs.puppetdb.catalogs :as cats])
-  (:use [com.puppetlabs.jdbc :only [query-to-vec underscores->dashes]]
-        [puppetlabs.kitchensink.core :only [dissoc-if-nil mapkeys]]))
+            [com.puppetlabs.puppetdb.catalogs :as cats]
+            [com.puppetlabs.jdbc :as jdbc]
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (defn get-catalog-info
   "Given a node name, return a map of Puppet catalog information
@@ -25,7 +25,7 @@
                    "e.name as environment, COALESCE(c.api_version, 1) as api_version "
                    "FROM catalogs c left outer join environments e on c.environment_id = e.id "
                    "WHERE certname = ?")]
-    (first (query-to-vec query node))))
+    (first (jdbc/query-to-vec query node))))
 
 (defn resource-to-wire-format
   "Given a resource as returned by our resource database query functions,
@@ -40,7 +40,7 @@
     (dissoc :certname :resource :environment)
     ;; All of the sample JSON catalogs I've seen do not include the `file`/`line`
     ;; fields if we don't have actual values for them.
-    (dissoc-if-nil :line :file)))
+    (kitchensink/dissoc-if-nil :line :file)))
 
 (defn get-resources
   "Given a node name, return a sequence of resources (as maps, conforming to
@@ -50,9 +50,9 @@
    :post [(seq? %)
           (every? map? %)]}
   (map resource-to-wire-format
-    (-> (r/query->sql version ["=" "certname" node])
-      (r/query-resources)
-      (:result))))
+    (->> (resources/query->sql version ["=" "certname" node])
+         (resources/query-resources version)
+         (:result))))
 
 (defn get-edges
   "Fetch the edges for the current catalog for the given `node`.  Edges are returned
@@ -80,7 +80,7 @@
                   source_title
                   target_type
                   target_title
-                  relationship]} (query-to-vec query node)]
+                  relationship]} (jdbc/query-to-vec query node)]
       {:source       {:type source_type :title source_title}
        :target       {:type target_type :title target_title}
        :relationship relationship})))

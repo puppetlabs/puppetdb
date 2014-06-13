@@ -67,12 +67,14 @@
         (:v2 :v3)
         (do
           (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
-          (is (= (set expected) (set (mapv :name result)))))
+          (is (= (set expected) (set (mapv :name result)))
+              (str "Query was: " query)))
 
         (do
           (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
                    :catalog-environment :facts-environment :report-environment} (keyset res)))
-          (is (= (set expected) (set (mapv :certname result)))))))
+          (is (= (set expected) (set (mapv :certname result)))
+              (str "Query was: " query)))))
 
     (is (= status pl-http/status-ok))))
 
@@ -239,6 +241,12 @@
             (is (= (set (vals expected))
                    (set (map :certname results))))))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; :v4 tests
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (deftestseq node-timestamp-queries
   [[version endpoint] endpoints
    :when ((complement #{:v2 :v3}) version)]
@@ -250,14 +258,14 @@
 
     (testing "basic query for timestamps"
 
-      (is-query-result endpoint ["=" "facts_timestamp" web1-facts-ts] [web1])
-      (is-query-result endpoint [">" "facts_timestamp" web1-facts-ts] [web2 db puppet])
-      (is-query-result endpoint [">=" "facts_timestamp" web1-facts-ts] [web1 web2 db puppet])
+      (is-query-result endpoint ["=" "facts-timestamp" web1-facts-ts] [web1])
+      (is-query-result endpoint [">" "facts-timestamp" web1-facts-ts] [web2 db puppet])
+      (is-query-result endpoint [">=" "facts-timestamp" web1-facts-ts] [web1 web2 db puppet])
 
-      (is-query-result endpoint ["=" "catalog_timestamp" web1-catalog-ts] [web1])
-      (is-query-result endpoint [">" "catalog_timestamp" web1-catalog-ts] [db puppet])
-      (is-query-result endpoint [">=" "catalog_timestamp" web1-catalog-ts] [web1 db puppet])
+      (is-query-result endpoint ["=" "catalog-timestamp" web1-catalog-ts] [web1])
+      (is-query-result endpoint [">" "catalog-timestamp" web1-catalog-ts] [db puppet])
+      (is-query-result endpoint [">=" "catalog-timestamp" web1-catalog-ts] [web1 db puppet])
 
-      (is-query-result endpoint ["=" "report_timestamp" web1-report-ts] [web1])
-      (is-query-result endpoint [">" "report_timestamp" web1-report-ts] [db puppet])
-      (is-query-result endpoint [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))
+      (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
+      (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
+      (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))

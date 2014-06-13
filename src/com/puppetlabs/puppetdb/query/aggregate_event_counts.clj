@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.query.aggregate-event-counts
   (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
-            [com.puppetlabs.jdbc :refer [valid-jdbc-query? query-to-vec]]
-            [puppetlabs.kitchensink.core :refer [mapvals]]))
+            [com.puppetlabs.jdbc :as jdbc]
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (defn- get-aggregate-sql
   "Given the `event-count-sql`, return a SQL string that will aggregate the results."
@@ -24,7 +24,7 @@
    {:pre  [(sequential? query)
            (string? summarize-by)
            (map? query-options)]
-    :post [(valid-jdbc-query? %)]}
+    :post [(jdbc/valid-jdbc-query? %)]}
    (let [[count-sql & params] (:results-query
                                (event-counts/query->sql version query summarize-by query-options {}))
          aggregate-sql        (get-aggregate-sql count-sql)]
@@ -36,7 +36,7 @@
   {:pre  [(string? sql)]
    :post [(vector? %)
           (= (count %) 1)]}
-  (query-to-vec (apply vector sql params)))
+  (jdbc/query-to-vec (apply vector sql params)))
 
 (defn query-aggregate-event-counts
   "Given a SQL query and its parameters, return the single matching result map."
@@ -45,4 +45,4 @@
    :post [(map? %)]}
   (->> (perform-query query-and-params)
        first
-       (mapvals #(if (nil? %) 0 %))))
+       (kitchensink/mapvals #(if (nil? %) 0 %))))

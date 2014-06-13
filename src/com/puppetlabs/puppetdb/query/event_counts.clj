@@ -3,9 +3,8 @@
             [clojure.string :as string]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
-            [puppetlabs.kitchensink.core :refer [contains-some]]
-            [clojure.core.match :refer [match]]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn- get-group-by
@@ -94,7 +93,7 @@
            (every? #(contains? result %) [:resource_type :resource_title])
            (contains? result :containing_class))]
    :post [(map? %)
-          (not (contains-some % [:certname :resource_type :resource_title :containing_class]))
+          (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
           (= summarize-by (:subject-type %))]}
   (condp = summarize-by
@@ -140,7 +139,7 @@
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (let [count-by                        (or count-by "resource")
            group-by                        (get-group-by summarize-by)
-           _                               (validate-order-by!
+           _                               (paging/validate-order-by!
                                             (map keyword (event-counts-columns group-by))
                                             paging-options)
            {counts-filter-where  :where
@@ -156,11 +155,10 @@
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
            sql                             (get-filtered-sql event-count-sql counts-filter-where)
            params                          (concat event-params counts-filter-params)
-           paged-select                    (jdbc/paged-sql sql paging-options)
-           results                         {:results-query (apply vector paged-select params)}]
-       (if (:count? paging-options)
-         (assoc results :count-query (apply vector (jdbc/count-sql sql) params))
-         results))))
+           paged-select                    (jdbc/paged-sql sql paging-options)]
+       (conj {:results-query (apply vector paged-select params)}
+             (when (:count? paging-options)
+               [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."

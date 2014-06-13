@@ -3,10 +3,9 @@
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.catalogs :as c]
             [com.puppetlabs.puppetdb.catalogs :as cats]
-            [ring.util.response :as rr]
-            [com.puppetlabs.middleware :as middleware])
-  (:use [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [net.cgrand.moustache :only (app)]))
+            [com.puppetlabs.middleware :as middleware]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [net.cgrand.moustache :refer [app]]))
 
 (defn produce-body
   "Produce a response body for a request to retrieve the catalog for `node`."

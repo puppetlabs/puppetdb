@@ -5,10 +5,8 @@
             [clojure.core.match :refer [match]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query :refer [execute-query compile-term
-                                                   compile-and remove-environment]]
             [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (def report-columns
@@ -36,7 +34,7 @@
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (validate-order-by! report-columns paging-options)
+     (paging/validate-order-by! report-columns paging-options)
      (case version
        :v3
        (let [operators (query/report-ops version)
@@ -55,7 +53,7 @@
   specified API specification"
   [version]
   (fn [rows] (map (comp #(kitchensink/mapkeys jdbc/underscores->dashes %)
-                       #(remove-environment % version)
+                       #(query/remove-environment % version)
                        #(remove-status % version))
                  rows)))
 

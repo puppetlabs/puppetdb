@@ -1,9 +1,7 @@
 (ns com.puppetlabs.puppetdb.query.environments
   (:require [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.jdbc :refer [valid-jdbc-query?]]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]
-            [puppetlabs.kitchensink.core :as ks]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (def environments-columns
@@ -21,7 +19,7 @@
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (validate-order-by! environments-columns paging-options)
+     (paging/validate-order-by! environments-columns paging-options)
      (qe/compile-user-query->sql qe/environments-query query paging-options)))
 
 (defn query-environments

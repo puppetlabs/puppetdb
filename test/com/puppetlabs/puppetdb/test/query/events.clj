@@ -51,6 +51,11 @@
              IllegalArgumentException #"> operator does not support object 'resource_type'"
              (query/compile-term ops [">" "resource_type" "foo"])))))))
 
+(defmacro after-v3 [version v3-or-before v4-or-after]
+  `(if (contains? #{:v2 :v3} ~version)
+    ~v3-or-before
+    ~v4-or-after))
+
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
         report-hash       (:hash basic)
@@ -136,27 +141,41 @@
               (is (= actual expected)
                   (format "Results didn't match for query '%s'" query))))))
 
-      (testing "'not' queries"
+      (testing (str "'not' queries for " version)
         (doseq [[field value matches]
                 [[:resource-type    "Notify"                            []]
                  [:resource-title   "notify, yo"                        [2 3]]
                  [:status           "success"                           [3]]
-                 [:property         "message"                           [3]]
+                 [:property         "message"                           (after-v3 version
+                                                                                  [3]
+                                                                                  [])]
                  [:property         nil                                 [1 2]]
                  [:old-value        ["what" "the" "woah"]               [2 3]]
                  [:new-value        "notify, yo"                        [2 3]]
-                 [:message          "defined 'message' as 'notify, yo'" [3]]
+                 [:message          "defined 'message' as 'notify, yo'" (after-v3 version
+                                                                                  [3]
+                                                                                  [])]
                  [:message          nil                                 [1 2]]
                  [:resource-title   "bunk"                              [1 2 3]]
                  [:certname         "foo.local"                         []]
                  [:certname         "bunk.remote"                       [1 2 3]]
-                 [:file             "foo.pp"                            [2 3]]
-                 [:file             "bar"                               [1 2]]
+                 [:file             "foo.pp"                            (after-v3 version
+                                                                                  [2 3]
+                                                                                  [3])]
+                 [:file             "bar"                               (after-v3 version
+                                                                                  [1 2]
+                                                                                  [1])]
                  [:file             nil                                 [1 3]]
-                 [:line             1                                   [2 3]]
-                 [:line             2                                   [1 2]]
+                 [:line             1                                   (after-v3 version
+                                                                                  [2 3]
+                                                                                  [3])]
+                 [:line             2                                   (after-v3 version
+                                                                                  [1 2]
+                                                                                  [1])]
                  [:line             nil                                 [1 3]]
-                 [:containing-class "Foo"                               [1 2]]
+                 [:containing-class "Foo"                               (after-v3 version
+                                                                                  [1 2]
+                                                                                  [])]
                  [:containing-class nil                                 [3]]]]
           (testing (format "'not' query on field '%s'" field)
             (let [expected  (expected-resource-events

@@ -9,10 +9,8 @@
             [clj-time.coerce :refer [to-timestamp]]
             [com.puppetlabs.middleware :as middleware]
             [net.cgrand.moustache :refer [app]]
-            [com.puppetlabs.jdbc :refer [with-transacted-connection
-                                         get-result-count]]
-            [com.puppetlabs.puppetdb.http :refer [add-headers]]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.jdbc :as jdbc]
+            [com.puppetlabs.puppetdb.http :as http]))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct-resources` query.  Return a
@@ -56,24 +54,18 @@
   If the query can't be parsed, an HTTP `Bad Request` (400) is returned."
   [version json-query query-options paging-options db]
   (try
-    (with-transacted-connection db
+    (jdbc/with-transacted-connection db
       (let [parsed-query (json/parse-strict-string json-query true)
             {[sql & params] :results-query
-             count-query    :count-query} (case version
-                                            (:v2 :v3) (events/query->sql version query-options parsed-query paging-options)
-                                            (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
-                                              (events/query->sql version query-options parsed-query paging-options)
-                                              (qe/compile-user-query->sql qe/report-events-query parsed-query paging-options)))
+             count-query    :count-query} (events/query->sql version query-options parsed-query paging-options)
             resp (pl-http/stream-json-response
                   (fn [f]
-                    (with-transacted-connection db
+                    (jdbc/with-transacted-connection db
                       (query/streamed-query-result version sql params
                                                    (comp f (events/munge-result-rows version))))))]
-
         (if count-query
-          (add-headers resp {:count (get-result-count count-query)})
+          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
           resp)))
-
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

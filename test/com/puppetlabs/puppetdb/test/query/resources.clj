@@ -3,30 +3,24 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [com.puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
-            [com.puppetlabs.puppetdb.query-eng :as qe])
-  (:use clojure.test
-        ring.mock.request
-        [com.puppetlabs.jdbc]
-        [com.puppetlabs.puppetdb.fixtures]
-        [com.puppetlabs.puppetdb.scf.storage-utils :only [db-serialize to-jdbc-varchar-array]]))
+            [com.puppetlabs.puppetdb.query-eng :as qe]
+            [clojure.test :refer :all]
+            [ring.mock.request :refer :all]
+            [com.puppetlabs.jdbc :refer :all]
+            [com.puppetlabs.puppetdb.fixtures :refer :all]
+            [com.puppetlabs.puppetdb.query :as query]
+            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)
 
 (defn- raw-query-resources
   [version query paging-options]
   (->> (s/query->sql version query paging-options)
-       (s/query-resources)))
+       (s/query-resources version)))
 
 (defn query-resources
-  [query]
-  (:result (s/query-resources query)))
-
-(defn query->sql
-  "Converts the given user query `input` to SQL"
-  [version input]
-  (case version
-    (:v2 :v3) (s/query->sql version input)
-    (qe/compile-user-query->sql qe/resources-query input)))
+  [version query]
+  (:result (s/query-resources version query)))
 
 (deftest test-query-resources
   (sql/insert-records
@@ -196,7 +190,7 @@
     ;; ...and, finally, ready for testing.
 
     (doseq [version [:v3 :v4]]
-      (testing "queries against SQL data"
+      (testing (str "version " version " queries against SQL data")
         (doseq [[input expect]
                 (partition
                  2 [ ;; no match
@@ -260,14 +254,15 @@
                      ["=" "tag" "vivid"]]
                     [foo4]
                     ])]
-          (is (= (set (query-resources (query->sql version input))) (set expect))
-              (str "  " input " =>\n  " expect)))))
+         (is (= (set (query-resources version (s/query->sql version input)))
+                 (set (query/remove-all-environments version expect)))
+             (str "  " input " =>\n  " expect)))))
 
     (testing "v2 vs v3"
       (testing "file/line in v2"
         (doseq [param ["file" "line"]]
           (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-                (query-resources (s/query->sql :v2 ["=" param "foo"])))))
+                (query-resources :v2 (s/query->sql :v2 ["=" param "foo"])))))
 
         (doseq [[input expect]
                 (partition
@@ -275,49 +270,55 @@
                       ["=" "sourcefile" "c"] [foo3 bar3]
                       ["=" "sourceline" 3] [bar5]
                       ])]
-          (is (= (set (query-resources (s/query->sql :v2 input))) (set expect))
-            (str "  " input " =>\n  " expect)))))))
+          (is (= (set (query-resources :v2 (s/query->sql :v2 input)))
+                 (set (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
+                           (query/remove-all-environments :v2 expect))))
+              (str "  " input " =>\n  " expect)))))))
 
 (deftest query-resources-not-operator
-  (doseq [version [:v2 :v3 :v4]]
+  ;; These are tests that belong in query_eng for :v4
+  (doseq [version [:v2 :v3]]
     (testing "'not' term without arguments in later version"
       (doseq [op ["not" "NOT" "NoT"]]
         (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
-              (query-resources (s/query->sql version [op]))))))))
+              (query-resources version (s/query->sql version [op]))))))))
 
 (deftest query-resources-with-extra-FAIL
-  (doseq [version [:v2 :v3 :v4]]
-    (testing "combine terms without arguments"
-      (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
-        (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-              (query-resources (s/query->sql version [op]))))
-        (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-              (query-resources (s/query->sql version [op]))))))
+  ;; These are tests that belong in query_eng for :v4
+  (doseq [version [:v2 :v3]]
+    (testing (str "version " version)
+      (testing "combine terms without arguments"
+        (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
+          (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
+                                (query-resources version (s/query->sql version [op]))))
+          (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
+                                (query-resources version (s/query->sql version [op]))))))
 
-    (testing "bad query operators"
-      (doseq [in [["if"] ["-"] [{}] [["="]]]]
-        (is (thrown-with-msg? IllegalArgumentException #"query operator .* is unknown"
-              (query-resources (s/query->sql version in))))))
+      (testing "bad query operators"
+        (doseq [in [["if"] ["-"] [{}] [["="]]]]
+          (is (thrown-with-msg? IllegalArgumentException #"query operator .* is unknown"
+                                (query-resources version (s/query->sql version in))))))
 
-    (testing "wrong number of arguments to ="
-      (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
-        (is (thrown-with-msg? IllegalArgumentException
-              (re-pattern (format "= requires exactly two arguments, but %d were supplied"
-                               (dec (count in))))
-              (query-resources (s/query->sql version in))))))
-
-    (testing "invalid columns"
-      (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-            (query-resources (s/query->sql version ["=" "foobar" "anything"])))))
-
-    (testing "bad types in input"
-      (doseq [path (list [] {} [{}] 12 true false 0.12)]
-        (doseq [input (list ["=" path "foo"]
-                            ["=" [path] "foo"]
-                            ["=" ["bar" path] "foo"])]
+      (testing "wrong number of arguments to ="
+        (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
           (is (thrown-with-msg? IllegalArgumentException
-                #"is not a queryable object"
-                (query-resources (s/query->sql version input)))))))))
+                                (re-pattern (format "= requires exactly two arguments"
+                                                    (dec (count in))))
+                                (query-resources version (s/query->sql version in))))))
+
+      (testing "invalid columns"
+        (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
+                              (query-resources version (s/query->sql version ["=" "foobar" "anything"])))))
+
+      (testing "bad types in input"
+        (doseq [path (list [] {} [{}] 12 true false 0.12)]
+          (doseq [input (list ["=" path "foo"]
+                              ["=" [path] "foo"]
+                              ["=" ["bar" path] "foo"])]
+            (is (thrown-with-msg? IllegalArgumentException
+                                  #"is not a queryable object"
+                                  (query-resources version (s/query->sql version input)))
+                (str "Input was " input))))))))
 
 (deftest paging-results
   (sql/insert-records
@@ -359,70 +360,71 @@
         r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :environment "DEV" :parameters {"content" "contents" "ensure" "present"}}]
 
     (doseq [version [:v3 :v4]]
+      (testing (str "version " version)
 
-      (testing "include total results count"
-        (let [expected 4
-              actual   (:count (raw-query-resources version ["=" ["node" "active"] true] {:count? true}))]
-          (is (= actual expected))))
-
-      (testing "limit results"
-      (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
-        (let [results (:result (raw-query-resources version ["=" ["node" "active"] true] {:limit limit}))
-              actual  (count results)]
-          (is (= actual expected)))))
-
-      (testing "order-by"
-        (testing "rejects invalid fields"
-          (is (thrown-with-msg?
-                IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-                (:result (raw-query-resources version [] {:order-by [[:invalid-field :ascending]]})))))
-
-        (testing "defaults to ascending"
-          (let [expected [r1 r3 r4 r2]
-                actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
-                           {:order-by [[:line :ascending]]}))]
+        (testing "include total results count"
+          (let [expected 4
+                actual   (:count (raw-query-resources version ["=" ["node" "active"] true] {:count? true}))]
             (is (= actual expected))))
 
-        (testing "alphabetical fields"
-          (doseq [[order expected] [[:ascending  [r1 r2 r3 r4]]
-                                    [:descending [r4 r3 r2 r1]]]]
+        (testing "limit results"
+          (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
+            (let [results (:result (raw-query-resources version ["=" ["node" "active"] true] {:limit limit}))
+                  actual  (count results)]
+              (is (= actual expected)))))
+
+        (testing "order-by"
+          (testing "rejects invalid fields"
+            (is (thrown-with-msg?
+                 IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+                 (:result (raw-query-resources version [] {:order-by [[:invalid-field :ascending]]})))))
+
+          (testing "defaults to ascending"
+            (let [expected [r1 r3 r4 r2]
+                  actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
+                                                         {:order-by [[:line :ascending]]}))]
+              (is (= actual (query/remove-all-environments version expected)))))
+
+          (testing "alphabetical fields"
+            (doseq [[order expected] [[:ascending  [r1 r2 r3 r4]]
+                                      [:descending [r4 r3 r2 r1]]]]
+              (testing order
+                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
+                                                           {:order-by [[:title order]]}))]
+                  (is (= actual (query/remove-all-environments version expected)))))))
+
+          (testing "numerical fields"
+            (doseq [[order expected] [[:ascending  [r1 r3 r4 r2]]
+                                      [:descending [r2 r4 r3 r1]]]]
+              (testing order
+                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
+                                                           {:order-by [[:line order]]}))]
+                  (is (= actual (query/remove-all-environments version expected)))))))
+
+          (testing "multiple fields"
+            (doseq [[[file-order line-order] expected] [[[:ascending :descending]  [r2 r1 r3 r4]]
+                                                        [[:ascending :ascending]   [r1 r2 r3 r4]]
+                                                        [[:descending :ascending]  [r4 r3 r1 r2]]
+                                                        [[:descending :descending] [r4 r3 r2 r1]]]]
+              (testing (format "file %s line %s" file-order line-order)
+                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
+                                                           {:order-by [[:file file-order]
+                                                                       [:line line-order]]}))]
+                  (is (= actual (query/remove-all-environments version expected))))))))
+
+        (testing "offset"
+          (doseq [[order expected-sequences] [[:ascending [[0 [r1 r2 r3 r4]]
+                                                           [1 [r2 r3 r4]]
+                                                           [2 [r3 r4]]
+                                                           [3 [r4]]
+                                                           [4 []]]]
+                                              [:descending [[0 [r4 r3 r2 r1]]
+                                                            [1 [r3 r2 r1]]
+                                                            [2 [r2 r1]]
+                                                            [3 [r1]]
+                                                            [4 []]]]]]
             (testing order
-              (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                             {:order-by [[:title order]]}))]
-                (is (= actual expected))))))
-
-        (testing "numerical fields"
-          (doseq [[order expected] [[:ascending  [r1 r3 r4 r2]]
-                                    [:descending [r2 r4 r3 r1]]]]
-            (testing order
-              (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                             {:order-by [[:line order]]}))]
-                (is (= actual expected))))))
-
-        (testing "multiple fields"
-          (doseq [[[file-order line-order] expected] [[[:ascending :descending]  [r2 r1 r3 r4]]
-                                                      [[:ascending :ascending]   [r1 r2 r3 r4]]
-                                                      [[:descending :ascending]  [r4 r3 r1 r2]]
-                                                      [[:descending :descending] [r4 r3 r2 r1]]]]
-            (testing (format "file %s line %s" file-order line-order)
-              (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                             {:order-by [[:file file-order]
-                                         [:line line-order]]}))]
-                (is (= actual expected)))))))
-
-      (testing "offset"
-        (doseq [[order expected-sequences] [[:ascending [[0 [r1 r2 r3 r4]]
-                                                        [1 [r2 r3 r4]]
-                                                        [2 [r3 r4]]
-                                                        [3 [r4]]
-                                                        [4 []]]]
-                                            [:descending [[0 [r4 r3 r2 r1]]
-                                                         [1 [r3 r2 r1]]
-                                                         [2 [r2 r1]]
-                                                         [3 [r1]]
-                                                         [4 []]]]]]
-          (testing order
-            (doseq [[offset expected] expected-sequences]
-              (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                             {:order-by [[:title order]] :offset offset}))]
-                (is (= actual expected))))))))))
+              (doseq [[offset expected] expected-sequences]
+                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
+                                                           {:order-by [[:title order]] :offset offset}))]
+                  (is (= actual (query/remove-all-environments version expected))))))))))))

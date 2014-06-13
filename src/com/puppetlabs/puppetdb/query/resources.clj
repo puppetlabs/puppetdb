@@ -6,13 +6,10 @@
 ;;
 (ns com.puppetlabs.puppetdb.query.resources
   (:require [com.puppetlabs.cheshire :as json]
-            [clojure.string :as string]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.puppetdb.query :refer [resource-query->sql
-                                                  resource-operators
-                                                  resource-columns]]
-            [com.puppetlabs.puppetdb.query.paging :refer [validate-order-by!]]))
+            [com.puppetlabs.puppetdb.query :as query]
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the
@@ -33,28 +30,25 @@
            (or
              (not (:count? paging-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-    (validate-order-by! (map keyword (keys resource-columns)) paging-options)
-    (let [operators (resource-operators version)
-          [subselect & params] (resource-query->sql operators query)
-          sql (format (str "SELECT subquery1.certname, subquery1.resource, "
-                                  "subquery1.type, subquery1.title, subquery1.tags, "
-                                  "subquery1.exported, subquery1.file, "
-                                  "subquery1.line, rpc.parameters, subquery1.environment "
+   (paging/validate-order-by! (map keyword (keys query/resource-columns)) paging-options)
+   (case version
+     (:v2 :v3)
+     (let [operators (query/resource-operators version)
+           [subselect & params] (query/resource-query->sql operators query)
+           sql (format (str "SELECT subquery1.certname, subquery1.resource, "
+                            "subquery1.type, subquery1.title, subquery1.tags, "
+                            "subquery1.exported, subquery1.file, "
+                            "subquery1.line, rpc.parameters, subquery1.environment "
                             "FROM (%s) subquery1 "
                             "LEFT OUTER JOIN resource_params_cache rpc "
-                                "ON rpc.resource = subquery1.resource")
-                subselect)
-          paged-select (jdbc/paged-sql sql paging-options)
-          ;; This is a little more complex than I'd prefer; the general query paging
-          ;;  functions are built to work for SQL queries that return 1 row per
-          ;;  PuppetDB result.  Since that's not the case for resources right now,
-          ;;  we have to actually manage two separate SQL queries.  The introduction
-          ;;  of the new `resource-params-cache` table in the next release should
-          ;;  alleviate this problem and allow us to simplify this code.
-          result               {:results-query (apply vector paged-select params)}]
-      (if (:count? paging-options)
-        (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
-        result))))
+                            "ON rpc.resource = subquery1.resource")
+                       subselect)]
+       (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
+             (when (:count? paging-options)
+               [:count-query (apply vector (jdbc/count-sql subselect) params)])))
+
+     (qe/compile-user-query->sql
+      qe/resources-query query paging-options))))
 
 (defn deserialize-params
   [resources]
@@ -74,33 +68,17 @@
       :v2 (comp deserialize-params rename-file-line)
       deserialize-params)))
 
-(defn limited-query-resources
-  "Take a limit, and a map of SQL queries as produced by `query->sql`, return
-  a map containing the results of the query, as well as optional metadata.
-
-  The returned map will contain a key `:result`, whose value is vector of
-  resources which match the query.  If the paging-options used to generate
-  the queries indicate that a total result count should also be returned, then
-  the map will contain an additional key `:count`, whose value is an integer.
-
-   Throws an exception if the query would return more than `limit` results.  (A
-   value of `0` for `limit` means that the query should not be limited.)"
-  [limit {:keys [results-query count-query] :as queries-map}]
-  {:pre  [(and (integer? limit) (>= limit 0))]
-   :post [(or (zero? limit) (<= (count %) limit))]}
-  (let [[query & params] results-query
-        limited-query (jdbc/add-limit-clause limit query)
-        results       (jdbc/limited-query-to-vec limit (apply vector limited-query params))
-        results       {:result (deserialize-params results)}]
-    (if count-query
-      (assoc results :count (jdbc/get-result-count count-query))
-      results)))
-
 (defn query-resources
-  "Takes a map of SQL queries as produced by `query->sql`, and returns a map
-  containing the query results and metadata.  For more detail on the return value,
-  see `limited-query-resources`"
-  [queries-map]
-  {:pre [(map? queries-map)
-         (jdbc/valid-jdbc-query? (:results-query queries-map))]}
-    (limited-query-resources 0 queries-map))
+  "Search for resources satisfying the given SQL filter."
+  [version query-sql]
+  {:pre [(map? query-sql)]}
+  (let [{[sql & params] :results-query
+         count-query    :count-query} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          ;; The doall simply forces the seq to be traversed
+                          ;; fully.
+                          (comp doall (munge-result-rows version)))}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))
