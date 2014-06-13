@@ -348,10 +348,7 @@
             [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"
                                    ["extract" "latest_report_hash"
-                                    ["select-latest-report"
-                                     ;;Need to add support for no
-                                     ;;"where" clause in a subquery
-                                     ["=" "1" "1"]]]]]
+                                    ["select-latest-report"]]]]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
@@ -505,10 +502,11 @@
             [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["extract" column
-              [subquery-name subquery-expression]]]
+              [subquery-name & subquery-expression]]]
             (assoc (user-query->logical-obj subquery-name)
               :project {column nil}
-              :where (user-node->plan-node (user-query->logical-obj subquery-name) subquery-expression))
+              :where (when (seq subquery-expression)
+                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression))))
             :else nil))
 
 (defn convert-to-plan
