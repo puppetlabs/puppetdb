@@ -463,6 +463,11 @@ This setting sets the maximum amount of space in megabytes that PuppetDB's Activ
 
 This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for temporary message storage.
 
+### `max-frame-size`
+
+This setting sets the maximum frame size for persisted activemq messages
+supplied in bytes.  Default value is 209715200 (i.e 200 MB).
+
 `[jetty]` (HTTP) Settings
 -----
 

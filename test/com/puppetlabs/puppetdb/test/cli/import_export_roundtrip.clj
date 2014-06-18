@@ -23,7 +23,10 @@
             [clj-time.core :refer [now]]
             [com.puppetlabs.archive :as archive]
             [com.puppetlabs.puppetdb.utils :as utils]
+            [clojure.tools.logging.impl :as li]
             [slingshot.slingshot :refer [throw+]]))
+
+(use-fixtures :each fixt/with-test-logging-silenced)
 
 (def ^:dynamic *port* nil)
 
@@ -89,15 +92,15 @@
   "Executes `f`, if results are found, return them, otherwise
    wait and try again. Will throw an exception if results aren't found
    after 100 tries"
-  [f]
+  [n f]
   (loop [count 0
          results (f)]
     (cond
      (seq results)
      results
 
-     (< 100 count)
-     (throw+ "Results not found after 100 iterations, giving up")
+     (< n count)
+     (throw+ (format "Results not found after %d iterations, giving up" n))
 
      :else
      (do
@@ -108,9 +111,9 @@
   "Body is some expression that will be executed in a future. All
    errors from the body of the macro are ignored. Will block until
    results are returned from the body of the macro"
-  [& body]
+  [n & body]
   `(future
-     (block-until-results-fn
+     (block-until-results-fn ~n
       (fn []
         (try
           (do ~@body)
@@ -123,9 +126,9 @@
    found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
   [node-name]
   (block-until-queue-empty)
-  (let [catalog-fut (block-until-results (json/parse-string (export/catalog-for-node "localhost" *port* node-name)))
-        report-fut (block-until-results (export/reports-for-node "localhost" *port* node-name))
-        facts-fut (block-until-results (export/facts-for-node "localhost" *port* node-name))]
+  (let [catalog-fut (block-until-results 100 (json/parse-string (export/catalog-for-node "localhost" *port* node-name)))
+        report-fut (block-until-results 100 (export/reports-for-node "localhost" *port* node-name))
+        facts-fut (block-until-results 100 (export/facts-for-node "localhost" *port* node-name))]
     @catalog-fut
     @report-fut
     @facts-fut))
@@ -232,3 +235,14 @@
                                                    (update-in [:resource-events] vec)))))
 
        (is (= facts (export/facts-for-node "localhost" *port* :v3 "foo.local")))))))
+
+(deftest test-max-frame-size
+  (let [catalog (-> (get-in wire-catalogs [4 :empty])
+                    (assoc :name "foo.local"))]
+    (puppetdb-instance
+      (assoc-in (create-config) [:command-processing :max-frame-size] "1024")
+       (fn []
+        (is (empty? (export/get-nodes "localhost" *port*)))
+        (submit-command :replace-catalog 4 catalog)
+        (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found" 
+              @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" *port* "foo.local")))))))))
