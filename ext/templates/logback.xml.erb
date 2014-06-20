@@ -19,6 +19,10 @@
     <!-- Supress internal Spring Framework logging -->
     <logger name="org.springframework.jms.connection" level="warn"/>
 
+    <!-- Lower the log level for ActiveMQ KahaDB MessageDatabase -->
+    <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
+        level="info"/>
+
     <!-- turn on to see verbose storage activity -->
     <!--
     <logger name="com.puppetlabs.puppetdb.scf.storage" level="debug"/>
