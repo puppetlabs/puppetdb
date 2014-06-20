@@ -104,12 +104,14 @@
   {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe String "1d")
    (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
    (s/optional-key :store-usage) s/Int
+   (s/optional-key :max-frame-size) (pls/defaulted-maybe String "209715200")
    (s/optional-key :temp-usage) s/Int})
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
   {:dlo-compression-threshold Period
    :threads s/Int
+   :max-frame-size s/Str
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
