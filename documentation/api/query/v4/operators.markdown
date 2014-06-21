@@ -61,6 +61,17 @@ The following example would match if the `certname` field's actual value resembl
 > * [PostgreSQL regexp features](http://www.postgresql.org/docs/9.1/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 > * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html)
 
+### `null?` (is null)
+
+**Matches if:** the field's value is null, or if there is a value specified for the field, depending on the second argument to the operator
+
+The following example would return events that do not have an associated line number:
+
+    ["null?" "line" true]
+
+Similarly, the below query would return events that have a specified line number:
+
+    ["null?" "line" false]
 
 
 ## Boolean Operators
