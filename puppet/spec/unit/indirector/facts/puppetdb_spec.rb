@@ -34,7 +34,7 @@ describe Puppet::Node::Facts::Puppetdb do
       facts.stringify
       f = {
         "name" => facts.name,
-        "values" => facts.values,
+        "values" => facts.strip_internal,
         "environment" => env,
       }
 

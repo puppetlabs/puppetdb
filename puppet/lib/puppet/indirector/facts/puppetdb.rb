@@ -17,7 +17,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     profile "facts#save" do
       payload = profile "Encode facts command submission payload" do
         facts = request.instance.dup
-        facts.values = facts.values.dup
+        facts.values = facts.strip_internal
         facts.stringify
         {
           "name" => facts.name,
