@@ -255,7 +255,7 @@
 (defn -main
   [& args]
   (let [[{:keys [outfile infile profile config]} _] (validate-cli! args)
-        extra-config                                (if (empty? config) {} (read-string (slurp config)))
+        extra-config                                (if (empty? config) {} (clojure.edn/read-string (slurp config)))
         profile-config                              (get (merge anon-profiles extra-config) profile)
         metadata                                    (parse-metadata infile)]
 
