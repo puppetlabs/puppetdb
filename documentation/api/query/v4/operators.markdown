@@ -142,22 +142,11 @@ As the second argument of an `in` statement, an `extract` statement acts as a li
 
 A subquery may only be used as the second argument of an `extract` statement, where it acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
 
-In version 2 of the query API, the available subqueries are:
+The available subqueries are:
 
-* [`select-resources`](#select-resources)
-* [`select-facts`](#select-facts)
-
-#### `select-resources`
-
-A `select-resources` subquery may **only** be used as the second argument of an `extract` statement.
-
-It takes a single argument, which must be a **complete query string** which would be valid for [the `/v4/resources` endpoint][resources]. (Note that `/v4/resources/<TYPE>` and `/v4/resources/<TYPE>/<TITLE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries.
-
-#### `select-facts`
-
-A `select-facts` subquery may **only** be used as the second argument of an `extract` statement.
-
-It takes a single argument, which must be a **complete query string** which would be valid for [the `/v4/facts` endpoint][facts]. (Note that `/v4/facts/<NAME>` and `/v4/facts/<NAME>/<VALUE>` cannot be directly subqueried.) Since the argument is a normal query string, it can itself include any number of `in` statements and subqueries.
+* `select-resources`
+* `select-facts`
+* `select-nodes`
 
 ### Subquery Examples
 
@@ -193,3 +182,13 @@ all Debian nodes.
             ["and",
               ["=", "name", "operatingsystem"],
               ["=", "value", "Debian"]]]]]]
+
+This query string queries the `/facts` endpoint for uptime_hours of all nodes with
+facts-environment `production`:
+
+    ["and",
+      ["=", "name", "uptime_hours"],
+      ["in", "certname",
+        ["extract", "certname",
+          ["select-nodes",
+            ["=", "facts-environment", "production"]]]]]
