@@ -48,6 +48,6 @@
   [version]
   (-> (routes version)
     verify-accepts-json
-    (validate-query-params {:required ["query"]
-                            :optional paging/query-params})
+    (validate-query-params 
+      {:optional (cons "query" paging/query-params)})
     wrap-with-paging-options))
