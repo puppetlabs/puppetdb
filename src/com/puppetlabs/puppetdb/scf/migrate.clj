@@ -708,6 +708,16 @@
 
    "CREATE INDEX idx_reports_status ON reports(status_id)"))
 
+(defn add-producer-timestamps []
+  (sql/do-commands
+    "ALTER TABLE certname_facts_metadata ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
+
+    "CREATE INDEX idx_facts_producer_timestamp ON certname_facts_metadata(producer_timestamp)"
+
+    "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
+
+    "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
+
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
@@ -733,7 +743,8 @@
    20 differential-catalog-resources
    21 reset-catalog-sequence-to-latest-id
    22 add-environments
-   23 add-report-status})
+   23 add-report-status
+   24 add-producer-timestamps})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -46,7 +46,7 @@
             (certname-facts-metadata! "some_certname"))))
       (is (empty? (cert-fact-map "some_certname")))
 
-      (add-facts! certname facts (-> 2 days ago) nil)
+      (add-facts! certname facts (-> 2 days ago) nil nil)
       (testing "should have entries for each fact"
         (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
                [{:certname certname :name "domain" :value "mydomain.com"}
@@ -58,10 +58,12 @@
         (is (sql/transaction
              (certname-facts-metadata! "some_certname")))
         (is (= facts (cert-fact-map "some_certname"))))
-
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
+      (testing "producer-timestamp should store nil"
+        (is (= (query-to-vec "SELECT producer_timestamp FROM certname_facts_metadata")
+                [{:producer_timestamp nil}])))
       (testing "replacing facts"
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
@@ -73,8 +75,12 @@
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
                            "kernel" "Linux"
-                           "uptime_seconds" "3600"}]
-            (replace-facts! {:name certname :values new-facts :environment "DEV"} (now))
+                           "uptime_seconds" "3600"}
+                current-time (str (now))]
+            (replace-facts! {:name certname
+                             :values new-facts
+                             :environment "DEV"
+                             :producer-timestamp current-time} (now))
             (testing "should have only the new facts"
               (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
                      [{:name "domain" :value "mynewdomain.com"}
@@ -82,6 +88,9 @@
                       {:name "hostname" :value "myhost"}
                       {:name "kernel" :value "Linux"}
                       {:name "uptime_seconds" :value "3600"}])))
+            (testing "producer-timestamp should store current time"
+              (is (= (query-to-vec "SELECT producer_timestamp FROM certname_facts_metadata")
+                     [{:producer_timestamp (to-timestamp current-time)}])))
             (testing "should only delete operatingsystem key"
               (is (= [[:certname_facts ["certname=? and name in (?)" "some_certname" "operatingsystem"]]]
                      @deletes)))
@@ -102,22 +111,25 @@
         (delete-facts! certname)
         (replace-facts! {:name certname
                          :values facts
-                         :environment "DEV"} (now))
+                         :environment "DEV"
+                         :producer-timestamp nil} (now))
         (is (= facts (cert-fact-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
-        (add-facts! certname facts (-> 2 days ago) nil)
+        (add-facts! certname facts (-> 2 days ago) nil nil)
         (replace-facts! {:name certname
                          :values {"foo" "bar"}
-                         :environment "DEV"} (now))
+                         :environment "DEV"
+                         :producer-timestamp nil} (now))
         (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
 
       (testing "replace-facts with only additions"
         (let [fact-map (cert-fact-map "some_certname")]
           (replace-facts! {:name certname
                            :values (assoc fact-map "one more" "here")
-                           :environment "DEV"} (now))
+                           :environment "DEV"
+                           :producer-timestamp nil} (now))
           (is (= (assoc fact-map  "one more" "here")
                  (cert-fact-map "some_certname")))))
 
@@ -125,7 +137,8 @@
         (let [fact-map (cert-fact-map "some_certname")]
           (replace-facts! {:name certname
                            :values fact-map
-                           :environment "DEV"} (now))
+                           :environment "DEV"
+                           :producer-timestamp nil} (now))
           (is (= fact-map
                  (cert-fact-map "some_certname"))))))))
 
@@ -145,7 +158,7 @@
       (is (empty? (cert-fact-map "some_certname")))
       (is (nil? (environment-id "PROD")))
 
-      (add-facts! certname facts (-> 2 days ago) "PROD")
+      (add-facts! certname facts (-> 2 days ago) "PROD" nil)
 
       (testing "should have entries for each fact"
         (is (= facts
@@ -157,7 +170,7 @@
 
       (is (nil? (environment-id "DEV")))
 
-      (update-facts! certname facts (-> 1 days ago) "DEV")
+      (update-facts! certname facts (-> 1 days ago) "DEV" nil)
 
       (testing "should have the same entries for each fact"
         (is (= facts
@@ -169,15 +182,16 @@
 
 (def catalog (:basic catalogs))
 (def certname (:name catalog))
+(def current-time (str (now)))
 
 (deftest catalog-persistence
   (testing "Persisted catalogs"
     (add-certname! certname)
-    (add-catalog! catalog)
+    (add-catalog! (assoc catalog :producer-timestamp current-time))
 
     (testing "should contain proper catalog metadata"
-      (is (= (query-to-vec ["SELECT certname, api_version, catalog_version FROM catalogs"])
-             [{:certname certname :api_version 1 :catalog_version "123456789"}])))
+      (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
+             [{:certname certname :api_version 1 :catalog_version "123456789" :producer_timestamp (to-timestamp current-time)}])))
 
     (testing "should contain a complete edges list"
       (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
@@ -463,7 +477,7 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (add-facts! certname facts (-> 2 days ago) "ENV3")
+      (add-facts! certname facts (-> 2 days ago) "ENV3" nil)
       (delete-facts! certname))
 
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
@@ -941,7 +955,8 @@
     (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :name "node1") (ago (days 2)))
                     #(replace-facts! {:name "node1"
                                       :values {"foo" "bar"}
-                                      :environment "DEV"}
+                                      :environment "DEV"
+                                      :producer-timestamp "2014-07-10T22:33:54.781Z"}
                                      (ago (days 2)))]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]

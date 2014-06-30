@@ -1,6 +1,7 @@
 require 'puppet/resource/catalog'
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
+require 'time'
 
 class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -14,8 +15,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile "catalog#save" do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-
-      submit_command(request.key, catalog, CommandReplaceCatalog, 4)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 5)
     end
   end
 
@@ -28,6 +28,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     {
       :transaction_uuid => request.options[:transaction_uuid],
       :environment => request.environment,
+      :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601,
     }
   end
 
@@ -49,6 +50,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       filter_keys(data)
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
       add_environment(data, extra_request_data[:environment])
+      add_producer_timestamp(data, extra_request_data[:producer_timestamp])
 
       data
     end
@@ -73,6 +75,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @api private
   def add_environment(hash, environment)
     hash['environment'] = environment
+
+    hash
+  end
+
+  # Include producer_timestamp in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param producer_timestamp [String or nil] producer_tiemstamp
+  # @return [Hash] returns original hash augmented with producer_timestamp
+  # @api private
+  def add_producer_timestamp(hash, producer_timestamp)
+    hash['producer-timestamp'] = producer_timestamp
 
     hash
   end

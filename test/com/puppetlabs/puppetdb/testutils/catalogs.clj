@@ -5,11 +5,11 @@
             [com.puppetlabs.puppetdb.catalogs :as cats])
   (:use     [puppetlabs.kitchensink.core :only [uuid]]
             [clj-time.core :only [now]]
+            [clj-time.coerce :refer [to-string]]
             [com.puppetlabs.puppetdb.testutils :only [test-db]]
             [com.puppetlabs.puppetdb.fixtures :only [*db*]]
             [com.puppetlabs.puppetdb.command.constants :only [command-names]]
             [com.puppetlabs.puppetdb.catalogs :only [catalog-version]]))
-
 
 (defn munge-resource-for-comparison
   "Given a resource object (represented as a map, either having come out of a
@@ -68,6 +68,20 @@
           (string? (get-in % ["version"]))]}
   (munge-catalog-for-comparison* nil catalog))
 
+(defn munge-v5-catalog
+  "Uses a 'nil' prefix path for getting to resources/edges etc needed for munging
+   a v5 catalog. Eventually this should be moved to support our canonical format, then
+   we could just convert to 'all' for example, munge and compare the superset, and it
+   would work for all versions."
+  [catalog]
+  {:pre  [(map? catalog)]
+   :post [(map? %)
+          (every? string? (keys %))
+          (set? (get-in % ["resources"]))
+          (set? (get-in % ["edges"]))
+          (string? (get-in % ["version"]))]}
+  (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)))
+
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a
   puppetdb database query or parsed from the JSON wire format), munge it and
@@ -79,7 +93,8 @@
   {:pre  [(map? catalog)]}
   (case version
     :v3 (munge-v3-catalog catalog)
-    (munge-v4-catalog catalog)))
+    :v4 (munge-v4-catalog catalog)
+    (munge-v5-catalog catalog)))
 
 (defn munged-canonical->wire-format
   "Converts the given canonical catalog to wire-format `version` then

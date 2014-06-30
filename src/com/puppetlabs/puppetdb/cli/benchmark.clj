@@ -78,7 +78,7 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port catalog]
   (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
-                 (command-names :replace-catalog) 4 (json/generate-string catalog))]
+                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 

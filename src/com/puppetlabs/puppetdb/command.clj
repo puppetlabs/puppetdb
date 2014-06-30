@@ -66,6 +66,7 @@
             [com.puppetlabs.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-http.client :as client]
+            [clj-time.coerce :refer [to-timestamp]]
             [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
@@ -340,6 +341,10 @@
   [{:keys [version] :as command} options]
   (replace-catalog* command options))
 
+(defmethod process-command! [(command-names :replace-catalog) 5]
+  [{:keys [version] :as command} options]
+  (replace-catalog* command options))
+
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 1]
@@ -357,6 +362,7 @@
   (-> command
       (assoc :version 3)
       (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if ( string? %) (json/parse-string %) %))))
+      (assoc-in [:payload :producer-timestamp] nil)
       (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 3]
@@ -366,10 +372,10 @@
         ;; re-stringify this first.
         facts     (-> facts
                       (update-in [:values] (comp utils/stringify-keys facts/flatten-fact-value-map))
+                      (update-in [:producer-timestamp] to-timestamp)
                       upon-error-throw-fatality)
         id        (:id annotations)
         timestamp (:received annotations)]
-
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
       (scf-storage/replace-facts! facts timestamp))
