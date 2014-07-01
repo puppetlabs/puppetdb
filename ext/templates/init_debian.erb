@@ -80,7 +80,11 @@ do_stop()
     #   1 if daemon was already stopped
     #   2 if daemon could not be stopped
     #   other if a failure occurred
-    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --exec $JAVA_BIN
+    if [ -e $PIDFILE ] ; then
+      start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --exec $JAVA_BIN
+    else
+      start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --user $NAME --exec $JAVA_BIN
+    fi
     RETVAL="$?"
     [ "$RETVAL" = 2 ] && return 2
     # Many daemons don't delete their pidfiles when they exit.
