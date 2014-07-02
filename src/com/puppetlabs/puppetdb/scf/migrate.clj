@@ -718,6 +718,96 @@
 
     "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
 
+(defn structured-facts []
+  ;; -----------
+  ;; VALUE_TYPES
+  ;; -----------
+  (sql/create-table :value_types
+                    ["id" "bigint NOT NULL PRIMARY KEY"]
+                    ["type" "character varying(32)"])
+
+  ;; Populate the value_types lookup table
+  (sql/do-commands
+   "INSERT INTO value_types (id, type) values (0, 'string')"
+   "INSERT INTO value_types (id, type) values (1, 'number')"
+   "INSERT INTO value_types (id, type) values (2, 'boolean')"
+   "INSERT INTO value_types (id, type) values (3, 'null')")
+
+  ;; ----------
+  ;; FACT_PATHS
+  ;; ----------
+  (sql/create-table :fact_paths
+                    ["id" "bigserial NOT NULL PRIMARY KEY"]
+                    ["value_type_id" "bigint NOT NULL"]
+                    ["path" "text NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE ONLY fact_paths ADD CONSTRAINT fact_paths_path_type_id_key UNIQUE (path, value_type_id)"
+   "CREATE INDEX fact_paths_path_btree ON fact_paths USING btree (path)"
+   "CREATE INDEX fact_paths_value_type_id ON fact_paths USING btree(value_type_id)"
+   "ALTER TABLE ONLY fact_paths ADD CONSTRAINT fact_paths_value_type_id
+     FOREIGN KEY (value_type_id)
+     REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT")
+
+  ;; TODO: conditional for hsqldb, and pre 9.1 postgres
+  #_(sql/do-commands
+   "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+   "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)")
+
+  ;; -----------
+  ;; FACT_VALUES
+  ;; -----------
+  (sql/create-table :fact_values
+                    ["id" "bigserial NOT NULL PRIMARY KEY"]
+                    ["path_id" "bigint NOT NULL"]
+                    ["value" "text"] ;; TODO: determine if we need this, or to use the typed format
+                    ["value_int" "bigint"]
+                    ["value_float" "real"]
+                    ["value_string" "text"]
+                    ["value_boolean" "boolean"])
+
+  (sql/do-commands
+   "ALTER TABLE ONLY fact_values ADD CONSTRAINT fact_values_path_id_value_key UNIQUE (path_id, value)"
+   "ALTER TABLE ONLY fact_values ADD CONSTRAINT fact_values_path_id_fk
+     FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "CREATE INDEX fact_values_path_id_btree ON fact_values USING btree (path_id)"
+   "CREATE INDEX fact_values_value_idx ON fact_values USING btree (value)")
+
+  ;; TODO: conditional for hsqldb, and pre 9.1 postgres
+  #_(sql/do-commands
+   "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+   "CREATE INDEX fact_values_value_trgm ON fact_values USING gist (value gist_trgm_ops)")
+
+  ;; --------
+  ;; FACTSETS
+  ;; --------
+  (sql/create-table :factsets
+                    ["id" "bigserial NOT NULL PRIMARY KEY"]
+                    ["certname" "text NOT NULL"]
+                    ["\"timestamp\"" "timestamp with time zone NOT NULL"]
+                    ["environment_id" "bigint"])
+
+  ;; TODO: need to add on update/delete setting constraints
+  (sql/do-commands
+   "ALTER TABLE ONLY factsets ADD CONSTRAINT factsets_certname_fk
+      FOREIGN KEY (certname) REFERENCES certnames(name)"
+   "ALTER TABLE ONLY factsets ADD CONSTRAINT factsets_environment_id_fk
+      FOREIGN KEY (environment_id) REFERENCES environments(id)")
+
+  ;; -----
+  ;; FACTS
+  ;; -----
+  (sql/create-table :facts
+                    ["factset_id" "bigint NOT NULL"]
+                    ["fact_values_id" "bigint NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE ONLY facts ADD CONSTRAINT facts_factset_id_fact_values_id_key UNIQUE (factset_id, fact_values_id)"
+   "ALTER TABLE ONLY facts ADD CONSTRAINT fact_values_id_fk
+     FOREIGN KEY (fact_values_id) REFERENCES fact_values(id)"
+   "ALTER TABLE ONLY facts ADD CONSTRAINT factset_id
+     FOREIGN KEY (factset_id) REFERENCES factsets(id)"))
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
@@ -744,7 +834,8 @@
    21 reset-catalog-sequence-to-latest-id
    22 add-environments
    23 add-report-status
-   24 add-producer-timestamps})
+   24 add-producer-timestamps
+   25 structured-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
