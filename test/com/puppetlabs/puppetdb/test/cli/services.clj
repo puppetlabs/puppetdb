@@ -14,7 +14,8 @@
             [clojure.test :refer :all]
             [clj-time.core :refer [days hours minutes secs]]
             [clojure.java.io :refer [resource]]
-            [com.puppetlabs.time :refer [to-secs to-minutes to-hours to-days period?]]))
+            [com.puppetlabs.time :refer [to-secs to-minutes to-hours to-days period?]]
+            [com.puppetlabs.puppetdb.testutils.jetty :as jutils]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -40,35 +41,15 @@
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (deftest url-prefix-test
-  (let [vardir (fs/file "." "target" "var")]
-    (fs/mkdirs vardir)
-    (testing "should mount web app at `/` by default"
-      (tk/with-app-with-config app
-        [puppetdb-service
-         jetty9/jetty9-service]
-        {:jetty  {:port 8080}
-         :global {:vardir vardir}}
-        (let [response (client/get "http://localhost:8080/v4/version")]
-          (is (= 200 (:status response))))))
-    (testing "should support mounting web app at alternate url prefixL"
-      (tk/with-app-with-config app
-        [puppetdb-service
-         jetty9/jetty9-service]
-        {:jetty  {:port 8080}
-         :global {:vardir     vardir
-                  :url-prefix "/puppetdb"}}
-        (let [response (client/get "http://localhost:8080/v4/version" {:throw-exceptions false})]
-          (is (= 404 (:status response))))
-        (let [response (client/get "http://localhost:8080/puppetdb/v4/version")]
-          (is (= 200 (:status response))))))
-    (testing "should support mounting web app at alternate url prefix"
-      (tk/with-app-with-config app
-         [puppetdb-service
-          jetty9/jetty9-service]
-         {:jetty  {:port 8080}
-          :global {:vardir     vardir
-                   :url-prefix "puppetdb"}}
-         (let [response (client/get "http://localhost:8080/v4/version" {:throw-exceptions false})]
-           (is (= 404 (:status response))))
-         (let [response (client/get "http://localhost:8080/puppetdb/v4/version")]
-           (is (= 200 (:status response))))))))
+  (testing "should mount web app at `/` by default"
+    (jutils/with-puppetdb-instance
+      (let [response (client/get (jutils/current-url "/v4/version"))]
+        (is (= 200 (:status response))))))
+  (testing "should support mounting web app at alternate url prefix"
+    (jutils/puppetdb-instance
+     (assoc-in (jutils/create-config) [:global :url-prefix] "puppetdb")
+     (fn []
+       (let [response (client/get (jutils/current-url "/v4/version") {:throw-exceptions false})]
+         (is (= 404 (:status response))))
+       (let [response (client/get (jutils/current-url "/puppetdb/v4/version"))]
+         (is (= 200 (:status response))))))))
