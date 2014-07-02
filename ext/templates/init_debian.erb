@@ -83,6 +83,7 @@ do_stop()
     if [ -e $PIDFILE ] ; then
       start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --user $NAME --pidfile $PIDFILE --exec $JAVA_BIN
     else
+      log_warning_msg "PIDfile $PIDFILE for $NAME is missing. Stopping process started by $NAME that is an instance of $JAVA_BIN" "$NAME"
       start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --user $NAME --exec $JAVA_BIN
     fi
     RETVAL="$?"
