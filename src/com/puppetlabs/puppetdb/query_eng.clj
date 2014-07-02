@@ -329,13 +329,13 @@
               ["select-nodes"
                ["null?" "deactivated" value]]]]
 
-            [["=" ["parameter" param-name] param-value]]
+            [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
              ["extract" "res_param_resource"
               ["select-params"
                ["and"
-                ["=" "res_param_name" param-name]
-                ["=" "res_param_value" (db-serialize param-value)]]]]]
+                [op "res_param_name" param-name]
+                [op "res_param_value" (db-serialize param-value)]]]]]
 
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
             ["in" "certname"
@@ -370,7 +370,10 @@
   (s/checker [(s/one
                (apply s/either (map s/eq binary-operators))
                :operator)
-              (s/one s/Str :field)
+              (s/one (s/either s/Str
+                               [(s/one s/Str :nested-field)
+                                (s/one s/Str :nested-value)])
+                     :field)
               (s/one (s/either s/Str s/Bool s/Int pls/Timestamp) :value)]))
 
 (defn vec?

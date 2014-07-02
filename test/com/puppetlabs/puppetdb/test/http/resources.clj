@@ -93,6 +93,12 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
         (is-response-equal (get-response endpoint query) result)))
 
+    (testing "only v4 or after queries"
+      (when-not (contains? #{:v2 :v3} version)
+        (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
+                                [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
+          (is-response-equal (get-response endpoint query) result))))
+
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (get-response endpoint
                                                 ["and"
