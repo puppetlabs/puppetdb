@@ -4,6 +4,197 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+2.1.0
+-----
+
+PuppetDB 2.1.0 is a feature release focusing on new query
+capabilities, streaming JSON support on all endpoints and a new report
+status field for determining if a Puppet run has failed. Note that
+this release is backward compatible with 2.0.0, but users must upgrade
+PuppetDB terminus to 2.1.0 when upgrading the PuppetDB instance to
+2.1.0.
+
+New Features:
+
+* (PDB-660) Switch all query endpoints to stream JSON results
+
+  The following endpoints have been switched over to streaming:
+
+  - event-counts
+  - reports
+  - nodes
+  - environments
+  - events
+
+  Using 'event-query-limit' is now deprecated, use the normal
+  paging/streaming functionality to achieve the same results.
+
+* (PDB-658, PDB-697) Implement new "query engine" for v4
+
+  This rewrite of the v4 API query infrastructure unifies query
+  operators across all endpoints. Each endpoint now supports all
+  operators appropriate for the given field of that type. As an
+  example, any string field can now be searched by regular expression.
+  All dates can be search with inequality operators like < or > for
+  searching via date ranges. There are also many new queryable fields.
+  Below summarizes the new features of the switch to this query engine
+
+  events endpoint
+   - Added configuration-version as a queryable field
+   - Added containment-path as a queryable field (queryable in a way similar to tags)
+
+  nodes endpoint
+   - Added facts-timestamp, catalog-timestamp, report-timestamp  as a queryable field
+
+  reports endpoint
+   - Added puppet-version, report-format, configuration-version, start-time,
+     end-time, receive-time, transaction-uuid as queryable fields
+
+  null? operator
+   - new operator that checks for the presence or absence of a value
+
+  Some endpoints previously returned NULL values when using a "not"
+  query such as ["not", ["=", "line", 10]]. The query engine follows
+  SQL semantics, so if you want NULL values, you should explicty ask
+  for it like:
+
+  ["or",
+    ["not", ["=", "line", 10]]
+    ["null?", "line" true]]
+
+* (PDB-162) Add regexp support to resource parameter queries
+
+  The query engine supported this, but the existing "rewrite" rule, to go
+  from the shorthand parameter syntax to the nested resource query didn't
+  recognize ~. That is fixed with this commit, so regexps will now work on parameters.
+
+* (PDB-601) Do not require query operator on reports endpoint
+
+  With this pull request, hitting the reports endpoint without a query argument
+  will return the full reports collection.  This behavior is consistent with
+  that of the nodes, facts, and resources endpoints.
+
+* (PDB-651) Allow the web app URL prefix to be configurable
+
+  Previously PuppetDB always used the context root "/", meaning all
+  queries etc would be something like
+  "http://localhost:8080/v4/version". This change allows users to
+  specify a different context root, like
+  "http://localhost:8080/my-context-root/v4/version". See the
+  url-prefix configuration documentation for more info
+
+* (PDB-16) Add status to stored reports
+
+  Previously there was no way to distinguish between failed puppet runs
+  and successful puppet runs as we didn't store report status. This commit
+  adds support for report status to the "store report" command, v4 query
+  API and model.
+
+* (PDB-700) Allow changes to maxFrameSize in activemq
+
+  maxFrameSize previously defaulted to 100 MB.  Now default is 200 MB with user
+  configurability.
+
+Bug Fixes and Maintenance:
+
+* (PDB-551) Created a versioning policy document
+
+  This document let's consumers of the PuppetDB API know what to
+  expect from an API perspective when new versions of PuppetDB are
+  release. This document is a separate page called "Versioning Policy"
+  and is included in our API docs
+
+* (PDB-164) Add documentation for select-nodes subquery operator
+
+  This pull request supplies V4 API documentation for the select-nodes subquery
+  operator, which was previously supported but undocumented.
+
+* (PDB-720) Fix services test with hard coded Jetty port
+
+  Fixed this issue by moving code that dynamically picks a free port out
+  of import-export-roundtrip and into a separate ns. I just switched the
+  services test to use that code and there should no longer be conflicts.
+
+* (RE-1497) Remove quantal from build_defaults
+
+  This commit removes quantal from all build defaults because it is end of
+  life. It removes the defaults from the build_defaults yaml.
+
+* (PDB-240) Replace anonymize.clj read-string with clojure.edn/read-string
+
+  This patch replaces a call to read-string in anonymize.clj with a call to
+  clojure.edn/read-string. Unlike clojure.core/read-string,
+  clojure.edn/read-string is safe to use with untrusted data and guaranteed to
+  be free of side-effects.
+
+* (PDB-220) Coerce numerical function output in manifests to string
+
+  Previously, when a user defined a numeric-valued function in a puppet manifest
+  and submitted it to notify, the resource-title would remain numeric and
+  PuppetDB would throw exceptions while storing reports. Per the docs,
+  resource-title must be a string. This pull request avoids the problem by
+  coercing resource-title to string.
+
+* (PDB-337) Remove extraneous _timestamp fact
+
+  Previously a _timestamp fact was submitted to puppetDB even though _timestamp
+  was originally intended for internal use.  This commit strips internal data
+  (all preceded by "_") from the factset before submission to PuppetDB.
+
+* (PDB-130) Fixes a nasty traceback exposed when users run import from command line with an invalid filename. A friendly message is now printed instead.
+
+* (PDB-577) Lower KahaDB MessageDatabase logging threshold.
+
+  Previously, premature termination of PuppetDB import under specific ownership
+  conditions led to a residual KahaDB lock file that could prevent subsequent imports
+  from running with no obvious reason why.  This patch lowers the log threshold
+  for KahaDB MessageDataBase so affected users are informed.
+
+* (PDB-686) Add warning about PDB-686 to release notes
+
+  This adds a warning about PDB-686 to the release notes so users know how to
+  work-around it.
+
+  This also cleans up the linking in our current release notes, and removes the
+  warning about Puppet 3.4.x, because we pin against 3.5.1 and greater anyway.
+
+* Add sbin_dir logic to Rakefile for Arch linux
+
+* (PDB-467) Merge versioning tests for http testing into non-versioned files
+
+  This patch removes all remaining versioned http test files into shared
+  unversioned files, so that we may start iterating across versions in the
+  same file.
+
+* Fix comparison in dup resources acceptance test
+
+  Due to changes in Puppet 3.6.0, the comparison done in our resource duplication
+  tests no longer matches the actual output. This patch ammends the comparison to
+  match Puppet 3.6.0 output now.
+
+* (PDB-597) Add trusty build default
+
+  This includes trusty (Ubuntu 14.04) in our builds.
+
+* Unpin the version of beaker
+
+  We had pinned beaker previously because we were waiting for some of our new EC2
+  customisations to be merged in and released. This has been done now.
+
+* Fix a race condition in the import/export round-trip clojure tests
+
+  This scenario occurred if command processing for facts is slow. A result
+  with the hard coded certname would be returned with no fact values or
+  environment. This commit fixes the code to only return results when
+  facts are found.
+
+* (PDB-309) Update config conversion code for Schema 0.2.1
+
+  Much of the code for converting user provided config to the internal types (i.e.
+  "10" to Joda time 10 Seconds etc) is no longer necessary with the new
+  coerce features of Schema. This commit switches to the new version and
+  makes the necessary changes to use the coerce feature.
+
 2.0.0
 -----
 
