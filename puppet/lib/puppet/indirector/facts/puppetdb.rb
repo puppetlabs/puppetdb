@@ -18,7 +18,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       payload = profile "Encode facts command submission payload" do
         facts = request.instance.dup
         facts.values = facts.strip_internal
-        facts.stringify
         {
           "name" => facts.name,
           "values" => facts.values,
@@ -29,7 +28,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 2)
+      submit_command(request.key, payload, CommandReplaceFacts, 3)
     end
   end
 
