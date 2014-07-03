@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Migrating Data"
+title: "PuppetDB 2.1 » Migrating Data"
 layout: default
 canonical: "/puppetdb/latest/migrate.html"
 ---
@@ -45,4 +45,3 @@ Once you have an export tarball and a new PuppetDB server up and running that yo
 This command is intended to be run on the new PuppetDB server, and assumes that PuppetDB is accepting plain-text HTTP connections on `localhost` port `8080` (which is PuppetDB's default configuration).  If you've modified your PuppetDB HTTP configuration, you can specify a different hostname and port on the command line.  For more info, run:
 
     $ sudo puppetdb import --help
-

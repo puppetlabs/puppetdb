@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » Query Tutorial"
+title: "PuppetDB 2.1 » API » Query Tutorial"
 layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
@@ -12,13 +12,13 @@ If you need to use an older API, note that it lacks many of v3's capabilities, a
 
 Queries are performed by performing an HTTP GET request to an endpoint URL and supplying a URL parameter called `query`,
 which contains the query to execute. Results are always returned in
-`application/json` form. 
+`application/json` form.
 
 Oueries are usually issued from code, but you can easily issue them from the command line using curl.
 
 ### Querying with Curl
 
-[See "Curl Tips" for more detailed information about constructing curl commands.](./curl.html) 
+[See "Curl Tips" for more detailed information about constructing curl commands.](./curl.html)
 
 **Without SSL:**
 

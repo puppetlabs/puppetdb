@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "PuppetDB 2.0 » API » Query » Curl Tips"
+title: "PuppetDB 2.1 » API » Query » Curl Tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
@@ -41,7 +41,7 @@ To make secured requests from other hosts, you will need to supply the following
 * An SSL certificate signed by your site's Puppet CA (`--cert`)
 * The private key for that certificate (`--key`)
 
-Any node managed by puppet agent will already have all of these and you can re-use them for contacting PuppetDB. You can also generate a new cert on the CA puppet master with the `puppet cert generate` command. 
+Any node managed by puppet agent will already have all of these and you can re-use them for contacting PuppetDB. You can also generate a new cert on the CA puppet master with the `puppet cert generate` command.
 
 > **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
 
@@ -62,7 +62,7 @@ Within this directory:
 
 ## Dealing with complex query strings
 
-Many query strings will contain characters like `[` and `]`, which must be URL-encoded. To handle this, you can use `curl`'s `--data-urlencode` option. 
+Many query strings will contain characters like `[` and `]`, which must be URL-encoded. To handle this, you can use `curl`'s `--data-urlencode` option.
 
 If you do this with an endpoint that accepts `GET` requests, **you must also use the `-G` or `--get` option.** This is because `curl` defaults to `POST` requests when the `--data-urlencode` option is present.
 

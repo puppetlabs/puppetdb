@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » v3 » Querying Metrics"
+title: "PuppetDB 2.1 » API » v3 » Querying Metrics"
 layout: default
 canonical: "/puppetdb/latest/api/query/v3/metrics.html"
 ---

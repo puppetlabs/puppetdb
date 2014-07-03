@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Scaling Recommendations"
+title: "PuppetDB 2.1 » Scaling Recommendations"
 layout: default
 canonical: "/puppetdb/latest/scaling_recommendations.html"
 ---
@@ -14,9 +14,9 @@ canonical: "/puppetdb/latest/scaling_recommendations.html"
 [ram]: #bottleneck-java-heap-size
 [runinterval]: /references/latest/configuration.html#runinterval
 
-Since PuppetDB will be a critical component of your Puppet deployment (that is, agent nodes will be unable to request catalogs if it goes down), you should make sure it can handle your site's load and is resilient against failures. 
+Since PuppetDB will be a critical component of your Puppet deployment (that is, agent nodes will be unable to request catalogs if it goes down), you should make sure it can handle your site's load and is resilient against failures.
 
-As with scaling any service, there are several possible performance and reliability bottlenecks which can be dealt with in turn as they become problems. 
+As with scaling any service, there are several possible performance and reliability bottlenecks which can be dealt with in turn as they become problems.
 
 
 Bottleneck: Database Performance
@@ -31,13 +31,13 @@ PuppetDB has two available database backends:
 
 The embedded database works with no additional daemons or setup beyond installation, but is only suitable for up to about 100 Puppet nodes. [It also requires a significantly larger Java heap][ram].
 
-You can increase performance by setting up a PostgreSQL server and [switching PuppetDB to the PostgreSQL backend][postgres]. 
+You can increase performance by setting up a PostgreSQL server and [switching PuppetDB to the PostgreSQL backend][postgres].
 
 ### PostgreSQL Speed and Availability
 
 Using the PostgreSQL backend, PuppetDB will be limited by the performance of your Postgres server. You can increase performance by making sure your DB server has an extremely fast disk, plenty of RAM, a fast processor, and a fast network connection to your PuppetDB server. You may also need to look into database clustering and load balancing.
 
-Database administration is beyond the scope of this manual, but the following links may be helpful: 
+Database administration is beyond the scope of this manual, but the following links may be helpful:
 
 * [High Availability, Load Balancing, and Replication][pg_ha], from the PostgreSQL manual
 * [Replication, Clustering, and Connection Pooling][pg_replication], from the PostgreSQL wiki
@@ -57,7 +57,7 @@ Use one of the following rules of thumb to choose an initial heap size; afterwar
 Bottleneck: Node Checkin Interval
 -----
 
-The more frequently your Puppet nodes check in, the heavier the load on your PuppetDB server. 
+The more frequently your Puppet nodes check in, the heavier the load on your PuppetDB server.
 
 You can reduce the need for higher performance by changing the [`runinterval`][runinterval] setting in every Puppet node's puppet.conf file. (Or, if running puppet agent from cron, by changing the frequency of the cron task.)
 
@@ -71,14 +71,14 @@ PuppetDB can take advantage of multiple CPU cores to handle the commands in its 
 You can increase performance by running PuppetDB on a machine with many CPU cores and then [tuning the number of worker threads][threads]:
 
 * More threads will allow PuppetDB to keep up with more incoming commands per minute. Watch the queue depth in the performance dashboard to see whether you need more threads.
-* Too many worker threads can potentially starve the message queue and web server of resources, which will prevent incoming commands from entering the queue in a timely fashion. Watch your server's CPU usage to see whether the cores are saturated. 
+* Too many worker threads can potentially starve the message queue and web server of resources, which will prevent incoming commands from entering the queue in a timely fashion. Watch your server's CPU usage to see whether the cores are saturated.
 
 Bottleneck: Single Point of Failure
 -----
 
 Although a single PuppetDB and PostgreSQL server probably _can_ handle all of the load at the site, you may want to run multiple servers for the sake of resilience and redundancy. To configure high-availability PuppetDB, you should:
 
-* Run multiple instances of PuppetDB on multiple servers, and use a reverse proxy or load balancer to distribute traffic between them. 
+* Run multiple instances of PuppetDB on multiple servers, and use a reverse proxy or load balancer to distribute traffic between them.
 * Configure multiple PostgreSQL servers for high availability or clustering. More information is available at [the PostgreSQL manual][pg_ha] and [the PostgreSQL wiki][pg_replication].
 * Configure every PuppetDB instance to use the same PostgreSQL database. (In the case of clustered Postgres servers, they may be speaking to different machines, but conceptually they should all be writing to one database.)
 
@@ -89,4 +89,3 @@ Bottleneck: SSL Performance
 PuppetDB uses its own embedded SSL processing, which is usually not a performance problem. However, truly large deployments will be able to squeeze out more performance by terminating SSL with Apache or Nginx instead. If you are using multiple PuppetDB servers behind a reverse proxy, we recommend terminating SSL at the proxy server.
 
 Instructions for configuring external SSL termination are currently beyond the scope of this manual. If your site is big enough for this to be necessary, you have probably done it with several other services before.
-

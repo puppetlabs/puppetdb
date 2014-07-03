@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Installing PuppetDB from Source"
+title: "PuppetDB 2.1 » Installing PuppetDB from Source"
 layout: default
 canonical: "/puppetdb/latest/install_from_source.html"
 ---
@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/install_from_source.html"
 
 This page describes how to install PuppetDB from an archive of the source code, or alternately how to run it directly from source without installing.
 
-If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install it from source. 
+If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install it from source.
 
 > **Note:**
 >
@@ -47,7 +47,7 @@ Install Leiningen:
     $ sudo ln -s /full/path/to/bin/lein /usr/local/bin
 
 Run the following commands:
-  
+
     $ mkdir -p ~/git && cd ~/git
     $ git clone git://github.com/puppetlabs/puppetdb
     $ cd puppetdb
@@ -61,7 +61,7 @@ Step 2, Option B: Run Directly from Source
 
 While installing from source is useful for simply running a development version
 for testing, for development it's better to be able to run *directly* from
-source, without any installation step. 
+source, without any installation step.
 
 Run the following commands:
 
@@ -76,7 +76,7 @@ This will let you develop on PuppetDB and see your changes by simply editing the
 
     $ lein run services -c /path/to/config.ini
 
-A sample config file is provided in the root of the source repo:  `config.sample.ini`. You can also provide a conf.d-style directory instead of a flat config file. 
+A sample config file is provided in the root of the source repo:  `config.sample.ini`. You can also provide a conf.d-style directory instead of a flat config file.
 
 Other useful commands for developers:
 
@@ -85,9 +85,9 @@ Other useful commands for developers:
 Step 3, Option A: Run the SSL Configuration Script
 -----
 
-If your PuppetDB server has puppet agent installed, has received a valid certificate from your site's Puppet CA, and you _installed_ PuppetDB from source, then PuppetDB can re-use Puppet's certificate. 
+If your PuppetDB server has puppet agent installed, has received a valid certificate from your site's Puppet CA, and you _installed_ PuppetDB from source, then PuppetDB can re-use Puppet's certificate.
 
-Run the following command: 
+Run the following command:
 
     $ sudo /usr/sbin/puppetdb ssl-setup
 
@@ -151,9 +151,9 @@ Step 5: Configure Database
 If this is a production deployment, you should confirm and configure your database settings:
 
 - Deployments of **100 nodes or fewer** can continue to use the default built-in database backend, but should [increase PuppetDB's maximum heap size][configure_heap] to at least 1 GB.
-- Large deployments should [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres]. You may also need to [adjust the maximum heap size][configure_heap]. 
+- Large deployments should [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres]. You may also need to [adjust the maximum heap size][configure_heap].
 
-You can change PuppetDB's database at any time, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty. However, as this data is automatically generated many times a day, PuppetDB should recover in a relatively short period of time. 
+You can change PuppetDB's database at any time, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty. However, as this data is automatically generated many times a day, PuppetDB should recover in a relatively short period of time.
 
 
 
@@ -175,9 +175,9 @@ If you are running PuppetDB from source, you should start it as follows:
 
 > PuppetDB is now fully functional and ready to receive catalogs and facts from any number of puppet master servers.
 
-Finish: Connect Puppet to PuppetDB 
+Finish: Connect Puppet to PuppetDB
 -----
 
-[You should now configure your puppet master(s) to connect to PuppetDB](./connect_puppet_master.html). 
+[You should now configure your puppet master(s) to connect to PuppetDB](./connect_puppet_master.html).
 
 If you use a standalone Puppet site, [you should configure every node to connect to PuppetDB](./connect_puppet_apply.html).

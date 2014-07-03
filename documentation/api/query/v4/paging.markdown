@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » v4 » Paged Queries"
+title: "PuppetDB 2.1 » API » v4 » Paged Queries"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/paging.html"
 ---
@@ -72,4 +72,3 @@ should generally be used in conjunction with `order-by`.
 [Using `curl` from localhost][curl]:
 
     curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "value"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'
-

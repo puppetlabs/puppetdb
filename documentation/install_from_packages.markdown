@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Installing PuppetDB From Packages"
+title: "PuppetDB 2.1 » Installing PuppetDB From Packages"
 layout: default
 canonical: "/puppetdb/latest/install_from_packages.html"
 ---
@@ -93,4 +93,3 @@ Troubleshooting Installation Problems
 * If PuppetDB is running but the puppet master can't reach it, check [PuppetDB's jetty configuration][configure_jetty] to see which port(s) it is listening on, then attempt to reach it by telnet (`telnet <host> <port>`) from the puppet master server. If you can't connect, the firewall may be blocking connections. If you can, Puppet may be attempting to use the wrong port, or PuppetDB's keystore may be misconfigured (see below).
 * Check whether any other service is using PuppetDB's port and interfering with traffic.
 * Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a puppet master can contact PuppetDB.
-
