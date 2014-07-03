@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Release Notes"
+title: "PuppetDB 2.1 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 2.0.0
 -----
 
-PuppetDB 2.0.0 is a feature release focusing on environments support.
+PuppetDB 2.1.0 is a feature release focusing on environments support.
 Note that this is a major version bump and there are several breaking
 changes, including dropping support for versions of PostgreSQL prior to
 version 8.4 and Java 1.6. See the "Deprecations and potentially

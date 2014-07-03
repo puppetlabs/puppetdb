@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » v3 » Querying Events"
+title: "PuppetDB 2.1 » API » v3 » Querying Events"
 layout: default
 canonical: "/puppetdb/latest/api/query/v3/events.html"
 ---
@@ -48,9 +48,9 @@ type 'Service':
     ["and", ["=", "status", "failure"],
             ["~", "certname", "^foo\\."],
             ["=", "resource-type", "Service"]]
-            
-To retrieve latest events that are tied to the class found in your update.pp file    
-    
+
+To retrieve latest events that are tied to the class found in your update.pp file
+
     ["and", ["=", "latest-report?", true],
             ["~", "file", "update.pp"]]
 

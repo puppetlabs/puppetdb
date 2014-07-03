@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » Overview"
+title: "PuppetDB 2.1 » API » Overview"
 layout: default
 canonical: "/puppetdb/latest/api/index.html"
 ---
@@ -82,7 +82,7 @@ Version 2 of the query API is deprecated and will be retired soon. For stability
 Commands
 -----
 
-Commands are sent via HTTP but do not use a REST-style interface. 
+Commands are sent via HTTP but do not use a REST-style interface.
 
 PuppetDB supports a relatively small number of commands. The command submission interface and the available commands are all described at the commands page:
 

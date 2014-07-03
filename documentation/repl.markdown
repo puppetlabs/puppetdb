@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Debugging with the Remote REPL"
+title: "PuppetDB 2.1 » Debugging with the Remote REPL"
 layout: default
 canonical: "/puppetdb/latest/repl.html"
 ---
@@ -70,4 +70,3 @@ You can also manipulate the running PuppetDB instance by redefining functions on
 Now any time that function is called, you'll see a message logged.
 
 Note that any changes you make to the running system are transient; they don't persist between restarts of the service. If you wish to make longer-lived changes to the code, consider [running PuppetDB directly from source](./install_from_source.html).
-

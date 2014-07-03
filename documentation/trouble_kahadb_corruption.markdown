@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Troubleshooting » KahaDB Corruption"
+title: "PuppetDB 2.1 » Troubleshooting » KahaDB Corruption"
 layout: default
 canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 ---
@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 What is KahaDB?
 -----
 
-Internally PuppetDB utilises ActiveMQ for queuing commands received via the API and sometimes initiated internally. The queue today utilises a technology built for ActiveMQ called 'KahaDB' which is a file based persistence database designed specifically for high performance queuing.  
+Internally PuppetDB utilises ActiveMQ for queuing commands received via the API and sometimes initiated internally. The queue today utilises a technology built for ActiveMQ called 'KahaDB' which is a file based persistence database designed specifically for high performance queuing.
 
 The KahaDB storage for PuppetDB is located in a sub-directory underneath your configured `vardir` (see [Configuration][configure_vardir] for more details). This sub-directory is generally, `mq/localhost/KahaDB`. For OSS PuppetDB the full path is usually `/var/lib/puppetdb/mq/localhost/KahaDB`.
 

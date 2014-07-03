@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » v4 » Query Structure"
+title: "PuppetDB 2.1 » API » v4 » Query Structure"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/query.html"
 ---
@@ -74,4 +74,3 @@ All queries return data with a content type of `application/json`.
 ## Tutorial and Tips
 
 For a walkthrough on constructing queries, see [the Query Tutorial page][tutorial]. For quick tips on using curl to make ad-hoc queries, see [the Curl Tips page][curl].
-

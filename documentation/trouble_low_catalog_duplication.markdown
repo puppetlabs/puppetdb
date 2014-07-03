@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » Troubleshooting » Low Catalog Duplication"
+title: "PuppetDB 2.1 » Troubleshooting » Low Catalog Duplication"
 layout: default
 canonical: "/puppetdb/latest/trouble_low_catalog_duplication"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.0 » API » Commands"
+title: "PuppetDB 2.1 » API » Commands"
 layout: default
 canonical: "/puppetdb/latest/api/commands.html"
 ---
@@ -52,7 +52,7 @@ receive the following:
   value is a UUID corresponding to the submitted command. This can be used, for example, by
   clients to correlate submitted commands with server-side logs.
 
-The terminus plugins for puppet masters use this command API to update facts, catalogs, and reports for nodes. 
+The terminus plugins for puppet masters use this command API to update facts, catalogs, and reports for nodes.
 
 ## Command Semantics
 
