@@ -61,6 +61,7 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -71,14 +72,14 @@
             [clamq.protocol.connection :as mq-conn]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.walk :as walk]
-            [com.puppetlabs.puppetdb.utils :as utils])
-  (:use [slingshot.slingshot :only [try+ throw+]]
-        [cheshire.custom :only (JSONable)]
-        [clj-http.util :only [url-encode]]
-        [com.puppetlabs.puppetdb.command.constants :only [command-names]]
-        [metrics.meters :only (meter mark!)]
-        [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]))
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [cheshire.custom :refer [JSONable]]
+            [clj-http.util :refer [url-encode]]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [metrics.meters :refer (meter mark!)]
+            [metrics.histograms :refer (histogram update!)]
+            [metrics.timers :refer (timer time!)]))
 
 ;; ## Performance counters
 
@@ -351,11 +352,21 @@
       (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 2]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "replace facts")
+  (-> command
+      (assoc :version 3)
+      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if ( string? %) (json/parse-string %) %))))
+      (process-command! config)))
+
+(defmethod process-command! [(command-names :replace-facts) 3]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:keys [name values] :as facts} payload
         ;; TODO: probably need to investigate if we really need to
         ;; re-stringify this first.
-        facts     (upon-error-throw-fatality (update-in facts [:values] utils/stringify-keys))
+        facts     (-> facts
+                      (update-in [:values] (comp utils/stringify-keys facts/flatten-fact-value-map))
+                      upon-error-throw-fatality)
         id        (:id annotations)
         timestamp (:received annotations)]
 
