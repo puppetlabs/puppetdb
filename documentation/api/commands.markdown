@@ -173,7 +173,7 @@ resources.  It is structured as a JSON object, conforming to the
 
 ### "store report", version 4
 
-This version of store reports, includes a new top level `status` field to store the overral status
+This version of store reports, includes a new top level `status` field to store the overall status
 of a puppet run.
 
 The payload is expected to be a report, containing events that occurred on Puppet
