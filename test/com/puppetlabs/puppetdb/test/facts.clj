@@ -10,9 +10,9 @@
     (is (= (flatten-fact-value {:a :b}) "{\"a\":\"b\"}"))
     (is (= (flatten-fact-value [:a :b]) "[\"a\",\"b\"]"))))
 
-(deftest flatten-fact-value-map-test
+(deftest flatten-fact-set-test
   (testing "ensure we get back a flattened set of values"
-    (is (= (flatten-fact-value-map {"networking"
-                                    {"eth0"
-                                     {"ipaddresses" ["192.168.1.1"]}}})
+    (is (= (flatten-fact-set {"networking"
+                              {"eth0"
+                               {"ipaddresses" ["192.168.1.1"]}}})
            {"networking" "{\"eth0\":{\"ipaddresses\":[\"192.168.1.1\"]}}"}))))
