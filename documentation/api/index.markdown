@@ -56,7 +56,7 @@ Version 3 of the query API added new endpoints, and introduces paging and sortin
 
 #### Version 4 (Experimental)
 
-Version 4 of the query API is currently experimental and may change without notice. For stability it is recommended to use the v3 query API.
+Version 4 of the query API is currently experimental and may change without notice. For stability we recommend that you use the v3 query API.
 
 * [Facts Endpoint](./query/v4/facts.html)
 * [Resources Endpoint](./query/v4/resources.html)
@@ -71,7 +71,7 @@ Version 4 of the query API is currently experimental and may change without noti
 
 #### Version 2 (Deprecated)
 
-Version 2 of the query API is deprecated and will be retired soon. For stability it is recommended to use the v3 query API instead.
+Version 2 of the query API is deprecated and will be retired soon. For stability we recommend that you use the v3 query API instead.
 
 * [Facts Endpoint](./query/v2/facts.html)
 * [Resources Endpoint](./query/v2/resources.html)

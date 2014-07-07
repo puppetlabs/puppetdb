@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v2/metrics.html"
 Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/v2/metrics` REST endpoint.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Listing available metrics
 

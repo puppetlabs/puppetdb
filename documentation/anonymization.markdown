@@ -74,7 +74,7 @@ This profile is aimed at hiding security information specifically, but leaving m
 Verifying your Anonymized Data
 -----
 
-While the tool itself tries to achieve the documented level of anonymization, this is your precious data and it is recommended you analyze it first before sharing it with another party to ensure all your requirements are met.
+While the tool itself tries to achieve the documented level of anonymization, this is your precious data and we recommend that you analyze it first before sharing it with another party to ensure all your requirements are met.
 
 The best way to do this, is to untar the export file, and analyze the contents:
 

@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/query/v4/paging.html"
 Most of PuppetDB's [query endpoints][api] support a general set of HTTP query parameters that
 can be used for paging results.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
 ## Query Parameters
 

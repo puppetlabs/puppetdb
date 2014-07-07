@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
+> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
 ## Routes
 

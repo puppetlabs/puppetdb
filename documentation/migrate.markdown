@@ -26,7 +26,7 @@ This command is intended to be run on the PuppetDB server, and assumes that Pupp
 
     $ sudo puppetdb export --help
 
-While its not required it is recommended you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
+While it's not required, we recommend that you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
 
 The generated tarball will contain a backup of all of your current catalog data (including exported resources) and all you report data. At this time fact data exporting is not supported.
 
