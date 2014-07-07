@@ -97,6 +97,14 @@ New Features:
 
 Bug Fixes and Maintenance:
 
+* (PDB-675) Fix Debian/Ubuntu PID missing issue
+
+  In the past in Debian and Ubuntu releases we had issues where the
+  PuppetDB system V init scripts were not stopping the PuppetDB
+  process whenever a PID file was missing. This patch now introduces a
+  fallback that will kill any java process running as the puppetdb
+  user, if the PID file is missing.
+
 * (PDB-551) Created a versioning policy document
 
   This document let's consumers of the PuppetDB API know what to
@@ -198,7 +206,7 @@ Bug Fixes and Maintenance:
 2.0.0
 -----
 
-PuppetDB 2.1.0 is a feature release focusing on environments support.
+PuppetDB 2.0.0 is a feature release focusing on environments support.
 Note that this is a major version bump and there are several breaking
 changes, including dropping support for versions of PostgreSQL prior to
 version 8.4 and Java 1.6. See the "Deprecations and potentially

@@ -10,6 +10,7 @@ canonical: "/puppetdb/latest/api/commands.html"
 [factsv2]: ./wire_format/facts_format_v2.html
 [catalogv4]: ./wire_format/catalog_format_v4.html
 [reportv3]: ./wire_format/report_format_v3.html
+[reportv4]: ./wire_format/report_format_v4.html
 
 Commands are used to change PuppetDB's
 model of a population. Commands are represented by `command objects`,
@@ -160,13 +161,24 @@ resources.  It is structured as a JSON object, conforming to the
 
 ### "store report", version 3
 
+> **Note:** This version is deprecated, use the latest version instead.
+
 Similar to replace catalog version 4, this version of store report adds support
 for environments and creates an explicit link between command version and wire
-format version. This is a backward compatable change with version 2.
+format version. This is a backward compatible change with version 2.
 
 The payload is expected to be a report, containing events that occurred on Puppet
 resources.  It is structured as a JSON object, conforming to the
 [report wire format v3][reportv3].
+
+### "store report", version 4
+
+This version of store reports, includes a new top level `status` field to store the overall status
+of a puppet run.
+
+The payload is expected to be a report, containing events that occurred on Puppet
+resources.  It is structured as a JSON object, conforming to the
+[report wire format v4][reportv4].
 
 ## Examples using curl
 

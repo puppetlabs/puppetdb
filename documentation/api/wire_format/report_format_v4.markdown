@@ -1,10 +1,10 @@
 ---
-title: "PuppetDB 2.1 » API » Report Wire Format, Version 3"
+title: "PuppetDB 2.1 » API » Report Wire Format, Version 4"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/report_format_v3.html"
+canonical: "/puppetdb/latest/api/wire_format/report_format_v4.html"
 ---
 
-> **Note:** This version is deprecated, use the latest version instead.
+[puppetreportformat]: http://docs.puppetlabs.com/puppet/latest/reference/format_report.html
 
 ## Report interchange format
 
@@ -20,7 +20,8 @@ otherwise noted, `null` is not allowed anywhere in the report.
         "start-time": <datetime>,
         "end-time": <datetime>,
         "resource-events": [<resource-event>, <resource-event>, ...],
-        "transaction-uuid": <string>
+        "transaction-uuid": <string>,
+        "status": <string>
     }
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
@@ -46,6 +47,8 @@ the `datetime` format below.
 
 `"transaction-uuid"` is a string used to identify a puppet run.  It can be used to
 match a report with the catalog that was used for the run.  This field may be `null`.
+
+`"status"` is a string used to identify the status of the puppet run.
 
 ### Encoding
 
@@ -115,23 +118,6 @@ This should be `null` if `status` is `success`.
 `"containment-path"` is a collection of strings where each string is a Puppet type or class
 that represents the containment hierarchy of the resource within the catalog. This field may be `null`.
 
-## Gaps with this wire format
-
-1. Binary data needs to be dealt with (hopefully only for the `old-value` and
-`new-value` fields.
-
-Why a version 3 of the report wire format?
------
-
-[below]: #why-a-v3-report-wire-format
-
-Prior to version 3 of the store report command, there was a single
-version of the report wire format. How that wire format was
-interpreted was different from one command version to another. This
-approach changed in version 3 of the store report command. Beginning
-with version 3, each command is tied to a the wire format version of
-the same number.
-
 ###  Differences with the previous report wire format
 
-1. A new top-level key "environment" was added
+1. A new top-level key `status` was added, to report on the overall status of the puppet run.
