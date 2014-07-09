@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 
 [resources]: ./resources.html
 [facts]: ./facts.html
+[nodes]: ./nodes.html
 [query]: ./query.html
 
 PuppetDB's [query strings][query] can use several common operators.
@@ -95,17 +96,21 @@ Every argument of these operators should be a **complete query string** in its o
 
 Subqueries allow you to correlate data from multiple sources or multiple
 rows. (For instance, a query such as "fetch the IP addresses of all nodes with
-`Class[Apache]`" would have to use both facts and resources to return a list of facts.)
+`Class[Apache]`" would have to use both facts and resources to return a list of fact values.)
 
-Subqueries are unlike the other operators listed above:
+Subqueries are unlike the other operators listed above. They always appear together in the following form:
+
+    ["in", "<FIELD>", ["extract", "<FIELD>", <SUBQUERY STATEMENT>] ]
+
+That is:
 
 * The `in` operator results in a complete query string. The `extract` operator and the subqueries do not.
 * An `in` statement **must** contain a field and an `extract` statement.
-* An `extract` statement **must** contain a field and a subquery.
+* An `extract` statement **must** contain a field and a subquery string.
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
-* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][] or a group of [facts][]). Each of these objects has many **fields.**
+* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], or [nodes][]). Each of these objects has many **fields.**
 * The `extract` statement collects the value of a **single field** across every object returned by the subquery.
 * The `in` statement **matches** if the value of its field is present in the list returned by the `extract` statement.
 
@@ -134,19 +139,30 @@ An `extract` statement **does not** constitute a full query string. It may only 
 "Extract" statements are **non-transitive** and take two arguments:
 
 * The first argument **must** be a valid **field** for the endpoint **being subqueried** (see second argument).
-* The second argument **must** be a **subquery.**
+* The second argument **must** be a **subquery statement.**
 
 As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
 
+### Subquery Statements
+
+A subquery statement **does not** constitute a full query string. It may only be used as the second argument of an `extract` statement.
+
+Subquery statements are **non-transitive** and take two arguments:
+
+* The first argument **must** be the **name** of one of the available subqueries (listed below).
+* The second argument **must** be a **full query string** that makes sense for the endpoint being subqueried.
+
+As the second argument of an `extract` statement, a subquery statement acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
+
 ### Available Subqueries
 
-A subquery may only be used as the second argument of an `extract` statement, where it acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
+Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for that endpoint.
 
 The available subqueries are:
 
-* `select-resources`
-* `select-facts`
-* `select-nodes`
+* `select-resources` (queries the [resources][] endpoint)
+* `select-facts` (queries the [facts][] endpoint)
+* `select-nodes` (queries the [nodes][] endpoint)
 
 ### Subquery Examples
 
