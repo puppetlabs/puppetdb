@@ -50,7 +50,7 @@ Query strings are optional for some endpoints, required for others, and prohibit
 ### Paging
 
 Most PuppetDB query endpoints support paged results via the common PuppetDB paging
-query parameters.  For more information, please see the documentation
+URL parameters.  For more information, please see the documentation
 on [paging][paging].
 
 ### Query Strings
