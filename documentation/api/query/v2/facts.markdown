@@ -109,4 +109,4 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
       "value": <fact value>
     }
 
-If no facts are known for the supplied node, an HTTP 404 is returned.
+If no facts match the query, an empty JSON array will be returned.

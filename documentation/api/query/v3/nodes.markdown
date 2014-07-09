@@ -75,10 +75,17 @@ not.
 
 #### Response format
 
-The response is a JSON array of node names that match the predicates, sorted
-in ascending order:
+The response is a single hash, of the same form used for the plain `nodes` endpoint:
 
-`["foo.example.com", "bar.example.com", "baz.example.com"]`
+    {"name": <string>,
+     "deactivated": <timestamp>,
+     "catalog_timestamp": <timestamp>,
+     "facts_timestamp": <timestamp>,
+     "report_timestamp": <timestamp>}
+
+If a node of that certname doesn't exist, the response will instead be a hash of the form:
+
+    {"error": "No information is known about <NODE>"}
 
 ### `GET /v3/nodes/<NODE>/facts`
 
