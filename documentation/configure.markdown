@@ -37,25 +37,11 @@ Debian/Ubuntu (PE)          | `/etc/default/pe-puppetdb`
 
  In this file, you can change the following settings:
 
-`JAVA_BIN`
-
-: The location of the Java binary.
-
-`JAVA_ARGS`
-
-: Command line options for the Java binary, most notably the `-Xmx` (max heap size) flag.
-
-`USER`
-
-: The user PuppetDB should be running as.
-
-`INSTALL_DIR`
-
-: The directory into which PuppetDB is installed.
-
-`CONFIG`
-
-: The location of the PuppetDB config file, which may be a single file or a directory of .ini files.
+- **`JAVA_BIN`** --- The location of the Java binary.
+- **`JAVA_ARGS`** --- Command line options for the Java binary, most notably the `-Xmx` (max heap size) flag.
+- **`USER`** --- The user PuppetDB should be running as.
+- **`INSTALL_DIR`** --- The directory into which PuppetDB is installed.
+- **`CONFIG`** --- The location of the PuppetDB config file, which may be a single file or a directory of .ini files.
 
 ### Configuring the Java Heap Size
 
