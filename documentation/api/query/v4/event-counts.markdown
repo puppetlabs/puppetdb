@@ -7,12 +7,11 @@ canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 [events]: ./events.html
 [paging]: ./paging.html
 [curl]: ../curl.html
+[query]: ./query.html
 
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
-## Routes
-
-### `GET /v4/event-counts`
+## `GET /v4/event-counts`
 
 This will return count information about all of the resource events matching the given query.
 For a given object type (resource, containing-class, or node), you can retrieve counts of the
@@ -21,10 +20,10 @@ or `skip`.
 
 See the [`events`][events] endpoint for additional documentation as this endpoint builds heavily on it.
 
-#### Parameters
+### URL Parameters
 
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
+This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
 * `summarize-by`: Required. A string specifying which type of object you'd like to see counts for.
 Supported values are `resource`, `containing-class`, and `certname`.
@@ -41,15 +40,15 @@ Supported fields are `failures`, `successes`, `noops`, and `skips`.
 of this parameter may change in future releases.)  This parameter is passed along
 to the [`event`][events] query - see there for additional documentation.
 
-##### Operators
+### Query Operators
 
-This endpoint builds on top of the [`events`][events] endpoint and therefore supports all of the same operators.
+This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same operators.](./events.html#query-operators)
 
-##### Fields
+### Query Fields
 
-This endpoint builds on top of the [`events`][events] endpoint and therefore supports all of the same fields.
+This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same fields.](./events.html#query-fields)
 
-#### Response Format
+### Response Format
 
 The response is a JSON array of maps. Each map contains the counts of events that matched the input
 parameters. The events are counted based on their statuses: `failures`, `successes`, `noops`, `skips`.
@@ -122,12 +121,7 @@ When summarizing by `containing-class`, the `subject` will contain a `title` key
       }
     ]
 
-#### Paging
-
-This endpoint supports paged results via the common PuppetDB paging query parameters.
-For more information, please see the documentation on [paging][paging].
-
-#### Example
+### Examples
 
 You can use [`curl`][curl] to query information about resource event counts like so:
 
@@ -136,3 +130,9 @@ You can use [`curl`][curl] to query information about resource event counts like
             --data-urlencode 'summarize-by=resource' \
             --data-urlencode 'count-by=certname' \
             --data-urlencode 'counts-filter=[">", "failures", 0]'
+
+## Paging
+
+This endpoint supports paged results via the common PuppetDB paging URL parameters.
+For more information, please see the documentation on [paging][paging].
+

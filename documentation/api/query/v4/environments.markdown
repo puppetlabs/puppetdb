@@ -10,62 +10,66 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 [reports]: ./reports.html
 [resources]: ./resources.html
 [facts]: ./facts.html
+[query]: ./query.html
 
-Environments can be queried by making an HTTP request to the `/environments` REST
-endpoint.
+Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the puppet master's external node classifier.
+
+When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
 > **Note:** The v4 API is experimental and may change without notice.
 
-## Routes
+## `GET /v4/environments`
 
-### `GET /v4/environments`
+This will return all environments known to PuppetDB.
 
-This will return all environments known to PuppetDB
-
-#### URL Parameters
+### URL Parameters
 
 * `query`: Optional. A JSON array containing the query in prefix notation. If
-  not provided, all results will be returned.
+  not provided, all results will be returned. See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
 
-#### Available Fields
-
-* `"name"`: matches environments of the given name
-
-#### Operators
+### Query Operators
 
 See [the Operators page](./operators.html)
 
-#### Response format
+### Query Fields
 
-The response is a JSON array of hashes of the form:
+* `"name"`: matches environments of the given name
+
+### Response format
+
+The response is a JSON array of hashes, where each hash has the form:
 
     {"name": <string>}
 
 The array is unsorted.
 
-#### Example
+### Example
 
 [You can use `curl`][curl] to query information about nodes like so:
 
     curl 'http://localhost:8080/v4/environments'
 
-### `GET /v4/environments/<ENVIRONMENT>`
+## `GET /v4/environments/<ENVIRONMENT>`
 
-This will return the name of the environment if it currently exists in PuppetDB. This route also supports the same URL parameters and operators as the '/v4/environments' route above.
+This will return the name of the environment if it currently exists in PuppetDB.
 
-#### Response format
+### URL Parameters / Query Operators / Query Fields
+
+This route supports the same URL parameters and query fields/operators as the '/v4/environments' route above.
+
+### Response format
 
 The response is a JSON hash of the form:
 
     {"name": <string>}
 
-#### Example
+### Examples
 
 [You can use `curl`][curl] to query information about nodes like so:
 
     curl 'http://localhost:8080/v4/environments/production'
 
-### `GET /v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
+## `GET /v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
 
 These routes are identical to issuing a request to
 `/v4/[events|facts|reports|resources]`, with a query parameter of
@@ -79,5 +83,5 @@ more info.
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-query parameters.  For more information, please see the documentation
+URL parameters.  For more information, please see the documentation
 on [paging][paging].

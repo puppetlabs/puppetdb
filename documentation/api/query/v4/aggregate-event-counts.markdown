@@ -7,24 +7,22 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 [event-counts]: ./event-counts.html
 [events]: ./events.html
 [curl]: ../curl.html
+[query]: ./query.html
 
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
-## Routes
-
-### `GET /v4/aggregate-event-counts`
+## `GET /v4/aggregate-event-counts`
 
 This will return aggregated count information about all of the resource events matching the given query.
 This endpoint is built entirely on the [`event-counts`][event-counts] endpoint and will aggregate those
 results into a single map.
 
-#### Parameters
+### URL Parameters
 
-This endpoint builds on top of the [`event-counts`][event-counts] endpoint and will forward to it all
-parameters. Supported parameters are listed below for reference.
+This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and it uses all of the same URL parameters. The supported parameters are re-listed below for reference.
 
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
+This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
 * `summarize-by`: Required. A string specifying which type of object you'd like count. Supported values are
 `resource`, `containing-class`, and `certname`.
@@ -40,15 +38,15 @@ the final event-counts output, but before the results are aggregated. Supported 
 of this parameter may change in future releases.)  This parameter is passed along
 to the [`event`][events] query - see there for additional documentation.
 
-##### Operators
+### Query Operators
 
-This endpoint builds on top of the [`event-counts`][event-counts] and therefore supports all of the same operators.
+This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same operators.](./events.html#query-operators)
 
-##### Fields
+### Query Fields
 
-This endpoint builds on top of the [`event-counts`][event-counts] and therefore supports all of the same fields.
+This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same fields.](./events.html#query-fields)
 
-#### Response Format
+### Response Format
 
 The response is a single JSON map containing aggregated event-count information and a `total` for how many
 event-count results were aggregated.
@@ -61,14 +59,14 @@ event-count results were aggregated.
       "total": 3
     }
 
-#### Paging
-
-This endpoint always returns a single result so paging is not necessary.
-
-#### Example
+### Examples
 
 You can use [`curl`][curl] to query information about aggregated resource event counts like so:
 
     curl -G 'http://localhost:8080/v4/aggregate-event-counts'
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
             --data-urlencode 'summarize-by=containing-class'
+## No Paging
+
+This endpoint always returns a single result, so paging is not necessary.
+
