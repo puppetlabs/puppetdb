@@ -63,7 +63,7 @@ Unless otherwise noted, all fields support
 both equality and regular expression match operators, but do not support inequality
 operators.
 
-> **Notes on fields that allow `NULL` values**
+> **Note on fields that allow `NULL` values**
 >
 > In the case of a `skipped` resource event, some of the fields of an event may
 > not have values. Queries using equality (`=`) and inequality (`!=`) will not return
@@ -129,10 +129,10 @@ is not supported by the regex match operator.
 
 * `containment-path`: checks for the supplied string in the collection of containment path strings associated to the event.
 
-### Response format
+### Response Format
 
- The response is a JSON array of events that matched the input parameters.
- The events are sorted by their timestamps, in descending order:
+The response is a JSON array of events that matched the input parameters.
+The events are sorted by their timestamps, from newest to oldest:
 
     [
       {

@@ -5,10 +5,10 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[operator]: ../v4/operators.html
+[operator]: ./operators.html
 [event]: ./events.html
 [paging]: ./paging.html
-[statuses]: ./puppet/latest/reference/format_report.html#puppettransactionreport
+[statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [query]: ./query.html
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
@@ -25,12 +25,13 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
-
 ## `GET /v4/reports`
 
 ### URL Parameters
 
 * `query`: Optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+
+    If the `query` parameter is absent, PuppetDB will return all reports.
 
 ### Query Operators
 

@@ -78,6 +78,7 @@ You can use [`curl`][curl] to query information about aggregated resource event 
     curl -G 'http://localhost:8080/v4/aggregate-event-counts'
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
             --data-urlencode 'summarize-by=containing-class'
+
 ## No Paging
 
 This endpoint always returns a single result, so paging is not necessary.

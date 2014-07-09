@@ -79,7 +79,7 @@ If no nodes match the query, an empty JSON array will be returned.
     curl 'http://localhost:8080/v4/nodes'
     curl -G 'http://localhost:8080/v4/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
-A more complicated query --- this query string will return nodes whose kernel is Linux and whose uptime is less
+This query will return nodes whose kernel is Linux and whose uptime is less
 than 30 days:
 
     ["and",
@@ -99,7 +99,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-### Response format
+### Response Format
 
 The response is a single hash, of the same form used for the plain `nodes` endpoint:
 

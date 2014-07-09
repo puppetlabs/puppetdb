@@ -96,7 +96,7 @@ Every argument of these operators should be a **complete query string** in its o
 
 Subqueries allow you to correlate data from multiple sources or multiple
 rows. (For instance, a query such as "fetch the IP addresses of all nodes with
-`Class[Apache]`" would have to use both facts and resources to return a list of fact values.)
+`Class[Apache]`" would have to use both facts and resources to return a list of facts.)
 
 Subqueries are unlike the other operators listed above. They always appear together in the following form:
 
