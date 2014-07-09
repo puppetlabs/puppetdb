@@ -9,6 +9,18 @@ canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 [curl]: ../curl.html
 [query]: ./query.html
 
+Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
+
+* Some data about the entire run
+* Some metadata about the report
+* Many _events,_ describing what happened during the run
+
+Once this information is stored in PuppetDB, it can be queried in various ways.
+
+* You can query **data about the run** and **report metadata** by making an HTTP request to the [`/reports`](./reports.html) endpoint.
+* You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
+* You can query **summaries of event data** by making an HTTP request to the `/event-counts` or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
+
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
 ## `GET /v4/event-counts`
