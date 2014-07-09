@@ -45,10 +45,13 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
     {
       "certname": <node name>,
       "name": <fact name>,
-      "value": <fact value>
+      "value": <fact value>,
+      "environment": <facts environment>
     }
 
-If no facts are known for the supplied node, an HTTP 404 is returned.
+The array is unsorted.
+
+If no facts match the query, an empty JSON array will be returned.
 
 ### Examples
 
