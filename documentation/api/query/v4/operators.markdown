@@ -24,29 +24,44 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Matches if:** the field's actual value is exactly the same as the provided value. Note that this **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string
+**Works with:** strings, numbers, timestamps, booleans, arrays
+
+**Matches if:** the field's actual value is exactly the same as the provided value.
+
+Note that this operator **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string.
 
 * Most fields are strings.
 * Some fields are booleans.
-* Numbers in resource parameters from Puppet are usually stored as strings, if the value of `someparam` were "0", then `["=", "someparam", "0.0"]` wouldn't match, use `["=", "someparam", 0.0]`.
+* Numbers in resource parameters from Puppet are usually stored as strings, but can be coerced to numbers by PuppetDB... as long as you compare them to numbers. (For example: if the value of `someparam` were `"0"`, then `["=", "someparam", "0.0"]` wouldn't match, but `["=", "someparam", 0.0]` would.)
+* Arrays match if any **one** of their elements match.
 
 ### `>` (greater than)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<` (less than)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `>=` (less than or equal to)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<=` (greater than or equal to)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `~` (regexp match)
+
+**Works with:** strings
 
 **Matches if:** the field's actual value matches the provided regular expression. The provided value must be a regular expression represented as a JSON string:
 
@@ -64,13 +79,15 @@ The following example would match if the `certname` field's actual value resembl
 
 ### `null?` (is null)
 
-**Matches if:** the field's value is null, or if there is a value specified for the field, depending on the second argument to the operator
+**Works with:** fields that may be null
+
+**Matches if:** the field's value is null (when second argument is `true`) or the field is **not** null, i.e. has a real value (when second argument is `false`).
 
 The following example would return events that do not have an associated line number:
 
     ["null?" "line" true]
 
-Similarly, the below query would return events that have a specified line number:
+Similarly, the below query would return events that do have a specified line number:
 
     ["null?" "line" false]
 

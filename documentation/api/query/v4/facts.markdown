@@ -10,6 +10,8 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
 
+In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
+
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
 
@@ -30,10 +32,10 @@ See [the Operators page.](./operators.html)
 
 ### Query Fields
 
-* `"name"`: matches facts of the given name
-* `"value"`: matches facts with the given value
-* `"certname"`: matches facts for the given node
-* `"environment"`: matches facts for nodes with the given environment
+* `name` (string): the name of the fact
+* `value` (string, coercible to number): the value of the fact
+* `certname` (string): the node associated with the fact
+* `environment` (string): the environment associated with the fact
 
 ### Response Format
 

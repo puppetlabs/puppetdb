@@ -33,7 +33,7 @@ See [the Operators page](./operators.html)
 
 ### Query Fields
 
-* `"name"`: matches environments of the given name
+* `"name"` (string): the name of an environment
 
 ### Response format
 

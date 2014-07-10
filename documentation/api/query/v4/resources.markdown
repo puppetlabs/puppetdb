@@ -34,23 +34,23 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 ### Query Fields
 
-* `tag`: a case-insensitive tag on the resource.
+* `tag` (string): a case-insensitive tag on the resource. (Appears in the response as `tags`, which is an array of strings.)
 
-* `certname`: the name of the node associated with the resource.
+* `certname` (string): the name of the node associated with the resource.
 
-* `[parameter <PARAMETER NAME>]`: the value of the `<PARAMETER NAME>` parameter of the resource.
+* `[parameter <PARAMETER NAME>]` (string): the value of the `<PARAMETER NAME>` parameter of the resource.
 
-* `type`: the resource type.
+* `type` (string, with first letter always capitalized): the resource type.
 
-* `title`: the resource title.
+* `title` (string): the resource title.
 
-* `exported`: whether or not the resource is exported.
+* `exported` (boolean): whether or not the resource is exported.
 
-* `file`: the manifest file the resource was declared in.
+* `file` (string): the manifest file the resource was declared in.
 
-* `line`: the line of the manifest on which the resource was declared.
+* `line` (number): the line of the manifest on which the resource was declared.
 
-* `environment`: the environment of the node associated to the resource.
+* `environment` (string): the environment of the node associated to the resource.
 
 
 ### Response format

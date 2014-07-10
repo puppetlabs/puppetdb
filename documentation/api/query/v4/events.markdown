@@ -70,64 +70,64 @@ operators.
 > null values. See the `null?` operator, if you want to query for nodes that do not
 > have a value.
 
-* `certname`: the name of the node that the event occurred on.
+* `certname` (string): the name of the node that the event occurred on.
 
-* `report`: the id of the report that the event occurred in; these ids can be acquired
+* `report` (string): the id of the report that the event occurred in; these ids can be acquired
   via event queries or via the [`/reports`][report] query endpoint.
 
-* `status`: the status of the event; legal values are `success`, `failure`, `noop`, and `skipped`.
+* `status` (string): the status of the event; legal values are `success`, `failure`, `noop`, and `skipped`.
 
-* `timestamp`: the timestamp (from the puppet agent) at which the event occurred.  This field
-  supports the inequality operators.  All values should be specified as [ISO-8601][8601]
+* `timestamp` (timestamp): the timestamp (from the puppet agent) at which the event occurred.  This field
+  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `run-start-time`: the timestamp (from the puppet agent) at which the puppet run began.  This field
-  supports the inequality operators.  All values should be specified as ISO-8601
+* `run-start-time` (timestamp): the timestamp (from the puppet agent) at which the puppet run began.  This field
+  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `run-end-time`: the timestamp (from the puppet agent) at which the puppet run finished.  This field
-  supports the inequality operators.  All values should be specified as ISO-8601
+* `run-end-time` (timestamp): the timestamp (from the puppet agent) at which the puppet run finished.  This field
+  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `report-receive-time`: the timestamp (from the PuppetDB server) at which the puppet report was
-  received.  This field supports the inequality operators.  All values should be
-  specified as ISO-8601 compatible date/time strings.
+* `report-receive-time` (timestamp): the timestamp (from the PuppetDB server) at which the puppet report was
+  received.  This field supports the inequality operators.  Timestamps are always [ISO-8601][8601]
+  compatible date/time strings.
 
-* `resource-type`: the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
+* `resource-type` (string, with first letter always capitalized): the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
 
-* `resource-title`: the title of the resource that the event occurred on.
+* `resource-title` (string): the title of the resource that the event occurred on.
 
-* `property`: the property/parameter of the resource that the event occurred on; e.g., for a
+* `property` (string or null): the property/parameter of the resource that the event occurred on; e.g., for a
   `Package` resource, this field might have a value of `ensure`.  NOTE: this field
-  may contain `NULL` values; see notes below.
+  may contain `NULL` values; see notes above.
 
-* `new-value`: the new value that Puppet was attempting to set for the specified resource
-  property.  NOTE: this field may contain `NULL` values; see notes below.
+* `new-value` (string or null): the new value that Puppet was attempting to set for the specified resource
+  property.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `old-value`: the previous value of the resource property, which Puppet was attempting to
-  change.  NOTE: this field may contain `NULL` values; see notes below.
+* `old-value` (string or null): the previous value of the resource property, which Puppet was attempting to
+  change.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `message`: a description (supplied by the resource provider) of what happened during the
-  event.  NOTE: this field may contain `NULL` values; see notes below.
+* `message` (string or null): a description (supplied by the resource provider) of what happened during the
+  event.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `file`: the manifest file in which the resource definition is located.
-  NOTE: this field may contain `NULL` values; see notes below.
+* `file` (string or null): the manifest file in which the resource definition is located.
+  NOTE: this field may contain `NULL` values; see notes above.
 
-* `line`: the line (of the containing manifest file) at which the resource definition
-  can be found.  NOTE: this field may contain `NULL` values; see notes below.
+* `line` (number or null): the line (of the containing manifest file) at which the resource definition
+  can be found.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `containing-class`: the Puppet class where this resource is declared.  NOTE: this field may
-  contain `NULL` values; see notes below.
+* `containing-class` (string or null): the Puppet class where this resource is declared.  NOTE: this field may
+  contain `NULL` values; see notes above.
 
-* `latest-report?`: whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
+* `latest-report?` (boolean): whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
 value of this field is always boolean (`true` or `false` without quotes), and it
 is not supported by the regex match operator.
 
-* `environment`: the environment associated with the reporting node.
+* `environment` (string): the environment associated with the reporting node.
 
-* `configuration-version`: an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run.
+* `configuration-version` (string): an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run.
 
-* `containment-path`: checks for the supplied string in the collection of containment path strings associated to the event.
+* `containment-path` (array of strings, where each string is a containment path element): the containment path associated with the event, as an ordered array that ends with the most specific containing element.
 
 ### Response Format
 

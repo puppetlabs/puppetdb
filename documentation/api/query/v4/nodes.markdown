@@ -8,6 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[8601]: http://en.wikipedia.org/wiki/ISO_8601
 
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
@@ -35,21 +36,21 @@ See [the Operators page.](./operators.html)
 
 The below fields are allowed as filter criteria and are returned in all responses.
 
-* `certname`: the name of the node that the report was received from.
+* `certname` (string): the name of the node that the report was received from.
 
-* `catalog-environment`: the environment for the last received catalog
+* `catalog-environment` (string): the environment for the last received catalog
 
-* `facts-environment`: the environment for the last received fact set
+* `facts-environment` (string): the environment for the last received fact set
 
-* `report-environment`: the environment for the last received report
+* `report-environment` (string): the environment for the last received report
 
-* `catalog-timestamp`: last time a catalog was received
+* `catalog-timestamp` (timestamp): last time a catalog was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `facts-timestamp`: last time a fact set was received
+* `facts-timestamp` (timestamp): last time a fact set was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `report-timestamp`: last time a report run was complete
+* `report-timestamp` (timestamp): last time a report run was complete. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `["fact", <FACT NAME>]`: the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
+* `["fact", <FACT NAME>]` (string, coercible to number): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
 
     Note that nodes which are missing a fact referenced by a `not` query will match
     the query.

@@ -10,6 +10,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [paging]: ./paging.html
 [statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [query]: ./query.html
+[8601]: http://en.wikipedia.org/wiki/ISO_8601
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
@@ -41,27 +42,27 @@ See [the Operators page](./operators.html)
 
 The below fields are allowed as filter criteria and are returned in all responses.
 
-* `certname`: the name of the node that the report was received from.
+* `certname` (string): the name of the node that the report was received from.
 
-* `hash`: the id of the report; these ids can be acquired via event queries (see the [`/events`][event] endpoint).
+* `hash` (string): the id of the report; these ids can be acquired via event queries (see the [`/events`][event] endpoint).
 
-* `environment`: the environment assigned to the node that submitted the report.
+* `environment` (string): the environment assigned to the node that submitted the report.
 
-* `status`: the status associated to report's node. Possible values for this field come from Puppet's report status, which can be found [here][statuses].
+* `status` (string): the status associated to report's node. Possible values for this field come from Puppet's report status, which can be found [here][statuses].
 
-* `puppet-version`: the version of Puppet that generated the report.
+* `puppet-version` (string): the version of Puppet that generated the report.
 
-* `report-format`: the version number of the report format that Puppet used to generate the original report data.
+* `report-format` (number): the version number of the report format that Puppet used to generate the original report data.
 
-* `configuration-version`: an identifier string that Puppet uses to match a specific catalog for a node to a specific Puppet run.
+* `configuration-version` (string): an identifier string that Puppet uses to match a specific catalog for a node to a specific Puppet run.
 
-* `start-time`: is the time at which the Puppet run began.
+* `start-time` (timestamp): is the time at which the Puppet run began. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `end-time`: is the time at which the Puppet run ended.
+* `end-time` (timestamp): is the time at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `receive-time`: is the time at which PuppetDB recieved the report.
+* `receive-time` (timestamp): is the time at which PuppetDB recieved the report. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `transaction-uuid`: string used to identify a Puppet run.
+* `transaction-uuid` (string): string used to identify a Puppet run.
 
 ### Response format
 
