@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/v2/fact-names.html"
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Routes
 

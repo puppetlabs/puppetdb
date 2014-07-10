@@ -6,18 +6,19 @@ canonical: "/puppetdb/latest/api/query/v3/paging.html"
 
 [api]: ../../index.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[query]: ./query.html
 
-Most of PuppetDB's [query endpoints][api] support a general set of HTTP query parameters that
+Most of PuppetDB's [query endpoints][api] support a general set of HTTP URL parameters that
 can be used for paging results.
 
 > **Note:** The operators below apply to **version 3** of the query API.  It is not available in v2 queries.
 
-## Query Parameters
+## URL Parameters for Paging Results
 
 ### `order-by`
 
 This parameter can be used to ask PuppetDB to return results sorted by one or more fields, in
-ascending or descending order.  The value must be an array of maps.  Each map represents a field
+ascending or descending order.  The value must be a JSON array of maps.  Each map represents a field
 to sort by, and the order that they are specified in the array determines the precedence for the
 sorting.
 
@@ -39,12 +40,12 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 ### `limit`
 
-This query parameter can be used to restrict the result set to a maximum number of results.
+This parameter can be used to restrict the result set to a maximum number of results.
 The value should be an integer.
 
 ### `include-total`
 
-This query parameter is used to indicate whether or not you wish to receive a count of how many total records would have been returned, had the query not been limited using the `limit` parameter.  The value should be a boolean, and defaults to `false`.
+This parameter is used to indicate whether or not you wish to receive a count of how many total records would have been returned, had the query not been limited using the `limit` parameter.  The value should be a boolean, and defaults to `false`.
 
 If `true`, the HTTP response will contain a header `X-Records`, whose value is an integer indicating the total number of results available.
 

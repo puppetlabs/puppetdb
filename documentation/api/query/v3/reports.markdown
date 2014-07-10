@@ -5,46 +5,49 @@ canonical: "/puppetdb/latest/api/query/v3/reports.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[operator]: ../v3/operators.html
+[operator]: ./operators.html
 [event]: ./events.html
 [paging]: ./paging.html
+[statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
+[query]: ./query.html
 
-Querying reports is accomplished by making an HTTP request to the `/reports` REST
-endpoint.
+Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
-## Routes
+* Some data about the entire run
+* Some metadata about the report
+* Many _events,_ describing what happened during the run
 
-### `GET /v3/reports`
+Once this information is stored in PuppetDB, it can be queried in various ways.
 
-#### Parameters
+* You can query **data about the run** and **report metadata** by making an HTTP request to the `/reports` endpoint.
+* You can query **data about individual events** by making an HTTP request to the [`/events`][event] endpoint.
+* You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-* `query`: Required. A JSON array of query predicates, in prefix form. (The standard `["<OPERATOR>", "<FIELD>", "<VALUE>"]` format.)
+## `GET /v3/reports`
 
-For example, for all reports run on the node with certname 'example.local', the
-JSON query structure would be:
+### URL Parameters
 
-    ["=", "certname", "example.local"]
+* `query`: Optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
 
-##### Operators
+    If the `query` parameter is absent, PuppetDB will return all reports.
 
-The only available [OPERATOR][] is `=`.
+### Query Operators
 
-##### Fields
+See [the Operators page](./operators.html)
 
-`FIELD` may be any of the following.  All fields support only the equality operator.
+### Query Fields
 
-`certname`
-: the name of the node that the report was received from.
+The below fields are allowed as filter criteria and are returned in all responses.
 
-`hash`
-: the id of the report; these ids can be acquired
-  via event queries (see the [`/events`][event] query endpoint).
+* `certname`: the name of the node that the report was received from.
 
-#### Response format
+* `hash`: the id of the report; these ids can be acquired via event queries (see the [`/events`][event] endpoint).
+
+### Response format
 
 The response is a JSON array of report summaries for all reports
 that matched the input parameters.  The summaries are sorted by
-the completion time of the report, in descending order:
+the completion time of the report, from newest to oldest:
 
     [
       {
@@ -71,15 +74,15 @@ the completion time of the report, in descending order:
         }
     ]
 
+### Example
 
-#### Paging
+[You can use `curl`][curl] to query information about reports like so:
+
+    curl -G 'http://localhost:8080/v3/reports' --data-urlencode 'query=["=", "certname", "example.local"]'
+
+## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
 query parameters.  For more information, please see the documentation
 on [paging][paging].
 
-#### Example
-
-[You can use `curl`][curl] to query information about reports like so:
-
-    curl -G 'http://localhost:8080/v3/reports' --data-urlencode 'query=["=", "certname", "example.local"]'

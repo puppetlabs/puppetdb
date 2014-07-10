@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/query/v2/nodes.html"
 Nodes can be queried by making an HTTP request to the `/nodes` REST
 endpoint with a JSON-formatted parameter called `query`.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Routes
 
@@ -75,10 +75,17 @@ not.
 
 #### Response format
 
-The response is a JSON array of node names that match the predicates, sorted
-in ascending order:
+The response is a single hash, of the same form used for the plain `nodes` endpoint:
 
-`["foo.example.com", "bar.example.com", "baz.example.com"]`
+    {"name": <string>,
+     "deactivated": <timestamp>,
+     "catalog_timestamp": <timestamp>,
+     "facts_timestamp": <timestamp>,
+     "report_timestamp": <timestamp>}
+
+If a node of that certname doesn't exist, the response will instead be a hash of the form:
+
+    {"error": "No information is known about <NODE>"}
 
 ### `GET /v2/nodes/<NODE>/facts`
 

@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/query/v2/operators.html"
 
 PuppetDB's [query strings][query] can use several common operators.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Binary Operators
 
