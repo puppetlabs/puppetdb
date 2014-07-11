@@ -132,7 +132,7 @@ is not supported by the regex match operator.
 ### Response Format
 
 The response is a JSON array of events that matched the input parameters.
-The events are sorted by their timestamps, from newest to oldest:
+The array is unordered.
 
     [
       {

@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v3/version.html"
 The `/version` endpoint can be used to retrieve version information from the PuppetDB server.
 
 
-### `GET /v3/version`
+## `GET /v3/version`
 
 This query endpoint will return version information about the running PuppetDB
 server.

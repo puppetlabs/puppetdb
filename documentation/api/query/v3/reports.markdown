@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/v3/reports.html"
 [operator]: ./operators.html
 [event]: ./events.html
 [paging]: ./paging.html
-[statuses]: ./puppet/latest/reference/format_report.html#puppettransactionreport
+[statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [query]: ./query.html
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:

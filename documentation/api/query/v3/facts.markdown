@@ -11,7 +11,7 @@ You can query facts by making an HTTP request to the `/facts` endpoint.
 
 
 
-### `GET /v3/facts`
+## `GET /v3/facts`
 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response.

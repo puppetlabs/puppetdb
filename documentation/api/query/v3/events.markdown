@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the `/events` endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-### `GET /v3/events`
+## `GET /v3/events`
 
 This will return all resource events matching the given query.  (Resource events
 are generated from Puppet reports.)
@@ -127,7 +127,7 @@ is not supported by the regex match operator.
 ### Response Format
 
 The response is a JSON array of events that matched the input parameters.
-The events are sorted by their timestamps, from newest to oldest:
+The array is unordered.
 
     [
       {
