@@ -4,19 +4,19 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v1.html"
 ---
 
-[containment]: /puppet/3/reference/lang_containment.html
-[relationship]: /puppet/3/reference/lang_relationships.html
-[chain]: /puppet/3/reference/lang_relationships.html#chaining-arrows
-[metaparameters]: /puppet/3/reference/lang_relationships.html#relationship-metaparameters
-[require]: /puppet/3/reference/lang_relationships.html#the-require-function
-[resource_ref]: /puppet/3/reference/lang_datatypes.html#resource-references
-[numbers]: /puppet/3/reference/lang_datatypes.html#numbers
-[undef]: /puppet/3/reference/lang_datatypes.html#undef
-[namevar]: /puppet/3/reference/lang_resources.html#namenamevar
-[resource]: /puppet/3/reference/lang_resources.html
-[title]: /puppet/3/reference/lang_resources.html#title
-[type]: /puppet/3/reference/lang_resources.html#type
-[attributes]: /puppet/3/reference/lang_resources.html#attributes
+[containment]: /puppet/latest/reference/lang_containment.html
+[relationship]: /puppet/latest/reference/lang_relationships.html
+[chain]: /puppet/latest/reference/lang_relationships.html#chaining-arrows
+[metaparameters]: /puppet/latest/reference/lang_relationships.html#relationship-metaparameters
+[require]: /puppet/latest/reference/lang_relationships.html#the-require-function
+[resource_ref]: /puppet/latest/reference/lang_datatypes.html#resource-references
+[numbers]: /puppet/latest/reference/lang_datatypes.html#numbers
+[undef]: /puppet/latest/reference/lang_datatypes.html#undef
+[namevar]: /puppet/latest/reference/lang_resources.html#namenamevar
+[resource]: /puppet/latest/reference/lang_resources.html
+[title]: /puppet/latest/reference/lang_resources.html#title
+[type]: /puppet/latest/reference/lang_resources.html#type
+[attributes]: /puppet/latest/reference/lang_resources.html#attributes
 [replace3]: ../commands.html#replace-catalog-version-3
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1
@@ -61,25 +61,30 @@ Each of the keys is mandatory unless otherwise noted, although values that are l
 
 The value of each key in the data object is as follows:
 
-`"name"`
-: String. The name of the node for which the catalog was compiled.
+#### `name`
 
-`"version"`
-: String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](/references/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
+String. The name of the node for which the catalog was compiled.
 
-`"edges"`
-: List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between any two resources in the catalog, which may have been made with [chaining arrows][chain], [metaparameters][], or [the `require` function][require].
+#### `version`
 
-  > **Notes:**
-  >
-  > * "Autorequire" relationships are not currently encoded in the catalog.
-  > * This key is significantly different from its equivalent in Puppet's internal catalog format, which only encodes containment edges.
+String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](/references/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
 
-`"resources"`
-: List of [`<resource>` objects](#data-type-resource). Contains **every** resource in the catalog.
+#### `edges`
 
-`"transaction-uuid"`
-: String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
+List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between any two resources in the catalog, which may have been made with [chaining arrows][chain], [metaparameters][], or [the `require` function][require].
+
+> **Notes:**
+>
+> * "Autorequire" relationships are not currently encoded in the catalog.
+> * This key is significantly different from its equivalent in Puppet's internal catalog format, which only encodes containment edges.
+
+#### `resources`
+
+List of [`<resource>` objects](#data-type-resource). Contains **every** resource in the catalog.
+
+#### `transaction-uuid`
+
+String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
 This field may be `null`.  (Note: support for this field was introduced in
 [Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
 a `null` value.
@@ -108,17 +113,17 @@ All edges are normalized so that the "source" resource is managed **before** the
 
 The keys of an edge are `source`, `target`, and `relationship`, all of which are required.
 
-`source`
+#### `source`
 
-: A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **first.**
+A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **first.**
 
-`target`
+#### `target`
 
-: A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **second.**
+A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **second.**
 
-`relationship`
+#### `relationship`
 
-: A [`<relationship>`](#data-type-relationship). The way the two resources are related.
+A [`<relationship>`](#data-type-relationship). The way the two resources are related.
 
 ### Data Type: `<resource-spec>`
 
@@ -171,37 +176,37 @@ A JSON object of the following form, which represents a [Puppet resource][resour
 
 The eight keys in a resource object are `type`, `title`, `aliases`, `exported`, `file`, `line`, `tags` and `parameters`. All of them are **required.**
 
-`type`
+#### `type`
 
-: String. The [type][] of the resource, **capitalized.** (E.g. `File`, `Service`, `Class`, `Apache::Vhost`.) Note that every segment must be capitalized if the type includes a namespace separator (`::`).
+String. The [type][] of the resource, **capitalized.** (E.g. `File`, `Service`, `Class`, `Apache::Vhost`.) Note that every segment must be capitalized if the type includes a namespace separator (`::`).
 
-`title`
+#### `title`
 
-: String. The [title][] of the resource.
+String. The [title][] of the resource.
 
-`aliases`
+#### `aliases`
 
-: List of strings. Includes **every** alias for the resource, including the value of its [name/namevar][namevar] and any extra names added with the `"alias"` metaparameter.
+List of strings. Includes **every** alias for the resource, including the value of its [name/namevar][namevar] and any extra names added with the `"alias"` metaparameter.
 
-`exported`
+#### `exported`
 
-: Boolean. Whether or not this is an exported resource.
+Boolean. Whether or not this is an exported resource.
 
-`file`
+#### `file`
 
-: String. The manifest file in which the resource definition is located.
+String. The manifest file in which the resource definition is located.
 
-`line`
+#### `line`
 
-: Positive integer. The line (of the containing manifest file) at which the resource definition can be found.
+Positive integer. The line (of the containing manifest file) at which the resource definition can be found.
 
-`tags`
+#### `tags`
 
-: List of strings. Includes every tag the resource has. This is a normalized superset of the value of the resource's `tag` attribute.
+List of strings. Includes every tag the resource has. This is a normalized superset of the value of the resource's `tag` attribute.
 
-`parameters`
+#### `parameters`
 
-: JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide booleans, strings, arrays, and hashes --- [resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.
+JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide booleans, strings, arrays, and hashes --- [resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.
 
 
 

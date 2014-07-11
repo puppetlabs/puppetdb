@@ -34,29 +34,21 @@ The `query` parameter is described by the following grammar:
 
 `field` may be any of:
 
-`tag`
-: a case-insensitive tag on the resource
+* `tag`: a case-insensitive tag on the resource
 
-`certname`
-: the name of the node associated with the resource
+* `certname`: the name of the node associated with the resource
 
-`[parameter <resource_param>]`
-: a parameter of the resource
+* `[parameter <resource_param>]`: a parameter of the resource
 
-`type`
-: the resource type
+* `type`: the resource type
 
-`title`
-: the resource title
+* `title`: the resource title
 
-`exported`
-: whether or not the resource is exported
+* `exported`: whether or not the resource is exported
 
-`sourcefile`
-: the manifest file the resource was declared in
+* `sourcefile`: the manifest file the resource was declared in
 
-`sourceline`
-: the line of the manifest on which the resource was declared
+* `sourceline`: the line of the manifest on which the resource was declared
 
 For example, for file resources, tagged "magical", on any host except
 for "example.local" the JSON query structure would be:
