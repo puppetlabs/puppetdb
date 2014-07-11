@@ -46,8 +46,7 @@ The below fields are allowed as filter criteria and are returned in all response
 ### Response format
 
 The response is a JSON array of report summaries for all reports
-that matched the input parameters.  The summaries are sorted by
-the completion time of the report, from newest to oldest:
+that matched the input parameters.  The array is unsorted.
 
     [
       {

@@ -100,7 +100,7 @@ That is:
 
 * The `in` operator results in a complete query string. The `extract` operator and the subqueries do not.
 * An `in` statement **must** contain a field and an `extract` statement.
-* An `extract` statement **must** contain a field and a subquery string.
+* An `extract` statement **must** contain a field and a subquery statement.
 
 These statements work together as follows (working "outward" and starting with the subquery):
 

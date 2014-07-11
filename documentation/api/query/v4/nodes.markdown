@@ -61,13 +61,15 @@ The below fields are allowed as filter criteria and are returned in all response
 The response is a JSON array of hashes, where each hash has the form:
 
     {"certname": <string>,
-     "deactivated": <timestamp|null>,
-     "catalog-timestamp": <timestamp>,
-     "facts-timestamp": <timestamp>,
-     "report-timestamp": <timestamp>,
-     "catalog-environment": <string>,
-     "facts-environment": <string>,
-     "report-environment": <string>}
+     "deactivated": <timestamp or null>,
+     "catalog-timestamp": <timestamp or null>,
+     "facts-timestamp": <timestamp or null>,
+     "report-timestamp": <timestamp or null>,
+     "catalog-environment": <string or null>,
+     "facts-environment": <string or null>,
+     "report-environment": <string or null>}
+
+At least one of the `-timestamp` fields will be non-null.
 
 The array is unsorted.
 
