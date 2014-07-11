@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [operator]: ../v4/operators.html
 [event]: ./events.html
 [paging]: ./paging.html
-[statuses]: ./puppet/3/reference/format_report.html#puppettransactionreport
+[statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 
 Querying reports is accomplished by making an HTTP request to the `/reports` REST
 endpoint.

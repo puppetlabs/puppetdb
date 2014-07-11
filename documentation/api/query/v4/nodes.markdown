@@ -78,7 +78,7 @@ If no `query` parameter is supplied, all nodes will be returned.
 
 The response is a JSON array of hashes of the form:
 
-    {"name": <string>,
+    {"certname": <string>,
      "deactivated": <timestamp>,
      "catalog-timestamp": <timestamp>,
      "facts-timestamp": <timestamp>,
