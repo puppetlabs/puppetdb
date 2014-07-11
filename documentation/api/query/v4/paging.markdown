@@ -45,9 +45,9 @@ The value should be an integer.
 
 ### `include-total`
 
-This parameter is used to indicate whether or not you wish to receive a count of how many total records would have been returned, had the query not been limited using the `limit` parameter.  The value should be a boolean, and defaults to `false`.
+This parameter lets you request a count of how many total records would have been returned, had the query not been limited using the `limit` parameter. This is useful if you want your application to show how far the user has navigated (e.g. "page 3 of 15").
 
-If `true`, the HTTP response will contain a header `X-Records`, whose value is an integer indicating the total number of results available.
+The value should be a boolean, and defaults to `false`. If `true`, the HTTP response will contain a header `X-Records`, whose value is an integer indicating the total number of results available.
 
 NOTE: setting this flag to `true` will introduce a minor performance hit on the query.
 
