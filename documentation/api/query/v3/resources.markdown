@@ -6,86 +6,97 @@ canonical: "/puppetdb/latest/api/query/v3/resources.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
+[query]: ./query.html
 
-Resources are queried via an HTTP request to the
-`/resources` REST endpoint.
+You can query resources by making an HTTP request to the
+`/resources` endpoint.
 
 
-## Routes
 
-### `GET /v3/resources`
+## `GET /v3/resources`
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response.
 
-#### Parameters
+### URL Parameters
 
-* `query`: Optional. A JSON array of query predicates, in prefix form,
-  conforming to the format described below. If not provided, all results will
-  be returned.
+* `query`: Optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
 
-The `query` parameter is described by the following grammar:
+    If no query is provided, all resources will be returned.
 
-    query: [ {bool} {query}+ ] | [ "not" {query} ] | [ {match} {field} {value} ]
-    field:  string | [ string+ ]
-    value:  string
-    bool:   "or" | "and"
-    match:  "=" | "~"
+### Query Operators
 
-`field` may be any of:
+See [the Operators page](./operators.html) for the full list of available operators. Note that:
 
-`tag`
-: a case-insensitive tag on the resource
+* The inequality operators are only supported for the `line` field.
+* Regexp matching is **not** supported against parameter values.
 
-`certname`
-: the name of the node associated with the resource
+### Query Fields
 
-`[parameter <resource_param>]`
-: a parameter of the resource
+* `tag`: a case-insensitive tag on the resource.
 
-`type`
-: the resource type
+* `certname`: the name of the node associated with the resource.
 
-`title`
-: the resource title
+* `[parameter <PARAMETER NAME>]`: the value of the `<PARAMETER NAME>` parameter of the resource.
 
-`exported`
-: whether or not the resource is exported
+* `type`: the resource type.
 
-`file`
-: the manifest file the resource was declared in
+* `title`: the resource title.
 
-`line`
-: the line of the manifest on which the resource was declared
+* `exported`: whether or not the resource is exported.
 
-For example, for file resources, tagged "magical", on any host except
-for "example.local" the JSON query structure would be:
+* `file`: the manifest file the resource was declared in.
+
+* `line`: the line of the manifest on which the resource was declared.
+
+* `environment`: the environment of the node associated to the resource.
+
+
+### Response format
+
+An array of zero or more resource objects, with each object having the
+following form:
+
+    {"certname":   "the certname of the associated host",
+     "resource":   "the resource's unique hash",
+     "type":       "File",
+     "title":      "/etc/hosts",
+     "exported":   "true",
+     "tags":       ["foo", "bar"],
+     "file": "/etc/puppet/manifests/site.pp",
+     "line": "1",
+     "parameters": {<parameter>: <value>,
+                   <parameter>: <value>,
+                   ...}}
+
+### Examples
+
+For file resources tagged "magical", on any host except
+for "example.local," the JSON query structure would be:
 
     ["and", ["not", ["=", "certname", "example.local"]],
             ["=", "type", "File"],
             ["=", "tag", "magical"],
             ["=", ["parameter", "ensure"], "enabled"]
 
-See [the Operators page](./operators.html) for the full list of available operators. Note that
-resource queries *do not support* inequality, and regexp matching *is not
-supported* against node status or parameter values.
 
-### `GET /v3/resources/<TYPE>`
+## `GET /v3/resources/<TYPE>`
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
 response.
 
-#### Parameters
+This behaves exactly like a call to `/v3/resources` with a query string of `["=", "type", "<TYPE>"]`.
 
-* `query`: Optional. A JSON array containing the query in prefix
-  notation. The syntax and semantics are identical to the `query`
-  parameter for the `/resources` route, mentioned above. When
-  supplied, the query is assumed to supply _additional_ criteria that
-  can be used to return a _subset_ of the information normally
-  returned by this route.
+### URL Parameters / Query Operators / Query Fields / Response Format
 
-#### Examples
+This route is an extension of the plain `resources` endpoint. It uses the exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which will be
+used to return a subset of the information normally returned by
+this route.
+
+### Examples
 
 [Using `curl` from localhost][curl]:
 
@@ -124,22 +135,27 @@ response.
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
 
-### `GET /v3/resources/<TYPE>/<TITLE>`
+## `GET /v3/resources/<TYPE>/<TITLE>`
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
 response.
 
-#### Parameters
+This behaves exactly like a call to `/v3/resources` with a query string of:
 
-* `query`: Optional. A JSON array containing the query in prefix
-  notation. The syntax and semantics are identical to the `query`
-  parameter for the `/resources` route, mentioned above. When
-  supplied, the query is assumed to supply _additional_ criteria that
-  can be used to return a _subset_ of the information normally
-  returned by this route.
+    ["and",
+        ["=", "type", "<TYPE>"],
+        ["=", "title", "<TITLE>"]]
 
-#### Examples
+### URL Parameters / Query Operators / Query Fields / Response Format
+
+This route is an extension of the plain `resources` endpoint. It uses the exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which will be
+used to return a subset of the information normally returned by
+this route.
+
+### Examples
 
 [Using `curl` from localhost][curl]:
 
@@ -166,22 +182,6 @@ response.
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-query parameters.  For more information, please see the documentation
+URL parameters.  For more information, please see the documentation
 on [paging][paging].
 
-## Response format
-
-An array of zero or more resource objects, with each object having the
-following form:
-
-    {"certname":   "the certname of the associated host",
-     "resource":   "the resource's unique hash",
-     "type":       "File",
-     "title":      "/etc/hosts",
-     "exported":   "true",
-     "tags":       ["foo", "bar"],
-     "file": "/etc/puppet/manifests/site.pp",
-     "line": "1",
-     "parameters": {<parameter>: <value>,
-                   <parameter>: <value>,
-                   ...}}

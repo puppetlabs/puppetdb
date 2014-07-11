@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 
 [resources]: ./resources.html
 [facts]: ./facts.html
+[nodes]: ./nodes.html
 [query]: ./query.html
 
 PuppetDB's [query strings][query] can use several common operators.
@@ -23,29 +24,44 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Matches if:** the field's actual value is exactly the same as the provided value. Note that this **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string
+**Works with:** strings, numbers, timestamps, booleans, arrays
+
+**Matches if:** the field's actual value is exactly the same as the provided value.
+
+Note that this operator **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string.
 
 * Most fields are strings.
 * Some fields are booleans.
-* Numbers in resource parameters from Puppet are usually stored as strings, if the value of `someparam` were "0", then `["=", "someparam", "0.0"]` wouldn't match, use `["=", "someparam", 0.0]`.
+* Numbers in resource parameters from Puppet are usually stored as strings, but can be coerced to numbers by PuppetDB... as long as you compare them to numbers. (For example: if the value of `someparam` were `"0"`, then `["=", "someparam", "0.0"]` wouldn't match, but `["=", "someparam", 0.0]` would.)
+* Arrays match if any **one** of their elements match.
 
 ### `>` (greater than)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<` (less than)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `>=` (less than or equal to)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<=` (greater than or equal to)
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers. This operator can be used on timestamps but is not supported on strings.
+**Works with:** numbers, timestamps
+
+**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `~` (regexp match)
+
+**Works with:** strings
 
 **Matches if:** the field's actual value matches the provided regular expression. The provided value must be a regular expression represented as a JSON string:
 
@@ -63,13 +79,15 @@ The following example would match if the `certname` field's actual value resembl
 
 ### `null?` (is null)
 
-**Matches if:** the field's value is null, or if there is a value specified for the field, depending on the second argument to the operator
+**Works with:** fields that may be null
+
+**Matches if:** the field's value is null (when second argument is `true`) or the field is **not** null, i.e. has a real value (when second argument is `false`).
 
 The following example would return events that do not have an associated line number:
 
     ["null?" "line" true]
 
-Similarly, the below query would return events that have a specified line number:
+Similarly, the below query would return events that do have a specified line number:
 
     ["null?" "line" false]
 
@@ -97,15 +115,19 @@ Subqueries allow you to correlate data from multiple sources or multiple
 rows. (For instance, a query such as "fetch the IP addresses of all nodes with
 `Class[Apache]`" would have to use both facts and resources to return a list of facts.)
 
-Subqueries are unlike the other operators listed above:
+Subqueries are unlike the other operators listed above. They always appear together in the following form:
+
+    ["in", "<FIELD>", ["extract", "<FIELD>", <SUBQUERY STATEMENT>] ]
+
+That is:
 
 * The `in` operator results in a complete query string. The `extract` operator and the subqueries do not.
 * An `in` statement **must** contain a field and an `extract` statement.
-* An `extract` statement **must** contain a field and a subquery.
+* An `extract` statement **must** contain a field and a subquery statement.
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
-* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][] or a group of [facts][]). Each of these objects has many **fields.**
+* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], or [nodes][]). Each of these objects has many **fields.**
 * The `extract` statement collects the value of a **single field** across every object returned by the subquery.
 * The `in` statement **matches** if the value of its field is present in the list returned by the `extract` statement.
 
@@ -134,19 +156,30 @@ An `extract` statement **does not** constitute a full query string. It may only 
 "Extract" statements are **non-transitive** and take two arguments:
 
 * The first argument **must** be a valid **field** for the endpoint **being subqueried** (see second argument).
-* The second argument **must** be a **subquery.**
+* The second argument **must** be a **subquery statement.**
 
 As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
 
+### Subquery Statements
+
+A subquery statement **does not** constitute a full query string. It may only be used as the second argument of an `extract` statement.
+
+Subquery statements are **non-transitive** and take two arguments:
+
+* The first argument **must** be the **name** of one of the available subqueries (listed below).
+* The second argument **must** be a **full query string** that makes sense for the endpoint being subqueried.
+
+As the second argument of an `extract` statement, a subquery statement acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
+
 ### Available Subqueries
 
-A subquery may only be used as the second argument of an `extract` statement, where it acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
+Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for that endpoint.
 
 The available subqueries are:
 
-* `select-resources`
-* `select-facts`
-* `select-nodes`
+* `select-resources` (queries the [resources][] endpoint)
+* `select-facts` (queries the [facts][] endpoint)
+* `select-nodes` (queries the [nodes][] endpoint)
 
 ### Subquery Examples
 
