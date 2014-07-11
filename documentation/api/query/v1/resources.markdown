@@ -28,32 +28,23 @@ The `query` parameter adheres to the following grammar:
 
 `field` strings may be any of the following:
 
-`tag`
-: a case-insensitive tag on the resource
+* `tag`: a case-insensitive tag on the resource
 
-`["node", "name"]`
-: the name of the node associated with the resource
+* `["node", "name"]`: the name of the node associated with the resource
 
-`["node", "active"]`
-: `true` if the node has not been deactivated, `false` if it has
+* `["node", "active"]`: `true` if the node has not been deactivated, `false` if it has
 
-`["parameter", "<parameter name>"]`
-: a parameter of the resource
+*`["parameter", "<parameter name>"]`: a parameter of the resource
 
-`type`
-: the resource type
+* `type`: the resource type
 
-`title`
-: the resource title
+* `title`: the resource title
 
-`exported`
-: whether or not the resource is exported
+* `exported`: whether or not the resource is exported
 
-`sourcefile`
-: the manifest file where the resource was declared
+* `sourcefile`: the manifest file where the resource was declared
 
-`sourceline`
-: the line of the manifest in which the resource was declared
+* `sourceline`: the line of the manifest in which the resource was declared
 
 For example, the JSON query structure for file resources, tagged "magical", and present on any active host except
 for "example.local" would be:
@@ -66,19 +57,15 @@ for "example.local" would be:
 
 The following conditionals for type behaviors are defined:
 
-`or`
-: If *any* condition is true, the result is true.
+* `or`: If *any* condition is true, the result is true.
 
-`and`
-: If *all* conditions are true, the result is true.
+* `and`: If *all* conditions are true, the result is true.
 
-`not`
-: If *none* of the conditions are true, the result is true.
+* `not`: If *none* of the conditions are true, the result is true.
 
 The following match operator behaviors are defined:
 
-`=`
-: Exact string equality of the field and the value.
+* `=`: Exact string equality of the field and the value.
 
 ## Response format
 
