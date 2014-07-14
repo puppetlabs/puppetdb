@@ -9,6 +9,7 @@ canonical: "/puppetdb/latest/api/query/v2/facts.html"
 Querying facts occurs via an HTTP request to the
 `/facts` REST endpoint.
 
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Routes
 
@@ -108,4 +109,4 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
       "value": <fact value>
     }
 
-If no facts are known for the supplied node, an HTTP 404 is returned.
+If no facts match the query, an empty JSON array will be returned.
