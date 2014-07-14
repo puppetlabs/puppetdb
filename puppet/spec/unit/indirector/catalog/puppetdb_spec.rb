@@ -23,6 +23,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     let(:options) {{
       :transaction_uuid => 'abcdefg',
       :environment => 'my_environment',
+      :producer_timestamp => "a test",
     }}
 
     before :each do
@@ -38,7 +39,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       command_payload = subject.munge_catalog(catalog, options)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
-        :version => 4,
+        :version => 5,
         :payload => command_payload,
       }.to_pson
 
@@ -657,7 +658,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result = subject.munge_catalog(catalog)
 
         result.keys.should =~ ['name', 'version', 'edges', 'resources',
-          'transaction-uuid', 'environment']
+          'transaction-uuid', 'environment', 'producer-timestamp']
       end
     end
   end

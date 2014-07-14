@@ -93,7 +93,8 @@
    ;;doesn't recognize).  Remove this at 2.0.
    (s/optional-key :timestamp) s/Any
    (s/optional-key :expiration) s/Any
-   (s/required-key :environment) (s/maybe s/Str)})
+   (s/required-key :environment) (s/maybe s/Str)
+   (s/required-key :producer-timestamp) (s/either (s/maybe s/Str) pls/Timestamp)})
 
 (def environments-schema
   {:id s/Int
@@ -333,14 +334,15 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [api_version version transaction-uuid environment]} :- catalog-schema
+   {:keys [api_version version transaction-uuid environment producer-timestamp]} :- catalog-schema
    timestamp :- pls/Timestamp]
   {:hash hash
    :api_version api_version
    :catalog_version  version
    :transaction_uuid transaction-uuid
    :timestamp (to-timestamp timestamp)
-   :environment_id (ensure-environment environment)})
+   :environment_id (ensure-environment environment)
+   :producer_timestamp (to-timestamp producer-timestamp)})
 
 (pls/defn-validated update-catalog-metadata!
   "Given some catalog metadata, update the db"
@@ -776,12 +778,14 @@
   [certname :- String
    facts :- fact-map-schema
    timestamp :- pls/Timestamp
-   environment :- (s/maybe s/Str)]
+   environment :- (s/maybe s/Str)
+   producer-timestamp :- (s/either (s/maybe s/Str) pls/Timestamp)]
   {:pre [(kitchensink/datetime? timestamp)]}
   (sql/insert-record :certname_facts_metadata
                      {:certname certname
                       :timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)})
+                      :environment_id (ensure-environment environment)
+                      :producer_timestamp (to-timestamp producer-timestamp)})
   (insert-facts! certname facts))
 
 (pls/defn-validated delete-facts!
@@ -822,11 +826,13 @@
   [certname :- String
    facts :- fact-map-schema
    timestamp :- pls/Timestamp
-   environment :- (s/maybe s/Str)]
+   environment :- (s/maybe s/Str)
+   producer-timestamp :- (s/either (s/maybe s/Str) pls/Timestamp)]
   (let [old-facts (cert-fact-map certname)]
     (sql/update-values :certname_facts_metadata ["certname=?" certname]
                        {:timestamp (to-timestamp timestamp)
-                        :environment_id (ensure-environment environment)})
+                        :environment_id (ensure-environment environment)
+                        :producer_timestamp (to-timestamp producer-timestamp)})
 
     (utils/diff-fn old-facts
                    facts
@@ -1017,13 +1023,13 @@
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the certname_facts_metadata will have changed while the transaction was in-flight."
-  [{:keys [name values environment]} :- facts-schema
+  [{:keys [name values environment producer-timestamp]} :- facts-schema
    timestamp :- pls/Timestamp]
   (time! (:replace-facts metrics)
          (if-let [facts-meta-ts (certname-facts-metadata! name)]
            (when (.before facts-meta-ts (to-timestamp timestamp))
-             (update-facts! name values timestamp environment))
-           (add-facts! name values timestamp environment))))
+             (update-facts! name values timestamp environment producer-timestamp))
+           (add-facts! name values timestamp environment producer-timestamp))))
 
 (pls/defn-validated add-report!
   "Add a report and all of the associated events to the database."

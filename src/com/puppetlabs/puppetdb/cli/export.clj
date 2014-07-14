@@ -212,7 +212,7 @@
                 ;;  on which version of the `replace catalog` matches up with the current
                 ;;  version of the `catalog` endpoint... or even to query what the latest
                 ;;  version of a command is.  We should improve that.
-                {:replace-catalog 4
+                {:replace-catalog 5
                  :store-report 3
                  :replace-facts 2}})})
 

@@ -1,5 +1,6 @@
 {
     "name" : "myhost.localdomain",
+    "producer-timestamp": "2014-07-10T22:33:54.781Z",
     "edges" : [ {
         "relationship" : "contains",
         "target" : {

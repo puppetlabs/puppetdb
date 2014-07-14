@@ -8,7 +8,9 @@ canonical: "/puppetdb/latest/api/commands.html"
 [catalogv1]: ./wire_format/catalog_format_v1.html
 [reportv1]: ./wire_format/report_format_v1.html
 [factsv2]: ./wire_format/facts_format_v2.html
+[factsv3]: ./wire_format/facts_format_v3.html
 [catalogv4]: ./wire_format/catalog_format_v4.html
+[catalogv5]: ./wire_format/catalog_format_v5.html
 [reportv3]: ./wire_format/report_format_v3.html
 [reportv4]: ./wire_format/report_format_v4.html
 
@@ -102,6 +104,8 @@ format v1][catalogv4]. Extra or missing fields are an error.
 
 ### "replace catalog", version 4
 
+> **Note:** This version is deprecated, use the latest version instead.
+
 The key change to version 4 is adding support for environments. This
 value will be populated by Puppet. This version also explicitly
 couples the version of the command with the same version of the wire
@@ -110,6 +114,18 @@ metadata fields added by puppet.
 
 The payload is expected to be a Puppet catalog, as a JSON object, conforming
 exactly to the [catalog wire format v4][catalog]. Extra or missing fields
+are an error.
+
+### "replace catalog", version 5
+
+Version 5 differs from version 4 by added support of a producer-timestamp
+field. This field is currently populated by the master, but will eventually
+be populated by agents to help ensure a consistent order of events in a
+multiple-master setup. Previous versions of the command will store a `null`
+value for this field.
+
+The payload is expected to be a Puppet catalog, as a JSON object, conforming
+exactly to the [catalog wire format v5][catalog]. Extra or missing fields
 are an error.
 
 ### "replace facts", version 1
@@ -121,10 +137,20 @@ the [fact wire format v1][facts]
 
 ### "replace facts", version 2
 
+> **Note:** This version is deprecated, use the latest version instead.
+
 Similar to version 4 of replace catalog, this version of replace facts adds support
 for environments and an explicit coupling between command version and wire format
 version. See [fact wire format v2][factsv2] for more information on the payload of
 this command.
+
+### "replace facts", version 3
+
+Similar to version 5 of replace catalog, this version of replace facts adds support
+for the producer-timestamp field that will eventually be used for agent
+timekeeping.  See [fact wire format v3][factsv3] for more information on the
+payload of this command.
+
 
 ### "deactivate node", version 1
 

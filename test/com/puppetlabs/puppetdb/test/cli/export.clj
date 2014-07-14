@@ -18,11 +18,11 @@
             original-catalog      (json/parse-string original-catalog-str)]
         (testcat/replace-catalog original-catalog-str)
 
-        ;; This is explicitly set to v4, as per the current CLI tooling
-        (let [exported-catalog (c/catalog-for-node :v4 "myhost.localdomain")]
+        ;; This is explicitly set to v5, as per the current CLI tooling
+        (let [exported-catalog (c/catalog-for-node :v5 "myhost.localdomain")]
 
-          (is (= (testcat/munge-catalog-for-comparison :v4 original-catalog)
-                 (testcat/munge-catalog-for-comparison :v4 exported-catalog)))))))
+          (is (= (testcat/munge-catalog-for-comparison :v5 original-catalog)
+                 (testcat/munge-catalog-for-comparison :v5 exported-catalog)))))))
 
   (testing "Exporting a JSON report"
     (testing "the exported JSON should match the original import JSON"
@@ -37,7 +37,7 @@
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)
           metadata (json/parse-string contents true)]
-      (is (= {:replace-catalog 4
+      (is (= {:replace-catalog 5
               :store-report 3
               :replace-facts 2}
              (:command-versions metadata)))

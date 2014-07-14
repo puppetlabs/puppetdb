@@ -110,13 +110,15 @@
 
     (testing "key validation"
       (let [catalog (:basic catalogs)
-            v4-catalog (dissoc catalog :api_version)
-            v3-catalog (dissoc catalog :environment)
-            v2-catalog (dissoc catalog :transaction-uuid :environment)
+            v5-catalog (dissoc catalog :api_version)
+            v4-catalog (dissoc catalog :api_version :producer-timestamp)
+            v3-catalog (dissoc catalog :environment :producer-timestamp)
+            v2-catalog (dissoc catalog :transaction-uuid :environment :producer-timestamp)
             v1-catalog (assoc catalog :something "random")]
         (testing "should accept catalogs with the correct set of keys"
           (are [version catalog] (= catalog (s/validate (catalog-schema version) catalog))
                :all catalog
+               :v5 v5-catalog
                :v4 v4-catalog
                :v3 v3-catalog
                :v2 v2-catalog
@@ -126,6 +128,7 @@
           (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
                                                    (s/validate (catalog-schema version) (assoc catalog :classes #{})))
                :all catalog
+               :v5 v5-catalog
                :v4 v4-catalog
                :v3 v3-catalog
                :v2 v2-catalog
@@ -137,6 +140,7 @@
                                                    (s/validate (catalog-schema version) (dissoc catalog :version)))
 
                :all catalog
+               :v5 v5-catalog
                :v4 v4-catalog
                :v3 v3-catalog
                :v2 v2-catalog
@@ -356,6 +360,7 @@
                   :type "File"}},
      :version "1330995750",
      :transaction-uuid nil
+     :producer-timestamp nil
      :environment nil}))
 
 (deftest complete-transformation-v2
@@ -529,8 +534,8 @@
                   :type "File"}},
      :version "1330995750",
      :transaction-uuid nil
+     :producer-timestamp nil
      :environment nil}))
-
 
 (deftest complete-transformation-v3
   (catalog-before-and-after 3
@@ -704,12 +709,13 @@
                   :type "File"}},
      :version "1330995750",
      :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+     :producer-timestamp nil
      :environment nil}))
 
 (deftest test-canonical-catalog
   (let [catalog (:basic catalogs)]
     (testing "conversion to :all should never lose information"
-      (doseq [version [:v1 :v2 :v3 :v4]]
+      (doseq [version [:v1 :v2 :v3 :v4 :v5]]
         (is (= (canonical-catalog version catalog)
                (canonical-catalog version (canonical-catalog :all catalog))))))
     (testing "version 1"
@@ -719,7 +725,7 @@
         (is (not (contains? v1-catalog :transaction-uuid)))
         (is (not (contains? v1-catalog :environment)))
         (is (= "stuff" (:more v1-catalog)))
-        (is (= (dissoc v1->all-catalog :transaction-uuid :environment)
+        (is (= (dissoc v1->all-catalog :transaction-uuid :environment :producer-timestamp)
                (dissoc v1-catalog :more)))))
     (testing "version 2"
       (let [v2-catalog (canonical-catalog :v2 catalog)]
@@ -737,7 +743,16 @@
                (:transaction-uuid v4-catalog)))
         (is (= (:environment catalog)
                (:environment v4-catalog)))
-        (is (not (contains? v4-catalog :api_version)))))))
+        (is (not (contains? v4-catalog :api_version)))))
+    (testing "version 5"
+      (let [v5-catalog (canonical-catalog :v5 catalog)]
+        (is (= (:transaction-uuid catalog)
+               (:transaction-uuid v5-catalog)))
+        (is (= (:environment catalog)
+               (:environment v5-catalog)))
+        (is (= (:producer-timestamp catalog)
+               (:producer-timestamp v5-catalog)))
+        (is (not (contains? v5-catalog :api_version)))))))
 
 (deftest test-canonical->wire-format
   (let [catalog (:basic catalogs)]
@@ -745,22 +760,28 @@
       (let [{:keys [metadata data] :as wire-catalog} (canonical->wire-format :v1 (assoc catalog :more "stuff"))]
         (is (= {:api_version 1}
                metadata))
-        (is (= (dissoc catalog :api_version :transaction-uuid :environment :more)
+        (is (= (dissoc catalog :api_version :transaction-uuid :environment :producer-timestamp :more)
                data))))
     (testing "version 2"
       (let [{:keys [metadata data] :as wire-catalog} (canonical->wire-format :v2 catalog)]
         (is (= {:api_version 1}
                metadata))
-        (is (= (dissoc catalog :api_version :transaction-uuid :environment)
+        (is (= (dissoc catalog :api_version :transaction-uuid :environment :producer-timestamp)
                data))))
     (testing "version 3"
       (let [{:keys [metadata data] :as wire-catalog} (canonical->wire-format :v3 catalog)]
         (is (= {:api_version 1}
                metadata))
-        (is (= (dissoc catalog :api_version :environment)
+        (is (= (dissoc catalog :api_version :environment :producer-timestamp)
                data))))
     (testing "version 4"
       (let [wire-catalog (canonical->wire-format :v4 catalog)]
+        (is (not (contains? wire-catalog :data)))
+        (is (not (contains? wire-catalog :metadata)))
+        (is (= (dissoc catalog :api_version :producer-timestamp)
+               wire-catalog))))
+    (testing "version 5"
+      (let [wire-catalog (canonical->wire-format :v5 catalog)]
         (is (not (contains? wire-catalog :data)))
         (is (not (contains? wire-catalog :metadata)))
         (is (= (dissoc catalog :api_version)

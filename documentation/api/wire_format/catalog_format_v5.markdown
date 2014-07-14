@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 2.1 » API » Catalog Wire Format, Version 1"
+title: "PuppetDB 2.1 » API » Catalog Wire Format, Version 5"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/catalog_format_v1.html"
+canonical: "/puppetdb/latest/api/wire_format/catalog_format_v5.html"
 ---
 
 [containment]: /puppet/latest/reference/lang_containment.html
@@ -17,10 +17,10 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v1.html"
 [title]: /puppet/latest/reference/lang_resources.html#title
 [type]: /puppet/latest/reference/lang_resources.html#type
 [attributes]: /puppet/latest/reference/lang_resources.html#attributes
+[replace4]: ../commands.html#replace-catalog-version-4
 [replace3]: ../commands.html#replace-catalog-version-3
 [replace2]: ../commands.html#replace-catalog-version-2
 [replace1]: ../commands.html#replace-catalog-version-1
-[catalog_v4]: catalog_format_v4.html
 
 PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB terminus plugins](../../connect_puppet_master.html) before they are sent. [See below][below] for the justification for this separate format.
 
@@ -29,7 +29,7 @@ Catalog Interchange Format
 
 ### Version
 
-**Note:** This is **version 1** of the catalog interchange format and has been deprecated. See [version 5][catalog_v5] for the currently supported version of this wire format.
+This is **version 5** of the catalog interchange format.
 
 
 ### Encoding
@@ -38,28 +38,17 @@ The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. 
 
 ### Main Data Type: Catalog
 
-A catalog is a JSON object with two keys: `"metadata"` and `"data"`. [Version 2 of the "replace catalog" command][replace2] will strictly validate this object and throw an error in the event of missing or extra fields. [Version 1 of the "replace catalog" command][replace1] will silently tolerate some inexact catalog objects.
-
-    {"metadata": {
-        "api_version": 1
-        }
-     "data": {
-        "name": <string>,
-        "version": <string>,
-        "transaction-uuid": <string>,
-        "edges":
-            [<edge>, <edge>, ...],
-        "resources":
-            [<resource>, <resource>, ...]
-        }
-    }
-
-The value of the `"metadata"` key must be `{ "api_version": 1 }` --- no other value is valid for this version of the format.
-
-The value of the `"data"` key must be a JSON object with five keys: `"name"`, `"version"`, `"transaction-uuid"`, `"edges"`, and `"resources"`.
-Each of the keys is mandatory unless otherwise noted, although values that are lists may be empty lists.
-
-The value of each key in the data object is as follows:
+     {
+      "name": <string>,
+      "version": <string>,
+      "environment": <string>,
+      "transaction-uuid": <string>,
+      "producer-timestamp": <datetime>,
+      "edges":
+          [<edge>, <edge>, ...],
+      "resources":
+          [<resource>, <resource>, ...]
+     }
 
 #### `name`
 
@@ -69,14 +58,18 @@ String. The name of the node for which the catalog was compiled.
 
 String. An arbitrary string that uniquely identifies this specific catalog across time for a single node. This is controlled by Puppet's [`config_version` setting](/references/latest/configuration.html#configversion) and is usually the seconds elapsed since the epoch.
 
+#### `environment`
+
+String. The envrionment associated to the node when the catalog was compiled.
+
 #### `edges`
 
 List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between any two resources in the catalog, which may have been made with [chaining arrows][chain], [metaparameters][], or [the `require` function][require].
 
-> **Notes:**
->
-> * "Autorequire" relationships are not currently encoded in the catalog.
-> * This key is significantly different from its equivalent in Puppet's internal catalog format, which only encodes containment edges.
+  > **Notes:**
+  >
+  > * "Autorequire" relationships are not currently encoded in the catalog.
+  > * This key is significantly different from its equivalent in Puppet's internal catalog format, which only encodes containment edges.
 
 #### `resources`
 
@@ -89,6 +82,12 @@ This field may be `null`.  (Note: support for this field was introduced in
 [Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
 a `null` value.
 
+#### `producer-timestamp`
+
+Datetime.  The time of catalog submission from the master to PuppetDB.  This
+field is currently populated by the master.  This field may be `null`.
+Versions prior to version 5 will populate this with a `null` value.
+
 ### Data Type: `<string>`
 
 A JSON string. Because the catalog is UTF-8, these must also be UTF-8.
@@ -100,6 +99,12 @@ A JSON int.
 ### Data Type: `<boolean>`
 
 A JSON boolean.
+
+### Data Type: `<datetime>`
+A JSON string representing a date and time (with time zone), formatted based on
+the recommendations in ISO8601; so, e.g., for a UTC time, the String would be
+formatted as `YYYY-MM-DDThh:mm:ss.sssZ`.  For non-UTC, the `Z` may be replaced
+with `±hh:mm` to represent the specific timezone.
 
 ### Data Type: `<edge>`
 
@@ -209,35 +214,6 @@ List of strings. Includes every tag the resource has. This is a normalized super
 JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide booleans, strings, arrays, and hashes --- [resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.
 
 
+###  Differences with the previous catalog wire format
 
-
-Why a new wire format?
------
-
-[below]: #why-a-new-wire-format
-
-###  Previous Wire Format Shortcomings
-
-There were a number of issues with the built-in JSON wire format used
-in Puppet prior to PuppetDB:
-
-1. The format isn't actually JSON, it's PSON. This means a catalog may contain non-UTF-8 data. This can present problems for conforming JSON parsers that expect Unicode.
-2. Dependency edges aren't represented as first-class entities in the wire format. Instead, dependencies have to be parsed out of resource attributes.
-3. Containment edges can point to resources that aren't in the catalog's list of resources. Examples of this include things like `Stage[main]`, or other special classes.
-4. There are no (good) provisions for binary data, which can show up in a catalog via use of `generate`, among other functions.
-5. Resources can refer to other resources in several ways: by proper name, by alias, by using a type-specific namevar (such as `path` for the file type). None of this is normalized in any way, and consumers of the wire format have to sift through all of this. And for the case of type-specific namevars, it may be impossible for a consumer to reconcile (because the consumer may not have access to puppet source code)
-
-In general, for communication between master and agent, it's useful to have the wire format as stripped-down as possible. But for other consumers, the catalog needs to be precise in its semantics. Otherwise, consumers just end up (poorly) re-coding the catalog-manipulation logic from puppet proper. Hence the need for a wire format that allows consuming code (which may not even originate from puppet) to handle this data.
-
-
-### Differences from Current Wire Format
-
-1. The format is fully documented here.
-2. Information that previously had to be deduced by Puppet is now codified inside of the wire format. All possible aliases for a resource are listed as attributes of that resource. The list of edges now contains edges of all types, not just containment edges. And that list of edges is normalized to refer to the `Type` and `Title` of a resource, as opposed to referring to it by any of its aliases.
-3. The new format is explicitly versioned. This format is version 1.0.0, unambiguously.
-4. Catalogs will be explictly transformed into this format. Currently, the behavior of `#to_pson` is simply expected to "Do The Right Thing" in terms of serialization.
-
-### Future Development Goals
-
-1. Binary data support is yet to be developed.
-2. The use of a more compact, binary representation of the wire format may be considered. For example, using something like MessagePack, BSON, Thrift, or Protocol Buffers.
+1. The top-level catalog object now contains a "producer-timestamp" field.
