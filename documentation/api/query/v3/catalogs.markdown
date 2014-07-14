@@ -11,13 +11,13 @@ canonical: "/puppetdb/latest/api/query/v3/catalogs.html"
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
 
-### `GET /v3/catalogs/<NODE>`
+## `GET /v3/catalogs/<NODE>`
 
 This will return the most recent catalog for the given node.
 
 This endpoint does not use any URL parameters or query strings.
 
-## Response Format
+### Response Format
 
 Successful responses will be in `application/json`. Errors will be returned as
 non-JSON strings.

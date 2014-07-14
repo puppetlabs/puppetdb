@@ -73,7 +73,7 @@ than 30 days:
 ## `GET /v3/nodes/<NODE>`
 
 This will return status information for the given node, active or
-not. It behaves exactly like a call to `/v3/nodes` with a query string of `["=", "certname", "<NODE>"]`.
+not. It behaves exactly like a call to `/v3/nodes` with a query string of `["=", "name", "<NODE>"]`.
 
 ### URL Parameters / Query Operators / Query Fields
 
@@ -93,7 +93,7 @@ The response is a single hash, of the same form used for the plain `nodes` endpo
      "facts_timestamp": <timestamp>,
      "report_timestamp": <timestamp>}
 
-If a node of that certname doesn't exist, the response will instead be a hash of the form:
+If a node of that name doesn't exist, the response will instead be a hash of the form:
 
     {"error": "No information is known about <NODE>"}
 
