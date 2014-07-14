@@ -28,7 +28,7 @@ Catalog Interchange Format
 
 ### Version
 
-This is **version 4** of the catalog interchange format.
+**Note:** This is **version 4** of the catalog interchange format and has been deprecated. See [version 5][catalog_v5] for the currently supported version of this wire format.
 
 
 ### Encoding

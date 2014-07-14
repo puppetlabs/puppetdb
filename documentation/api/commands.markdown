@@ -104,6 +104,8 @@ format v1][catalogv4]. Extra or missing fields are an error.
 
 ### "replace catalog", version 4
 
+> **Note:** This version is deprecated, use the latest version instead.
+
 The key change to version 4 is adding support for environments. This
 value will be populated by Puppet. This version also explicitly
 couples the version of the command with the same version of the wire
@@ -134,6 +136,8 @@ The payload is expected to be a set of facts, as a JSON string, conforming to
 the [fact wire format v1][facts]
 
 ### "replace facts", version 2
+
+> **Note:** This version is deprecated, use the latest version instead.
 
 Similar to version 4 of replace catalog, this version of replace facts adds support
 for environments and an explicit coupling between command version and wire format

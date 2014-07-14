@@ -4,11 +4,11 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/facts_format_v1.html"
 ---
 
-[facts_v2]: facts_format_v2.html
+[facts_v3]: facts_format_v3.html
 
 ### Version
 
-This is **version 1** of the facts interchange format and has been deprecated. See [version 2][facts_v2] for the currently supported version of this wire format.
+This is **version 1** of the facts interchange format and has been deprecated. See [version 3][facts_v3] for the currently supported version of this wire format.
 
 ## Format
 

@@ -29,7 +29,7 @@ Catalog Interchange Format
 
 ### Version
 
-**Note:** This is **version 1** of the catalog interchange format and has been deprecated. See [version 4][catalog_v4] for the currently supported version of this wire format.
+**Note:** This is **version 1** of the catalog interchange format and has been deprecated. See [version 5][catalog_v5] for the currently supported version of this wire format.
 
 
 ### Encoding

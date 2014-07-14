@@ -339,6 +339,7 @@
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
   [{:keys [version] :as command} options]
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 5]
