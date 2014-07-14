@@ -21,8 +21,8 @@ describe Puppet::Node::Facts::Puppetdb do
     let(:http)     { mock 'http' }
 
     let(:options) {{
-        :producer_timestamp => 'a test',
-        :environment => "my_environment",
+      :producer_timestamp => 'a test',
+      :environment => "my_environment",
     }}
 
     before :each do
@@ -55,6 +55,32 @@ describe Puppet::Node::Facts::Puppetdb do
       save
     end
 
+    it "should POST the trusted data we tell it to" do
+      Puppet[:trusted_node_data] = true
+      trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
+      subject.stubs(:get_trusted_info).returns trusted_data
+
+      f = {
+        "name" => facts.name,
+        "values" => facts.strip_internal.merge({"trusted" => trusted_data}),
+        "environment" => "my_environment",
+        "producer-timestamp" => "a test",
+      }
+
+      payload = {
+        :command => CommandReplaceFacts,
+        :version => 3,
+        :payload => f,
+      }.to_json
+
+      http.expects(:post).with do |uri, body, headers|
+        expect(body).to eq(payload)
+      end.returns response
+
+      save
+    end
+
+
     it "should preserve integer type when submitting" do
       facts.values['something'] = 100
 
@@ -71,6 +97,15 @@ describe Puppet::Node::Facts::Puppetdb do
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
       sent_facts['values']['something'].should == 100
+    end
+  end
+
+  describe "#get_trusted_info" do
+
+    it 'should return trusted data' do
+      Puppet[:trusted_node_data] = true
+      node = Puppet::Node.new("my_certname")
+      expect(subject.get_trusted_info(node)).to eq({"authenticated"=>"local", "certname"=>"testing", "extensions"=>{}})
     end
   end
 
