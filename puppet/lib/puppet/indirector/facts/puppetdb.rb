@@ -14,11 +14,20 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     Puppet::Util::Puppetdb::GlobalCheck.run
   end
 
+  def get_trusted_info(node)
+    trusted = Puppet.lookup(:trusted_information) {
+    Puppet::Context::TrustedInformation.local(request.node)}
+    trusted.to_h
+  end
+
   def save(request)
     profile "facts#save" do
       payload = profile "Encode facts command submission payload" do
         facts = request.instance.dup
         facts.values = facts.strip_internal
+        if Puppet[:trusted_node_data]
+          trusted = facts.values[:trusted] = get_trusted_info(request.node)
+        end
         {
           "name" => facts.name,
           "values" => facts.values,
