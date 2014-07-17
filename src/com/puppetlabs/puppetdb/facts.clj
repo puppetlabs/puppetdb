@@ -19,13 +19,14 @@
   (s/maybe (s/either s/Keyword s/Str s/Num s/Bool)))
 
 (def fact-path-map
-  {(s/required-key :path) s/Str
-   (s/required-key :value_hash) s/Str
-   (s/required-key :value_float) (s/maybe Double)
-   (s/required-key :value_string) (s/maybe s/Str)
-   (s/required-key :value_integer) (s/maybe s/Int)
-   (s/required-key :value_boolean) (s/maybe s/Bool)
-   (s/required-key :value_type_id) s/Int})
+  {:path s/Str
+   :depth s/Int
+   :value_hash s/Str
+   :value_float (s/maybe Double)
+   :value_string (s/maybe s/Str)
+   :value_integer (s/maybe s/Int)
+   :value_boolean (s/maybe s/Bool)
+   :value_type_id s/Int})
 
 (def fact-set
   {s/Str s/Any})
@@ -50,7 +51,7 @@
    (coll? value) (json/generate-string value)
    :else (throw (IllegalArgumentException. (str "Value " value " is not valid for flattening")))))
 
-(pls/defn-validated flatten-fact-set :- {String String}
+(pls/defn-validated flatten-fact-set :- {s/Str s/Str}
   "Flatten a map of facts depending on the type of the value."
   [factset :- fact-set]
   (reduce-kv (fn [acc k v]
@@ -92,7 +93,7 @@
     (string/join factpath-delimiter encodedpath)))
 
 (pls/defn-validated value-type-id :- s/Int
-  "Given a piece of standard hieracheal data, returns the type as an id."
+  "Given a piece of standard hierarchical data, returns the type as an id."
   [data :- fact-value]
   (cond
    (keyword? data) 0
@@ -102,68 +103,48 @@
    (kitchensink/boolean? data) 3
    (nil? data) 4))
 
-(pls/defn-validated value-keyword-to-id :- s/Int
-  "Given a value type keyword, return the database id"
-  [value :- s/Keyword]
-  (case value
-    :string 0
-    :integer 1
-    :float 2
-    :boolean 3
-    :null 4))
-
-(pls/defn-validated value-id-to-keyword :- s/Keyword
-  "Given a value type keyword, return the database id"
-  [value :- s/Int]
-  (case value
-    0 :string
-    1 :integer
-    2 :float
-    3 :boolean
-    4 :null))
-
 (defn factmap-to-paths*
-  "Recursive function, when given some data, a mem (atom []) and a path it will
-   descend into children building up the path until an outer leaf is reached,
-   recording the path in the atom for later retrieval."
+  "Recursive function, when given some data it will descend into children
+   building up the path until an outer leaf is reached, returning the final
+   built up list of paths as a result."
+  ([data] (factmap-to-paths* data [] []))
   ;; We specifically do not validate with schema here, for performance.
-  [data mem path]
-  (cond
-   ;; Map branch
-   (map? data)
-   (doseq [[k v] data]
-     (factmap-to-paths* v mem (conj path k)))
-
-   ;; List/array branch
-   (coll? data)
-   (let [idv (map vector (iterate inc 0) data)]
-     (doseq [[i v] idv]
-       (factmap-to-paths* v mem (conj path i))))
-
-   ;; Leaf
-   :else
-   (let [type-id (value-type-id data)
-         value-hash (hash/generic-identity-hash data)
-         initial-map {:path (factpath-to-string path)
-                      :value_type_id type-id
-                      :value_hash value-hash
-                      :value_string nil
-                      :value_integer nil
-                      :value_float nil
-                      :value_boolean nil}
-         final-map (if (nil? data)
-                     initial-map
-                     (let [value-keyword (case type-id
-                                           0 :value_string
-                                           1 :value_integer
-                                           2 :value_float
-                                           3 :value_boolean)]
-                       (assoc initial-map value-keyword data)))]
-     (swap! mem conj final-map))))
+  ([data mem path]
+     (if (coll? data)
+       ;; Branch
+       (let [idv (if (map? data)
+                   (into [] data)
+                   (map vector (iterate inc 0) data))]
+         (loop [[k v] (first idv)
+                remaining (next idv)
+                fp mem]
+           (let [new-fp (factmap-to-paths* v fp (conj path k))]
+             (if (empty? remaining)
+               new-fp
+               (recur (first remaining)
+                      (next remaining)
+                      new-fp)))))
+       ;; Leaf
+       (let [type-id (value-type-id data)
+             initial-map {:path (factpath-to-string path)
+                          :depth (dec (count path))
+                          :value_type_id type-id
+                          :value_hash (hash/generic-identity-hash data)
+                          :value_string nil
+                          :value_integer nil
+                          :value_float nil
+                          :value_boolean nil}
+             final-map (if (nil? data)
+                         initial-map
+                         (let [value-keyword (case type-id
+                                               0 :value_string
+                                               1 :value_integer
+                                               2 :value_float
+                                               3 :value_boolean)]
+                           (assoc initial-map value-keyword data)))]
+         (conj mem final-map)))))
 
 (pls/defn-validated factmap-to-paths :- [fact-path-map]
   "Converts a map of facts to a list of `fact-path-map`s."
   [hash :- fact-set]
-  (let [mem (atom [])]
-    (factmap-to-paths* hash mem [])
-    @mem))
+  (factmap-to-paths* hash))

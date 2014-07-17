@@ -28,6 +28,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         if Puppet[:trusted_node_data]
           trusted = facts.values[:trusted] = get_trusted_info(request.node)
         end
+        facts.stringify
         {
           "name" => facts.name,
           "values" => facts.values,

@@ -52,10 +52,22 @@
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
-      (scf-store/add-facts! "foo2" facts2 (now) "DEV" nil)
-      (scf-store/add-facts! "foo3" facts3 (now) "DEV" nil)
+      (scf-store/add-facts! {:name "foo2"
+                             :values facts2
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo3"
+                             :values facts3
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
       (scf-store/deactivate-node! "foo1")
-      (scf-store/add-facts! "foo1" facts1 (now) "DEV" nil))
+      (scf-store/add-facts! {:name "foo1"
+                             :values  facts1
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil}))
 
     (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
       (let [request (get-request endpoint)

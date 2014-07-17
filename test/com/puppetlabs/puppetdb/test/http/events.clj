@@ -336,7 +336,11 @@
     (scf-store/add-certname! certname)
     (store-example-report! report timestamp)
     (scf-store/replace-catalog! catalog (now))
-    (scf-store/add-facts! certname {"ipaddress" "1.1.1.1"} (now) nil nil))
+    (scf-store/add-facts! {:name certname
+                           :values {"ipaddress" "1.1.1.1"}
+                           :timestamp (now)
+                           :environment nil
+                           :producer-timestamp nil}))
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")

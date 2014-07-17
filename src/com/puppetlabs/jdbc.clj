@@ -315,7 +315,7 @@
   "Create a prepared statement in clause, with a `width`-sized series of ? for
   every item in coll."
   [coll width]
-  {:pre [(seq? coll)
+  {:pre [(seq coll)
          (integer? width)]}
   (let [inner (str "(" (str/join "," (repeat width "?")) ")")]
     (str "in ("

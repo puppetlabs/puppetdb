@@ -2,10 +2,10 @@
   (:require [com.puppetlabs.jdbc :as subject]
             [clojure.java.jdbc :as sql]
             [clojure.java.jdbc.internal :as jint]
-            [com.puppetlabs.puppetdb.fixtures :as fixt])
-  (:use [clojure.test]
-        [com.puppetlabs.puppetdb.testutils :only [test-db]]
-        [com.puppetlabs.testutils.db :only [antonym-data with-antonym-test-database insert-map *db-spec*]]))
+            [com.puppetlabs.puppetdb.fixtures :as fixt]
+            [clojure.test :refer :all]
+            [com.puppetlabs.puppetdb.testutils :refer [test-db]]
+            [com.puppetlabs.testutils.db :refer [antonym-data with-antonym-test-database insert-map *db-spec*]]))
 
 (use-fixtures :each with-antonym-test-database)
 
@@ -80,6 +80,19 @@
   (testing "fails on nil (not valid SQL)"
     (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
                           (subject/in-clause nil)))))
+
+(deftest in-clause-multi
+  (testing "single item in collection, 4 wide"
+    (is (= "in ((?,?,?,?))" (subject/in-clause-multi ["foo"] 4))))
+  (testing "many items in a collection, 2 wide"
+    (is (= "in ((?,?),(?,?),(?,?),(?,?),(?,?))" (subject/in-clause-multi (repeat 5 "foo") 2))))
+  (testing "fails on empty collection (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause-multi [] 1))))
+  (testing "fails on nil (not valid SQL)"
+    (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
+                          (subject/in-clause-multi nil 1)))))
+
 
 (deftest transaction-isolation
   (let [evaled-body? (atom false)

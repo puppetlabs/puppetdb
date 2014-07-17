@@ -14,7 +14,19 @@
      {:certname <node> :name <fact> :value <value>}]"
   [node]
   (jdbc/query-to-vec
-    ["SELECT certname, name, value FROM certname_facts WHERE certname = ?"
+   ["SELECT fs.certname,
+             fp.path as name,
+             COALESCE(fv.value_string,
+                      cast(fv.value_integer as text),
+                      cast(fv.value_boolean as text),
+                      cast(fv.value_float as text),
+                      '') as value
+             FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+             WHERE fp.depth = 0 AND
+                   certname = ?"
      node]))
 
 (defn fact-names
@@ -28,8 +40,11 @@
             (every? string? (:result %))]}
     (paging/validate-order-by! [:name] paging-options)
     (let [facts (query/execute-query
-                  ["SELECT DISTINCT name FROM certname_facts ORDER BY name"]
-                  paging-options)]
+                 ["SELECT DISTINCT path as name
+                   FROM fact_paths
+                   WHERE depth = 0
+                   ORDER BY path"]
+                 paging-options)]
       (update-in facts [:result] #(map :name %)))))
 
 (defn facts-sql
@@ -40,7 +55,18 @@
     (let [[subselect & params] (query/fact-query->sql operators query)
           sql (format "SELECT facts.certname, facts.environment, facts.name, facts.value FROM (%s) facts" subselect)]
       (apply vector sql params))
-    ["SELECT certname, name, value FROM certname_facts"]))
+    ["SELECT fs.certname,
+             fp.path as name,
+             COALESCE(fv.value_string,
+                      cast(fv.value_integer as text),
+                      cast(fv.value_boolean as text),
+                      cast(fv.value_float as text),
+                      '') as value
+             FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+             WHERE fp.depth = 0"]))
 
 (defn query->sql
   "Compile a query into an SQL expression."

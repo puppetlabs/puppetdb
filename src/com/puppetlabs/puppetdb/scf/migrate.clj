@@ -720,9 +720,8 @@
   (let [certname-facts-metadata (query-to-vec "SELECT * FROM certname_facts_metadata")]
     (doseq [{:keys [certname timestamp environment_id]} certname-facts-metadata]
       (let [facts (->> certname
-                    (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
-                    (map #(-> {(:name %) (:value %)}))
-                    (into {}))
+                       (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
+                       (reduce #(assoc %1 (:name %2) (:value %2)) {}))
             environment (->> environment_id
                           (query-to-vec "SELECT name FROM environments WHERE id = ?")
                           first
@@ -759,12 +758,14 @@
   (sql/create-table :fact_paths
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_paths_id_seq')"]
                     ["value_type_id" "bigint NOT NULL"]
+                    ["depth" "int NOT NULL"]
                     ["path" "text NOT NULL"])
 
   (sql/do-commands
    "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_path_type_id_key
       UNIQUE (path, value_type_id)"
    "CREATE INDEX fact_paths_value_type_id ON fact_paths(value_type_id)"
+   "CREATE INDEX fact_paths_depth ON fact_paths(depth)"
    "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_value_type_id
      FOREIGN KEY (value_type_id)
      REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT")
@@ -816,7 +817,7 @@
       ON UPDATE CASCADE ON DELETE CASCADE"
    "ALTER TABLE factsets ADD CONSTRAINT factsets_environment_id_fk
       FOREIGN KEY (environment_id) REFERENCES environments(id)
-      ON UPDATE CASCADE ON DELETE CASCADE"
+      ON UPDATE RESTRICT ON DELETE RESTRICT"
    "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_idx
       UNIQUE (certname)")
 
@@ -835,7 +836,7 @@
      ON UPDATE RESTRICT ON DELETE RESTRICT"
    "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
      FOREIGN KEY (factset_id) REFERENCES factsets(id)
-     ON UPDATE RESTRICT ON DELETE RESTRICT")
+     ON UPDATE CASCADE ON DELETE CASCADE")
 
   (migrate-to-structured-facts)
 

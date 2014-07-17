@@ -46,18 +46,22 @@
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
-               :source "SELECT certnames.name as certname, certnames.deactivated, catalogs.timestamp AS catalog_timestamp,
-                               certname_facts_metadata.timestamp AS facts_timestamp, reports.end_time AS report_timestamp,
-                               catalog_environment.name AS catalog_environment, facts_environment.name AS facts_environment,
+               :source "SELECT certnames.name as certname,
+                               certnames.deactivated,
+                               catalogs.timestamp AS catalog_timestamp,
+                               fs.timestamp AS facts_timestamp,
+                               reports.end_time AS report_timestamp,
+                               catalog_environment.name AS catalog_environment,
+                               facts_environment.name AS facts_environment,
                                reports_environment.name AS report_environment
                        FROM certnames
                             LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
-                            LEFT OUTER JOIN certname_facts_metadata ON certnames.name = certname_facts_metadata.certname
+                            LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
                             LEFT OUTER JOIN reports ON certnames.name = reports.certname
                              AND reports.hash
                                IN (SELECT report FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
-                            LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = certname_facts_metadata.environment_id
+                            LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))
 
 (def resource-params-query
@@ -79,12 +83,22 @@
                          "environment" :string}
                :alias "facts"
                :queryable-fields ["name" "value" "certname" "environment"]
-               :source-table "certname_facts"
+               :source-table "facts"
                :subquery? false
-               :source "select cf.certname, cf.name, cf.value, env.name as environment
-                        FROM certname_facts cf
-                             INNER JOIN certname_facts_metadata cfm on cf.certname = cfm.certname
-                             LEFT OUTER JOIN environments as env on cfm.environment_id = env.id"}))
+               :source "SELECT fs.certname,
+                               fp.path as name,
+                               COALESCE(fv.value_string,
+                                        cast(fv.value_integer as text),
+                                        cast(fv.value_boolean as text),
+                                        cast(fv.value_float as text),
+                                        '') as value,
+                               env.name as environment
+                        FROM factsets fs
+                             INNER JOIN facts as f on fs.id = f.factset_id
+                             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                             INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                             LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                        WHERE fp.depth = 0"}))
 
 (def resources-query
   "Query for the top level resource entity"

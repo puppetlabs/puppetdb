@@ -43,12 +43,29 @@
 
       (is (nil?
            (sql/transaction
-            (certname-facts-metadata! "some_certname"))))
-      (is (empty? (cert-fact-map "some_certname")))
+            (factset-timestamp "some_certname"))))
+      (is (empty? (factset-map "some_certname")))
 
-      (add-facts! certname facts (-> 2 days ago) nil nil)
+      (add-facts! {:name certname
+                   :values facts
+                   :timestamp (-> 2 days ago)
+                   :environment nil
+                   :producer-timestamp nil})
       (testing "should have entries for each fact"
-        (is (= (query-to-vec "SELECT certname, name, value FROM certname_facts ORDER BY name")
+        (is (= (query-to-vec
+                "SELECT fp.path as name,
+                        COALESCE(fv.value_string,
+                                 cast(fv.value_integer as text),
+                                 cast(fv.value_boolean as text),
+                                 cast(fv.value_float as text),
+                                 '') as value,
+                        fs.certname
+                 FROM factsets fs
+                   INNER JOIN facts as f on fs.id = f.factset_id
+                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                   INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                 WHERE fp.depth = 0
+                 ORDER BY name")
                [{:certname certname :name "domain" :value "mydomain.com"}
                 {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
                 {:certname certname :name "hostname" :value "myhost"}
@@ -56,13 +73,13 @@
                 {:certname certname :name "operatingsystem" :value "Debian"}]))
 
         (is (sql/transaction
-             (certname-facts-metadata! "some_certname")))
-        (is (= facts (cert-fact-map "some_certname"))))
+             (factset-timestamp "some_certname")))
+        (is (= facts (factset-map "some_certname"))))
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
       (testing "producer-timestamp should store nil"
-        (is (= (query-to-vec "SELECT producer_timestamp FROM certname_facts_metadata")
+        (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                 [{:producer_timestamp nil}])))
       (testing "replacing facts"
         ;;Ensuring here that new records are inserted, updated
@@ -76,71 +93,95 @@
                            "hostname" "myhost"
                            "kernel" "Linux"
                            "uptime_seconds" "3600"}
-                current-time (str (now))]
+                current-time (now)]
             (replace-facts! {:name certname
                              :values new-facts
                              :environment "DEV"
-                             :producer-timestamp current-time} (now))
+                             :producer-timestamp current-time
+                             :timestamp current-time})
             (testing "should have only the new facts"
-              (is (= (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")
+              (is (= (query-to-vec
+                      "SELECT fp.path as name,
+                              COALESCE(fv.value_string,
+                                       cast(fv.value_integer as text),
+                                       cast(fv.value_boolean as text),
+                                       cast(fv.value_float as text),
+                                       '') as value
+                       FROM factsets fs
+                         INNER JOIN facts as f on fs.id = f.factset_id
+                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                         INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                       WHERE fp.depth = 0
+                       ORDER BY name")
                      [{:name "domain" :value "mynewdomain.com"}
                       {:name "fqdn" :value "myhost.mynewdomain.com"}
                       {:name "hostname" :value "myhost"}
                       {:name "kernel" :value "Linux"}
                       {:name "uptime_seconds" :value "3600"}])))
             (testing "producer-timestamp should store current time"
-              (is (= (query-to-vec "SELECT producer_timestamp FROM certname_facts_metadata")
+              (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                      [{:producer_timestamp (to-timestamp current-time)}])))
             (testing "should only delete operatingsystem key"
-              (is (= [[:certname_facts ["certname=? and name in (?)" "some_certname" "operatingsystem"]]]
-                     @deletes)))
+              (is (= [[:facts "factset_id=? and fact_value_id in (?,?,?)"]]
+                     ;; We munge the output here so we aren't trying to match on ids
+                     ;; as that is not cross-db compatible
+                     (map (fn [itm] [(first itm) (first (second itm))]) @deletes))))
             (testing "should update existing keys"
-              (is (some #{[:certname_facts ["certname=? and name=?" "some_certname" "domain"] {:value "mynewdomain.com"}]} @updates))
-              (is (some #{[:certname_facts ["certname=? and name=?" "some_certname" "fqdn"] {:value "myhost.mynewdomain.com"}]} @updates))
+              (is (some #{{:timestamp (to-timestamp current-time)
+                           :environment_id 1
+                           :producer_timestamp (to-timestamp current-time)}}
+                        ;; Again we grab the pertinent non-id bits
+                        (map (fn [itm] (last itm)) @updates)))
               (is (some (fn [update-call]
-                          (and (= :certname_facts_metadata (first update-call))
-                               (:timestamp (last update-call)))) @updates)))
+                          (and (= :factsets (first update-call))
+                               (:timestamp (last update-call))))
+                        @updates)))
             (testing "should only insert uptime_seconds"
-              (is (= [[:environments {:name "DEV"}]
-                      [:certname_facts {:value "3600"
-                                        :name "uptime_seconds"
-                                        :certname "some_certname"}]]
-                     @adds))))))
+              (is (some #{[:fact_paths {:value_type_id 0, :depth 0, :path "uptime_seconds"}]}
+                        @adds))))))
 
       (testing "replacing all new facts"
         (delete-facts! certname)
         (replace-facts! {:name certname
                          :values facts
                          :environment "DEV"
-                         :producer-timestamp nil} (now))
-        (is (= facts (cert-fact-map "some_certname"))))
+                         :producer-timestamp nil
+                         :timestamp (now)})
+        (is (= facts (factset-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
-        (add-facts! certname facts (-> 2 days ago) nil nil)
+        (add-facts! {:name certname
+                     :values facts
+                     :timestamp (-> 2 days ago)
+                     :environment nil
+                     :producer-timestamp nil})
         (replace-facts! {:name certname
                          :values {"foo" "bar"}
                          :environment "DEV"
-                         :producer-timestamp nil} (now))
-        (is (= {"foo" "bar"} (cert-fact-map "some_certname"))))
+                         :producer-timestamp nil
+                         :timestamp (now)})
+        (is (= {"foo" "bar"} (factset-map "some_certname"))))
 
       (testing "replace-facts with only additions"
-        (let [fact-map (cert-fact-map "some_certname")]
+        (let [fact-map (factset-map "some_certname")]
           (replace-facts! {:name certname
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
-                           :producer-timestamp nil} (now))
+                           :producer-timestamp nil
+                           :timestamp (now)})
           (is (= (assoc fact-map  "one more" "here")
-                 (cert-fact-map "some_certname")))))
+                 (factset-map "some_certname")))))
 
       (testing "replace-facts with no change"
-        (let [fact-map (cert-fact-map "some_certname")]
+        (let [fact-map (factset-map "some_certname")]
           (replace-facts! {:name certname
                            :values fact-map
                            :environment "DEV"
-                           :producer-timestamp nil} (now))
+                           :producer-timestamp nil
+                           :timestamp (now)})
           (is (= fact-map
-                 (cert-fact-map "some_certname"))))))))
+                 (factset-map "some_certname"))))))))
 
 (deftest fact-persistance-with-environment
     (testing "Persisted facts"
@@ -154,31 +195,66 @@
 
       (is (nil?
            (sql/transaction
-            (certname-facts-metadata! "some_certname"))))
-      (is (empty? (cert-fact-map "some_certname")))
+            (factset-timestamp "some_certname"))))
+      (is (empty? (factset-map "some_certname")))
       (is (nil? (environment-id "PROD")))
 
-      (add-facts! certname facts (-> 2 days ago) "PROD" nil)
+      (add-facts! {:name certname
+                   :values facts
+                   :timestamp (-> 2 days ago)
+                   :environment "PROD"
+                   :producer-timestamp nil})
 
       (testing "should have entries for each fact"
         (is (= facts
-               (into {} (map (juxt :name :value) (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")))))
+               (into {} (map (juxt :name :value)
+                             (query-to-vec
+                              "SELECT fp.path as name,
+                                      COALESCE(fv.value_string,
+                                               cast(fv.value_integer as text),
+                                               cast(fv.value_boolean as text),
+                                               cast(fv.value_float as text),
+                                               '') as value
+                               FROM factsets fs
+                                 INNER JOIN facts as f on fs.id = f.factset_id
+                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                                 INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                               WHERE fp.depth = 0
+                               ORDER BY name")))))
 
         (is (= [{:certname "some_certname"
                  :environment_id (environment-id "PROD")}]
-               (query-to-vec "SELECT certname, environment_id FROM certname_facts_metadata"))))
+               (query-to-vec "SELECT certname, environment_id FROM factsets"))))
 
       (is (nil? (environment-id "DEV")))
 
-      (update-facts! certname facts (-> 1 days ago) "DEV" nil)
+      (update-facts!
+       {:name certname
+        :values facts
+        :timestamp (-> 1 days ago)
+        :environment "DEV"
+        :producer-timestamp nil})
 
       (testing "should have the same entries for each fact"
         (is (= facts
-               (into {} (map (juxt :name :value) (query-to-vec "SELECT name, value FROM certname_facts ORDER BY name")))))
+               (into {} (map (juxt :name :value)
+                             (query-to-vec
+                              "SELECT fp.path as name,
+                                      COALESCE(fv.value_string,
+                                               cast(fv.value_integer as text),
+                                               cast(fv.value_boolean as text),
+                                               cast(fv.value_float as text),
+                                               '') as value
+                               FROM factsets fs
+                                 INNER JOIN facts as f on fs.id = f.factset_id
+                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                                 INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                               WHERE fp.depth = 0
+                               ORDER BY name")))))
 
         (is (= [{:certname "some_certname"
                  :environment_id (environment-id "DEV")}]
-               (query-to-vec "SELECT certname, environment_id FROM certname_facts_metadata")))))))
+               (query-to-vec "SELECT certname, environment_id FROM factsets")))))))
 
 (def catalog (:basic catalogs))
 (def certname (:name catalog))
@@ -448,15 +524,11 @@
                    :environment "ENV3"
                    :producer-timestamp nil})
       (delete-facts! certname))
-      (is-not (= (count (set (query-to-vec ["SELECT fact_value_id FROM facts"])))
-                 (count (set (query-to-vec ["SELECT id FROM fact_values"])))))
-      (is-not (= (count (set (query-to-vec ["SELECT id FROM fact_paths"])))
-                 (count (set (query-to-vec ["SELECT path_id FROM fact_values"])))))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 6))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 6))
     (garbage-collect!)
-      (is (= (count (set (query-to-vec ["SELECT fact_value_id FROM facts"])))
-             (count (set (query-to-vec ["SELECT id FROM fact_values"])))))
-      (is (= (count (set (query-to-vec ["SELECT id FROM fact_paths"])))
-             (count (set (query-to-vec ["SELECT path_id FROM fact_values"])))))))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
 
 (deftest catalog-delete-with-gc-params
   (testing "when deleted but no GC should leave params"
@@ -504,7 +576,11 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (add-facts! certname facts (-> 2 days ago) "ENV3" nil)
+      (add-facts! {:name certname
+                   :values facts
+                   :timestamp (-> 2 days ago)
+                   :environment "ENV3"
+                   :producer-timestamp nil})
       (delete-facts! certname))
 
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
@@ -983,8 +1059,8 @@
                     #(replace-facts! {:name "node1"
                                       :values {"foo" "bar"}
                                       :environment "DEV"
-                                      :producer-timestamp "2014-07-10T22:33:54.781Z"}
-                                     (ago (days 2)))]]
+                                      :producer-timestamp "2014-07-10T22:33:54.781Z"
+                                      :timestamp (ago (days 2))})]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
         (dorun (map #(%) func-set))

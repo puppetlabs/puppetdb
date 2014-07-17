@@ -371,14 +371,10 @@
   (let [{:keys [name values] :as fact-data} payload
         id        (:id annotations)
         timestamp (:received annotations)
-        ;; TODO: probably need to investigate if we really need to
-        ;; re-stringify this first.
-        fact-data   (-> fact-data
+        fact-data (-> fact-data
                       (update-in [:values] utils/stringify-keys)
                       (update-in [:producer-timestamp] to-timestamp)
                       (assoc :timestamp timestamp)
-                      ;; TODO: until we work out all the issues, we should flatten facts
-                      ;; for now. An option to switch this off or on would be nice.
                       upon-error-throw-fatality)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
