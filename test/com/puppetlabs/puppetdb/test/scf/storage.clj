@@ -431,6 +431,33 @@
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
            [{:c 3}]))))
 
+(deftest fact-delete-with-gc-fact-paths
+  (testing "when deleted but no GC should leave facts"
+    (add-certname! certname)
+
+    ;; Add some facts
+    (let [facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"
+                 "networking" {"eth0" {"ipaddresses" ["192.168.0.11"]}}}]
+      (add-facts! {:name certname
+                   :values facts
+                   :timestamp (-> 2 days ago)
+                   :environment "ENV3"
+                   :producer-timestamp nil})
+      (delete-facts! certname))
+      (is-not (= (count (set (query-to-vec ["SELECT fact_value_id FROM facts"])))
+                 (count (set (query-to-vec ["SELECT id FROM fact_values"])))))
+      (is-not (= (count (set (query-to-vec ["SELECT id FROM fact_paths"])))
+                 (count (set (query-to-vec ["SELECT path_id FROM fact_values"])))))
+    (garbage-collect!)
+      (is (= (count (set (query-to-vec ["SELECT fact_value_id FROM facts"])))
+             (count (set (query-to-vec ["SELECT id FROM fact_values"])))))
+      (is (= (count (set (query-to-vec ["SELECT id FROM fact_paths"])))
+             (count (set (query-to-vec ["SELECT path_id FROM fact_values"])))))))
+
 (deftest catalog-delete-with-gc-params
   (testing "when deleted but no GC should leave params"
     (add-certname! certname)
