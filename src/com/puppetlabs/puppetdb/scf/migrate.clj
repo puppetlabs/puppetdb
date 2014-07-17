@@ -51,6 +51,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink])
   (:use [clojure.set]
@@ -713,6 +714,26 @@
     "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
     "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
 
+(defn migrate-to-structured-facts
+  "Pulls data from 'pre-structured' tables and moves to new."
+  []
+  (let [certname-facts-metadata (query-to-vec "SELECT * FROM certname_facts_metadata")]
+    (doseq [{:keys [certname timestamp environment_id]} certname-facts-metadata]
+      (let [facts (->> certname
+                    (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
+                    (map #(-> {(:name %) (:value %)}))
+                    (into {}))
+            environment (->> environment_id
+                          (query-to-vec "SELECT name FROM environments WHERE id = ?")
+                          first
+                          :name)]
+        (scf-store/add-facts!
+          {:name (str certname)
+           :values facts
+           :timestamp timestamp
+           :environment environment
+           :producer-timestamp nil})))))
+
 (defn structured-facts []
   ;; -----------
   ;; VALUE_TYPES
@@ -816,7 +837,7 @@
      FOREIGN KEY (factset_id) REFERENCES factsets(id)
      ON UPDATE RESTRICT ON DELETE RESTRICT")
 
-  ;; TODO: migrate existing data
+  (migrate-to-structured-facts)
 
   (sql/do-commands
    "DROP TABLE certname_facts"
