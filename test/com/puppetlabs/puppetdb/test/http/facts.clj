@@ -6,6 +6,7 @@
             [com.puppetlabs.puppetdb.http.server :as server]
             [clojure.java.io :as io]
             [flatland.ordered.map :as omap]
+            [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.query :refer [remove-all-environments]]
             [clojure.test :refer :all]
@@ -18,14 +19,16 @@
                                                       deftestseq]]
             [com.puppetlabs.jdbc :refer [with-transacted-connection]]))
 
-(def v2-endpoint "/v2/facts")
-(def v3-endpoint "/v3/facts")
-(def v4-endpoint "/v4/facts")
-(def v4-environment "/v4/environments/DEV/facts")
-(def endpoints [[:v2 v2-endpoint]
-                [:v3 v3-endpoint]
-                [:v4 v4-endpoint]
-                [:v4 v4-environment]])
+(def v2-facts-endpoint "/v2/facts")
+(def v3-facts-endpoint "/v3/facts")
+(def v4-facts-endpoint "/v4/facts")
+(def v4-facts-environment "/v4/environments/DEV/facts")
+(def facts-endpoints [[:v2 v2-facts-endpoint]
+                [:v3 v3-facts-endpoint]
+                [:v4 v4-facts-endpoint]
+                [:v4 v4-facts-environment]])
+
+(def factsets-endpoints [[:v4 "/v4/factsets"]])
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -382,7 +385,7 @@
       (sql/do-commands "SHUTDOWN"))))
 
 (deftestseq fact-queries
-  [[version endpoint] endpoints]
+  [[version endpoint] facts-endpoints]
 
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -458,9 +461,8 @@
           (is (= status pl-http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
-
 (deftestseq fact-subqueries
-  [[version endpoint] endpoints]
+  [[version endpoint] facts-endpoints]
 
   (scf-store/add-certname! "foo")
   (scf-store/add-certname! "bar")
@@ -501,7 +503,7 @@
           (is (= status pl-http/status-bad-request)))))))
 
 (deftestseq ^{:postgres false} two-database-fact-query-config
-  [[version endpoint] endpoints]
+  [[version endpoint] facts-endpoints]
 
   (let [read-db (-> (create-db-map)
                     defaulted-read-db-config
@@ -560,7 +562,7 @@
      :include-total  count?}))
 
 (deftestseq fact-query-paging
-  [[version endpoint] endpoints]
+  [[version endpoint] facts-endpoints]
 
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -635,7 +637,7 @@
   (:results (raw-query-facts endpoint nil paging-options)))
 
 (deftestseq paging-results
-  [[version endpoint] endpoints
+  [[version endpoint] facts-endpoints
    :when (not= version :v2)]
 
   (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
@@ -722,7 +724,7 @@
 
 
 (deftestseq fact-environment-queries
-  [[version endpoint] endpoints
+  [[version endpoint] facts-endpoints
    :when (and (not-any? #(= version %) [:v2 :v3])
               (not #(re-find #"environment" endpoint)))]
 
@@ -786,15 +788,147 @@
           (is (= #{"foo3" "foo4"} (set (map :certname results)))))))))
 
 (deftest environment-query-failures
-  (let [{:keys [status headers body]} (*app* (get-request v2-endpoint '[= environment PROD]))]
+  (let [{:keys [status headers body]} (*app* (get-request v2-facts-endpoint '[= environment PROD]))]
     (is (= status 400))
     (is (re-find #"environment is not a queryable object for version 2" body)))
-  (let [{:keys [status headers body]} (*app* (get-request v3-endpoint '[= environment PROD]))]
+  (let [{:keys [status headers body]} (*app* (get-request v3-facts-endpoint '[= environment PROD]))]
     (is (= status 400))
     (is (re-find #"environment is not a queryable object for version 3" body)))
-  (let [{:keys [status headers body]} (*app* (get-request v2-endpoint '["~" environment PROD]))]
+  (let [{:keys [status headers body]} (*app* (get-request v2-facts-endpoint '["~" environment PROD]))]
     (is (= status 400))
     (is (re-find #"environment is not a valid version 2 operand" body)))
-  (let [{:keys [status headers body]} (*app* (get-request v3-endpoint '["~" environment PROD]))]
+  (let [{:keys [status headers body]} (*app* (get-request v3-facts-endpoint '["~" environment PROD]))]
     (is (= status 400))
     (is (re-find #"environment is not a valid version 3 operand" body))))
+
+(deftestseq factset-queries
+  [[version endpoint] factsets-endpoints]
+   (let [current-time (now)
+         facts1 {"my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                "domain" "testing.com"
+                "uptime_seconds" "4000"}
+          facts2 {
+                 "my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                  "domain" "testing.com"
+                  "uptime_seconds" "6000"}
+          facts3 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 3.14
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "operatingsystem" "Darwin"}
+          facts4 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 2.71
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "hostname" "foo4"
+                  "uptime_seconds" "6000"}]
+      (with-transacted-connection *db*
+        (scf-store/add-certname! "foo1")
+        (scf-store/add-certname! "foo2")
+        (scf-store/add-certname! "foo3")
+        (scf-store/add-certname! "foo4")
+        (scf-store/add-facts! {:name "foo1"
+                              :values facts1
+                              :timestamp current-time
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name  "foo2"
+                              :values facts2
+                              :timestamp (to-timestamp "2013-01-01")
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo3"
+                              :values facts3
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo4"
+                              :values facts4
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/deactivate-node! "foo4"))
+
+    (testing "query without param should not fail"
+    (let [response (get-response endpoint)]
+      (assert-success! response)
+      (slurp (:body response))))
+
+    (testing "factsets query should ignore deactivated nodes"
+      (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
+        (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
+
+    (testing "factset queries should return appropriate results"
+      (let [queries [["=" "certname" "foo1"]
+                      ["=" "environment" "DEV"]
+                      ["<" "timestamp" "2014-01-01"]]
+            responses (map (comp json/parse-string
+                                 slurp
+                                 :body
+                                 (partial get-response endpoint)) queries)]
+        (is (= (into {} (first responses))
+               {"facts" {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "uptime_seconds" "4000"}
+                "timestamp" (to-string current-time)
+                "environment" "DEV"
+                "certname" "foo1"}))
+        (is (= (into [] (nth responses 1))
+               [{"facts" {"my_structured_fact" {"a" 1
+                                     "b" 3.14
+                                     "c" ["a" "b" "c"]
+                                     "d" {"n" ""}
+                                     "e" "1"
+                                     }
+               "domain" "testing.com"
+               "uptime_seconds" "4000"}
+               "timestamp" (to-string current-time)
+               "environment" "DEV"
+               "certname" "foo1"}
+
+               {"facts" { "my_structured_fact" {"a" 1
+                                     "b" 3.14
+                                     "c" ["a" "b" "c"]
+                                     "d" {"n" ""}
+                                     "e" "1"
+                                     }
+                "domain" "testing.com"
+                "uptime_seconds" "6000"}
+                "timestamp" (to-string (to-timestamp "2013-01-01"))
+                "environment" "DEV"
+                "certname" "foo2"}]))
+        (is (= (into [] (nth responses 2))
+               [{"facts" { "my_structured_fact" {"a" 1
+                                     "b" 3.14
+                                     "c" ["a" "b" "c"]
+                                     "d" {"n" ""}
+                                     "e" "1"
+                                     }
+                "domain" "testing.com"
+                "uptime_seconds" "6000"}
+                "timestamp" (to-string (to-timestamp "2013-01-01"))
+                "environment" "DEV"
+                "certname" "foo2"}]))))))
