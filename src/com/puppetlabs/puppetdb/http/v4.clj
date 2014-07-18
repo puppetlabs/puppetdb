@@ -10,6 +10,7 @@
             [com.puppetlabs.puppetdb.http.events :as events]
             [com.puppetlabs.puppetdb.http.fact-names :as fact-names]
             [com.puppetlabs.puppetdb.http.facts :as facts]
+            [com.puppetlabs.puppetdb.http.factsets :as factsets]
             [com.puppetlabs.puppetdb.http.resources :as resources]
             [com.puppetlabs.puppetdb.http.nodes :as nodes]
             [com.puppetlabs.puppetdb.http.environments :as envs]
@@ -24,6 +25,9 @@
 
    ["facts" &]
    {:any (facts/facts-app version)}
+
+   ["factsets" &]
+   {:any  (factsets/factset-app version)}
 
    ["fact-names" &]
    {:any (fact-names/fact-names-app version)}

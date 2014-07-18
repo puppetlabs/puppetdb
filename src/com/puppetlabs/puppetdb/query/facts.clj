@@ -4,6 +4,7 @@
   (:require [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
+            [clojure.string :as str]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn flat-facts-by-node

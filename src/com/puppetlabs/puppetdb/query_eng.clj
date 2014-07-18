@@ -204,27 +204,30 @@
                :source "SELECT name
                         FROM environments"}))
 
-(def structured-facts-query
+(def factsets-query
   "Query for the top level facts query"
   (map->Query {:project {"path" :string
                          "value" :variable
                          "certname" :string
+                         "timestamp" :timestamp
                          "environment" :string
-                         "value_type" :string}
-               :alias "sfacts"
-               :queryable-fields ["certname" "environment"]
-               :source-table "certname_facts"
+                         "type" :string}
+               :alias "factsets"
+               :queryable-fields ["certname" "environment" "timestamp"]
+               :source-table "factsets"
                :subquery? false
-               :source "select fact_paths.path,
-                               COALESCE(fact_values.value_string, fact_values.value_int, fact_values.value_float, fact_values.value_boolean) as value,
-                               factsets.certname, environments.name as environment, value_types.value_type
+               :source
+               "select fact_paths.path, timestamp,
+                               COALESCE(fact_values.value_string, CAST(fact_values.value_integer as text),
+                                        CAST(fact_values.value_float as text), CAST(fact_values.value_boolean as text)) as value,
+                               factsets.certname, environments.name as environment, value_types.type
                         FROM factsets
                              INNER JOIN facts on factsets.id = facts.factset_id
-                             INNER JOIN fact_values on facts.fact_values_id = fact_values.id
+                             INNER JOIN fact_values on facts.fact_value_id = fact_values.id
                              INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
-                             INNER JOIN value_types on fact_paths.value_type_id = value_types.type
+                             INNER JOIN value_types on fact_paths.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
-                        GROUP BY factsets.certname"}))
+                        ORDER BY factsets.certname"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL

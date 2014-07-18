@@ -1,63 +1,62 @@
 (ns com.puppetlabs.puppetdb.query.factsets
   (:require [com.puppetlabs.puppetdb.query-eng :as qe]
-            [clojure.string :as str]
+            [clojure.edn :as clj-edn]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.zip :as zip]
+            [com.puppetlabs.puppetdb.facts :as f]
             [com.puppetlabs.cheshire :as json]))
 
-(defn create-certname-pred [rows]
-  (let [certname (:certname (first rows))]
-    (fn [row]
-      (= certname (:certname row)))))
+(def row-schema
+  {:certname String
+   :environment (s/maybe s/Str)
+   :path String
+   :value s/Any
+   :type (s/maybe String)
+   :timestamp pls/Timestamp})
 
-(defn maybe-num-string? [^String k]
-  (case (.charAt k 0)
-    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) true
-    false))
+(def converted-row-schema
+  {:certname String
+   :environment (s/maybe s/Str)
+   :path String
+   :value s/Any
+   :timestamp pls/Timestamp})
 
-(defn str->num [^String s]
-  (when (maybe-num-string? s)
-    (try
-      (Long/valueOf s)
-      (catch Exception e
-        nil))))
+(def factset-schema
+  {:certname String
+   :environment (s/maybe s/Str)
+   :timestamp pls/Timestamp
+   :facts {s/Str s/Any}})
 
-(defn int-map->vector [node]
-  (when (map? node)
-    (let [int-keys (keys node)]
-      (when (every? integer? int-keys)
-        (mapv node (sort int-keys))))))
+(defn convert-row-type
+  "Coerce the value of a row to the proper type."
+  [row]
+  (let [conversion (case (:type row)
+                     "boolean" clj-edn/read-string
+                     "float" (comp double clj-edn/read-string)
+                     "integer" (comp biginteger clj-edn/read-string)
+                     ("string" "" nil) identity)]
+    (dissoc (update-in row [:value] conversion) :type)))
 
+(pls/defn-validated convert-types :- [converted-row-schema]
+  [rows :- [row-schema]]
+  (map convert-row-type rows))
 
-(defn int-maps->vectors [facts]
-  (:node (zip/post-order-transform (zip/tree-zipper facts)
-                                   [int-map->vector])))
-
-(defn unescape-string [^String s]
-  (if (= \" (.charAt s 0))
-    (subs s 1 (dec (.length s)))
-    s))
-
-(defn unencode-path-segment [^String s]
-  (if-let [num (str->num s)]
-    num
-    (unescape-string s)))
-
-(defn recreate-fact-path [acc {:keys [path value]}]
-  (let [split-path (mapv unencode-path-segment (str/split path #"#~"))]
-    (assoc-in acc split-path value)))
-
-(defn collapse-facts [certname-rows]
+(pls/defn-validated collapse-facts :- factset-schema
+  "Aggregate all facts for a certname into a single structure."
+  [certname-rows :- [converted-row-schema]]
   (let [first-row (first certname-rows)
-        facts (reduce recreate-fact-path {} certname-rows)]
+        facts (reduce f/recreate-fact-path {} certname-rows)]
     (assoc (select-keys first-row [:certname :environment :timestamp])
-      :facts (int-maps->vectors facts))))
+      :facts (f/int-maps->vectors facts))))
 
-(defn collapsed-fact-seq [rows]
+(pls/defn-validated collapsed-fact-seq
+  "Produce a sequence of factsets from a list of rows ordered by certname."
+  [rows]
   (when (seq rows)
-    (let [[certname-facts more-rows] (split-with (create-certname-pred rows) rows)]
-      (cons (collapse-facts certname-facts)
+    (let [[certname-facts more-rows] (split-with (f/create-certname-pred rows) rows)]
+      (cons ((comp collapse-facts convert-types) certname-facts)
             (lazy-seq (collapsed-fact-seq more-rows))))))
 
 (defn query->sql
@@ -73,4 +72,4 @@
     (throw (IllegalArgumentException. "Factset endpoint is only availble for v4"))
 
     (qe/compile-user-query->sql
-     qe/facts-query query paging-options)))
+     qe/factsets-query query paging-options)))
