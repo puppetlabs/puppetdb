@@ -364,7 +364,7 @@
   "Compile a resource query, returning a vector containing the SQL and
   parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
                        FROM (SELECT c.hash as catalog, e.name as environment, catalog_id, resource,
@@ -381,7 +381,7 @@
   "Compile a fact query, returning a vector containing the SQL and parameters
   for the query. All fact columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM (select cf.certname, cf.name, cf.value, env.name as environment
                                      FROM certname_facts cf INNER JOIN certname_facts_metadata cfm on cf.certname = cfm.certname
@@ -394,7 +394,7 @@
   "Compile a node query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [version ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [sql (case version
               (:v1 :v2 :v3)
               (format "SELECT %s FROM certnames"
@@ -435,7 +435,7 @@
   "Compile a environments query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (when query (compile-term ops query))
         projection (format "SELECT %s FROM environments " (column-map->sql environments-columns))
         where-clause (when where
@@ -446,7 +446,7 @@
   "Compile a node query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [version ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [sql (format "SELECT %s FROM (SELECT
                      reports.hash,
                      reports.certname,
