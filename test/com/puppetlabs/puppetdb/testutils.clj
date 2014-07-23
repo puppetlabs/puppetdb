@@ -359,6 +359,16 @@
          (fn []
            (wrap-with-testing ~body))))))
 
+(defn parse-result
+  "Stringify (if needed) then parse the response"
+  [body]
+  (try
+    (if (string? body)
+      (json/parse-string body true)
+      (json/parse-string (slurp body) true))
+    (catch Throwable e
+      body)))
+
 (defmacro deftestseq
   "Def test wrapper around a doverseq."
   [name seq-exprs & body]

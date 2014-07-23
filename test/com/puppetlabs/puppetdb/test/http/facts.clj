@@ -18,7 +18,7 @@
             [clj-time.core :refer [now]]
             [com.puppetlabs.puppetdb.testutils :refer [get-request assert-success!
                                                       paged-results paged-results*
-                                                      deftestseq]]
+                                                      deftestseq parse-result]]
             [com.puppetlabs.jdbc :refer [with-transacted-connection]]))
 
 (def v2-facts-endpoint "/v2/facts")
@@ -42,16 +42,6 @@
   ([endpoint]      (get-response endpoint nil))
   ([endpoint query] (*app* (get-request endpoint query)))
   ([endpoint query params] (*app* (get-request endpoint query params))))
-
-(defn parse-result
-  "Stringify (if needed) then parse the response"
-  [body]
-  (try
-    (if (string? body)
-      (json/parse-string body true)
-      (json/parse-string (slurp body) true))
-    (catch Throwable e
-      body)))
 
 (defn is-query-result
   [endpoint query expected-results]
