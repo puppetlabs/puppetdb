@@ -24,7 +24,9 @@
                                                     {"ipaddresses" ["1.1.1.1", "2.2.2.2"]}}
                                                    "os"
                                                    {"operatingsystem" "Linux"}
-                                                   "avgload" 5.64}))
+                                                   "avgload" 5.64
+                                                   "empty_hash" {}
+                                                   "empty_array" []}))
            [{:path "os#~operatingsystem"
              :depth 1
              :value_type_id 0
