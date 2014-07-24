@@ -21,6 +21,7 @@
 (ns com.puppetlabs.puppetdb.scf.storage
   (:require [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -34,15 +35,15 @@
             [schema.core :as s]
             [schema.macros :as sm]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [com.puppetlabs.puppetdb.utils :as utils])
-  (:use [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [ago secs now before?]]
-        [metrics.meters :only (meter mark!)]
-        [metrics.counters :only (counter inc! value)]
-        [metrics.gauges :only (gauge)]
-        [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]
-        [com.puppetlabs.jdbc :only [query-to-vec dashes->underscores]]))
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :refer [ago secs now before?]]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.counters :refer [counter inc! value]]
+            [metrics.gauges :refer [gauge]]
+            [metrics.histograms :refer [histogram update!]]
+            [metrics.timers :refer [timer time!]]
+            [com.puppetlabs.jdbc :refer [query-to-vec dashes->underscores]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -81,20 +82,26 @@
     :resources resource-ref->resource-schema
     :edges #{edge-schema}))
 
-(def fact-map-schema
-  {String json-primitive-schema})
-
 (def facts-schema
-  {(s/required-key :name) String
-   (s/required-key :values) fact-map-schema
-   ;;These next two should not be necessary, it's due to a bug in the
-   ;;terminus code.  Leaving this in until 2.0.  If the user hasn't
-   ;;and the below two lines are in, it will fails (sees keys it
-   ;;doesn't recognize).  Remove this at 2.0.
-   (s/optional-key :timestamp) s/Any
-   (s/optional-key :expiration) s/Any
-   (s/required-key :environment) (s/maybe s/Str)
-   (s/required-key :producer-timestamp) (s/either (s/maybe s/Str) pls/Timestamp)})
+  {:name String
+   :values facts/fact-set
+   :timestamp pls/Timestamp
+   :environment (s/maybe s/Str)
+   :producer-timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
+
+(def fact-path-types-to-ids-map
+  {:path s/Str
+   :depth s/Int
+   :value_type_id s/Int})
+
+(def fact-values-to-ids-map
+  {:path_id s/Int
+   :value_type_id s/Int
+   :value_hash s/Str
+   (s/optional-key :value_float) (s/maybe Double)
+   (s/optional-key :value_string) (s/maybe s/Str)
+   (s/optional-key :value_integer) (s/maybe s/Int)
+   (s/optional-key :value_boolean) (s/maybe s/Bool)})
 
 (def environments-schema
   {:id s/Int
@@ -188,6 +195,7 @@
    :gc-params          (timer [ns-str "default" "gc-params-time"])
    :gc-environments    (timer [ns-str "default" "gc-environments-time"])
    :gc-report-statuses (timer [ns-str "default" "gc-report-statuses"])
+   :gc-fact-paths  (timer  [ns-str "default" "gc-fact-paths"])
 
    :updated-catalog    (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
@@ -231,10 +239,10 @@
   (let [ts (to-timestamp time)]
     (map :name (jdbc/query-to-vec "SELECT c.name FROM certnames c
                                    LEFT OUTER JOIN catalogs clogs ON c.name=clogs.certname
-                                   LEFT OUTER JOIN certname_facts_metadata fm ON c.name=fm.certname
+                                   LEFT OUTER JOIN factsets fs ON c.name=fs.certname
                                    WHERE c.deactivated IS NULL
                                    AND (clogs.timestamp IS NULL OR clogs.timestamp < ?)
-                                   AND (fm.timestamp IS NULL OR fm.timestamp < ?)"
+                                   AND (fs.timestamp IS NULL OR fs.timestamp < ?)"
                                   ts ts))))
 
 (defn node-deactivated-time
@@ -723,6 +731,15 @@
 
 ;; ## Database compaction
 
+(defn delete-unassociated-fact-paths!
+  "Remove fact paths that are not associated with a fact"
+  []
+  (time! (:gc-fact-paths metrics)
+         (sql/delete-rows :fact_values
+            ["ID NOT IN (SELECT fact_value_id FROM facts)"])
+         (sql/delete-rows :fact_paths
+            ["ID NOT IN (SELECT path_id FROM fact_values)"])))
+
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
@@ -740,7 +757,7 @@
                UNION ALL
                SELECT environment_id FROM reports
                UNION ALL
-               SELECT environment_id FROM certname_facts_metadata)"])))
+               SELECT environment_id FROM factsets)"])))
 
 (defn delete-unassociated-statuses!
   "Remove any statuses that aren't associated with a report"
@@ -758,93 +775,240 @@
          (sql/transaction
           (delete-unassociated-environments!))
          (sql/transaction
-          (delete-unassociated-statuses!))))
+          (delete-unassociated-statuses!))
+         (sql/transaction
+           (delete-unassociated-fact-paths!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
 
+(pls/defn-validated fact-path-current-ids :- {fact-path-types-to-ids-map s/Int}
+  "Given a list of fact path strings, return a map of paths to ids for existing
+   paths."
+  [factpaths :- [fact-path-types-to-ids-map]]
+  (let [fp-triples (map (fn [data]
+                          [(:path data)
+                           (:depth data)
+                           (:value_type_id data)])
+                        factpaths)]
+    (sql/with-query-results result-set
+      (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id FROM fact_paths fp WHERE (fp.path, fp.depth, fp.value_type_id) "
+                          (jdbc/in-clause-multi fp-triples 3))
+                     fp-triples]))
+      (into {} (map (fn [data]
+                      [(select-keys data [:path :depth :value_type_id])
+                       (:id data)])
+                    result-set)))))
+
+(pls/defn-validated fact-path-new-ids :- {fact-path-types-to-ids-map s/Int}
+  "Given a list of fact path strings, return a map of paths to ids for newly
+   created paths."
+  [factpaths :- [fact-path-types-to-ids-map]]
+  (let [record-set (map #(select-keys % [:path :depth :value_type_id])
+                        factpaths)
+        ;; Here we merge the results with the record set to make the hsqldb
+        ;; driver work more like pgsql.
+        result-set (map-indexed (fn [idx itm] (merge (get (vec record-set) idx) itm))
+                                (apply sql/insert-records :fact_paths record-set))]
+    (into {} (map (fn [data]
+                    [(select-keys data [:path :depth :value_type_id])
+                     (:id data)])
+                  result-set))))
+
+(pls/defn-validated fact-paths-to-ids :- {fact-path-types-to-ids-map s/Int}
+  "Given a list of fact paths strings, return a map of ids."
+  [factpaths :- [fact-path-types-to-ids-map]]
+  (let [current-path-to-ids (fact-path-current-ids factpaths)
+        comparable-current-ids (zipmap (keys current-path-to-ids)
+                                       (repeat nil))
+        comparable-incoming-ids (zipmap (map #(select-keys % [:path :depth :value_type_id])
+                                             factpaths)
+                                        (repeat nil))
+        remaining-paths (keys (remove nil?
+                                      (second
+                                       (clojure.data/diff comparable-current-ids
+                                                          comparable-incoming-ids))))
+        new-path-to-ids (fact-path-new-ids remaining-paths)]
+    (merge current-path-to-ids new-path-to-ids)))
+
+(pls/defn-validated fact-value-current-ids :- {fact-values-to-ids-map s/Int}
+  "Given a list of fact-values-to-ids-map constructs, returns a map with the
+  fact-values-to-ids-map being the key, and the current corresponding value id
+  as the value."
+  [factvalues :- [fact-values-to-ids-map]]
+  (let [fv-triples (map (fn [data] [(:path_id data)
+                                   (:value_type_id data)
+                                   (:value_hash data)])
+                       factvalues)]
+    (sql/with-query-results result-set
+      (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id FROM fact_values fv WHERE (fv.path_id, fv.value_type_id, fv.value_hash) "
+                          (jdbc/in-clause-multi fv-triples 3))
+                     fv-triples]))
+      (into {} (map (fn [data]
+                      [(select-keys data [:path_id :value_type_id :value_hash])
+                       (:id data)])
+                    result-set)))))
+
+(pls/defn-validated fact-value-new-ids :- {fact-values-to-ids-map s/Int}
+  "Give a list of fact-values-to-ids-map constructs, returns a map with the
+  fact-values-to-ids-map being the key, and any new value id's as the value."
+  [factvalues :- [fact-values-to-ids-map]]
+  (let [record-set (mapv #(select-keys % [:path_id :value_type_id :value_hash :value_string :value_integer :value_float :value_boolean])
+                         factvalues)
+        ;; Here we merge the results with the record set to make the hsqldb
+        ;; driver work more like pgsql.
+        result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
+                                (apply sql/insert-records :fact_values record-set))]
+    (into {} (map (fn [data]
+                    [(select-keys data [:path_id :value_type_id :value_hash :value_string :value_integer :value_float :value_boolean])
+                     (:id data)])
+                  result-set))))
+
+(pls/defn-validated fact-values-to-ids :- {fact-values-to-ids-map s/Int}
+  "Given a list of fact value maps, return a map of values to ids."
+  [factvalues :- [fact-values-to-ids-map]]
+  (let [current-values-to-ids (fact-value-current-ids factvalues)
+        comparable-current-ids (zipmap (keys current-values-to-ids)
+                                       (repeat nil))
+        primary-keys [:path_id :value_type_id :value_hash]
+        prepared-factvalues (map (fn [data]
+                                   (select-keys data primary-keys))
+                                 factvalues)
+        comparable-incoming-ids (zipmap prepared-factvalues
+                                        (repeat nil))
+        lookup-map (into {}
+                         (map (fn [data]
+                                [(select-keys data primary-keys)
+                                 data])
+                              factvalues))
+        remaining-values (keys (remove nil?
+                                       (second
+                                        (clojure.data/diff comparable-current-ids
+                                                           comparable-incoming-ids))))
+        final-new-values (map (fn [data] (get lookup-map data)) remaining-values)
+        new-values-to-ids (fact-value-new-ids final-new-values)]
+    (merge current-values-to-ids new-values-to-ids)))
+
+(pls/defn-validated new-fact-value-ids* :- [s/Int]
+  "Given a flattened list of fact path maps, return a list of value ids."
+  [fact-path-maps :- [facts/fact-path-map]]
+  (let [factpaths (map #(select-keys % [:path :depth :value_type_id])
+                       fact-path-maps)
+        paths-to-id (fact-paths-to-ids factpaths)
+        ;; New path map with path_id's set
+        fact-path-maps (map (fn [path-map]
+                              (let [path-id (get paths-to-id
+                                                 (select-keys path-map [:path :depth :value_type_id]))]
+                                (assoc path-map :path_id path-id)))
+                            fact-path-maps)
+
+        ;; List of maps with value :path-id and :value
+        factvalues (map #(select-keys % [:path_id :value_string :value_integer :value_float :value_boolean :value_hash :value_type_id])
+                        fact-path-maps)
+
+        values-to-id (fact-values-to-ids factvalues)]
+    (vals values-to-id)))
+
+(pls/defn-validated new-fact-value-ids :- [s/Int]
+  "Given a fact hash, return a list of value ids.
+
+  This function will create new fact_paths and fact_values as necessary to
+  return a full set of ids to the caller."
+  [facts :- facts/fact-set]
+  (let [path-maps (facts/factmap-to-paths facts)]
+    (new-fact-value-ids* path-maps)))
+
+(pls/defn-validated current-fact-value-ids :- [s/Int]
+  "Return a list of fact value ids for a given factset"
+  [factset :- s/Int]
+  (sql/with-query-results result-set
+    ["SELECT fact_value_id FROM facts WHERE factset_id = ?" factset]
+    (mapv :fact_value_id result-set)))
+
+(pls/defn-validated certname-to-factset-id :- s/Int
+  "Given a certname, returns the factset id."
+  [certname :- String]
+  (sql/with-query-results result-set
+    ["SELECT id from factsets WHERE certname = ?" certname]
+    (:id (first result-set))))
+
+(pls/defn-validated factset-map :- {s/Str s/Str}
+  "Return all facts and their values for a given certname as a map"
+  [certname :- String]
+  (sql/with-query-results result-set
+    ["SELECT fp.path as name,
+             COALESCE(fv.value_string,
+                      cast(fv.value_integer as text),
+                      cast(fv.value_boolean as text),
+                      cast(fv.value_float as text),
+                      '') as value
+             FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+             WHERE fp.depth = 0 AND
+                   fs.certname = ?"
+     certname]
+    (zipmap (map :name result-set)
+            (map :value result-set))))
+
 (pls/defn-validated insert-facts!
-  "Given a certname and map of fact/value keypairs, insert them into the facts table"
-  [certname :- String
-   facts :- fact-map-schema]
-  (let [default-row {:certname certname}
-        rows        (for [[fact value] facts]
-                      (assoc default-row :name fact :value value))]
-    (apply sql/insert-records :certname_facts rows)))
+  "Given a certname and set of fact_value_id's, insert them into the facts table"
+  [factset :- s/Int
+   ids     :- #{s/Int}]
+  (let [default {:factset_id factset}
+        rows    (map #(assoc default :fact_value_id %)
+                     ids)]
+    (apply sql/insert-records :facts rows)))
 
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
-  [certname :- String
-   facts :- fact-map-schema
-   timestamp :- pls/Timestamp
-   environment :- (s/maybe s/Str)
-   producer-timestamp :- (s/either (s/maybe s/Str) pls/Timestamp)]
-  {:pre [(kitchensink/datetime? timestamp)]}
-  (sql/insert-record :certname_facts_metadata
-                     {:certname certname
+  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
+  (sql/insert-record :factsets
+                     {:certname name
                       :timestamp (to-timestamp timestamp)
                       :environment_id (ensure-environment environment)
                       :producer_timestamp (to-timestamp producer-timestamp)})
-  (insert-facts! certname facts))
+  (let [new-facts (new-fact-value-ids values)
+        factset (certname-to-factset-id name)]
+    (insert-facts! factset (set new-facts))))
 
 (pls/defn-validated delete-facts!
-  "Delete all the facts (1 arg) or just the fact-names (2 args) for the given certname."
+  "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
   ([certname :- String]
-     (sql/delete-rows :certname_facts_metadata ["certname=?" certname]))
-  ([certname :- String
-    fact-names :- #{String}]
-     (when (seq fact-names)
-       (sql/delete-rows :certname_facts
-                        (into [(str "certname=? and name " (jdbc/in-clause fact-names)) certname]  fact-names)))))
-
-(pls/defn-validated cert-fact-map :- fact-map-schema
-  "Return all facts and their values for a given certname as a map"
-  [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT name, value FROM certname_facts WHERE certname=?" certname]
-    (zipmap (map :name result-set)
-            (map :value result-set))))
-
-(pls/defn-validated update-existing-facts!
-  "Issues a SQL Update for `shared-keys` whose value in old-facts
-   is different from new-facts"
-  [certname :- String
-   old-facts :- (s/either fact-map-schema {})
-   new-facts :- (s/either fact-map-schema {})
-   shared-keys :- #{String}]
-  (doseq [k shared-keys]
-    (let [old-val (get old-facts k)
-          new-val (get new-facts k)]
-      (when-not (= old-val new-val)
-        (sql/update-values :certname_facts ["certname=? and name=?" certname k] {:value new-val})))))
+     (sql/delete-rows :factsets ["certname=?" certname]))
+  ([factset :- s/Int
+    fact-ids :- #{s/Int}]
+     (when (seq fact-ids)
+       (sql/delete-rows :facts
+                        (into [(str "factset_id=? and fact_value_id "
+                                    (jdbc/in-clause fact-ids)) factset]
+                              fact-ids)))))
 
 (pls/defn-validated update-facts!
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument."
-  [certname :- String
-   facts :- fact-map-schema
-   timestamp :- pls/Timestamp
-   environment :- (s/maybe s/Str)
-   producer-timestamp :- (s/either (s/maybe s/Str) pls/Timestamp)]
-  (let [old-facts (cert-fact-map certname)]
-    (sql/update-values :certname_facts_metadata ["certname=?" certname]
+  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
+  (let [factset (certname-to-factset-id name)
+        old-facts (current-fact-value-ids factset)
+        new-facts (new-fact-value-ids values)]
+    (sql/update-values :factsets ["id=?" factset]
                        {:timestamp (to-timestamp timestamp)
                         :environment_id (ensure-environment environment)
                         :producer_timestamp (to-timestamp producer-timestamp)})
+    (utils/diff-fn (zipmap old-facts (repeat nil))
+                   (zipmap new-facts (repeat nil))
+                   #(delete-facts! factset %)
+                   #(insert-facts! factset %)
+                   identity)))
 
-    (utils/diff-fn old-facts
-                   facts
-                   #(delete-facts! certname %)
-                   #(insert-facts! certname (select-keys facts %))
-                   #(update-existing-facts! certname old-facts facts %))))
-
-(pls/defn-validated certname-facts-metadata!
-  "Return the certname_facts_metadata timestamp for the given certname, nil if not found"
+(pls/defn-validated factset-timestamp :- (s/maybe pls/Timestamp)
+  "Return the factset timestamp for the given certname, nil if not found"
   [certname :- String]
   (sql/with-query-results result-set
-    ["SELECT timestamp FROM certname_facts_metadata WHERE certname=? ORDER BY timestamp DESC" certname]
+    ["SELECT timestamp FROM factsets WHERE certname=? ORDER BY timestamp DESC" certname]
     (:timestamp (first result-set))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1022,14 +1186,13 @@
    Adds all new facts if no existing facts are found. Invoking this function under the umbrella of
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
-   as the certname_facts_metadata will have changed while the transaction was in-flight."
-  [{:keys [name values environment producer-timestamp]} :- facts-schema
-   timestamp :- pls/Timestamp]
+   as the factsets will have changed while the transaction was in-flight."
+  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
   (time! (:replace-facts metrics)
-         (if-let [facts-meta-ts (certname-facts-metadata! name)]
-           (when (.before facts-meta-ts (to-timestamp timestamp))
-             (update-facts! name values timestamp environment producer-timestamp))
-           (add-facts! name values timestamp environment producer-timestamp))))
+         (if-let [factset-ts (factset-timestamp name)]
+           (when (.before factset-ts (to-timestamp timestamp))
+             (update-facts! fact-data))
+           (add-facts! fact-data))))
 
 (pls/defn-validated add-report!
   "Add a report and all of the associated events to the database."

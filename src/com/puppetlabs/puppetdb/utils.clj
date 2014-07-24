@@ -98,3 +98,9 @@
                        [(subs (str k) 1) v] [k v]))]
     ;; only apply to maps
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
+
+(pls/defn-validated digit? :- s/Bool
+  "Return true if the character is a digit"
+  [c :- Character]
+  (and (>= 0 (compare \0 c))
+       (>= 0 (compare c \9))))

@@ -35,6 +35,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should POST the facts as a JSON string" do
+      facts.stringify
       f = {
         "name" => facts.name,
         "values" => facts.strip_internal,
@@ -46,7 +47,7 @@ describe Puppet::Node::Facts::Puppetdb do
         :command => CommandReplaceFacts,
         :version => 3,
         :payload => f,
-      }.to_json
+      }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
         expect(body).to eq(payload)
@@ -62,7 +63,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       f = {
         "name" => facts.name,
-        "values" => facts.strip_internal.merge({"trusted" => trusted_data}),
+        "values" => facts.strip_internal.merge({"trusted" => trusted_data.to_s}),
         "environment" => "my_environment",
         "producer-timestamp" => "a test",
       }
@@ -71,7 +72,7 @@ describe Puppet::Node::Facts::Puppetdb do
         :command => CommandReplaceFacts,
         :version => 3,
         :payload => f,
-      }.to_json
+      }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
         expect(body).to eq(payload)
@@ -81,7 +82,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
 
-    it "should preserve integer type when submitting" do
+    it "should squash integer type when submitting" do
       facts.values['something'] = 100
 
       sent_payload = nil
@@ -96,7 +97,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
-      sent_facts['values']['something'].should == 100
+      sent_facts['values']['something'].should == '100'
     end
   end
 

@@ -310,3 +310,14 @@
   (str "in ("
        (str/join "," (repeat (count coll) "?"))
        ")"))
+
+(defn in-clause-multi
+  "Create a prepared statement in clause, with a `width`-sized series of ? for
+  every item in coll."
+  [coll width]
+  {:pre [(seq coll)
+         (integer? width)]}
+  (let [inner (str "(" (str/join "," (repeat width "?")) ")")]
+    (str "in ("
+         (str/join "," (repeat (count coll) inner))
+         ")")))

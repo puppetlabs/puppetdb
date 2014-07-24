@@ -116,3 +116,47 @@
               {:resource "5" :parameters {"random" "false"}}
               {:resource "6" :parameters {"multi" ["one" "two" "three"]}}
               {:resource "7" :parameters {"hash" (sorted-map "foo" 5 "bar" 10)}}])))))
+
+(deftest migration-25
+  (testing "should contain same facts before and after migration")
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (doseq [[i migration] (sort migrations)
+            :while (< i 25)]
+      (migration)
+      (record-migration! i))
+    (let [current-time (to-timestamp (now))]
+      (sql/insert-records
+       :certnames
+       {:name "testing1" :deactivated nil}
+       {:name "testing2" :deactivated nil})
+      (sql/insert-records
+        :environments
+       {:id 1 :name "test_env_1"}
+       {:id 2 :name "test_env_2"})
+      (sql/insert-records
+       :certname_facts_metadata
+       {:certname "testing1" :timestamp current-time :environment_id 1}
+       {:certname "testing2" :timestamp current-time :environment_id 2})
+      (sql/insert-records
+       :certname_facts
+       {:certname "testing1" :name "foo"  :value  "1"}
+       {:certname "testing2" :name "bar"  :value "true"})
+
+      (structured-facts)
+      (record-migration! 25)
+
+      (let [response
+            (query-to-vec
+              "SELECT path,e.id AS environment_id,name AS environment,timestamp,value_string
+               FROM
+               environments e INNER JOIN factsets fs on e.id=fs.environment_id
+                              INNER JOIN facts f on f.factset_id=fs.id
+                              INNER JOIN fact_values fv on f.fact_value_id=fv.id
+                              INNER JOIN fact_paths fp on fp.id=fv.path_id")]
+        (is (= response
+               [{:path "foo", :environment_id 1, :environment "test_env_1",
+                 :timestamp (to-timestamp current-time), :value_string "1"}
+                {:path "bar", :environment_id 2, :environment "test_env_2",
+                 :timestamp (to-timestamp current-time),
+                :value_string "true"}]))))))

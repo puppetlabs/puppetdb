@@ -10,7 +10,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
-            [com.puppetlabs.puppetdb.scf.storage-utils :refer [sql-current-connection-table-names]]
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
@@ -66,12 +66,22 @@
   (sql/do-commands
     (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
 
+(defn drop-sequence!
+  "Drops a sequence from the database.  Expects to be called from within a db binding.
+  Exercise extreme caution when calling this function!"
+  [sequence-name]
+  (sql/do-commands
+    (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
+
 (defn clear-db-for-testing!
   "Completely clears the database, dropping all puppetdb tables and other objects
-  that exist within it.  Expects to be called from within a db binding.  You
+  that exist within it. Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
   []
-  (doseq [table-name (cons "test" (sql-current-connection-table-names))] (drop-table! table-name)))
+  (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
+    (drop-table! table-name))
+  (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
+    (drop-sequence! sequence-name)))
 
 (defmacro with-test-broker
   "Constructs and starts an embedded MQ, and evaluates `body` inside a

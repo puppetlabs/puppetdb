@@ -409,10 +409,26 @@
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
       (scf-store/add-certname! "foo4")
-      (scf-store/add-facts! "foo1" facts1 (now) "DEV" nil)
-      (scf-store/add-facts! "foo2" facts2 (now) "DEV" nil)
-      (scf-store/add-facts! "foo3" facts3 (now) "DEV" nil)
-      (scf-store/add-facts! "foo4" facts3 (now) "DEV" nil)
+      (scf-store/add-facts! {:name "foo1"
+                             :values facts1
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name  "foo2"
+                             :values facts2
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo3"
+                             :values facts3
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo4"
+                             :values facts3
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
@@ -449,9 +465,21 @@
   (scf-store/add-certname! "foo")
   (scf-store/add-certname! "bar")
   (scf-store/add-certname! "baz")
-  (scf-store/add-facts! "foo" {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000} (now) "DEV" nil)
-  (scf-store/add-facts! "bar" {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12} (now) "DEV" nil)
-  (scf-store/add-facts! "baz" {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000} (now) "DEV" nil)
+  (scf-store/add-facts! {:name "foo"
+                         :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
+                         :timestamp (now)
+                         :environment "DEV"
+                         :producer-timestamp nil})
+  (scf-store/add-facts! {:name "bar"
+                         :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
+                         :timestamp (now)
+                         :environment "DEV"
+                         :producer-timestamp nil})
+  (scf-store/add-facts! {:name "baz"
+                         :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
+                         :timestamp (now)
+                         :environment "DEV"
+                         :producer-timestamp nil})
 
   (let [catalog (:empty catalogs)
         apache-resource {:type "Class" :title "Apache"}
@@ -494,7 +522,11 @@
 
           (with-transacted-connection write-db
             (scf-store/add-certname! "foo1")
-            (scf-store/add-facts! "foo1" facts1 (now) "DEV" nil))
+            (scf-store/add-facts! {:name "foo1"
+                                   :values facts1
+                                   :timestamp (now)
+                                   :environment "DEV"
+                                   :producer-timestamp nil}))
 
           (testing "queries only use the read database"
             (let [request (get-request endpoint (json/parse-string nil))
@@ -515,7 +547,7 @@
                                                {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
                                                {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
                                                {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}])
-                     (json/parse-stream (io/reader body) true))))))))))
+                     (sort-by :name (json/parse-stream (io/reader body) true)))))))))))
 
 (defn test-paged-results
   [endpoint query limit total count?]
@@ -544,8 +576,16 @@
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
-      (scf-store/add-facts! "foo1" facts1 (now) "DEV" nil)
-      (scf-store/add-facts! "foo2" facts2 (now) "DEV" nil))
+      (scf-store/add-facts! {:name "foo1"
+                             :values facts1
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo2"
+                             :values facts2
+                             :timestamp (now)
+                             :environment "DEV"
+                             :producer-timestamp nil}))
 
     (when (not= version :v2)
       (testing "should support fact paging"
@@ -605,13 +645,29 @@
         fact-count 4]
 
     (scf-store/add-certname! "c.local")
-    (scf-store/add-facts! "c.local" {"hostname" "c-host"} (now) "DEV" nil)
+    (scf-store/add-facts! {:name "c.local"
+                           :values {"hostname" "c-host"}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
     (scf-store/add-certname! "a.local")
-    (scf-store/add-facts! "a.local" {"hostname" "a-host"} (now) "DEV" nil)
+    (scf-store/add-facts! {:name "a.local"
+                           :values {"hostname" "a-host"}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
     (scf-store/add-certname! "d.local")
-    (scf-store/add-facts! "d.local" {"uptime_days" "2"} (now) "DEV" nil)
+    (scf-store/add-facts! {:name "d.local"
+                           :values {"uptime_days" "2"}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
     (scf-store/add-certname! "b.local")
-    (scf-store/add-facts! "b.local" {"uptime_days" "4"} (now) "DEV" nil)
+    (scf-store/add-facts! {:name "b.local"
+                           :values {"uptime_days" "4"}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-facts endpoint nil {:include-total true}))]
@@ -696,10 +752,26 @@
         (scf-store/add-certname! "foo2")
         (scf-store/add-certname! "foo3")
         (scf-store/add-certname! "foo4")
-        (scf-store/add-facts! "foo1" facts1 (now) "DEV" nil)
-        (scf-store/add-facts! "foo2" facts2 (now) "DEV" nil)
-        (scf-store/add-facts! "foo3" facts3 (now) "PROD" nil)
-        (scf-store/add-facts! "foo4" facts4 (now) "PROD" nil))
+        (scf-store/add-facts! {:name "foo1"
+                               :values facts1
+                               :timestamp (now)
+                               :environment "DEV"
+                               :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo2"
+                               :values facts2
+                               :timestamp (now)
+                               :environment "DEV"
+                               :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo3"
+                               :values facts3
+                               :timestamp (now)
+                               :environment "PROD"
+                               :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo4"
+                               :values facts4
+                               :timestamp (now)
+                               :environment "PROD"
+                               :producer-timestamp nil}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]

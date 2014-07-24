@@ -368,18 +368,17 @@
 
 (defmethod process-command! [(command-names :replace-facts) 3]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:keys [name values] :as facts} payload
-        ;; TODO: probably need to investigate if we really need to
-        ;; re-stringify this first.
-        facts     (-> facts
-                      (update-in [:values] (comp utils/stringify-keys facts/flatten-fact-value-map))
-                      (update-in [:producer-timestamp] to-timestamp)
-                      upon-error-throw-fatality)
+  (let [{:keys [name values] :as fact-data} payload
         id        (:id annotations)
-        timestamp (:received annotations)]
+        timestamp (:received annotations)
+        fact-data (-> fact-data
+                      (update-in [:values] utils/stringify-keys)
+                      (update-in [:producer-timestamp] to-timestamp)
+                      (assoc :timestamp timestamp)
+                      upon-error-throw-fatality)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
-      (scf-storage/replace-facts! facts timestamp))
+      (scf-storage/replace-facts! fact-data))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation

@@ -51,6 +51,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink])
   (:use [clojure.set]
@@ -710,14 +711,138 @@
 
 (defn add-producer-timestamps []
   (sql/do-commands
-    "ALTER TABLE certname_facts_metadata ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
-
-    "CREATE INDEX idx_facts_producer_timestamp ON certname_facts_metadata(producer_timestamp)"
-
     "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
-
     "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
 
+(defn migrate-to-structured-facts
+  "Pulls data from 'pre-structured' tables and moves to new."
+  []
+  (let [certname-facts-metadata (query-to-vec "SELECT * FROM certname_facts_metadata")]
+    (doseq [{:keys [certname timestamp environment_id]} certname-facts-metadata]
+      (let [facts (->> certname
+                       (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
+                       (reduce #(assoc %1 (:name %2) (:value %2)) {}))
+            environment (->> environment_id
+                          (query-to-vec "SELECT name FROM environments WHERE id = ?")
+                          first
+                          :name)]
+        (scf-store/add-facts!
+          {:name (str certname)
+           :values facts
+           :timestamp timestamp
+           :environment environment
+           :producer-timestamp nil})))))
+
+(defn structured-facts []
+  ;; -----------
+  ;; VALUE_TYPES
+  ;; -----------
+  (sql/create-table :value_types
+                    ["id" "bigint NOT NULL PRIMARY KEY"]
+                    ["type" "character varying(32)"])
+
+  ;; Populate the value_types lookup table
+  (sql/do-commands
+   "INSERT INTO value_types (id, type) values (0, 'string')"
+   "INSERT INTO value_types (id, type) values (1, 'integer')"
+   "INSERT INTO value_types (id, type) values (2, 'float')"
+   "INSERT INTO value_types (id, type) values (3, 'boolean')"
+   "INSERT INTO value_types (id, type) values (4, 'null')")
+
+  ;; ----------
+  ;; FACT_PATHS
+  ;; ----------
+  (sql/do-commands
+   "CREATE SEQUENCE fact_paths_id_seq CYCLE")
+
+  (sql/create-table :fact_paths
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_paths_id_seq')"]
+                    ["value_type_id" "bigint NOT NULL"]
+                    ["depth" "int NOT NULL"]
+                    ["path" "text NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_path_type_id_key
+      UNIQUE (path, value_type_id)"
+   "CREATE INDEX fact_paths_value_type_id ON fact_paths(value_type_id)"
+   "CREATE INDEX fact_paths_depth ON fact_paths(depth)"
+   "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_value_type_id
+     FOREIGN KEY (value_type_id)
+     REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT")
+
+  ;; -----------
+  ;; FACT_VALUES
+  ;; -----------
+  (sql/do-commands
+   "CREATE SEQUENCE fact_values_id_seq CYCLE")
+
+  (sql/create-table :fact_values
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
+                    ["path_id" "bigint NOT NULL"]
+                    ["value_type_id" "bigint NOT NULL"]
+                    ["value_hash" "varchar(40) NOT NULL"]
+                    ["value_integer" "bigint"]
+                    ["value_float" "double precision"]
+                    ["value_string" "text"]
+                    ["value_boolean" "boolean"])
+
+  (sql/do-commands
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_value_key UNIQUE (path_id, value_type_id, value_hash)"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_fk
+     FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_type_id_fk
+     FOREIGN KEY (value_type_id) REFERENCES value_types (id) MATCH SIMPLE
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   ;; For efficient operator querying with <, >, <= and >=
+   "CREATE INDEX fact_values_value_integer_idx ON fact_values(value_integer)"
+   "CREATE INDEX fact_values_value_float_idx ON fact_values(value_float)")
+
+  ;; --------
+  ;; FACTSETS
+  ;; --------
+  (sql/do-commands
+   "CREATE SEQUENCE factsets_id_seq CYCLE")
+
+  (sql/create-table :factsets
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('factsets_id_seq')"]
+                    ["certname" "text NOT NULL"]
+                    ["timestamp" "timestamp with time zone NOT NULL"]
+                    ["environment_id" "bigint"]
+                    ["producer_timestamp" "timestamp with time zone"])
+
+  (sql/do-commands
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk
+      FOREIGN KEY (certname) REFERENCES certnames(name)
+      ON UPDATE CASCADE ON DELETE CASCADE"
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_environment_id_fk
+      FOREIGN KEY (environment_id) REFERENCES environments(id)
+      ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_idx
+      UNIQUE (certname)")
+
+  ;; -----
+  ;; FACTS
+  ;; -----
+  (sql/create-table :facts
+                    ["factset_id" "bigint NOT NULL"]
+                    ["fact_value_id" "bigint NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_value_id_key
+     UNIQUE (factset_id, fact_value_id)"
+   "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+     FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
+     FOREIGN KEY (factset_id) REFERENCES factsets(id)
+     ON UPDATE CASCADE ON DELETE CASCADE")
+
+  (migrate-to-structured-facts)
+
+  (sql/do-commands
+   "DROP TABLE certname_facts"
+   "DROP TABLE certname_facts_metadata"))
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
@@ -744,7 +869,8 @@
    21 reset-catalog-sequence-to-latest-id
    22 add-environments
    23 add-report-status
-   24 add-producer-timestamps})
+   24 add-producer-timestamps
+   25 structured-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 

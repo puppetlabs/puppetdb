@@ -36,10 +36,26 @@
     (scf-store/add-certname! web2)
     (scf-store/add-certname! puppet)
     (scf-store/add-certname! db)
-    (scf-store/add-facts! web1 {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000} (now) "DEV" nil)
-    (scf-store/add-facts! web2 {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000} (plus (now) (secs 1)) "DEV" nil)
-    (scf-store/add-facts! puppet {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000} (plus (now) (secs 2)) "DEV" nil)
-    (scf-store/add-facts! db {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"} (plus (now) (secs 3)) "DEV" nil)
+    (scf-store/add-facts! {:name web1
+                           :values {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name web2
+                           :values {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000}
+                           :timestamp (plus (now) (secs 1))
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name puppet
+                           :values {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000}
+                           :timestamp (plus (now) (secs 2))
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name db
+                           :values {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"}
+                           :timestamp (plus (now) (secs 3))
+                           :environment "DEV"
+                           :producer-timestamp nil})
     (scf-store/replace-catalog! (assoc web1-catalog :name web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :name puppet) (plus (now) (secs 1)))
     (scf-store/replace-catalog! (assoc db-catalog :name db) (plus (now) (secs 2)))

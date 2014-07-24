@@ -366,7 +366,7 @@
 
 (def with-fact-env
   "Function that will add the environment_id when testing v2 facts commands"
-  (with-env #{:v2}))
+  (with-env #{:v2 :v3}))
 (def with-catalog-env
   "Function that will add the environment_id when testing v5 or v4 catalog commands"
   (with-env #{:v5 :v4}))
@@ -689,7 +689,7 @@
 
 (def fact-versions
   "Support fact command versions"
-  [:v1 :v2])
+  [:v1 :v2 :v3])
 
 (defn v2-fact-munge
   "Converts a v1 fact command into a v2 fact command"
@@ -737,40 +737,65 @@
 
       (testing "should store the facts"
         (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir)))
-          (let [result (query-to-vec "SELECT certname,environment_id FROM certname_facts_metadata")]
+          (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
             (is (= result [(with-fact-env version {:certname certname})])))))))
 
   (deftest replace-facts-existing-facts
     (doverseq [version fact-versions
                :let [command (munge-fact-command version v1-command)]]
 
-      (scf-store/ensure-environment "DEV")
-      (sql/insert-record :certnames {:name certname})
-      (sql/insert-record :certname_facts_metadata
-                         (with-fact-env version {:certname certname :timestamp yesterday}))
-      (sql/insert-records :certname_facts
-                          {:certname certname :name "x" :value "24"}
-                          {:certname certname :name "y" :value "25"}
-                          {:certname certname :name "z" :value "26"})
+      (sql/transaction
+       (scf-store/ensure-environment "DEV")
+       (scf-store/add-certname! certname)
+       (scf-store/replace-facts! {:name certname
+                                  :values {"x" "24" "y" "25" "z" "26"}
+                                  :timestamp yesterday
+                                  :producer-timestamp yesterday
+                                  :environment (when (not= version :v1) "DEV")}))
 
       (testing "should replace the facts"
         (test-msg-handler command publish discard-dir
-          (let [[result & _] (query-to-vec "SELECT certname,timestamp, environment_id FROM certname_facts_metadata")]
+          (let [[result & _] (query-to-vec "SELECT certname,timestamp, environment_id FROM factsets")]
             (is (= (:certname result)
                    certname))
             (is (not= (:timestamp result)
                       yesterday))
-            (if (= version :v2)
-              (is (= (scf-store/environment-id "DEV") (:environment_id result)))
-              (is (nil? (:environment_id result)))))
+            (when-not (= version :v1)
+              (is (= (scf-store/environment-id "DEV") (:environment_id result)))))
 
-          (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY fp.path ASC")
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
@@ -781,20 +806,33 @@
     (doverseq [version fact-versions
                :let [command (munge-fact-command version v1-command)]]
 
-      (scf-store/ensure-environment "DEV")
-      (sql/insert-record :certnames {:name certname})
-      (sql/insert-record :certname_facts_metadata
-                         (with-fact-env version {:certname certname :timestamp tomorrow}))
-      (sql/insert-records :certname_facts
-                          {:certname certname :name "x" :value "24"}
-                          {:certname certname :name "y" :value "25"}
-                          {:certname certname :name "z" :value "26"})
+      (sql/transaction
+       (scf-store/ensure-environment "DEV")
+       (scf-store/add-certname! certname)
+       (scf-store/add-facts! {:name certname
+                              :values {"x" "24" "y" "25" "z" "26"}
+                              :timestamp tomorrow
+                              :producer-timestamp nil
+                              :environment (when (not= version :v1) "DEV")}))
 
       (testing "should ignore the message"
         (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM certname_facts_metadata")
+          (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-fact-env version {:certname certname :timestamp tomorrow})]))
-          (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
                  [{:certname certname :name "x" :value "24"}
                   {:certname certname :name "y" :value "25"}
                   {:certname certname :name "z" :value "26"}]))
@@ -810,7 +848,20 @@
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                  [{:name certname :deactivated nil}]))
-          (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
@@ -823,7 +874,20 @@
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
                  [{:name certname :deactivated tomorrow}]))
-          (is (= (query-to-vec "SELECT certname,name,value FROM certname_facts ORDER BY name ASC")
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
                   {:certname certname :name "b" :value "2"}
                   {:certname certname :name "c" :value "3"}]))
@@ -838,7 +902,7 @@
                :let [command (munge-fact-command version bad-command munge-version-only)]]
       (testing "should discard the message"
         (test-msg-handler command publish discard-dir
-          (is (empty? (query-to-vec "SELECT * FROM certname_facts")))
+          (is (empty? (query-to-vec "SELECT * FROM facts")))
           (is (= 0 (times-called publish)))
           (is (seq (fs/list-dir discard-dir))))))))
 
@@ -874,12 +938,16 @@
 
       (sql/transaction
        (scf-store/add-certname! certname)
-       (scf-store/add-facts! certname (:values facts) (-> 2 days ago) nil nil))
+       (scf-store/add-facts! {:name certname
+                              :values (:values facts)
+                              :timestamp (-> 2 days ago)
+                              :environment nil
+                              :producer-timestamp nil}))
 
-      (with-redefs [scf-store/update-facts! (fn [certname facts timestamp environment producer-timestamp]
+      (with-redefs [scf-store/update-facts! (fn [fact-data]
                                               (.put hand-off-queue "got the lock")
                                               (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                              (storage-replace-facts! certname facts timestamp environment producer-timestamp))]
+                                              (storage-replace-facts! fact-data))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
