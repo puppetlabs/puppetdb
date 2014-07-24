@@ -112,18 +112,20 @@
   ([data mem path]
      (if (coll? data)
        ;; Branch
-       (let [idv (if (map? data)
-                   (into [] data)
-                   (map vector (iterate inc 0) data))]
-         (loop [[k v] (first idv)
-                remaining (next idv)
-                fp mem]
-           (let [new-fp (factmap-to-paths* v fp (conj path k))]
-             (if (empty? remaining)
-               new-fp
-               (recur (first remaining)
-                      (next remaining)
-                      new-fp)))))
+       (if (empty? data)
+           mem
+           (let [idv (if (map? data)
+                       (into [] data)
+                       (map vector (iterate inc 0) data))]
+             (loop [[k v] (first idv)
+                    remaining (next idv)
+                    fp mem]
+               (let [new-fp (factmap-to-paths* v fp (conj path k))]
+                 (if (empty? remaining)
+                   new-fp
+                   (recur (first remaining)
+                          (next remaining)
+                          new-fp))))))
        ;; Leaf
        (let [type-id (value-type-id data)
              initial-map {:path (factpath-to-string path)
