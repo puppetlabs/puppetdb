@@ -5,6 +5,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.facts :as f]
+            [com.puppetlabs.puppetdb.query.facts :as facts]
             [com.puppetlabs.cheshire :as json]))
 
 (def row-schema
@@ -28,32 +29,18 @@
    :timestamp pls/Timestamp
    :facts {s/Str s/Any}})
 
-(defn convert-row-type
-  "Coerce the value of a row to the proper type."
-  [row]
-  (-> row
-      (update-in [:value] #(f/unstringify-value (:type row) %))
-      (dissoc :type)))
-
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
-  (map convert-row-type rows))
+  (map (partial facts/convert-row-type [:type]) rows))
 
-(pls/defn-validated collapse-facts :- factset-schema
+(pls/defn-validated collapse-factset :- factset-schema
   "Aggregate all facts for a certname into a single structure."
-  [certname-rows :- [converted-row-schema]]
+  [version
+   certname-rows :- [converted-row-schema]]
   (let [first-row (first certname-rows)
         facts (reduce f/recreate-fact-path {} certname-rows)]
     (assoc (select-keys first-row [:certname :environment :timestamp])
       :facts (f/int-maps->vectors facts))))
-
-(pls/defn-validated collapsed-fact-seq
-  "Produce a sequence of factsets from a list of rows ordered by certname."
-  [rows]
-  (when (seq rows)
-    (let [[certname-facts more-rows] (split-with (f/create-certname-pred rows) rows)]
-      (cons ((comp collapse-facts convert-types) certname-facts)
-            (lazy-seq (collapsed-fact-seq more-rows))))))
 
 (defn query->sql
   "Compile a query into an SQL expression."

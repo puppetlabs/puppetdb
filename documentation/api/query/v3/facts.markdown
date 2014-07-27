@@ -113,7 +113,12 @@ this route.
 
 ## Paging
 
-This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
-on [paging][paging].
+Unlike previously, the v3 /facts endpoint does not support ordering
+by value. An attempt to order the response by value will be silently ignored in
+the version 3 API and will generate an error in future versions. This change
+was made due to the lack of an obvious ordering for structured fact values.
+Ordering by value is supported on the fact-nodes endpoint.
 
+Aside from ordering by value, the v3 facts endpoint supports paged results via
+the common PuppetDB paging URL parameters. For more information, please see the
+documentation on [paging][paging].

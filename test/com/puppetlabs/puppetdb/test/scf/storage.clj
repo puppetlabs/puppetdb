@@ -26,7 +26,8 @@
             [clojure.math.combinatorics :refer [combinations subsets]]
             [clj-time.core :refer [ago from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
-            [com.puppetlabs.jdbc :refer [query-to-vec with-transacted-connection convert-result-arrays]]
+            [com.puppetlabs.jdbc :refer [query-to-vec with-transacted-connection
+                                         convert-result-arrays]]
             [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
 (use-fixtures :each with-test-db)
@@ -138,7 +139,8 @@
                                (:timestamp (last update-call))))
                         @updates)))
             (testing "should only insert uptime_seconds"
-              (is (some #{[:fact_paths {:value_type_id 0, :depth 0, :path "uptime_seconds"}]}
+              (is (some #{[:fact_paths {:name "uptime_seconds" :value_type_id 0,
+                                        :depth 0, :path "uptime_seconds"}]}
                         @adds))))))
 
       (testing "replacing all new facts"

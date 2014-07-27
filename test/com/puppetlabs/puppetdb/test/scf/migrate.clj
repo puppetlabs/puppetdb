@@ -148,7 +148,7 @@
 
       (let [response
             (query-to-vec
-              "SELECT path,e.id AS environment_id,name AS environment,timestamp,value_string
+              "SELECT path,e.id AS environment_id, e.name AS environment,timestamp,value_string
                FROM
                environments e INNER JOIN factsets fs on e.id=fs.environment_id
                               INNER JOIN facts f on f.factset_id=fs.id

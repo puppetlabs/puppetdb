@@ -3,6 +3,8 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.factsets :as fs]
+            [com.puppetlabs.puppetdb.facts :as facts]
+            [com.puppetlabs.puppetdb.query.facts :as f]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
             [net.cgrand.moustache :refer [app]]
@@ -10,6 +12,13 @@
                                                wrap-with-paging-options]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.http :as http]))
+
+(defn munge-result-rows
+  [version]
+  (fn [rows]
+    (if (empty? rows) []
+      (f/structured-data-seq version rows facts/create-certname-pred
+                                 fs/collapse-factset fs/convert-types))))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query
@@ -26,7 +35,8 @@
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db
-                      (query/streamed-query-result version sql params (comp f fs/collapsed-fact-seq)))))]
+                      (query/streamed-query-result version sql params
+                                                   (comp f (munge-result-rows version))))))]
         (if count-query
           (http/add-headers resp {:count (jdbc/get-result-count count-query)})
           resp)))

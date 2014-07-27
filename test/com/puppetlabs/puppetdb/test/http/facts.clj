@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
+            [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server]
             [clojure.java.io :as io]
@@ -9,6 +10,7 @@
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.query :refer [remove-all-environments]]
+            [clojure.string :as string]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.fixtures :refer :all]
@@ -24,9 +26,9 @@
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
 (def facts-endpoints [[:v2 v2-facts-endpoint]
-                [:v3 v3-facts-endpoint]
-                [:v4 v4-facts-endpoint]
-                [:v4 v4-facts-environment]])
+                      [:v3 v3-facts-endpoint]
+                      [:v4 v4-facts-endpoint]
+                      [:v4 v4-facts-environment]])
 
 (def factsets-endpoints [[:v4 "/v4/factsets"]])
 
@@ -59,6 +61,23 @@
     (is (= (count actual-result) (count expected-results)))
     (is (= (set actual-result) expected-results))
     (is (= status pl-http/status-ok))))
+
+(defn munge-structured-response
+  [row]
+  (let [val-key (if (contains? row "value") "value" :value)]
+  (let [value (get row val-key)]
+    (if (= (first value) \{)
+      (update-in row [val-key] json/parse-string)
+      row))))
+
+(defn compare-structured-response
+  "compare maps that may have been stringified differently."
+  [response expected version]
+  (case version
+    (:v2 :v3)
+      (is (= (map munge-structured-response response)
+             (map munge-structured-response expected)))
+      (is (= response expected))))
 
 (def common-subquery-tests
   (omap/ordered-map
@@ -229,7 +248,7 @@
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, environment, name, value")
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")
 
    "/v3/facts" (omap/ordered-map
                 ;; Extract using an invalid fields should throw an error
@@ -250,7 +269,7 @@
                 ;; In-queries for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, environment, name, value")))
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")))
 
 (def common-well-formed-tests
   (omap/ordered-map
@@ -430,7 +449,7 @@
                              :environment "DEV"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo4"
-                             :values facts3
+                             :values facts4
                              :timestamp (now)
                              :environment "DEV"
                              :producer-timestamp nil})
@@ -634,6 +653,20 @@
      :count (when-let [rec-count (get headers "X-Records")]
               (ks/parse-int rec-count))}))
 
+(defn unkeywordize-keys
+  [m]
+  (if-not (map? m) m
+    (zipmap (map name (keys m))
+            (map unkeywordize-keys (vals m)))))
+
+(defn unkeywordize-values
+  [m]
+  (if-not (map? m) m
+    (zipmap (keys m)
+            (map (fn [x] (if (= x :value)
+                           (unkeywordize-keys (get m x))
+                           (unkeywordize-values (get m x)))) (keys m)))))
+
 (defn- query-facts
   [endpoint paging-options]
   (:results (raw-query-facts endpoint nil paging-options)))
@@ -646,7 +679,9 @@
         f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
         f3         {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
         f4         {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
-        fact-count 4]
+        f5         {:certname "e.local" :name "my_structured_fact"
+                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
+        fact-count 5]
 
     (scf-store/add-certname! "c.local")
     (scf-store/add-facts! {:name "c.local"
@@ -672,6 +707,12 @@
                            :timestamp (now)
                            :environment "DEV"
                            :producer-timestamp nil})
+    (scf-store/add-certname! "e.local")
+     (scf-store/add-facts! {:name "e.local"
+                          :values {"my_structured_fact" (:value f5)} 
+                          :timestamp (now)
+                          :environment "DEV"
+                          :producer-timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-facts endpoint nil {:include-total true}))]
@@ -688,42 +729,52 @@
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
                         (:body (*app* (get-request endpoint nil {:order-by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC" [f1 f2 f3 f4]]
-                                  ["DESC" [f4 f3 f2 f1]]]]
+        (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
+                                  ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}})]
-              (is (= actual (remove-all-environments version expected)))))))
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version)))))
 
       (testing "multiple fields"
-        (doseq [[[name-order value-order] expected] [[["DESC" "ASC"]  [f4 f2 f1 f3]]
-                                                     [["DESC" "DESC"] [f2 f4 f3 f1]]
-                                                     [["ASC" "DESC"]  [f3 f1 f2 f4]]
-                                                     [["ASC" "ASC"]   [f1 f3 f4 f2]]]]
-          (testing (format "name %s value %s" name-order value-order)
+        (doseq [[[name-order certname-order] expected] [[["DESC" "ASC"]  [f2 f4 f5 f1 f3]]
+                                                        [["DESC" "DESC"] [f4 f2 f5 f3 f1]]
+                                                        [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
+                                                        [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
+          (testing (format "name %s certname %s" name-order certname-order)
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "name" "order" name-order}
-                                                                     {"field" "value" "order" value-order}])}})]
-              (is (= actual (remove-all-environments version expected))))))))
+                                                                     {"field" "certname" "order" certname-order}])}})]
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4]]
-                                                   [1 [f2 f3 f4]]
-                                                   [2 [f3 f4]]
-                                                   [3 [f4]]
-                                                   [4 []]]]
-                                          ["DESC" [[0 [f4 f3 f2 f1]]
-                                                   [1 [f3 f2 f1]]
-                                                   [2 [f2 f1]]
-                                                   [3 [f1]]
-                                                   [4 []]]]]]
+      (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4 f5]]
+                                                   [1 [f2 f3 f4 f5]]
+                                                   [2 [f3 f4 f5]]
+                                                   [3 [f4 f5]]
+                                                   [4 [f5]]
+                                                   [5 []]]]
+                                          ["DESC" [[0 [f5 f4 f3 f2 f1]]
+                                                   [1 [f4 f3 f2 f1]]
+                                                   [2 [f3 f2 f1]]
+                                                   [3 [f2 f1]]
+                                                   [4 [f1]]
+                                                   [5 []]]]]]
+
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-facts endpoint
-                          {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
-                           :offset offset})]
-              (is (= actual (remove-all-environments version expected))))))))))
-
+                                      {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
+                                       :offset offset})]
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))
+        (if (= version :v4)
+          
+      (testing "rejects order by value on v4"
+        (is (re-matches #"Unrecognized column 'value' specified in :order-by.*"
+                        (:body (*app*(get-request endpoint nil
+                                                  {:order-by
+                                                   (json/generate-string
+                                                     [{"field" "value" "order" "ASC"}])})))))))))))
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints
@@ -942,6 +993,150 @@
                 "environment" "DEV"
                 "certname" "foo2"}]))))))
 
+(defn structured-fact-results
+  [version endpoint]
+  (case [version endpoint]
+    [:v4 "/v4/environments/DEV/facts"]
+        {["=" "certname" "foo1"]
+              [{"value" "testing.com" "name" "domain" "environment" "DEV" "certname" "foo1"}
+                {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                {"value" "foo" "name" "test#~delimiter" "environment" "DEV" "certname" "foo1"}
+                {"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"}]
+              ["=" "value" 3.14] ()
+              ["<=" "value" 10] ()
+              [">=" "value" 10]
+                [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+              ["<" "value" 10] ()
+              [">" "value" 10]
+              [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+              ["=" "name" "my_structured_fact"]
+              [{"value"  {"b" 3.14 "a" 1 "e" "1" "d"  {"n" ""} "c"  ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+               {"value"  {"d"  {"n" ""} "b" 3.14 "a" 1 "e" "1" "c"  ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo2"}]}
+    [:v4 "/v4/facts"]
+              {["=" "certname" "foo1"]
+               [{"value" "testing.com" "name" "domain" "environment" "DEV" "certname" "foo1"}
+                 {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                 {"value" "foo" "name" "test#~delimiter" "environment" "DEV" "certname" "foo1"}
+                 {"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"}]
+               ["=" "value" 3.14] ()
+               ["<=" "value" 10] ()
+               [">=" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+               ["<" "value" 10] ()
+               [">" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+               ["=" "name" "my_structured_fact"]
+               [ {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                 {"value" {"d" {"n" ""} "b" 3.14 "a" 1 "e" "1" "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo2"}
+                 {"value" {"b" 3.14 "a" 1 "d" {"n" ""} "c" ["a" "b" "c"] "e" "1"} "name" "my_structured_fact" "environment" "PROD" "certname" "foo3"}]}
+
+              {["=" "certname" "foo1"]
+               [{"value" "testing.com" "name" "domain" "certname" "foo1"}
+                 {"value" "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo1"}
+                 {"value" "foo" "name" "test#~delimiter" "certname" "foo1"}
+                 {"value" "4000" "name" "uptime_seconds" "certname" "foo1"}]
+               ["=" "value" 3.14] ()
+               ["<=" "value" 10] ()
+               [">=" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "certname" "foo2"}]
+               ["<" "value" 10] ()
+               [">" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "certname" "foo2"}]
+               ["=" "name" "my_structured_fact"]
+               [ {"value" "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}"
+                  "name" "my_structured_fact"
+                  "certname" "foo1"}
+                 {"value" "{\"d\":{\"n\":\"\"},\"b\":3.14,\"a\":1,\"e\":\"1\",\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo2"}
+                 {"value" "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" "name" "my_structured_fact" "certname" "foo3"}]}))
+
+(deftestseq structured-fact-queries
+  [[version endpoint] facts-endpoints]
+    ( let [current-time (now)
+         facts1 {"my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                "domain" "testing.com"
+                "uptime_seconds" "4000"
+                "test#~delimiter" "foo"}
+          facts2 {
+                 "my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                  "domain" "testing.com"
+                  "uptime_seconds" "6000"}
+          facts3 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 3.14
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "operatingsystem" "Darwin"}
+          facts4 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 2.71
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "hostname" "foo4"
+                  "uptime_seconds" "6000"}]
+      (with-transacted-connection *db*
+        (scf-store/add-certname! "foo1")
+        (scf-store/add-certname! "foo2")
+        (scf-store/add-certname! "foo3")
+        (scf-store/add-certname! "foo4")
+        (scf-store/add-facts! {:name "foo1"
+                              :values facts1
+                              :timestamp current-time
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name  "foo2"
+                              :values facts2
+                              :timestamp (to-timestamp "2013-01-01")
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo3"
+                              :values facts3
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo4"
+                              :values facts4
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/deactivate-node! "foo4"))
+
+    (testing "query without param should not fail"
+    (let [response (get-response endpoint)]
+      (assert-success! response)
+      (slurp (:body response))))
+
+    (testing "fact queries should return appropriate results"
+      (let [queries [["=" "certname" "foo1"]
+                      ["=" "value" 3.14]
+                      ["<=" "value" 10]
+                      [">=" "value" 10]
+                      ["<" "value" 10]
+                      [">" "value" 10]
+                      ["=" "name" "my_structured_fact"]]
+            responses (map (comp json/parse-string
+                                 slurp
+                                 :body
+                                 (partial get-response endpoint)) queries)]
+
+          (doseq [[response query] (map vector responses queries)]
+            (compare-structured-response response (get (structured-fact-results version endpoint) query) version))))))
+
 (deftestseq fact-nodes-queries
   [[version endpoint] fact-nodes-endpoints]
   (let [current-time (now)]
@@ -952,7 +1147,7 @@
         (assert-success! response)
         (slurp (:body response))))
 
-    (testing "factsets query should ignore deactivated nodes"
+    (testing "fact nodes queries should ignore deactivated nodes"
       (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
         (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
