@@ -11,6 +11,7 @@
             [com.puppetlabs.puppetdb.http.fact-names :as fact-names]
             [com.puppetlabs.puppetdb.http.facts :as facts]
             [com.puppetlabs.puppetdb.http.factsets :as factsets]
+            [com.puppetlabs.puppetdb.http.fact-nodes :as fact-nodes]
             [com.puppetlabs.puppetdb.http.resources :as resources]
             [com.puppetlabs.puppetdb.http.nodes :as nodes]
             [com.puppetlabs.puppetdb.http.environments :as envs]
@@ -31,6 +32,9 @@
 
    ["fact-names" &]
    {:any (fact-names/fact-names-app version)}
+
+   ["fact-nodes" &]
+   {:any (fact-nodes/fact-nodes-app version)}
 
    ["nodes" &]
    {:any (nodes/node-app version)}

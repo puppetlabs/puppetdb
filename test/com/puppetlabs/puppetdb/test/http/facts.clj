@@ -30,6 +30,8 @@
 
 (def factsets-endpoints [[:v4 "/v4/factsets"]])
 
+(def fact-nodes-endpoints [[:v4 "/v4/fact-nodes"]])
+
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t pl-http/json-response-content-type)
@@ -801,77 +803,79 @@
     (is (= status 400))
     (is (re-find #"environment is not a valid version 3 operand" body))))
 
-(deftestseq factset-queries
-  [[version endpoint] factsets-endpoints]
-   (let [current-time (now)
-         facts1 {"my_structured_fact" {"a" 1
-                                       "b" 3.14
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
+
+(defn populate-for-structured-tests
+  "Populate the database with tests suitable for structured fact testing"
+  [test-time]
+  (let [current-time (now)
+        facts1 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      "f" nil}
                 "domain" "testing.com"
                 "uptime_seconds" "4000"
                 "test#~delimiter" "foo"}
-          facts2 {
-                 "my_structured_fact" {"a" 1
-                                       "b" 3.14
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
-                  "domain" "testing.com"
-                  "uptime_seconds" "6000"}
-          facts3 {
-                  "my_structured_fact" {"a" 1
-                                        "b" 3.14
-                                        "c" ["a" "b" "c"]
-                                        "d" {"n" ""}
-                                        "e" "1"
-                                        }
-                  "domain" "testing.com"
-                  "operatingsystem" "Darwin"}
-          facts4 {
-                  "my_structured_fact" {"a" 1
-                                        "b" 2.71
-                                        "c" ["a" "b" "c"]
-                                        "d" {"n" ""}
-                                        "e" "1"
-                                        }
-                  "domain" "testing.com"
-                  "hostname" "foo4"
-                  "uptime_seconds" "6000"}]
-      (with-transacted-connection *db*
-        (scf-store/add-certname! "foo1")
-        (scf-store/add-certname! "foo2")
-        (scf-store/add-certname! "foo3")
-        (scf-store/add-certname! "foo4")
-        (scf-store/add-facts! {:name "foo1"
-                              :values facts1
-                              :timestamp current-time
-                              :environment "DEV"
-                              :producer-timestamp nil})
-        (scf-store/add-facts! {:name  "foo2"
-                              :values facts2
-                              :timestamp (to-timestamp "2013-01-01")
-                              :environment "DEV"
-                              :producer-timestamp nil})
-        (scf-store/add-facts! {:name "foo3"
-                              :values facts3
-                              :timestamp current-time
-                              :environment "PROD"
-                              :producer-timestamp nil})
-        (scf-store/add-facts! {:name "foo4"
-                              :values facts4
-                              :timestamp current-time
-                              :environment "PROD"
-                              :producer-timestamp nil})
-        (scf-store/deactivate-node! "foo4"))
+        facts2 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"}
+                "domain" "testing.com"
+                "uptime_seconds" "6000"}
+        facts3 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      "f" nil}
+                "domain" "testing.com"
+                "operatingsystem" "Darwin"}
+        facts4 {"my_structured_fact" {"a" 1
+                                      "b" 2.71
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"}
+                "domain" "testing.com"
+                "hostname" "foo4"
+                "uptime_seconds" "6000"}]
+    (with-transacted-connection *db*
+      (scf-store/add-certname! "foo1")
+      (scf-store/add-certname! "foo2")
+      (scf-store/add-certname! "foo3")
+      (scf-store/add-certname! "foo4")
+      (scf-store/add-facts! {:name "foo1"
+                             :values facts1
+                             :timestamp current-time
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name  "foo2"
+                             :values facts2
+                             :timestamp (to-timestamp "2013-01-01")
+                             :environment "DEV"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo3"
+                             :values facts3
+                             :timestamp current-time
+                             :environment "PROD"
+                             :producer-timestamp nil})
+      (scf-store/add-facts! {:name "foo4"
+                             :values facts4
+                             :timestamp current-time
+                             :environment "PROD"
+                             :producer-timestamp nil})
+      (scf-store/deactivate-node! "foo4"))))
+
+(deftestseq factset-queries
+  [[version endpoint] factsets-endpoints]
+  (let [current-time (now)]
+    (populate-for-structured-tests current-time)
 
     (testing "query without param should not fail"
-    (let [response (get-response endpoint)]
-      (assert-success! response)
-      (slurp (:body response))))
+      (let [response (get-response endpoint)]
+        (assert-success! response)
+        (slurp (:body response))))
 
     (testing "factsets query should ignore deactivated nodes"
       (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
@@ -879,19 +883,20 @@
 
     (testing "factset queries should return appropriate results"
       (let [queries [["=" "certname" "foo1"]
-                      ["=" "environment" "DEV"]
-                      ["<" "timestamp" "2014-01-01"]]
+                     ["=" "environment" "DEV"]
+                     ["<" "timestamp" "2014-01-01"]]
             responses (map (comp json/parse-string
                                  slurp
                                  :body
                                  (partial get-response endpoint)) queries)]
         (is (= (into {} (first responses))
-               {"facts" {"my_structured_fact" {"a" 1
-                                      "b" 3.14
-                                      "c" ["a" "b" "c"]
-                                      "d" {"n" ""}
-                                      "e" "1"
-                                      }
+               {"facts" {"my_structured_fact"
+                         {"a" 1
+                          "b" 3.14
+                          "c" ["a" "b" "c"]
+                          "d" {"n" ""}
+                          "e" "1"
+                          "f" nil}
                 "domain" "testing.com"
                 "uptime_seconds" "4000"
                 "test#~delimiter" "foo"}
@@ -899,12 +904,13 @@
                 "environment" "DEV"
                 "certname" "foo1"}))
         (is (= (into [] (nth responses 1))
-               [{"facts" {"my_structured_fact" {"a" 1
-                                     "b" 3.14
-                                     "c" ["a" "b" "c"]
-                                     "d" {"n" ""}
-                                     "e" "1"
-                                     }
+               [{"facts" {"my_structured_fact"
+                          {"a" 1
+                           "b" 3.14
+                           "c" ["a" "b" "c"]
+                           "d" {"n" ""}
+                           "e" "1"
+                           "f" nil}
                "domain" "testing.com"
                "uptime_seconds" "4000"
                "test#~delimiter" "foo"}
@@ -912,26 +918,92 @@
                "environment" "DEV"
                "certname" "foo1"}
 
-               {"facts" { "my_structured_fact" {"a" 1
-                                     "b" 3.14
-                                     "c" ["a" "b" "c"]
-                                     "d" {"n" ""}
-                                     "e" "1"
-                                     }
+                {"facts" {"my_structured_fact"
+                          {"a" 1
+                           "b" 3.14
+                           "c" ["a" "b" "c"]
+                           "d" {"n" ""}
+                           "e" "1"}
                 "domain" "testing.com"
                 "uptime_seconds" "6000"}
                 "timestamp" (to-string (to-timestamp "2013-01-01"))
                 "environment" "DEV"
                 "certname" "foo2"}]))
         (is (= (into [] (nth responses 2))
-               [{"facts" { "my_structured_fact" {"a" 1
-                                     "b" 3.14
-                                     "c" ["a" "b" "c"]
-                                     "d" {"n" ""}
-                                     "e" "1"
-                                     }
+               [{"facts" {"my_structured_fact"
+                          {"a" 1
+                           "b" 3.14
+                           "c" ["a" "b" "c"]
+                           "d" {"n" ""}
+                           "e" "1"}
                 "domain" "testing.com"
                 "uptime_seconds" "6000"}
                 "timestamp" (to-string (to-timestamp "2013-01-01"))
                 "environment" "DEV"
                 "certname" "foo2"}]))))))
+
+(deftestseq fact-nodes-queries
+  [[version endpoint] fact-nodes-endpoints]
+  (let [current-time (now)]
+    (populate-for-structured-tests current-time)
+
+    (testing "query without param should not fail"
+      (let [response (get-response endpoint)]
+        (assert-success! response)
+        (slurp (:body response))))
+
+    (testing "factsets query should ignore deactivated nodes"
+      (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
+        (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
+
+    (testing "fact nodes queries should return appropriate results"
+      (let [response (comp json/parse-string
+                           slurp
+                           :body
+                           #(get-response endpoint % {:order-by (json/generate-string [{:field "path"} {:field "certname"}])}))]
+        (is (= (into {} (first (response ["=" "certname" "foo1"])))
+               {"certname" "foo1", "path" ["domain"], "value" "testing.com", "environment" "DEV"}))
+        (is (= (into [] (response ["=" "environment" "DEV"]))
+               [{"certname" "foo1", "path" ["domain"], "value" "testing.com", "environment" "DEV"}
+                {"certname" "foo2", "path" ["domain"], "value" "testing.com", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
+                {"certname" "foo1", "path" ["test#~delimiter"], "value" "foo", "environment" "DEV"}
+                {"certname" "foo1", "path" ["uptime_seconds"], "value" "4000", "environment" "DEV"}
+                {"certname" "foo2", "path" ["uptime_seconds"], "value" "6000", "environment" "DEV"}]))
+        (is (= (into [] (response ["=" "path" ["my_structured_fact" "c" 2]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "PROD"}]))
+        (is (= (into [] (response ["=" "value" "a"]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "PROD"}]))
+        (is (= (into [] (response ["=" "value" 3.14]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}]))
+        (is (= (into [] (response [">" "value" 3.1]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}]))
+        (is (= (into [] (response ["~" "value" "testing"]))
+               [{"certname" "foo1", "path" ["domain"], "value" "testing.com", "environment" "DEV"}
+                {"certname" "foo2", "path" ["domain"], "value" "testing.com", "environment" "DEV"}
+                {"certname" "foo3", "path" ["domain"], "value" "testing.com", "environment" "PROD"}]))
+        (is (= (into [] (response ["=" "value" nil]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))))))

@@ -1,6 +1,5 @@
 (ns com.puppetlabs.puppetdb.query.factsets
   (:require [com.puppetlabs.puppetdb.query-eng :as qe]
-            [clojure.edn :as clj-edn]
             [com.puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [com.puppetlabs.puppetdb.query.paging :as paging]
@@ -32,12 +31,9 @@
 (defn convert-row-type
   "Coerce the value of a row to the proper type."
   [row]
-  (let [conversion (case (:type row)
-                     "boolean" clj-edn/read-string
-                     "float" (comp double clj-edn/read-string)
-                     "integer" (comp biginteger clj-edn/read-string)
-                     ("string" "null") identity)]
-    (dissoc (update-in row [:value] conversion) :type)))
+  (-> row
+      (update-in [:value] #(f/unstringify-value (:type row) %))
+      (dissoc :type)))
 
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]

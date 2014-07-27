@@ -6,7 +6,8 @@
             [clojure.string :as string]
             [com.puppetlabs.puppetdb.zip :as zip]
             [com.puppetlabs.puppetdb.scf.hash :as hash]
-            [com.puppetlabs.puppetdb.utils :as utils]))
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [clojure.edn :as clj-edn]))
 
 ;; SCHEMA
 
@@ -119,6 +120,12 @@
         unescape-string
         unescape-delimiter)))
 
+(pls/defn-validated string-to-factpath :- fact-path
+  "Converts a database encoded string back to a factpath."
+  [s :- s/Str]
+  (let [parts (string/split s (re-pattern factpath-delimiter))]
+    (map unencode-path-segment parts)))
+
 (pls/defn-validated factpath-to-string :- s/Str
   "Converts a `fact-path` to an encoded string ready for database storage."
   [factpath :- fact-path]
@@ -137,9 +144,9 @@
    (nil? data) 4))
 
 (defn factmap-to-paths*
-  "Recursive function, when given some data it will descend into children
-   building up the path until an outer leaf is reached, returning the final
-   built up list of paths as a result."
+  "Recursive function, when given some structured data it will descend into
+   children building up the path until an outer leaf is reached, returning the
+   final built up list of paths as a result."
   ([data] (factmap-to-paths* data [] []))
   ;; We specifically do not validate with schema here, for performance.
   ([data mem path]
@@ -207,7 +214,30 @@
                                    [int-map->vector])))
 
 (defn recreate-fact-path
-  "Produce the nested map corresponding to a path/value pair."
+  "Produce the nested map corresponding to a path/value pair.
+
+   Operates by accepting an existing map `acc` and a map containing keys `path`
+   and `value`, it splits the path into its components and populates the data
+   structure with the `value` in the correct path.
+
+   Returns the complete map structure after this operation is applied to
+   `acc`."
   [acc {:keys [path value]}]
-  (let [split-path (mapv unencode-path-segment (string/split path #"#~"))]
+  (let [split-path (string-to-factpath path)]
     (assoc-in acc split-path value)))
+
+(pls/defn-validated unstringify-value
+  "Converts a stringified value from the database into its real value and type.
+
+   Accepts either a string or a nil as input values."
+  [type :- s/Str
+   value :- (s/maybe s/Str)]
+  (case type
+    "boolean" (clj-edn/read-string value)
+    "float" (-> value
+                clj-edn/read-string
+                double)
+    "integer" (-> value
+                  clj-edn/read-string
+                  biginteger)
+    value))

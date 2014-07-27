@@ -11,14 +11,6 @@
 
 (def endpoints [[:v4 "/v4/environments"]])
 
-(deftest test-old-version-failures
-  (is (thrown-with-msg? IllegalArgumentException
-                        #"Environment queries not supported on v3"
-                        (fixt/*app* (get-request "/v3/environments"))))
-  (is (thrown-with-msg? IllegalArgumentException
-                        #"Environment queries not supported on v2"
-                        (fixt/*app* (get-request "/v2/environments")))))
-
 (deftestseq test-all-environments
   [[version endpoint] endpoints]
 
