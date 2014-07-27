@@ -4,6 +4,7 @@
             [schema.core :as s]
             [com.puppetlabs.puppetdb.schema :as pls]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.zip :as zip]
             [com.puppetlabs.puppetdb.scf.hash :as hash]
             [com.puppetlabs.puppetdb.utils :as utils]))
 
@@ -75,6 +76,13 @@
     (str "\"" string "\"")
     string))
 
+(defn unescape-string
+  "Strip escaped quotes from a string."
+  [^String s]
+  (if (= \" (.charAt s 0))
+    (subs s 1 (dec (.length s)))
+    s))
+
 (pls/defn-validated encode-factpath-element :- s/Str
   "Converts a fact-path-element to an encoded string ready for database storage."
   [element :- fact-path-element]
@@ -85,6 +93,29 @@
          escape-delimiter)
      ;; Numbers are stored as-is
      element)))
+
+(defn maybe-num-string?
+  "Return true if first character of string is a digit."
+  [^String k]
+  (case (.charAt k 0)
+    (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) true
+    false))
+
+(defn str->num
+  "Attempt to coerce a string to a number, otherwise return nil."
+  [^String s]
+  (when (maybe-num-string? s)
+    (try
+      (Long/valueOf s)
+      (catch Exception e
+        nil))))
+
+(defn unencode-path-segment
+  "Attempt to coerce string to number, otherwise unescape."
+  [^String s]
+  (if-let [num (str->num s)]
+    num
+    (unescape-string s)))
 
 (pls/defn-validated factpath-to-string :- s/Str
   "Converts a `fact-path` to an encoded string ready for database storage."
@@ -150,3 +181,31 @@
   "Converts a map of facts to a list of `fact-path-map`s."
   [hash :- fact-set]
   (factmap-to-paths* hash))
+
+(defn create-certname-pred
+  "Create a function to compare the certnames in a list of
+  rows with that of the first row."
+  [rows]
+  (let [certname (:certname (first rows))]
+    (fn [row]
+      (= certname (:certname row)))))
+
+(defn int-map->vector
+  "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"
+  [node]
+  (when (map? node)
+    (let [int-keys (keys node)]
+      (when (every? integer? int-keys)
+        (mapv node (sort int-keys))))))
+
+(defn int-maps->vectors
+  "Walk a structured fact set, transforming all int maps."
+  [facts]
+  (:node (zip/post-order-transform (zip/tree-zipper facts)
+                                   [int-map->vector])))
+
+(defn recreate-fact-path
+  "Produce the nested map corresponding to a path/value pair."
+  [acc {:keys [path value]}]
+  (let [split-path (mapv unencode-path-segment (string/split path #"#~"))]
+    (assoc-in acc split-path value)))

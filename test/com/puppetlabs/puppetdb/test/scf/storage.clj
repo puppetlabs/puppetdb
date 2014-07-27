@@ -75,6 +75,7 @@
         (is (sql/transaction
              (factset-timestamp "some_certname")))
         (is (= facts (factset-map "some_certname"))))
+
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
