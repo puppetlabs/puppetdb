@@ -76,7 +76,8 @@
 
 (pls/defn-validated facts-for-node
   :- {s/Keyword s/Any}
-  "Given a node name, retrieve the catalog for the node."
+  "Supplying host, port, and optionally version,
+   retrieve the factset for a given certname `node`"
   ([host :- String
     port :- s/Int
     node :- String]
@@ -85,20 +86,17 @@
     port :- s/Int
     version :- s/Keyword
     node :- String]
-     (when-let [facts (parse-response
-                       (client/get
-                        (format
-                         "http://%s:%s/%s/nodes/%s/facts"
-                         host port (name version) node)
-                        {:accept :json}))]
-       (let [facts-result {:name node
-                           :values (reduce (fn [acc {:keys [name value]}]
-                                             (assoc acc (keyword name) value))
-                                           {} facts)}]
-         (if (= :v4 version)
-           (assoc facts-result :environment (:environment (first facts)))
-           facts-result)))))
-
+      (when-let [facts (first (parse-response
+                         (client/get
+                           (format
+                             "http://%s:%s/%s/factsets?query=%s"
+                             host port (name version)
+                             (url-encode
+                               (format "[\"=\",\"certname\",\"%s\"]" node)))
+                           {:accept :json})))]
+        {:name node
+         :values (:facts facts)
+         :environment (:environment facts)})))
 
 (pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -115,19 +113,21 @@
   "Given a report hash, returns all events as a vector of maps."
   ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
   ([host port version report-hash]
-     {:pre  [(string? host)
+     {:pre [(string? host)
              (integer? port)
              (string? report-hash)]
-      :post [vector? %]}
-     (when-let [body (parse-response
-                      (client/get
-                       (format
-                        "http://%s:%s/%s/events?query=%s"
-                        host port (name version) (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
+      :post [(seq? %)]}
+    (let [body (parse-response
+                  (client/get
+                     (format
+                       "http://%s:%s/%s/events?query=%s"
+                        host port (name version)
+                        (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
        (sort-by
         #(mapv % [:timestamp :resource-type :resource-title :property])
         (map
-         #(dissoc % :report :certname :configuration-version :containing-class :run-start-time :run-end-time :report-receive-time :environment)
+         #(dissoc % :report :certname :configuration-version :containing-class
+                  :run-start-time :run-end-time :report-receive-time :environment)
          body)))))
 
 (defn reports-for-node
@@ -214,7 +214,7 @@
                 ;;  version of a command is.  We should improve that.
                 {:replace-catalog 5
                  :store-report 3
-                 :replace-facts 2}})})
+                 :replace-facts 3}})})
 
 (defn- validate-cli!
   [args]

@@ -36,7 +36,7 @@
                      "boolean" clj-edn/read-string
                      "float" (comp double clj-edn/read-string)
                      "integer" (comp biginteger clj-edn/read-string)
-                     ("string" "" nil) identity)]
+                     ("string" "null") identity)]
     (dissoc (update-in row [:value] conversion) :type)))
 
 (pls/defn-validated convert-types :- [converted-row-schema]
