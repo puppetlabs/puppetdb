@@ -88,7 +88,8 @@
                :environment "DEV"
                :values {:foo "the foo"
                         :bar "the bar"
-                        :baz "the baz"}}
+                        :baz "the baz"
+                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [5 :empty])
                     (assoc :name "foo.local"))
@@ -118,7 +119,7 @@
       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
       (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
 
-      (block-on-node  (:name facts))
+      (block-on-node (:name facts))
 
       (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
              (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
@@ -180,7 +181,10 @@
              (tur/munge-report-for-comparison (-> (first (export/reports-for-node "localhost" jutils/*port* :v3 (:certname report)))
                                                   (update-in [:resource-events] vec)))))
 
-      (is (= facts (export/facts-for-node "localhost" jutils/*port* :v3 "foo.local"))))))
+      (is (= facts
+             (dissoc
+               (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
+               :environment))))))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [4 :empty])

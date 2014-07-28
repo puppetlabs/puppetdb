@@ -192,7 +192,7 @@
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~e"
                       :value "abe" :type "string" :timestamp current-time}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~j"
-                      :value nil :type nil :timestamp current-time}
+                      :value nil :type "null" :timestamp current-time}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~f"
                       :value "abf" :type "string" :timestamp current-time}]]
 

@@ -90,8 +90,7 @@
                                COALESCE(fv.value_string,
                                         cast(fv.value_integer as text),
                                         cast(fv.value_boolean as text),
-                                        cast(fv.value_float as text),
-                                        '') as value,
+                                        cast(fv.value_float as text)) as value,
                                env.name as environment
                         FROM factsets fs
                              INNER JOIN facts as f on fs.id = f.factset_id

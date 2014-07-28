@@ -39,7 +39,7 @@
           metadata (json/parse-string contents true)]
       (is (= {:replace-catalog 5
               :store-report 3
-              :replace-facts 2}
+              :replace-facts 3}
              (:command-versions metadata)))
       (is (= ["export-metadata.json"] file-suffix))
       (is (= "Exporting PuppetDB metadata" msg)))))
