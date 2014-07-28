@@ -125,20 +125,28 @@
     (is (string? (anonymize-leaf-memoize :parameter-name "good old string")))
     (is (= 10 (count (anonymize-leaf-memoize :parameter-name "good old string"))))))
 
-(deftest test-anonymize-leaf-parameter-value
+(deftest test-anonymize-leaf-value
   (testing "should return the same string twice"
     (is (= (anonymize-leaf-memoize :parameter-value "test string") (anonymize-leaf-memoize :parameter-value "test string"))))
+  (testing "should return the same string twice"
+    (is  (=  (anonymize-leaf-memoize :fact-value  {"a" "b"})  (anonymize-leaf-memoize :fact-value  {"a" "b"}))))
   (testing "should return a string 30 chars long when passed a string"
-    (is (= 30 (count (anonymize-leaf-parameter-value "good old string"))))
-    (is (string? (anonymize-leaf-parameter-value "some string"))))
+    (is (= 30 (count (anonymize-leaf-value "good old string"))))
+    (is (string? (anonymize-leaf-value "some string"))))
   (testing "should return a boolean when passed a boolean"
-    (is (boolean? (anonymize-leaf-parameter-value true))))
+    (is (boolean? (anonymize-leaf-value true))))
   (testing "should return an integer when passed an integer"
-    (is (integer? (anonymize-leaf-parameter-value 100))))
+    (is (integer? (anonymize-leaf-value 100))))
+  (testing "should return an float when passed an float"
+    (is (float? (anonymize-leaf-value 3.14))))
   (testing "should return a vector when passed a vector"
-    (is (vector? (anonymize-leaf-parameter-value ["asdf" "asdf"]))))
+    (is (vector? (anonymize-leaf-value ["asdf" "asdf"]))))
   (testing "should return a map when passed a map"
-    (is (map? (anonymize-leaf-parameter-value {"foo" "bar"})))))
+    (is (map? (anonymize-leaf-value {"foo" "bar"}))))
+  (testing "maps should retain their child types"
+    (let [mymap {"a" {"b" 1} "c" 3.14 "d" [1 2] "e" 3}]
+      (is (= (sort (map (comp str type) mymap))
+             (sort (map (comp str type) (anonymize-leaf-value mymap))))))))
 
 (deftest test-anonymize-leaf-message
   (testing "should return a string 50 characters long"
