@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.anonymizer
   (:require [com.puppetlabs.puppetdb.catalogs :as catalog]
             [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.utils :as utils]
             [clojure.string :as string])
   (:use [com.puppetlabs.concurrent :only (bounded-pmap)]
         [puppetlabs.kitchensink.core :only (regexp? boolean? uuid string-contains?)]
@@ -126,17 +127,20 @@
           (recur (rest x)))))))
 
 ;; Functions for anonymizing the final leaf data
-
-(defn anonymize-leaf-parameter-value
+(defn anonymize-leaf-value
   "Based on the input value, return an appropriate random replacement"
   [value]
   (cond
     (string? value)            (random-string 30)
     (integer? value)           (rand-int 300)
+    (float? value)             (rand)
     (boolean? value)           (random-bool)
-    (vector? value)            (vec (map anonymize-leaf-parameter-value value))
-    (seq? value)               (seq (map anonymize-leaf-parameter-value value))
-    (map? value)               { "key" (random-string 30) }
+    (vector? value)            (vec (map anonymize-leaf-value value))
+    (seq? value)               (seq (map anonymize-leaf-value value))
+    (map? value)               (zipmap (take (count value)
+                                             (repeatedly #(random-string 10)))
+                                       (vals (utils/update-vals value (keys value)
+                                                          anonymize-leaf-value)))
     (nil? value)               nil
     :else (random-string 30)))
 
@@ -148,13 +152,13 @@
         :type (random-type-name)
         :title (random-string 15)
         :parameter-name (random-string-alpha 10)
-        :parameter-value (anonymize-leaf-parameter-value value)
+        :parameter-value (anonymize-leaf-value value)
         :message (random-string 50)
         :file (random-pp-path)
         :line (rand-int 300)
         :transaction-uuid (uuid)
         :fact-name (random-string 15)
-        :fact-value (random-string 30)
+        :fact-value (anonymize-leaf-value value)
         :environment (random-string 15)))))
 
 (defn anonymize-leaf
