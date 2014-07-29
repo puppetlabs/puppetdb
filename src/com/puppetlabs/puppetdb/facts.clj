@@ -115,7 +115,9 @@
   [^String s]
   (if-let [num (str->num s)]
     num
-    (unescape-string s)))
+    (-> s
+        unescape-string
+        unescape-delimiter)))
 
 (pls/defn-validated factpath-to-string :- s/Str
   "Converts a `fact-path` to an encoded string ready for database storage."

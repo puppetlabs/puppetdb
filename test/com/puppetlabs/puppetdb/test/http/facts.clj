@@ -811,7 +811,8 @@
                                        "e" "1"
                                        }
                 "domain" "testing.com"
-                "uptime_seconds" "4000"}
+                "uptime_seconds" "4000"
+                "test#~delimiter" "foo"}
           facts2 {
                  "my_structured_fact" {"a" 1
                                        "b" 3.14
@@ -892,7 +893,8 @@
                                       "e" "1"
                                       }
                 "domain" "testing.com"
-                "uptime_seconds" "4000"}
+                "uptime_seconds" "4000"
+                "test#~delimiter" "foo"}
                 "timestamp" (to-string current-time)
                 "environment" "DEV"
                 "certname" "foo1"}))
@@ -904,7 +906,8 @@
                                      "e" "1"
                                      }
                "domain" "testing.com"
-               "uptime_seconds" "4000"}
+               "uptime_seconds" "4000"
+               "test#~delimiter" "foo"}
                "timestamp" (to-string current-time)
                "environment" "DEV"
                "certname" "foo1"}
