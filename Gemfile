@@ -2,6 +2,13 @@ source ENV['GEM_SOURCE'] || "https://rubygems.org"
 
 gem 'facter'
 
+case RUBY_VERSION
+when '1.8.7'
+  gem 'rake', '<= 10.1.1'
+else
+  gem 'rake'
+end
+
 group :test do
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
   gem 'rspec', '2.13.0'
@@ -14,11 +21,10 @@ group :test do
   # Since newer versions of rake are not supported, we pin
   case RUBY_VERSION
   when '1.8.7'
-    gem 'rake', '<= 10.1.1'
+    # No activerecord or sqlite for you
   else
     gem 'activerecord', '2.3.14'
     gem 'sqlite3'
-    gem 'rake'
   end
 end
 
