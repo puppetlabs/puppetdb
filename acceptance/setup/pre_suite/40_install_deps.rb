@@ -66,7 +66,7 @@ step "Install rubygems and sqlite3 on master" do
   when :debian
     # Ubuntu has rubygems 1.3.5 which is known to not be reliable, so therefore
     # we skip.
-    confine :except, :platform => 'ubuntu-10.04-amd64' do
+    unless master['platform'].include? 'ubuntu-10.04-amd64'
       on master, "apt-get install -y rubygems libsqlite3-dev"
       on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
       on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
