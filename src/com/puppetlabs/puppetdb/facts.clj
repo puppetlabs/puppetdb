@@ -241,3 +241,27 @@
                   clj-edn/read-string
                   biginteger)
     value))
+
+(pls/defn-validated factpath-glob-elements-to-regexp :- fact-path
+  "Converts a field found in a factpath glob to its equivalent regexp"
+  [globarray :- fact-path]
+  (map (fn [element]
+         (if (= element "*")
+           ;; This may seem complicated, but the negative lookup ahead match
+           ;; is designed to not match against the delimiter, but happily
+           ;; match anything else. This ensures the single * is contained within
+           ;; one path element only.
+           (format "(?:(?!%s).)*" factpath-delimiter)
+           element))
+       globarray))
+
+(pls/defn-validated factpath-glob-to-regexp :- s/Str
+  "Converts a globbed array to a regexp for querying against the database.
+
+   Returns a string that contains a formatted regexp."
+  [globarray :- fact-path]
+  (str "^"
+       (-> globarray
+           factpath-glob-elements-to-regexp
+           factpath-to-string)
+       "$"))

@@ -988,6 +988,32 @@
                [{"certname" "foo1", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
                 {"certname" "foo2", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
                 {"certname" "foo3", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "PROD"}]))
+        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "c" "*"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "PROD"}]))
+        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "*" "n"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "PROD"}]))
+        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "*"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
+                {"certname" "foo2", "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "e"], "value" "1", "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
+                {"certname" "foo3", "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
         (is (= (into [] (response ["=" "value" "a"]))
                [{"certname" "foo1", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
                 {"certname" "foo2", "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}

@@ -14,7 +14,8 @@
             [com.puppetlabs.cheshire :as json]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :as ks]
-            [com.puppetlabs.puppetdb.query.paging :as paging]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [clojure.tools.logging :as log]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -458,39 +459,45 @@
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
-  (cm/match [node]
+  (let [query-context (:query-context (meta node))]
+    (cm/match [node]
 
-            [[(:or ">" ">=" "<" "<=") field _]]
-            (let [query-context (:query-context (meta node))
-                  column-type (get-in query-context [:project field])]
-              (when-not (or (vec? field)
-                            (contains? #{:coercible-string :number :timestamp :multi} column-type))
-                (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field) ))))
+              [[(:or ">" ">=" "<" "<=") field _]]
+              (let [col-type (get-in query-context [:project field])]
+                (when-not (or (vec? field)
+                              (contains? #{:coercible-string :number :timestamp :multi}
+                                         col-type))
+                  (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
-            ;;This validation check is added to fix a failing facts
-            ;;test. The facts test is checking that you can't submit
-            ;;an empty query, but a ["=" ["node" "active"] true]
-            ;;clause is automatically added, causing the empty query
-            ;;to fall through to the and clause. Adding this here to
-            ;;pass the test, but better validation for all clauses
-            ;;needs to be added
-            [["and" & clauses]]
-            (when (some (complement seq) clauses)
-              (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
+              [["*>" field _]]
+              (let [col-type (get-in query-context [:project field])]
+                (when-not (contains? #{:path} col-type)
+                  (throw (IllegalArgumentException. (format "Query operator *> is not allowed on field %s" field)))))
 
-            ;;Facts is doing validation against nots only having 1
-            ;;clause, adding this here to fix that test, need to make
-            ;;another pass once other validations are known
-            [["not" & clauses]]
-            (when (not= 1 (count clauses))
-              (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
+              ;;This validation check is added to fix a failing facts
+              ;;test. The facts test is checking that you can't submit
+              ;;an empty query, but a ["=" ["node" "active"] true]
+              ;;clause is automatically added, causing the empty query
+              ;;to fall through to the and clause. Adding this here to
+              ;;pass the test, but better validation for all clauses
+              ;;needs to be added
+              [["and" & clauses]]
+              (when (some (complement seq) clauses)
+                (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
 
-            [[op & _]]
-            (when (and (contains? binary-operators op)
-                       (binary-operator-checker node))
-              (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+              ;;Facts is doing validation against nots only having 1
+              ;;clause, adding this here to fix that test, need to make
+              ;;another pass once other validations are known
+              [["not" & clauses]]
+              (when (not= 1 (count clauses))
+                (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
 
-            :else nil))
+              [[op & _]]
+              (when (and (contains? binary-operators op)
+                         (binary-operator-checker node))
+                (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+
+              :else nil)))
 
 (defn expand-user-query
   "Expands/translates the query from a user provided one to a
@@ -548,7 +555,7 @@
                                        :column column
                                        :value value})))
 
-            [[(op  :guard #{">" "<" ">=" "<="}) column value]]
+            [[(op :guard #{">" "<" ">=" "<="}) column value]]
             (let [col-type (get-in query-rec [:project column])]
               (if value
                 (case col-type
@@ -587,6 +594,13 @@
 
                 (map->RegexExpression {:column column
                                        :value value})))
+
+            [["*>" column value]]
+            (let [col-type (get-in query-rec [:project column])]
+              (case col-type
+                :path
+                (map->RegexExpression {:column column
+                                       :value (facts/factpath-glob-to-regexp value)})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
