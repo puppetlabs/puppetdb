@@ -4,6 +4,8 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :as su]
             [clojure.string :as str]
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
+            [com.puppetlabs.puppetdb.scf.hash :as hash]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [clojure.core.match :as cm]
             [fast-zip.visit :as zv]
             [com.puppetlabs.puppetdb.schema :as pls]
@@ -98,6 +100,38 @@
                              INNER JOIN fact_paths as fp on fv.path_id = fp.id
                              LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                         WHERE fp.depth = 0"}))
+
+(def fact-nodes-query
+  "Query for fact nodes"
+  (map->Query {:project {"path" :path
+                         "value" :multi
+                         "certname" :string
+                         "environment" :string
+                         "type" :string}
+               :alias "fact_nodes"
+               :queryable-fields ["path" "value" "certname" "environment"]
+               :source-table "facts"
+               :subquery? false
+               :source "SELECT fs.certname,
+                               fp.path,
+                               COALESCE(fv.value_string,
+                                        CAST(fv.value_integer as text),
+                                        CAST(fv.value_float as text),
+                                        CAST(fv.value_boolean as text)) as value,
+                               COALESCE(CAST(fv.value_integer as double precision),
+                                        fv.value_float) as value_number,
+                               fv.value_string,
+                               fv.value_hash,
+                               fv.value_integer,
+                               fv.value_float,
+                               env.name as environment,
+                               vt.type
+                        FROM factsets fs
+                             INNER JOIN facts as f on fs.id = f.factset_id
+                             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                             INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                             INNER JOIN value_types as vt on fp.value_type_id = vt.id
+                             LEFT OUTER JOIN environments as env on fs.environment_id = env.id"}))
 
 (def resources-query
   "Query for the top level resource entity"
@@ -215,8 +249,7 @@
                :queryable-fields ["certname" "environment" "timestamp"]
                :source-table "factsets"
                :subquery? false
-               :source
-               "select fact_paths.path, timestamp,
+               :source "select fact_paths.path, timestamp,
                                COALESCE(fact_values.value_string, CAST(fact_values.value_integer as text),
                                         CAST(fact_values.value_float as text), CAST(fact_values.value_boolean as text)) as value,
                                factsets.certname, environments.name as environment, value_types.type
@@ -350,7 +383,8 @@
    "select-resources" (assoc resources-query :subquery? true)
    "select-params" (assoc resource-params-query :subquery? true)
    "select-facts" (assoc facts-query :subquery? true)
-   "select-latest-report" (assoc latest-report-query :subquery? true)})
+   "select-latest-report" (assoc latest-report-query :subquery? true)
+   "select-fact-nodes" (assoc fact-nodes-query :subquery? true)})
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -412,7 +446,9 @@
                                [(s/one s/Str :nested-field)
                                 (s/one s/Str :nested-value)])
                      :field)
-              (s/one (s/either s/Str s/Bool s/Int pls/Timestamp) :value)]))
+              (s/one (s/either [(s/either s/Str s/Int)]
+                               s/Str s/Bool s/Int pls/Timestamp Double)
+                     :value)]))
 
 (defn vec?
   "Same as set?/list?/map? but for vectors"
@@ -428,7 +464,7 @@
             (let [query-context (:query-context (meta node))
                   column-type (get-in query-context [:project field])]
               (when-not (or (vec? field)
-                            (contains? #{:coercible-string :number :timestamp} column-type))
+                            (contains? #{:coercible-string :number :timestamp :multi} column-type))
                 (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field) ))))
 
             ;;This validation check is added to fix a failing facts
@@ -477,7 +513,7 @@
                                        :column column
                                        :value (to-timestamp value)})
 
-               (= :coercible-string col-type)
+               (= col-type :coercible-string)
                (map->BinaryExpression (if (number? value)
                                         {:operator "="
                                          :column (su/sql-as-numeric column)
@@ -497,6 +533,16 @@
                                                 (ks/parse-number (str value))
                                                 value)})
 
+               (= col-type :path)
+               (map->BinaryExpression {:operator "="
+                                       :column column
+                                       :value (facts/factpath-to-string value)})
+
+               (= col-type :multi)
+               (map->BinaryExpression {:operator "="
+                                       :column (str column "_hash")
+                                       :value (hash/generic-identity-hash value)})
+
                :else
                (map->BinaryExpression {:operator "="
                                        :column column
@@ -505,13 +551,19 @@
             [[(op  :guard #{">" "<" ">=" "<="}) column value]]
             (let [col-type (get-in query-rec [:project column])]
               (if value
-                (map->BinaryExpression {:operator op
-                                        :column (if (= :coercible-string col-type)
-                                                  (su/sql-as-numeric column)
-                                                  column)
-                                        :value  (if (= :timestamp col-type)
-                                                  (to-timestamp value)
-                                                  (ks/parse-number (str value)))})
+                (case col-type
+                  :multi
+                  (map->BinaryExpression {:operator op
+                                          :column (str column "_number")
+                                          :value value})
+
+                  (map->BinaryExpression {:operator op
+                                          :column (if (= :coercible-string col-type)
+                                                    (su/sql-as-numeric column)
+                                                    column)
+                                          :value  (if (= :timestamp col-type)
+                                                    (to-timestamp value)
+                                                    (ks/parse-number (str value)))}))
                 (throw (IllegalArgumentException.
                         (format "Value %s must be a number for %s comparison." value op)))))
 
@@ -522,11 +574,17 @@
 
             [["~" column value]]
             (let [col-type (get-in query-rec [:project column])]
-              (if (= :array col-type)
+              (case col-type
+                :array
                 (map->ArrayRegexExpression {:table (:source-table query-rec)
                                             :alias (:alias query-rec)
                                             :column column
                                             :value value})
+
+                :multi
+                (map->RegexExpression {:column (str column "_string")
+                                       :value value})
+
                 (map->RegexExpression {:column column
                                        :value value})))
 
@@ -636,7 +694,7 @@
             :else {:node node :state state}))
 
 (defn ops-to-lower
-  "Lower cases operators (such as and/or"
+  "Lower cases operators (such as and/or)."
   [node state]
   (cm/match [node]
             [[op & stmt-rest]]

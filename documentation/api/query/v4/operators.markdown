@@ -8,6 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 [facts]: ./facts.html
 [nodes]: ./nodes.html
 [query]: ./query.html
+[fact-nodes]: ./fact-nodes.html
 
 PuppetDB's [query strings][query] can use several common operators.
 
@@ -24,7 +25,7 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Works with:** strings, numbers, timestamps, booleans, arrays
+**Works with:** strings, numbers, timestamps, booleans, arrays, multi, path
 
 **Matches if:** the field's actual value is exactly the same as the provided value.
 
@@ -34,34 +35,35 @@ Note that this operator **will** coerce values if the provided value is numeric 
 * Some fields are booleans.
 * Numbers in resource parameters from Puppet are usually stored as strings, but can be coerced to numbers by PuppetDB... as long as you compare them to numbers. (For example: if the value of `someparam` were `"0"`, then `["=", "someparam", "0.0"]` wouldn't match, but `["=", "someparam", 0.0]` would.)
 * Arrays match if any **one** of their elements match.
+* Path matches are a special kind of array, and must be exactly matched with this operator.
 
 ### `>` (greater than)
 
-**Works with:** numbers, timestamps
+**Works with:** numbers, timestamps, multi
 
 **Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<` (less than)
 
-**Works with:** numbers, timestamps
+**Works with:** numbers, timestamps, multi
 
 **Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `>=` (less than or equal to)
 
-**Works with:** numbers, timestamps
+**Works with:** numbers, timestamps, multi
 
 **Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `<=` (greater than or equal to)
 
-**Works with:** numbers, timestamps
+**Works with:** numbers, timestamps, multi
 
 **Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
 
 ### `~` (regexp match)
 
-**Works with:** strings
+**Works with:** strings, multi
 
 **Matches if:** the field's actual value matches the provided regular expression. The provided value must be a regular expression represented as a JSON string:
 
@@ -127,7 +129,7 @@ That is:
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
-* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], or [nodes][]). Each of these objects has many **fields.**
+* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], [fact-nodes][], or [nodes][]). Each of these objects has many **fields.**
 * The `extract` statement collects the value of a **single field** across every object returned by the subquery.
 * The `in` statement **matches** if the value of its field is present in the list returned by the `extract` statement.
 
@@ -180,6 +182,7 @@ The available subqueries are:
 * `select-resources` (queries the [resources][] endpoint)
 * `select-facts` (queries the [facts][] endpoint)
 * `select-nodes` (queries the [nodes][] endpoint)
+* `select-fact-nodes` (queries the [fact-nodes][] endpoint)
 
 ### Subquery Examples
 
@@ -225,3 +228,12 @@ facts-environment `production`:
         ["extract", "certname",
           ["select-nodes",
             ["=", "facts-environment", "production"]]]]]
+
+To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00`, you could use this query on '/nodes':
+
+    ["in", "certname",
+      ["extract", "certname",
+        ["select-fact-nodes",
+          ["and",
+            ["=", "path", [ "networking", "eth0", "macaddresses", 0 ]],
+            ["=", "value", "aa:bb:cc:dd:ee:00" ]]]]]
