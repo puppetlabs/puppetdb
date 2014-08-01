@@ -12,6 +12,7 @@
   {:certname s/Str
    :environment (s/maybe s/Str)
    :path s/Str
+   :name s/Str
    :value (s/maybe s/Str)
    :type s/Str})
 
@@ -19,6 +20,7 @@
   {:certname s/Str
    :environment (s/maybe s/Str)
    :path f/fact-path
+   :name s/Str
    :value f/fact-value})
 
 (pls/defn-validated munge-result-row :- converted-row-schema

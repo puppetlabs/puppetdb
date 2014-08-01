@@ -115,14 +115,16 @@
   (map->Query {:project {"path" :path
                          "value" :multi
                          "certname" :string
+                         "name" :string
                          "environment" :string
                          "type" :string}
                :alias "fact_nodes"
-               :queryable-fields ["path" "value" "certname" "environment"]
+               :queryable-fields ["path" "value" "certname" "environment" "name"]
                :source-table "facts"
                :subquery? false
                :source "SELECT fs.certname,
                                fp.path,
+                               fp.name as name,
                                COALESCE(fv.value_string,
                                         CAST(fv.value_integer as text),
                                         CAST(fv.value_float as text),
