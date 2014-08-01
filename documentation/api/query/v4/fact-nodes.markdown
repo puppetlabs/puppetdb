@@ -106,6 +106,26 @@ which returns:
       "environment" : "foo"
     } ]
 
+With the globbing array operator, we can also provide some basic matches against all elements in a map, or all elements in an array. This can be useful to search across all values that might appear in different places of the tree.
+
+This example shows a query that extracts all macaddresses for all ethernet devices:
+
+    curl -G 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["*>", "path", ["networking","*","macaddresses","*"]]'
+
+which returns:
+
+    [ {
+      "certname" : "node-0",
+      "path" : [ "networking", "eth0", "macaddresses", 0 ],
+      "value" : "aa:bb:cc:dd:ee:00",
+      "environment" : "foo"
+    }, {
+      "certname" : "node-0",
+      "path" : [ "networking", "eth0", "macaddresses", 1 ],
+      "value" : "aa:bb:cc:dd:ee:01",
+      "environment" : "foo"
+    } ]
+
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
