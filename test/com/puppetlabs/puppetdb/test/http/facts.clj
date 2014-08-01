@@ -807,8 +807,7 @@
 (defn populate-for-structured-tests
   "Populate the database with tests suitable for structured fact testing"
   [test-time]
-  (let [current-time (now)
-        facts1 {"my_structured_fact" {"a" 1
+  (let [facts1 {"my_structured_fact" {"a" 1
                                       "b" 3.14
                                       "c" ["a" "b" "c"]
                                       "d" {"n" ""}
@@ -847,7 +846,7 @@
       (scf-store/add-certname! "foo4")
       (scf-store/add-facts! {:name "foo1"
                              :values facts1
-                             :timestamp current-time
+                             :timestamp test-time
                              :environment "DEV"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name  "foo2"
@@ -857,12 +856,12 @@
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
-                             :timestamp current-time
+                             :timestamp test-time
                              :environment "PROD"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
-                             :timestamp current-time
+                             :timestamp test-time
                              :environment "PROD"
                              :producer-timestamp nil})
       (scf-store/deactivate-node! "foo4"))))
