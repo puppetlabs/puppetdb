@@ -1,7 +1,12 @@
 (ns com.puppetlabs.puppetdb.test.scf.storage-utils
-  (:require [clojure.test :refer :all]
+  (:require [clojure.java.jdbc :as sql]
+            [com.puppetlabs.jdbc :as jdbc]
+            [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.scf.storage-utils :refer :all]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [com.puppetlabs.puppetdb.fixtures :refer [with-test-db]]))
+
+(use-fixtures :each with-test-db)
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]
@@ -27,3 +32,21 @@
       (is (= (db-serialize sample)
              "{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":26},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}")))))
 
+(deftest ^{:hsqldb false} test-pg-extension?
+  (testing "check if plpsql is installed"
+    (is (true? (pg-extension? "plpgsql")))))
+
+(deftest ^{:hsqldb false} test-index-exists?
+  (testing "test to see if an index doesn't exists"
+    (is (false? (index-exists? "somerandomname"))))
+  (testing "test to see if an index does exist"
+    (sql/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
+    (is (true? (index-exists? "foobar")))))
+
+(deftest ^{:hsqldb false} test-postgres?-hsql
+  (testing "false if hsqldb"
+    (= (false? (postgres?)))))
+
+(deftest ^{:postgres false} test-postgres?-pg
+  (testing "true if postgresql"
+    (= (true? (postgres?)))))

@@ -83,7 +83,7 @@
 
   :test-selectors {:default (fn [test-var-meta]
                               (let [dbtype (keyword (or (System/getenv "PUPPETDB_DBTYPE")
-                                                        "hsql"))]
+                                                        "hsqldb"))]
                                 (get test-var-meta dbtype true)))}
 
   :profiles {:dev {:resource-paths ["test-resources"],

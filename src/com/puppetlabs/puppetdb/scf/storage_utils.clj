@@ -3,7 +3,31 @@
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
+
+;; SCHEMA
+
+(def pg-extension-map
+  "Maps to the table definition in postgres, but only includes some of the
+   columns:
+
+     Table pg_catalog.pg_extension
+   Column     |  Type   | Modifiers
+   ----------------+---------+-----------
+   extname        | name    | not null
+   extrelocatable | boolean | not null
+   extversion     | text    |"
+  {:name s/Str
+   :relocatable s/Bool
+   :version (s/maybe s/Str)})
+
+(def db-version
+  "A list containing a major and minor version for the database"
+  [s/Int])
+
+;; FUNCTIONS
 
 (defn sql-current-connection-database-name
   "Return the database product name currently in use."
@@ -12,39 +36,55 @@
       (getMetaData)
       (getDatabaseProductName)))
 
-(defn sql-current-connection-database-version
+(pls/defn-validated sql-current-connection-database-version :- db-version
   "Return the version of the database product currently in use."
   []
-  {:post [(every? integer? %)
-          (= (count %) 2)]}
   (let [db-metadata (.. (sql/find-connection)
                       (getMetaData))
         major (.getDatabaseMajorVersion db-metadata)
         minor (.getDatabaseMinorVersion db-metadata)]
     [major minor]))
 
-(defn postgres?
+(pls/defn-validated postgres? :- s/Bool
   "Returns true if currently connected to a Postgres DB instance"
   []
   (= (sql-current-connection-database-name) "PostgreSQL"))
 
-(defn pg-older-than-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
-  []
-  (and (postgres?)
-       (neg? (compare (sql-current-connection-database-version) [8 4]))))
+(pls/defn-validated db-version? :- s/Bool
+  "Returns true if the version list you pass matches the version of the current
+   database."
+  [version :- db-version]
+  (= (sql-current-connection-database-version) version))
 
-(defn pg-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
-  []
-  (and (postgres?)
-       (= (sql-current-connection-database-version) [8 4])))
+(pls/defn-validated db-version-older-than? :- s/Bool
+  "Returns true if the current database version is older than the version list
+   you pass it."
+  [version :- db-version]
+  (neg? (compare (sql-current-connection-database-version) version)))
 
-(defn pg-newer-than-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
+(pls/defn-validated db-version-newer-than? :- s/Bool
+  "Returns true if the current database version is newer than the version list
+   you pass it."
+  [version :- db-version]
+  (pos? (compare (sql-current-connection-database-version) version)))
+
+(pls/defn-validated pg-older-than-8-4? :- s/Bool
+  "Returns true if connected to a Postgres instance that is older than 8.4"
   []
   (and (postgres?)
-       (pos? (compare (sql-current-connection-database-version) [8 4]))))
+       (db-version-older-than? [8 4])))
+
+(pls/defn-validated pg-8-4? :- s/Bool
+  "Returns true if connected to a version 8.4 PostgreSQL instance"
+  []
+  (and (postgres?)
+       (db-version? [8 4])))
+
+(pls/defn-validated pg-newer-than-8-4? :- s/Bool
+  "Returns true if connected to a Postgres instance that is newer than 8.4"
+  []
+  (and (postgres?)
+       (db-version-newer-than? [8 4])))
 
 (defn sql-current-connection-table-names
   "Return all of the table names that are present in the database based on the
@@ -63,6 +103,43 @@
   (let [query   "SELECT sequence_name FROM information_schema.sequences WHERE LOWER(sequence_schema) = 'public'"
         results (sql/transaction (jdbc/query-to-vec query))]
     (map :sequence_name results)))
+
+(pls/defn-validated pg-installed-extensions :- {s/Str pg-extension-map}
+  "Obtain the extensions installed and metadata about each extension for
+   the current database."
+  []
+  {:pre [(postgres?)]}
+  (let [query "SELECT extname as name,
+                      extversion as version,
+                      extrelocatable as relocatable
+               FROM pg_extension"
+        results (sql/transaction (jdbc/query-to-vec query))]
+    (zipmap (map :name results)
+            results)))
+
+(pls/defn-validated pg-extension? :- s/Bool
+  "Returns true if the named PostgreSQL extension is installed."
+  [extension :- s/Str]
+  {:pre [(postgres?)]}
+  (let [extensions (pg-installed-extensions)]
+    (not= (get extensions extension) nil)))
+
+(pls/defn-validated index-exists? :- s/Bool
+  "Returns true if the index exists. Only supported on PostgreSQL currently."
+  ([index :- s/Str]
+     (index-exists? index "public"))
+  ([index :- s/Str
+    namespace :- s/Str]
+     {:pre [(postgres?)]}
+     (let [query "SELECT c.relname
+                    FROM   pg_index as idx
+                    JOIN   pg_class as c ON c.oid = idx.indexrelid
+                    JOIN   pg_namespace as ns ON ns.oid = c.relnamespace
+                    WHERE  ns.nspname = ?
+                      AND  c.relname = ?"
+           results (jdbc/query-to-vec [query namespace index])]
+       (= (:relname (first results))
+          index))))
 
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
