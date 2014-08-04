@@ -251,7 +251,7 @@
            ;; is designed to not match against the delimiter, but happily
            ;; match anything else. This ensures the single * is contained within
            ;; one path element only.
-           (format "(?:(?!%s).)*" factpath-delimiter)
+           (format "(?:(?!%s).)+" factpath-delimiter)
            element))
        globarray))
 

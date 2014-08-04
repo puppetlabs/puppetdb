@@ -828,7 +828,8 @@
                                       "c" ["a" "b" "c"]
                                       "d" {"n" ""}
                                       "e" "1"
-                                      "f" nil}
+                                      "f" nil
+                                      "" "g?"}
                 "domain" "testing.com"
                 "operatingsystem" "Darwin"}
         facts4 {"my_structured_fact" {"a" 1
@@ -1002,7 +1003,8 @@
                 {"certname" "foo2", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
                 {"certname" "foo3", "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "PROD"}]))
         (is (= (into [] (response ["*>" "path" ["my_structured_fact" "*"]]))
-               [{"certname" "foo1", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+               [{"certname" "foo3", "path" ["my_structured_fact" ""], "value" "g?", "environment" "PROD"}
+                {"certname" "foo1", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
                 {"certname" "foo2", "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
                 {"certname" "foo3", "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}
                 {"certname" "foo1", "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
