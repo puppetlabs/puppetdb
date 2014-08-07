@@ -58,16 +58,16 @@
             [com.puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.trapperkeeper.core :refer [defservice main]]
-            [compojure.core :as compojure])
-  (:use [clojure.java.io :only [file]]
-        [clj-time.core :only [ago secs minutes days]]
-        [overtone.at-at :only (mk-pool interspaced)]
-        [com.puppetlabs.time :only [to-secs to-millis parse-period format-period period?]]
-        [com.puppetlabs.jdbc :only (with-transacted-connection)]
-        [com.puppetlabs.repl :only (start-repl)]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]
-        [com.puppetlabs.puppetdb.version :only [version update-info]]
-        [com.puppetlabs.puppetdb.command.constants :only [command-names]]))
+            [compojure.core :as compojure]
+            [clojure.java.io :refer [file]]
+            [clj-time.core :refer [ago]]
+            [overtone.at-at :refer [mk-pool interspaced]]
+            [com.puppetlabs.time :refer [to-secs to-millis parse-period format-period period?]]
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [com.puppetlabs.repl :refer [start-repl]]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
+            [com.puppetlabs.puppetdb.version :refer [version update-info]]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -288,7 +288,8 @@
     ;; connection without creating anything.
     (sql/with-connection write-db
                          (scf-store/validate-database-version #(System/exit 1))
-                         (migrate!))
+                         (migrate!)
+                         (indexes!))
 
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics write-db)

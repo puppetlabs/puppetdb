@@ -28,7 +28,7 @@ else
       PUPPETDB_DBPASSWORD= \
       lein2 test
     else
-      if [ $T_DB == "embedded" ]; then
+      if [ $T_DB == "hsqldb" ]; then
         PUPPETDB_DBTYPE=$T_DB \
         lein2 test
       else

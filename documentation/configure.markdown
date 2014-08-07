@@ -214,6 +214,12 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
+If you are running PostgreSQL 9.3 or above you should install the regexp optimized index extension pg_trgm:
+
+    $ sudo -u postgres sh
+    $ psql puppetdb -c 'create extension pg_trgm'
+    $ exit
+
 Next you will most likely need to modify the `pg_hba.conf` file to allow for md5 authentication from at least localhost. To locate the file you can either issue a `locate pg_hba.conf` command (if your distribution supports it) or consult your distribution's documentation for the PostgreSQL `confdir`.
 
 The following example `pg_hba.conf` file allows md5 authentication from localhost for both IPv4 and IPv6 connections:
