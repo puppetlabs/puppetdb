@@ -7,7 +7,6 @@
   (:import [java.security KeyStore]
            [org.joda.time Minutes Days Period])
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.time :as pl-time]
             [clj-time.core :as time]
