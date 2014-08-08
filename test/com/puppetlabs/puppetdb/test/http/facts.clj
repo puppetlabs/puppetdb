@@ -11,6 +11,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.query :refer [remove-all-environments]]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.fixtures :refer :all]
@@ -625,14 +626,12 @@
             (is (= status pl-http/status-bad-request))
             (is (= body (format "Unsupported query parameter '%s'" (name k))))))))))
 
-(defn- raw-query-facts
+(defn- raw-query-endpoint
   [endpoint query paging-options]
-
   (let [{:keys [limit offset include-total]
          :or {limit Integer/MAX_VALUE
               include-total true
               offset 0}}  paging-options
-
               {:keys [headers body]} (paged-results* (assoc paging-options
                                                        :app-fn  *app*
                                                        :path    endpoint
@@ -657,9 +656,9 @@
                            (unkeywordize-keys (get m x))
                            (unkeywordize-values (get m x)))) (keys m)))))
 
-(defn- query-facts
+(defn- query-endpoint
   [endpoint paging-options]
-  (:results (raw-query-facts endpoint nil paging-options)))
+  (:results (raw-query-endpoint endpoint nil paging-options)))
 
 (deftestseq paging-results
   [[version endpoint] facts-endpoints
@@ -705,12 +704,12 @@
                           :producer-timestamp nil})
 
     (testing "include total results count"
-      (let [actual (:count (raw-query-facts endpoint nil {:include-total true}))]
+      (let [actual (:count (raw-query-endpoint endpoint nil {:include-total true}))]
         (is (= actual fact-count))))
 
     (testing "limit results"
       (doseq [[limit expected] [[1 1] [2 2] [100 fact-count]]]
-        (let [results (query-facts endpoint {:limit limit})
+        (let [results (query-endpoint endpoint {:limit limit})
               actual  (count results)]
           (is (= actual expected)))))
 
@@ -722,7 +721,7 @@
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-facts endpoint
+            (let [actual (query-endpoint endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version)))))
 
@@ -732,7 +731,7 @@
                                                         [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
                                                         [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
           (testing (format "name %s certname %s" name-order certname-order)
-            (let [actual (query-facts endpoint
+            (let [actual (query-endpoint endpoint
                           {:params {:order-by (json/generate-string [{"field" "name" "order" name-order}
                                                                      {"field" "certname" "order" certname-order}])}})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))
@@ -753,7 +752,7 @@
 
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-facts endpoint
+            (let [actual (query-endpoint endpoint
                                       {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                                        :offset offset})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))
@@ -814,7 +813,7 @@
                                                      [["ASC" "ASC"]  [f1 f4 f2 f3 f5]]]]
 
           (testing (format "environment %s name %s" env-order name-order)
-            (let [actual (query-facts
+            (let [actual (query-endpoint
                            endpoint
                            {:params {:order-by
                                      (json/generate-string [{"field" "environment" "order" env-order}
@@ -900,7 +899,6 @@
     (is (= status 400))
     (is (re-find #"environment is not a valid version 3 operand" body))))
 
-
 (defn populate-for-structured-tests
   "Populate the database with tests suitable for structured fact testing"
   [test-time]
@@ -963,6 +961,76 @@
                              :environment "PROD"
                              :producer-timestamp nil})
       (scf-store/deactivate-node! "foo4"))))
+
+(defn factset-results
+  [current-time]
+  (map #(utils/assoc-when % "timestamp" (to-string current-time))
+       [{"facts" {"domain" "testing.com", "uptime_seconds" "4000", "test#~delimiter" "foo",
+                  "my_structured_fact" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"],
+                                        "f" nil, "b" 3.14, "a" 1}},
+         "environment" "DEV","certname" "foo1"}
+        {"facts" {"uptime_seconds" "6000", "domain" "testing.com",
+                  "my_structured_fact" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"],
+                                        "a" 1, "e" "1"}},
+         "timestamp" "2013-01-01T00:00:00.000Z", "environment" "DEV", "certname" "foo2"}
+        {"facts" {"domain" "testing.com", "operatingsystem" "Darwin",
+                  "my_structured_fact" {"e" "1", "b" 3.14, "f" nil, "a" 1,
+                                        "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
+         "environment" "PROD", "certname" "foo3"}]))
+
+(deftestseq factset-paging-results
+  [[version endpoint] factsets-endpoints]
+    (let [factset-count 3
+          current-time (now)
+          expected-results (factset-results current-time)]
+    (populate-for-structured-tests current-time)
+   (testing "include total results count"
+     (let [actual (json/parse-string (slurp (:body (get-response endpoint nil {:include-total true}))))]
+       (is (= (count actual) factset-count))))
+
+    (testing "limit results"
+      (doseq [[limit expected] [[1 1] [2 2] [100 factset-count]]]
+        (let [results (query-endpoint endpoint {:limit limit})
+              actual  (count results)]
+          (is (= actual expected)))))
+
+    (testing "order-by"
+      (testing "rejects invalid fields"
+        (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
+                        (:body (*app* (get-request endpoint nil
+                                                   {:order-by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
+      (testing "alphabetical fields"
+        (doseq [[order expected] [["ASC" (sort-by #(get % "certname") expected-results)]
+                                  ["DESC" (reverse (sort-by #(get % "certname") expected-results))]]]
+          (testing order
+            (let [ordering {:order-by (json/generate-string [{"field" "certname" "order" order}])}
+                  actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
+              (is (= actual expected))))))
+
+      (testing "multiple fields"
+        (doseq [[[env-order certname-order] expected-order] [[["DESC" "ASC"]  [2 0 1]]
+                                                             [["DESC" "DESC"] [2 1 0]]
+                                                             [["ASC" "DESC"]  [1 0 2]]
+                                                             [["ASC" "ASC"]   [0 1 2]]]]
+          (testing (format "environment %s certname %s" env-order certname-order)
+            (let [params {:order-by (json/generate-string [{"field" "environment" "order" env-order}
+                                                             {"field" "certname" "order" certname-order}])}
+                  actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+              (is (= actual (map #(nth expected-results %) expected-order))))))))
+
+    (testing "offset"
+      (doseq [[order expected-sequences] [["ASC"  [[0 [0 1 2]]
+                                                   [1 [1 2]]
+                                                   [2 [2]]
+                                                   [3 [ ]]]]
+                                          ["DESC" [[0 [2 1 0]]
+                                                   [1 [1 0]]
+                                                   [2 [0]]
+                                                   [3 [ ]]]]]]
+          (doseq [[offset expected-order] expected-sequences]
+            (let [params {:order-by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
+                  actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+              (is (= actual (map #(nth expected-results %) expected-order)))))))))
 
 (deftestseq factset-queries
   [[version endpoint] factsets-endpoints]
@@ -1075,7 +1143,6 @@
                [ {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
                  {"value" {"d" {"n" ""} "b" 3.14 "a" 1 "e" "1" "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo2"}
                  {"value" {"b" 3.14 "a" 1 "d" {"n" ""} "c" ["a" "b" "c"] "e" "1"} "name" "my_structured_fact" "environment" "PROD" "certname" "foo3"}]}
-
               {["=" "certname" "foo1"]
                [{"value" "testing.com" "name" "domain" "certname" "foo1"}
                  {"value" "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo1"}
