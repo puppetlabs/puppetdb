@@ -20,7 +20,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defrecord Query [source source-table alias project where subquery? queryable-fields])
+(defrecord Query [source source-table alias project where subquery? queryable-fields entity])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -79,28 +79,36 @@
                :source "select resource as res_param_resource, name as res_param_name, value as res_param_value from resource_params"}))
 
 (def facts-query
-  "Query for the top level facts query"
-  (map->Query {:project {"name" :string
+  "Query structured facts."
+
+  (map->Query {:project {"path" :string
                          "value" :coercible-string
+                         "depth" :integer
                          "certname" :string
-                         "environment" :string}
+                         "environment" :string
+                         "name" :string
+                         "type" :string}
                :alias "facts"
-               :queryable-fields ["name" "value" "certname" "environment"]
+               :queryable-fields ["name" "certname" "environment" "value"]
                :source-table "facts"
+               :entity :facts
                :subquery? false
-               :source "SELECT fs.certname,
-                               fp.path as name,
+               :source
+               "SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
                                COALESCE(fv.value_string,
                                         cast(fv.value_integer as text),
                                         cast(fv.value_boolean as text),
-                                        cast(fv.value_float as text)) as value,
+                                        cast(fv.value_float as text),
+                                        '') as value,
+                               vt.type as type,
                                env.name as environment
                         FROM factsets fs
                              INNER JOIN facts as f on fs.id = f.factset_id
                              INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                              INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                             INNER JOIN value_types as vt on vt.id=fv.value_type_id
                              LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-                        WHERE fp.depth = 0"}))
+               ORDER BY name, fs.certname"}))
 
 (def fact-nodes-query
   "Query for fact nodes"
@@ -395,6 +403,10 @@
    query language"
   [node]
   (cm/match [node]
+
+            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
+            (if (= :facts (get-in (meta node) [:query-context :entity]))
+              ["and" ["=" "depth" 0] [op "value" value]])
 
             [["=" ["node" "active"] value]]
             ["in" "certname"
@@ -724,7 +736,9 @@
   (let [{annotated-query :node
          errors :state} (zip/pre-order-visit (zip/tree-zipper user-query)
                                              []
-                                             [(annotate-with-context context) validate-query-fields dashes-to-underscores ops-to-lower])]
+                                             [(annotate-with-context context)
+                                              validate-query-fields
+                                              dashes-to-underscores ops-to-lower])]
     (when (seq errors)
       (throw (IllegalArgumentException. (str/join \newline errors))))
 
@@ -745,11 +759,12 @@
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
+        facts? (= :facts (:entity query-rec))
         sql (plan->sql plan)
         paged-sql (if paging-options
-                    (jdbc/paged-sql sql paging-options)
+                    (jdbc/paged-sql sql paging-options facts?)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
+      (assoc result-query :count-query (apply vector (jdbc/count-sql facts? sql) params))
       result-query)))

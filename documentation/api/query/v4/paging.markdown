@@ -36,7 +36,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "value", "order": "desc"}, {"field": "name"}]'
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
 
 ### `limit`
 
@@ -72,4 +72,4 @@ should generally be used in conjunction with `order-by`.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "value"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "certname"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'

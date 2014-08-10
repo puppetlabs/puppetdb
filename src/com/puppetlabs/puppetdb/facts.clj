@@ -23,6 +23,7 @@
 (def fact-path-map
   {:path s/Str
    :depth s/Int
+   :name s/Str
    :value_hash s/Str
    :value_float (s/maybe Double)
    :value_string (s/maybe s/Str)
@@ -169,6 +170,7 @@
        ;; Leaf
        (let [type-id (value-type-id data)
              initial-map {:path (factpath-to-string path)
+                          :name (first path) 
                           :depth (dec (count path))
                           :value_type_id type-id
                           :value_hash (hash/generic-identity-hash data)
@@ -190,6 +192,16 @@
   "Converts a map of facts to a list of `fact-path-map`s."
   [hash :- fact-set]
   (factmap-to-paths* hash))
+
+(defn factname-certname-pred
+  "Create a function to compare the factnames in a list of rows
+  with that of the first row."
+  [rows]
+  (let [factname (:name (first rows))
+        certname (:certname (first rows))]
+    (fn [row]
+      (and (= factname (:name row))
+           (= certname (:certname row))))))
 
 (defn create-certname-pred
   "Create a function to compare the certnames in a list of
@@ -265,3 +277,11 @@
            factpath-glob-elements-to-regexp
            factpath-to-string)
        "$"))
+
+(defn augment-paging-options
+  [{:keys [order-by] :as paging-options}]
+  (if (nil? order-by)
+    paging-options
+    (assoc paging-options :order-by (concat
+                                      (filter #(not= (first %) :value) order-by)
+                                      [[:name :ascending] [:certname :ascending]]))))

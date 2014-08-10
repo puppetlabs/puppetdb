@@ -755,6 +755,7 @@
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_paths_id_seq')"]
                     ["value_type_id" "bigint NOT NULL"]
                     ["depth" "int NOT NULL"]
+                    ["name" "varchar(1024)"]
                     ["path" "text NOT NULL"])
 
   (sql/do-commands
@@ -762,6 +763,7 @@
       UNIQUE (path, value_type_id)"
    "CREATE INDEX fact_paths_value_type_id ON fact_paths(value_type_id)"
    "CREATE INDEX fact_paths_depth ON fact_paths(depth)"
+   "CREATE INDEX fact_paths_name ON fact_paths(name)"
    "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_value_type_id
      FOREIGN KEY (value_type_id)
      REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT")

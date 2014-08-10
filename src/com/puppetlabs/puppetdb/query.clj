@@ -196,6 +196,9 @@
 (def fact-columns {"certname" "facts"
                    "name"     "facts"
                    "value"    "facts"
+                   "depth"    "facts"
+                   "type"     "facts"
+                   "path"     "facts"
                    "environment" "facts"})
 
 ;; This map's keys are the queryable fields for resources, and the values are the
@@ -384,22 +387,23 @@
   {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM (
-                       SELECT fs.certname,
-                              fp.path as name,
-                              COALESCE(fv.value_string,
-                                       cast(fv.value_integer as text),
-                                       cast(fv.value_boolean as text),
-                                       cast(fv.value_float as text),
-                                       '') as value,
-                               env.name as environment
-                       FROM factsets fs
-                         INNER JOIN facts as f on fs.id = f.factset_id
-                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                         INNER JOIN fact_paths as fp on fv.path_id = fp.id
-                         LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-                       WHERE fp.depth = 0)
-                     AS facts
-                     WHERE %s" (column-map->sql fact-columns) where)]
+                      SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
+                        COALESCE(fv.value_string,
+                                cast(fv.value_integer as text),
+                                cast(fv.value_boolean as text),
+                                cast(fv.value_float as text),
+                                '') as value,
+                        vt.type as type,
+                        env.name as environment
+                      FROM factsets fs
+                        INNER JOIN facts as f on fs.id = f.factset_id
+                        INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                        INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                        INNER JOIN value_types as vt on vt.id=fv.value_type_id
+                        LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                        ORDER BY name, fs.certname)
+                      AS facts
+                      WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
 (defn node-query->sql
@@ -584,7 +588,7 @@
             :params [value]}
 
            ["value"]
-           {:where "facts.value = ?"
+           {:where "facts.value = ? and depth = 0"
             :params [(str value)]}
 
            ["certname"]
@@ -596,10 +600,13 @@
             :params [value]}
 
            [["node" "active"]]
-           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)"
+                           (if value "NULL" "NOT NULL"))}
 
            :else
-           (throw (IllegalArgumentException. (format "%s is not a queryable object for version %s of the facts query api" path (last (name version))))))))
+           (throw (IllegalArgumentException.
+                    (format "%s is not a queryable object for version %s of the facts query api"
+                            path (last (name version))))))))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
@@ -623,7 +630,8 @@
              (query "facts.name")
 
              ["value"]
-             (query "facts.value")
+             {:where (format "%s and depth = 0" (sql-regexp-match "facts.value"))
+              :params [pattern]}
 
              :else (throw (IllegalArgumentException.
                            (format "%s is not a valid version %s operand for regexp comparison" path (last (name version)))))))))
@@ -641,7 +649,7 @@
     (match [path]
            ["value"]
            ;; This is like convert_to_numeric(facts.value) > 0.3
-           {:where  (format "%s %s ?" (sql-as-numeric "facts.value") op)
+           {:where  (format "%s %s ? and depth = 0" (sql-as-numeric "facts.value") op)
             :params [number]}
 
            :else (throw (IllegalArgumentException.

@@ -91,6 +91,7 @@
 
 (def fact-path-types-to-ids-map
   {:path s/Str
+   :name s/Str
    :depth s/Int
    :value_type_id s/Int})
 
@@ -786,17 +787,18 @@
   "Given a list of fact path strings, return a map of paths to ids for existing
    paths."
   [factpaths :- [fact-path-types-to-ids-map]]
-  (let [fp-triples (map (fn [data]
+  (let [factpath-data (map (fn [data]
                           [(:path data)
                            (:depth data)
-                           (:value_type_id data)])
+                           (:value_type_id data)
+                           (:name data)])
                         factpaths)]
     (sql/with-query-results result-set
-      (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id FROM fact_paths fp WHERE (fp.path, fp.depth, fp.value_type_id) "
-                          (jdbc/in-clause-multi fp-triples 3))
-                     fp-triples]))
+      (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name FROM fact_paths fp WHERE (fp.path, fp.depth, fp.value_type_id, fp.name)"
+                          (jdbc/in-clause-multi factpath-data 4))
+                     factpath-data]))
       (into {} (map (fn [data]
-                      [(select-keys data [:path :depth :value_type_id])
+                      [(select-keys data [:path :depth :value_type_id :name])
                        (:id data)])
                     result-set)))))
 
@@ -804,14 +806,14 @@
   "Given a list of fact path strings, return a map of paths to ids for newly
    created paths."
   [factpaths :- [fact-path-types-to-ids-map]]
-  (let [record-set (map #(select-keys % [:path :depth :value_type_id])
+  (let [record-set (map #(select-keys % [:path :depth :value_type_id :name])
                         factpaths)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get (vec record-set) idx) itm))
                                 (apply sql/insert-records :fact_paths record-set))]
     (into {} (map (fn [data]
-                    [(select-keys data [:path :depth :value_type_id])
+                    [(select-keys data [:path :depth :value_type_id :name])
                      (:id data)])
                   result-set))))
 
@@ -821,7 +823,9 @@
   (let [current-path-to-ids (fact-path-current-ids factpaths)
         comparable-current-ids (zipmap (keys current-path-to-ids)
                                        (repeat nil))
-        comparable-incoming-ids (zipmap (map #(select-keys % [:path :depth :value_type_id])
+        comparable-incoming-ids (zipmap (map #(select-keys % [:path :depth
+                                                              :value_type_id
+                                                              :name])
                                              factpaths)
                                         (repeat nil))
         remaining-paths (keys (remove nil?
@@ -892,13 +896,15 @@
 (pls/defn-validated new-fact-value-ids* :- [s/Int]
   "Given a flattened list of fact path maps, return a list of value ids."
   [fact-path-maps :- [facts/fact-path-map]]
-  (let [factpaths (map #(select-keys % [:path :depth :value_type_id])
+  (let [factpaths (map #(select-keys % [:path :depth :value_type_id :name])
                        fact-path-maps)
         paths-to-id (fact-paths-to-ids factpaths)
         ;; New path map with path_id's set
         fact-path-maps (map (fn [path-map]
                               (let [path-id (get paths-to-id
-                                                 (select-keys path-map [:path :depth :value_type_id]))]
+                                                 (select-keys path-map [:path :depth
+                                                                        :name
+                                                                        :value_type_id]))]
                                 (assoc path-map :path_id path-id)))
                             fact-path-maps)
 

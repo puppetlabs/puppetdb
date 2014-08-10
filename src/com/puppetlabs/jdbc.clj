@@ -146,7 +146,9 @@
 
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
-  [sql {:keys [limit offset order-by]}]
+  ([sql {:keys [limit offset order-by]}]
+   (paged-sql sql {:limit limit :offset offset :order-by order-by} false))
+  ([sql {:keys [limit offset order-by]} structured?]
   {:pre [(string? sql)
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
@@ -156,19 +158,29 @@
     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
           offset-clause    (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
-      (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-          sql
-          order-by-clause
-          limit-clause
-          offset-clause)))
+      (if structured?
+        (format "SELECT paged_results.* FROM (%s) paged_results WHERE
+                (name,certname) IN (SELECT DISTINCT name,certname FROM (%s)
+                distinct_names %s%s%s) %s"
+                sql sql order-by-clause limit-clause offset-clause order-by-clause)
+        (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+                sql
+                order-by-clause
+                limit-clause
+                offset-clause)))))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
-  [sql]
+  ([sql]
+   (count-sql false sql))
+  ([structured? sql]
   {:pre   [(string? sql)]
    :post  [(string? %)]}
-  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
+  (if structured?
+    (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT name,certname
+            FROM (%s) paged_sql) results_to_count" sql)
+    (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
