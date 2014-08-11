@@ -278,6 +278,24 @@
            factpath-to-string)
        "$"))
 
+(pls/defn-validated factpath-regexp-elements-to-regexp :- fact-path
+  "Converts a field found in a factpath regexp to its equivalent regexp"
+  [rearray :- fact-path]
+  (map (fn [element]
+         (format "(?:(?!%s)%s)" factpath-delimiter element))
+       rearray))
+
+(pls/defn-validated factpath-regexp-to-regexp :- s/Str
+  "Converts a regexp array to a single regexp for querying against the database.
+
+   Returns a string that contains a fomatted regexp."
+  [rearray :- fact-path]
+  (str "^"
+       (-> rearray
+           factpath-regexp-elements-to-regexp
+           factpath-to-string)
+       "$"))
+
 (defn augment-paging-options
   [{:keys [order-by] :as paging-options}]
   (if (nil? order-by)

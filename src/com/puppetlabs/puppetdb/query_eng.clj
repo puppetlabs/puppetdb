@@ -483,10 +483,10 @@
                                          col-type))
                   (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
-              [["*>" field _]]
+              [[(:or "~>" "*>") field _]]
               (let [col-type (get-in query-context [:project field])]
                 (when-not (contains? #{:path} col-type)
-                  (throw (IllegalArgumentException. (format "Query operator *> is not allowed on field %s" field)))))
+                  (throw (IllegalArgumentException. (format "Query operators *>,~> are not allowed on field %s" field)))))
 
               ;;This validation check is added to fix a failing facts
               ;;test. The facts test is checking that you can't submit
@@ -615,6 +615,13 @@
                 :path
                 (map->RegexExpression {:column column
                                        :value (facts/factpath-glob-to-regexp value)})))
+
+            [["~>" column value]]
+            (let [col-type (get-in query-rec [:project column])]
+              (case col-type
+                :path
+                (map->RegexExpression {:column column
+                                       :value (facts/factpath-regexp-to-regexp value)})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})

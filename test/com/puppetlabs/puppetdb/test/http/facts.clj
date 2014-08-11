@@ -773,7 +773,8 @@
                             (:body (*app*(get-request endpoint nil
                                                       {:order-by
                                                        (json/generate-string
-                                                         [{"field" "value" "order" "ASC"}])})))))))))))
+                                                        [{"field" "value" "order" "ASC"}])})))))))))))
+
 (deftestseq facts-environment-paging
   [[version endpoint] facts-endpoints
    :when (and (not (contains? #{:v2 :v3} version)) (not= endpoint v4-facts-environment))]
@@ -830,7 +831,6 @@
                                                             {"field" "name" "order" name-order}])}})]
               (compare-structured-response (map unkeywordize-values actual)
                                            (remove-all-environments version expected) version)))))))
-
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints
@@ -1266,6 +1266,24 @@
                 {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "e"], "value" "1", "environment" "PROD"}
                 {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
                 {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
+        (is (= (into [] (response ["~>" "path" ["my_structured_fact" "f"]]))
+               [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
+                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
+        (is (= (into [] (response ["~>" "path" [".*structured.*" "a"]]))
+               [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}]))
+        (is (= (into [] (response ["~>" "path" ["my_structured_fact" "[a-b]"]]))
+               [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
+                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}
+                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
+                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}]))
+        (is (= (into [] (response ["~>" "path" ["my_structured_fact"]]))
+               []))
+        (is (= (into [] (response ["~>" "path" ["my_structured_fact" "^a"]]))
+               []))
         (is (= (into [] (response ["=" "value" "a"]))
                [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
                 {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
