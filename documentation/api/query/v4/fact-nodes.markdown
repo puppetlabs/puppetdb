@@ -47,7 +47,8 @@ See [the Operators page.](./operators.html)
 ### Query Fields
 
 * `certname` (string): the certname associated with the factset
-* `environment` (string): the environment associated with the fact
+* `environment` (string): the environment associated with the parent fact
+* `name` (string): the name of the parent fact
 * `path` (path): the path of traversal to get to this node
 * `value` (multi): the value of this node
 
@@ -62,6 +63,7 @@ the form:
     {
       "certname": <node name>,
       "environment": <node environment>,
+      "name": <fact name>,
       "path": <path to tree node>,
       "facts": <value of tree node>
     }
@@ -79,6 +81,7 @@ which returns:
     [ {
       "certname" : "node-0",
       "path" : [ "networking", "eth0", "macaddresses", 0 ],
+      "name" : "networking",
       "value" : "aa:bb:cc:dd:ee:00",
       "environment" : "foo"
     } ]
@@ -92,11 +95,13 @@ which returns:
     [ {
       "certname" : "node-0",
       "path" : [ "load_avg" ],
+      "name" : "load_avg",
       "value" : 3.16,
       "environment" : "foo"
     }, {
       "certname" : "node-0",
       "path" : [ "cpus" ],
+      "name" : "cpus",
       "value" : 6,
       "environment" : "foo"
     }, {
@@ -117,11 +122,13 @@ which returns:
     [ {
       "certname" : "node-0",
       "path" : [ "networking", "eth0", "macaddresses", 0 ],
+      "name" : "networking",
       "value" : "aa:bb:cc:dd:ee:00",
       "environment" : "foo"
     }, {
       "certname" : "node-0",
       "path" : [ "networking", "eth0", "macaddresses", 1 ],
+      "name" : "networking",
       "value" : "aa:bb:cc:dd:ee:01",
       "environment" : "foo"
     } ]
