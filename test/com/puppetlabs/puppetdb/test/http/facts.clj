@@ -767,14 +767,70 @@
                                       {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                                        :offset offset})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))
-        (if (= version :v4)
-          
-      (testing "rejects order by value on v4"
-        (is (re-matches #"Unrecognized column 'value' specified in :order-by.*"
-                        (:body (*app*(get-request endpoint nil
-                                                  {:order-by
-                                                   (json/generate-string
-                                                     [{"field" "value" "order" "ASC"}])})))))))))))
+        (when-not (contains? #{:v2 :v3} version)
+          (testing "rejects order by value on v4+"
+            (is (re-matches #"Unrecognized column 'value' specified in :order-by.*"
+                            (:body (*app*(get-request endpoint nil
+                                                      {:order-by
+                                                       (json/generate-string
+                                                         [{"field" "value" "order" "ASC"}])})))))))))))
+(deftestseq facts-environment-paging
+  [[version endpoint] facts-endpoints
+   :when (and (not (contains? #{:v2 :v3} version)) (not= endpoint v4-facts-environment))]
+
+  (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "A"}
+        f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "B"}
+        f3         {:certname "c.local" :name "my_structured_fact"
+                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "C"}
+        f4         {:certname "b2.local" :name "max" :value "4" :environment "B"}
+        f5         {:certname "d.local" :name "min" :value "-4" :environment "D"}]
+
+    (scf-store/add-certname! "c.local")
+    (scf-store/add-facts! {:name "c.local"
+                           :values {"my_structured_fact" (:value f3)}
+                           :timestamp (now)
+                           :environment "C"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "a.local")
+    (scf-store/add-facts! {:name "a.local"
+                           :values {"hostname" "a-host"}
+                           :timestamp (now)
+                           :environment "A"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "b.local")
+    (scf-store/add-facts! {:name "b.local"
+                           :values {"uptime_days" "4"}
+                           :timestamp (now)
+                           :environment "B"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "b2.local")
+    (scf-store/add-facts! {:name "b2.local"
+                           :values {"max" "4"}
+                           :timestamp (now)
+                           :environment "B"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "d.local")
+    (scf-store/add-facts! {:name "d.local"
+                           :values {"min" "-4"}
+                           :timestamp (now)
+                           :environment "D"
+                           :producer-timestamp nil})
+
+      (testing "ordering by environment should work"
+          (doseq [[[env-order name-order] expected] [[["DESC" "ASC"]  [f5 f3 f4 f2 f1]]
+                                                     [["DESC" "DESC"]   [f5 f3 f2 f4 f1]]
+                                                     [["ASC" "DESC"]  [f1 f2 f4 f3 f5]]
+                                                     [["ASC" "ASC"]  [f1 f4 f2 f3 f5]]]]
+
+          (testing (format "environment %s name %s" env-order name-order)
+            (let [actual (query-facts
+                           endpoint
+                           {:params {:order-by
+                                     (json/generate-string [{"field" "environment" "order" env-order}
+                                                            {"field" "name" "order" name-order}])}})]
+              (compare-structured-response (map unkeywordize-values actual)
+                                           (remove-all-environments version expected) version)))))))
+
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints

@@ -109,7 +109,7 @@
           (every? (complement coll?) (rest (:results-query %)))]}
   (let [augmented-paging-options (f/augment-paging-options paging-options)
         columns (if (contains? #{:v2 :v3} version)
-                  (map keyword (keys query/fact-columns))
+                  (map keyword (keys (dissoc query/fact-columns "environment")))
                   (map keyword (keys (dissoc query/fact-columns "value"))))]
     (paging/validate-order-by! columns paging-options)
     (case version

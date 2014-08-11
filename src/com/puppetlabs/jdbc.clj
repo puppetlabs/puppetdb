@@ -160,8 +160,9 @@
           order-by-clause  (order-by->sql order-by)]
       (if structured?
         (format "SELECT paged_results.* FROM (%s) paged_results WHERE
-                (name,certname) IN (SELECT DISTINCT name,certname FROM (%s)
-                distinct_names %s%s%s) %s"
+                (name,certname,environment) IN
+                (SELECT DISTINCT name,certname,environment
+                FROM (%s) distinct_names %s%s%s) %s"
                 sql sql order-by-clause limit-clause offset-clause order-by-clause)
         (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
                 sql
