@@ -89,6 +89,16 @@ The following example would match any network interface name, and its macaddress
 
     ["*>", "path", ["networking","*","macaddress"]
 
+### '~>' (regexp array match)
+
+**Works with:** paths
+
+**Matches if:** the array matches using the regular expressions provided within in each element.
+
+The following example would match any network interface names starting with eth:
+
+    ["~>", "path", ["networking", "eth.*", "macaddress"]]
+
 ### `null?` (is null)
 
 **Works with:** fields that may be null
