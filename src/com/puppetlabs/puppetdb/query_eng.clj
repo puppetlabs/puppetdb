@@ -78,6 +78,18 @@
                :subquery? false
                :source "select resource as res_param_resource, name as res_param_name, value as res_param_value from resource_params"}))
 
+(def fact-paths-query
+  "Query for the resource-params query, mostly used as a subquery"
+  (map->Query {:project {"type" :string
+                         "path" :path}
+               :queryable-fields ["type" "path"]
+               :source-table "fact_paths"
+               :alias "fact_paths"
+               :subquery? false
+               :source "SELECT path,type FROM
+                       fact_paths fp
+                       INNER JOIN value_types vt ON fp.value_type_id=vt.id"}))
+
 (def facts-query
   "Query structured facts."
 

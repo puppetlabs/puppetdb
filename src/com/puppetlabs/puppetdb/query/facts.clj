@@ -9,7 +9,6 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.facts :as f]
-            [clojure.string :as str]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (def row-schema

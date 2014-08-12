@@ -63,6 +63,8 @@ Version 4 of the query API is currently experimental and may change without noti
 * [Nodes Endpoint](./query/v4/nodes.html)
 * [Fact-Names Endpoint](./query/v4/fact-names.html)
 * [Fact-Nodes Endpoint](./query/v4/fact-nodes.html)
+* [Factsets Endpoint](./query/v4/factsets.html)
+* [Fact-Paths Endpoint](./query/v4/fact-paths.html)
 * [Metrics Endpoint](./query/v4/metrics.html)
 * [Reports Endpoint](./query/v4/reports.html)
 * [Events Endpoint](./query/v4/events.html)
