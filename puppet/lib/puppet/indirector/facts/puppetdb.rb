@@ -15,8 +15,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   end
 
   def get_trusted_info(node)
-    trusted = Puppet.lookup(:trusted_information) {
-    Puppet::Context::TrustedInformation.local(request.node)}
+    trusted = Puppet.lookup(:trusted_information) do
+      Puppet::Context::TrustedInformation.local(request.node)
+    end
     trusted.to_h
   end
 
@@ -26,9 +27,8 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         facts = request.instance.dup
         facts.values = facts.strip_internal
         if Puppet[:trusted_node_data]
-          trusted = facts.values[:trusted] = get_trusted_info(request.node)
+          facts.values[:trusted] = get_trusted_info(request.node)
         end
-        facts.stringify
         {
           "name" => facts.name,
           "values" => facts.values,
