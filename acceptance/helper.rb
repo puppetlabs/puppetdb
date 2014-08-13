@@ -729,6 +729,14 @@ EOS
     JSON.parse(File.read(cat_path))
   end
 
+  def parse_json_with_error(input)
+      begin
+          facts = JSON.parse(input)
+      rescue Exception => e
+          facts = "#{e.message} on input '#{input}'"
+      end
+      return facts
+  end
 
   ############################################################################
   # NOTE: This code was merged into beaker, however it does not work as desired.

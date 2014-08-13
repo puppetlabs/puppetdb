@@ -12,7 +12,11 @@ test_name "export and import tools" do
       'master' => {
         'storeconfigs' => 'false',
         'autosign' => 'true',
-        'manifest' => manifest_path
+        'manifest' => manifest_path,
+        'trusted_node_data' => 'true'
+      },
+      'main' => {
+        'stringify_facts' => 'false'
       }} do
       #only some of the opts work on puppet_agent, acceptable exit codes does not
       agents.each do |agent|
@@ -38,13 +42,21 @@ test_name "export and import tools" do
 
   step "verify foo fact present" do
     result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
-    facts = JSON.parse(result.stdout.strip)
-    assert_equal('bar', facts['values']['foo'], "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
+    facts = parse_json_with_error(result.stdout.strip)
+    assert_equal('bar', facts['values']['foo'], "Failed to retrieve fact 'foo' for '#{master.node_name}' via inventory service!")
   end
+
+  step "verify trusted fact present" do
+    result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
+    facts = parse_json_with_error(result.stdout.strip)
+    assert_equal("remote", JSON.parse(facts['values']['trusted'])["authenticated"],
+                 "Failed to retrieve trusted facts for '#{master.node_name}' via inventory service!")
+  end
+
 
   step "Verify that the number of active nodes is what we expect" do
     result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
-    result_node_statuses = JSON.parse(result.stdout)
+    result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
@@ -71,13 +83,16 @@ test_name "export and import tools" do
 
   step "verify facts were exported/imported correctly" do
     result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
-    facts = JSON.parse(result.stdout.strip)
-    assert_equal('bar', facts['values']['foo'], "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
+    facts = parse_json_with_error(result.stdout.strip)
+    assert_equal('bar', facts['values']['foo'],
+                 "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
+    assert_equal("remote", JSON.parse(facts['values']['trusted'])["authenticated"],
+                 "Failed to retrieve trusted facts for '#{master.node_name}' via inventory service!")
   end
 
   step "Verify that the number of active nodes is what we expect" do
     result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
-    result_node_statuses = JSON.parse(result.stdout)
+    result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
