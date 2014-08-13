@@ -49,10 +49,6 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (paging/validate-order-by! (map keyword (keys query/fact-columns)) paging-options)
-  (case version
-    (:v2 :v3)
-    (throw (IllegalArgumentException. "Factset endpoint is only availble for v4"))
-
+  (paging/validate-order-by! (map keyword (keys query/factset-columns)) paging-options)
     (qe/compile-user-query->sql
-     qe/factsets-query query paging-options)))
+     qe/factsets-query query paging-options))

@@ -270,6 +270,7 @@
                          "type" :string}
                :alias "factsets"
                :queryable-fields ["certname" "environment" "timestamp"]
+               :entity :factsets
                :source-table "factsets"
                :subquery? false
                :source "select fact_paths.path, timestamp,
@@ -780,12 +781,14 @@
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
-        facts? (= :facts (:entity query-rec))
+        entity (:entity query-rec)
+        augmented-paging-options (facts/augment-paging-options paging-options
+                                                               entity)
         sql (plan->sql plan)
-        paged-sql (if paging-options
-                    (jdbc/paged-sql sql paging-options facts?)
+        paged-sql (if augmented-paging-options
+                    (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql facts? sql) params))
+      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) params))
       result-query)))

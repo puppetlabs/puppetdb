@@ -297,9 +297,13 @@
        "$"))
 
 (defn augment-paging-options
-  [{:keys [order-by] :as paging-options}]
-  (if (nil? order-by)
-    paging-options
-    (assoc paging-options :order-by (concat
-                                      (filter #(not= (first %) :value) order-by)
-                                      [[:name :ascending] [:certname :ascending]]))))
+  [{:keys [order-by] :as paging-options} entity]
+  (if (or (nil? entity) (nil? order-by)) paging-options
+    (let [[to-dissoc to-append] (case entity
+                                  :facts     [:value
+                                              [[:name :ascending]
+                                               [:certname :ascending]]]
+                                  :factsets  [nil
+                                              [[:certname :ascending]]])
+          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
+        (assoc paging-options :order-by (concat to-prepend to-append)))))
