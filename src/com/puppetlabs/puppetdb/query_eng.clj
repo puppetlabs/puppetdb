@@ -86,9 +86,10 @@
                :source-table "fact_paths"
                :alias "fact_paths"
                :subquery? false
-               :source "SELECT path,type FROM
-                       fact_paths fp
-                       INNER JOIN value_types vt ON fp.value_type_id=vt.id"}))
+               :source "SELECT path, type
+                        FROM fact_paths fp
+                        INNER JOIN value_types vt ON fp.value_type_id=vt.id
+                        WHERE fp.value_type_id != 5"}))
 
 (def facts-query
   "Query structured facts."
@@ -106,21 +107,24 @@
                :entity :facts
                :subquery? false
                :source
-               "SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
-                               COALESCE(fv.value_string,
-                                        cast(fv.value_integer as text),
-                                        cast(fv.value_boolean as text),
-                                        cast(fv.value_float as text),
-                                        '') as value,
-                               vt.type as type,
-                               env.name as environment
-                        FROM factsets fs
-                             INNER JOIN facts as f on fs.id = f.factset_id
-                             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                             INNER JOIN fact_paths as fp on fv.path_id = fp.id
-                             INNER JOIN value_types as vt on vt.id=fv.value_type_id
-                             LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-               ORDER BY name, fs.certname"}))
+               "SELECT fs.certname,
+                       fp.path as path,
+                       fp.name as name,
+                       fp.depth as depth,
+                       COALESCE(fv.value_string,
+                                fv.value_json,
+                                cast(fv.value_integer as text),
+                                cast(fv.value_boolean as text),
+                                cast(fv.value_float as text)) as value,
+                       vt.type as type,
+                       env.name as environment
+                FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN value_types as vt on vt.id=fv.value_type_id
+                  LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                WHERE depth = 0"}))
 
 (def fact-nodes-query
   "Query for fact nodes"
@@ -134,27 +138,29 @@
                :queryable-fields ["path" "value" "certname" "environment" "name"]
                :source-table "facts"
                :subquery? false
-               :source "SELECT fs.certname,
-                               fp.path,
-                               fp.name as name,
-                               COALESCE(fv.value_string,
-                                        CAST(fv.value_integer as text),
-                                        CAST(fv.value_float as text),
-                                        CAST(fv.value_boolean as text)) as value,
-                               COALESCE(CAST(fv.value_integer as double precision),
-                                        fv.value_float) as value_number,
-                               fv.value_string,
-                               fv.value_hash,
-                               fv.value_integer,
-                               fv.value_float,
-                               env.name as environment,
-                               vt.type
-                        FROM factsets fs
-                             INNER JOIN facts as f on fs.id = f.factset_id
-                             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                             INNER JOIN fact_paths as fp on fv.path_id = fp.id
-                             INNER JOIN value_types as vt on fp.value_type_id = vt.id
-                             LEFT OUTER JOIN environments as env on fs.environment_id = env.id"}))
+               :source
+               "SELECT fs.certname,
+                       fp.path,
+                       fp.name as name,
+                       COALESCE(fv.value_string,
+                                CAST(fv.value_integer as text),
+                                CAST(fv.value_float as text),
+                                CAST(fv.value_boolean as text)) as value,
+                       COALESCE(CAST(fv.value_integer as double precision),
+                                fv.value_float) as value_number,
+                       fv.value_string,
+                       fv.value_hash,
+                       fv.value_integer,
+                       fv.value_float,
+                       env.name as environment,
+                       vt.type
+                FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN value_types as vt on fp.value_type_id = vt.id
+                  LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                WHERE fp.value_type_id != 5"}))
 
 (def resources-query
   "Query for the top level resource entity"
@@ -273,16 +279,21 @@
                :entity :factsets
                :source-table "factsets"
                :subquery? false
-               :source "select fact_paths.path, timestamp,
-                               COALESCE(fact_values.value_string, CAST(fact_values.value_integer as text),
-                                        CAST(fact_values.value_float as text), CAST(fact_values.value_boolean as text)) as value,
-                               factsets.certname, environments.name as environment, value_types.type
+               :source "SELECT fact_paths.path, timestamp,
+                               COALESCE(fact_values.value_string,
+                                        CAST(fact_values.value_integer as text),
+                                        CAST(fact_values.value_float as text),
+                                        CAST(fact_values.value_boolean as text)) as value,
+                               factsets.certname,
+                               environments.name as environment,
+                               value_types.type
                         FROM factsets
                              INNER JOIN facts on factsets.id = facts.factset_id
                              INNER JOIN fact_values on facts.fact_value_id = fact_values.id
                              INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
                              INNER JOIN value_types on fact_paths.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
+                        WHERE fact_paths.value_type_id != 5
                         ORDER BY factsets.certname"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -766,6 +777,18 @@
 
     annotated-query))
 
+(defn augment-paging-options
+  "Specially augmented paging options to include handling the cases where name
+   and certname may be part of the ordering."
+  [{:keys [order-by] :as paging-options} entity]
+  (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
+    paging-options
+    (let [[to-dissoc to-append] (case entity
+                                  :factsets  [nil
+                                              [[:certname :ascending]]])
+          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
+        (assoc paging-options :order-by (concat to-prepend to-append)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -782,8 +805,8 @@
                                    (convert-to-plan query-rec)
                                    extract-all-params)
         entity (:entity query-rec)
-        augmented-paging-options (facts/augment-paging-options paging-options
-                                                               entity)
+        augmented-paging-options (augment-paging-options paging-options
+                                                         entity)
         sql (plan->sql plan)
         paged-sql (if augmented-paging-options
                     (jdbc/paged-sql sql augmented-paging-options entity)

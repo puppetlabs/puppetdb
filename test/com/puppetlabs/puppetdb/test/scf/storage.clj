@@ -527,8 +527,8 @@
                    :environment "ENV3"
                    :producer-timestamp nil})
       (delete-facts! certname))
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 6))
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 6))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 7))
+    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 7))
     (garbage-collect!)
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
