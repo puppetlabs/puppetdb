@@ -29,9 +29,10 @@ Upgrading with the PuppetDB Module
 
 If you [installed PuppetDB with the module][module], you only need to do the following to upgrade:
 
-1. If you imported the official packages into your local package repositories, import the new versions of the PuppetDB and terminus plugin packages.
-2. Change the value of the `puppetdb_version` parameter for the `puppetdb` or `puppetdb::server` and `puppetdb::master::config` classes, unless it was set to `latest`.
-3. If you are doing a large version jump, trigger a Puppet run on the PuppetDB server before the puppet master server has a chance to do a Puppet run. (It's possible for a new version of the terminus plugins to use API commands unsupported by old PuppetDB versions, which would cause Puppet failures until PuppetDB was upgraded, but this should be very rare.)
+1. Make sure that the puppet master has an updated version of the [puppetlabs-puppetdb](https://forge.puppetlabs.com/puppetlabs/puppetdb) module installed.
+2. If you imported the official packages into your local package repositories, import the new versions of the PuppetDB and terminus plugin packages.
+3. Change the value of the `puppetdb_version` parameter for the `puppetdb` or `puppetdb::server` and `puppetdb::master::config` classes, unless it was set to `latest`.
+4. If you are doing a large version jump, trigger a Puppet run on the PuppetDB server before the puppet master server has a chance to do a Puppet run. (It's possible for a new version of the terminus plugins to use API commands unsupported by old PuppetDB versions, which would cause Puppet failures until PuppetDB was upgraded, but this should be very rare.)
 
 Manually Upgrading PuppetDB
 -----
