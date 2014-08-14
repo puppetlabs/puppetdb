@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/using.html"
 ---
 
-[exported]: /puppet/3/reference/lang_exported.html
+[exported]: /puppet/latest/reference/lang_exported.html
 
 
 Currently, the main use for PuppetDB is to enable advanced features in Puppet. We expect additional applications to be built on PuppetDB as it becomes more widespread.
@@ -27,9 +27,3 @@ PuppetDB lets you use exported resources, which allows your nodes to publish inf
 
 [See here for more about using exported resources.][exported]
 
-Using the Inventory Service
------
-
-PuppetDB provides better performance for Puppet's inventory service.
-
-[See here for more about using the inventory service and building applications on it.](/guides/inventory_service.html) If you are using Puppet Enterprise's console, or Puppet Dashboard with inventory support turned on, you will not need to change your configuration --- PuppetDB will become the source of inventory information as soon as [the puppet master is connected to it](./connect_puppet_master.html).

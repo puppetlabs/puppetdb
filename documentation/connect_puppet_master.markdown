@@ -5,11 +5,11 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
-[puppetdb_conf]: /guides/configuring.html#puppetdbconf
-[routes_yaml]: /guides/configuring.html#routesyaml
-[exported]: /puppet/3/reference/lang_exported.html
+[puppetdb_conf]: /puppet/latest/reference/config_file_puppetdb.html
+[routes_yaml]: /puppet/latest/reference/config_file_routes.html
+[exported]: /puppet/latest/reference/lang_exported.html
 [install_via_module]: ./install_via_module.html
-[report_processors]: http://docs.puppetlabs.com/guides/reporting.html
+[report_processors]: /guides/reporting.html
 [event]: ./api/query/v3/event.html
 [report]: ./api/query/v3/report.html
 [store_report]: ./api/commands.html#store-report-version-1
@@ -23,7 +23,6 @@ After PuppetDB is installed and running, you should configure your puppet master
 * Send every node's catalog to PuppetDB
 * Send every node's facts to PuppetDB
 * Query PuppetDB when compiling node catalogs that collect [exported resources][exported]
-* Query PuppetDB when responding to [inventory service](/guides/inventory_service.html) requests
 
 > Note: if you've [installed PuppetDB using the PuppetDB puppet module][install_via_module], then the `puppetdb::master::config` class is taking care of all of this for you.
 
@@ -76,7 +75,7 @@ If no puppetdb.conf file exists, the following default values will be used:
 
 ### 2. Edit puppet.conf
 
-To enable PuppetDB for the inventory service and saved catalogs/exported resources, add the following settings to the `[master]` block of puppet.conf (or edit them if already present):
+To enable saving facts and catalogs in PuppetDB, add the following settings to the `[master]` block of puppet.conf (or edit them if already present):
 
     [master]
       storeconfigs = true
@@ -118,8 +117,6 @@ Create it if necessary, and add the following:
       facts:
         terminus: puppetdb
         cache: yaml
-
-This will make PuppetDB the authoritative source for the inventory service.
 
 ## Step 3: Restart Puppet Master
 
