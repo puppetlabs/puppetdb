@@ -138,6 +138,14 @@ which returns:
       "environment" : "foo"
     } ]
 
+The double asterisk (**) can be used with the path glob operator to define any number of element matches. For example if you wanted to see all fact-nodes with the parent `["networking","eth0"]`, the following query could be used:
+
+    curl -G 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["*>", "path", ["networking","eth0","**"]]'
+
+Or you could use the double asterisk match at the beginning, to match against a key that is at the bottom of a path, and you are uncertain of its depth:
+
+    curl -G 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["*>", "path", ["**","operatingsystem"]]'
+
 Another operator that provides additional power, is the regexp array operator. This operator works a lot like the glob operator, but allows you to use full regexp to match an element for a path.
 
 The example shows a query that extracts all `macaddresses` for all ethernet devices (that is, devices starting with `eth`):

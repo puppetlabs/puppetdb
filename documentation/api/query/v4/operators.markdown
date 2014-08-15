@@ -83,11 +83,34 @@ The following example would match if the `certname` field's actual value resembl
 
 **Works with:** paths
 
-**Matches if:** the array matches against the value, however in this form one may use an asterisk (*) as a means to glob a portion of a path element. The asterisk indicates one element can be any string or number, therefore allowing a user to define any key or value in an array or map represented by the path.
+**Matches if:** the array matches against the value, however in this form one may use an asterisk (*) as a means to match anything for a single path element. The asterisk indicates one element can be any string or a number, therefore allowing a user to define any key or value in an array or map represented by the path.
 
-The following example would match any network interface name, and its macaddress data:
+Given the following sample hash data:
 
-    ["*>", "path", ["networking","*","macaddress"]
+    {
+      "networking": {
+        "eth0": {
+          "macaddress": "aa:bb:cc:00:11:22"
+        },
+        "eth1": {
+          "macaddress": "aa:bb:cc:00:11:23"
+        }
+      }
+    }
+
+The following example would match both network interface names, and specifically match their macaddress data:
+
+    ["*>", "path", ["networking", "*", "macaddress"]
+
+The double asterisk may be used to match beyond one single element. For example if you wished to match all paths under `network` you could use:
+
+    ["*>", "path", ["networking", "**"]]
+
+Or alternatively if you knew you had a macaddress key as a leaf key, but you weren't sure where in the tree it was:
+
+    ["*>", "path", ["**", "macaddress"]]
+
+For greater matching power against parts of each element using regular expressions, use the `~>` operator.
 
 ### '~>' (regexp array match)
 

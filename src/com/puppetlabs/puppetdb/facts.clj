@@ -258,12 +258,18 @@
   "Converts a field found in a factpath glob to its equivalent regexp"
   [globarray :- fact-path]
   (map (fn [element]
-         (if (= element "*")
+         (case element
+           "*"
            ;; This may seem complicated, but the negative lookup ahead match
            ;; is designed to not match against the delimiter, but happily
            ;; match anything else. This ensures the single * is contained within
            ;; one path element only.
            (format "(?:(?!%s).)+" factpath-delimiter)
+
+           ;; The double glob is simply an open search. Its intent is to be
+           ;; unbounded by delimiters but not greedy.
+           "**" ".*"
+
            element))
        globarray))
 
