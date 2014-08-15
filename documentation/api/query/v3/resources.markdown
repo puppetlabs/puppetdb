@@ -49,8 +49,6 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 * `line`: the line of the manifest on which the resource was declared.
 
-* `environment`: the environment of the node associated to the resource.
-
 
 ### Response format
 

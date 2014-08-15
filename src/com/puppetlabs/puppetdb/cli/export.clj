@@ -117,12 +117,12 @@
              (integer? port)
              (string? report-hash)]
       :post [(seq? %)]}
-    (let [body (parse-response
-                  (client/get
-                     (format
-                       "http://%s:%s/%s/events?query=%s"
-                        host port (name version)
-                        (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
+     (let [body (parse-response
+                 (client/get
+                  (format
+                   "http://%s:%s/%s/events?query=%s"
+                   host port (name version)
+                   (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
        (sort-by
         #(mapv % [:timestamp :resource-type :resource-title :property])
         (map

@@ -4,17 +4,17 @@ layout: default
 canonical: "/puppetdb/latest/connect_puppet_apply.html"
 ---
 
-[exported]: /puppet/3/reference/lang_exported.html
+[exported]: /puppet/latest/reference/lang_exported.html
 [package]: /references/latest/type.html#package
 [file]: /references/latest/type.html#file
 [yumrepo]: /references/latest/type.html#yumrepo
 [apt]: http://forge.puppetlabs.com/puppetlabs/apt
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
-[puppetdb_conf]: /guides/configuring.html#puppetdbconf
-[routes_yaml]: /guides/configuring.html#routesyaml
-[exported]: /puppet/3/reference/lang_exported.html
+[puppetdb_conf]: /puppet/latest/reference/config_file_puppetdb.html
+[routes_yaml]: /puppet/latest/reference/config_file_routes.html
+[exported]: /puppet/latest/reference/lang_exported.html
 [jetty]: ./configure.html#jetty-http-settings
-[settings_namespace]: /puppet/3/reference/lang_variables.html#master-set-variables
+[settings_namespace]: /puppet/latest/reference/lang_facts_and_builtin_vars.html#variables-set-by-the-puppet-master
 [ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
 
 > Note:  To use PuppetDB, the nodes at your site must be running Puppet 3.5.1 or later.
