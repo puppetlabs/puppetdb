@@ -2,13 +2,16 @@
 
 (ns com.puppetlabs.jdbc
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
-           (java.util.concurrent TimeUnit))
+           (java.util.concurrent TimeUnit)
+           (org.hibernate.engine.jdbc.internal BasicFormatterImpl))
   (:require [clojure.java.jdbc :as sql]
             [clojure.java.jdbc.internal :as jint]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]
             [com.puppetlabs.time :as pl-time]
             [com.puppetlabs.jdbc.internal :refer :all]))
 
@@ -346,3 +349,8 @@
     (str "in ("
          (str/join "," (repeat (count coll) inner))
          ")")))
+
+(pls/defn-validated pretty-sql :- s/Str
+  "Format SQL in a pretty way."
+  [sql :- s/Str]
+  (.format (BasicFormatterImpl.) sql))
