@@ -324,6 +324,33 @@
         :timestamp "2011-01-01T15:00:02.000Z"
         :configuration-version "a81jasj123"
         :certname "basic.catalogs.com"
+        :message nil}}
+
+     ;; test vector-valued field
+     ["and"
+      ["=" "containing-class" "Foo"]
+      ["in" ["certname", "environment"]
+       ["extract" ["certname", "environment"]
+        ["select-resources" ["=" "title" "foobar"]]]]]
+
+     #{{:containment-path ["Foo" "" "Bar[Baz]"]
+        :new-value nil
+        :containing-class "Foo"
+        :report-receive-time "2014-04-16T12:44:40.978Z"
+        :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
+        :resource-title "hi"
+        :property nil
+        :file "bar"
+        :old-value nil
+        :run-start-time "2011-01-01T15:00:00.000Z"
+        :line 2
+        :status "skipped"
+        :run-end-time "2011-01-01T15:10:00.000Z"
+        :resource-type "Notify"
+        :environment "DEV"
+        :timestamp "2011-01-01T15:00:02.000Z"
+        :configuration-version "a81jasj123"
+        :certname "basic.catalogs.com"
         :message nil}})))
 
 (deftestseq valid-subqueries

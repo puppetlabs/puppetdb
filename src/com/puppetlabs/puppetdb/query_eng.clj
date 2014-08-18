@@ -318,7 +318,7 @@
       (parenthize
        (:subquery? query)
        (format "SELECT %s FROM ( %s ) AS %s %s %s"
-               (str/join ", " (map #(format "%s.%s" alias %) (keys (:project query))))
+               (str/join ", " (map #(format "%s.%s" alias %) (sort (keys (:project query)))))
                (:source query)
                (:alias query)
                (if has-where?
@@ -330,8 +330,8 @@
 
   InExpression
   (-plan->sql [expr]
-    (format "%s in %s"
-            (:column expr)
+    (format "(%s) in %s"
+            (str/join "," (sort (:column expr)))
             (-plan->sql (:subquery expr))))
 
   BinaryExpression
@@ -648,17 +648,18 @@
             (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
             [["in" column subquery-expression]]
-            (map->InExpression {:column column
+            (map->InExpression {:column (if (vector? column) column [column])
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["extract" column
               [subquery-name & subquery-expression]]]
-            (assoc (user-query->logical-obj subquery-name)
-              :project {column nil}
+            (let [columns (if (vector? column) column [column])]
+              (assoc (user-query->logical-obj subquery-name)
+              :project (zipmap columns (repeat (count columns) nil))
               :where (when (seq subquery-expression)
-                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression))))
+                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
             :else nil))
 
 (defn convert-to-plan

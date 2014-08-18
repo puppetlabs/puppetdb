@@ -181,7 +181,6 @@
                                                                                       [">" "value" 10000]]]]]]]]]]
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
-
    ;; Multiple fact subqueries
    ["and"
     ["=" "name" "ipaddress"]
@@ -226,7 +225,17 @@
 
            #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}
              {:certname "bar" :name "ipaddress" :value "192.168.1.101" :environment "DEV"}
-             {:certname "baz" :name "ipaddress" :value "192.168.1.102" :environment "DEV"}}))))
+             {:certname "baz" :name "ipaddress" :value "192.168.1.102" :environment "DEV"}}))
+
+   "/v4/facts"
+   (merge common-subquery-tests
+          (omap/ordered-map
+           ;; vectored fact-nodes subquery
+           ["in" ["name" "certname"]
+            ["extract" ["name" "certname"]
+             ["select-fact-nodes"
+              ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
+           #{{:value 12, :name "uptime_seconds", :environment "DEV", :certname "bar"}}))))
 
 (def versioned-invalid-subqueries
   (omap/ordered-map
@@ -256,6 +265,13 @@
                                                           ["=" "sourceline" 1]]]]]]
 
                 "'sourcefile' is not a queryable object for resources in the version 3 API"
+
+                ;; vectored fact-nodes subquery
+                ["in" ["name" "certname"]
+                 ["extract" ["name" "certname"]
+                  ["select-fact-nodes"
+                   ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
+                "Can't match on fields '[\"name\" \"certname\"]'. The v2-v3 query API does not permit vector-valued fields."
 
                 ;; In-queries for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
@@ -1128,6 +1144,7 @@
               ["=" "name" "my_structured_fact"]
               [{:value  {:b 3.14 :a 1 :e "1" :d  {:n ""} :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]}
+
     [:v4 "/v4/facts"]
               {["=" "certname" "foo1"]
                [{:value "testing.com" :name "domain" :environment "DEV" :certname "foo1"}
@@ -1147,6 +1164,7 @@
                [{:value {:b 3.14 :a 1 :e "1" :d {:n ""} :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                 {:value {:d {:n ""} :b 3.14 :a 1 :e "1" :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}
                 {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]}
+
               {["=" "certname" "foo1"]
                [{:value "testing.com" :name "domain" :certname "foo1"}
                 {:value "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}" :name "my_structured_fact" :certname "foo1"}

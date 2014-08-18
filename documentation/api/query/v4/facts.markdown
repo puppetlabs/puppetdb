@@ -68,7 +68,7 @@ Get the operatingsystem fact for all nodes:
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
-     {"certname": "c.example.com", "name": "operatingsystem", "value": "Darwin"},
+     {"certname": "c.example.com", "name": "operatingsystem", "value": "Darwin"}]
 
 Get all facts for a single node:
 
@@ -77,6 +77,22 @@ Get all facts for a single node:
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
+
+Subquery against `/fact-nodes` to get all remotely-authenticated trusted facts:
+
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'query=["in", ["name","certname"],
+      ["extract",["name","certname"],
+        ["select-fact-nodes", ["~>", "path", [".*", "authenticated"]]]]]'
+
+    [ {
+        "value" : {
+            "certname" : "desktop.localdomain",
+            "authenticated" : "remote"
+        },
+        "name" : "trusted",
+        "environment" : "production",
+        "certname" : "desktop.localdomain"
+    } ]
 
 ## `GET /v4/facts/<FACT NAME>`
 
