@@ -111,3 +111,10 @@
   ks in map m."
   [m ks f]
     (reduce #(update-in %1 [%2] f) m ks))
+
+(pls/defn-validated class-or-nil :- (s/maybe Class)
+  "Returns the class if it exists, nil if it does not."
+  [c :- s/Str]
+  (try
+    (Class/forName c)
+    (catch ClassNotFoundException e nil)))

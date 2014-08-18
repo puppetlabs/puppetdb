@@ -71,16 +71,7 @@
                  [prismatic/schema "0.2.1"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
-                 [fast-zip-visit "1.0.2"]
-                 [org.hibernate/hibernate-core "4.3.6.Final" :exclusions [org.jboss.logging/jboss-logging
-                                                                          org.jboss.logging/jboss-logging-annotations
-                                                                          org.jboss.spec.javax.transaction/jboss-transaction-api_1.2_spec
-                                                                          org.jboss/jandex
-                                                                          org.javassist/javassist
-                                                                          org.hibernate.javax.persistence/hibernate-jpa-2.1-api
-                                                                          org.hibernate.common/hibernate-commons-annotations
-                                                                          antlr
-                                                                          dom4j]]]
+                 [fast-zip-visit "1.0.2"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 
@@ -101,7 +92,16 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
-                                  [org.clojure/test.check "0.5.8"]]}}
+                                  [org.clojure/test.check "0.5.8"]
+                                  [org.hibernate/hibernate-core "4.3.6.Final" :exclusions [org.jboss.logging/jboss-logging
+                                                                                           org.jboss.logging/jboss-logging-annotations
+                                                                                           org.jboss.spec.javax.transaction/jboss-transaction-api_1.2_spec
+                                                                                           org.jboss/jandex
+                                                                                           org.javassist/javassist
+                                                                                           org.hibernate.javax.persistence/hibernate-jpa-2.1-api
+                                                                                           org.hibernate.common/hibernate-commons-annotations
+                                                                                           antlr
+                                                                                           dom4j]]]}}
 
   :jar-exclusions [#"leiningen/"]
 
