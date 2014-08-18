@@ -281,6 +281,7 @@
                :subquery? false
                :source "SELECT fact_paths.path, timestamp,
                                COALESCE(fact_values.value_string,
+                                        fact_values.value_json,
                                         CAST(fact_values.value_integer as text),
                                         CAST(fact_values.value_float as text),
                                         CAST(fact_values.value_boolean as text)) as value,
@@ -293,7 +294,7 @@
                              INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
                              INNER JOIN value_types on fact_paths.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
-                        WHERE fact_paths.value_type_id != 5
+                        WHERE depth = 0
                         ORDER BY factsets.certname"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

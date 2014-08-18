@@ -47,7 +47,9 @@
 (defn int-map->vector
   "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"
   [node]
-  (when (map? node)
+  (when (and
+         (map? node)
+         (not (empty? node)))
     (let [int-keys (keys node)]
       (when (every? integer? int-keys)
         (mapv node (sort int-keys))))))
