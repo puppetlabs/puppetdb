@@ -125,7 +125,7 @@ Get the structured partitions fact for a single node:
       "environment" : "production",
       "certname" : "a.example.com"
     } ]
-    
+
 ## `GET /v4/facts/<FACT NAME>/<VALUE>`
 
 This will return all facts with the given fact name and

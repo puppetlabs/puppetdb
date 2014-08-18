@@ -111,34 +111,9 @@ which returns:
       "environment" : "foo"
     } ]
 
-With the globbing array operator, we can also provide some basic matches against all elements in a map, or all elements in an array. This can be useful to search across all values that might appear in different places of the tree.
+For matching against a path element, we have added a new operator: `~>`. We call it the regexp array operator.
 
-This example shows a query that extracts all `macaddresses` for all networking devices:
-
-    curl -G 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["*>", "path", ["networking","*","macaddresses","*"]]'
-
-which returns:
-
-    [ {
-      "certname" : "node-0",
-      "path" : [ "networking", "eth0", "macaddresses", 0 ],
-      "name" : "networking",
-      "value" : "aa:bb:cc:dd:ee:00",
-      "environment" : "foo"
-    }, {
-      "certname" : "node-0",
-      "path" : [ "networking", "eth0", "macaddresses", 1 ],
-      "name" : "networking",
-      "value" : "aa:bb:cc:dd:ee:01",
-      "environment" : "foo"
-    }, {
-      "certname" : "node-0",
-      "path" : [ "networking", "tun0", "macaddresses", 0 ],
-      "value" : "aa:bb:cc:dd:ee:02",
-      "environment" : "foo"
-    } ]
-
-Another operator that provides additional power, is the regexp array operator. This operator works a lot like the glob operator, but allows you to use full regexp to match an element for a path.
+This operator allows you to match against path elements using an array of regular expressions that individually match against the stored paths for each fact-node.
 
 The example shows a query that extracts all `macaddresses` for all ethernet devices (that is, devices starting with `eth`):
 

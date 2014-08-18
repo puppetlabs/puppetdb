@@ -1296,33 +1296,6 @@
                [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
                 {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
                 {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "PROD"}]))
-        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "c" "*"]]))
-               [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 1], "value" "b", "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 2], "value" "c", "environment" "PROD"}]))
-        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "*" "n"]]))
-               [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "d" "n"], "value" "", "environment" "PROD"}]))
-        (is (= (into [] (response ["*>" "path" ["my_structured_fact" "*"]]))
-               [{"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" ""], "value" "g?", "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "a"], "value" 1, "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "b"], "value" 3.14, "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
-                {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "e"], "value" "1", "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "e"], "value" "1", "environment" "PROD"}
-                {"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
-                {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
         (is (= (into [] (response ["~>" "path" ["my_structured_fact" "f"]]))
                [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
                 {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
