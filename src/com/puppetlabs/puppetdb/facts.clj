@@ -204,10 +204,14 @@
     value))
 
 (pls/defn-validated factpath-regexp-elements-to-regexp :- fact-path
-  "Converts a field found in a factpath regexp to its equivalent regexp"
+  "Converts a field found in a factpath regexp to its equivalent regexp."
   [rearray :- fact-path]
   (map (fn [element]
-         (format "(?:(?!%s)%s)" factpath-delimiter element))
+         (-> element
+             ;; This ensures that any of the more wildcard searches do not cross
+             ;; delimiter boundaries, by wrapping them with a negative lookup
+             ;; ahead for the delimiter.
+             (str/replace #"\.(\*|\+|\{.+\})" (format "(?:(?!%s).)$1" factpath-delimiter))))
        rearray))
 
 (pls/defn-validated factpath-regexp-to-regexp :- s/Str
