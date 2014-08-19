@@ -793,10 +793,7 @@
      ON UPDATE RESTRICT ON DELETE RESTRICT"
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_type_id_fk
      FOREIGN KEY (value_type_id) REFERENCES value_types (id) MATCH SIMPLE
-     ON UPDATE RESTRICT ON DELETE RESTRICT"
-   ;; For efficient operator querying with <, >, <= and >=
-   "CREATE INDEX fact_values_value_integer_idx ON fact_values(value_integer)"
-   "CREATE INDEX fact_values_value_float_idx ON fact_values(value_float)")
+     ON UPDATE RESTRICT ON DELETE RESTRICT")
 
   ;; --------
   ;; FACTSETS
@@ -940,7 +937,8 @@
   (when-not (scf-utils/index-exists? "fact_paths_path_trgm")
     (log/info "Creating additional index `fact_paths_path_trgm`")
     (sql/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)")))
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"
+     "CREATE INDEX fact_values_string_trgm ON fact_values USING gist (value_string gist_trgm_ops)")))
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
