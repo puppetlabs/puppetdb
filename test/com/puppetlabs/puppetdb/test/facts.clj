@@ -2,21 +2,6 @@
   (:require [com.puppetlabs.puppetdb.facts :refer :all]
             [clojure.test :refer :all]))
 
-(deftest test-flatten-fact-value
-  (testing "check basic types work"
-    (is (= (flatten-fact-value "foo") "foo"))
-    (is (= (flatten-fact-value 3) "3"))
-    (is (= (flatten-fact-value true) "true"))
-    (is (= (flatten-fact-value {:a :b}) "{\"a\":\"b\"}"))
-    (is (= (flatten-fact-value [:a :b]) "[\"a\",\"b\"]"))))
-
-(deftest test-flatten-fact-set
-  (testing "ensure we get back a flattened set of values"
-    (is (= (flatten-fact-set {"networking"
-                              {"eth0"
-                               {"ipaddresses" ["192.168.1.1"]}}})
-           {"networking" "{\"eth0\":{\"ipaddresses\":[\"192.168.1.1\"]}}"}))))
-
 (deftest test-factmap-to-paths
   (testing "should convert a conventional factmap to a set of paths"
     (is (= (sort-by :value_hash
