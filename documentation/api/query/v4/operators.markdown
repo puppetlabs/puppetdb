@@ -133,19 +133,19 @@ rows. (For instance, a query such as "fetch the IP addresses of all nodes with
 
 Subqueries are unlike the other operators listed above. They always appear together in the following form:
 
-    ["in", "<FIELD>", ["extract", "<FIELD>", <SUBQUERY STATEMENT>] ]
+    ["in", ["<FIELDS>"], ["extract", ["<FIELDS>"], <SUBQUERY STATEMENT>] ]
 
 That is:
 
 * The `in` operator results in a complete query string. The `extract` operator and the subqueries do not.
-* An `in` statement **must** contain a field and an `extract` statement.
-* An `extract` statement **must** contain a field and a subquery statement.
+* An `in` statement **must** contain one or more fields and an `extract` statement.
+* An `extract` statement **must** contain one or more fields and a subquery statement.
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
 * The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], [fact-nodes][], or [nodes][]). Each of these objects has many **fields.**
-* The `extract` statement collects the value of a **single field** across every object returned by the subquery.
-* The `in` statement **matches** if the value of its field is present in the list returned by the `extract` statement.
+* The `extract` statement collects the value of one or more **fields** across every object returned by the subquery.
+* The `in` statement **matches** if its field values are present in the list returned by the `extract` statement.
 
 Subquery | Extract | In
 ---------|---------|---
@@ -153,6 +153,7 @@ Every resource whose type is "Class" and title is "Apache." (Note that all resou
 
 The complete `in` statement described in the table above would match any object that shares a `certname` with a node that has `Class[Apache]`. This could be combined with a boolean operator to get a specific fact from every node that matches the `in` statement.
 
+**Note:** Unlike in the v4 API, the v2 and v3 'in' and 'extract' operators do not permit vector-valued fields.
 
 ### `in`
 
@@ -160,10 +161,10 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 "In" statements are **non-transitive** and take two arguments:
 
-* The first argument **must** be a valid **field** for the endpoint **being queried.**
-* The second argument **must** be an **`extract` statement,** which acts as a list of possible values for the field.
+* The first argument **must** consist of one or more **fields** for the endpoint **being queried.**. This is a string or vector of strings.
+* The second argument **must** be an **`extract` statement,** which acts as a list of possible values for the fields.
 
-**Matches if:** the field's actual value is included in the list of values created by the `extract` statement.
+**Matches if:** the field values are included in the list of values created by the `extract` statement.
 
 ### `extract`
 
@@ -171,7 +172,7 @@ An `extract` statement **does not** constitute a full query string. It may only 
 
 "Extract" statements are **non-transitive** and take two arguments:
 
-* The first argument **must** be a valid **field** for the endpoint **being subqueried** (see second argument).
+* The first argument **must** be a valid set of **fields** for the endpoint **being subqueried** (see second argument). This is a string or vector of strings.
 * The second argument **must** be a **subquery statement.**
 
 As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
@@ -251,3 +252,14 @@ To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00`
           ["and",
             ["=", "path", [ "networking", "eth0", "macaddresses", 0 ]],
             ["=", "value", "aa:bb:cc:dd:ee:00" ]]]]]
+
+To exhibit a subquery using multiple fields, you could use the following
+on '/facts' to list all top-level facts containing fact nodes with paths
+starting with "up" and value less than 100:
+
+    ["in", ["certname", "name"],
+      ["extract", ["certname", "name"],
+        ["select-fact-nodes",
+          ["and",
+            ["~>", "path", ["up.*"]],
+            ["<", "value", 100]]]]]

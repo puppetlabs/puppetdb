@@ -340,12 +340,14 @@
   "Compile an `extract` operator, selecting the given `field` from the compiled
   result of `subquery`, which must be a kind of `select` operator."
   [query-api-version ops field subquery]
-  {:pre [(string? field)
+  {:pre [(or (string? field) (vector? field))
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
+    (when (vector? field)
+      (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
     (when-not subquery-type
       (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
     (when-not (get (queryable-fields subquery-type query-api-version) field)
@@ -358,10 +360,12 @@
   `field` appears in the result given by `subquery`, which must be an `extract`
   composed with a `select`."
   [kind query-api-version ops field subquery]
-  {:pre [(string? field)
+  {:pre [(or (string? field) (vector? field))
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
+  (when (vector? field)
+    (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
   (when-not (get (queryable-fields kind query-api-version) field)
     (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
