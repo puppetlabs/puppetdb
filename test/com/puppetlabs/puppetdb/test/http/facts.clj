@@ -1336,6 +1336,21 @@
                []))
         (is (= (into [] (response ["~>" "path" ["my_structured_fact" "^a"]]))
                []))
+        (is (= (into [] (response ["and" ["~>" "path" ["my_structured_fact" ".*"]] ["=" "certname" "foo1"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "a"], "name" "my_structured_fact", "value" 1, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "b"], "name" "my_structured_fact", "value" 3.14, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "e"], "name" "my_structured_fact", "value" "1", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "f"], "name" "my_structured_fact", "value" nil, "environment" "DEV"}]))
+        (is (= (into [] (response ["and" ["~>" "path" ["my_structured_fact" ".+"]] ["=" "certname" "foo1"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "a"], "name" "my_structured_fact", "value" 1, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "b"], "name" "my_structured_fact", "value" 3.14, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "e"], "name" "my_structured_fact", "value" "1", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "f"], "name" "my_structured_fact", "value" nil, "environment" "DEV"}]))
+        (is (= (into [] (response ["and" ["~>" "path" ["my_structured_fact" ".{1,20}"]] ["=" "certname" "foo1"]]))
+               [{"certname" "foo1", "path" ["my_structured_fact" "a"], "name" "my_structured_fact", "value" 1, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "b"], "name" "my_structured_fact", "value" 3.14, "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "e"], "name" "my_structured_fact", "value" "1", "environment" "DEV"}
+                {"certname" "foo1", "path" ["my_structured_fact" "f"], "name" "my_structured_fact", "value" nil, "environment" "DEV"}]))
         (is (= (into [] (response ["=" "value" "a"]))
                [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
                 {"certname" "foo2", "name" "my_structured_fact" "path" ["my_structured_fact" "c" 0], "value" "a", "environment" "DEV"}
