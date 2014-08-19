@@ -350,10 +350,9 @@
          (str/join "," (repeat (count coll) inner))
          ")")))
 
-(pls/defn-validated pretty-sql :- s/Str
+(pls/defn-validated pretty-sql
   "Format SQL in a pretty way."
   [sql :- s/Str]
   (let [c (utils/class-or-nil "org.hibernate.engine.jdbc.internal.BasicFormatterImpl")]
-    (if (nil? c)
-      sql
-      (.format (.newInstance c) sql))))
+    (when (not (nil? c))
+      (log/debug (str "Formatted SQL:\n" (.format (.newInstance c) sql))))))
