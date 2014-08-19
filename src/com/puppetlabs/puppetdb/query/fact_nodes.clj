@@ -1,11 +1,7 @@
 (ns com.puppetlabs.puppetdb.query.fact-nodes
-  (:require [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.puppetdb.facts :as f]
-            [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :as paging]
+  (:require [com.puppetlabs.puppetdb.facts :as f]
             [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [clojure.edn :as clj-edn]
             [schema.core :as s]))
 
 (def row-schema
@@ -21,7 +17,7 @@
    :environment (s/maybe s/Str)
    :path f/fact-path
    :name s/Str
-   :value f/fact-value})
+   :value s/Any})
 
 (pls/defn-validated munge-result-row :- converted-row-schema
   "Coerce the value of a row to the proper type, and convert the path back to

@@ -3,9 +3,9 @@
             [com.puppetlabs.cheshire :as json]
             [schema.core :as s]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [clojure.string :as string]
-            [com.puppetlabs.puppetdb.zip :as zip]
+            [clojure.string :as str]
             [com.puppetlabs.puppetdb.scf.hash :as hash]
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.puppetlabs.puppetdb.utils :as utils]
             [clojure.edn :as clj-edn]))
 
@@ -17,9 +17,6 @@
 (def fact-path
   [fact-path-element])
 
-(def fact-value
-  (s/maybe (s/either s/Keyword s/Str s/Num s/Bool)))
-
 (def fact-path-map
   {:path s/Str
    :depth s/Int
@@ -29,6 +26,7 @@
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
+   :value_json (s/maybe s/Str)
    :value_type_id s/Int})
 
 (def fact-set
@@ -64,12 +62,12 @@
 (pls/defn-validated escape-delimiter :- s/Str
   "Escape the delimiter from a string"
   [element :- s/Str]
-  (string/replace element #"(\\{0,1}#)(\\*\\{0,1}~)" "\\\\$1\\\\$2"))
+  (str/replace element #"(\\{0,1}#)(\\*\\{0,1}~)" "\\\\$1\\\\$2"))
 
 (pls/defn-validated unescape-delimiter :- s/Str
   "Un-escape the delimiter from a string"
   [element :- s/Str]
-  (string/replace element #"(\\*)\\#(\\*)\\~" "$1#$2~"))
+  (str/replace element #"(\\*)\\#(\\*)\\~" "$1#$2~"))
 
 (pls/defn-validated quote-integer-strings :- s/Str
   "Surround a string with quotes if it looks like a number."
@@ -124,25 +122,53 @@
 (pls/defn-validated string-to-factpath :- fact-path
   "Converts a database encoded string back to a factpath."
   [s :- s/Str]
-  (let [parts (string/split s (re-pattern factpath-delimiter))]
+  (let [parts (str/split s (re-pattern factpath-delimiter))]
     (map unencode-path-segment parts)))
 
 (pls/defn-validated factpath-to-string :- s/Str
   "Converts a `fact-path` to an encoded string ready for database storage."
   [factpath :- fact-path]
   (let [encodedpath (map encode-factpath-element factpath)]
-    (string/join factpath-delimiter encodedpath)))
+    (str/join factpath-delimiter encodedpath)))
 
 (pls/defn-validated value-type-id :- s/Int
   "Given a piece of standard hierarchical data, returns the type as an id."
-  [data :- fact-value]
+  [data :- s/Any]
   (cond
    (keyword? data) 0
    (string? data) 0
    (integer? data) 1
    (float? data) 2
    (kitchensink/boolean? data) 3
-   (nil? data) 4))
+   (nil? data) 4
+   (coll? data) 5))
+
+(defn factmap-express-node
+  "Convert data and path into a node definition ready for storage."
+  [data path]
+  (let [type-id (value-type-id data)
+        initial-map {:path (factpath-to-string path)
+                     :name (first path)
+                     :depth (dec (count path))
+                     :value_type_id type-id
+                     :value_hash (hash/generic-identity-hash data)
+                     :value_string nil
+                     :value_integer nil
+                     :value_float nil
+                     :value_boolean nil
+                     :value_json nil}]
+    (if (nil? data)
+      initial-map
+      (let [value-keyword (case type-id
+                            0 :value_string
+                            1 :value_integer
+                            2 :value_float
+                            3 :value_boolean
+                            5 :value_json)
+            data (if (coll? data)
+                   (sutils/db-serialize data)
+                   data)]
+        (assoc initial-map value-keyword data)))))
 
 (defn factmap-to-paths*
   "Recursive function, when given some structured data it will descend into
@@ -151,92 +177,35 @@
   ([data] (factmap-to-paths* data [] []))
   ;; We specifically do not validate with schema here, for performance.
   ([data mem path]
-     (if (coll? data)
-       ;; Branch
-       (if (empty? data)
+     (let [depth (dec (count path))]
+       (if (coll? data)
+         ;; Branch
+         (if (empty? data)
            mem
            (let [idv (if (map? data)
                        (into [] data)
                        (map vector (iterate inc 0) data))]
              (loop [[k v] (first idv)
                     remaining (next idv)
-                    fp mem]
+                    ;; We add this branch to the mem if we are depth 0
+                    ;; thus allowing us to store the top level for each
+                    ;; fact.
+                    fp (if (= depth 0)
+                         (conj mem (factmap-express-node data path))
+                         mem)]
                (let [new-fp (factmap-to-paths* v fp (conj path k))]
                  (if (empty? remaining)
                    new-fp
                    (recur (first remaining)
                           (next remaining)
                           new-fp))))))
-       ;; Leaf
-       (let [type-id (value-type-id data)
-             initial-map {:path (factpath-to-string path)
-                          :name (first path) 
-                          :depth (dec (count path))
-                          :value_type_id type-id
-                          :value_hash (hash/generic-identity-hash data)
-                          :value_string nil
-                          :value_integer nil
-                          :value_float nil
-                          :value_boolean nil}
-             final-map (if (nil? data)
-                         initial-map
-                         (let [value-keyword (case type-id
-                                               0 :value_string
-                                               1 :value_integer
-                                               2 :value_float
-                                               3 :value_boolean)]
-                           (assoc initial-map value-keyword data)))]
-         (conj mem final-map)))))
+         ;; Leaf
+         (conj mem (factmap-express-node data path))))))
 
 (pls/defn-validated factmap-to-paths :- [fact-path-map]
   "Converts a map of facts to a list of `fact-path-map`s."
   [hash :- fact-set]
   (factmap-to-paths* hash))
-
-(defn factname-certname-pred
-  "Create a function to compare the factnames in a list of rows
-  with that of the first row."
-  [rows]
-  (let [factname (:name (first rows))
-        certname (:certname (first rows))]
-    (fn [row]
-      (and (= factname (:name row))
-           (= certname (:certname row))))))
-
-(defn create-certname-pred
-  "Create a function to compare the certnames in a list of
-  rows with that of the first row."
-  [rows]
-  (let [certname (:certname (first rows))]
-    (fn [row]
-      (= certname (:certname row)))))
-
-(defn int-map->vector
-  "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"
-  [node]
-  (when (map? node)
-    (let [int-keys (keys node)]
-      (when (every? integer? int-keys)
-        (mapv node (sort int-keys))))))
-
-(defn int-maps->vectors
-  "Walk a structured fact set, transforming all int maps."
-  [facts]
-  (:node (zip/post-order-transform (zip/tree-zipper facts)
-                                   [int-map->vector])))
-
-(defn recreate-fact-path
-  "Produce the nested map corresponding to a path/value pair.
-
-   Operates by accepting an existing map `acc` and a map containing keys `path`
-   and `value`, it splits the path into its components and populates the data
-   structure with the `value` in the correct path.
-
-   Returns the complete map structure after this operation is applied to
-   `acc`."
-  [acc {:keys [path value]}]
-  (let [split-path (string-to-factpath path)]
-    (assoc-in acc split-path value)))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.
@@ -264,7 +233,7 @@
 (pls/defn-validated factpath-regexp-to-regexp :- s/Str
   "Converts a regexp array to a single regexp for querying against the database.
 
-   Returns a string that contains a fomatted regexp."
+   Returns a string that contains a formatted regexp."
   [rearray :- fact-path]
   (str "^"
        (-> rearray
@@ -272,14 +241,15 @@
            factpath-to-string)
        "$"))
 
-(defn augment-paging-options
-  [{:keys [order-by] :as paging-options} entity]
-  (if (or (nil? entity) (nil? order-by)) paging-options
-    (let [[to-dissoc to-append] (case entity
-                                  :facts     [:value
-                                              [[:name :ascending]
-                                               [:certname :ascending]]]
-                                  :factsets  [nil
-                                              [[:certname :ascending]]])
-          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
-        (assoc paging-options :order-by (concat to-prepend to-append)))))
+(defn convert-row-type
+  "Coerce the value of a row to the proper type."
+  [dissociated-fields row]
+  (let [conversion (case (:type row)
+                     "boolean" clj-edn/read-string
+                     "float" (comp double clj-edn/read-string)
+                     "integer" (comp biginteger clj-edn/read-string)
+                     "json" json/parse-string
+                     ("string" "null") identity)]
+    (reduce #(dissoc %1 %2)
+            (update-in row [:value] conversion)
+            dissociated-fields)))

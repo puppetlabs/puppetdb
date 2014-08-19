@@ -161,19 +161,12 @@
           inner-order-by   (str/replace order-by-clause #"environment"
                                         "COALESCE(distinct_names.environment,'')")]
       (case entity
-        :facts
-        (format "SELECT paged_results.* FROM (%s) paged_results WHERE
-                (name,certname,COALESCE(paged_results.environment,'')) IN
-                (SELECT DISTINCT name,certname,COALESCE(distinct_names.environment,'')
-                FROM (%s) distinct_names %s%s%s) %s"
-                sql sql inner-order-by limit-clause offset-clause order-by-clause)
         :factsets
         (format "SELECT paged_results.* FROM (%s) paged_results
                 WHERE (certname,COALESCE(paged_results.environment,''),timestamp) IN
                 (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp FROM (%s)
                 distinct_names %s%s%s) %s"
                 sql sql inner-order-by limit-clause offset-clause order-by-clause)
-        nil
         (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
                 sql order-by-clause limit-clause offset-clause)))))
 
@@ -186,13 +179,9 @@
   {:pre   [(string? sql)]
    :post  [(string? %)]}
   (case entity
-    :facts
-    (format "select count(*) as result_count from (select distinct name,certname
-            from (%s) paged_sql) results_to_count" sql)
     :factsets
     (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
             from (%s) paged_sql) results_to_count" sql)
-    nil
     (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
@@ -292,9 +281,10 @@
            stats log-statements log-slow-statements statements-cache-size
            conn-max-age conn-lifetime conn-keep-alive read-only?]
     :as   db}]
-  ;; Load the database driver class
-  (Class/forName classname)
-  (let [log-slow-statements-duration (pl-time/to-secs log-slow-statements)
+  (let [;; Load the database driver class explicitly, to avoid jar load ordering
+        ;; issues.
+        _ (Class/forName classname)
+        log-slow-statements-duration (pl-time/to-secs log-slow-statements)
         config          (doto (new BoneCPConfig)
                           (.setDefaultAutoCommit false)
                           (.setLazyInit true)

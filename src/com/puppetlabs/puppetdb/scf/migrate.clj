@@ -743,7 +743,8 @@
    "INSERT INTO value_types (id, type) values (1, 'integer')"
    "INSERT INTO value_types (id, type) values (2, 'float')"
    "INSERT INTO value_types (id, type) values (3, 'boolean')"
-   "INSERT INTO value_types (id, type) values (4, 'null')")
+   "INSERT INTO value_types (id, type) values (4, 'null')"
+   "INSERT INTO value_types (id, type) values (5, 'json')")
 
   ;; ----------
   ;; FACT_PATHS
@@ -776,13 +777,14 @@
 
   (sql/create-table :fact_values
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
-                    ["path_id" "bigint NOT NULL"]
+                    ["path_id"       "bigint NOT NULL"]
                     ["value_type_id" "bigint NOT NULL"]
-                    ["value_hash" "varchar(40) NOT NULL"]
+                    ["value_hash"    "varchar(40) NOT NULL"]
                     ["value_integer" "bigint"]
-                    ["value_float" "double precision"]
-                    ["value_string" "text"]
-                    ["value_boolean" "boolean"])
+                    ["value_float"   "double precision"]
+                    ["value_string"  "text"]
+                    ["value_boolean" "boolean"]
+                    ["value_json"    "text"])
 
   (sql/do-commands
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_value_key UNIQUE (path_id, value_type_id, value_hash)"

@@ -8,8 +8,10 @@
             [com.puppetlabs.puppetdb.schema :as pls]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.facts :as f]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
+
+;; SCHEMA
 
 (def row-schema
   {:certname String
@@ -33,46 +35,28 @@
    :value s/Any
    (s/optional-key :environment) (s/maybe s/Str)})
 
-(defn convert-row-type
-  "Coerce the value of a row to the proper type."
-  [dissociated-fields row]
-  (let [conversion (case (:type row)
-                     "boolean" clj-edn/read-string
-                     "float" (comp double clj-edn/read-string)
-                     "integer" (comp biginteger clj-edn/read-string)
-                     ("string" "null") identity)]
-    (reduce #(dissoc %1 %2)
-            (update-in row [:value] conversion)
-            dissociated-fields)))
-
-(pls/defn-validated convert-types :- [converted-row-schema]
-  [rows :- [row-schema]]
-  (map (partial convert-row-type [:type :depth]) rows))
+;; FUNCS
 
 (defn stringify-value
   [value]
   (if (string? value) value (json/generate-string value)))
 
-(pls/defn-validated collapse-facts :- fact-schema
-  "Aggregate all facts for a factname into a single structure."
-  [version
-   certname-rows :- [converted-row-schema]]
-  (let [first-row (first certname-rows)
-        facts (reduce f/recreate-fact-path {} certname-rows)
-        keyval (f/int-maps->vectors facts)
-        conversion (if (= version :v4) identity stringify-value)]
-    (assoc (select-keys first-row [:certname :environment :timestamp :name])
-      :value (conversion (first (vals keyval))))))
+(pls/defn-validated convert-types :- [converted-row-schema]
+  "Coerce values for each row to the proper stored type."
+  [rows :- [row-schema]]
+  (map (partial facts/convert-row-type [:type :depth]) rows))
 
-(defn structured-data-seq
-  "Produce a lazy sequence of facts from a list of rows ordered by fact name"
-  ([version rows pred collapsing-fn conversion-fn]
-  (when (seq rows)
-    (let [[certname-facts more-rows] (split-with (pred rows) rows)]
-      (cons ((comp (partial collapsing-fn version) conversion-fn) certname-facts)
-            (lazy-seq (structured-data-seq version more-rows pred
-                                           collapsing-fn conversion-fn)))))))
-
+(defn munge-result-rows
+  [version]
+  (fn [rows]
+    (if (empty? rows)
+      []
+      (let [new-rows (->> rows
+                          convert-types
+                          (map #(select-keys % [:certname :environment :timestamp :name :value])))]
+        (case version
+          (:v2 :v3) (map #(update-in % [:value] stringify-value) new-rows)
+          new-rows)))))
 
 (defn facts-sql
   "Return a vector with the facts SQL query string as the first element,
@@ -84,20 +68,24 @@
                        facts.value, facts.path, facts.type, facts.depth
                       FROM (%s) facts" subselect)]
       (apply vector sql params))
-      ["SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
-                        COALESCE(fv.value_string,
-                                cast(fv.value_integer as text),
-                                cast(fv.value_boolean as text),
-                                cast(fv.value_float as text)) as value,
-                        vt.type as type,
-                        env.name as environment
-                FROM factsets fs
-                      INNER JOIN facts as f on fs.id = f.factset_id
-                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                      INNER JOIN fact_paths as fp on fv.path_id = fp.id
-                      INNER JOIN value_types as vt on vt.id=fv.value_type_id
-                      LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-        ORDER BY name, fs.certname"]))
+    ["SELECT fs.certname,
+             fp.path as path,
+             fp.name as name,
+             fp.depth as depth,
+             COALESCE(fv.value_string,
+                      fv.value_json,
+                      cast(fv.value_integer as text),
+                      cast(fv.value_boolean as text),
+                      cast(fv.value_float as text)) as value,
+             vt.type as type,
+             env.name as environment
+        FROM factsets fs
+          INNER JOIN facts as f on fs.id = f.factset_id
+          INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+          INNER JOIN fact_paths as fp on fv.path_id = fp.id
+          INNER JOIN value_types as vt on vt.id=fv.value_type_id
+          LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+        WHERE depth = 0"]))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -106,8 +94,7 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [augmented-paging-options (f/augment-paging-options paging-options :facts)
-        columns (if (contains? #{:v2 :v3} version)
+  (let [columns (if (contains? #{:v2 :v3} version)
                   (map keyword (keys (dissoc query/fact-columns "environment")))
                   (map keyword (keys (dissoc query/fact-columns "value"))))]
     (paging/validate-order-by! columns paging-options)
@@ -115,34 +102,11 @@
       (:v2 :v3)
       (let [operators (query/fact-operators version)
             [sql & params] (facts-sql operators query)]
-        (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options :facts) params)}
-              (when (:count? augmented-paging-options)
-                [:count-query (apply vector (jdbc/count-sql :facts sql) params)])))
+        (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
+              (when (:count? paging-options)
+                [:count-query (apply vector (jdbc/count-sql sql) params)])))
       (qe/compile-user-query->sql
         qe/facts-query query paging-options))))
-
-(defn flat-facts-by-node
-  "Similar to `facts-for-node`, but returns facts in the form:
-
-    [{:certname <node> :name <fact> :value <value>}
-     ...
-     {:certname <node> :name <fact> :value <value>}]"
-  [node]
-  (jdbc/query-to-vec
-   ["SELECT fs.certname,
-             fp.path as name,
-             COALESCE(fv.value_string,
-                      cast(fv.value_integer as text),
-                      cast(fv.value_boolean as text),
-                      cast(fv.value_float as text),
-                      '') as value
-             FROM factsets fs
-                  INNER JOIN facts as f on fs.id = f.factset_id
-                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
-             WHERE fp.depth = 0 AND
-                   certname = ?"
-     node]))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
@@ -155,9 +119,8 @@
             (every? string? (:result %))]}
     (paging/validate-order-by! [:name] paging-options)
     (let [facts (query/execute-query
-                 ["SELECT DISTINCT path as name
+                 ["SELECT DISTINCT name
                    FROM fact_paths
-                   WHERE depth = 0
-                   ORDER BY path"]
+                   ORDER BY name"]
                  paging-options)]
       (update-in facts [:result] #(map :name %)))))

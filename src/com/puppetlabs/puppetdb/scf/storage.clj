@@ -102,7 +102,8 @@
    (s/optional-key :value_float) (s/maybe Double)
    (s/optional-key :value_string) (s/maybe s/Str)
    (s/optional-key :value_integer) (s/maybe s/Int)
-   (s/optional-key :value_boolean) (s/maybe s/Bool)})
+   (s/optional-key :value_boolean) (s/maybe s/Bool)
+   (s/optional-key :value_json) (s/maybe s/Str)})
 
 (def environments-schema
   {:id s/Int
@@ -857,14 +858,14 @@
   "Give a list of fact-values-to-ids-map constructs, returns a map with the
   fact-values-to-ids-map being the key, and any new value id's as the value."
   [factvalues :- [fact-values-to-ids-map]]
-  (let [record-set (mapv #(select-keys % [:path_id :value_type_id :value_hash :value_string :value_integer :value_float :value_boolean])
+  (let [record-set (mapv #(select-keys % [:path_id :value_type_id :value_hash :value_string :value_json :value_integer :value_float :value_boolean])
                          factvalues)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
                                 (apply sql/insert-records :fact_values record-set))]
     (into {} (map (fn [data]
-                    [(select-keys data [:path_id :value_type_id :value_hash :value_string :value_integer :value_float :value_boolean])
+                    [(select-keys data [:path_id :value_type_id :value_hash :value_string :value_json :value_integer :value_float :value_boolean])
                      (:id data)])
                   result-set))))
 
@@ -909,7 +910,7 @@
                             fact-path-maps)
 
         ;; List of maps with value :path-id and :value
-        factvalues (map #(select-keys % [:path_id :value_string :value_integer :value_float :value_boolean :value_hash :value_type_id])
+        factvalues (map #(select-keys % [:path_id :value_string :value_json :value_integer :value_float :value_boolean :value_hash :value_type_id])
                         fact-path-maps)
 
         values-to-id (fact-values-to-ids factvalues)]

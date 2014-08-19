@@ -1,6 +1,9 @@
-(ns com.puppetlabs.utils.metrics)
+(ns com.puppetlabs.test.utils.metrics
+  (:require [com.puppetlabs.utils.metrics :refer :all]
+            [clojure.test :refer :all]
+            [metrics.timers :refer [timer]]))
 
-(deftest multitime-macro
+(deftest test-multitime-macro
   (testing "should update all supplied timers"
     (let [timers (mapv timer ["t1" "t2" "t3"])]
       (doseq [t timers]
