@@ -235,8 +235,8 @@
   [dissociated-fields row]
   (let [conversion (case (:type row)
                      "boolean" clj-edn/read-string
-                     "float" (comp double clj-edn/read-string)
-                     "integer" (comp biginteger clj-edn/read-string)
+                     "float" (constantly (:value_float row))
+                     "integer" (constantly (:value_integer row))
                      "json" json/parse-string
                      ("string" "null") identity)]
     (reduce #(dissoc %1 %2)

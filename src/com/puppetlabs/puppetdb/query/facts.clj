@@ -19,6 +19,8 @@
    :path String
    :name s/Str
    :depth s/Int
+   :value_integer (s/maybe s/Int)
+   :value_float (s/maybe s/Num)
    :value s/Any
    :type (s/maybe String)})
 
@@ -44,7 +46,7 @@
 (pls/defn-validated convert-types :- [converted-row-schema]
   "Coerce values for each row to the proper stored type."
   [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :depth]) rows))
+  (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
 
 (defn munge-result-rows
   [version]
@@ -65,18 +67,22 @@
   (if query
     (let [[subselect & params] (query/fact-query->sql operators query)
           sql (format "SELECT facts.certname, facts.environment, facts.name,
-                       facts.value, facts.path, facts.type, facts.depth
+                       facts.value, facts.path, facts.type, facts.depth,
+                       facts.value_float, facts.value_integer
                       FROM (%s) facts" subselect)]
       (apply vector sql params))
     ["SELECT fs.certname,
              fp.path as path,
              fp.name as name,
              fp.depth as depth,
+             fv.value_float as value_float,
+             fv.value_integer as value_integer,
+             fv.value_hash as value_hash,
              COALESCE(fv.value_string,
                       fv.value_json,
-                      cast(fv.value_integer as text),
-                      cast(fv.value_boolean as text),
-                      cast(fv.value_float as text)) as value,
+                      cast(fv.value_float as value_float as text),
+                      cast(fv.value_integer as value_integer as text),
+                      cast(fv.value_boolean as text)) as value,
              vt.type as type,
              env.name as environment
         FROM factsets fs

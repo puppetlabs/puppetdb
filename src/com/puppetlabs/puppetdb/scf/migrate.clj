@@ -763,7 +763,6 @@
    "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_path_type_id_key
       UNIQUE (path, value_type_id)"
    "CREATE INDEX fact_paths_value_type_id ON fact_paths(value_type_id)"
-   "CREATE INDEX fact_paths_depth ON fact_paths(depth)"
    "CREATE INDEX fact_paths_name ON fact_paths(name)"
    "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_value_type_id
      FOREIGN KEY (value_type_id)
@@ -940,7 +939,8 @@
   (when-not (scf-utils/index-exists? "fact_paths_path_trgm")
     (log/info "Creating additional index `fact_paths_path_trgm`")
     (sql/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)")))
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"
+     "CREATE INDEX fact_values_string_trgm ON fact_values USING gist (value_string gist_trgm_ops)")))
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."

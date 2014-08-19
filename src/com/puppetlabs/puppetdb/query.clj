@@ -193,13 +193,15 @@
 
 ;; This map's keys are the queryable fields for facts, and the values are the
 ;;  corresponding table names where the fields reside
-(def fact-columns {"certname" "facts"
-                   "name"     "facts"
-                   "value"    "facts"
-                   "depth"    "facts"
-                   "type"     "facts"
-                   "path"     "facts"
-                   "environment" "facts"})
+(def fact-columns {"certname"         "facts"
+                   "name"             "facts"
+                   "value"            "facts"
+                   "depth"            "facts"
+                   "value_integer"    "facts"
+                   "value_float"      "facts"
+                   "type"             "facts"
+                   "path"             "facts"
+                   "environment"      "facts"})
 
 ;; This map's keys are the queryable fields for factsets, and the values are the
 ;;  corresponding table names where the fields reside
@@ -401,11 +403,13 @@
                              fp.path as path,
                              fp.name as name,
                              fp.depth as depth,
+                             fv.value_integer as value_integer,
+                             fv.value_float as value_float,
                              COALESCE(fv.value_string,
                                       fv.value_json,
                                       cast(fv.value_integer as text),
-                                      cast(fv.value_boolean as text),
-                                      cast(fv.value_float as text)) as value,
+                                      cast(fv.value_float as text),
+                                      cast(fv.value_boolean as text)) as value,
                              vt.type as type,
                              env.name as environment
                       FROM factsets fs

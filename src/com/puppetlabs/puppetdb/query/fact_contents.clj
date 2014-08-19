@@ -10,6 +10,8 @@
    :path s/Str
    :name s/Str
    :value (s/maybe s/Str)
+   :value_integer (s/maybe s/Int)
+   :value_float (s/maybe s/Num)
    :type s/Str})
 
 (def converted-row-schema
@@ -24,9 +26,10 @@
    an array structure."
   [row :- row-schema]
   (-> row
-      (update-in [:value] #(f/unstringify-value (:type row) %))
+      (update-in [:value] #(or (:value_integer row) (:value_float row)
+                               (f/unstringify-value (:type row) %)))
       (update-in [:path] f/string-to-factpath)
-      (dissoc :type)))
+      (dissoc :type :value_integer :value_float)))
 
 (defn munge-result-rows
   "Munge resulting rows for fact-contents endpoint."
