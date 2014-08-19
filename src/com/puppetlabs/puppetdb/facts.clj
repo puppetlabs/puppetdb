@@ -39,26 +39,6 @@
 
 ;; FUNCS
 
-(pls/defn-validated flatten-fact-value :- s/Str
-  "Flatten a fact value to a string either using JSON or coercement depending on
-  the type."
-  [value :- s/Any]
-  (cond
-   (string? value) value
-   (kitchensink/boolean? value) (str value)
-   (integer? value) (str value)
-   (float? value) (str value)
-   (map? value) (json/generate-string value)
-   (coll? value) (json/generate-string value)
-   :else (throw (IllegalArgumentException. (str "Value " value " is not valid for flattening")))))
-
-(pls/defn-validated flatten-fact-set :- {s/Str s/Str}
-  "Flatten a map of facts depending on the type of the value."
-  [factset :- fact-set]
-  (reduce-kv (fn [acc k v]
-               (assoc acc k (flatten-fact-value v)))
-             {} factset))
-
 (pls/defn-validated escape-delimiter :- s/Str
   "Escape the delimiter from a string"
   [element :- s/Str]
