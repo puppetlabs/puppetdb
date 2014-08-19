@@ -207,11 +207,16 @@
   "Converts a field found in a factpath regexp to its equivalent regexp."
   [rearray :- fact-path]
   (map (fn [element]
-         (-> element
-             ;; This ensures that any of the more wildcard searches do not cross
-             ;; delimiter boundaries, by wrapping them with a negative lookup
-             ;; ahead for the delimiter.
-             (str/replace #"\.(\*|\+|\{.+\})" (format "(?:(?!%s).)$1" factpath-delimiter))))
+         (if (string? element)
+           (-> element
+               ;; This ensures that any of the more wildcard searches do not cross
+               ;; delimiter boundaries, by wrapping them with a negative lookup
+               ;; ahead for the delimiter.
+               ;; PostgreSQL look-aheads cause it to fail with the * quantifier, so this
+               ;; fakes it.
+               (str/replace #"\.\*" (format "(?:((?!%s).)+|.?)" factpath-delimiter))
+               (str/replace #"\.(\+|\{.+\})" (format "(?:(?!%s).)$1" factpath-delimiter)))
+           element))
        rearray))
 
 (pls/defn-validated factpath-regexp-to-regexp :- s/Str

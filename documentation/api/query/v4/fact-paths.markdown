@@ -57,7 +57,7 @@ the form:
 Get all fact paths that match the regex array query for paths related to
 partition sda3:
 
-    curl -X GET http://localhost:8080/v4/fact-paths --data-urlencode 'query=["~>", "path", ["partitions", "sda3.*"]]'
+    curl -X GET http://localhost:8080/v4/fact-paths --data-urlencode 'query=["~>", "path", ["partitions", "sda3.*", ".*"]]'
 
     [ {
       "path" : [ "partitions", "sda3", "mount" ],
