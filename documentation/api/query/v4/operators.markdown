@@ -79,25 +79,19 @@ The following example would match if the `certname` field's actual value resembl
 > * [PostgreSQL regexp features](http://www.postgresql.org/docs/9.1/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 > * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html)
 
-### `*>` (glob array match)
-
-**Works with:** paths
-
-**Matches if:** the array matches against the value, however in this form one may use an asterisk (*) as a means to glob a portion of a path element. The asterisk indicates one element can be any string or number, therefore allowing a user to define any key or value in an array or map represented by the path.
-
-The following example would match any network interface name, and its macaddress data:
-
-    ["*>", "path", ["networking","*","macaddress"]
-
 ### '~>' (regexp array match)
 
 **Works with:** paths
 
-**Matches if:** the array matches using the regular expressions provided within in each element.
+**Matches if:** the array matches using the regular expressions provided within in each element. Array indexes are coerced to strings.
 
 The following example would match any network interface names starting with eth:
 
     ["~>", "path", ["networking", "eth.*", "macaddress"]]
+
+If you want to match any index for an array path element, you can use regular expressions to do this as the element acts like a string:
+
+    ["~>", "path", ["array_fact", ".*"]]
 
 ### `null?` (is null)
 
