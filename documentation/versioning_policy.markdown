@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » Versioning Policy"
+title: "PuppetDB 2.2 » Versioning Policy"
 layout: default
 canonical: "/puppetdb/latest/versioning_policy.html"
 ---
