@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » API » Facts Wire Format Version 2"
+title: "PuppetDB 2.2 » API » Facts Wire Format Version 2"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/facts_format_v2.html"
 ---

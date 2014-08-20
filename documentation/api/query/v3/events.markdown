@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » API » v3 » Querying Events"
+title: "PuppetDB 2.2 » API » v3 » Querying Events"
 layout: default
 canonical: "/puppetdb/latest/api/query/v3/events.html"
 ---
