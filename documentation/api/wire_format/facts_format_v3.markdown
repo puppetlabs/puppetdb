@@ -14,7 +14,7 @@ allowed anywhere in the set of facts.
      "environment": <string>,
      "producer-timestamp": <datetime>,
      "values": {
-         <string>: <string>,
+         <string>: <any>,
          ...
          }
     }
