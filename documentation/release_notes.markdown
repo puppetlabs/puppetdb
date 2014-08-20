@@ -4,6 +4,248 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+2.2.0
+-----
+
+This release was primarily focused on providing structured facts support for PuppetDB.
+
+It introduces the ability to store structured facts in PuppetDB, and use some new enhanced API's
+to search and retrieve that data also.
+
+With this change we have introduced the capability to store and retrieve trusted facts, which
+are stored and retrieved in the same way as structured facts.
+
+### Before Upgrading
+
+* It is recommended for greater scaling capabilities and performance, to use PostgreSQL 9.3.
+We have officially deprecated PostgreSQL 9.2 and below. If you are using HSQLDB for production,
+it is also recommended that you switch to PostgreSQL 9.3, as HSQLDB has a number of scaling
+and operational issues, and is only recommended for testing and proof of concept installations.
+
+* For PostgreSQL 9.3 you are advised to install the PostgreSQL extension `pg_trgm` for increased
+indexing performance for regular expression queries. Using the command `create extension pg_trgm`
+as PostgreSQL super-user and before starting PuppetDB will allow these new indexes to be created.
+
+* Ensure during a package upgrade that you analyze any changed configuration files. For Debian
+you will receive warnings when upgrading interactively about these files, and for RedHat based
+disitributions you will find that the RPM drops .rpmnew files that you should diff and ensure
+that any new content is merged into your existing configuration.
+
+* Make sure all your PuppetDB instances are shut down and only upgrade one at a time.
+
+* As usual, don’t forget to upgrade your puppetdb-terminus package
+also (on the host where your Puppet Master lives), and restart your
+master service.
+
+* If you receive the error “Could not open
+/etc/puppet/log4j.properties” or "Problem parsing XML document",
+this is because we have changed the packaged config.ini to point at a new logging configuration file:
+logback.xml. However during package installation some package managers
+will cowardly refuse to just update config.ini, this in particular
+affects RPM. After upgrading you should ensure any .rpmnew files are
+reviewed and that changes to our vendored version are now merged with
+your version of config.ini on disk. See
+[PDB-656](https://tickets.puppetlabs.com/browse/PDB-656) for more details.
+
+* If you are running Ubuntu 12.04 and Ruby 1.9.3-p0 then you may find
+that you will sometimes receive the error "idle timeout expired" in your
+Puppet agent/master logs, and your PuppetDB logs. This is due to a bug
+in that version of Ruby in particular. See
+[PDB-686](https://tickets.puppetlabs.com/browse/PDB-686) for more details.
+
+### New Features
+
+#### New endpoints
+
+* [/v4/fact-nodes](./api/query/v4/fact-nodes.html)
+
+    This end-point provides a new view on fact data, with structure in mind. It provides a way to
+    traverse a structured facts paths and their values to search for and retrieve data contained deep within hashes,
+    arrays and combinations there-of.
+
+* [/v4/fact-paths](./api/query/v4/fact-paths.html)
+
+    To aid with client application autocompletion and ahead-of-time fact schema layout this endpoint
+    will provide the client with a full list of potential fact paths and their value types. This data
+    is primarily used by user agents that wish to perhaps confine input via a form, or provide some
+    level of autocompletion advise for a user typing a fact search.
+
+* [/v4/factsets](./api/query/v4/factsets.html)
+
+    This endpoint has been created to facilitate retrieval a full set of factsets submitted
+    for a node. With structured facts support, this includes preserving the type of the fact
+    which may include a hash, array, real, integer, boolean or string.
+
+    We have now switched to using this endpoint for the purposes of `puppetdb export` and `puppetdb import`.
+    This allows us to grab a whole nodes data in one go, in the past we would have to reassemble multiple top
+    leve facts to achieve this.
+
+#### Changes to endpoints
+
+* [/v4/facts](./api/query/v4/facts)
+
+    This endpoint is now capable of returning structured facts. Facts that contain hashes, arrays, floats, integers,
+    booleans, strings (and combinations thereof) will be preserved when stored and able to now be returned via this
+    endpoint.
+
+* [/v3/facts](./api/query/v3/facts)
+
+    This endpoint will return JSON stringified structured facts to preserve backwards compatibility.
+
+#### Operators
+
+* [`in` and `extract` (version 4)](./api/query/v4/operators.html#in)
+
+    We have modified the v4 IN and EXTRACT operators to accept multiple fields at once.
+    This allows the following...
+
+        ["and" ["in", "name",
+                 ["extract", "name", [select-fact-nodes ["=","value",10]]]]
+               ["in", "certname",
+                 ["extract", "certname", [select-fact-nodes ["=", "value", 10]]]]]
+
+    to be re-written as
+
+        ["in", ["name","certname"],
+          ["extract", ["name", "certname"], ["select-fact-nodes", ["=", "value", 10]]]]
+
+    This was made to allow users to combine the `fact-nodes` endpoint with the `facts` endpoint to combine the power
+    of hierachical searching and aggregate results.
+
+* [`~>` (version 4)](./api/query/v4/operators.html#regexp-array-match)
+
+    This new operator was designed for the `path` field type to allow for matching a path
+    against an array of regular expressions. The only end-points that contains such fields today
+    are [/v4/fact-nodes](./api/query/v4/fact-nodes.html) and [/v4/fact-paths](./api/query/v4/fact-paths).
+
+#### Commands
+
+In preperation for some future work, we have provided the ability to pass a `producer-timestamp` field via the `replace facts` and `replace catalogs` commands.
+For `replace facts` we have also added the ability to pass any JSON object as the keys to the `value` field.
+
+Due to these two changes, we have cut new versions of these commands for this release:
+
+* [`replace catalog` version 5](./api/wire_format/catalog_format_v5.html)
+* [`replace facts` version 3](./api/wire_format/facts_format_v3.html)
+
+The older versions of the commands are immediately deprecated.
+
+#### Terminus
+
+The terminus changes for structured facts are quite simple, but significant:
+
+* We no longer convert structured data to strings before submission to PuppetDB.
+* Trusted facts have now been merged into facts in our terminus under they key `trusted`.
+
+This means that for structured and trusted fact support all you have to do is enable them in Puppet,
+and PuppetDB will start storing them immediately.
+
+#### Database and performance
+
+* As part of the work for PDB-763 we have added a new facility to nag users to install the `pg_trgm` extension so we
+  can utilise this index type for regular expression querying. This work is new, and only works on PostgreSQL 9.3 or higher.
+
+* We have added two new garbage collection SQL cleanup queries to remove stale entries for structured facts.
+
+#### Import/Export/Anonymization
+
+All these tools have been modified to support structured facts. `export` specifically uses the new `/v4/factsets` endpoint now.
+
+### Deprecations and retirements
+
+* We have now deprecated PostgreSQL 9.2 and older
+* We no longer produce packages for Ubuntu 13.10 (it went EOL on July 17 2014)
+
+### Bug Fixes and Maintenance
+
+* [PDB-762](https://tickets.puppetlabs.com/browse/PDB-762) Fix broken export
+
+    This pull request fixes a malformed post-assertion in the events-for-report-hash
+    function that caused exports to fail on unchanged reports. Inserting proper
+    parentheses made it apparent that a seq, rather than a vector, should be the
+    expected return type.
+
+* [PDB-826](https://tickets.puppetlabs.com/browse/PDB-826) Fix pathing for puppetdb-legacy
+
+    For PE the puppetdb-legacy scripts (such as puppetdb-ssl-setup) expect the
+    puppetdb script to be in the path. This assumption isn't always true, as we
+    install PE in a weird place.
+
+    This patch adjusts the PATH for this single exec so that it also includes
+    the path of the directory where the original script is found, which is usually
+    /opt/puppet/sbin.(PDB-826) Fix pathing for puppetdb-legacy
+
+* [PDB-764](https://tickets.puppetlabs.com/browse/PDB-764) Malformed post conditions in query.clj.
+
+    This fixes some trivial typos in query.clj that had previously caused some
+    post-conditions to go unenforced.
+
+### Documentation
+
+* [DOCUMENT-97](https://tickets.puppetlabs.com/browse/DOCUMENT-97) Mention updating puppetdb module
+
+    Upgrading PuppetDB using the module is pretty easy, but we should point
+    out that the module should be updated *first*.
+
+* [PDB-550](https://tickets.puppetlabs.com/browse/PDB-550) Update PuppetDB docs to include info on [LibPQFactory](./postgres_ssl.html)
+
+    We have now updated our PostgreSQL SSL connectivity to documentation to include
+    details on how to use the LibPQFactory methodology. This hopefully will alleviate
+    the need to modify your global JVM JKS when using Puppet and self-signed certificates.
+
+* Fix example for nodes endpoint to show 'certname' in response
+
+* Revise API docs for updated info, clarity, consistency, and formatting
+
+    This revision touches most of the pages in the v3 and v4 API docs, as well as
+    the release notes. We've:
+
+    * Standardized some squirmy terminology
+    * Adjusted the flow of several pages
+    * Caught two or three spots where the docs lagged behind the implementation
+    * Made the Markdown syntax a little more portable (summary: Let's not use the
+      "\n: " definition list syntax anymore. Multi-graf list items and nested lists
+      get indented four spaces, not two or three.)
+    * Added context about how certain objects work and how they relate to other objects
+    * Added info about how query operators interact with field data types
+
+* Change some old URLs, remove mentions of inventory service.
+
+    Some of these files have moved, and others should point to the latest version
+    instead of a specific version.
+
+    And the inventory service is not really good news anymore. People should just
+    use puppetdb's api directly.
+
+### Testing
+
+* [PDB-822](https://tickets.puppetlabs.com/browse/PDB-822) Change acceptance tests to incorporate structured facts.
+
+    This patch augments our basic_fact_retrieval and import_export acceptance tests
+    to include structured facts, and also bumps the version of the nodes query in
+    the facts/find indirector so structured facts are returned when puppet facts
+    find is issued to the PDB terminus.
+
+* Split out acceptance and unit test gems in a better way
+
+    We want to avoid installing all of the unit test gems when running acceptance.
+    This patch moves rake into its own place so we can use --without test properly.
+
+* Switch confine for basic test during acc dependency installation
+
+    The way we were using confine was wrong, and since this is now more strict
+    in beaker it was throwing errors in the master smoke tests. This patch
+    just replaces it for a basic include? on the master platform instead.
+
+* Fix old acceptance test refspec issue
+
+    The old refspec for acceptance testing source code only really worked for the
+    PR testing workflow. This patch makes it work for the command line or polling
+    based workflow as well.
+
+    Without it, it makes it hard to run beaker acceptance tests from the command
+    line.
+
 2.1.0
 -----
 
@@ -13,6 +255,31 @@ status field for determining if a Puppet run has failed. Note that
 this release is backward compatible with 2.0.0, but users must upgrade
 PuppetDB terminus to 2.1.0 when upgrading the PuppetDB instance to
 2.1.0.
+
+Things to take note of before upgrading:
+
+* If you receive the error “Could not open
+/etc/puppet/log4j.properties” or "Problem parsing XML document",
+this is because we have changed the packaged config.ini to point at a new logging configuration file:
+logback.xml. However during package installation some package managers
+will cowardly refuse to just update config.ini, this in particular
+affects RPM. After upgrading you should ensure any .rpmnew files are
+reviewed and that changes to our vendored version are now merged with
+your version of config.ini on disk. See
+[PDB-656](https://tickets.puppetlabs.com/browse/PDB-656) for more details.
+
+* If you are running Ubuntu 12.04 and Ruby 1.9.3-p0 then you may find
+that you will sometimes receive the error "idle timeout expired" in your
+Puppet agent/master logs, and your PuppetDB logs. This is due to a bug
+in that version of Ruby in particular. See
+[PDB-686](https://tickets.puppetlabs.com/browse/PDB-686) for more details.
+
+* Make sure all your PuppetDB instances are shut down and only upgrade
+one at a time.
+
+* As usual, don’t forget to upgrade your puppetdb-terminus package
+also (on the host where your Puppet Master lives), and restart your
+master service.
 
 New Features:
 
