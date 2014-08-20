@@ -68,24 +68,6 @@
   [version :- db-version]
   (pos? (compare (sql-current-connection-database-version) version)))
 
-(pls/defn-validated pg-older-than-8-4? :- s/Bool
-  "Returns true if connected to a Postgres instance that is older than 8.4"
-  []
-  (and (postgres?)
-       (db-version-older-than? [8 4])))
-
-(pls/defn-validated pg-8-4? :- s/Bool
-  "Returns true if connected to a version 8.4 PostgreSQL instance"
-  []
-  (and (postgres?)
-       (db-version? [8 4])))
-
-(pls/defn-validated pg-newer-than-8-4? :- s/Bool
-  "Returns true if connected to a Postgres instance that is newer than 8.4"
-  []
-  (and (postgres?)
-       (db-version-newer-than? [8 4])))
-
 (defn sql-current-connection-table-names
   "Return all of the table names that are present in the database based on the
   current connection.  This is most useful for debugging / testing  purposes
