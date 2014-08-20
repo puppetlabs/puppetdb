@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/query/v2/nodes.html"
 Nodes can be queried by making an HTTP request to the `/nodes` REST
 endpoint with a JSON-formatted parameter called `query`.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 ## Routes
 
