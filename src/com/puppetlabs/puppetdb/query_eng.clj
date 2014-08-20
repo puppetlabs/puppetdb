@@ -806,6 +806,7 @@
         paged-sql (if augmented-paging-options
                     (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
+        _ (jdbc/pretty-sql paged-sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
       (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) params))

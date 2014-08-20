@@ -113,3 +113,7 @@
          java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
          java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
          java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))
+
+(deftest test-pretty-sql
+  (are [input output] (= (subject/pretty-sql input) output)
+       "select * from foo" "\n    select\n        * \n    from\n        foo"))

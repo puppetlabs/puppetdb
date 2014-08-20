@@ -9,7 +9,10 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]
             [com.puppetlabs.time :as pl-time]
+            [com.puppetlabs.puppetdb.utils :as utils]
             [com.puppetlabs.jdbc.internal :refer :all]))
 
 
@@ -336,3 +339,10 @@
     (str "in ("
          (str/join "," (repeat (count coll) inner))
          ")")))
+
+(pls/defn-validated pretty-sql
+  "Format SQL in a pretty way."
+  [sql :- s/Str]
+  (let [c (utils/class-or-nil "org.hibernate.engine.jdbc.internal.BasicFormatterImpl")]
+    (when (not (nil? c))
+      (log/debug (str "Formatted SQL:\n" (.format (.newInstance c) sql))))))
