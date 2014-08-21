@@ -43,43 +43,48 @@ The available query endpoints are documented in the pages linked below.
 
 Version 3 of the query API added new endpoints, and introduces paging and sorting operations. This is the current stable API.
 
-* [Facts Endpoint](./query/v3/facts.html)
-* [Resources Endpoint](./query/v3/resources.html)
 * [Nodes Endpoint](./query/v3/nodes.html)
+* [Facts Endpoint](./query/v3/facts.html)
 * [Fact-Names Endpoint](./query/v3/fact-names.html)
-* [Metrics Endpoint](./query/v3/metrics.html)
+* [Catalogs Endpoint](./query/v3/catalogs.html)
+* [Resources Endpoint](./query/v3/resources.html)
 * [Reports Endpoint](./query/v3/reports.html)
 * [Events Endpoint](./query/v3/events.html)
 * [Event Counts Endpoint](./query/v3/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
+* [Metrics Endpoint](./query/v3/metrics.html)
 * [Server Time Endpoint](./query/v3/server-time.html)
+* [Version Endpoint](./query/v3/version.html)
 
 #### Version 4 (Experimental)
 
 Version 4 of the query API is currently experimental and may change without notice. For stability it is recommended to use the v3 query API.
 
-* [Facts Endpoint](./query/v4/facts.html)
-* [Resources Endpoint](./query/v4/resources.html)
 * [Nodes Endpoint](./query/v4/nodes.html)
-* [Fact-Names Endpoint](./query/v4/fact-names.html)
-* [Fact-Nodes Endpoint](./query/v4/fact-nodes.html)
+* [Environments Endpoint](./query/v4/environments.html)
 * [Factsets Endpoint](./query/v4/factsets.html)
+* [Facts Endpoint](./query/v4/facts.html)
+* [Fact-Names Endpoint](./query/v4/fact-names.html)
 * [Fact-Paths Endpoint](./query/v4/fact-paths.html)
-* [Metrics Endpoint](./query/v4/metrics.html)
+* [Fact-Nodes Endpoint](./query/v4/fact-nodes.html)
+* [Catalogs Endpoint](./query/v4/catalogs.html)
+* [Resources Endpoint](./query/v4/resources.html)
 * [Reports Endpoint](./query/v4/reports.html)
 * [Events Endpoint](./query/v4/events.html)
 * [Event Counts Endpoint](./query/v4/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v4/aggregate-event-counts.html)
+* [Metrics Endpoint](./query/v4/metrics.html)
 * [Server Time Endpoint](./query/v4/server-time.html)
+* [Version Endpoint](./query/v4/version.html)
 
 #### Version 2 (Deprecated)
 
 Version 2 of the query API is deprecated and will be retired soon. For stability it is recommended to use the v3 query API instead.
 
-* [Facts Endpoint](./query/v2/facts.html)
-* [Resources Endpoint](./query/v2/resources.html)
 * [Nodes Endpoint](./query/v2/nodes.html)
+* [Facts Endpoint](./query/v2/facts.html)
 * [Fact-Names Endpoint](./query/v2/fact-names.html)
+* [Resources Endpoint](./query/v2/resources.html)
 * [Metrics Endpoint](./query/v2/metrics.html)
 
 Commands
