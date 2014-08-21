@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.query.fact-nodes
+(ns com.puppetlabs.puppetdb.query.fact-contents
   (:require [com.puppetlabs.puppetdb.facts :as f]
             [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.schema :as pls]
@@ -29,7 +29,7 @@
       (dissoc :type)))
 
 (defn munge-result-rows
-  "Munge resulting rows for fact-nodes endpoint."
+  "Munge resulting rows for fact-contents endpoint."
   [rows]
   (map munge-result-row rows))
 
@@ -40,4 +40,4 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (qe/compile-user-query->sql qe/fact-nodes-query query paging-options))
+  (qe/compile-user-query->sql qe/fact-contents-query query paging-options))
