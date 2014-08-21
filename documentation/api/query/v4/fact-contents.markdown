@@ -1,14 +1,14 @@
 ---
-title: "PuppetDB 2.2 » API » v4 » Querying Fact nodes"
+title: "PuppetDB 2.2 » API » v4 » Querying Fact Contents"
 layout: default
-canonical: "/puppetdb/latest/api/query/v4/fact-nodes.html"
+canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
 
-You can query fact information with greater power by using the '/fact-nodes' endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
+You can query fact information with greater power by using the '/fact-contents' endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
 
 Structured fact data is normally represented as a hash, which allows hashes, arrays and real types as its values as you can see in this example:
 
@@ -26,13 +26,13 @@ Structured fact data is normally represented as a hash, which allows hashes, arr
       }
     }
 
-With the fact nodes endpoint it allows you to query data at a particular node of the tree using the `path` field, and then either analyze or filter on the `value` of that node.
+With the fact points endpoint it allows you to query data at a particular part of the tree using the `path` field, and then either analyze or filter on the `value` of that node.
 
 > **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
 
-### `GET /v4/fact-nodes`
+### `GET /v4/fact-contents`
 
-This will return all fact nodes matching the given query.
+This will return all fact contents that match the given query.
 
 ### URL Parameters
 
@@ -74,7 +74,7 @@ the form:
 
 Get the first mac address for eth0:
 
-    curl -X GET 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["=", "path",[ "networking", "eth0", "macaddresses", 0 ]]'
+    curl -X GET 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=["=", "path",[ "networking", "eth0", "macaddresses", 0 ]]'
 
 which returns:
 
@@ -88,7 +88,7 @@ which returns:
 
 Get all nodes with values higher then 3:
 
-    curl -X GET 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=[">", "value", 3]'
+    curl -X GET 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=[">", "value", 3]'
 
 which returns:
 
@@ -117,7 +117,7 @@ This operator allows you to match against path elements using an array of regula
 
 The example shows a query that extracts all `macaddresses` for all ethernet devices (that is, devices starting with `eth`):
 
-    curl -G 'http://puppetdb:8080/v4/fact-nodes' --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
+    curl -G 'http://puppetdb:8080/v4/fact-point' --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
 
 which returns:
 

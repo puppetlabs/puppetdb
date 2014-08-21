@@ -55,8 +55,8 @@ The array is unsorted. Fact values can be strings, floats, integers, booleans,
 arrays, or maps. Map and array values can be any of the same types.
 
 If no facts match the query, an empty JSON array will be returned. Querying
-against `value` will return matches only at the top-level, rather than to
-individual fact nodes.
+against `value` will return matches only at the top-level, hashes and arrays cannot
+be matched.
 
 ### Examples
 
@@ -78,11 +78,11 @@ Get all facts for a single node:
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
-Subquery against `/fact-nodes` to get all remotely-authenticated trusted facts:
+Subquery against `/fact-contents` to get all remotely-authenticated trusted facts:
 
     curl -X GET http://localhost:8080/v4/facts --data-urlencode 'query=["in", ["name","certname"],
       ["extract",["name","certname"],
-        ["select-fact-nodes", ["~>", "path", [".*", "authenticated"]]]]]'
+        ["select-fact-contents", ["~>", "path", [".*", "authenticated"]]]]]'
 
     [ {
         "value" : {
@@ -171,5 +171,5 @@ this route.
 The v4 /facts endpoint does not allow ordering by fact value, but otherwise
 supports the common PuppetDB paging URL parameters. For more information,
 please see the documentation on [paging][paging]. Ordering by value is
-supported on the fact-nodes endpoint.
+supported on the fact-contents endpoint.
 

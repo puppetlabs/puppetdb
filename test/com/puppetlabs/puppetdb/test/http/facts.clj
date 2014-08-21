@@ -33,7 +33,7 @@
 
 (def factsets-endpoints [[:v4 "/v4/factsets"]])
 
-(def fact-nodes-endpoints [[:v4 "/v4/fact-nodes"]])
+(def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -230,10 +230,10 @@
    "/v4/facts"
    (merge common-subquery-tests
           (omap/ordered-map
-           ;; vectored fact-nodes subquery
+           ;; vectored fact-contents subquery
            ["in" ["name" "certname"]
             ["extract" ["name" "certname"]
-             ["select-fact-nodes"
+             ["select-fact-contents"
               ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
            #{{:value 12, :name "uptime_seconds", :environment "DEV", :certname "bar"}}))))
 
@@ -266,10 +266,10 @@
 
                 "'sourcefile' is not a queryable object for resources in the version 3 API"
 
-                ;; vectored fact-nodes subquery
+                ;; vectored fact-contents subquery
                 ["in" ["name" "certname"]
                  ["extract" ["name" "certname"]
-                  ["select-fact-nodes"
+                  ["select-fact-contents"
                    ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
                 "Can't match on fields '[\"name\" \"certname\"]'. The v2-v3 query API does not permit vector-valued fields."
 
@@ -1272,8 +1272,8 @@
                                          (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
                                          version))))))
 
-(deftestseq fact-nodes-queries
-  [[version endpoint] fact-nodes-endpoints]
+(deftestseq fact-contents-queries
+  [[version endpoint] fact-contents-endpoints]
   (let [current-time (now)]
     (populate-for-structured-tests current-time)
 

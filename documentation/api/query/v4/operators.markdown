@@ -8,7 +8,7 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 [facts]: ./facts.html
 [nodes]: ./nodes.html
 [query]: ./query.html
-[fact-nodes]: ./fact-nodes.html
+[fact-contents]: ./fact-contents.html
 
 PuppetDB's [query strings][query] can use several common operators.
 
@@ -143,7 +143,7 @@ That is:
 
 These statements work together as follows (working "outward" and starting with the subquery):
 
-* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], [fact-nodes][], or [nodes][]). Each of these objects has many **fields.**
+* The subquery collects a group of PuppetDB objects (specifically, a group of [resources][], [facts][], [fact-contents][], or [nodes][]). Each of these objects has many **fields.**
 * The `extract` statement collects the value of one or more **fields** across every object returned by the subquery.
 * The `in` statement **matches** if its field values are present in the list returned by the `extract` statement.
 
@@ -197,7 +197,7 @@ The available subqueries are:
 * `select-resources` (queries the [resources][] endpoint)
 * `select-facts` (queries the [facts][] endpoint)
 * `select-nodes` (queries the [nodes][] endpoint)
-* `select-fact-nodes` (queries the [fact-nodes][] endpoint)
+* `select-fact-contents` (queries the [fact-contents][] endpoint)
 
 ### Subquery Examples
 
@@ -248,18 +248,18 @@ To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00`
 
     ["in", "certname",
       ["extract", "certname",
-        ["select-fact-nodes",
+        ["select-fact-contents",
           ["and",
             ["=", "path", [ "networking", "eth0", "macaddresses", 0 ]],
             ["=", "value", "aa:bb:cc:dd:ee:00" ]]]]]
 
 To exhibit a subquery using multiple fields, you could use the following
-on '/facts' to list all top-level facts containing fact nodes with paths
+on '/facts' to list all top-level facts containing fact contents with paths
 starting with "up" and value less than 100:
 
     ["in", ["certname", "name"],
       ["extract", ["certname", "name"],
-        ["select-fact-nodes",
+        ["select-fact-contents",
           ["and",
             ["~>", "path", ["up.*"]],
             ["<", "value", 100]]]]]

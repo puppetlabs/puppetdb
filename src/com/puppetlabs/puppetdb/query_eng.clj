@@ -126,7 +126,7 @@
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE depth = 0"}))
 
-(def fact-nodes-query
+(def fact-contents-query
   "Query for fact nodes"
   (map->Query {:project {"path" :path
                          "value" :multi
@@ -420,7 +420,7 @@
    "select-params" (assoc resource-params-query :subquery? true)
    "select-facts" (assoc facts-query :subquery? true)
    "select-latest-report" (assoc latest-report-query :subquery? true)
-   "select-fact-nodes" (assoc fact-nodes-query :subquery? true)})
+   "select-fact-contents" (assoc fact-contents-query :subquery? true)})
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
