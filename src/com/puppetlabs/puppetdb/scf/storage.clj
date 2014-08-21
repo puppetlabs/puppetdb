@@ -738,7 +738,7 @@
   []
   (time! (:gc-fact-paths metrics)
          (sql/delete-rows :fact_values
-            ["ID NOT IN (SELECT fact_value_id FROM facts)"])
+            ["ID NOT IN (SELECT DISTINCT fact_value_id FROM facts)"])
          (sql/delete-rows :fact_paths
             ["ID NOT IN (SELECT path_id FROM fact_values)"])))
 
