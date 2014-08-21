@@ -1122,8 +1122,8 @@
   []
   (when (and (sutils/postgres?)
              (sutils/db-version-newer-than? [8 3])
-             (sutils/db-version-older-than? [9 3]))
-    "PostgreSQL DB versions 8.4 - 9.2 are deprecated and won't be supported in the future."))
+             (sutils/db-version-older-than? [9 2]))
+    "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."))
 
 (defn db-unsupported?
   "Returns a string with an unsupported message if the DB is not supported,
