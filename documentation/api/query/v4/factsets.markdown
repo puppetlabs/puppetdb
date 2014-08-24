@@ -66,7 +66,7 @@ Get all factsets with updated after "2014-07-21T16:13:44.334Z":
     curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=[">",
     "timestamp", "2014-07-21T16:13:44.334Z"]
 
-Get all factsets corresponding to nodes running Arch:
+Get all factsets corresponding to nodes running Darwin:
 
     curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=["in",
     "certname", ["extract", "certname", ["select-facts", ["and", ["=", "name",
