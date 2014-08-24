@@ -14,6 +14,8 @@
    :environment (s/maybe s/Str)
    :path String
    :value s/Any
+   :value_float (s/maybe s/Num)
+   :value_integer (s/maybe s/Int)
    :type (s/maybe String)
    :timestamp pls/Timestamp})
 
@@ -42,7 +44,7 @@
 
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type]) rows))
+  (map (partial facts/convert-row-type [:type :value_integer :value_float]) rows))
 
 (defn int-map->vector
   "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"

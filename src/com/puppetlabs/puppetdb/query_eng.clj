@@ -95,10 +95,12 @@
   "Query structured facts."
 
   (map->Query {:project {"path" :string
-                         "value" :coercible-string
+                         "value" :multi
                          "depth" :integer
                          "certname" :string
                          "environment" :string
+                         "value_integer" :number
+                         "value_float" :number
                          "name" :string
                          "type" :string}
                :alias "facts"
@@ -111,11 +113,13 @@
                        fp.path as path,
                        fp.name as name,
                        fp.depth as depth,
+                       fv.value_integer as value_integer,
+                       fv.value_float as value_float,
+                       fv.value_hash,
+                       fv.value_string,
                        COALESCE(fv.value_string,
                                 fv.value_json,
-                                cast(fv.value_integer as text),
-                                cast(fv.value_boolean as text),
-                                cast(fv.value_float as text)) as value,
+                                cast(fv.value_boolean as text)) as value,
                        vt.type as type,
                        env.name as environment
                 FROM factsets fs
@@ -133,6 +137,8 @@
                          "certname" :string
                          "name" :string
                          "environment" :string
+                         "value_integer" :number
+                         "value_float" :number
                          "type" :string}
                :alias "fact_nodes"
                :queryable-fields ["path" "value" "certname" "environment" "name"]
@@ -143,15 +149,11 @@
                        fp.path,
                        fp.name as name,
                        COALESCE(fv.value_string,
-                                CAST(fv.value_integer as text),
-                                CAST(fv.value_float as text),
                                 CAST(fv.value_boolean as text)) as value,
-                       COALESCE(CAST(fv.value_integer as double precision),
-                                fv.value_float) as value_number,
                        fv.value_string,
                        fv.value_hash,
-                       fv.value_integer,
-                       fv.value_float,
+                       fv.value_integer as value_integer,
+                       fv.value_float as value_float,
                        env.name as environment,
                        vt.type
                 FROM factsets fs
@@ -272,6 +274,8 @@
                          "value" :variable
                          "certname" :string
                          "timestamp" :timestamp
+                         "value_float" :number
+                         "value_integer" :number
                          "environment" :string
                          "type" :string}
                :alias "factsets"
@@ -282,9 +286,9 @@
                :source "SELECT fact_paths.path, timestamp,
                                COALESCE(fact_values.value_string,
                                         fact_values.value_json,
-                                        CAST(fact_values.value_integer as text),
-                                        CAST(fact_values.value_float as text),
                                         CAST(fact_values.value_boolean as text)) as value,
+                               fact_values.value_integer as value_integer,
+                               fact_values.value_float as value_float,
                                factsets.certname,
                                environments.name as environment,
                                value_types.type
@@ -299,6 +303,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
+
+(defn maybe-vectorize-string
+  [arg]
+  (if (vector? arg) arg [arg]))
 
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
@@ -336,10 +344,14 @@
 
   BinaryExpression
   (-plan->sql [expr]
-    (format "%s %s %s"
-            (-plan->sql (:column expr))
-            (:operator expr)
-            (-plan->sql (:value expr))))
+    (str/join " OR "
+              (map
+                #(format "%s %s %s"
+                         (-plan->sql %1)
+                         (:operator expr)
+                         (-plan->sql %2))
+                (maybe-vectorize-string (:column expr))
+                (maybe-vectorize-string (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -399,7 +411,7 @@
      :state (conj state (:value node))}))
 
 (defn extract-all-params
-  "Zip through the query plan, replacing each user provided query paramter with '?'
+  "Zip through the query plan, replacing each user provided query parameter with '?'
    and return the parameters as a vector"
   [plan]
   (let [{:keys [node state]} (zip/post-order-visit (zip/tree-zipper plan)
@@ -431,8 +443,11 @@
   [node]
   (cm/match [node]
 
+            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+            ["or" [op "value_integer" value] [op "value_float" value]]
+
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
-            (if (= :facts (get-in (meta node) [:query-context :entity]))
+            (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
 
             [["=" ["node" "active"] value]]
@@ -449,13 +464,23 @@
                 [op "res_param_name" param-name]
                 [op "res_param_value" (db-serialize param-value)]]]]]
 
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(string? %))]]
             ["in" "certname"
              ["extract" "certname"
               ["select-facts"
                ["and"
                 ["=" "name" fact-name]
                 [op "value" fact-value]]]]]
+
+            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] (fact-value :guard #(number? %))]]
+            ["in" "certname"
+             ["extract" "certname"
+              ["select-facts"
+               ["and"
+                ["=" "name" fact-name]
+                ["or"
+                 [op "value_float" fact-value]
+                 [op "value_integer" fact-value]]]]]]
 
             [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"
@@ -504,7 +529,7 @@
               [[(:or ">" ">=" "<" "<=") field _]]
               (let [col-type (get-in query-context [:project field])]
                 (when-not (or (vec? field)
-                              (contains? #{:coercible-string :number :timestamp :multi}
+                              (contains? #{:number :timestamp :multi}
                                          col-type))
                   (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
@@ -559,15 +584,6 @@
                                        :column column
                                        :value (to-timestamp value)})
 
-               (= col-type :coercible-string)
-               (map->BinaryExpression (if (number? value)
-                                        {:operator "="
-                                         :column (su/sql-as-numeric column)
-                                         :value value}
-                                        {:operator "="
-                                         :column column
-                                         :value (str value)}))
-
                (= col-type :array)
                (map->ArrayBinaryExpression {:column column
                                             :value value})
@@ -600,13 +616,12 @@
                 (case col-type
                   :multi
                   (map->BinaryExpression {:operator op
-                                          :column (str column "_number")
-                                          :value value})
+                                          :column ["value_integer" "value_float"]
+                                          :value (if (number? value) [value value]
+                                                   (map ks/parse-number [value value]))})
 
                   (map->BinaryExpression {:operator op
-                                          :column (if (= :coercible-string col-type)
-                                                    (su/sql-as-numeric column)
-                                                    column)
+                                          :column column
                                           :value  (if (= :timestamp col-type)
                                                     (to-timestamp value)
                                                     (ks/parse-number (str value)))}))
@@ -648,14 +663,14 @@
             (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
             [["in" column subquery-expression]]
-            (map->InExpression {:column (if (vector? column) column [column])
+            (map->InExpression {:column (maybe-vectorize-string column)
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["extract" column
               [subquery-name & subquery-expression]]]
-            (let [columns (if (vector? column) column [column])]
+            (let [columns (maybe-vectorize-string column)]
               (assoc (user-query->logical-obj subquery-name)
               :project (zipmap columns (repeat (count columns) nil))
               :where (when (seq subquery-expression)
@@ -789,8 +804,8 @@
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
-   user provided query to SQL and extract the parameters, to be used
-   in a prepared statement"
+  user provided query to SQL and extract the parameters, to be used
+  in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
   (when paging-options
     (paging/validate-order-by! (map keyword (:queryable-fields query-rec)) paging-options))

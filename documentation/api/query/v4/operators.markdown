@@ -23,17 +23,22 @@ Each of these operators accepts two arguments: a **field,** and a
 
 The available fields for each endpoint are listed in that endpoint's documentation.
 
+**Note**
+In past API versions PuppetDB has supported comparisons between strings in the
+database and numerical values.  For example, equality and inequality queries for 0
+would match database values of "0". This behavior is not supported on the v4 API,
+since typed and structured facts allow us to distinguish the two in the database.
+Instead, binary operators must be predicated on the same type as the desired
+database value.
+
 ### `=` (equality)
 
 **Works with:** strings, numbers, timestamps, booleans, arrays, multi, path
 
 **Matches if:** the field's actual value is exactly the same as the provided value.
 
-Note that this operator **will** coerce values if the provided value is numeric and the target field is coercible (i.e. fact values), but will not coerce if the provided value is a string.
-
 * Most fields are strings.
 * Some fields are booleans.
-* Numbers in resource parameters from Puppet are usually stored as strings, but can be coerced to numbers by PuppetDB... as long as you compare them to numbers. (For example: if the value of `someparam` were `"0"`, then `["=", "someparam", "0.0"]` wouldn't match, but `["=", "someparam", 0.0]` would.)
 * Arrays match if any **one** of their elements match.
 * Path matches are a special kind of array, and must be exactly matched with this operator.
 
@@ -41,25 +46,25 @@ Note that this operator **will** coerce values if the provided value is numeric 
 
 **Works with:** numbers, timestamps, multi
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
+**Matches if:** the field is greater than the provided value.
 
 ### `<` (less than)
 
 **Works with:** numbers, timestamps, multi
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
+**Matches if:** the field is greater than the provided value.
 
 ### `>=` (less than or equal to)
 
 **Works with:** numbers, timestamps, multi
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
+**Matches if:** the field is greater than the provided value.
 
 ### `<=` (greater than or equal to)
 
 **Works with:** numbers, timestamps, multi
 
-**Matches if:** the field is greater than the provided value. If the column is coercible (such as fact values), it will coerce both the field and value to floats or integers.
+**Matches if:** the field is greater than the provided value.
 
 ### `~` (regexp match)
 

@@ -248,7 +248,7 @@
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value, value_float, value_integer")
 
    "/v3/facts" (omap/ordered-map
                 ;; Extract using an invalid fields should throw an error
@@ -276,27 +276,10 @@
                 ;; In-queries for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")))
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value, value_float, value_integer")))
 
 (def common-well-formed-tests
   (omap/ordered-map
-   nil
-   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
-    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
-    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
-    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
-    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
-    {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}
-    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
-    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
-    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
-    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
-    {:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}
-    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
-    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
-    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
-    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
-
    ["=" "name" "domain"]
    [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
     {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
@@ -305,24 +288,6 @@
    ["=" "value" "Darwin"]
    [{:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
     {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
-
-   ["not" ["=" "name" "domain"]]
-   [{:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
-    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
-    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
-    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
-    {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}
-    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
-    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
-    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
-    {:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}
-    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
-    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
-    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
-
-   ["and" ["=" "name" "uptime_seconds"]
-    [">" "value" "5000"]]
-   [{:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}]
 
    ["and" ["=" "name" "kernel"]
     ["~" "value" "i.u[xX]"]]
@@ -347,15 +312,6 @@
     ["not" ["~" "certname" "^foo[12]$"]]]
    [{:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}]
 
-   ["and" ["=" "name" "uptime_seconds"]
-    [">=" "value" "4000"]
-    ["<" "value" "6000.0"]]
-   [{:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}]
-
-   ["and" ["=" "name" "domain"]
-    [">" "value" "5000"]]
-   []
-
    ["or" ["=" "name" "kernel"]
     ["=" "name" "operatingsystem"]]
    [{:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
@@ -364,6 +320,72 @@
     {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
     {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
     {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
+
+   ;; Verify that we're enforcing that
+   ;; facts from inactive nodes are never
+   ;; returned, even if you ask for them
+   ;; specifically.
+   ["=" ["node" "active"] false]
+   []))
+
+
+(defn versioned-well-formed-tests
+  [version]
+  (case version
+    (:v2 :v3)
+    (merge
+      common-well-formed-tests
+   (omap/ordered-map
+   nil
+   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}
+    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1":name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}
+    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
+
+   ["not" ["=" "name" "domain"]]
+   [{:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
+
+   ;; test that stringified numerical comparisons work for lower endpoints
+   ["and" ["=" "name" "bigstr"]
+    [">=" "value" "100000"]]
+   [{:value "1000000", :name "bigstr", :certname "foo1"}]
+
+   ["and" ["=" "name" "bigstr"]
+    [">=" "value" 10000]]
+   [{:value "1000000", :name "bigstr", :certname "foo1"}]
+
+   ["and" ["=" "name" "uptime_seconds"]
+    [">=" "value" "4000"]
+    ["<" "value" 6000.0]]
+   [{:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}]
+
+   ["and" ["=" "name" "domain"]
+    [">" "value" 5000]]
+   []
 
    ["=" "certname" "foo2"]
    [{:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
@@ -385,16 +407,83 @@
     {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
     {:certname "foo2" :name "uptime_seconds" :value "6000" :environment "DEV"}
     {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]))
+
+    (merge common-well-formed-tests
+   (omap/ordered-map
+   nil
+   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}
+    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}
+    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
     {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
     {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
     {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
 
-   ;; Verify that we're enforcing that
-   ;; facts from inactive nodes are never
-   ;; returned, even if you ask for them
-   ;; specifically.
-   ["=" ["node" "active"] false]
-   []))
+   ["not" ["=" "name" "domain"]]
+   [{:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
+
+   ["and" ["=" "name" "uptime_seconds"]
+    [">" "value" 5000]]
+   [{:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}]
+
+   ["and" ["=" "name" "uptime_seconds"]
+    [">=" "value" 4000]
+    ["<" "value" 6000.0]]
+   [{:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}]
+
+   ["and" ["=" "name" "domain"]
+    [">" "value" 5000]]
+   []
+
+   ["=" "certname" "foo2"]
+   [{:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}]
+
+   ["=" ["node" "active"] true]
+   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}
+    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}
+    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]))))
 
 (defn test-app
   ([read-write-db]
@@ -418,14 +507,15 @@
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
                 "kernel" "Linux"
+                "bigstr" "1000000"
                 "operatingsystem" "Debian"
                 "some_version" "1.3.7+build.11.e0f985a"
-                "uptime_seconds" "4000"}
+                "uptime_seconds" 4000}
         facts2 {"domain" "testing.com"
                 "hostname" "foo2"
                 "kernel" "Linux"
                 "operatingsystem" "RedHat"
-                "uptime_seconds" "6000"}
+                "uptime_seconds" 6000}
         facts3 {"domain" "testing.com"
                 "hostname" "foo3"
                 "kernel" "Darwin"
@@ -434,7 +524,7 @@
                 "hostname" "foo4"
                 "kernel" "Linux"
                 "operatingsystem" "RedHat"
-                "uptime_seconds" "6000"}]
+                "uptime_seconds" 6000}]
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
@@ -469,13 +559,14 @@
 
     (testing "fact queries"
       (testing "well-formed queries"
-        (doseq [[query result] common-well-formed-tests]
+        (doseq [[query result] (versioned-well-formed-tests version)]
           (testing (format "Query %s" query)
               (let [request (get-request endpoint (json/generate-string query))
                     {:keys [status body headers]} (*app* request)]
                 (is (= status pl-http/status-ok))
                 (is (= (headers "Content-Type") c-t))
-                (is (= (set (remove-all-environments version result)) (set (json/parse-string (slurp body) true))))))))
+                (is (= (set (remove-all-environments version result))
+                       (set (json/parse-string (slurp body) true))))))))
 
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
@@ -570,13 +661,14 @@
                   {:keys [status body headers]} (one-db-app request)]
               (is (= status pl-http/status-ok))
               (is (= (headers "Content-Type") c-t))
-              (is (= (remove-all-environments version
-                                              [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
-                                               {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
-                                               {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
-                                               {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
-                                               {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
-                                               {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}])
+              (is (= (remove-all-environments
+                       version
+                       [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+                        {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+                        {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+                        {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+                        {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+                        {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}])
                      (sort-by :name (json/parse-stream (io/reader body) true)))))))))))
 
 (defn test-paged-results
@@ -1131,16 +1223,16 @@
               [{:value "testing.com" :name "domain" :environment "DEV" :certname "foo1"}
                {:value {:b 3.14 :a 1 :e "1" :d {:n ""} :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                {:value "foo" :name "test#~delimiter" :environment "DEV" :certname "foo1"}
-               {:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}]
+               {:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}]
               ["=" "value" 3.14] ()
               ["<=" "value" 10] ()
               [">=" "value" 10]
-              [{:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}
-               {:value "6000" :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
+              [{:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}
+               {:value 6000 :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
               ["<" "value" 10] ()
               [">" "value" 10]
-              [{:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}
-               {:value "6000" :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
+              [{:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}
+               {:value 6000 :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
               ["=" "name" "my_structured_fact"]
               [{:value  {:b 3.14 :a 1 :e "1" :d  {:n ""} :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]}
@@ -1150,16 +1242,16 @@
                [{:value "testing.com" :name "domain" :environment "DEV" :certname "foo1"}
                 {:value {:b 3.14 :a 1 :e "1" :d {:n ""} :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                 {:value "foo" :name "test#~delimiter" :environment "DEV" :certname "foo1"}
-                {:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}]
+                {:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}]
                ["=" "value" 3.14] ()
                ["<=" "value" 10] ()
                [">=" "value" 10]
-               [{:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}
-                {:value "6000" :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
+               [{:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}
+                {:value 6000 :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
                ["<" "value" 10] ()
                [">" "value" 10]
-               [{:value "4000" :name "uptime_seconds" :environment "DEV" :certname "foo1"}
-                {:value "6000" :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
+               [{:value 4000 :name "uptime_seconds" :environment "DEV" :certname "foo1"}
+                {:value 6000 :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
                ["=" "name" "my_structured_fact"]
                [{:value {:b 3.14 :a 1 :e "1" :d {:n ""} :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
                 {:value {:d {:n ""} :b 3.14 :a 1 :e "1" :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}
@@ -1196,7 +1288,7 @@
                                          "e" "1"
                                          }
                    "domain" "testing.com"
-                   "uptime_seconds" "4000"
+                   "uptime_seconds" 4000
                    "test#~delimiter" "foo"}
            facts2 {"my_structured_fact" {"a" 1
                                          "b" 3.14
@@ -1205,7 +1297,7 @@
                                          "e" "1"
                                          }
                    "domain" "testing.com"
-                   "uptime_seconds" "6000"}
+                   "uptime_seconds" 6000}
            facts3 {"my_structured_fact" {"a" 1
                                          "b" 3.14
                                          "c" ["a" "b" "c"]
@@ -1222,7 +1314,7 @@
                                          }
                    "domain" "testing.com"
                    "hostname" "foo4"
-                   "uptime_seconds" "6000"}]
+                   "uptime_seconds" 6000}]
       (with-transacted-connection *db*
         (scf-store/add-certname! "foo1")
         (scf-store/add-certname! "foo2")
@@ -1268,9 +1360,10 @@
                                  (partial get-response endpoint)) queries)]
 
           (doseq [[response query] (map vector responses queries)]
-            (compare-structured-response (sort-by (juxt :certname :name) response)
-                                         (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
-                                         version))))))
+            (compare-structured-response
+              (sort-by (juxt :certname :name) response)
+              (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
+              version))))))
 
 (deftestseq fact-contents-queries
   [[version endpoint] fact-contents-endpoints]

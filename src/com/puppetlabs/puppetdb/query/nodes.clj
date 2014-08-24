@@ -62,7 +62,6 @@
          (if (:count? paging-options)
            (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
            result))
-
        (qe/compile-user-query->sql
         qe/nodes-query query paging-options))))
 

@@ -166,14 +166,14 @@ must be supplied as the value to be matched."
 
 (defmethod sql-as-numeric "PostgreSQL"
   [column]
-  (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::integer "
+  (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::bigint "
                "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
                "ELSE NULL END")
           column column column column))
 
 (defmethod sql-as-numeric "HSQL Database Engine"
   [column]
-  (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS INTEGER) "
+  (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS BIGINT) "
                "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
                "ELSE NULL END")
           column column column column))
