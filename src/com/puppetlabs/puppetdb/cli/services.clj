@@ -289,7 +289,7 @@
     (sql/with-connection write-db
                          (scf-store/validate-database-version #(System/exit 1))
                          (migrate!)
-                         (indexes!))
+                         (indexes! (:product-name globals)))
 
     ;; Initialize database-dependent metrics
     (pop/initialize-metrics write-db)

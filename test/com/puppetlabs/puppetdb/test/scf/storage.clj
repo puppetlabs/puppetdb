@@ -1196,10 +1196,10 @@
       (with-db-version db version
         (fn []
           (is (= result (db-deprecated?)))))
-      "PostgreSQL" [8 4] "PostgreSQL DB versions 8.4 - 9.2 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 0] "PostgreSQL DB versions 8.4 - 9.2 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 1] "PostgreSQL DB versions 8.4 - 9.2 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 2] "PostgreSQL DB versions 8.4 - 9.2 are deprecated and won't be supported in the future."
+      "PostgreSQL" [8 4] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
+      "PostgreSQL" [9 0] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
+      "PostgreSQL" [9 1] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
+      "PostgreSQL" [9 2] nil
       "PostgreSQL" [9 3] nil
       "PostgreSQL" [9 4] nil)))
 

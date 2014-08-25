@@ -944,7 +944,7 @@
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
-  []
+  [product-name]
   (if (and (scf-utils/postgres?)
            (scf-utils/db-version-newer-than? [9 2]))
     (sql/transaction
@@ -958,9 +958,10 @@
          "    CREATE EXTENSION pg_trgm;\n\n"
          "as the database super user on the PuppetDB database to correct\n"
          "this, then restart PuppetDB.\n"))))
-    (log/warn
-     (str
-      "Unable to install optimal indexing\n\n"
-      "We are unable to create optimal indexes for your database.\n"
-      "For maximum index performance, we recommend using PostgreSQL 9.3 or\n"
-      "greater.\n"))))
+    (when (= product-name "puppetdb")
+      (log/warn
+       (str
+        "Unable to install optimal indexing\n\n"
+        "We are unable to create optimal indexes for your database.\n"
+        "For maximum index performance, we recommend using PostgreSQL 9.3 or\n"
+        "greater.\n")))))
