@@ -6,7 +6,6 @@ canonical: "/puppetdb/latest/api/query/v3/catalogs.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [catalog]: ../../wire_format/catalog_format_v1.html
-[query]: ./query.html
 
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
