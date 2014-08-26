@@ -40,20 +40,20 @@
              sql (case version
                    (:v1 :v2 :v3)
                    (format "SELECT subquery1.name,
-                          subquery1.deactivated,
-                          catalogs.timestamp AS catalog_timestamp,
-                          certname_facts_metadata.timestamp AS facts_timestamp,
-                          reports.end_time AS report_timestamp
-                          FROM (%s) subquery1
+                                   subquery1.deactivated,
+                                   catalogs.timestamp AS catalog_timestamp,
+                                   factsets.timestamp AS facts_timestamp,
+                                   reports.end_time AS report_timestamp
+                            FROM (%s) subquery1
                             LEFT OUTER JOIN catalogs
                               ON subquery1.name = catalogs.certname
-                            LEFT OUTER JOIN certname_facts_metadata
-                              ON subquery1.name = certname_facts_metadata.certname
+                            LEFT OUTER JOIN factsets
+                              ON subquery1.name = factsets.certname
                             LEFT OUTER JOIN reports
                               ON subquery1.name = reports.certname
                                 AND reports.hash
                                   IN (SELECT report FROM latest_reports)
-                          ORDER BY subquery1.name ASC" subselect)
+                            ORDER BY subquery1.name ASC" subselect)
 
                    ;; For :v4 the query now all lives in node-query->sql
                    subselect)
@@ -62,7 +62,6 @@
          (if (:count? paging-options)
            (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
            result))
-
        (qe/compile-user-query->sql
         qe/nodes-query query paging-options))))
 

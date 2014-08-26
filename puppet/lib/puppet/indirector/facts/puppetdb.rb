@@ -3,6 +3,7 @@ require 'puppet/node/facts'
 require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
 require 'json'
+require 'time'
 
 class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
@@ -13,23 +14,33 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     Puppet::Util::Puppetdb::GlobalCheck.run
   end
 
+  def get_trusted_info(node)
+    trusted = Puppet.lookup(:trusted_information) do
+      Puppet::Context::TrustedInformation.local(request.node)
+    end
+    trusted.to_h
+  end
+
   def save(request)
     profile "facts#save" do
       payload = profile "Encode facts command submission payload" do
         facts = request.instance.dup
         facts.values = facts.strip_internal
-        facts.stringify
+        if Puppet[:trusted_node_data]
+          facts.values[:trusted] = get_trusted_info(request.node)
+        end
         {
           "name" => facts.name,
           "values" => facts.values,
           # PDB-453: we call to_s to avoid a 'stack level too deep' error
           # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
           # legacy storeconfigs.
-          "environment" => request.environment.to_s,
+          "environment" => request.options[:environment] || request.environment.to_s,
+          "producer-timestamp" => request.options[:producer_timestamp] || Time.now.iso8601,
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 2)
+      submit_command(request.key, payload, CommandReplaceFacts, 3)
     end
   end
 

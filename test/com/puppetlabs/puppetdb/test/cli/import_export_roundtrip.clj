@@ -88,22 +88,23 @@
                :environment "DEV"
                :values {:foo "the foo"
                         :bar "the bar"
-                        :baz "the baz"}}
+                        :baz "the baz"
+                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
-        catalog (-> (get-in wire-catalogs [4 :empty])
+        catalog (-> (get-in wire-catalogs [5 :empty])
                     (assoc :name "foo.local"))
         report (:basic reports)]
 
     (jutils/with-puppetdb-instance
       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-      (submit-command :replace-catalog 4 catalog)
+      (submit-command :replace-catalog 5 catalog)
       (submit-command :store-report 3 (tur/munge-example-report-for-storage report))
-      (submit-command :replace-facts 2 facts)
+      (submit-command :replace-facts 3 facts)
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v4 catalog)
-             (tuc/munge-catalog-for-comparison :v4 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
+      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+             (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
 
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
@@ -118,10 +119,10 @@
       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
       (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
 
-      (block-on-node  (:name facts))
+      (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v4 catalog)
-             (tuc/munge-catalog-for-comparison :v4 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
+      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+             (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
                                                   first
@@ -180,7 +181,10 @@
              (tur/munge-report-for-comparison (-> (first (export/reports-for-node "localhost" jutils/*port* :v3 (:certname report)))
                                                   (update-in [:resource-events] vec)))))
 
-      (is (= facts (export/facts-for-node "localhost" jutils/*port* :v3 "foo.local"))))))
+      (is (= facts
+             (dissoc
+               (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
+               :environment))))))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [4 :empty])
@@ -189,6 +193,6 @@
       (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
        (fn []
         (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-        (submit-command :replace-catalog 4 catalog)
+        (submit-command :replace-catalog 5 catalog)
         (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
               @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))

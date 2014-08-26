@@ -193,10 +193,21 @@
 
 ;; This map's keys are the queryable fields for facts, and the values are the
 ;;  corresponding table names where the fields reside
-(def fact-columns {"certname" "certname_facts"
-                   "name"     "certname_facts"
-                   "value"    "certname_facts"
-                   "environment" "certname_facts"})
+(def fact-columns {"certname"         "facts"
+                   "name"             "facts"
+                   "value"            "facts"
+                   "depth"            "facts"
+                   "value_integer"    "facts"
+                   "value_float"      "facts"
+                   "type"             "facts"
+                   "path"             "facts"
+                   "environment"      "facts"})
+
+;; This map's keys are the queryable fields for factsets, and the values are the
+;;  corresponding table names where the fields reside
+(def factset-columns {"certname" "factsets"
+                      "environment" "factsets"
+                      "timestamp" "factsets"})
 
 ;; This map's keys are the queryable fields for resources, and the values are the
 ;;  corresponding table names where the fields reside
@@ -331,12 +342,14 @@
   "Compile an `extract` operator, selecting the given `field` from the compiled
   result of `subquery`, which must be a kind of `select` operator."
   [query-api-version ops field subquery]
-  {:pre [(string? field)
+  {:pre [(or (string? field) (vector? field))
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
+    (when (vector? field)
+      (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
     (when-not subquery-type
       (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
     (when-not (get (queryable-fields subquery-type query-api-version) field)
@@ -349,10 +362,12 @@
   `field` appears in the result given by `subquery`, which must be an `extract`
   composed with a `select`."
   [kind query-api-version ops field subquery]
-  {:pre [(string? field)
+  {:pre [(or (string? field) (vector? field))
          (coll? subquery)]
    :post [(map? %)
           (string? (:where %))]}
+  (when (vector? field)
+    (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
   (when-not (get (queryable-fields kind query-api-version) field)
     (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (string/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
@@ -364,7 +379,7 @@
   "Compile a resource query, returning a vector containing the SQL and
   parameters for the query. All resource columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
                        FROM (SELECT c.hash as catalog, e.name as environment, catalog_id, resource,
@@ -381,20 +396,37 @@
   "Compile a fact query, returning a vector containing the SQL and parameters
   for the query. All fact columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
-        sql (format "SELECT %s FROM (select cf.certname, cf.name, cf.value, env.name as environment
-                                     FROM certname_facts cf INNER JOIN certname_facts_metadata cfm on cf.certname = cfm.certname
-                                                            LEFT OUTER JOIN environments as env on cfm.environment_id = env.id)
-                                     as certname_facts
-                     WHERE %s" (column-map->sql fact-columns) where)]
+        sql (format "SELECT %s FROM (
+                      SELECT fs.certname,
+                             fp.path as path,
+                             fp.name as name,
+                             fp.depth as depth,
+                             fv.value_integer as value_integer,
+                             fv.value_float as value_float,
+                             COALESCE(fv.value_string,
+                                      fv.value_json,
+                                      cast(fv.value_integer as text),
+                                      cast(fv.value_float as text),
+                                      cast(fv.value_boolean as text)) as value,
+                             vt.type as type,
+                             env.name as environment
+                      FROM factsets fs
+                        INNER JOIN facts as f on fs.id = f.factset_id
+                        INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                        INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                        INNER JOIN value_types as vt on vt.id=fv.value_type_id
+                        LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                      WHERE depth = 0) AS facts
+                    WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
 (defn node-query->sql
   "Compile a node query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [version ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [sql (case version
               (:v1 :v2 :v3)
               (format "SELECT %s FROM certnames"
@@ -404,7 +436,7 @@
                        certnames.name,
                        certnames.deactivated,
                        catalogs.timestamp AS catalog_timestamp,
-                       certname_facts_metadata.timestamp AS facts_timestamp,
+                       factsets.timestamp AS facts_timestamp,
                        reports.end_time AS report_timestamp,
                        catalog_environment.name AS catalog_environment,
                        facts_environment.name AS facts_environment,
@@ -412,8 +444,8 @@
                        FROM certnames
                          LEFT OUTER JOIN catalogs
                            ON certnames.name = catalogs.certname
-                         LEFT OUTER JOIN certname_facts_metadata
-                           ON certnames.name = certname_facts_metadata.certname
+                         LEFT OUTER JOIN factsets
+                           ON certnames.name = factsets.certname
                          LEFT OUTER JOIN reports
                            ON certnames.name = reports.certname
                              AND reports.hash
@@ -421,7 +453,7 @@
                          LEFT OUTER JOIN environments AS catalog_environment
                            ON catalog_environment.id = catalogs.environment_id
                          LEFT OUTER JOIN environments AS facts_environment
-                           ON facts_environment.id = certname_facts_metadata.environment_id
+                           ON facts_environment.id = factsets.environment_id
                          LEFT OUTER JOIN environments AS reports_environment
                            ON reports_environment.id = reports.environment_id) as certnames"
                       (column-map->sql (node-columns version))))]
@@ -435,7 +467,7 @@
   "Compile a environments query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (when query (compile-term ops query))
         projection (format "SELECT %s FROM environments " (column-map->sql environments-columns))
         where-clause (when where
@@ -446,7 +478,7 @@
   "Compile a node query, returning a vector containing the SQL and parameters
   for the query. All node columns are selected, and no order is applied."
   [version ops query]
-  {:post [valid-jdbc-query? %]}
+  {:post [(valid-jdbc-query? %)]}
   (let [sql (format "SELECT %s FROM (SELECT
                      reports.hash,
                      reports.certname,
@@ -568,26 +600,29 @@
             (:where %)]}
     (match [path]
            ["name"]
-           {:where "certname_facts.name = ?"
+           {:where "facts.name = ?"
             :params [value]}
 
            ["value"]
-           {:where "certname_facts.value = ?"
+           {:where "facts.value = ? and depth = 0"
             :params [(str value)]}
 
            ["certname"]
-           {:where "certname_facts.certname = ?"
+           {:where "facts.certname = ?"
             :params [value]}
 
            ["environment" :guard (v4? version)]
-           {:where "certname_facts.environment = ?"
+           {:where "facts.environment = ?"
             :params [value]}
 
            [["node" "active"]]
-           {:where (format "certname_facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)"
+                           (if value "NULL" "NOT NULL"))}
 
            :else
-           (throw (IllegalArgumentException. (format "%s is not a queryable object for version %s of the facts query api" path (last (name version))))))))
+           (throw (IllegalArgumentException.
+                    (format "%s is not a queryable object for version %s of the facts query api"
+                            path (last (name version))))))))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
@@ -602,16 +637,17 @@
     (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
       (match [path]
              ["certname"]
-             (query "certname_facts.certname")
+             (query "facts.certname")
 
              ["environment" :guard (v4? version)]
-             (query "certname_facts.environment")
+             (query "facts.environment")
 
              ["name"]
-             (query "certname_facts.name")
+             (query "facts.name")
 
              ["value"]
-             (query "certname_facts.value")
+             {:where (format "%s and depth = 0" (sql-regexp-match "facts.value"))
+              :params [pattern]}
 
              :else (throw (IllegalArgumentException.
                            (format "%s is not a valid version %s operand for regexp comparison" path (last (name version)))))))))
@@ -628,8 +664,8 @@
   (if-let [number (parse-number (str value))]
     (match [path]
            ["value"]
-           ;; This is like convert_to_numeric(certname_facts.value) > 0.3
-           {:where  (format "%s %s ?" (sql-as-numeric "certname_facts.value") op)
+           ;; This is like convert_to_numeric(facts.value) > 0.3
+           {:where  (format "%s %s ? and depth = 0" (sql-as-numeric "facts.value") op)
             :params [number]}
 
            :else (throw (IllegalArgumentException.
@@ -649,7 +685,20 @@
           :params [value] }
 
          [["fact" (name :guard string?)]]
-         {:where  "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND cf.value = ?)"
+         {:where
+          "certnames.name IN
+          (SELECT fs.certname
+           FROM factsets fs
+             INNER JOIN facts as f on fs.id = f.factset_id
+             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+             INNER JOIN fact_paths as fp on fv.path_id = fp.id
+           WHERE fp.depth = 0 AND
+                 fp.path = ? AND
+                 COALESCE(fv.value_string,
+                          cast(fv.value_integer as text),
+                          cast(fv.value_boolean as text),
+                          cast(fv.value_float as text),
+                          '') = ?)"
           :params [name (str value)]}
 
          [["node" "active"]]
@@ -673,7 +722,22 @@
             :params [pattern]}
 
            [["fact" (name :guard string?)]]
-           {:where (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s)" (sql-regexp-match "cf.value"))
+           {:where
+            (format
+             "certnames.name IN
+             (SELECT fs.certname
+              FROM factsets fs
+                INNER JOIN facts as f on fs.id = f.factset_id
+                INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                INNER JOIN fact_paths as fp on fv.path_id = fp.id
+              WHERE fp.depth = 0 AND
+                    fp.path = ? AND
+                    %s)"
+             (sql-regexp-match "COALESCE(fv.value_string,
+                                         cast(fv.value_integer as text),
+                                         cast(fv.value_boolean as text),
+                                         cast(fv.value_float as text),
+                                         '')"))
             :params [name pattern]}
 
            :else (throw (IllegalArgumentException.
@@ -686,7 +750,22 @@
   (if-let [number (parse-number (str value))]
     (match [path]
            [["fact" (name :guard string?)]]
-           {:where  (format "certnames.name IN (SELECT cf.certname FROM certname_facts cf WHERE cf.name = ? AND %s %s ?)" (sql-as-numeric "cf.value") op)
+           {:where
+            (format
+             "certnames.name IN
+             (SELECT fs.certname
+              FROM factsets fs
+                INNER JOIN facts as f on fs.id = f.factset_id
+                INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                INNER JOIN fact_paths as fp on fv.path_id = fp.id
+              WHERE fp.depth = 0 AND
+                    fp.path = ? AND
+                    %s %s ?)"
+             (sql-as-numeric "COALESCE(fv.value_string,
+                                       cast(fv.value_integer as text),
+                                       cast(fv.value_boolean as text),
+                                       cast(fv.value_float as text),
+                                       '')") op)
             :params [name number]}
 
            :else (throw (IllegalArgumentException.

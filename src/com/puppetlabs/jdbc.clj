@@ -146,7 +146,9 @@
 
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
-  [sql {:keys [limit offset order-by]}]
+  ([sql {:keys [limit offset order-by]}]
+   (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
+  ([sql {:keys [limit offset order-by]} entity]
   {:pre [(string? sql)
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
@@ -155,20 +157,32 @@
    :post [(string? %)]}
     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
           offset-clause    (if offset (format " OFFSET %s" offset) "")
-          order-by-clause  (order-by->sql order-by)]
-      (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-          sql
-          order-by-clause
-          limit-clause
-          offset-clause)))
+          order-by-clause  (order-by->sql order-by)
+          inner-order-by   (str/replace order-by-clause #"environment"
+                                        "COALESCE(distinct_names.environment,'')")]
+      (case entity
+        :factsets
+        (format "SELECT paged_results.* FROM (%s) paged_results
+                WHERE (certname,COALESCE(paged_results.environment,''),timestamp) IN
+                (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp FROM (%s)
+                distinct_names %s%s%s) %s"
+                sql sql inner-order-by limit-clause offset-clause order-by-clause)
+        (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+                sql order-by-clause limit-clause offset-clause)))))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
-  [sql]
+  ([sql]
+   (count-sql nil sql))
+  ([entity sql]
   {:pre   [(string? sql)]
    :post  [(string? %)]}
-  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
+  (case entity
+    :factsets
+    (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
+            from (%s) paged_sql) results_to_count" sql)
+    (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
@@ -267,9 +281,10 @@
            stats log-statements log-slow-statements statements-cache-size
            conn-max-age conn-lifetime conn-keep-alive read-only?]
     :as   db}]
-  ;; Load the database driver class
-  (Class/forName classname)
-  (let [log-slow-statements-duration (pl-time/to-secs log-slow-statements)
+  (let [;; Load the database driver class explicitly, to avoid jar load ordering
+        ;; issues.
+        _ (Class/forName classname)
+        log-slow-statements-duration (pl-time/to-secs log-slow-statements)
         config          (doto (new BoneCPConfig)
                           (.setDefaultAutoCommit false)
                           (.setLazyInit true)
@@ -310,3 +325,14 @@
   (str "in ("
        (str/join "," (repeat (count coll) "?"))
        ")"))
+
+(defn in-clause-multi
+  "Create a prepared statement in clause, with a `width`-sized series of ? for
+  every item in coll."
+  [coll width]
+  {:pre [(seq coll)
+         (integer? width)]}
+  (let [inner (str "(" (str/join "," (repeat width "?")) ")")]
+    (str "in ("
+         (str/join "," (repeat (count coll) inner))
+         ")")))

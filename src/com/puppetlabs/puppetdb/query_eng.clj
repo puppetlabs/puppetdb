@@ -4,6 +4,8 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :as su]
             [clojure.string :as str]
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
+            [com.puppetlabs.puppetdb.scf.hash :as hash]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [clojure.core.match :as cm]
             [fast-zip.visit :as zv]
             [com.puppetlabs.puppetdb.schema :as pls]
@@ -12,12 +14,13 @@
             [com.puppetlabs.cheshire :as json]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :as ks]
-            [com.puppetlabs.puppetdb.query.paging :as paging]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]
+            [clojure.tools.logging :as log]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defrecord Query [source source-table alias project where subquery? queryable-fields])
+(defrecord Query [source source-table alias project where subquery? queryable-fields entity])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -46,18 +49,22 @@
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
-               :source "SELECT certnames.name as certname, certnames.deactivated, catalogs.timestamp AS catalog_timestamp,
-                               certname_facts_metadata.timestamp AS facts_timestamp, reports.end_time AS report_timestamp,
-                               catalog_environment.name AS catalog_environment, facts_environment.name AS facts_environment,
+               :source "SELECT certnames.name as certname,
+                               certnames.deactivated,
+                               catalogs.timestamp AS catalog_timestamp,
+                               fs.timestamp AS facts_timestamp,
+                               reports.end_time AS report_timestamp,
+                               catalog_environment.name AS catalog_environment,
+                               facts_environment.name AS facts_environment,
                                reports_environment.name AS report_environment
                        FROM certnames
                             LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
-                            LEFT OUTER JOIN certname_facts_metadata ON certnames.name = certname_facts_metadata.certname
+                            LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
                             LEFT OUTER JOIN reports ON certnames.name = reports.certname
                              AND reports.hash
                                IN (SELECT report FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
-                            LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = certname_facts_metadata.environment_id
+                            LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))
 
 (def resource-params-query
@@ -71,20 +78,91 @@
                :subquery? false
                :source "select resource as res_param_resource, name as res_param_name, value as res_param_value from resource_params"}))
 
-(def facts-query
-  "Query for the top level facts query"
-  (map->Query {:project {"name" :string
-                         "value" :coercible-string
-                         "certname" :string
-                         "environment" :string}
-               :alias "facts"
-               :queryable-fields ["name" "value" "certname" "environment"]
-               :source-table "certname_facts"
+(def fact-paths-query
+  "Query for the resource-params query, mostly used as a subquery"
+  (map->Query {:project {"type" :string
+                         "path" :path}
+               :queryable-fields ["type" "path"]
+               :source-table "fact_paths"
+               :alias "fact_paths"
                :subquery? false
-               :source "select cf.certname, cf.name, cf.value, env.name as environment
-                        FROM certname_facts cf
-                             INNER JOIN certname_facts_metadata cfm on cf.certname = cfm.certname
-                             LEFT OUTER JOIN environments as env on cfm.environment_id = env.id"}))
+               :source "SELECT path, type
+                        FROM fact_paths fp
+                        INNER JOIN value_types vt ON fp.value_type_id=vt.id
+                        WHERE fp.value_type_id != 5"}))
+
+(def facts-query
+  "Query structured facts."
+
+  (map->Query {:project {"path" :string
+                         "value" :multi
+                         "depth" :integer
+                         "certname" :string
+                         "environment" :string
+                         "value_integer" :number
+                         "value_float" :number
+                         "name" :string
+                         "type" :string}
+               :alias "facts"
+               :queryable-fields ["name" "certname" "environment" "value"]
+               :source-table "facts"
+               :entity :facts
+               :subquery? false
+               :source
+               "SELECT fs.certname,
+                       fp.path as path,
+                       fp.name as name,
+                       fp.depth as depth,
+                       fv.value_integer as value_integer,
+                       fv.value_float as value_float,
+                       fv.value_hash,
+                       fv.value_string,
+                       COALESCE(fv.value_string,
+                                fv.value_json,
+                                cast(fv.value_boolean as text)) as value,
+                       vt.type as type,
+                       env.name as environment
+                FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN value_types as vt on vt.id=fv.value_type_id
+                  LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                WHERE depth = 0"}))
+
+(def fact-contents-query
+  "Query for fact nodes"
+  (map->Query {:project {"path" :path
+                         "value" :multi
+                         "certname" :string
+                         "name" :string
+                         "environment" :string
+                         "value_integer" :number
+                         "value_float" :number
+                         "type" :string}
+               :alias "fact_nodes"
+               :queryable-fields ["path" "value" "certname" "environment" "name"]
+               :source-table "facts"
+               :subquery? false
+               :source
+               "SELECT fs.certname,
+                       fp.path,
+                       fp.name as name,
+                       COALESCE(fv.value_string,
+                                CAST(fv.value_boolean as text)) as value,
+                       fv.value_string,
+                       fv.value_hash,
+                       fv.value_integer as value_integer,
+                       fv.value_float as value_float,
+                       env.name as environment,
+                       vt.type
+                FROM factsets fs
+                  INNER JOIN facts as f on fs.id = f.factset_id
+                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN value_types as vt on fp.value_type_id = vt.id
+                  LEFT OUTER JOIN environments as env on fs.environment_id = env.id
+                WHERE fp.value_type_id != 5"}))
 
 (def resources-query
   "Query for the top level resource entity"
@@ -190,8 +268,45 @@
                :source "SELECT name
                         FROM environments"}))
 
+(def factsets-query
+  "Query for the top level facts query"
+  (map->Query {:project {"path" :string
+                         "value" :variable
+                         "certname" :string
+                         "timestamp" :timestamp
+                         "value_float" :number
+                         "value_integer" :number
+                         "environment" :string
+                         "type" :string}
+               :alias "factsets"
+               :queryable-fields ["certname" "environment" "timestamp"]
+               :entity :factsets
+               :source-table "factsets"
+               :subquery? false
+               :source "SELECT fact_paths.path, timestamp,
+                               COALESCE(fact_values.value_string,
+                                        fact_values.value_json,
+                                        CAST(fact_values.value_boolean as text)) as value,
+                               fact_values.value_integer as value_integer,
+                               fact_values.value_float as value_float,
+                               factsets.certname,
+                               environments.name as environment,
+                               value_types.type
+                        FROM factsets
+                             INNER JOIN facts on factsets.id = facts.factset_id
+                             INNER JOIN fact_values on facts.fact_value_id = fact_values.id
+                             INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
+                             INNER JOIN value_types on fact_paths.value_type_id = value_types.id
+                             LEFT OUTER JOIN environments on factsets.environment_id = environments.id
+                        WHERE depth = 0
+                        ORDER BY factsets.certname"}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
+
+(defn maybe-vectorize-string
+  [arg]
+  (if (vector? arg) arg [arg]))
 
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
@@ -211,7 +326,7 @@
       (parenthize
        (:subquery? query)
        (format "SELECT %s FROM ( %s ) AS %s %s %s"
-               (str/join ", " (map #(format "%s.%s" alias %) (keys (:project query))))
+               (str/join ", " (map #(format "%s.%s" alias %) (sort (keys (:project query)))))
                (:source query)
                (:alias query)
                (if has-where?
@@ -223,16 +338,20 @@
 
   InExpression
   (-plan->sql [expr]
-    (format "%s in %s"
-            (:column expr)
+    (format "(%s) in %s"
+            (str/join "," (sort (:column expr)))
             (-plan->sql (:subquery expr))))
 
   BinaryExpression
   (-plan->sql [expr]
-    (format "%s %s %s"
-            (-plan->sql (:column expr))
-            (:operator expr)
-            (-plan->sql (:value expr))))
+    (str/join " OR "
+              (map
+                #(format "%s %s %s"
+                         (-plan->sql %1)
+                         (:operator expr)
+                         (-plan->sql %2))
+                (maybe-vectorize-string (:column expr))
+                (maybe-vectorize-string (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -292,7 +411,7 @@
      :state (conj state (:value node))}))
 
 (defn extract-all-params
-  "Zip through the query plan, replacing each user provided query paramter with '?'
+  "Zip through the query plan, replacing each user provided query parameter with '?'
    and return the parameters as a vector"
   [plan]
   (let [{:keys [node state]} (zip/post-order-visit (zip/tree-zipper plan)
@@ -312,7 +431,8 @@
    "select-resources" (assoc resources-query :subquery? true)
    "select-params" (assoc resource-params-query :subquery? true)
    "select-facts" (assoc facts-query :subquery? true)
-   "select-latest-report" (assoc latest-report-query :subquery? true)})
+   "select-latest-report" (assoc latest-report-query :subquery? true)
+   "select-fact-contents" (assoc fact-contents-query :subquery? true)})
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -322,6 +442,13 @@
    query language"
   [node]
   (cm/match [node]
+
+            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+            ["or" [op "value_integer" value] [op "value_float" value]]
+
+            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
+            (when (= :facts (get-in (meta node) [:query-context :entity]))
+              ["and" ["=" "depth" 0] [op "value" value]])
 
             [["=" ["node" "active"] value]]
             ["in" "certname"
@@ -337,13 +464,23 @@
                 [op "res_param_name" param-name]
                 [op "res_param_value" (db-serialize param-value)]]]]]
 
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(string? %))]]
             ["in" "certname"
              ["extract" "certname"
               ["select-facts"
                ["and"
                 ["=" "name" fact-name]
                 [op "value" fact-value]]]]]
+
+            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] (fact-value :guard #(number? %))]]
+            ["in" "certname"
+             ["extract" "certname"
+              ["select-facts"
+               ["and"
+                ["=" "name" fact-name]
+                ["or"
+                 [op "value_float" fact-value]
+                 [op "value_integer" fact-value]]]]]]
 
             [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"
@@ -374,7 +511,9 @@
                                [(s/one s/Str :nested-field)
                                 (s/one s/Str :nested-value)])
                      :field)
-              (s/one (s/either s/Str s/Bool s/Int pls/Timestamp) :value)]))
+              (s/one (s/either [(s/either s/Str s/Int)]
+                               s/Str s/Bool s/Int pls/Timestamp Double)
+                     :value)]))
 
 (defn vec?
   "Same as set?/list?/map? but for vectors"
@@ -384,39 +523,45 @@
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
-  (cm/match [node]
+  (let [query-context (:query-context (meta node))]
+    (cm/match [node]
 
-            [[(:or ">" ">=" "<" "<=") field _]]
-            (let [query-context (:query-context (meta node))
-                  column-type (get-in query-context [:project field])]
-              (when-not (or (vec? field)
-                            (contains? #{:coercible-string :number :timestamp} column-type))
-                (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field) ))))
+              [[(:or ">" ">=" "<" "<=") field _]]
+              (let [col-type (get-in query-context [:project field])]
+                (when-not (or (vec? field)
+                              (contains? #{:number :timestamp :multi}
+                                         col-type))
+                  (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
-            ;;This validation check is added to fix a failing facts
-            ;;test. The facts test is checking that you can't submit
-            ;;an empty query, but a ["=" ["node" "active"] true]
-            ;;clause is automatically added, causing the empty query
-            ;;to fall through to the and clause. Adding this here to
-            ;;pass the test, but better validation for all clauses
-            ;;needs to be added
-            [["and" & clauses]]
-            (when (some (complement seq) clauses)
-              (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
+              [["~>" field _]]
+              (let [col-type (get-in query-context [:project field])]
+                (when-not (contains? #{:path} col-type)
+                  (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field)))))
 
-            ;;Facts is doing validation against nots only having 1
-            ;;clause, adding this here to fix that test, need to make
-            ;;another pass once other validations are known
-            [["not" & clauses]]
-            (when (not= 1 (count clauses))
-              (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
+              ;;This validation check is added to fix a failing facts
+              ;;test. The facts test is checking that you can't submit
+              ;;an empty query, but a ["=" ["node" "active"] true]
+              ;;clause is automatically added, causing the empty query
+              ;;to fall through to the and clause. Adding this here to
+              ;;pass the test, but better validation for all clauses
+              ;;needs to be added
+              [["and" & clauses]]
+              (when (some (complement seq) clauses)
+                (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
 
-            [[op & _]]
-            (when (and (contains? binary-operators op)
-                       (binary-operator-checker node))
-              (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+              ;;Facts is doing validation against nots only having 1
+              ;;clause, adding this here to fix that test, need to make
+              ;;another pass once other validations are known
+              [["not" & clauses]]
+              (when (not= 1 (count clauses))
+                (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
 
-            :else nil))
+              [[op & _]]
+              (when (and (contains? binary-operators op)
+                         (binary-operator-checker node))
+                (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+
+              :else nil)))
 
 (defn expand-user-query
   "Expands/translates the query from a user provided one to a
@@ -439,15 +584,6 @@
                                        :column column
                                        :value (to-timestamp value)})
 
-               (= :coercible-string col-type)
-               (map->BinaryExpression (if (number? value)
-                                        {:operator "="
-                                         :column (su/sql-as-numeric column)
-                                         :value value}
-                                        {:operator "="
-                                         :column column
-                                         :value (str value)}))
-
                (= col-type :array)
                (map->ArrayBinaryExpression {:column column
                                             :value value})
@@ -459,21 +595,36 @@
                                                 (ks/parse-number (str value))
                                                 value)})
 
+               (= col-type :path)
+               (map->BinaryExpression {:operator "="
+                                       :column column
+                                       :value (facts/factpath-to-string value)})
+
+               (= col-type :multi)
+               (map->BinaryExpression {:operator "="
+                                       :column (str column "_hash")
+                                       :value (hash/generic-identity-hash value)})
+
                :else
                (map->BinaryExpression {:operator "="
                                        :column column
                                        :value value})))
 
-            [[(op  :guard #{">" "<" ">=" "<="}) column value]]
+            [[(op :guard #{">" "<" ">=" "<="}) column value]]
             (let [col-type (get-in query-rec [:project column])]
               (if value
-                (map->BinaryExpression {:operator op
-                                        :column (if (= :coercible-string col-type)
-                                                  (su/sql-as-numeric column)
-                                                  column)
-                                        :value  (if (= :timestamp col-type)
-                                                  (to-timestamp value)
-                                                  (ks/parse-number (str value)))})
+                (case col-type
+                  :multi
+                  (map->BinaryExpression {:operator op
+                                          :column ["value_integer" "value_float"]
+                                          :value (if (number? value) [value value]
+                                                   (map ks/parse-number [value value]))})
+
+                  (map->BinaryExpression {:operator op
+                                          :column column
+                                          :value  (if (= :timestamp col-type)
+                                                    (to-timestamp value)
+                                                    (ks/parse-number (str value)))}))
                 (throw (IllegalArgumentException.
                         (format "Value %s must be a number for %s comparison." value op)))))
 
@@ -484,13 +635,26 @@
 
             [["~" column value]]
             (let [col-type (get-in query-rec [:project column])]
-              (if (= :array col-type)
+              (case col-type
+                :array
                 (map->ArrayRegexExpression {:table (:source-table query-rec)
                                             :alias (:alias query-rec)
                                             :column column
                                             :value value})
+
+                :multi
+                (map->RegexExpression {:column (str column "_string")
+                                       :value value})
+
                 (map->RegexExpression {:column column
                                        :value value})))
+
+            [["~>" column value]]
+            (let [col-type (get-in query-rec [:project column])]
+              (case col-type
+                :path
+                (map->RegexExpression {:column column
+                                       :value (facts/factpath-regexp-to-regexp value)})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
@@ -499,17 +663,18 @@
             (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
             [["in" column subquery-expression]]
-            (map->InExpression {:column column
+            (map->InExpression {:column (maybe-vectorize-string column)
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["extract" column
               [subquery-name & subquery-expression]]]
-            (assoc (user-query->logical-obj subquery-name)
-              :project {column nil}
+            (let [columns (maybe-vectorize-string column)]
+              (assoc (user-query->logical-obj subquery-name)
+              :project (zipmap columns (repeat (count columns) nil))
               :where (when (seq subquery-expression)
-                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression))))
+                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
             :else nil))
 
 (defn convert-to-plan
@@ -598,7 +763,7 @@
             :else {:node node :state state}))
 
 (defn ops-to-lower
-  "Lower cases operators (such as and/or"
+  "Lower cases operators (such as and/or)."
   [node state]
   (cm/match [node]
             [[op & stmt-rest]]
@@ -614,19 +779,33 @@
   (let [{annotated-query :node
          errors :state} (zip/pre-order-visit (zip/tree-zipper user-query)
                                              []
-                                             [(annotate-with-context context) validate-query-fields dashes-to-underscores ops-to-lower])]
+                                             [(annotate-with-context context)
+                                              validate-query-fields
+                                              dashes-to-underscores ops-to-lower])]
     (when (seq errors)
       (throw (IllegalArgumentException. (str/join \newline errors))))
 
     annotated-query))
+
+(defn augment-paging-options
+  "Specially augmented paging options to include handling the cases where name
+   and certname may be part of the ordering."
+  [{:keys [order-by] :as paging-options} entity]
+  (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
+    paging-options
+    (let [[to-dissoc to-append] (case entity
+                                  :factsets  [nil
+                                              [[:certname :ascending]]])
+          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
+        (assoc paging-options :order-by (concat to-prepend to-append)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
-   user provided query to SQL and extract the parameters, to be used
-   in a prepared statement"
+  user provided query to SQL and extract the parameters, to be used
+  in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
   (when paging-options
     (paging/validate-order-by! (map keyword (:queryable-fields query-rec)) paging-options))
@@ -635,11 +814,14 @@
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
+        entity (:entity query-rec)
+        augmented-paging-options (augment-paging-options paging-options
+                                                         entity)
         sql (plan->sql plan)
-        paged-sql (if paging-options
-                    (jdbc/paged-sql sql paging-options)
+        paged-sql (if augmented-paging-options
+                    (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
+      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) params))
       result-query)))

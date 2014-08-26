@@ -31,9 +31,6 @@
    ["nodes" &]
    {:any (nodes/node-app version)}
 
-   ["environments" &]
-   {:any (envs/environments-app version)}
-
    ["resources" &]
    {:any (resources/resources-app version)}
 

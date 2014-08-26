@@ -119,7 +119,9 @@
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000] [web1])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] [web1])
+      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] (case version
+                                                                          (:v2 :v3) [web1]
+                                                                          []))
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] (case version
                                                                           (:v2 :v3) []
                                                                           [web1]))

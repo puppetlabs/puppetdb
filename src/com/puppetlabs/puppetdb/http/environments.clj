@@ -86,8 +86,6 @@
 
 (defn environments-app
   [version]
-  (case version
-    (:v2 :v3) (throw (IllegalArgumentException. (str "Environment queries not supported on " (name version))))
-    (-> (routes version)
-        (verify-accepts-json)
-        (wrap-with-paging-options))))
+  (-> (routes version)
+      verify-accepts-json
+      wrap-with-paging-options))

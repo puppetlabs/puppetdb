@@ -22,7 +22,8 @@
   {:pre  [(string? node)]
    :post [((some-fn nil? map?) %)]}
   (let [query (str "SELECT catalog_version as version, transaction_uuid as \"transaction-uuid\", "
-                   "e.name as environment, COALESCE(c.api_version, 1) as api_version "
+                   "e.name as environment, COALESCE(c.api_version, 1) as api_version,"
+                   "producer_timestamp as \"producer-timestamp\""
                    "FROM catalogs c left outer join environments e on c.environment_id = e.id "
                    "WHERE certname = ?")]
     (first (jdbc/query-to-vec query node))))
@@ -86,7 +87,8 @@
        :relationship relationship})))
 
 (defn get-full-catalog [catalog-version node]
-  (let [{:keys [version transaction-uuid environment api_version] :as catalog} (get-catalog-info node)]
+  (let [{:keys [version transaction-uuid environment api_version producer-timestamp] :as catalog}
+        (get-catalog-info node)]
     (when (and catalog-version catalog)
       {:name             node
        :edges            (get-edges node)
@@ -94,7 +96,8 @@
        :version          version
        :transaction-uuid transaction-uuid
        :environment environment
-       :api_version api_version})))
+       :api_version api_version
+       :producer-timestamp producer-timestamp})))
 
 (pls/defn-validated catalog-for-node
   "Retrieve the catalog for `node`."

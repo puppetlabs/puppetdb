@@ -98,3 +98,16 @@
                        [(subs (str k) 1) v] [k v]))]
     ;; only apply to maps
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
+
+(pls/defn-validated digit? :- s/Bool
+  "Return true if the character is a digit"
+  [c :- Character]
+  (and (>= 0 (compare \0 c))
+       (>= 0 (compare c \9))))
+
+(defn update-vals
+  "This function is like update-in, except the vector argument contains top-level
+  keys rather than nested.  Applies function f to values corresponding to keys
+  ks in map m."
+  [m ks f]
+    (reduce #(update-in %1 [%2] f) m ks))

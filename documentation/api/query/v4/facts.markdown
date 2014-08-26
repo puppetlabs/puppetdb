@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » API » v4 » Querying Facts"
+title: "PuppetDB 2.2 » API » v4 » Querying Facts"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/facts.html"
 ---
@@ -51,9 +51,12 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
       "environment": <facts environment>
     }
 
-The array is unsorted.
+The array is unsorted. Fact values can be strings, floats, integers, booleans,
+arrays, or maps. Map and array values can be any of the same types.
 
-If no facts match the query, an empty JSON array will be returned.
+If no facts match the query, an empty JSON array will be returned. Querying
+against `value` will return matches only at the top-level, hashes and arrays cannot
+be matched.
 
 ### Examples
 
@@ -65,7 +68,7 @@ Get the operatingsystem fact for all nodes:
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
-     {"certname": "c.example.com", "name": "operatingsystem", "value": "Darwin"},
+     {"certname": "c.example.com", "name": "operatingsystem", "value": "Darwin"}]
 
 Get all facts for a single node:
 
@@ -74,6 +77,22 @@ Get all facts for a single node:
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
+
+Subquery against `/fact-contents` to get all remotely-authenticated trusted facts:
+
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'query=["in", ["name","certname"],
+      ["extract",["name","certname"],
+        ["select-fact-contents", ["~>", "path", [".*", "authenticated"]]]]]'
+
+    [ {
+        "value" : {
+            "certname" : "desktop.localdomain",
+            "authenticated" : "remote"
+        },
+        "name" : "trusted",
+        "environment" : "production",
+        "certname" : "desktop.localdomain"
+    } ]
 
 ## `GET /v4/facts/<FACT NAME>`
 
@@ -89,11 +108,39 @@ this route.
 
 ### Examples
 
+Get the operating system fact for all nodes:
+
     curl -X GET http://puppetdb:8080/v4/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
+
+Get the structured partitions fact for a single node:
+
+    curl -X GET http://puppetdb:8080/v4/facts/partitions --data-urlencode 'query=["=", "certname", "a.example.com"]'
+
+    [ {
+      "value" : {
+        "sda3" : {
+          "size" : "174389248",
+          "mount" : "/home",
+          "uuid" : "26d79d9a-96b3-4cc7-960d-0d6558d7dc54"
+        },
+        "sda1" : {
+          "size" : "1048576",
+          "mount" : "/boot"
+        },
+        "sda2" : {
+          "mount" : "/",
+          "size" : "74629120",
+          "uuid" : "30d0108f-ec67-4557-8331-09ebc8b937f9"
+        }
+      },
+      "name" : "partitions",
+      "environment" : "production",
+      "certname" : "a.example.com"
+    } ]
 
 ## `GET /v4/facts/<FACT NAME>/<VALUE>`
 
@@ -121,7 +168,8 @@ this route.
 
 ## Paging
 
-This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
-on [paging][paging].
+The v4 /facts endpoint does not allow ordering by fact value, but otherwise
+supports the common PuppetDB paging URL parameters. For more information,
+please see the documentation on [paging][paging]. Ordering by value is
+supported on the fact-contents endpoint.
 

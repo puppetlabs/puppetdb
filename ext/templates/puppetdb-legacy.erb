@@ -4,4 +4,7 @@ fullcommand="${0##*/}"
 subcommand="${fullcommand#puppetdb-}"
 echo "WARNING: ${fullcommand} style of executing puppetdb subcommands is deprecated, use 'puppetdb ${subcommand}' instead"
 
-exec puppetdb "${subcommand}" "$@"
+# The path is to allow for PE installations, where puppetdb may not be in the path but is
+# often installed alongside the legacy script in /opt/puppet/sbin.
+# We may require something more sophisticated in the future.
+PATH=$PATH:$(dirname $0) exec puppetdb "${subcommand}" "$@"

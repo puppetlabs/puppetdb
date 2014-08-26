@@ -7,6 +7,7 @@
     :version          "1330463884"
     :transaction-uuid nil
     :environment      nil
+    :producer-timestamp nil
     :edges            #{{:source       {:type "Stage" :title "main"}
                          :target       {:type "Class" :title "Settings"}
                          :relationship :contains}
@@ -35,6 +36,7 @@
     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
+    :producer-timestamp nil
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
                          :relationship :contains}
@@ -147,6 +149,14 @@
       :data
       (assoc :environment "DEV")))
 
+(defn v4->v5-catalog
+  "Converts a v4 wire catalog to v5"
+  [catalog]
+  (-> catalog
+      v3->v4-catalog
+      (assoc :producer-timestamp "2014-07-10T22:33:54.781Z")))
+
+
 (def wire-catalogs
   "Catalogs keyed by version, the version 2 below is really a version 3
    catalog that happens to work for version 2, TODO on fixing this."
@@ -168,4 +178,6 @@
                                               :parameters {:ensure "directory"
                                                            :group  "root"
                                                            :user   "root"}}))}
-   4 {:empty (v3->v4-catalog v1-empty-wire-catalog)}})
+   4 {:empty (v3->v4-catalog v1-empty-wire-catalog)}
+   5 {:empty (-> v1-empty-wire-catalog
+                 v4->v5-catalog)}})

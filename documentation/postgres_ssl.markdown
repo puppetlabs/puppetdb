@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » Configuration » Using SSL with PostgreSQL"
+title: "PuppetDB 2.2 » Configuration » Using SSL with PostgreSQL"
 layout: default
 canonical: "/puppetdb/latest/postgres\_ssl.html"
 ---
@@ -67,16 +67,16 @@ Once this is done, you need to modify the database JDBC connection URL in your P
 
 Restart PuppetDB and monitor your logs for errors. If all goes well your connection should now be SSL.
 
-### Placing your own self-signed CA in a Java Keystore
+### Using your own self-signed CA
 
-If you so desire you can follow the documentation provided in the [PostgreSQL JDBC SSL Client Setup](http://jdbc.postgresql.org/documentation/head/ssl-client.html) instructions. This talks about how to generate a brand new SSL certificate, key and CA. Make sure you place your signed certificate and private key in the locations specified by the `ssl_cert_file` and `ssl_key_file` locations, and that you change the `ssl` setting to `on` in your `postgresql.conf`.
+If you so desire you can follow the documentation provided in the [PostgreSQL JDBC SSL Client Setup](http://jdbc.postgresql.org/documentation/head/ssl-client.html) instructions. This talks about how to generate a brand new SSL certificate, key and CA. Make sure you place your signed certificate and private key in the locations specified by the `ssl_cert_file` and `ssl_key_file` locations, and that you change the `ssl` setting to `on` in your `postgresql.conf`. Don't forget to give the correct permissions for each file (i.e. `chmod 0600 file`). Otherwise postgresql will reject the key and cert files.
 
 Once this is done you must modify the JDBC url in the database configuration section for PuppetDB. For example:
 
     [database]
     classname = org.postgresql.Driver
     subprotocol = postgresql
-    subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
+    subname = //<HOST>:<PORT>/<DATABASE>?ssl=true&sslfactory=org.postgresql.ssl.jdbc4.LibPQFactory&sslmode=verify-full&sslrootcert=/etc/puppetdb/ssl/ca.pem
     username = <USERNAME>
     password = <PASSWORD>
 
@@ -86,7 +86,7 @@ Restart PuppetDB and monitor your logs for errors. If all goes well your connect
 
 First, obtain your signed certificate using the process required by your commercial Certificate Authority. If you don't want to pay for individual certificates for each server in your enterprise you can probably get away with using wildcards in the subject or CN for your certificate. While at the moment DNS resolution based on CN isn't tested using the default SSLSocketFactory, we can not know if this will change going forward, and therefore if wildcard support will be included.
 
-Use the documentation [Secure TCP/IP Connections with SSL](http://www.postgresql.org/docs/current/static/ssl-tcp.html) as this explains how to configure SSL on the server in detail. Make sure you place your signed certificate and private key in the locations specified by the `ssl_cert_file` and `ssl_key_file` locations, and that you change the `ssl` setting to `on` in your `postgresql.conf`.
+Use the documentation [Secure TCP/IP Connections with SSL](http://www.postgresql.org/docs/current/static/ssl-tcp.html) as this explains how to configure SSL on the server in detail. Make sure you place your signed certificate and private key in the locations specified by the `ssl_cert_file` and `ssl_key_file` locations, and that you change the `ssl` setting to `on` in your `postgresql.conf`. Don't forget to give the correct permissions for each file (i.e. `chmod 0600 file`). Otherwise postgresql will reject the key and cert files.
 
 Because the JDBC PostgreSQL driver utilizes the Java's system keystore, and because the system keystore usually contains all public CA's there should be no trust issues with the client configuration, all you need to do is modify the JDBC url as provided in the database configuration section for PuppetDB.
 

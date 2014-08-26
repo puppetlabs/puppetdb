@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » API » v4 » Querying Event Counts"
+title: "PuppetDB 2.2 » API » v4 » Querying Event Counts"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 ---

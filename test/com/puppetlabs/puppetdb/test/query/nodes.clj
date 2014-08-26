@@ -2,6 +2,7 @@
   (:require [clojure.set :as set]
             [com.puppetlabs.puppetdb.query.nodes :as node]
             [clojure.java.jdbc :as sql]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [clojure.test :refer :all]
             [clj-time.core :refer [now ago days minus]]
             [clj-time.coerce :refer [to-timestamp]]
@@ -57,31 +58,51 @@
      {:name "production"})
 
     (doseq [name names]
-      (sql/insert-record :certnames {:name name})
-      (sql/insert-record :certname_facts_metadata {:certname name :timestamp timestamp :environment_id 1}))
+      (scf-store/add-certname! name))
 
-    (sql/insert-records
-      :certname_facts
-      {:certname "node_a" :name "kernel" :value "Linux"}
-      {:certname "node_b" :name "kernel" :value "Linux"}
-      {:certname "node_c" :name "kernel" :value "Darwin"}
-      {:certname "node_d" :name "uptime_seconds" :value "10000"})
+    (scf-store/add-facts! {:name "node_a"
+                           :values {"kernel" "Linux"}
+                           :timestamp timestamp
+                           :environment "production"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "node_b"
+                           :values {"kernel" "Linux"}
+                           :timestamp timestamp
+                           :environment "production"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "node_c"
+                           :values {"kernel" "Darwin"}
+                           :timestamp timestamp
+                           :environment "production"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "node_d"
+                           :values {"uptime_seconds" "10000"}
+                           :timestamp timestamp
+                           :environment "production"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "node_e"
+                           :values {"uptime_seconds" "10000"}
+                           :timestamp timestamp
+                           :environment "production"
+                           :producer-timestamp nil})
 
-    (let [test-cases {["=" ["fact" "kernel"] "Linux"]
-                      #{"node_a" "node_b"}
-                      ["=" ["fact" "kernel"] "Darwin"]
-                      #{"node_c"}
-                      ["=" ["fact" "kernel"] "Nothing"]
-                      #{}
-                      ["=" ["fact" "uptime"] "Linux"]
-                      #{}
-                      ["=" ["fact" "uptime_seconds"] "10000"]
-                      #{"node_d"}}]
-      (combination-tests [:v2 :v3 :v4] test-cases))
+    (testing "basic combination testing"
+      (let [test-cases {["=" ["fact" "kernel"] "Linux"]
+                        #{"node_a" "node_b"}
+                        ["=" ["fact" "kernel"] "Darwin"]
+                        #{"node_c"}
+                        ["=" ["fact" "kernel"] "Nothing"]
+                        #{}
+                        ["=" ["fact" "uptime"] "Linux"]
+                        #{}
+                        ["=" ["fact" "uptime_seconds"] "10000"]
+                        #{"node_d" "node_e"}}]
+        (combination-tests [:v2 :v3 :v4] test-cases)))
 
-    (let [test-cases {["=" "facts-environment" "production"]
-                      #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
-      (combination-tests [:v4] test-cases))))
+    (testing "environment testing"
+      (let [test-cases {["=" "facts-environment" "production"]
+                        #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
+        (combination-tests [:v4] test-cases)))))
 
 (deftest paging-results
   (let [right-now (now)]
@@ -91,7 +112,7 @@
                                              [4 "node_d" 2 3]
                                              [5 "node_e" 5 2]]]
       (sql/insert-record :certnames {:name node})
-      (sql/insert-record :certname_facts_metadata {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
+      (sql/insert-record :factsets {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
       (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 
   (doseq [version [:v2 :v3 :v4]]

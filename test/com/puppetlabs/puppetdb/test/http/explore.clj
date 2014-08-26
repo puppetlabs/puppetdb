@@ -66,9 +66,21 @@
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
-    (scf-store/add-facts! "host1" facts1 (now) "DEV")
-    (scf-store/add-facts! "host2" facts2 (now) "DEV")
-    (scf-store/add-facts! "host3" facts3 (now) "DEV")
+    (scf-store/add-facts! {:name "host1"
+                           :values facts1
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "host2"
+                           :values facts2
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-facts! {:name "host3"
+                           :values facts3
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
     (scf-store/deactivate-node! "host3")
 
     (doseq [version (keys versions)

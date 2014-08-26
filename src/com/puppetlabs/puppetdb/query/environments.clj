@@ -4,9 +4,6 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.puppetdb.query-eng :as qe]))
 
-(def environments-columns
-  [:name])
-
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
@@ -19,7 +16,6 @@
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (paging/validate-order-by! environments-columns paging-options)
      (qe/compile-user-query->sql qe/environments-query query paging-options)))
 
 (defn query-environments

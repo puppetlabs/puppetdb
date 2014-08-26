@@ -51,17 +51,14 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink])
-  (:use [clojure.set]
-        [clj-time.coerce :only [to-timestamp]]
-        [clj-time.core :only [now]]
-        [com.puppetlabs.jdbc :only [query-to-vec with-query-results-cursor]]
-        [com.puppetlabs.puppetdb.scf.storage-utils :only [sql-array-type-string
-                                                          sql-current-connection-database-name
-                                                          sql-current-connection-database-version
-                                                          postgres?
-                                                          fix-identity-sequence]]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
+            [clojure.set :refer :all]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :refer [now]]
+            [com.puppetlabs.jdbc :refer [query-to-vec with-query-results-cursor]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -119,7 +116,7 @@
                     ["resource" "VARCHAR(40)"]
                     ["type" "TEXT" "NOT NULL"]
                     ["title" "TEXT" "NOT NULL"]
-                    ["tags" (sql-array-type-string "TEXT") "NOT NULL"]
+                    ["tags" (scf-utils/sql-array-type-string "TEXT") "NOT NULL"]
                     ["exported" "BOOLEAN" "NOT NULL"]
                     ["sourcefile" "TEXT"]
                     ["sourceline" "INT"]
@@ -218,7 +215,7 @@
     "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
     "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
-  (when (postgres?)
+  (when (scf-utils/postgres?)
     (sql/do-commands
      "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
 
@@ -240,7 +237,7 @@
   "Renames the `fact` column on `certname_facts` to `name`, for consistency."
   []
   (sql/do-commands
-    (if (postgres?)
+    (if (scf-utils/postgres?)
       "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
       "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
     "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
@@ -347,12 +344,12 @@
   encountered some version strings that are longer than 40 chars."
   []
   (sql/do-commands
-    (condp = (sql-current-connection-database-name)
+    (condp = (scf-utils/sql-current-connection-database-name)
       "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
       "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
       (throw (IllegalArgumentException.
                (format "Unsupported database engine '%s'"
-                 (sql-current-connection-database-name)))))))
+                 (scf-utils/sql-current-connection-database-name)))))))
 
 (defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
@@ -368,7 +365,7 @@
     "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
     "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL")
   (sql/do-commands
-    (format "ALTER TABLE resource_events ADD containment_path %s" (sql-array-type-string "TEXT"))
+    (format "ALTER TABLE resource_events ADD containment_path %s" (scf-utils/sql-array-type-string "TEXT"))
     "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
     "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
     "CREATE INDEX idx_resource_events_property ON resource_events(property)")
@@ -380,10 +377,10 @@
     "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
     "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
   (sql/do-commands
-    (if (postgres?)
+    (if (scf-utils/postgres?)
       "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
       "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
-    (if (postgres?)
+    (if (scf-utils/postgres?)
       "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
       "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
@@ -466,7 +463,7 @@
       resource character varying(40) NOT NULL,
       type text NOT NULL,
       title text NOT NULL,
-      tags " (sql-array-type-string "TEXT") " NOT NULL,
+      tags " (scf-utils/sql-array-type-string "TEXT") " NOT NULL,
       exported boolean NOT NULL,
       file text,
       line integer)")
@@ -492,7 +489,7 @@
     ;; catalogs: Add constraints to new catalogs table
     ;;   hsqldb automatically creates the primary key when we created the table
     ;;   with a bigserial so its only needed for pgsql.
-    (if (postgres?)
+    (if (scf-utils/postgres?)
       "ALTER TABLE catalogs
         ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
       "select 1")
@@ -553,7 +550,7 @@
   since the more common value is false its not useful to index this."
   []
   (sql/do-commands
-    (if (postgres?)
+    (if (scf-utils/postgres?)
       "CREATE INDEX idx_catalog_resources_exported_true
          ON catalog_resources (exported) WHERE exported = true"
       "CREATE INDEX idx_catalog_resources_exported
@@ -631,7 +628,7 @@
             ;;Rename catalogs_transform to catalogs, replace constraints
             "ALTER TABLE catalogs_transform RENAME to catalogs"
 
-            (when (postgres?)
+            (when (scf-utils/postgres?)
               "ALTER TABLE catalogs
                ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)")
 
@@ -657,7 +654,7 @@
             "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"])))
 
 (defn reset-catalog-sequence-to-latest-id []
-  (fix-identity-sequence "catalogs" "id"))
+  (scf-utils/fix-identity-sequence "catalogs" "id"))
 
 (defn add-environments []
   (sql/create-table :environments
@@ -668,7 +665,7 @@
 
    "ALTER TABLE catalogs ADD environment_id integer"
 
-   (if (postgres?)
+   (if (scf-utils/postgres?)
      "ALTER TABLE catalogs ALTER COLUMN api_version DROP NOT NULL"
      "ALTER TABLE catalogs ALTER COLUMN api_version SET NULL")
 
@@ -708,6 +705,143 @@
 
    "CREATE INDEX idx_reports_status ON reports(status_id)"))
 
+(defn add-producer-timestamps []
+  (sql/do-commands
+    "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
+    "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
+
+(defn migrate-to-structured-facts
+  "Pulls data from 'pre-structured' tables and moves to new."
+  []
+  (let [certname-facts-metadata (query-to-vec "SELECT * FROM certname_facts_metadata")]
+    (doseq [{:keys [certname timestamp environment_id]} certname-facts-metadata]
+      (let [facts (->> certname
+                       (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
+                       (reduce #(assoc %1 (:name %2) (:value %2)) {}))
+            environment (->> environment_id
+                          (query-to-vec "SELECT name FROM environments WHERE id = ?")
+                          first
+                          :name)]
+        (scf-store/add-facts!
+          {:name (str certname)
+           :values facts
+           :timestamp timestamp
+           :environment environment
+           :producer-timestamp nil})))))
+
+(defn structured-facts []
+  ;; -----------
+  ;; VALUE_TYPES
+  ;; -----------
+  (sql/create-table :value_types
+                    ["id" "bigint NOT NULL PRIMARY KEY"]
+                    ["type" "character varying(32)"])
+
+  ;; Populate the value_types lookup table
+  (sql/do-commands
+   "INSERT INTO value_types (id, type) values (0, 'string')"
+   "INSERT INTO value_types (id, type) values (1, 'integer')"
+   "INSERT INTO value_types (id, type) values (2, 'float')"
+   "INSERT INTO value_types (id, type) values (3, 'boolean')"
+   "INSERT INTO value_types (id, type) values (4, 'null')"
+   "INSERT INTO value_types (id, type) values (5, 'json')")
+
+  ;; ----------
+  ;; FACT_PATHS
+  ;; ----------
+  (sql/do-commands
+   "CREATE SEQUENCE fact_paths_id_seq CYCLE")
+
+  (sql/create-table :fact_paths
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_paths_id_seq')"]
+                    ["value_type_id" "bigint NOT NULL"]
+                    ["depth" "int NOT NULL"]
+                    ["name" "varchar(1024)"]
+                    ["path" "text NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_path_type_id_key
+      UNIQUE (path, value_type_id)"
+   "CREATE INDEX fact_paths_value_type_id ON fact_paths(value_type_id)"
+   "CREATE INDEX fact_paths_name ON fact_paths(name)"
+   "ALTER TABLE fact_paths ADD CONSTRAINT fact_paths_value_type_id
+     FOREIGN KEY (value_type_id)
+     REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT")
+
+  ;; -----------
+  ;; FACT_VALUES
+  ;; -----------
+  (sql/do-commands
+   "CREATE SEQUENCE fact_values_id_seq CYCLE")
+
+  (sql/create-table :fact_values
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
+                    ["path_id"       "bigint NOT NULL"]
+                    ["value_type_id" "bigint NOT NULL"]
+                    ["value_hash"    "varchar(40) NOT NULL"]
+                    ["value_integer" "bigint"]
+                    ["value_float"   "double precision"]
+                    ["value_string"  "text"]
+                    ["value_boolean" "boolean"]
+                    ["value_json"    "text"])
+
+  (sql/do-commands
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_value_key UNIQUE (path_id, value_type_id, value_hash)"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_fk
+     FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_type_id_fk
+     FOREIGN KEY (value_type_id) REFERENCES value_types (id) MATCH SIMPLE
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   ;; For efficient operator querying with <, >, <= and >=
+   "CREATE INDEX fact_values_value_integer_idx ON fact_values(value_integer)"
+   "CREATE INDEX fact_values_value_float_idx ON fact_values(value_float)")
+
+  ;; --------
+  ;; FACTSETS
+  ;; --------
+  (sql/do-commands
+   "CREATE SEQUENCE factsets_id_seq CYCLE")
+
+  (sql/create-table :factsets
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('factsets_id_seq')"]
+                    ["certname" "text NOT NULL"]
+                    ["timestamp" "timestamp with time zone NOT NULL"]
+                    ["environment_id" "bigint"]
+                    ["producer_timestamp" "timestamp with time zone"])
+
+  (sql/do-commands
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk
+      FOREIGN KEY (certname) REFERENCES certnames(name)
+      ON UPDATE CASCADE ON DELETE CASCADE"
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_environment_id_fk
+      FOREIGN KEY (environment_id) REFERENCES environments(id)
+      ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_idx
+      UNIQUE (certname)")
+
+  ;; -----
+  ;; FACTS
+  ;; -----
+  (sql/create-table :facts
+                    ["factset_id" "bigint NOT NULL"]
+                    ["fact_value_id" "bigint NOT NULL"])
+
+  (sql/do-commands
+   "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_value_id_key
+     UNIQUE (factset_id, fact_value_id)"
+   "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+     FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+     ON UPDATE RESTRICT ON DELETE RESTRICT"
+   "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
+     FOREIGN KEY (factset_id) REFERENCES factsets(id)
+     ON UPDATE CASCADE ON DELETE CASCADE")
+
+  (migrate-to-structured-facts)
+
+  (sql/do-commands
+   "DROP TABLE certname_facts"
+   "DROP TABLE certname_facts_metadata"))
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
@@ -733,7 +867,9 @@
    20 differential-catalog-resources
    21 reset-catalog-sequence-to-latest-id
    22 add-environments
-   23 add-report-status})
+   23 add-report-status
+   24 add-producer-timestamps
+   25 structured-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -783,7 +919,7 @@
   (if-let [pending (seq (pending-migrations))]
     (sql/transaction
      (doseq [[version migration] pending]
-       (log/info (format "Applying migration version %d" version))
+       (log/info (format "Applying database migration version %d" version))
        (try
          (migration)
          (record-migration! version)
@@ -794,3 +930,38 @@
                (log/error next "Unravelled exception")))
            (System/exit 1)))))
     (log/info "There are no pending migrations")))
+
+;; SPECIAL INDEX HANDLING
+
+(defn trgm-indexes!
+  "Create trgm indexes if they do not currently exist."
+  []
+  (when-not (scf-utils/index-exists? "fact_paths_path_trgm")
+    (log/info "Creating additional index `fact_paths_path_trgm`")
+    (sql/do-commands
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"
+     "CREATE INDEX fact_values_string_trgm ON fact_values USING gist (value_string gist_trgm_ops)")))
+
+(defn indexes!
+  "Create missing indexes for applicable database platforms."
+  [product-name]
+  (if (and (scf-utils/postgres?)
+           (scf-utils/db-version-newer-than? [9 2]))
+    (sql/transaction
+     (if (scf-utils/pg-extension? "pg_trgm")
+       (trgm-indexes!)
+       (log/warn
+        (str
+         "Missing PostgreSQL extension `pg_trgm`\n\n"
+         "We are unable to create the recommended pg_trgm indexes due to\n"
+         "the extension not being installed correctly. Run the command:\n\n"
+         "    CREATE EXTENSION pg_trgm;\n\n"
+         "as the database super user on the PuppetDB database to correct\n"
+         "this, then restart PuppetDB.\n"))))
+    (when (= product-name "puppetdb")
+      (log/warn
+       (str
+        "Unable to install optimal indexing\n\n"
+        "We are unable to create optimal indexes for your database.\n"
+        "For maximum index performance, we recommend using PostgreSQL 9.3 or\n"
+        "greater.\n")))))

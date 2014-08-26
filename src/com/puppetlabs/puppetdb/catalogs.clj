@@ -102,7 +102,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  4)
+  5)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
@@ -114,11 +114,12 @@
 (def full-catalog
   "This flattened catalog schema is for the superset of catalog information.
    Use this when in the general case as it can be converted to any of the other
-   (v1-v4) schemas"
+   (v1-v5) schemas"
   {:name s/Str
    :version s/Str
    :environment (s/maybe s/Str)
    :transaction-uuid (s/maybe s/Str)
+   :producer-timestamp (s/either (s/maybe s/Str) pls/Timestamp)
 
    ;; This is a crutch. We use sets for easier searching and avoid
    ;; reliance on ordering. We should pick one of the below (probably
@@ -135,13 +136,18 @@
                         {s/Any {s/Any s/Any}})
    :api_version (s/maybe s/Int)})
 
+
+(def v5-catalog
+  "Used for v5 commands and responses"
+  (dissoc full-catalog :api_version))
+
 (def v4-catalog
   "Used for v4 commands and responses"
-  (dissoc full-catalog :api_version))
+  (dissoc full-catalog :api_version :producer-timestamp))
 
 (def v3-catalog
   "Used for v3 commands and responses"
-  (dissoc full-catalog :environment))
+  (dissoc full-catalog :environment :producer-timestamp))
 
 (def v2-catalog
   "Used for v2 commands and responses"
@@ -159,7 +165,8 @@
     :v1 v1-catalog
     :v2 v2-catalog
     :v3 v3-catalog
-    v4-catalog))
+    :v4 v4-catalog
+    v5-catalog))
 
 (defn old-wire-format-schema
   "Function for converting a v1-v3 schema into the wire format for that version"
@@ -188,7 +195,8 @@
     :v1 v1-wire-format-catalog
     :v2 v2-wire-format-catalog
     :v3 v3-wire-format-catalog
-    v4-catalog))
+    :v4 v4-catalog
+    v5-catalog))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -200,6 +208,7 @@
   (utils/assoc-when catalog
                     :transaction-uuid nil
                     :environment nil
+                    :producer-timestamp nil
                     :api_version 1))
 
 (pls/defn-validated canonical-catalog
@@ -210,9 +219,10 @@
         strip-keys #(pls/strip-unknown-keys target-schema %)]
     (s/validate target-schema
                 (case version
-                  :v1 (dissoc catalog :transaction-uuid :environment)
-                  :v2 (strip-keys (dissoc catalog :transaction-uuid :environment))
-                  :v3 (strip-keys (dissoc catalog :environment))
+                  :v1 (dissoc catalog :transaction-uuid :environment :producer-timestamp)
+                  :v2 (strip-keys (dissoc catalog :transaction-uuid :environment :producer-timestamp))
+                  :v3 (strip-keys (dissoc catalog :environment :producer-timestamp))
+                  :v4 (strip-keys (dissoc catalog :api_version :producer-timestamp))
                   :all (strip-keys (default-missing-keys catalog))
                   (strip-keys (dissoc catalog :api_version))))))
 
@@ -440,6 +450,16 @@
          (number? version)]
    :post [(map? %)]}
   (->> catalog
+       transform
+       (canonical-catalog :all)
+       validate))
+
+(defmethod parse-catalog 5
+  [catalog version]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+   (->> catalog
        transform
        (canonical-catalog :all)
        validate))

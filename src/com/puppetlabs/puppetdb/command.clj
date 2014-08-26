@@ -61,24 +61,26 @@
             [com.puppetlabs.puppetdb.scf.storage :as scf-storage]
             [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.facts :as facts]
             [com.puppetlabs.puppetdb.command.dlo :as dlo]
             [com.puppetlabs.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-http.client :as client]
+            [clj-time.coerce :refer [to-timestamp]]
             [com.puppetlabs.cheshire :as json]
             [clamq.protocol.consumer :as mq-cons]
             [clamq.protocol.producer :as mq-producer]
             [clamq.protocol.connection :as mq-conn]
             [com.puppetlabs.jdbc :as jdbc]
             [clojure.walk :as walk]
-            [com.puppetlabs.puppetdb.utils :as utils])
-  (:use [slingshot.slingshot :only [try+ throw+]]
-        [cheshire.custom :only (JSONable)]
-        [clj-http.util :only [url-encode]]
-        [com.puppetlabs.puppetdb.command.constants :only [command-names]]
-        [metrics.meters :only (meter mark!)]
-        [metrics.histograms :only (histogram update!)]
-        [metrics.timers :only (timer time!)]))
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [cheshire.custom :refer [JSONable]]
+            [clj-http.util :refer [url-encode]]
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [metrics.meters :refer (meter mark!)]
+            [metrics.histograms :refer (histogram update!)]
+            [metrics.timers :refer (timer time!)]))
 
 ;; ## Performance counters
 
@@ -337,6 +339,11 @@
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
   [{:keys [version] :as command} options]
+  (warn-deprecated version "replace catalog")
+  (replace-catalog* command options))
+
+(defmethod process-command! [(command-names :replace-catalog) 5]
+  [{:keys [version] :as command} options]
   (replace-catalog* command options))
 
 ;; Fact replacement
@@ -351,17 +358,27 @@
       (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 2]
-  [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:keys [name values] :as facts} payload
-        ;; TODO: probably need to investigate if we really need to
-        ;; re-stringify this first.
-        facts     (upon-error-throw-fatality (update-in facts [:values] utils/stringify-keys))
-        id        (:id annotations)
-        timestamp (:received annotations)]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "replace facts")
+  (-> command
+      (assoc :version 3)
+      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if ( string? %) (json/parse-string %) %))))
+      (assoc-in [:payload :producer-timestamp] nil)
+      (process-command! config)))
 
+(defmethod process-command! [(command-names :replace-facts) 3]
+  [{:keys [payload annotations]} {:keys [db]}]
+  (let [{:keys [name values] :as fact-data} payload
+        id        (:id annotations)
+        timestamp (:received annotations)
+        fact-data (-> fact-data
+                      (update-in [:values] utils/stringify-keys)
+                      (update-in [:producer-timestamp] to-timestamp)
+                      (assoc :timestamp timestamp)
+                      upon-error-throw-fatality)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! name timestamp)
-      (scf-storage/replace-facts! facts timestamp))
+      (scf-storage/replace-facts! fact-data))
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation

@@ -1,7 +1,6 @@
 (ns com.puppetlabs.puppetdb.scf.hash
   (:require [com.puppetlabs.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.query.catalogs :as qcat]))
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (defn generic-identity-string
   "Serialize a data structure into a format that can be hashed for uniqueness

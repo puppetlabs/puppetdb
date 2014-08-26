@@ -42,6 +42,7 @@
             [com.puppetlabs.puppetdb.catalogs :as cat]
             [com.puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.trapperkeeper.logging :as logutils]
+            [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.command :as command]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.cheshire :as json]
@@ -51,7 +52,9 @@
             [com.puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.core :as time]
+            [com.puppetlabs.random :refer [random-string random-bool]]
             [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [com.puppetlabs.puppetdb.cli.import :refer [submit-facts]]
             [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Development-only benchmarking tool")
@@ -78,7 +81,7 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port catalog]
   (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
-                 (command-names :replace-catalog) 4 (json/generate-string catalog))]
+                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -103,6 +106,55 @@
   "Grabs one of the mutate-fns randomly and returns it"
   []
   (rand-nth mutate-fns))
+
+(defn random-fact-value
+  "Given a type, generate a random fact value"
+  [kind]
+  (case kind
+    :int (rand-int 300)
+    :float (rand)
+    :bool (random-bool)
+    :string (random-string 4)
+    :vector (into [] (take (rand-int 10)
+                           (repeatedly #(random-fact-value
+                                          (rand-nth [:string :int :float :bool])))))))
+
+(defn random-structured-fact
+  "Create a 'random' structured fact.
+  Parameters are fact depth and number of child facts.  Depth 0 implies one child."
+  ([]
+   (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
+  ([depth children]
+   (let [kind (rand-nth [:int :float :bool :string :vector])]
+     (if (zero? depth)
+       {(random-string 10) (random-fact-value kind)}
+       {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
+                                   (take children (repeatedly
+                                                    #(random-structured-fact
+                                                       (rand-nth (range depth))
+                                                       (rand-nth (range children))))))}))))
+
+(defn populate-database-with-facts
+  "This will populate a database with semi-random structured facts.
+  Aside from database host, port, and fact command version, arguments are
+
+  *nodes : number of nodes to be submitted
+  *dup-rate : target duplication rated defined as 1 - (#distinct fact values)/(#facts)
+  *facts-per-node : number of facts per node
+
+  This function is only suitable for *rough* load testing, as its output has
+  not been compared to real user data."
+  [host port facts-version nodes dup-rate facts-per-node]
+  (let [name-pool (take (Math/round (* dup-rate facts-per-node)) (repeatedly #(random-string 10)))
+        facts-pool (take (* dup-rate facts-per-node) (repeatedly #(random-structured-fact)))]
+    (doseq [[certname env] (take nodes (repeatedly #(vector (random-string 10) (random-string 10))))]
+      (let [fact-payload {:environment env
+                          :name certname
+                          :values (apply merge (take facts-per-node
+                                                     (repeatedly #(if (< (rand) dup-rate)
+                                                                    (rand-nth facts-pool)
+                                                                    (random-structured-fact)))))}]
+        (submit-facts host port facts-version (json/generate-string fact-payload))))))
 
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`

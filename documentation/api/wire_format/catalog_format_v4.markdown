@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.1 » API » Catalog Wire Format, Version 4"
+title: "PuppetDB 2.2 » API » Catalog Wire Format, Version 4"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v4.html"
 ---
@@ -28,7 +28,7 @@ Catalog Interchange Format
 
 ### Version
 
-This is **version 4** of the catalog interchange format.
+**Note:** This is **version 4** of the catalog interchange format and has been deprecated. See [version 5][catalog_v5] for the currently supported version of this wire format.
 
 
 ### Encoding

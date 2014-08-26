@@ -19,7 +19,11 @@ describe Puppet::Node::Facts::Puppetdb do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:facts)    { Puppet::Node::Facts.new('foo') }
     let(:http)     { mock 'http' }
-    let(:env)      { "my_environment" }
+
+    let(:options) {{
+      :producer_timestamp => 'a test',
+      :environment => "my_environment",
+    }}
 
     before :each do
       Puppet::Network::HttpPool.expects(:http_instance).returns http
@@ -27,22 +31,22 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     def save
-      subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts, :environment => env))
+      subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts, options))
     end
 
     it "should POST the facts as a JSON string" do
-      facts.stringify
       f = {
         "name" => facts.name,
         "values" => facts.strip_internal,
-        "environment" => env,
+        "environment" => "my_environment",
+        "producer-timestamp" => "a test",
       }
 
       payload = {
         :command => CommandReplaceFacts,
-        :version => 2,
+        :version => 3,
         :payload => f,
-      }.to_json
+      }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
         expect(body).to eq(payload)
@@ -51,7 +55,33 @@ describe Puppet::Node::Facts::Puppetdb do
       save
     end
 
-    it "should stringify fact values before submitting" do
+    it "should POST the trusted data we tell it to" do
+      Puppet[:trusted_node_data] = true
+      trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
+      subject.stubs(:get_trusted_info).returns trusted_data
+
+      f = {
+        "name" => facts.name,
+        "values" => facts.strip_internal.merge({"trusted" => trusted_data}),
+        "environment" => "my_environment",
+        "producer-timestamp" => "a test",
+      }
+
+      payload = {
+        :command => CommandReplaceFacts,
+        :version => 3,
+        :payload => f,
+      }.to_pson
+
+      http.expects(:post).with do |uri, body, headers|
+        expect(body).to eq(payload)
+      end.returns response
+
+      save
+    end
+
+
+    it "should retain integer type when submitting" do
       facts.values['something'] = 100
 
       sent_payload = nil
@@ -66,7 +96,16 @@ describe Puppet::Node::Facts::Puppetdb do
 
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
-      sent_facts['values']['something'].should == '100'
+      sent_facts['values']['something'].should == 100
+    end
+  end
+
+  describe "#get_trusted_info" do
+
+    it 'should return trusted data' do
+      Puppet[:trusted_node_data] = true
+      node = Puppet::Node.new("my_certname")
+      expect(subject.get_trusted_info(node)).to eq({"authenticated"=>"local", "certname"=>"testing", "extensions"=>{}})
     end
   end
 
