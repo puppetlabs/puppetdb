@@ -20,8 +20,6 @@ The query API is implemented as HTTP URLs on the PuppetDB server. By default, it
 
 > **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
-> **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
-
 ## API URLs
 
 The first component of an API URL is the API version, written as `v2`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v2`. After the version, URLs are organized into a number of **endpoints.**
