@@ -14,21 +14,23 @@ canonical: "/puppetdb/latest/api/query/v2/query.html"
 
 ## Summary
 
-PuppetDB's query API can retrieve data objects from PuppetDB for use in other applications. For example, the terminus plugins for puppet masters use this API to collect exported resources, and to translate node facts into the inventory service. 
+PuppetDB's query API can retrieve data objects from PuppetDB for use in other applications. For example, the terminus plugins for puppet masters use this API to collect exported resources, and to translate node facts into the inventory service.
 
-The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP. 
+The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP.
+
+> **Note:** The v2 API is deprecated. We recommend that you use the v3 API instead.
 
 > **Note:** The v2 API is deprecated. It is recommended that you use the v3 API instead.
 
 ## API URLs
 
-The first component of an API URL is the API version, written as `v2`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v2`. After the version, URLs are organized into a number of **endpoints.** 
+The first component of an API URL is the API version, written as `v2`, `v3`, etc. This page describes version 2 of the API, so every URL will begin with `/v2`. After the version, URLs are organized into a number of **endpoints.**
 
 ### Endpoints
 
 Conceptually, an endpoint represents a reservoir of some type of PuppetDB object. Each version of the PuppetDB API defines a set number of endpoints.
 
-See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings. 
+See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings.
 
 ## Query Structure
 
@@ -56,13 +58,13 @@ JSON arrays are delimited by square brackets (`[` and `]`), and items in the arr
 
 "Prefix notation" means every array in a query string must begin with an [operator][operators], and the remaining elements in the array will be interpreted as that operator's arguments, in order. (The similarity to Lisp is intentional.)
 
-A complete query string describes a comparison operation. When submitting a query, PuppetDB will check every _possible_ result from the endpoint to see if it matches the comparison from the query string, and will only return those objects that match. 
+A complete query string describes a comparison operation. When submitting a query, PuppetDB will check every _possible_ result from the endpoint to see if it matches the comparison from the query string, and will only return those objects that match.
 
-For a more complete description of how to construct query strings, see [the Operators page][operators]. 
+For a more complete description of how to construct query strings, see [the Operators page][operators].
 
 ## Query Responses
 
-All queries return data with a content type of `application/json`. 
+All queries return data with a content type of `application/json`.
 
 ## Tutorial and Tips
 

@@ -100,6 +100,8 @@ available via the `/v3/metrics/mbeans` endpoint.
 
 Additionally, we also support the following explicit names:
 
+**Note:** The use of these explicit names is deprecated; please use, e.g., `/v3/commands` instead.
+
 * `commands`: Stats relating to the command processing REST
   endpoint. The PuppetDB terminus in Puppet talks to this endpoint to
   submit new catalogs, facts, etc.
