@@ -5,7 +5,7 @@
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
@@ -125,40 +125,39 @@
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
-  ([version query summarize-by]
-     (query->sql version query summarize-by {} {}))
-  ([version query summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]
-     {:pre  [(sequential? query)
-             (string? summarize-by)
-             ((some-fn nil? sequential?) counts-filter)
-             ((some-fn nil? string?) count-by)]
-      :post [(map? %)
-             (jdbc/valid-jdbc-query? (:results-query %))
-             (or
-              (not (:count? paging-options))
-              (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (let [count-by                        (or count-by "resource")
-           group-by                        (get-group-by summarize-by)
-           _                               (paging/validate-order-by!
-                                            (map keyword (event-counts-columns group-by))
-                                            paging-options)
-           {counts-filter-where  :where
-            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-           distinct-opts                   (select-keys query-options [:distinct-resources? :distinct-start-time :distinct-end-time])
-           [event-sql & event-params]      (:results-query
-                                            (case version
-                                              (:v2 :v3) (events/query->sql version distinct-opts query nil)
-                                              (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
-                                                (events/query->sql version distinct-opts query nil)
-                                                (qe/compile-user-query->sql qe/report-events-query query))))
-           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
-           event-count-sql                 (get-event-count-sql count-by-sql group-by)
-           sql                             (get-filtered-sql event-count-sql counts-filter-where)
-           params                          (concat event-params counts-filter-params)
-           paged-select                    (jdbc/paged-sql sql paging-options)]
-       (conj {:results-query (apply vector paged-select params)}
-             (when (:count? paging-options)
-               [:count-query (apply vector (jdbc/count-sql sql) params)])))))
+  ([version query [summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]]
+   {:pre  [(sequential? query)
+           (string? summarize-by)
+           ((some-fn nil? sequential?) counts-filter)
+           ((some-fn nil? string?) count-by)]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or
+             (not (:count? paging-options))
+             (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (let [count-by                        (or count-by "resource")
+         group-by                        (get-group-by summarize-by)
+         _                               (paging/validate-order-by!
+                                           (map keyword (event-counts-columns group-by))
+                                           paging-options)
+         {counts-filter-where  :where
+          counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
+         distinct-opts                   (select-keys query-options
+                                                      [:distinct-resources? :distinct-start-time :distinct-end-time])
+         [event-sql & event-params]      (:results-query
+                                           (case version
+                                             (:v2 :v3) (events/query->sql version query [distinct-opts nil])
+                                             (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                               (events/query->sql version query [distinct-opts nil])
+                                               (qe/compile-user-query->sql qe/report-events-query query))))
+         count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+         event-count-sql                 (get-event-count-sql count-by-sql group-by)
+         sql                             (get-filtered-sql event-count-sql counts-filter-where)
+         params                          (concat event-params counts-filter-params)
+         paged-select                    (jdbc/paged-sql sql paging-options)]
+     (conj {:results-query (apply vector paged-select params)}
+           (when (:count? paging-options)
+             [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."

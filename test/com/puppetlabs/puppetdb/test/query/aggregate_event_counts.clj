@@ -14,7 +14,7 @@
   ([version query summarize-by]
    (aggregate-counts-query-result version query summarize-by {}))
   ([version query summarize-by extra-query-params]
-     (-> (aggregate-event-counts/query->sql version query summarize-by extra-query-params)
+     (-> (aggregate-event-counts/query->sql version query [summarize-by extra-query-params])
          (aggregate-event-counts/query-aggregate-event-counts))))
 
 (deftest aggregate-event-count-queries

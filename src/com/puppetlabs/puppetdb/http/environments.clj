@@ -10,33 +10,10 @@
             [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.http.resources :as r]
             [com.puppetlabs.puppetdb.http.events :as ev]
+            [com.puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [com.puppetlabs.puppetdb.http.reports :as rp]
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
             [com.puppetlabs.cheshire :as json]))
-
-(defn produce-body
-  "Given a query, and database connection, return a Ring response with the query
-  results.
-
-  If the query can't be parsed, a 400 is returned."
-  [version query paging-options db]
-  (try
-    (with-transacted-connection db
-      (let [parsed-query (json/parse-strict-string query true)
-            {[sql & params] :results-query
-             count-query    :count-query} (e/query->sql version parsed-query paging-options)
-            resp (pl-http/stream-json-response
-                  (fn [f]
-                    (with-transacted-connection db
-                      (query/streamed-query-result version sql params f))))]
-
-        (if count-query
-          (http/add-headers resp {:count (get-result-count count-query)})
-          resp)))
-    (catch IllegalArgumentException e
-      (pl-http/error-response e))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (pl-http/error-response e))))
 
 (defn environment-status
   "Produce a response body for a single environment."
@@ -49,16 +26,17 @@
 (defn routes
   [version]
   (app
-   []
-   {:get
-    (-> (fn [{:keys [params globals paging-options]}]
-          (produce-body
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)))
-        (validate-query-params
-         {:optional (cons "query" paging/query-params)}))}
+    []
+    {:get
+     (-> (fn [{:keys [params globals paging-options]}]
+           (produce-streaming-body
+             :environments
+             version
+             (params "query")
+             paging-options
+             (:scf-read-db globals)))
+         (validate-query-params
+           {:optional (cons "query" paging/query-params)}))}
 
    [environment]
    {:get

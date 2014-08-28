@@ -9,7 +9,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.facts :as facts]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 ;; SCHEMA
 
@@ -92,6 +92,14 @@
           INNER JOIN value_types as vt on vt.id=fv.value_type_id
           LEFT OUTER JOIN environments as env on fs.environment_id = env.id
         WHERE depth = 0"]))
+
+(defn fact-paths-query->sql
+  [version query paging-options]
+  (qe/compile-user-query->sql qe/fact-paths-query query paging-options))
+
+(defn munge-path-result-rows
+  [rows]
+  (map #(update-in % [:path] facts/string-to-factpath) rows))
 
 (defn query->sql
   "Compile a query into an SQL expression."
