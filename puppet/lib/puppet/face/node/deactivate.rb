@@ -16,7 +16,6 @@ Puppet::Face.define(:node, '0.0.1') do
     DESC
 
     when_invoked do |*args|
-      Puppet::Util::Puppetdb::GlobalCheck.run
 
       opts = args.pop
       raise ArgumentError, "Please provide at least one node for deactivation" if args.empty?

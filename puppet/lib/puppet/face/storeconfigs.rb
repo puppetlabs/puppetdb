@@ -22,8 +22,6 @@ Puppet::Face.define(:storeconfigs, '0.0.1') do
     DESC
 
     when_invoked do |options|
-      require 'puppet/util/puppetdb/global_check'
-      Puppet::Util::Puppetdb::GlobalCheck.run
 
       require 'puppet/rails'
 
