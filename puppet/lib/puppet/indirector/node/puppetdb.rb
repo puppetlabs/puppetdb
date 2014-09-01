@@ -5,11 +5,6 @@ require 'puppet/util/puppetdb'
 class Puppet::Node::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
 
-  # Run initial checks
-  def initialize
-    Puppet::Util::Puppetdb::GlobalCheck.run
-  end
-
   def find(request)
   end
 

@@ -6,11 +6,6 @@ require 'uri'
 class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
 
-  # Run initial checks
-  def initialize
-    Puppet::Util::Puppetdb::GlobalCheck.run
-  end
-
   def search(request)
     profile "resource#search" do
       type   = request.key

@@ -9,11 +9,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
-  # Run initial checks
-  def initialize
-    Puppet::Util::Puppetdb::GlobalCheck.run
-  end
-
   def get_trusted_info(node)
     trusted = Puppet.lookup(:trusted_information) do
       Puppet::Context::TrustedInformation.local(request.node)
