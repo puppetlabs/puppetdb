@@ -18,7 +18,7 @@ Specifically there are a few different levels of versioning we have to consider 
 Some general statements about this policy:
 
 * The API versioning policy does not apply historically, this is a new policy for v4. Once v4 becomes ‘current’ all rules applicable to current apply to it.
-* If its not written down, one shouldn’t assume it to be true or false. We expect people to raise bugs on this policy if they find a matter needs clarification and it is not already covered.
+* If it's not written down, one shouldn’t assume it to be true or false. We expect people to raise bugs on this policy if they find a matter needs clarification and it is not already covered.
 
 ## PuppetDB Software
 
@@ -56,7 +56,7 @@ Changes that remove or rename end-points, fields and query operators however mus
 
 The experimental API is where breaking changes belong, changes that are not backwards compatible and unable to be place in current. This also includes features that require some experimentation and user testing before they are able to be moved into current.
 
-The experimental API may change without notice to allow us to refine this future API rapidly, however we will endevaour to notify users of this change in our release notes.
+The experimental API may change without notice to allow us to refine this future API rapidly, however we will endeavour to notify users of this change in our release notes.
 
 The experimental API will usually become current on the next major version boundary of PuppetDB (a version X release from a semver perspective).
 
@@ -64,7 +64,7 @@ The experimental API will usually become current on the next major version bound
 
 Deprecated API's are no longer current and are on their way to retirement and are thus no longer actively maintained/changed. As soon as a version is marked as deprecated, users should be moving off of it immediately.
 
-Retirement of an old API version implies retirement on the next major version boundary of PuppetDB (a version X release from a semver perspective).
+Deprecation of an old API version implies retirement on the next major version boundary of PuppetDB (a version X release from a semver perspective).
 
 ### Retired
 
@@ -78,7 +78,7 @@ Commands can be versioned on an individual command basis so they are fairly flex
 
 Commands are primarily represented by a corresponding wire format. Wire formats are versioned along with the corresponding command.
 
-The reasons to trigger a new command version are more common, and in general if we aren’t sure its easy enough to create another version anyway.
+The reasons to trigger a new command version are more common, and in general if we aren’t sure it's easy enough to create another version anyway.
 
 Some examples of changes that will require a new command version:
 
