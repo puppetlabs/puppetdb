@@ -25,11 +25,14 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Matches if:** the field's actual value is exactly the same as the provided value. Note that this **does not** coerce values --- the provided value must be the same data type as the field. In particular, be aware that:
+**Matches if:** the field's actual value is the same as the provided value.
+This operator will coerce queries on fact values to strings; in all other cases
+the query type must match that of the database value.  For example:
 
-* Most fields are strings.
-* Some fields are booleans.
-* Numbers in resource parameters from Puppet are usually stored as strings, and equivalent numbers will **not** match --- if the value of `someparam` were "0", then `["=", "someparam", "0.0"]` wouldn't match.
+* Fact value queries for "3.14" or 3.14 will match either "3.14" or 3.14
+* Fact value queries for "true" and true will match either "true" or true
+* Queries for resources with exported field "false" will throw an error, since
+  `exported` is a boolean field in the database.
 
 ### `>` (greater than)
 
