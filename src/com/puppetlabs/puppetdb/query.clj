@@ -63,7 +63,7 @@
 (ns com.puppetlabs.puppetdb.query
   (:require [clojure.string :as string]
             [clojure.set :as set]
-            [com.puppetlabs.puppetdb.http :refer [v4?]]
+            [com.puppetlabs.puppetdb.http :refer [v4-or-newer?]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
             [clj-time.coerce :refer [to-timestamp]]
@@ -532,7 +532,7 @@
            {:where  "catalogs.certname = ?"
             :params [value]}
 
-           ["environment" :guard (v4? version)]
+           ["environment" :guard (v4-or-newer? version)]
            {:where  "catalog_resources.environment = ?"
             :params [value]}
 
@@ -578,7 +578,7 @@
            {:where  (sql-regexp-match "catalogs.certname")
             :params [value]}
 
-           ["environment" :guard (v4? version)]
+           ["environment" :guard (v4-or-newer? version)]
            {:where  (sql-regexp-match "catalog_resources.environment")
             :params [value]}
 
@@ -611,7 +611,7 @@
            {:where "facts.certname = ?"
             :params [value]}
 
-           ["environment" :guard (v4? version)]
+           ["environment" :guard (v4-or-newer? version)]
            {:where "facts.environment = ?"
             :params [value]}
 
@@ -639,7 +639,7 @@
              ["certname"]
              (query "facts.certname")
 
-             ["environment" :guard (v4? version)]
+             ["environment" :guard (v4-or-newer? version)]
              (query "facts.environment")
 
              ["name"]
@@ -851,7 +851,7 @@ args))))))
              {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
                              (if value "IN" "NOT IN"))}
 
-             ["environment" :guard (v4? version)]
+             ["environment" :guard (v4-or-newer? version)]
              {:where "environments.name = ?"
               :params [value]}
 
@@ -893,7 +893,7 @@ args))))))
              {:where (sql-regexp-match "reports.certname")
               :params [pattern]}
 
-             ["environment" :guard (v4? version)]
+             ["environment" :guard (v4-or-newer? version)]
              {:where (sql-regexp-match "environments.name")
               :params [pattern]}
 
@@ -933,11 +933,11 @@ args))))))
            {:where "reports.hash = ?"
             :params [value]}
 
-           ["environment" :guard (v4? version)]
+           ["environment" :guard (v4-or-newer? version)]
            {:where "environments.name = ?"
             :params [value]}
 
-           ["status" :guard (v4? version)]
+           ["status" :guard (v4-or-newer? version)]
            {:where "report_statuses.status = ?"
             :params [value]}
 
