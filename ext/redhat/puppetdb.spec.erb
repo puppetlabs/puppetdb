@@ -28,8 +28,8 @@
 %endif
 <% end -%>
 
-# Fedora 17 and later and EL > 7 use systemd
-%if 0%{?fedora} >= 17 || 0%{?rhel} >= 7
+# Fedora 17 and later, EL > 7 and OpenSUSE >= 12.1 use systemd
+%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1210
 %global _with_systemd 1
 %else
 %global _with_systemd 0
@@ -109,15 +109,21 @@ Requires:      logrotate
 Requires:      procps
 %else
 BuildRequires: /usr/sbin/useradd
-%if 0%{?_with_systemd}
-# Required for %%post, %%preun, %%postun
-Requires:       systemd
-%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7
-BuildRequires:  systemd
+%endif
+%if 0%{?_with_systemd} 
+%if 0%{?fedora} || 0%{?rhel}
+BuildRequires:    systemd
+Requires(post):   systemd
+Requires(preun):  systemd
+Requires(postun): systemd
 %else
-BuildRequires:  systemd-units
+%if 0%{?suse_version}
+BuildRequires:    systemd
+%{?systemd_requires}
+%endif
 %endif
 %else
+%if 0%{?fedora} || 0%{?rhel}
 # Required for %%post and %%preun
 Requires:       chkconfig
 %endif
@@ -194,40 +200,6 @@ rm -rf $RPM_BUILD_ROOT
 if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
    rm <%= @install_dir %>/start_service_after_upgrade
 fi
-# If this is an upgrade (as opposed to an install) then we need to check
-#  and see if the service is running.  If it is, we need to stop it.
-#  we want to shut down and disable the service.
-if [ "$1" = "2" ] ; then
-%if 0%{?_with_systemd}
-    # We test to see if the systemd service file exists because in upgrades from < 1.6.0,
-    # puppetdb may still be using sysv and in that case we need to use the sysv tools.
-    if [ -f %{_unitdir}/%{name}.service ]; then
-      if /usr/bin/systemctl status %{name}.service > /dev/null; then
-        # If we need to restart the service after the upgrade
-        #  is finished, we will touch a temp file so that
-        #  we can detect that state
-        touch <%= @install_dir %>/start_service_after_upgrade
-        /usr/bin/systemctl stop %{name}.service >/dev/null 2>&1
-      fi
-    elif [ -f %{_initddir}/%{name} ]; then
-      if /sbin/service %{name} status > /dev/null ; then
-        # If we need to restart the service after the upgrade
-        #  is finished, we will touch a temp file so that
-        #  we can detect that state
-        touch <%= @install_dir %>/start_service_after_upgrade
-        /sbin/service %{name} stop >/dev/null 2>&1
-      fi
-    fi
-%else
-    if /sbin/service %{name} status > /dev/null ; then
-        # If we need to restart the service after the upgrade
-        #  is finished, we will touch a temp file so that
-        #  we can detect that state
-        touch <%= @install_dir %>/start_service_after_upgrade
-        /sbin/service %{name} stop >/dev/null 2>&1
-    fi
-%endif
-fi
 # Add PuppetDB user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
@@ -239,8 +211,13 @@ useradd -r -g %{name} -d <%= @install_dir %> -s /sbin/nologin \
 export PATH=/opt/puppet/bin:$PATH
 <% end -%>
 %if 0%{?_with_systemd}
-# Always reload the .service files if using systemd, in case they have changed.
-/usr/bin/systemctl daemon-reload
+%if 0%{?fedora} || 0%{?rhel}
+%systemd_post %{name}.service
+%else
+%if 0%{?suse_version}
+%service_add_post %{name}.service
+%endif
+%endif
 %else
 # If this is an install (as opposed to an upgrade)...
 if [ "$1" = "1" ]; then
@@ -257,40 +234,44 @@ fi
 %preun
 # If this is an uninstall (as opposed to an upgrade) then
 #  we want to shut down and disable the service.
-if [ "$1" = "0" ] ; then
 %if 0%{?_with_systemd}
-    /usr/bin/systemctl stop %{name}.service
-    /usr/bin/systemctl disable %{name}.service
+%if 0%{?fedora} || 0%{?rhel}
+%systemd_preun %{name}.service
 %else
+%if 0%{?suse_version}
+%service_del_preun %{name}.service
+%endif
+%endif
+%else
+if [ "$1" = "0" ] ; then
     /sbin/service %{name} stop >/dev/null 2>&1
     /sbin/chkconfig --del %{name}
-%endif
 fi
+%endif
 
 %postun
+%if 0%{?_with_systemd}
+%if 0%{?fedora} || 0%{?rhel}
+%systemd_postun_with_restart %{name}.service
+%else
+%if 0%{?suse_version}
+%service_del_postun %{name}.service
+%endif
+%endif
+%else
 # Remove the rundir if this is an uninstall (as opposed to an upgrade)...
 if [ "$1" = "0" ]; then
     rm -rf %{_rundir}/%{name} || :
-%if 0%{?_with_systemd}
-    # Restart systemd after the service file is removed
-    /usr/bin/systemctl daemon-reload
-%endif
-fi
-
-# If this is an upgrade (as opposed to an install) then we need to check
-#  and see if we stopped the service during the install (we indicate
-#  this via the existence of a temp file that was created during that
-#  phase).  If we did, then we need to restart it.
-if [ "$1" = "1" ] ; then
-    if [ -f "<%= @install_dir %>/start_service_after_upgrade" ] ; then
-        rm <%= @install_dir %>/start_service_after_upgrade
-%if 0%{?_with_systemd}
-        /usr/bin/systemctl start %{name}.service >/dev/null 2>&1
+elif [ "$1" = "1" ] ; then
+%if 0%{?fedora} || 0%{?rhel}
+    /sbin/service %{name} condrestart >/dev/null 2>&1 || :
 %else
-        /sbin/service %{name} start >/dev/null 2>&1
+%if 0%{?suse_version}
+    /sbin/service %{name} try-restart >/dev/null 2>&1 || :
 %endif
-    fi
+%endif
 fi
+%endif
 
 
 %files
