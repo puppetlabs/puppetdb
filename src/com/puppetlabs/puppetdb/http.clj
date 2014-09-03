@@ -38,13 +38,16 @@
     (add-headers (dissoc query-result :result))))
 
 (defn remove-status
-  "Status is only for the v4 version of the reports response"
+  "Status is only for the v4 or newer version of the reports response"
   [result-map version]
-  (if-not (= :v4 version)
-    (dissoc result-map :status)
+  (case version
+    (:v2 :v3) (dissoc result-map :status)
     result-map))
 
-(defn v4?
-  "Returns a function that always returns true if `version` is :v4"
+(defn v4-or-newer?
+  "Returns a function that always returns true if `version` is newer than :v4"
   [version]
-  (constantly (= :v4 version)))
+  (constantly
+   (case version
+     (:v2 :v3) false
+     true)))

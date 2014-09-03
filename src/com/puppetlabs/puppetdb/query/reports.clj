@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as string]
-            [com.puppetlabs.puppetdb.http :refer [remove-status v4?]]
+            [com.puppetlabs.puppetdb.http :refer [remove-status]]
             [clojure.core.match :refer [match]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
