@@ -63,7 +63,8 @@
    results are returned from the body of the macro"
   [n & body]
   `(future
-     (block-until-results-fn ~n
+     (block-until-results-fn
+      ~n
       (fn []
         (try
           (do ~@body)
@@ -191,8 +192,8 @@
                     (assoc :name "foo.local"))]
     (jutils/puppetdb-instance
       (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
-       (fn []
+      (fn []
         (is (empty? (export/get-nodes "localhost" jutils/*port*)))
         (submit-command :replace-catalog 5 catalog)
         (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-              @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))
+                              @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))

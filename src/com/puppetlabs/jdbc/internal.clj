@@ -4,10 +4,11 @@
 ;; *subject to change without notice.*
 
 (ns com.puppetlabs.jdbc.internal
-  (:use [clojure.string :only (join)])
-  (:import (com.jolbox.bonecp.hooks AbstractConnectionHook))
+  (:import (com.jolbox.bonecp.hooks AbstractConnectionHook ConnectionState)
+           (com.jolbox.bonecp PreparedStatementHandle))
   (:require [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.string :as str]))
 
 (defn query-param->str
   "Helper method for converting a single parameter from a prepared statement
@@ -27,9 +28,20 @@
   [log-statements? params]
   (if log-statements?
     (format "Query Params: %s"
-            (join ", " (map query-param->str params)))
+            (str/join ", " (map query-param->str params)))
     (str "(Query params unavailable: to enable logging of query params, please set "
          "'log-statements' to true in the [database] section of your config file.)")))
+
+(defn on-query-execute-time-limit-exceeded
+  [conn stmt sql params time-elapsed log-statements? query-execution-limit]
+  "Called *after* a query completes, if the elapsed time of a query exceeds
+   the configure timeout."
+  (log/warn (format (str "Query slower than %ss threshold:  "
+                         "actual execution time: %.4f seconds; Query: %s; "
+                         (query-params->str log-statements? params))
+                    query-execution-limit
+                    (/ time-elapsed 1000000000.0)
+                    sql)))
 
 (defn connection-hook
   "Helper method for building up a `ConnectionHook` for our connection pool.
@@ -38,20 +50,10 @@
   could provide handlers for in the future."
   [log-statements? query-execution-limit]
   (proxy [AbstractConnectionHook] []
-    ;; the name of this method is a bit misleading; the way it actually works
-    ;; is that *after* a query completes, the connection class will check to
-    ;; see how long it took... and if it took longer than the specified limit,
-    ;; it will call this method after the fact.
-    ;;
-    ;; TODO: consider adding a call to EXPLAIN here.
     (onQueryExecuteTimeLimitExceeded
       [conn stmt sql params time-elapsed]
-      (log/warn (format (str "Query slower than %ss threshold:  "
-                             "actual execution time: %.4f seconds; Query: %s; "
-                             (query-params->str log-statements? params))
-                        query-execution-limit
-                        (/ time-elapsed 1000000000.0)
-                        sql)))))
+      (on-query-execute-time-limit-exceeded conn stmt sql params time-elapsed
+                                            log-statements? query-execution-limit))))
 
 (defn limit-exception
   "Helper method; simply throws an exception with a message explaining

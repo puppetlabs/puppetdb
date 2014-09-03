@@ -413,6 +413,17 @@ module PuppetDBExtensions
     apply_manifest_on(host, manifest)
   end
 
+  # Restart postgresql using Puppet, by notifying the postgresql::server::service
+  # class, which should cause the service to restart.
+  def restart_postgres(host)
+    manifest = add_el5_postgres(host, "class { 'puppetdb::database::postgresql': }\n")
+    manifest += <<-EOS
+      notify { 'restarting postgresql': }~>
+      Class['postgresql::server::service']
+    EOS
+    apply_manifest_on(host, manifest)
+  end
+
   def install_puppetdb_via_rake(host)
     os = PuppetDBExtensions.config[:os_families][host.name]
     case os
