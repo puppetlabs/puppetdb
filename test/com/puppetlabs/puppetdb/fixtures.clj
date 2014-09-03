@@ -1,4 +1,5 @@
 (ns com.puppetlabs.puppetdb.fixtures
+  (:import [java.io ByteArrayInputStream])
   (:require [clojure.java.jdbc :as sql]
             [clojure.java.jdbc.internal :as jint]
             [com.puppetlabs.puppetdb.http.server :as server]
@@ -7,11 +8,10 @@
             [com.puppetlabs.puppetdb.config :as cfg]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
-            [clojure.test :refer [join-fixtures use-fixtures]])
-  (:import [java.io ByteArrayInputStream])
-  (:use [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db with-test-broker]]
-        [puppetlabs.trapperkeeper.logging :only [reset-logging]]
-        [com.puppetlabs.puppetdb.scf.migrate :only [migrate!]]))
+            [clojure.test :refer [join-fixtures use-fixtures]]
+            [com.puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db with-test-broker]]
+            [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
+            [com.puppetlabs.puppetdb.scf.migrate :refer [migrate!]]))
 
 (def ^:dynamic *db* nil)
 (def ^:dynamic *mq* nil)
