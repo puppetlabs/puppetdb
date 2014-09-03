@@ -10,7 +10,9 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]
             [com.puppetlabs.time :as pl-time]
-            [com.puppetlabs.jdbc.internal :refer :all]))
+            [com.puppetlabs.jdbc.internal :refer :all]
+            [com.puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 
 (defn valid-jdbc-query?
@@ -210,17 +212,64 @@
    :repeatable-read java.sql.Connection/TRANSACTION_REPEATABLE_READ
    :serializable java.sql.Connection/TRANSACTION_SERIALIZABLE})
 
+(pls/defn-validated retry-sql-or-fail :- Boolean
+  "Log the attempts made, and the final failure during SQL retries.
+
+   If there are still retries to perform, returns false."
+  [n :- s/Int
+   e]
+  (cond
+   (zero? n)
+   (do
+     (log/warn "Caught exception. Last attempt, throwing exception.")
+     (throw e))
+
+   :else
+   (do
+     (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Retry attempts left: %s "
+                        (.getName (class e)) (.getMessage e) (.getSQLState e) n))
+     false)))
+
+(pls/defn-validated retry-sql*
+  "Executes f. If an exception is thrown, will retry. At most n retries
+   are done. If still some retryable error state is thrown it is bubbled upwards
+   in the call chain."
+  [n :- s/Int
+   f]
+  (loop [n n]
+    (if-let [result (try
+                      [(f)]
+
+                      ;; This includes org.postgresql.util.PSQLException
+                      (catch java.sql.SQLException e
+                        (let [sqlstate (.getSQLState e)]
+                          (case sqlstate
+                            ;; Catch connection errors and retry them
+                            "08003" (retry-sql-or-fail n e)
+
+                            ;; All other errors are not retried
+                            (throw e)))))]
+      (result 0)
+      (recur (dec n)))))
+
+(defmacro retry-sql
+  "Executes body. If a retryable error state is thrown, will retry. At most n
+   retries are done. If still some exception is thrown it is bubbled upwards in
+   the call chain."
+  [n & body]
+    `(retry-sql* ~n (fn [] ~@body)))
+
 (defn with-transacted-connection-fn
   "Function for creating a connection that has the specified isolation
    level.  If one is not specified, the JDBC default will be used (read-committed)"
   [db-spec tx-isolation-level f]
   {:pre [(or (nil? tx-isolation-level)
              (get isolation-levels tx-isolation-level))]}
-  (sql/with-connection db-spec
-    (when-let [isolation-level (get isolation-levels tx-isolation-level)]
-      (.setTransactionIsolation (:connection jint/*db*) isolation-level))
-     (sql/transaction
-      (f))))
+  (retry-sql 1
+             (sql/with-connection db-spec
+               (when-let [isolation-level (get isolation-levels tx-isolation-level)]
+                 (.setTransactionIsolation (:connection jint/*db*) isolation-level))
+               (sql/transaction (f)))))
 
 (defmacro with-transacted-connection'
   "Like `clojure.java.jdbc/with-connection`, except this automatically
