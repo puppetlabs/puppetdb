@@ -10,7 +10,7 @@
 
 (defn- raw-event-counts-query-result
   [version query summarize-by query-options paging-options]
-  (->> (event-counts/query->sql version query summarize-by query-options paging-options)
+  (->> (event-counts/query->sql version query [summarize-by query-options paging-options])
        (event-counts/query-event-counts version summarize-by)))
 
 (defn- event-counts-query-result

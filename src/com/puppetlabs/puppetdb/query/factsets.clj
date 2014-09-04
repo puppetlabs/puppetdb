@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.query.factsets
-  (:require [com.puppetlabs.puppetdb.query-eng :as qe]
+  (:require [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [com.puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [com.puppetlabs.puppetdb.query.paging :as paging]

@@ -3,7 +3,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [com.puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
-            [com.puppetlabs.puppetdb.query-eng :as qe]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.jdbc :refer :all]

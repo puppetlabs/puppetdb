@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.query.fact-contents
   (:require [com.puppetlabs.puppetdb.facts :as f]
-            [com.puppetlabs.puppetdb.query-eng :as qe]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [com.puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 
@@ -39,7 +39,7 @@
 (defn query->sql
   "Compile a query into an SQL expression."
   [version query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
+  {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}

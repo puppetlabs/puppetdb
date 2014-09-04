@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will

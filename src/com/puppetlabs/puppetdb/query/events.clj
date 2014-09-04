@@ -7,7 +7,7 @@
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -103,7 +103,7 @@
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query-options query paging-options]
+  [version query [query-options paging-options]]
   {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
             (or (not-any? #(contains? query-options %) distinct-options)
@@ -169,7 +169,7 @@
   (let [query          ["=" "report" report-hash]
         ;; we aren't actually supporting paging through this code path for now
         paging-options {}]
-    (->> (query->sql version nil query paging-options)
+    (->> (query->sql version query [nil paging-options])
          (query-resource-events version)
          :result
          (mapv #(dissoc %

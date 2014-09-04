@@ -7,7 +7,7 @@
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng :as qe]))
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (def report-columns
   [:hash
