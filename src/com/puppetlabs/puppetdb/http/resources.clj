@@ -1,7 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.resources
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resources :as r]
             [com.puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [com.puppetlabs.cheshire :as json]

@@ -1,6 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.reports
-  (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.reports :as reports]
+  (:require [com.puppetlabs.puppetdb.query.reports :as reports]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [com.puppetlabs.cheshire :as json]

@@ -21,8 +21,8 @@
   [version node db]
   (if-let [status (jdbc/with-transacted-connection db
                     (node/status version node))]
-    (pl-http/json-response status)
-    (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
+    (http/json-response status)
+    (http/json-response {:error (str "No information is known about " node)} http/status-not-found)))
 
 (defn routes
   [version]

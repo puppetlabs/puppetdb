@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.events
   (:require [com.puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.testutils.events :refer [http-expected-resource-events]]
@@ -23,7 +23,7 @@
                 [:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
-(def content-type-json pl-http/json-response-content-type)
+(def content-type-json http/json-response-content-type)
 
 (use-fixtures :each with-test-db with-http-app)
 
@@ -53,7 +53,7 @@
         actual-result (parse-result body)]
     (is (= (count actual-result) (count expected-results)))
     (is (= (set actual-result) expected-results))
-    (is (= status pl-http/status-ok))))
+    (is (= status http/status-ok))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -156,13 +156,13 @@
       (testing "should accept dashes"
         (let [expected  (http-expected-resource-events version basic-events basic)
               response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
-          (is (= (:status response) pl-http/status-ok))
+          (is (= (:status response) http/status-ok))
           (response-equal? response expected munge-event-values)))
 
       (testing "should reject underscores"
         (let [response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})
               body      (get response :body "null")]
-          (is (= (:status response) pl-http/status-bad-request))
+          (is (= (:status response) http/status-bad-request))
           (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
 
 (deftestseq query-distinct-resources
@@ -179,21 +179,21 @@
     (testing "should return an error if the caller passes :distinct-resources without timestamps"
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true})
             body      (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
+        (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
              body)))
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
                                                                            :distinct-start-time 0})
             body      (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
+        (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
              body)))
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
                                                                            :distinct-end-time 0})
             body      (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
+        (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
              body))))
@@ -394,4 +394,4 @@
       (let [request (get-request endpoint (json/generate-string query))
             {:keys [status body] :as result} (*app* request)]
         (is (re-find msg body))
-        (is (= status pl-http/status-bad-request))))))
+        (is (= status http/status-bad-request))))))

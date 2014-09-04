@@ -3,7 +3,7 @@
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [flatland.ordered.map :as omap]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
@@ -15,7 +15,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t pl-http/json-response-content-type)
+(def c-t http/json-response-content-type)
 
 (defn get-versioned-response
   [version route]

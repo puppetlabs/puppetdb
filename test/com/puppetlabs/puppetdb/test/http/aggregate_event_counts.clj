@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.aggregate-event-counts
-  (:require [com.puppetlabs.http :as pl-http]
+  (:require [com.puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
@@ -25,7 +25,7 @@
                                   "illegal-summarize-by"
                                   {} true)
           body      (get response :body "null")]
-      (is (= (:status response) pl-http/status-bad-request))
+      (is (= (:status response) http/status-bad-request))
       (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
@@ -34,7 +34,7 @@
                                   "certname"
                                   {"count-by" "illegal-count-by"} true)
           body      (get response :body "null")]
-      (is (= (:status response) pl-http/status-bad-request))
+      (is (= (:status response) http/status-bad-request))
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"

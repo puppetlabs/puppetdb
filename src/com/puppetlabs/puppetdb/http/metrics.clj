@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.metrics
   (:require [clojure.tools.logging :as log]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [clj-http.util :refer [url-encode]]
             [cheshire.custom :refer [JSONable]]
@@ -45,7 +45,7 @@
   (->> (all-mbean-names)
        (linkify-names)
        (into (sorted-map))
-       (pl-http/json-response)))
+       (http/json-response)))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
@@ -53,9 +53,9 @@
   (if ((all-mbean-names) name)
     (-> (jmx/mbean name)
         (filter-mbean)
-        (pl-http/json-response))
+        (http/json-response))
     (rr/status (rr/response "No such mbean")
-               pl-http/status-not-found)))
+               http/status-not-found)))
 
 (defn convert-shortened-mbean-name
   "Middleware that converts the given / separated mbean name from a shortend 'commands' type

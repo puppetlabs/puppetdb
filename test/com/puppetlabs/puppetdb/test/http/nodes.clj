@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.nodes
   (:require [cheshire.core :as json]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
@@ -76,7 +76,7 @@
           (is (= (set expected) (set (mapv :certname result)))
               (str "Query was: " query)))))
 
-    (is (= status pl-http/status-ok))))
+    (is (= status http/status-ok))))
 
 (deftestseq node-queries
   [[version endpoint] endpoints]
@@ -214,7 +214,7 @@
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (fixt/*app* request)]
-          (is (= status pl-http/status-bad-request))
+          (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
 (deftestseq node-query-paging

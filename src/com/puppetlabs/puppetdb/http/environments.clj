@@ -3,7 +3,6 @@
             [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.http :as pl-http]
             [net.cgrand.moustache :refer [app]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [com.puppetlabs.puppetdb.http.facts :as f]
@@ -20,8 +19,8 @@
   [version environment db]
   (if-let [status (with-transacted-connection db
                     (e/status version environment))]
-    (pl-http/json-response status)
-    (pl-http/json-response {:error (str "No information is known about " environment)} pl-http/status-not-found)))
+    (http/json-response status)
+    (http/json-response {:error (str "No information is known about " environment)} http/status-not-found)))
 
 (defn routes
   [version]

@@ -8,7 +8,7 @@
                                                        assert-success! deftestseq]]
             [com.puppetlabs.puppetdb.version :as version]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.mq :as mq]
             [clj-time.format :as time])
   (:import [java.io ByteArrayInputStream]))
@@ -49,7 +49,7 @@
         (assert-success! response)
 
         (is (= (content-type response)
-               pl-http/json-response-content-type))
+               http/json-response-content-type))
         (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
@@ -59,7 +59,7 @@
 
                                    (post-request* endpoint nil nil)))]
         (is (= (:status response)
-               pl-http/status-bad-request))))
+               http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
       (let [response (fixt/*app* (case version
@@ -77,7 +77,7 @@
 
                                    (post-request* endpoint {"checksum" "something bad"} "Testing")))]
         (is (= (:status response)
-               pl-http/status-bad-request))))))
+               http/status-bad-request))))))
 
 (defn round-trip-date-time
   "Parse a DateTime string, then emits the string from that DateTime"

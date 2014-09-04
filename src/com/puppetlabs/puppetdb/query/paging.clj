@@ -6,11 +6,11 @@
 (ns com.puppetlabs.puppetdb.query.paging
   (:import  [com.fasterxml.jackson.core JsonParseException])
   (:require [com.puppetlabs.cheshire :as json]
-            [clojure.string :as string])
-  (:use     [puppetlabs.kitchensink.core :only [keyset seq-contains? parse-int order-by-expr?]]
-            [com.puppetlabs.jdbc :only [underscores->dashes]]
-            [com.puppetlabs.http :only [parse-boolean-query-param]]
-            [clojure.walk :only (keywordize-keys)]))
+            [clojure.string :as string]
+            [com.puppetlabs.puppetdb.http :as http]
+            [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]
+            [com.puppetlabs.jdbc :refer [underscores->dashes]]
+            [clojure.walk :refer [keywordize-keys]]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")
@@ -149,7 +149,7 @@
   "Parse the optional `include-total` query parameter in the paging options map,
   and return an updated map with the correct boolean value."
   [paging-options]
-  (let [count? (parse-boolean-query-param paging-options :include-total)]
+  (let [count? (http/parse-boolean-query-param paging-options :include-total)]
     (-> paging-options
       (dissoc :include-total)
       (assoc :count? count?))))

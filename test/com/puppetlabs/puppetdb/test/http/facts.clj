@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.facts
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
@@ -37,7 +37,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t pl-http/json-response-content-type)
+(def c-t http/json-response-content-type)
 
 (defn get-response
   ([endpoint]      (get-response endpoint nil))
@@ -51,7 +51,7 @@
         actual-result (parse-result body)]
     (is (= (count actual-result) (count expected-results)))
     (is (= (set actual-result) expected-results))
-    (is (= status pl-http/status-ok))))
+    (is (= status http/status-ok))))
 
 (defn munge-structured-response
   [row]
@@ -563,7 +563,7 @@
           (testing (format "Query %s" query)
               (let [request (get-request endpoint (json/generate-string query))
                     {:keys [status body headers]} (*app* request)]
-                (is (= status pl-http/status-ok))
+                (is (= status http/status-ok))
                 (is (= (headers "Content-Type") c-t))
                 (is (= (set (remove-all-environments version result))
                        (set (json/parse-string (slurp body) true))))))))
@@ -571,13 +571,13 @@
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
               {:keys [status body]} (*app* request)]
-          (is (= status pl-http/status-bad-request))
+          (is (= status http/status-bad-request))
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
         (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
               {:keys [status body]} (*app* request)]
-          (is (= status pl-http/status-bad-request))
+          (is (= status http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftestseq fact-subqueries
@@ -619,7 +619,7 @@
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (*app* request)]
           (is (= body msg))
-          (is (= status pl-http/status-bad-request)))))))
+          (is (= status http/status-bad-request)))))))
 
 (deftestseq ^{:postgres false} two-database-fact-query-config
   [[version endpoint] facts-endpoints]
@@ -652,14 +652,14 @@
           (testing "queries only use the read database"
             (let [request (get-request endpoint (json/parse-string nil))
                   {:keys [status body headers]} (two-db-app request)]
-              (is (= status pl-http/status-ok))
+              (is (= status http/status-ok))
               (is (= (headers "Content-Type") c-t))
               (is (empty? (json/parse-stream (io/reader body) true)))))
 
           (testing "config with only a single database returns results"
             (let [request (get-request endpoint (json/parse-string nil))
                   {:keys [status body headers]} (one-db-app request)]
-              (is (= status pl-http/status-ok))
+              (is (= status http/status-ok))
               (is (= (headers "Content-Type") c-t))
               (is (= (remove-all-environments
                        version
@@ -731,7 +731,7 @@
         (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
           (let [request (get-request endpoint nil {k v})
                 {:keys [status body]} (*app* request)]
-            (is (= status pl-http/status-bad-request))
+            (is (= status http/status-bad-request))
             (is (= body (format "Unsupported query parameter '%s'" (name k))))))))))
 
 (defn- raw-query-endpoint
@@ -987,7 +987,7 @@
                       [not ["~" environment DE.*]]]]
         (let [{:keys [status headers body]} (*app* (get-request endpoint query))
               results (json/parse-string (slurp body) true)]
-          (is (= status pl-http/status-ok))
+          (is (= status http/status-ok))
           (is (= (headers "Content-Type") c-t))
           (is (= 9 (count results)))
           (is (every? #(= (:environment %) "PROD") results))

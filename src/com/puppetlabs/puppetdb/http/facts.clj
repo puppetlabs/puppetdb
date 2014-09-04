@@ -1,7 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.facts
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.facts :as facts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]

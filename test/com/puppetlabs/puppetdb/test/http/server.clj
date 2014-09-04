@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.server
-  (:require [com.puppetlabs.http :as pl-http]
+  (:require [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.testutils :refer [deftestseq]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
@@ -21,20 +21,20 @@
     (let [endpoint (str "/" (name version) "/nodes")
           request (header (request :post endpoint) "Accept" c-t)
           {:keys [status body]} (*app* request)]
-      (is (= status pl-http/status-bad-method))
+      (is (= status http/status-bad-method))
       (is (= body (str "The POST method is not allowed for " endpoint))))))
 
 (deftest misc-resource-requests
   (testing "/ redirects to the dashboard"
     (let [request (request :get "/")
           {:keys [status headers]} (*app* request)]
-      (is (= status pl-http/status-moved-temp))
+      (is (= status http/status-moved-temp))
       (is (= (headers "Location") "/dashboard/index.html"))))
 
   (testing "serving the dashboard works correctly"
     (let [request (request :get "/dashboard/index.html")
           {:keys [status body]} (*app* request)
           pwd (System/getProperty "user.dir")]
-      (is (= status pl-http/status-ok))
+      (is (= status http/status-ok))
       (is (instance? java.io.File body))
       (is (= (file pwd "resources/public/dashboard/index.html") body)))))

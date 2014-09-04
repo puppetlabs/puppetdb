@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.http.fact-contents
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
@@ -9,8 +9,7 @@
             [com.puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
                                                wrap-with-paging-options]]
-            [com.puppetlabs.jdbc :as jdbc]
-            [com.puppetlabs.puppetdb.http :as http]))
+            [com.puppetlabs.jdbc :as jdbc]))
 
 (defn query-app
   [version]

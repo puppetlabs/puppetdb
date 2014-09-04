@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.http.command
   (:require [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.command :as command]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.middleware :as mid]))
 
 (defn enqueue-command
@@ -11,7 +11,7 @@
                (get-in globals [:command-mq :connection-string])
                (get-in globals [:command-mq :endpoint])
                body-string)]
-    (pl-http/json-response {:uuid uuid})))
+    (http/json-response {:uuid uuid})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

@@ -44,7 +44,7 @@
             [puppetlabs.trapperkeeper.logging :as logutils]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.command :as command]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.cheshire :as json]
             [clj-http.client :as client]
             [clj-http.util :as util]
@@ -82,7 +82,7 @@
   [puppetdb-host puppetdb-port catalog]
   (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
                  (command-names :replace-catalog) 5 (json/generate-string catalog))]
-    (when-not (= pl-http/status-ok (:status result))
+    (when-not (= http/status-ok (:status result))
       (log/error result))))
 
 (defn submit-report
@@ -92,7 +92,7 @@
   (let [result (command/submit-command-via-http!
                  puppetdb-host puppetdb-port
                  (command-names :store-report) 3 report)]
-    (when-not (= pl-http/status-ok (:status result))
+    (when-not (= http/status-ok (:status result))
       (log/error result))))
 
 (def mutate-fns

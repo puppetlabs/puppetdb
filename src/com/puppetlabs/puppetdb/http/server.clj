@@ -4,18 +4,19 @@
 ;; application.
 
 (ns com.puppetlabs.puppetdb.http.server
-  (:require [clojure.tools.logging :as log])
-  (:use [com.puppetlabs.puppetdb.http.v2 :only (v2-app)]
-        [com.puppetlabs.puppetdb.http.v3 :only (v3-app)]
-        [com.puppetlabs.puppetdb.http.v4 :only (v4-app)]
-        [com.puppetlabs.puppetdb.http.experimental :only (experimental-app)]
-        [com.puppetlabs.middleware :only
-         (wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn wrap-with-globals wrap-with-metrics wrap-with-default-body)]
-        [com.puppetlabs.http :only (leading-uris json-response)]
-        [net.cgrand.moustache :only (app)]
-        [ring.middleware.resource :only (wrap-resource)]
-        [ring.middleware.params :only (wrap-params)]
-        [ring.util.response :only (redirect header)]))
+  (:require [clojure.tools.logging :as log]
+            [com.puppetlabs.puppetdb.http :as http]
+            [com.puppetlabs.puppetdb.http.v2 :refer [v2-app]]
+            [com.puppetlabs.puppetdb.http.v3 :refer [v3-app]]
+            [com.puppetlabs.puppetdb.http.v4 :refer [v4-app]]
+            [com.puppetlabs.puppetdb.http.experimental :refer [experimental-app]]
+            [com.puppetlabs.middleware :refer
+             [wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn
+              wrap-with-globals wrap-with-metrics wrap-with-default-body]]
+            [net.cgrand.moustache :refer [app]]
+            [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.util.response :refer [redirect header]]))
 
 (defn deprecated-app
   [app msg request]
@@ -79,6 +80,6 @@
         (wrap-with-authorization (opts :authorized? (constantly true)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
-        (wrap-with-metrics (atom {}) leading-uris)
+        (wrap-with-metrics (atom {}) http/leading-uris)
         (wrap-with-globals (opts :globals))
         (wrap-with-debug-logging))))

@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.http.resources
   (:require [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :as tu]
@@ -38,8 +38,8 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= pl-http/status-ok (:status response)))
-  (is (= pl-http/json-response-content-type (tu/content-type response)))
+  (is (= http/status-ok (:status response)))
+  (is (= http/json-response-content-type (tu/content-type response)))
   (is (= body (if (:body response)
                 (set (json/parse-string (:body response) true))
                 nil))))
@@ -107,14 +107,14 @@ to the result of the form supplied to this method."
                                                                                          ["and"
                                                                                           ["=" "name" "operatingsystem"]
                                                                                           ["=" "value" "Debian"]]]]]])]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo1})))
 
       ;; Using the value of a fact as the title of a resource
       (let [{:keys [body status]} (get-response endpoint
                                                 ["in" "title" ["extract" "value" ["select-facts"
                                                                                   ["=" "name" "message"]]]])]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
 
     (testing "resource subqueries are supported"
@@ -126,13 +126,13 @@ to the result of the form supplied to this method."
                                                   ["=" "exported" false]
                                                   ["in" "title" ["extract" "title" ["select-resources"
                                                                                     ["=" "exported" true]]]]]])]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
 
     (testing "error handling"
       (let [response (get-response endpoint ["="])
             body     (get response :body "null")]
-        (is (= (:status response) pl-http/status-bad-request))
+        (is (= (:status response) http/status-bad-request))
         (is (re-find #"= requires exactly two arguments" body))))
 
     (testing "query with filter should exclude deactivated nodes"
@@ -210,30 +210,30 @@ to the result of the form supplied to this method."
       (testing "querying by file and line is not supported"
         (let [query ["=" "line" 22]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (= "line is not a queryable object for resources" (:body response))))
         (let [query ["~" "file" "foo"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (= "file cannot be the target of a regexp match" (:body response))))
         (let [query ["=" "file" "/foo/bar"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (= "file is not a queryable object for resources" (:body response))))))
 
     (when (= version :v3)
       (testing "sourcefile and source is not supported"
         (let [query ["=" "sourceline" 22]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourceline' is not a queryable object for resources" (:body response))))
         (let [query ["~" "sourcefile" "foo"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourcefile' cannot be the target of a regexp match" (:body response))))
         (let [query ["=" "sourcefile" "/foo/bar"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourcefile' is not a queryable object for resources" (:body response)))))
 
       (testing "query by file and line is supported"
@@ -251,15 +251,15 @@ to the result of the form supplied to this method."
       (testing "sourcefile and source is not supported"
         (let [query ["=" "sourceline" 22]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
         (let [query ["~" "sourcefile" "foo"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
         (let [query ["=" "sourcefile" "/foo/bar"]
               response (get-response endpoint query)]
-          (is (= pl-http/status-bad-request (:status response)))
+          (is (= http/status-bad-request (:status response)))
           (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
 
       (testing "query by file and line is supported"
@@ -291,7 +291,7 @@ to the result of the form supplied to this method."
     (testing "does not support paging-related query parameters"
       (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
         (let [ {:keys [status body]} (get-response v2-endpoint nil {k v})]
-          (is (= status pl-http/status-bad-request))
+          (is (= status http/status-bad-request))
           (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
 
   (when (not= version :v2)
@@ -326,7 +326,7 @@ to the result of the form supplied to this method."
                                                        {"field" "resource" "order" "DESC"}])}
             response (get-response endpoint nil order-by)
             actual   (json/parse-string (get response :body "null") true)]
-        (is (= pl-http/status-ok (:status response)))
+        (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
 (deftestseq query-environments

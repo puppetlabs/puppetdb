@@ -1,6 +1,5 @@
 (ns com.puppetlabs.puppetdb.test.http.environments
   (:require [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.scf.storage :as storage]
             [clojure.test :refer :all]

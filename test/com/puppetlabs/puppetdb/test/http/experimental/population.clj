@@ -2,7 +2,7 @@
   (:require [cheshire.core :as json]
             ring.middleware.params
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [clj-time.core :refer [now]]
@@ -12,7 +12,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def c-t pl-http/json-response-content-type)
+(def c-t http/json-response-content-type)
 
 (defn get-response
   ([]      (get-response nil))
@@ -22,7 +22,7 @@
   "Test if the HTTP request is a success, and if the result is equal
 to the result of the form supplied to this method."
   [response body]
-  (is (= pl-http/status-ok   (:status response)))
+  (is (= http/status-ok (:status response)))
   (is (= c-t (get-in response [:headers "Content-Type"])))
   (is (= (when-let [body (:body response)]
            (json/parse-string body true))

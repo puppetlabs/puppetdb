@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.metrics
   (:import (java.util.concurrent TimeUnit))
-  (:require [com.puppetlabs.http :as pl-http]
+  (:require [com.puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.http.metrics :refer :all]
@@ -41,30 +41,30 @@
   [[version endpoint] endpoints]
 
   (testing "Remote metrics endpoint"
-    (testing "should return a pl-http/status-not-found for an unknown metric"
+    (testing "should return a http/status-not-found for an unknown metric"
       (let [response (fixt/*app* (get-request (str endpoint "/mbean/does_not_exist")))]
         (is (= (:status response)
-               pl-http/status-not-found))))
+               http/status-not-found))))
 
-    (testing "should return a pl-http/status-not-acceptable for unacceptable content type"
+    (testing "should return a http/status-not-acceptable for unacceptable content type"
       (let [response (fixt/*app* (accepts-plain-text (get-request (str endpoint "/mbeans"))))]
         (is (= (:status response)
-               pl-http/status-not-acceptable))))
+               http/status-not-acceptable))))
 
-    (testing "should return a pl-http/status-ok for an existing metric"
+    (testing "should return a http/status-ok for an existing metric"
       (let [response (fixt/*app* (get-request (str endpoint "/mbean/java.lang:type=Memory")))]
         (is (= (:status response)
-               pl-http/status-ok))
+               http/status-ok))
         (is (= (content-type response)
-               pl-http/json-response-content-type))
+               http/json-response-content-type))
         (is (true? (map? (json/parse-string (:body response) true))))))
 
     (testing "should return a list of all mbeans"
       (let [response (fixt/*app* (get-request (str endpoint "/mbeans")))]
         (is (= (:status response)
-               pl-http/status-ok))
+               http/status-ok))
         (is (= (content-type response)
-               pl-http/json-response-content-type))
+               http/json-response-content-type))
 
         ;; Retrieving all the resulting mbeans should work
         (let [api-mbeans (json/parse-string (:body response))]
@@ -76,6 +76,6 @@
                                   (get-request
                                    (str "/" (name version) uri)))]]
             (is (= (:status response)
-                   pl-http/status-ok))
+                   http/status-ok))
             (is (= (content-type response)
-                   pl-http/json-response-content-type))))))))
+                   http/json-response-content-type))))))))

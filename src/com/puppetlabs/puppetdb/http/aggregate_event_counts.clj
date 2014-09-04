@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.aggregate-event-counts
-  (:require [com.puppetlabs.http :as pl-http]
+  (:require [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]

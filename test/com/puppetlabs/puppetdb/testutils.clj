@@ -1,7 +1,7 @@
 (ns com.puppetlabs.puppetdb.testutils
   (:import (org.apache.activemq.broker BrokerService))
   (:require [com.puppetlabs.mq :as mq]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
@@ -179,8 +179,8 @@
   ([response expected]
     (response-equal? response expected identity))
   ([response expected body-munge-fn]
-    (is (= pl-http/status-ok   (:status response)))
-    (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
+    (is (= http/status-ok (:status response)))
+    (is (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
     (let [actual (when (:body response)
                    (-> (:body response)
                        (json/parse-string true)
@@ -193,9 +193,9 @@
   "Given a Ring response, verify that the status
   code is 200 OK.  If not, print the body and fail."
   [{:keys [status body] :as resp}]
-  (when-not (= pl-http/status-ok status)
+  (when-not (= http/status-ok status)
     (println "ERROR RESPONSE BODY:\n" body)
-    (is (= pl-http/status-ok status))))
+    (is (= http/status-ok status))))
 
 (defn get-request
   "Return a GET request against path, suitable as an argument to a ring

@@ -1,14 +1,14 @@
 (ns com.puppetlabs.test.middleware
+  (:import [java.io ByteArrayInputStream])
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [fs.core :as fs]
             [ring.util.response :as rr]
             [cheshire.core :as json]
-            [clojure.java.io :as io])
-  (:import [java.io ByteArrayInputStream])
-  (:use [com.puppetlabs.middleware]
-        [puppetlabs.kitchensink.core :only (keyset)]
-        [clojure.test]))
+            [clojure.java.io :as io]
+            [com.puppetlabs.middleware :refer :all]
+            [puppetlabs.kitchensink.core :refer [keyset]]
+            [clojure.test :refer :all]))
 
 (deftest wrapping-metrics
   (testing "Should create per-status metrics"
@@ -35,7 +35,7 @@
           ;; Normalize urls based on reversing the url
           normalize-uri #(apply str (reverse %))
           handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status pl-http/status-ok)))
+                                      (rr/status http/status-ok)))
           app           (wrap-with-metrics handler storage normalize-uri)]
 
       (app {:uri "/foo"})
@@ -51,13 +51,13 @@
   (testing "Should only allow authorized requests"
     ;; Setup an app that only lets through odd numbers
     (let [handler     (fn [req] (-> (rr/response nil)
-                                    (rr/status pl-http/status-ok)))
+                                    (rr/status http/status-ok)))
           authorized? odd?
           app         (wrap-with-authorization handler authorized?)]
       ;; Even numbers should trigger an unauthorized response
-      (is (= pl-http/status-forbidden (:status (app 0))))
+      (is (= http/status-forbidden (:status (app 0))))
       ;; Odd numbers should get through fine
-      (is (= pl-http/status-ok (:status (app 1)))))))
+      (is (= http/status-ok (:status (app 1)))))))
 
 (deftest wrapping-cert-cn-extraction
   (with-redefs [kitchensink/cn-for-cert :cn]
@@ -90,11 +90,11 @@
       (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
     (testing "should return an error response if a required parameter is missing"
       (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (= "Missing required query parameter 'bar'" body))))
     (testing "should return an error response if unknown parameters are present"
       (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (= "Unsupported query parameter 'wazzup'" body))))))
 
 (deftest wrapping-paging-options
@@ -103,7 +103,7 @@
     (testing "should return an error if order-by is not a valid JSON string"
       (let [{:keys [status body]}
               (wrapped-fn {:params {"order-by" "["}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (= "Illegal value '[' for :order-by; expected a JSON array of maps."
               body))))
 
@@ -112,7 +112,7 @@
               (wrapped-fn {:params
                            {"order-by"
                             (json/generate-string {"field" "foo"})}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (= (str "Illegal value '{:field \"foo\"}' for :order-by; "
                  "expected an array of maps.")
               body))))
@@ -122,7 +122,7 @@
             (wrapped-fn {:params
                          {"order-by"
                           (json/generate-string [{}])}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (= (str "Illegal value '{}' in :order-by; "
                  "missing required key 'field'.")
               body))))
@@ -160,7 +160,7 @@
                          {"order-by"
                           (json/generate-string [{"field" "foo"
                                                   "order" "baz"}])}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (re-find #"^Illegal value '\{.*\}' in :order-by; 'order' must be either 'asc' or 'desc'"
               body))))
 
@@ -170,7 +170,7 @@
                          {"order-by"
                           (json/generate-string [{"field" "foo"
                                                   "bar" "baz"}])}})]
-        (is (= pl-http/status-bad-request status))
+        (is (= http/status-bad-request status))
         (is (re-find #"^Illegal value '\{.*\}' in :order-by; unknown key 'bar'."
               body))))
 

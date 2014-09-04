@@ -1,6 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.event-counts
-  (:require [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
+  (:require [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [com.puppetlabs.puppetdb.http.events :as events-http]

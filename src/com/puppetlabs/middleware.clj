@@ -3,7 +3,7 @@
 (ns com.puppetlabs.middleware
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.utils.metrics :refer [multitime!]]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [ring.util.request :as request]
             [clojure.string :as s]
@@ -11,10 +11,10 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [pantomime.media :as media]
-            [com.puppetlabs.jdbc :refer [with-transacted-connection]])
-  (:use [metrics.timers :only (timer time!)]
-        [metrics.meters :only (meter mark!)]
-        [clojure.walk :only (keywordize-keys)]))
+            [com.puppetlabs.jdbc :refer [with-transacted-connection]]
+            [metrics.timers :refer [timer time!]]
+            [metrics.meters :refer [meter mark!]]
+            [clojure.walk :refer [keywordize-keys]]))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -40,7 +40,7 @@
       (app req)
       (-> "You shall not pass!"
           (rr/response)
-          (rr/status pl-http/status-forbidden)))))
+          (rr/status http/status-forbidden)))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -62,7 +62,7 @@
     (let [{:keys [body] :as response} (app req)]
       (if body
         response
-        (assoc response :body (pl-http/default-body req response))))))
+        (assoc response :body (http/default-body req response))))))
 
 (defn wrap-with-globals
   "Ring middleware that will add to each request a :globals attribute:
@@ -98,7 +98,7 @@
                (paging/parse-count)
                (paging/parse-order-by))))
       (catch IllegalArgumentException e
-        (pl-http/error-response e)))))
+        (http/error-response e)))))
 
 (defn verify-accepts-content-type
   "Ring middleware that requires a request for the wrapped `app` to accept the
@@ -108,12 +108,12 @@
   [app content-type]
   {:pre (string? content-type)}
   (fn [{:keys [headers] :as req}]
-    (if (pl-http/acceptable-content-type
+    (if (http/acceptable-content-type
           content-type
           (headers "accept"))
       (app req)
       (rr/status (rr/response (str "must accept " content-type))
-                 pl-http/status-not-acceptable))))
+                 http/status-not-acceptable))))
 
 (defn verify-content-type
   "Verification for the specified list of content-types."
@@ -127,7 +127,7 @@
       (if (or (nil? mediatype) (some #{mediatype} content-types))
         (app req)
         (rr/status (rr/response (str "content type " mediatype " not supported"))
-                   pl-http/status-unsupported-type)))))
+                   http/status-unsupported-type)))))
 
 (defn validate-query-params
   "Ring middleware that verifies that the query params in the request
@@ -143,13 +143,13 @@
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
       (kitchensink/excludes-some params (:required param-specs))
-      (pl-http/error-response (str "Missing required query parameter '" p "'"))
+      (http/error-response (str "Missing required query parameter '" p "'"))
 
       (let [diff (set/difference (kitchensink/keyset params)
                     (set (:required param-specs))
                     (set (:optional param-specs)))]
         (seq diff))
-      (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
+      (http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
       :else
       (app req))))
@@ -181,7 +181,7 @@
           payload           body-string]
       (if (and expected-checksum
                (not= expected-checksum (kitchensink/utf8-string->sha1 payload)))
-        (pl-http/error-response "checksums don't match")
+        (http/error-response "checksums don't match")
         (app req)))))
 
 (defn wrap-with-metrics*
@@ -268,12 +268,12 @@
         "application/x-www-form-urlencoded"
           (if-let [payload (params "payload")]
             (app (assoc req :body-string payload))
-            (pl-http/error-response (str "Missing required parameter 'payload'")))
+            (http/error-response (str "Missing required parameter 'payload'")))
         "application/json"
           (let [body-string (request/body-string req)]
             (if (nil? body-string)
-              (pl-http/error-response (str "Empty body for application/json submission"))
+              (http/error-response (str "Empty body for application/json submission"))
               (app (assoc req :body-string body-string))))
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
-          (pl-http/error-response (str "Missing required parameter 'payload'")))))))
+          (http/error-response (str "Missing required parameter 'payload'")))))))

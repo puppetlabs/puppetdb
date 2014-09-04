@@ -1,6 +1,6 @@
 (ns com.puppetlabs.puppetdb.test.http.fact-names
   (:require [cheshire.core :as json]
-            [com.puppetlabs.http :as pl-http]
+            [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
@@ -22,7 +22,7 @@
     (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
       (let [request (get-request "/v2/fact-names" nil {k v})
             {:keys [status body]} (fixt/*app* request)]
-        (is (= status pl-http/status-bad-request))
+        (is (= status http/status-bad-request))
         (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
 
 (deftestseq fact-names-endpoint-tests
@@ -47,7 +47,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
             result (json/parse-string body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (empty? result))))
 
     (with-transacted-connection fixt/*db*
@@ -75,7 +75,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
             result (json/parse-string body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]))))))
 
 (deftestseq fact-paths-endpoint-tests
@@ -111,7 +111,7 @@
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (empty? result))))
 
     (with-transacted-connection fixt/*db*
@@ -141,7 +141,7 @@
                       {:order-by (json/generate-string [{:field "path" :order "asc"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= result expected))))
 
     (testing "regex operator on path"
@@ -150,7 +150,7 @@
                       {:order-by (json/generate-string [{:field "path"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= result
                [{:path ["my_SF" "baz" 0], :type "float"}
                 {:path ["my_SF" "baz" 1], :type "float"}
@@ -161,7 +161,7 @@
                                   :offset 2})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
-        (is (= status pl-http/status-ok))
+        (is (= status http/status-ok))
         (is (= result
                [{:path ["my_SF" "foo"], :type "string"}
                 {:path ["my_SF" "baz" 1], :type "float"}
@@ -175,5 +175,5 @@
                                             ["=" "myfield" "myval"]))
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
-        (is (= status pl-http/status-bad-request))
+        (is (= status http/status-bad-request))
         (is (re-find #"is not a queryable object" result))))))

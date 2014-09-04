@@ -1,7 +1,6 @@
 (ns com.puppetlabs.puppetdb.http.events
   (:import (java.sql Timestamp))
-  (:require [com.puppetlabs.http :as pl-http]
-            [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.query.events :as events]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.paging :as paging]
@@ -40,7 +39,7 @@
                    (str "query parameters 'distinct-start-time' and 'distinct-end-time' must be valid datetime strings: "
                         (params "distinct-start-time") " "
                         (params "distinct-end-time")))))
-        {:distinct-resources? (pl-http/parse-boolean-query-param params "distinct-resources")
+        {:distinct-resources? (http/parse-boolean-query-param params "distinct-resources")
          :distinct-start-time start
          :distinct-end-time   end})
 
@@ -62,7 +61,7 @@
                   [query-options paging-options]
                   (:scf-read-db globals)))
               (catch IllegalArgumentException e
-                (pl-http/error-response e))))}))
+                (http/error-response e))))}))
 
 (defn events-app
   "Ring app for querying events"
