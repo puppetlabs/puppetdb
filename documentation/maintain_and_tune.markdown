@@ -56,6 +56,10 @@ Although deactivated nodes will be excluded from storeconfigs queries, their dat
 
 When the [PuppetDB report processor][puppetdb_report_processor] is enabled on your Puppet master, PuppetDB will retain reports for each node for a fixed amount of time.  This defaults to 14 days, but you can alter this to suit your needs using the [`report-ttl` setting][report_ttl].  The larger the value you provide for this setting, the more history you will retain; however, your database size will grow accordingly.
 
+## Clean Up the Dead Letter Queue
+
+PuppetDB will react to certain types of processing failures by storing a complete copy of the offending input, along with retry timestamps and error traces, in the "dead letter office" (DLO). Over time, the DLO can get pretty large. If you're not actively troubleshooting an issue, you might be able to recover a significant amount of space by deleting the contents of `/var/lib/puppetdb/mq/discarded` (or `/var/lib/pe-puppetdb/mq/discarded` on Puppet Enterprise).
+
 ## View the Log
 
 PuppetDB's log file lives at `/var/log/pe-puppetdb/pe-puppetdb.log` (for PE users) or `/var/log/puppetdb/puppetdb.log` (for open source users). Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [logback.xml file][logback] to find the log.
