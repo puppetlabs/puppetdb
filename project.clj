@@ -96,4 +96,4 @@
 
   :jar-exclusions [#"leiningen/"]
 
-  :main ^:skip-aot com.puppetlabs.puppetdb.core)
+  :main ^:skip-aot puppetlabs.puppetdb.core)

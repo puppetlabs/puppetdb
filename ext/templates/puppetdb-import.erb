@@ -2,4 +2,4 @@
 
 . <%= @libexec_dir %>/<%= @name %>.env
 
-${JAVA_BIN} <%= @java_args || @default_java_args -%> -cp ${INSTALL_DIR}/puppetdb.jar clojure.main -m com.puppetlabs.puppetdb.core import "$@"
+${JAVA_BIN} <%= @java_args || @default_java_args -%> -cp ${INSTALL_DIR}/puppetdb.jar clojure.main -m puppetlabs.puppetdb.core import "$@"

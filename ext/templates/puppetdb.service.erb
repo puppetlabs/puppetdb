@@ -11,13 +11,13 @@ PIDFile=/var/run/<%= @name %>/<%= @name %>.pid
 ExecStart=<%= @java_bin %> \
           $JAVA_ARGS \
           -cp ${INSTALL_DIR}/puppetdb.jar \
-          clojure.main -m com.puppetlabs.puppetdb.core \
+          clojure.main -m puppetlabs.puppetdb.core \
           services -c ${CONFIG} $@
 <%- else -%>
 ExecStart=/usr/lib/jvm/jre-1.7.0-openjdk/bin/java \
           $JAVA_ARGS \
           -cp ${INSTALL_DIR}/puppetdb.jar \
-          clojure.main -m com.puppetlabs.puppetdb.core \
+          clojure.main -m puppetlabs.puppetdb.core \
           services -c ${CONFIG} $@
 <%- end -%>
 
