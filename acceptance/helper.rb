@@ -909,7 +909,7 @@ EOS
 
       case os
       when :debian
-        on host, "apt-get install -y puppet puppetmaster-common"
+        on host, "apt-get install -y puppet puppetmaster-common facter=2.1.0-1puppetlabs1"
       when :redhat, :fedora
         on host, "yum install -y puppet"
       else
