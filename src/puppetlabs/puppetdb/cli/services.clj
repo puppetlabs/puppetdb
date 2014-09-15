@@ -290,8 +290,10 @@
                          (migrate!)
                          (indexes! (:product-name globals)))
 
-    ;; Initialize database-dependent metrics
+    ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)
+    (when (.exists discard-dir)
+      (dlo/create-metrics-for-dlo! discard-dir))
 
     (let [broker (try
                    (log/info "Starting broker")

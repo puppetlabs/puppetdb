@@ -59,7 +59,7 @@
        (sort)
        (last)))
 
-(defn- create-metrics-for-dlo!
+(defn create-metrics-for-dlo!
   "Creates the standard set of global metrics."
   [dir]
   (when-not (:global @metrics)
