@@ -719,15 +719,16 @@
                        (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
                        (reduce #(assoc %1 (:name %2) (:value %2)) {}))
             environment (->> environment_id
-                          (query-to-vec "SELECT name FROM environments WHERE id = ?")
-                          first
-                          :name)]
-        (scf-store/add-facts!
-          {:name (str certname)
-           :values facts
-           :timestamp timestamp
-           :environment environment
-           :producer-timestamp nil})))))
+                             (query-to-vec "SELECT name FROM environments WHERE id = ?")
+                             first
+                             :name)]
+        (when-not (empty? facts)
+          (scf-store/add-facts!
+            {:name (str certname)
+             :values facts
+             :timestamp timestamp
+             :environment environment
+             :producer-timestamp nil}))))))
 
 (defn structured-facts []
   ;; -----------
