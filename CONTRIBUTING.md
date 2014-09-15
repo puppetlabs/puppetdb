@@ -29,7 +29,7 @@
 
 ## Submitting Changes
 
-* Sign the [Contributor License Agreement](https://projects.puppetlabs.com/contributor_licenses/sign).
+* Sign the [Contributor License Agreement](https://cla.puppetlabs.com/).
 * Push your changes to a topic branch in your fork of the repository.
 * Submit a pull request to the repository in the puppetlabs organization.
 * Update your Redmine ticket to mark that you have submitted code.
