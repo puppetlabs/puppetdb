@@ -166,7 +166,7 @@ namespace :test do
     args.with_defaults(:test_files => 'acceptance/tests/')
     config = ENV["BEAKER_CONFIG"] || "vbox-el6-64mda"
     options = ENV["BEAKER_OPTIONS"] || "postgres"
-    preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] == "true" ? true : false
+    preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] || "never"
     color = ENV["BEAKER_COLOR"] == "false" ? false : true
     xml = ENV["BEAKER_XML"] == "true" ? true : false
     type = ENV["BEAKER_TYPE"] || "git"
@@ -177,9 +177,9 @@ namespace :test do
        "--debug " +
        "--tests " + args[:test_files] + " " +
        "--options-file 'acceptance/options/#{options}.rb' " +
-       "--root-keys"
+       "--root-keys " +
+       "--preserve-hosts #{preserve_hosts}"
 
-    beaker += " --preserve-hosts" if preserve_hosts
     beaker += " --no-color" unless color
     beaker += " --xml" if xml
 

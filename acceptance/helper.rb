@@ -291,7 +291,6 @@ module PuppetDBExtensions
     class { 'puppetdb':
       database             => '#{db}',
       open_ssl_listen_port => false,
-      open_postgres_port   => false,
       puppetdb_version     => '#{get_package_version(host, version)}',
     }")
 
@@ -909,7 +908,7 @@ EOS
 
       case os
       when :debian
-        on host, "apt-get install -y puppet puppetmaster-common facter=2.1.0-1puppetlabs1"
+        on host, "apt-get install -y puppet puppetmaster-common"
       when :redhat, :fedora
         on host, "yum install -y puppet"
       else
