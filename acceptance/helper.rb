@@ -291,7 +291,6 @@ module PuppetDBExtensions
     class { 'puppetdb':
       database             => '#{db}',
       open_ssl_listen_port => false,
-      open_postgres_port   => false,
       puppetdb_version     => '#{get_package_version(host, version)}',
     }")
 
