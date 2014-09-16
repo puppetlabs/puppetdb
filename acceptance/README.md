@@ -155,7 +155,7 @@ These files are listed in the directory `acceptance/options`, so you should look
 
 ###`BEAKER_PRESERVE_HOSTS`
 
-When this setting is `true` it will stop the removal of the virtual machine once the task has been completed.
+When this setting is `always` it will stop the removal of the virtual machine once the task has been completed. `onfail` will leave them behind only if they have failed. The default is `never`.
 
 ####`BEAKER_COLOR`
 
