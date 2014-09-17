@@ -12,7 +12,8 @@
             [com.puppetlabs.time :as pl-time]
             [com.puppetlabs.jdbc.internal :refer :all]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [clojure.math.numeric-tower :as math]))
 
 
 (defn valid-jdbc-query?
@@ -212,31 +213,48 @@
    :repeatable-read java.sql.Connection/TRANSACTION_REPEATABLE_READ
    :serializable java.sql.Connection/TRANSACTION_SERIALIZABLE})
 
+(pls/defn-validated exponential-sleep!
+  "Sleeps for a period of time, based on an adjustable base exponential backoff.
+
+   In most cases a base of 2 is sufficient, but you can adjust this to create
+   tighter or looser sleep cycles."
+  [current-attempt :- s/Int
+   base :- (s/either s/Int Double)]
+  (let [sleep-ms (* (- (math/expt base current-attempt) 1) 1000)]
+    (Thread/sleep sleep-ms)))
+
 (pls/defn-validated retry-sql-or-fail :- Boolean
   "Log the attempts made, and the final failure during SQL retries.
 
    If there are still retries to perform, returns false."
-  [n :- s/Int
-   e]
+  [remaining :- s/Int
+   current :- s/Int
+   exception]
   (cond
-   (zero? n)
+   (zero? remaining)
    (do
      (log/warn "Caught exception. Last attempt, throwing exception.")
-     (throw e))
+     (throw exception))
 
    :else
    (do
-     (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Retry attempts left: %s "
-                        (.getName (class e)) (.getMessage e) (.getSQLState e) n))
+     (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
+                        (.getName (class exception))
+                        (.getMessage exception)
+                        (.getSQLState exception)
+                        (inc current)
+                        (+ current remaining)))
+     (exponential-sleep! current 1.3)
      false)))
 
 (pls/defn-validated retry-sql*
   "Executes f. If an exception is thrown, will retry. At most n retries
    are done. If still some retryable error state is thrown it is bubbled upwards
    in the call chain."
-  [n :- s/Int
+  [remaining :- s/Int
    f]
-  (loop [n n]
+  (loop [r remaining
+         current 0]
     (if-let [result (try
                       [(f)]
 
@@ -245,12 +263,12 @@
                         (let [sqlstate (.getSQLState e)]
                           (case sqlstate
                             ;; Catch connection errors and retry them
-                            "08003" (retry-sql-or-fail n e)
+                            "08003" (retry-sql-or-fail r current e)
 
                             ;; All other errors are not retried
                             (throw e)))))]
       (result 0)
-      (recur (dec n)))))
+      (recur (dec r) (inc current)))))
 
 (defmacro retry-sql
   "Executes body. If a retryable error state is thrown, will retry. At most n
@@ -265,7 +283,7 @@
   [db-spec tx-isolation-level f]
   {:pre [(or (nil? tx-isolation-level)
              (get isolation-levels tx-isolation-level))]}
-  (retry-sql 1
+  (retry-sql 5
              (sql/with-connection db-spec
                (when-let [isolation-level (get isolation-levels tx-isolation-level)]
                  (.setTransactionIsolation (:connection jint/*db*) isolation-level))
