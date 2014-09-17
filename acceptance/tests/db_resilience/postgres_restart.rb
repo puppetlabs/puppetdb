@@ -21,9 +21,6 @@ if (test_config[:database] == :postgres)
 
     restart_postgres(database)
 
-    # Avoid a restart race condition
-    sleep(1)
-
     step "Verify that the number of active nodes is what we expect" do
       result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
       result_node_statuses = JSON.parse(result.stdout)

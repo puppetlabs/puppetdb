@@ -125,38 +125,55 @@
             :while (< i 25)]
       (migration)
       (record-migration! i))
-    (let [current-time (to-timestamp (now))]
+    (let [current-time (to-timestamp (now))
+          yesterday (to-timestamp (-> 1 days ago))]
       (sql/insert-records
        :certnames
        {:name "testing1" :deactivated nil}
-       {:name "testing2" :deactivated nil})
+       {:name "testing2" :deactivated nil}
+       {:name "testing3" :deactivated current-time}
+       {:name "testing4" :deactivated nil}
+       {:name "testing5" :deactivated current-time})
       (sql/insert-records
         :environments
        {:id 1 :name "test_env_1"}
-       {:id 2 :name "test_env_2"})
+       {:id 2 :name "test_env_2"}
+       {:id 3 :name "test_env_3"}
+       {:id 4 :name "test_env_4"}
+       {:id 5 :name "test_env_5"})
       (sql/insert-records
        :certname_facts_metadata
        {:certname "testing1" :timestamp current-time :environment_id 1}
-       {:certname "testing2" :timestamp current-time :environment_id 2})
+       {:certname "testing2" :timestamp current-time :environment_id 2}
+       ;; deactivated node with facts
+       {:certname "testing3" :timestamp current-time :environment_id 3}
+       ;; active node with no facts
+       {:certname "testing4" :timestamp yesterday :environment_id 4}
+       ;; deactivated node with no facts
+       {:certname "testing5" :timestamp yesterday :environment_id 5})
       (sql/insert-records
        :certname_facts
        {:certname "testing1" :name "foo"  :value  "1"}
-       {:certname "testing2" :name "bar"  :value "true"})
+       {:certname "testing2" :name "bar"  :value "true"}
+       {:certname "testing3" :name "baz"  :value "false"})
 
       (structured-facts)
       (record-migration! 25)
 
       (let [response
             (query-to-vec
-              "SELECT path,e.id AS environment_id, e.name AS environment,timestamp,value_string
+              "SELECT path, e.id AS environment_id, e.name AS environment,
+              timestamp, value_string
                FROM
                environments e INNER JOIN factsets fs on e.id=fs.environment_id
                               INNER JOIN facts f on f.factset_id=fs.id
                               INNER JOIN fact_values fv on f.fact_value_id=fv.id
                               INNER JOIN fact_paths fp on fp.id=fv.path_id")]
+        ;; every node should with facts should be represented
         (is (= response
-               [{:path "foo", :environment_id 1, :environment "test_env_1",
-                 :timestamp (to-timestamp current-time), :value_string "1"}
-                {:path "bar", :environment_id 2, :environment "test_env_2",
-                 :timestamp (to-timestamp current-time),
-                :value_string "true"}]))))))
+               [{:path "foo" :environment_id 1 :environment "test_env_1"
+                 :timestamp (to-timestamp current-time) :value_string "1"}
+                {:path "bar" :environment_id 2 :environment "test_env_2"
+                 :timestamp (to-timestamp current-time) :value_string "true"}
+                {:path "baz" :environment_id 3 :environment "test_env_3"
+                 :timestamp (to-timestamp current-time) :value_string "false"}]))))))
