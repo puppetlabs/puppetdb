@@ -31,6 +31,7 @@
                  [cheshire "5.3.1"]
                  [org.clojure/core.match "0.2.0-rc5"]
                  [org.clojure/math.combinatorics "0.0.4"]
+                 [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/tools.nrepl "0.2.3"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
