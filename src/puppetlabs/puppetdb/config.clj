@@ -7,7 +7,6 @@
   (:import [java.security KeyStore]
            [org.joda.time Minutes Days Period])
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.time :as pl-time]
             [clj-time.core :as time]
@@ -115,6 +114,10 @@
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
+(def puppetdb-config-in
+  "Schema for validating the [puppetdb] block"
+  {(s/optional-key :certificate-whitelist) s/Str})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
 
@@ -208,13 +211,20 @@
     (s/validate command-processing-out converted-config)
     (assoc config :command-processing converted-config)))
 
+(defn configure-puppetdb
+  "Validates the [puppetdb] section of the config"
+  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
+  (s/validate puppetdb-config-in puppetdb)
+  (assoc config :puppetdb puppetdb))
+
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
       configure-dbs
-      configure-command-params))
+      configure-command-params
+      configure-puppetdb))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Global Config
@@ -320,9 +330,32 @@
                      (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
+(defn fix-tk-config
+  "Fix configuration before passing it to trapperkeeper.
+
+   In particular:
+   * Move certificate-whitelist from [jetty] to [global]"
+  [config-data]
+  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
+    (do
+      ;; Log to stderr, logging is not yet initialized (and may never be).
+      (binding [*out* *err*]
+          (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
+      (-> config-data
+          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
+          (assoc-in [:puppetdb :certificate-whitelist] cw)))
+    config-data))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
+(defn hook-tk-parse-config-data
+  "This is a robert.hooke compatible hook that is designed to intercept
+   trapperkeeper configuration before it is used, so that we may munge &
+   customize it."
+  [f args]
+  (let [config (f args)]
+    (fix-tk-config config)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values
