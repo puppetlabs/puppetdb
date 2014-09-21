@@ -42,5 +42,5 @@ group :test do
 end
 
 group :acceptance do
-  gem 'beaker', '~> 1.11'
+  gem 'beaker', '~> 2.2'
 end
