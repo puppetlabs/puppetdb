@@ -346,12 +346,12 @@
   (-plan->sql [expr]
     (str/join " OR "
               (map
-                #(format "%s %s %s"
-                         (-plan->sql %1)
-                         (:operator expr)
-                         (-plan->sql %2))
-                (maybe-vectorize-string (:column expr))
-                (maybe-vectorize-string (:value expr)))))
+               #(format "%s %s %s"
+                        (-plan->sql %1)
+                        (:operator expr)
+                        (-plan->sql %2))
+               (maybe-vectorize-string (:column expr))
+               (maybe-vectorize-string (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -618,7 +618,7 @@
                   (map->BinaryExpression {:operator op
                                           :column ["value_integer" "value_float"]
                                           :value (if (number? value) [value value]
-                                                   (map ks/parse-number [value value]))})
+                                                     (map ks/parse-number [value value]))})
 
                   (map->BinaryExpression {:operator op
                                           :column column
@@ -672,9 +672,9 @@
               [subquery-name & subquery-expression]]]
             (let [columns (maybe-vectorize-string column)]
               (assoc (user-query->logical-obj subquery-name)
-              :project (zipmap columns (repeat (count columns) nil))
-              :where (when (seq subquery-expression)
-                       (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
+                :project (zipmap columns (repeat (count columns) nil))
+                :where (when (seq subquery-expression)
+                         (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
             :else nil))
 
 (defn convert-to-plan
@@ -797,7 +797,7 @@
                                   :factsets  [nil
                                               [[:certname :ascending]]])
           to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
-        (assoc paging-options :order-by (concat to-prepend to-append)))))
+      (assoc paging-options :order-by (concat to-prepend to-append)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

@@ -19,11 +19,11 @@
 (defn- retrieve-node-names
   ([version filter-expr] (retrieve-node-names version filter-expr {}))
   ([version filter-expr paging-options]
-   (->> (raw-retrieve-nodes version filter-expr paging-options)
-        (:result)
-        (mapv (case version
-                (:v2 :v3) :name
-                :certname)))))
+     (->> (raw-retrieve-nodes version filter-expr paging-options)
+          (:result)
+          (mapv (case version
+                  (:v2 :v3) :name
+                  :certname)))))
 
 (def names #{"node_a" "node_b" "node_c" "node_d" "node_e"})
 

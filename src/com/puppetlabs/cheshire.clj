@@ -20,9 +20,9 @@
   "Non-memoize version of add-common-json-encoders!"
   []
   (generate/add-encoder
-    org.joda.time.DateTime
-    (fn [data jsonGenerator]
-      (.writeString jsonGenerator (coerce/to-string data)))))
+   org.joda.time.DateTime
+   (fn [data jsonGenerator]
+     (.writeString jsonGenerator (coerce/to-string data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.

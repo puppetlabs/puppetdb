@@ -37,13 +37,13 @@
   (when megabytes
     (log/info "Setting ActiveMQ " desc " limit to " megabytes " MB")
     (-> broker
-      (.getSystemUsage)
-      (usage-fn)
-      (.setLimit (* megabytes 1024 1024))))
+        (.getSystemUsage)
+        (usage-fn)
+        (.setLimit (* megabytes 1024 1024))))
   broker)
 
 (defn- set-store-usage!
-   "Configures the `StoreUsage` setting for an instance of `BrokerService`.
+  "Configures the `StoreUsage` setting for an instance of `BrokerService`.
 
    `broker`     - the `BrokerService` to configure
    `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
@@ -91,25 +91,25 @@
       :post [(instance? BrokerService %)]}
      (build-embedded-broker name dir {}))
   ([name dir config]
-    {:pre   [(string? name)
-             (string? dir)
-             (map? config)]
-     :post  [(instance? BrokerService %)]}
-    (let [mq (doto (BrokerService.)
-               (.setBrokerName name)
-               (.setDataDirectory dir)
-               (.setSchedulerSupport true)
-               (.setPersistent true)
-               (set-store-usage! (:store-usage config))
-               (set-temp-usage!  (:temp-usage config)))
-          mc (doto (.getManagementContext mq)
-               (.setCreateConnector false))
-          db (doto (.getPersistenceAdapter mq)
-               (.setIgnoreMissingJournalfiles true)
-               (.setArchiveCorruptedIndex true)
-               (.setCheckForCorruptJournalFiles true)
-               (.setChecksumJournalFiles true))]
-      mq)))
+     {:pre   [(string? name)
+              (string? dir)
+              (map? config)]
+      :post  [(instance? BrokerService %)]}
+     (let [mq (doto (BrokerService.)
+                (.setBrokerName name)
+                (.setDataDirectory dir)
+                (.setSchedulerSupport true)
+                (.setPersistent true)
+                (set-store-usage! (:store-usage config))
+                (set-temp-usage!  (:temp-usage config)))
+           mc (doto (.getManagementContext mq)
+                (.setCreateConnector false))
+           db (doto (.getPersistenceAdapter mq)
+                (.setIgnoreMissingJournalfiles true)
+                (.setArchiveCorruptedIndex true)
+                (.setCheckForCorruptJournalFiles true)
+                (.setChecksumJournalFiles true))]
+       mq)))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept
@@ -132,9 +132,9 @@
     (start-broker! (build-embedded-broker brokername dir config))
     (catch java.io.EOFException e
       (log/warn
-        (str "Caught EOFException on broker startup, trying to restart it "
-             "again to see if that solves it. This is probably due to "
-             "KahaDB corruption."))
+       (str "Caught EOFException on broker startup, trying to restart it "
+            "again to see if that solves it. This is probably due to "
+            "KahaDB corruption."))
       (start-broker! (build-embedded-broker brokername dir config)))))
 
 (defn connect-and-publish!
@@ -302,7 +302,7 @@
                       (doto container
                         (.start)
                         (.initialize))
-                        nil))
+                      nil))
       (close [self] (do
                       (.shutdown container)
                       nil)))))

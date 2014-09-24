@@ -44,8 +44,8 @@
                                                  config-overrides)))
 
 #_(def mem-puppetdb
-     (future
-       (launch-mem-puppetdb)))
+    (future
+      (launch-mem-puppetdb)))
 
 ;; Example of "reloaded" pattern with trapperkeeper
 
@@ -54,8 +54,8 @@
 (defn start [config-path]
   (alter-var-root #'system
                   (fn [_] (tk/boot-services-with-cli-data
-                            [jetty9-service puppetdb-service]
-                            {:config config-path}))))
+                           [jetty9-service puppetdb-service]
+                           {:config config-path}))))
 
 (defn stop []
   (alter-var-root #'system

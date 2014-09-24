@@ -1,14 +1,14 @@
 (ns com.puppetlabs.puppetdb.test.config
   (:import [java.security KeyStore])
   (:require [clojure.test :refer :all]
-           [com.puppetlabs.puppetdb.config :refer :all]
-           [puppetlabs.kitchensink.core :as kitchensink]
-           [com.puppetlabs.time :as pl-time]
-           [clj-time.core :as time]
-           [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
-           [clojure.java.io :as io]
-           [com.puppetlabs.puppetdb.testutils :as tu]
-           [fs.core :as fs]))
+            [com.puppetlabs.puppetdb.config :refer :all]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.time :as pl-time]
+            [clj-time.core :as time]
+            [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
+            [clojure.java.io :as io]
+            [com.puppetlabs.puppetdb.testutils :as tu]
+            [fs.core :as fs]))
 
 (deftest commandproc-configuration
   (testing "should throw an error on unrecognized config options"
@@ -204,5 +204,4 @@
 
   (testing "should disallow anything else"
     (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
-          (normalize-product-name "puppet")))))
-
+                          (normalize-product-name "puppet")))))

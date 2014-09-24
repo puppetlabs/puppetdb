@@ -47,7 +47,7 @@
   "Ring app for querying reports"
   [version]
   (-> (routes version)
-    verify-accepts-json
-    (validate-query-params
-      {:optional (cons "query" paging/query-params)})
-    wrap-with-paging-options))
+      verify-accepts-json
+      (validate-query-params
+       {:optional (cons "query" paging/query-params)})
+      wrap-with-paging-options))

@@ -50,8 +50,8 @@
   [group-by]
   {:pre [(vector? group-by)]}
   (concat
-    ["failures" "successes" "noops" "skips"]
-    (map jdbc/underscores->dashes group-by)))
+   ["failures" "successes" "noops" "skips"]
+   (map jdbc/underscores->dashes group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -89,28 +89,28 @@
   {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
          (map? result)
          (or
-           (contains? result :certname)
-           (every? #(contains? result %) [:resource_type :resource_title])
-           (contains? result :containing_class))]
+          (contains? result :certname)
+          (every? #(contains? result %) [:resource_type :resource_title])
+          (contains? result :containing_class))]
    :post [(map? %)
           (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
           (= summarize-by (:subject-type %))]}
   (condp = summarize-by
     "certname"          (-> result
-                          (assoc :subject-type "certname")
-                          (assoc :subject {:title (:certname result)})
-                          (dissoc :certname))
+                            (assoc :subject-type "certname")
+                            (assoc :subject {:title (:certname result)})
+                            (dissoc :certname))
 
     "resource"          (-> result
-                          (assoc :subject-type "resource")
-                          (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
-                          (dissoc :resource_type :resource_title))
+                            (assoc :subject-type "resource")
+                            (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
+                            (dissoc :resource_type :resource_title))
 
     "containing-class"  (-> result
-                          (assoc :subject-type "containing-class")
-                          (assoc :subject {:title (:containing_class result)})
-                          (dissoc :containing_class))))
+                            (assoc :subject-type "containing-class")
+                            (assoc :subject {:title (:containing_class result)})
+                            (dissoc :containing_class))))
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the

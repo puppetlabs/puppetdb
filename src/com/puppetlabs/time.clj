@@ -26,16 +26,16 @@
         calls the appropriate `append*` method for the desired unit of time.
   `suffix` - the suffix string that will cause this parser to match."
   ([f suffix]
-   (build-parser f suffix suffix))
+     (build-parser f suffix suffix))
   ([f singular-suffix plural-suffix]
-   {:pre   [(fn? f)
-            (string? singular-suffix)
-            (string? plural-suffix)]
-    :post  [(instance? PeriodFormatter %)]}
-   (-> (PeriodFormatterBuilder.)
-       (f)
-       (.appendSuffix singular-suffix plural-suffix)
-       (.toFormatter))))
+     {:pre   [(fn? f)
+              (string? singular-suffix)
+              (string? plural-suffix)]
+      :post  [(instance? PeriodFormatter %)]}
+     (-> (PeriodFormatterBuilder.)
+         (f)
+         (.appendSuffix singular-suffix plural-suffix)
+         (.toFormatter))))
 
 (def day-parser
   "A parser that matches strings ending with `d` and returns a `Period` of days"
@@ -62,11 +62,11 @@
   "A parser that matches strings ending with `d`, `h`, `m`, `s`, or `ms` and
   returns a `Period` object representing the specified amount of time."
   (.. (PeriodFormatterBuilder.)
-      ; it's important that "millisecond" parser comes first in this list,
-      ; because the suffix string is a superset of the suffix string for
-      ; "minutes"... so if the "minute" parser is earlier in the list,
-      ; it will recognize the "m" from a millisecond string, try to parse it,
-      ; fail, and throw an exception.
+                                        ; it's important that "millisecond" parser comes first in this list,
+                                        ; because the suffix string is a superset of the suffix string for
+                                        ; "minutes"... so if the "minute" parser is earlier in the list,
+                                        ; it will recognize the "m" from a millisecond string, try to parse it,
+                                        ; fail, and throw an exception.
       (append millisecond-parser)
       (append second-parser)
       (append minute-parser)
@@ -114,17 +114,17 @@
 (def period-formatter
   "A formatter that converts `Period` objects to human-readable strings."
   (.. (PeriodFormatterBuilder.)
-    ; it's important that "millisecond" parser comes first in this list,
-    ; because the suffix string is a superset of the suffix string for
-    ; "minutes"... so if the "minute" parser is earlier in the list,
-    ; it will recognize the "m" from a millisecond string, try to parse it,
-    ; fail, and throw an exception.
-    (append millisecond-formatter)
-    (append second-formatter)
-    (append minute-formatter)
-    (append hour-formatter)
-    (append day-formatter)
-    (toFormatter)))
+                                        ; it's important that "millisecond" parser comes first in this list,
+                                        ; because the suffix string is a superset of the suffix string for
+                                        ; "minutes"... so if the "minute" parser is earlier in the list,
+                                        ; it will recognize the "m" from a millisecond string, try to parse it,
+                                        ; fail, and throw an exception.
+      (append millisecond-formatter)
+      (append second-formatter)
+      (append minute-formatter)
+      (append hour-formatter)
+      (append day-formatter)
+      (toFormatter)))
 
 (defn format-period
   "Convert a `Period` object into a human-readable String; e.g.:
@@ -141,11 +141,11 @@
                          (toPeriod)
                          (normalizedStandard (PeriodType/dayTime)))
         largest-unit (condp > 0
-                        (.getMillis normalized)  (PeriodType/millis)
-                        (.getSeconds normalized) (PeriodType/seconds)
-                        (.getMinutes normalized) (PeriodType/minutes)
-                        (.getHours normalized)   (PeriodType/hours)
-                        (PeriodType/days))
+                       (.getMillis normalized)  (PeriodType/millis)
+                       (.getSeconds normalized) (PeriodType/seconds)
+                       (.getMinutes normalized) (PeriodType/minutes)
+                       (.getHours normalized)   (PeriodType/hours)
+                       (PeriodType/days))
         normalized   (.normalizedStandard normalized largest-unit)]
     (.print period-formatter normalized)))
 
@@ -165,11 +165,11 @@
   ([p] true)
   ([p1 p2] (= (.toStandardDuration p1) (.toStandardDuration p2)))
   ([p1 p2 & more]
-    (if (periods-equal? p1 p2)
-      (if (next more)
-        (recur p2 (first more) (next more))
-        (periods-equal? p2 (first more)))
-      false)))
+     (if (periods-equal? p1 p2)
+       (if (next more)
+         (recur p2 (first more) (next more))
+         (periods-equal? p2 (first more)))
+       false)))
 
 ;; Conversion functions (convert `Period` instances to numeric values of a
 ;; specified time unit)
@@ -202,4 +202,3 @@
 (def to-millis
   "Given an instance of `Period`, return an integer representing the number of milliseconds"
   (partial to-unit #(.getMillis %)))
-

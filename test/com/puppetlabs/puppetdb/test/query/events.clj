@@ -56,8 +56,8 @@
 
 (defmacro after-v3 [version v3-or-before v4-or-after]
   `(if (contains? #{:v2 :v3} ~version)
-    ~v3-or-before
-    ~v4-or-after))
+     ~v3-or-before
+     ~v4-or-after))
 
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
@@ -354,7 +354,7 @@
          ["or"
           ["<" "line" 2]
           ["null?" "line" true]] [1 2]
-         ["<=" "line" 2] [1 3])
+          ["<=" "line" 2] [1 3])
 
     (are [query basic-event-ids basic2-event-ids] (= (actual* query)
                                                      (into (expected* basic-events-map basic-event-ids basic)
@@ -569,4 +569,4 @@
                        ["~" "environment" "DE.*"]
                        ["not"["~" "environment" "PR.*"]]]]
           (is (thrown-with-msg? IllegalArgumentException #"'environment' is not a queryable object.*version 3"
-               (raw-resource-events-query-result :v3 query {}))))))))
+                                (raw-resource-events-query-result :v3 query {}))))))))

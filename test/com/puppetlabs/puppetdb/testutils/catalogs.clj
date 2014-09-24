@@ -112,9 +112,9 @@
   to drag ActiveMQ into the test stack)."
   [catalog-payload]
   (command/process-command!
-    {:command     (command-names :replace-catalog)
-     :payload     catalog-payload
-     :annotations {:id (uuid)
-                   :received (now)}
-     :version     catalog-version}
-    {:db          *db*}))
+   {:command     (command-names :replace-catalog)
+    :payload     catalog-payload
+    :annotations {:id (uuid)
+                  :received (now)}
+    :version     catalog-version}
+   {:db          *db*}))
