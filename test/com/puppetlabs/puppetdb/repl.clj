@@ -10,8 +10,8 @@
 (defn start []
   (alter-var-root #'system
                   (fn [_] (tk/boot-services-with-cli-data
-                            [jetty9-service puppetdb-service]
-                            {:config "/home/cprice/work/puppet/puppetdb/conf/config.ini"}))))
+                           [jetty9-service puppetdb-service]
+                           {:config "/home/cprice/work/puppet/puppetdb/conf/config.ini"}))))
 
 (defn stop []
   (alter-var-root #'system

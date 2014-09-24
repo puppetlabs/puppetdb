@@ -229,9 +229,9 @@
   ;; the :body so that ring can stream from it.
   (json-response*
    (streamed-response buffer
-     ;; We pass the stream function back to the stream-query-result so that
-     ;; it gets executed inside the cursor function.
-     (f #(stream-json % buffer)))))
+                      ;; We pass the stream function back to the stream-query-result so that
+                      ;; it gets executed inside the cursor function.
+                      (f #(stream-json % buffer)))))
 
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be

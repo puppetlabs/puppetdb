@@ -37,19 +37,19 @@
    :resource-type      :string
    :resource-title     :string
    :property           { :optional? true
-                         :type      :string }
+                        :type      :string }
    :new-value          { :optional? true
-                         :type      :jsonable }
+                        :type      :jsonable }
    :old-value          { :optional? true
-                         :type      :jsonable }
+                        :type      :jsonable }
    :message            { :optional? true
-                         :type      :string }
+                        :type      :string }
    :file               { :optional? true
-                         :type      :string }
+                        :type      :string }
    :line               { :optional? true
-                         :type      :integer }
+                        :type      :integer }
    :containment-path   { :optional? true
-                         :type      :coll }
+                        :type      :coll }
    })
 
 (def resource-event-fields
@@ -63,17 +63,17 @@
   {:pre [(kitchensink/seq-contains? v2-new-event-fields field)]}
   (if (contains? event field)
     (throw (IllegalArgumentException.
-             (format
-               "ResourceEvent has unknown keys: %s ('%s' command, version 1)"
-               field (command-names :store-report)))))
+            (format
+             "ResourceEvent has unknown keys: %s ('%s' command, version 1)"
+             field (command-names :store-report)))))
   (assoc event field nil))
 
 (defn validate-and-add-v2-event-fields!
   [event]
   (let [updated-event (reduce
-                        validate-and-add-v2-event-field!
-                        event
-                        v2-new-event-fields)]
+                       validate-and-add-v2-event-field!
+                       event
+                       v2-new-event-fields)]
     (validate-against-model! ResourceEvent updated-event)
     updated-event))
 
@@ -87,7 +87,7 @@
   [_ report]
   (validate-against-model! Report report)
   (assoc report :resource-events
-    (mapv validate-and-add-v2-event-fields! (:resource-events report))))
+         (mapv validate-and-add-v2-event-fields! (:resource-events report))))
 
 (defmethod validate! 2
   [_ report]
@@ -96,8 +96,8 @@
     (validate-against-model! ResourceEvent resource-event)
     (if (not-every? string? (resource-event :containment-path))
       (throw (IllegalArgumentException.
-               (format "Containment path should only contain strings: '%s'"
-                       (resource-event :containment-path))))))
+              (format "Containment path should only contain strings: '%s'"
+                      (resource-event :containment-path))))))
   report)
 
 (defmethod validate! 3
@@ -134,5 +134,5 @@
    :post [(map? %)]}
   (let [valid-keys (map name report-fields)]
     (-> payload
-      (select-keys valid-keys)
-      (update-in ["resource-events"] sanitize-events))))
+        (select-keys valid-keys)
+        (update-in ["resource-events"] sanitize-events))))

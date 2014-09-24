@@ -24,8 +24,8 @@
           distinct-options    (events-http/validate-distinct-options! query-params)]
       (with-transacted-connection db
         (-> (aggregate-event-counts/query->sql version query summarize-by
-              (merge {:counts-filter counts-filter :count-by count-by}
-                     distinct-options))
+                                               (merge {:counts-filter counts-filter :count-by count-by}
+                                                      distinct-options))
             (aggregate-event-counts/query-aggregate-event-counts)
             (pl-http/json-response))))
     (catch com.fasterxml.jackson.core.JsonParseException e
@@ -38,9 +38,9 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals]}]
-            (produce-body version params (:scf-read-db globals)))}))
+   [""]
+   {:get (fn [{:keys [params globals]}]
+           (produce-body version params (:scf-read-db globals)))}))
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."

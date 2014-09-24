@@ -6,8 +6,8 @@
             [com.puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
             [com.puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage
-                                                             munge-v2-example-events-to-v1
-                                                             munge-v1-example-events-to-v2]]))
+                                                              munge-v2-example-events-to-v1
+                                                              munge-v1-example-events-to-v2]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -25,7 +25,7 @@
 (defn munge-example-report-for-storage
   [example-report]
   (update-in example-report [:resource-events]
-    #(mapv munge-example-event-for-storage %)))
+             #(mapv munge-example-event-for-storage %)))
 
 (defn munge-events-for-comparison
   "Munges event objects in a way that is suitable for equality comparisons in tests"
@@ -33,12 +33,12 @@
   {:pre  [(vector? events)]
    :post [(set? %)]}
   (set (map
-      #(-> %
-           (update-in ["timestamp"] time-coerce/to-string)
-           (dissoc "report")
-           (dissoc "certname")
-           (dissoc "configuration-version"))
-      events)))
+        #(-> %
+             (update-in ["timestamp"] time-coerce/to-string)
+             (dissoc "report")
+             (dissoc "certname")
+             (dissoc "configuration-version"))
+        events)))
 
 (defn munge-report-for-comparison
   "Given a report object (represented as a map, either having come out of a
@@ -52,12 +52,12 @@
    :post [(map? %)
           (set? (% "resource-events"))]}
   (-> report
-    (clojure.walk/stringify-keys)
-    (update-in ["start-time"] time-coerce/to-string)
-    (update-in ["end-time"] time-coerce/to-string)
-    (update-in ["resource-events"] munge-events-for-comparison)
-    (dissoc "hash")
-    (dissoc "receive-time")))
+      (clojure.walk/stringify-keys)
+      (update-in ["start-time"] time-coerce/to-string)
+      (update-in ["end-time"] time-coerce/to-string)
+      (update-in ["resource-events"] munge-events-for-comparison)
+      (dissoc "hash")
+      (dissoc "receive-time")))
 
 (defn store-example-report*!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
@@ -94,12 +94,12 @@
 (defn expected-report
   [example-report]
   (kitchensink/mapvals
-    ;; we need to map the datetime fields to timestamp objects for comparison
-    time-coerce/to-timestamp
-    [:start-time :end-time]
-    ;; the response won't include individual events, so we need to pluck those
-    ;; out of the example report object before comparison
-    (dissoc example-report :resource-events)))
+   ;; we need to map the datetime fields to timestamp objects for comparison
+   time-coerce/to-timestamp
+   [:start-time :end-time]
+   ;; the response won't include individual events, so we need to pluck those
+   ;; out of the example report object before comparison
+   (dissoc example-report :resource-events)))
 
 (defn expected-reports
   [example-reports]
@@ -119,12 +119,12 @@
 
 (defn reports-query-result
   ([version query]
-   (reports-query-result version query nil))
+     (reports-query-result version query nil))
   ([version query paging-options]
-   (:result (raw-reports-query-result version query paging-options))))
+     (:result (raw-reports-query-result version query paging-options))))
 
 (defn get-events-map
   [example-report]
   (into {}
-    (for [ev (:resource-events example-report)]
-      [(:test-id ev) ev])))
+        (for [ev (:resource-events example-report)]
+          [(:test-id ev) ev])))

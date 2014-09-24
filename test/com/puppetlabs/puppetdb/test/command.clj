@@ -232,8 +232,8 @@
        (let [~publish-var publish#
              ~discard-var discard-dir#]
          ~@body
-      ; Uncommenting this line can be very useful for debugging
-      ; (println @log-output#)
+                                        ; Uncommenting this line can be very useful for debugging
+                                        ; (println @log-output#)
          )
        (finally
          (fs/delete-dir discard-dir#)))))
@@ -473,7 +473,7 @@
                         (get-in command [:payload :data :name])
                         )
             catalog-hash (shash/catalog-similarity-hash
-                           (catalog/parse-catalog (:payload command) (version-num version)))
+                          (catalog/parse-catalog (:payload command) (version-num version)))
             command (stringify-payload command)
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
@@ -607,7 +607,7 @@
         (test-msg-handler command-2 publish discard-dir
           (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
                  (scf-store/catalog-resources
-                   (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+                  (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 
@@ -653,17 +653,17 @@
 (deftest catalog-with-updated-resource-tags
   (doverseq [version catalog-versions
              :let [command (munge-catalog-command
-                             version {:command (command-names :replace-catalog)
-                                      :version 2
-                                      :payload basic-wire-catalog})
+                            version {:command (command-names :replace-catalog)
+                                     :version 2
+                                     :payload basic-wire-catalog})
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
-                                                      (assoc :line 20))))]]
+                              (update-resource version command "File" "/etc/foobar"
+                                               #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
+                                                    (assoc :line 20))))]]
     (test-msg-handler command-1 publish discard-dir
       (let [orig-resources (scf-store/catalog-resources
-                             (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+                            (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
         (is (= #{"file" "class" "foobar"}
                (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
         (is (= 10
@@ -677,7 +677,7 @@
                                #{"file" "class" "foobar" "foo"})
                      (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
                  (scf-store/catalog-resources (:id (scf-store/catalog-metadata
-                                                     "basic.wire-catalogs.com")))))
+                                                    "basic.wire-catalogs.com")))))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 
@@ -1002,9 +1002,9 @@
               _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
 
               new-wire-catalog (assoc-in wire-catalog [:data :edges]
-                                 #{{:relationship "contains"
-                                    :target       {:title "Settings" :type "Class"}
-                                    :source       {:title "main" :type "Stage"}}})
+                                         #{{:relationship "contains"
+                                            :target       {:title "Settings" :type "Class"}
+                                            :source       {:title "main" :type "Stage"}}})
               new-catalog-cmd {:command (command-names :replace-catalog)
                                :version 3
                                :payload (json/generate-string new-wire-catalog)}]

@@ -26,26 +26,26 @@
           ((some-fn (partial instance? Timestamp) nil?) (:distinct-end-time %))]}
   (let [distinct-params ["distinct-resources" "distinct-start-time" "distinct-end-time"]]
     (cond
-      (not-any? #(contains? params %) distinct-params)
-      {:distinct-resources? false
-       :distinct-start-time nil
-       :distinct-end-time   nil}
+     (not-any? #(contains? params %) distinct-params)
+     {:distinct-resources? false
+      :distinct-start-time nil
+      :distinct-end-time   nil}
 
-      (every? #(contains? params %) distinct-params)
-      (let [start (to-timestamp (params "distinct-start-time"))
-            end   (to-timestamp (params "distinct-end-time"))]
-        (when (some nil? [start end])
-          (throw (IllegalArgumentException.
-                   (str "query parameters 'distinct-start-time' and 'distinct-end-time' must be valid datetime strings: "
-                        (params "distinct-start-time") " "
-                        (params "distinct-end-time")))))
-        {:distinct-resources? (pl-http/parse-boolean-query-param params "distinct-resources")
-         :distinct-start-time start
-         :distinct-end-time   end})
+     (every? #(contains? params %) distinct-params)
+     (let [start (to-timestamp (params "distinct-start-time"))
+           end   (to-timestamp (params "distinct-end-time"))]
+       (when (some nil? [start end])
+         (throw (IllegalArgumentException.
+                 (str "query parameters 'distinct-start-time' and 'distinct-end-time' must be valid datetime strings: "
+                      (params "distinct-start-time") " "
+                      (params "distinct-end-time")))))
+       {:distinct-resources? (pl-http/parse-boolean-query-param params "distinct-resources")
+        :distinct-start-time start
+        :distinct-end-time   end})
 
-      :else
-      (throw (IllegalArgumentException.
-               "'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'")))))
+     :else
+     (throw (IllegalArgumentException.
+             "'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'")))))
 
 (defn produce-body
   "Given a query, options and a database connection, return a Ring response with the
@@ -74,28 +74,28 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (try
-              (let [query-options (validate-distinct-options! params)]
-                (produce-body
-                  version
-                  (params "query")
-                  query-options
-                  paging-options
-                  (:scf-read-db globals)))
-              (catch IllegalArgumentException e
-                (pl-http/error-response e))))}))
+   [""]
+   {:get (fn [{:keys [params globals paging-options]}]
+           (try
+             (let [query-options (validate-distinct-options! params)]
+               (produce-body
+                version
+                (params "query")
+                query-options
+                paging-options
+                (:scf-read-db globals)))
+             (catch IllegalArgumentException e
+               (pl-http/error-response e))))}))
 
 (defn events-app
   "Ring app for querying events"
   [version]
   (-> (routes version)
-    middleware/verify-accepts-json
-    (middleware/validate-query-params {:required ["query"]
-                                       :optional (concat
-                                                  ["distinct-resources"
-                                                   "distinct-start-time"
-                                                   "distinct-end-time"]
-                                                  paging/query-params)})
-    middleware/wrap-with-paging-options))
+      middleware/verify-accepts-json
+      (middleware/validate-query-params {:required ["query"]
+                                         :optional (concat
+                                                    ["distinct-resources"
+                                                     "distinct-start-time"
+                                                     "distinct-end-time"]
+                                                    paging/query-params)})
+      middleware/wrap-with-paging-options))

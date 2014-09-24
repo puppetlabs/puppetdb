@@ -191,9 +191,9 @@
          (period? threshold)]}
   (create-metrics-for-dlo! dir)
   (when-let [subdir-files (seq (for [subdir (remove #(already-archived? % threshold) (subdirectories dir))
-                                :let [files (compressible-files subdir threshold)]
-                                :when (seq files)]
-                            [subdir files]))]
+                                     :let [files (compressible-files subdir threshold)]
+                                     :when (seq files)]
+                                 [subdir files]))]
     (time! (global-metric :compression)
            (doseq [[subdir files] subdir-files]
              (compress-subdir! subdir files)))))

@@ -33,8 +33,8 @@
   "Generator for the defrecord Foo. Requires a leaves generator for
   the values of the defrecord (i.e. gen/int)"
   [leaves]
-   (gen/fmap (partial apply ->Foo)
-             (apply gen/tuple (repeat 4 leaves))))
+  (gen/fmap (partial apply ->Foo)
+            (apply gen/tuple (repeat 4 leaves))))
 
 (defn seq-gen
   "Generator for seqs of `leaves`"

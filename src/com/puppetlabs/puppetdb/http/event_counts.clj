@@ -48,13 +48,13 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (produce-body
-             version
-             params
-             paging-options
-             (:scf-read-db globals)))}))
+   [""]
+   {:get (fn [{:keys [params globals paging-options]}]
+           (produce-body
+            version
+            params
+            paging-options
+            (:scf-read-db globals)))}))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
@@ -65,5 +65,5 @@
                               :optional (concat ["counts-filter" "count-by"
                                                  "distinct-resources" "distinct-start-time"
                                                  "distinct-end-time"]
-                                          paging/query-params) })
+                                                paging/query-params) })
       wrap-with-paging-options))

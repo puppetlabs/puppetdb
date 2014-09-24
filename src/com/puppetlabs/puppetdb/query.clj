@@ -90,17 +90,17 @@
   (let [[sql & params] (if (string? query) [query] query)
         paged-sql      (paged-sql sql paging-options)
         result         {:result
-                          (limited-query-to-vec
-                            fail-limit
-                            (apply vector paged-sql params))}]
-      ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
-      ;; which would allow us to get the results and the count via a
-      ;; single query (rather than two separate ones).  Need to do
-      ;; some benchmarking to see which is faster.
-      (if count?
-        (assoc result :count
-          (get-result-count (apply vector (count-sql sql) params)))
-        result)))
+                        (limited-query-to-vec
+                         fail-limit
+                         (apply vector paged-sql params))}]
+    ;; TODO: this could also be implemented using `COUNT(*) OVER()`,
+    ;; which would allow us to get the results and the count via a
+    ;; single query (rather than two separate ones).  Need to do
+    ;; some benchmarking to see which is faster.
+    (if count?
+      (assoc result :count
+             (get-result-count (apply vector (count-sql sql) params)))
+      result)))
 
 (defn execute-query*
   "Helper function to executed non-paged queries.  Returns a map containing the
@@ -109,7 +109,7 @@
   {:pre [(and (integer? fail-limit) (>= fail-limit 0))
          (valid-jdbc-query? query)]
    :post [(map? %)
-         (vector? (:result %))]}
+          (vector? (:result %))]}
   {:result (limited-query-to-vec fail-limit query)})
 
 (defn execute-query
@@ -123,14 +123,14 @@
   whose value is an integer indicating the total number of results available."
   ([query paging-options] (execute-query 0 query paging-options))
   ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
-   {:pre [((some-fn string? sequential?) query)]
-    :post [(map? %)
-           (vector? (:result %))
-           ((some-fn nil? integer?) (:count %))]}
-    (let [sql-and-params (if (string? query) [query] query)]
-      (if (requires-paging? paging-options)
-        (execute-paged-query* fail-limit sql-and-params paging-options)
-        (execute-query* fail-limit sql-and-params)))))
+     {:pre [((some-fn string? sequential?) query)]
+      :post [(map? %)
+             (vector? (:result %))
+             ((some-fn nil? integer?) (:count %))]}
+     (let [sql-and-params (if (string? query) [query] query)]
+       (if (requires-paging? paging-options)
+         (execute-paged-query* fail-limit sql-and-params paging-options)
+         (execute-query* fail-limit sql-and-params)))))
 
 (defn compile-term
   "Compile a single query term, using `ops` as the set of legal operators. This
@@ -296,8 +296,8 @@
   for use in a SELECT"
   [col-map]
   (string/join ", "
-    (for [[field table] col-map]
-      (str table "." field))))
+               (for [[field table] col-map]
+                 (str table "." field))))
 
 (defmulti queryable-fields
   "This function takes a query type (:resource, :fact, :node) and a query
@@ -621,8 +621,8 @@
 
            :else
            (throw (IllegalArgumentException.
-                    (format "%s is not a queryable object for version %s of the facts query api"
-                            path (last (name version))))))))
+                   (format "%s is not a queryable object for version %s of the facts query api"
+                           path (last (name version))))))))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
@@ -788,7 +788,7 @@
             :params [value]}
 
            :else (throw (IllegalArgumentException.
-                          (str path " is not a queryable object for environments"))))))
+                         (str path " is not a queryable object for environments"))))))
 
 (defn compile-environments-regexp
   "Compile an '~' predicate for an environments query, which does regexp matching.  This
@@ -805,7 +805,7 @@
             :params [pattern]}
 
            :else (throw (IllegalArgumentException.
-                          (str path " is not a valid operand for regexp comparison"))))))
+                         (str path " is not a valid operand for regexp comparison"))))))
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
@@ -816,21 +816,21 @@
           (string? (:where %))]}
   (when-not (= (count args) 3)
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count
-args))))))
+                                                                                                                 args))))))
 
   (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
                           "run-start-time"      "reports.start_time"
                           "run-end-time"        "reports.end_time"
                           "report-receive-time" "reports.receive_time"}]
     (match [path]
-      [(field :guard (kitchensink/keyset timestamp-fields))]
-      (if-let [timestamp (to-timestamp value)]
-        {:where (format "%s %s ?" (timestamp-fields field) op)
-         :params [(to-timestamp value)]}
-        (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
+           [(field :guard (kitchensink/keyset timestamp-fields))]
+           (if-let [timestamp (to-timestamp value)]
+             {:where (format "%s %s ?" (timestamp-fields field) op)
+              :params [(to-timestamp value)]}
+             (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
 
-      :else (throw (IllegalArgumentException.
-                     (str op " operator does not support object '" path "' for resource events"))))))
+           :else (throw (IllegalArgumentException.
+                         (str op " operator does not support object '" path "' for resource events"))))))
 
 (defn compile-resource-event-equality
   "Compile an = predicate for resource event query. `path` represents the field to
@@ -955,11 +955,11 @@ args))))))
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
   (let [db-field (jdbc/dashes->underscores path)]
     (match [db-field]
-      [(field :guard #{"successes" "failures" "noops" "skips"})]
-      {:where (format "%s = ?" field)
-       :params [value]}
+           [(field :guard #{"successes" "failures" "noops" "skips"})]
+           {:where (format "%s = ?" field)
+            :params [value]}
 
-      :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
+           :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
 
 (defn compile-event-count-inequality
   "Compile an inequality for an event-counts query (> < >= <=).  The `path`
@@ -970,11 +970,11 @@ args))))))
   (when-not (= (count args) 3)
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
   (match [path]
-    [(field :guard #{"successes" "failures" "noops" "skips"})]
-    {:where (format "%s %s ?" field op)
-     :params [value]}
+         [(field :guard #{"successes" "failures" "noops" "skips"})]
+         {:where (format "%s %s ?" field op)
+          :params [value]}
 
-    :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
+         :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
 
 (declare fact-operators)
 
@@ -1006,20 +1006,20 @@ args))))))
     (fn [op]
       (let [op (string/lower-case op)]
         (cond
-          (#{">" "<" ">=" "<="} op)
-          (partial compile-fact-inequality op)
+         (#{">" "<" ">=" "<="} op)
+         (partial compile-fact-inequality op)
 
-          (= op "=") (compile-fact-equality version)
-          (= op "~") (compile-fact-regexp version)
-          ;; We pass this function along so the recursive calls know which set of
-          ;; operators/functions to use, depending on the API version.
-          (= op "and") (partial compile-and (fact-operators version))
-          (= op "or") (partial compile-or (fact-operators version))
-          (= op "not") (partial compile-not version (fact-operators version))
-          (= op "extract") (partial compile-extract version (fact-operators version))
-          (= op "in") (partial compile-in :fact version (fact-operators version))
-          (= op "select-resources") (partial resource-query->sql (resource-operators version))
-          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+         (= op "=") (compile-fact-equality version)
+         (= op "~") (compile-fact-regexp version)
+         ;; We pass this function along so the recursive calls know which set of
+         ;; operators/functions to use, depending on the API version.
+         (= op "and") (partial compile-and (fact-operators version))
+         (= op "or") (partial compile-or (fact-operators version))
+         (= op "not") (partial compile-not version (fact-operators version))
+         (= op "extract") (partial compile-extract version (fact-operators version))
+         (= op "in") (partial compile-in :fact version (fact-operators version))
+         (= op "select-resources") (partial resource-query->sql (resource-operators version))
+         (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
 (defn node-operators
   "Maps node query operators to the functions implementing them. Returns nil
@@ -1030,16 +1030,16 @@ args))))))
     (fn [op]
       (let [op (string/lower-case op)]
         (cond
-          (= op "=") (partial compile-node-equality version)
-          (= op "~") (partial compile-node-regexp version)
-          (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
-          (= op "and") (partial compile-and (node-operators version))
-          (= op "or") (partial compile-or (node-operators version))
-          (= op "not") (partial compile-not version (node-operators version))
-          (= op "extract") (partial compile-extract version (node-operators version))
-          (= op "in") (partial compile-in :node version (node-operators version))
-          (= op "select-resources") (partial resource-query->sql (resource-operators version))
-          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+         (= op "=") (partial compile-node-equality version)
+         (= op "~") (partial compile-node-regexp version)
+         (#{">" "<" ">=" "<="} op) (partial compile-node-inequality op)
+         (= op "and") (partial compile-and (node-operators version))
+         (= op "or") (partial compile-or (node-operators version))
+         (= op "not") (partial compile-not version (node-operators version))
+         (= op "extract") (partial compile-extract version (node-operators version))
+         (= op "in") (partial compile-in :node version (node-operators version))
+         (= op "select-resources") (partial resource-query->sql (resource-operators version))
+         (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
 (defn environments-operators
   "Maps environment query operators to the functions implementing them. Returns nil
@@ -1050,17 +1050,17 @@ args))))))
     (fn [op]
       (let [op (string/lower-case op)]
         (cond
-          (= op "=") (partial compile-environments-equality version)
-          (= op "~") compile-environments-regexp
-          (= op "and") (partial compile-and (environments-operators version))
-          (= op "or") (partial compile-or (environments-operators version))
-          (= op "not") (partial compile-not version (environments-operators version))
-          (= op "extract") (partial compile-extract version (environments-operators version))
-          (= op "in") (partial compile-in :environments version (environments-operators version))
-          (= op "select-resources") (partial resource-query->sql (resource-operators version))
-          (= op "select-facts") (partial fact-query->sql (fact-operators version))
-          (#{">" "<" ">=" "<="} op) (fn [& [_ value]]
-                                      (throw (IllegalArgumentException. (format "Value %s must be a number for %s comparison." value op)))))))))
+         (= op "=") (partial compile-environments-equality version)
+         (= op "~") compile-environments-regexp
+         (= op "and") (partial compile-and (environments-operators version))
+         (= op "or") (partial compile-or (environments-operators version))
+         (= op "not") (partial compile-not version (environments-operators version))
+         (= op "extract") (partial compile-extract version (environments-operators version))
+         (= op "in") (partial compile-in :environments version (environments-operators version))
+         (= op "select-resources") (partial resource-query->sql (resource-operators version))
+         (= op "select-facts") (partial fact-query->sql (fact-operators version))
+         (#{">" "<" ">=" "<="} op) (fn [& [_ value]]
+                                     (throw (IllegalArgumentException. (format "Value %s must be a number for %s comparison." value op)))))))))
 
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
@@ -1072,25 +1072,25 @@ args))))))
     :v3 (fn [op]
           (let [op (string/lower-case op)]
             (cond
-              (= op "=") (compile-resource-event-equality version)
-              (= op "and") (partial compile-and (resource-event-ops version))
-              (= op "or") (partial compile-or (resource-event-ops version))
-              (= op "not") (partial compile-not version (resource-event-ops version))
-              (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-              (= op "~") (compile-resource-event-regexp version))))
+             (= op "=") (compile-resource-event-equality version)
+             (= op "and") (partial compile-and (resource-event-ops version))
+             (= op "or") (partial compile-or (resource-event-ops version))
+             (= op "not") (partial compile-not version (resource-event-ops version))
+             (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+             (= op "~") (compile-resource-event-regexp version))))
     (fn [op]
       (let [op (string/lower-case op)]
         (cond
-          (= op "=") (compile-resource-event-equality version)
-          (= op "and") (partial compile-and (resource-event-ops version))
-          (= op "or") (partial compile-or (resource-event-ops version))
-          (= op "not") (partial compile-not version (resource-event-ops version))
-          (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-          (= op "~") (compile-resource-event-regexp version)
-          (= op "extract") (partial compile-extract version (resource-event-ops version))
-          (= op "in") (partial compile-in :event version (resource-event-ops version))
-          (= op "select-resources") (partial resource-query->sql (resource-operators version))
-          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+         (= op "=") (compile-resource-event-equality version)
+         (= op "and") (partial compile-and (resource-event-ops version))
+         (= op "or") (partial compile-or (resource-event-ops version))
+         (= op "not") (partial compile-not version (resource-event-ops version))
+         (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+         (= op "~") (compile-resource-event-regexp version)
+         (= op "extract") (partial compile-extract version (resource-event-ops version))
+         (= op "in") (partial compile-in :event version (resource-event-ops version))
+         (= op "select-resources") (partial resource-query->sql (resource-operators version))
+         (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
 (defn report-ops
   [version]
@@ -1108,8 +1108,8 @@ args))))))
   [op]
   (let [op (string/lower-case op)]
     (cond
-      (= "=" op) compile-event-count-equality
-      (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
+     (= "=" op) compile-event-count-equality
+     (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
 
 (defn remove-environment
   "dissocs the :environment key when the version is :v4"

@@ -137,8 +137,8 @@
 
     (testing "query should return appropriate results"
       (let [request (get-request
-                      endpoint nil
-                      {:order-by (json/generate-string [{:field "path" :order "asc"}])})
+                     endpoint nil
+                     {:order-by (json/generate-string [{:field "path" :order "asc"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status pl-http/status-ok))
@@ -146,8 +146,8 @@
 
     (testing "regex operator on path"
       (let [request (get-request
-                      endpoint (json/generate-string ["~" "path" "my"])
-                      {:order-by (json/generate-string [{:field "path"}])})
+                     endpoint (json/generate-string ["~" "path" "my"])
+                     {:order-by (json/generate-string [{:field "path"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status pl-http/status-ok))
@@ -172,7 +172,7 @@
                 {:path ["domain"], :type "string"}]))))
     (testing "invalid query throws an error"
       (let [request (get-request endpoint (json/generate-string
-                                            ["=" "myfield" "myval"]))
+                                           ["=" "myfield" "myval"]))
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status pl-http/status-bad-request))

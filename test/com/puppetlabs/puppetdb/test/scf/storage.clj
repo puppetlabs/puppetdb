@@ -82,7 +82,7 @@
                [{:name certname}])))
       (testing "producer-timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
-                [{:producer_timestamp nil}])))
+               [{:producer_timestamp nil}])))
       (testing "replacing facts"
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
@@ -187,7 +187,7 @@
                  (factset-map "some_certname"))))))))
 
 (deftest fact-persistance-with-environment
-    (testing "Persisted facts"
+  (testing "Persisted facts"
     (let [certname "some_certname"
           facts {"domain" "mydomain.com"
                  "fqdn" "myhost.mydomain.com"
@@ -616,9 +616,9 @@
     (testing "on bad input"
       (is (thrown? clojure.lang.ExceptionInfo (add-catalog! {})))
 
-      ; Nothing should have been persisted for this catalog
+                                        ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-            [{:nrows 0}])))))
+             [{:nrows 0}])))))
 
 (defn foobar->foobar2 [x]
   (if (and (string? x) (= x "/etc/foobar"))
@@ -722,8 +722,8 @@
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
 
     (tu/with-wrapped-fn-args [inserts sql/insert-records
-                           updates sql/update-values
-                           deletes sql/delete-rows]
+                              updates sql/update-values
+                              deletes sql/delete-rows]
       (add-catalog! (assoc-in catalog
                               [:resources {:type "File" :title "/etc/foobar2"}]
                               {:type "File"
@@ -988,13 +988,13 @@
 
 (deftest catalog-referential-integrity-violation
   (testing "on input that violates referential integrity"
-    ; This catalog has an edge that points to a non-existant resource
+                                        ; This catalog has an edge that points to a non-existant resource
     (let [catalog (:invalid catalogs)]
       (is (thrown? clojure.lang.ExceptionInfo (add-catalog! catalog)))
 
-      ; Nothing should have been persisted for this catalog
+                                        ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-            [{:nrows 0}])))))
+             [{:nrows 0}])))))
 
 (deftest node-deactivation
   (let [certname        "foo.example.com"
@@ -1105,15 +1105,15 @@
       (store-example-report! report timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
-            [{:certname (:certname report)}]))
+             [{:certname (:certname report)}]))
 
       (is (= (query-to-vec ["SELECT hash FROM reports"])
-            [{:hash report-hash}])))
+             [{:hash report-hash}])))
 
     (testing "should store report with long puppet version string"
       (store-example-report!
-        (assoc report
-          :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+       (assoc report
+         :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
   (deftest report-storage-with-environment
     (is (nil? (environment-id "DEV")))
@@ -1153,10 +1153,10 @@
             report-hash (:hash (store-example-report! report timestamp))]
         (is (is-latest-report? node report-hash))
         (let [new-report-hash (:hash (store-example-report!
-                                        (-> report
+                                      (-> report
                                           (assoc :configuration-version "bar")
                                           (assoc :end-time (now)))
-                                        timestamp))]
+                                      timestamp))]
           (is (is-latest-report? node new-report-hash))
           (is (not (is-latest-report? node report-hash)))))))
 

@@ -19,16 +19,16 @@
   "Convert an aggregate-event-counts `query` and a value to `summarize-by` into a SQL string.
   Since all inputs are forwarded to `event-counts/query->sql`, look there for proper documentation."
   ([version query summarize-by]
-   (query->sql version query summarize-by {}))
+     (query->sql version query summarize-by {}))
   ([version query summarize-by query-options]
-   {:pre  [(sequential? query)
-           (string? summarize-by)
-           (map? query-options)]
-    :post [(jdbc/valid-jdbc-query? %)]}
-   (let [[count-sql & params] (:results-query
-                               (event-counts/query->sql version query summarize-by query-options {}))
-         aggregate-sql        (get-aggregate-sql count-sql)]
-     (apply vector aggregate-sql params))))
+     {:pre  [(sequential? query)
+             (string? summarize-by)
+             (map? query-options)]
+      :post [(jdbc/valid-jdbc-query? %)]}
+     (let [[count-sql & params] (:results-query
+                                 (event-counts/query->sql version query summarize-by query-options {}))
+           aggregate-sql        (get-aggregate-sql count-sql)]
+       (apply vector aggregate-sql params))))
 
 (defn- perform-query
   "Given a SQL query and its parameters, return a vector of matching results."

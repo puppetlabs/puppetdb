@@ -18,9 +18,9 @@
 (defn routes
   [version]
   (app
-    [node]
-    (fn [{:keys [globals]}]
-      (produce-body version node (:scf-read-db globals)))))
+   [node]
+   (fn [{:keys [globals]}]
+     (produce-body version node (:scf-read-db globals)))))
 
 (defn catalog-app
   [version]

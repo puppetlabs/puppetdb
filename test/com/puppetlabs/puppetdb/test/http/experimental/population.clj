@@ -33,9 +33,9 @@ to the result of the form supplied to this method."
         resources (:resources catalog)
         collector-catalog (assoc catalog :name "collector")
         exporter-catalog (-> catalog
-                           (assoc :name "exporter")
-                           (assoc :resources (into {} (for [[spec resource] resources]
-                                                        [spec (assoc resource :exported true)]))))]
+                             (assoc :name "exporter")
+                             (assoc :resources (into {} (for [[spec resource] resources]
+                                                          [spec (assoc resource :exported true)]))))]
     (scf-store/add-certname! "collector")
     (scf-store/add-certname! "exporter")
     (scf-store/replace-catalog! collector-catalog (now))

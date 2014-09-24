@@ -286,9 +286,9 @@
 (defmacro upon-error-throw-fatality
   [& body]
   `(try+
-     ~@body
-     (catch Throwable e#
-       (throw+ (fatality e#)))))
+    ~@body
+    (catch Throwable e#
+      (throw+ (fatality e#)))))
 
 ;; ## Command processors
 
@@ -323,8 +323,8 @@
   (warn-deprecated version "replace catalog")
   (when-not (string? payload)
     (throw (IllegalArgumentException.
-             (format "Payload for a '%s' v1 command must be a JSON string."
-               (command-names :replace-catalog)))))
+            (format "Payload for a '%s' v1 command must be a JSON string."
+                    (command-names :replace-catalog)))))
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 2]
@@ -412,8 +412,8 @@
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [%s] puppet v%s - %s"
-                id (command-names :store-report)
-                (:puppet-version report) (:certname report)))))
+                      id (command-names :store-report)
+                      (:puppet-version report) (:certname report)))))
 
 (defmethod process-command! [(command-names :store-report) 1]
   [{:keys [version] :as command} {:keys [db]}]
