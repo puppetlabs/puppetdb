@@ -32,7 +32,7 @@
    returns the first one."
   [server]
   (-> @(tka/app-context server)
-      (get-in [:WebserverService :jetty9-server :server])
+      (get-in [:WebserverService :jetty9-servers :default :server])
       .getConnectors
       first
       .getLocalPort))

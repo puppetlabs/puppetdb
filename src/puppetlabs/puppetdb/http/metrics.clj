@@ -19,6 +19,9 @@
               (map? v)
               [k (filter-mbean v)]
 
+              (instance? java.util.HashMap v)
+              [k (filter-mbean (into {} v))]
+
               ;; Cheshire can serialize to JSON anything that
               ;; implements the JSONable protocol
               (satisfies? JSONable v)
