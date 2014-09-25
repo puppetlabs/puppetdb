@@ -52,9 +52,9 @@
   specified API specification"
   [version]
   (fn [rows] (map (comp #(kitchensink/mapkeys jdbc/underscores->dashes %)
-                       #(query/remove-environment % version)
-                       #(http/remove-status % version))
-                 rows)))
+                        #(query/remove-environment % version)
+                        #(http/remove-status % version))
+                  rows)))
 
 (defn query-reports
   "Queries reports and unstreams, used mainly for testing.
@@ -114,6 +114,6 @@
           (string? report-hash)]
    :post [(kitchensink/boolean? %)]}
   (= 1 (count (jdbc/query-to-vec
-                ["SELECT report FROM latest_reports
+               ["SELECT report FROM latest_reports
                     WHERE certname = ? AND report = ?"
-                  node report-hash]))))
+                node report-hash]))))

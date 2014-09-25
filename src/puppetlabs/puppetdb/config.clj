@@ -296,15 +296,15 @@
   (let [lower-product-name (str/lower-case product-name)]
     (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
       (throw (IllegalArgumentException.
-               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+              (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
     lower-product-name))
 
 (defn normalize-url-prefix
   [url-prefix]
   (cond
-    (empty? url-prefix) url-prefix
-    (.startsWith url-prefix "/") url-prefix
-    :else (str "/" url-prefix)))
+   (empty? url-prefix) url-prefix
+   (.startsWith url-prefix "/") url-prefix
+   :else (str "/" url-prefix)))
 
 (defn configure-globals
   "Configures the global properties from the user defined config"

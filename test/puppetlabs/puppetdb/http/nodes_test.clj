@@ -186,31 +186,31 @@
 
   (testing "subqueries: valid"
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-        (doseq [[query expected] {
-                  ;; Nodes with matching select-resources for file/line
-                  ["in" "name"
-                   ["extract" "certname"
-                    ["select-resources"
-                     ["and"
-                      ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
-                      ["=" "line" 1]]]]]
+      (doseq [[query expected] {
+                                ;; Nodes with matching select-resources for file/line
+                                ["in" "name"
+                                 ["extract" "certname"
+                                  ["select-resources"
+                                   ["and"
+                                    ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+                                    ["=" "line" 1]]]]]
 
-                  ["db.example.com" "puppet.example.com" "web1.example.com"]}]
-          (testing (str "query: " query " is supported")
-            (is-query-result endpoint query expected)))))
+                                ["db.example.com" "puppet.example.com" "web1.example.com"]}]
+        (testing (str "query: " query " is supported")
+          (is-query-result endpoint query expected)))))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] {
-              ;; Ensure the v2 version of sourcefile/sourceline returns
-              ;; a proper error.
-              ["in" "name"
-               ["extract" "certname"
-                ["select-resources"
-                 ["and"
-                  ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
-                  ["=" "sourceline" 1]]]]]
+                         ;; Ensure the v2 version of sourcefile/sourceline returns
+                         ;; a proper error.
+                         ["in" "name"
+                          ["extract" "certname"
+                           ["select-resources"
+                            ["and"
+                             ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
+                             ["=" "sourceline" 1]]]]]
 
-              (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
+                         (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
               {:keys [status body] :as result} (fixt/*app* request)]

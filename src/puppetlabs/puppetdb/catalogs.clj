@@ -324,9 +324,9 @@
    :post [(= % catalog)]}
   (doseq [[resource-spec resource] resources]
     (when-let [invalid-tag (first
-                             (remove #(re-find tag-pattern %) (:tags resource)))]
+                            (remove #(re-find tag-pattern %) (:tags resource)))]
       (throw (IllegalArgumentException.
-               (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
+              (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
   catalog)
 
 (defn validate-edges
@@ -340,10 +340,10 @@
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
-               (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
+              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
     (when-not (valid-relationships relationship)
       (throw (IllegalArgumentException.
-               (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
+              (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
   catalog)
 
 (defn validate-keys
@@ -382,8 +382,8 @@
   "Applies every transformation to the catalog, converting it from wire format
   to our internal structure."
   (comp
-    transform-edges
-    transform-resources))
+   transform-edges
+   transform-resources))
 
 ;; ## Deserialization
 
@@ -457,7 +457,7 @@
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-   (->> catalog
+  (->> catalog
        transform
        (canonical-catalog :all)
        validate))

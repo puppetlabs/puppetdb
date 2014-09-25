@@ -80,7 +80,7 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port catalog]
   (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
-                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
+                                                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
@@ -89,8 +89,8 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port report]
   (let [result (command/submit-command-via-http!
-                 puppetdb-host puppetdb-port
-                 (command-names :store-report) 3 report)]
+                puppetdb-host puppetdb-port
+                (command-names :store-report) 3 report)]
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
@@ -116,20 +116,20 @@
     :string (random-string 4)
     :vector (into [] (take (rand-int 10)
                            (repeatedly #(random-fact-value
-                                          (rand-nth [:string :int :float :bool])))))))
+                                         (rand-nth [:string :int :float :bool])))))))
 
 (defn random-structured-fact
   "Create a 'random' structured fact.
   Parameters are fact depth and number of child facts.  Depth 0 implies one child."
   ([]
-   (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
+     (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
   ([depth children]
-   (let [kind (rand-nth [:int :float :bool :string :vector])]
-     (if (zero? depth)
-       {(random-string 10) (random-fact-value kind)}
-       {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
-                                   (take children (repeatedly
-                                                    #(random-structured-fact
+     (let [kind (rand-nth [:int :float :bool :string :vector])]
+       (if (zero? depth)
+         {(random-string 10) (random-fact-value kind)}
+         {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
+                                     (take children (repeatedly
+                                                     #(random-structured-fact
                                                        (rand-nth (range depth))
                                                        (rand-nth (range children))))))}))))
 
@@ -284,12 +284,12 @@
 (defn- validate-cli!
   [args]
   (try+
-    (kitchensink/cli! args supported-cli-options required-cli-options)
-    (catch map? m
-      (println (:message m))
-      (case (:type m)
-        :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-        :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
+   (kitchensink/cli! args supported-cli-options required-cli-options)
+   (catch map? m
+     (println (:message m))
+     (case (:type m)
+       :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+       :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
 
 (defn validate-nummsgs [options action-on-error-fn]
   (when (and (contains? options :runinterval)

@@ -84,17 +84,17 @@
     port :- s/Int
     version :- s/Keyword
     node :- String]
-      (when-let [facts (first (parse-response
-                         (client/get
-                           (format
-                             "http://%s:%s/%s/factsets?query=%s"
-                             host port (name version)
-                             (url-encode
-                               (format "[\"=\",\"certname\",\"%s\"]" node)))
-                           {:accept :json})))]
-        {:name node
-         :values (:facts facts)
-         :environment (:environment facts)})))
+     (when-let [facts (first (parse-response
+                              (client/get
+                               (format
+                                "http://%s:%s/%s/factsets?query=%s"
+                                host port (name version)
+                                (url-encode
+                                 (format "[\"=\",\"certname\",\"%s\"]" node)))
+                               {:accept :json})))]
+       {:name node
+        :values (:facts facts)
+        :environment (:environment facts)})))
 
 (pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -112,8 +112,8 @@
   ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
   ([host port version report-hash]
      {:pre [(string? host)
-             (integer? port)
-             (string? report-hash)]
+            (integer? port)
+            (string? report-hash)]
       :post [(seq? %)]}
      (let [body (parse-response
                  (client/get
@@ -203,16 +203,16 @@
   {:msg (str "Exporting PuppetDB metadata")
    :file-suffix [export-metadata-file-name]
    :contents (json/generate-pretty-string
-               {:timestamp (now)
-                :command-versions
-                ;; This is not ideal that we are hard-coding the command version here, but
-                ;;  in our current architecture I don't believe there is any way to introspect
-                ;;  on which version of the `replace catalog` matches up with the current
-                ;;  version of the `catalog` endpoint... or even to query what the latest
-                ;;  version of a command is.  We should improve that.
-                {:replace-catalog 5
-                 :store-report 3
-                 :replace-facts 3}})})
+              {:timestamp (now)
+               :command-versions
+               ;; This is not ideal that we are hard-coding the command version here, but
+               ;;  in our current architecture I don't believe there is any way to introspect
+               ;;  on which version of the `replace catalog` matches up with the current
+               ;;  version of the `catalog` endpoint... or even to query what the latest
+               ;;  version of a command is.  We should improve that.
+               {:replace-catalog 5
+                :store-report 3
+                :replace-facts 3}})})
 
 (defn- validate-cli!
   [args]
@@ -221,12 +221,12 @@
                   ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:outfile]]
     (try+
-      (kitchensink/cli! args specs required)
-      (catch map? m
-        (println (:message m))
-        (case (:type m)
-          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+     (kitchensink/cli! args specs required)
+     (catch map? m
+       (println (:message m))
+       (case (:type m)
+         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
 (defn -main
   [& args]

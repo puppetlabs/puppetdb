@@ -9,7 +9,7 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
-                                                       deftestseq]]
+                                                   deftestseq]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]))

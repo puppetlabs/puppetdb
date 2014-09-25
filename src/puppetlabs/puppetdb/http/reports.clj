@@ -8,7 +8,7 @@
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                        wrap-with-paging-options]]
+                                                    wrap-with-paging-options]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection get-result-count]]))
 
 (defn routes
@@ -17,7 +17,7 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (produce-streaming-body
-             :reports
+            :reports
             version
             (params "query")
             paging-options
@@ -27,7 +27,7 @@
   "Ring app for querying reports"
   [version]
   (-> (routes version)
-    verify-accepts-json
-    (validate-query-params
-      {:optional (cons "query" paging/query-params)})
-    wrap-with-paging-options))
+      verify-accepts-json
+      (validate-query-params
+       {:optional (cons "query" paging/query-params)})
+      wrap-with-paging-options))

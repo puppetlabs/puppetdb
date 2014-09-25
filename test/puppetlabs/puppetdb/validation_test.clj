@@ -51,7 +51,7 @@
     (is (thrown-with-msg? IllegalArgumentException #"TestModel key :a should be String, got 3$"
                           (validate-against-model! TestModel {:a 3 :b 5 :c 12.0})))))
 
-  (testing "raises errors for type specifiers that aren't supported"
-    (defmodel BadTypeSpecifierModel {:a :notarealtype})
-    (is (thrown-with-msg? IllegalArgumentException #"BadTypeSpecifierModel specifies unrecognized type :notarealtype for key :a$"
-          (validate-against-model! BadTypeSpecifierModel {:a "foo"}))))
+(testing "raises errors for type specifiers that aren't supported"
+  (defmodel BadTypeSpecifierModel {:a :notarealtype})
+  (is (thrown-with-msg? IllegalArgumentException #"BadTypeSpecifierModel specifies unrecognized type :notarealtype for key :a$"
+                        (validate-against-model! BadTypeSpecifierModel {:a "foo"}))))

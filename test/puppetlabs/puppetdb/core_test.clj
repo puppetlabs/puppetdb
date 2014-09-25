@@ -12,7 +12,7 @@
   (try
     (f)
     (catch Exception _
-        ;;do nothing
+      ;;do nothing
       )))
 
 (defn invoke-and-throw [ex-msg]
@@ -88,4 +88,3 @@
           ;;success-fn
           (is (= [:fail :success] @exec-path))
           (is (some (valid-unsupported-pred unsupported-regex) @log)))))))
-

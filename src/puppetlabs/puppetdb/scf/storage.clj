@@ -738,9 +738,9 @@
   []
   (time! (:gc-fact-paths metrics)
          (sql/delete-rows :fact_values
-            ["ID NOT IN (SELECT DISTINCT fact_value_id FROM facts)"])
+                          ["ID NOT IN (SELECT DISTINCT fact_value_id FROM facts)"])
          (sql/delete-rows :fact_paths
-            ["ID NOT IN (SELECT path_id FROM fact_values)"])))
+                          ["ID NOT IN (SELECT path_id FROM fact_values)"])))
 
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
@@ -754,7 +754,7 @@
   []
   (time! (:gc-environments metrics)
          (sql/delete-rows :environments
-           ["ID NOT IN
+                          ["ID NOT IN
               (SELECT environment_id FROM catalogs
                UNION ALL
                SELECT environment_id FROM reports
@@ -766,7 +766,7 @@
   []
   (time! (:gc-report-statuses metrics)
          (sql/delete-rows :report_statuses
-           ["ID NOT IN (SELECT status_id FROM reports)"])))
+                          ["ID NOT IN (SELECT status_id FROM reports)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
@@ -779,7 +779,7 @@
          (sql/transaction
           (delete-unassociated-statuses!))
          (sql/transaction
-           (delete-unassociated-fact-paths!))))
+          (delete-unassociated-fact-paths!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
@@ -789,11 +789,11 @@
    paths."
   [factpaths :- [fact-path-types-to-ids-map]]
   (let [factpath-data (map (fn [data]
-                          [(:path data)
-                           (:depth data)
-                           (:value_type_id data)
-                           (:name data)])
-                        factpaths)]
+                             [(:path data)
+                              (:depth data)
+                              (:value_type_id data)
+                              (:name data)])
+                           factpaths)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name FROM fact_paths fp WHERE (fp.path, fp.depth, fp.value_type_id, fp.name)"
                           (jdbc/in-clause-multi factpath-data 4))
@@ -842,9 +842,9 @@
   as the value."
   [factvalues :- [fact-values-to-ids-map]]
   (let [fv-triples (map (fn [data] [(:path_id data)
-                                   (:value_type_id data)
-                                   (:value_hash data)])
-                       factvalues)]
+                                    (:value_type_id data)
+                                    (:value_hash data)])
+                        factvalues)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id FROM fact_values fv WHERE (fv.path_id, fv.value_type_id, fv.value_hash) "
                           (jdbc/in-clause-multi fv-triples 3))

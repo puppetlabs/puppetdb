@@ -36,21 +36,21 @@
           :reports [reports/query->sql (reports/munge-result-rows version)]
           :factsets [factsets/query->sql (factsets/munge-result-rows version)]
           :resources [resources/query->sql (resources/munge-result-rows version)])]
-  (try
-    (jdbc/with-transacted-connection db
-      (let [parsed-query (json/parse-strict-string query true)
-            {[sql & params] :results-query
-             count-query :count-query} (query->sql version parsed-query
-                                                      paging-options)
-            resp (pl-http/stream-json-response
-                  (fn [f]
-                    (jdbc/with-transacted-connection db
-                      (query/streamed-query-result version sql params
-                                                   (comp f munge-fn)))))]
-        (if count-query
-          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
-          resp)))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (pl-http/error-response e))
-    (catch IllegalArgumentException e
-      (pl-http/error-response e)))))
+    (try
+      (jdbc/with-transacted-connection db
+        (let [parsed-query (json/parse-strict-string query true)
+              {[sql & params] :results-query
+               count-query :count-query} (query->sql version parsed-query
+                                                     paging-options)
+              resp (pl-http/stream-json-response
+                    (fn [f]
+                      (jdbc/with-transacted-connection db
+                        (query/streamed-query-result version sql params
+                                                     (comp f munge-fn)))))]
+          (if count-query
+            (http/add-headers resp {:count (jdbc/get-result-count count-query)})
+            resp)))
+      (catch com.fasterxml.jackson.core.JsonParseException e
+        (pl-http/error-response e))
+      (catch IllegalArgumentException e
+        (pl-http/error-response e)))))

@@ -23,9 +23,9 @@
   It is intended primarily for use in pre- and post-conditions, for validation."
   [q]
   (and
-    (vector? q)
-    (string? (first q))
-    (every? (complement coll?) (rest q))))
+   (vector? q)
+   (string? (first q))
+   (every? (complement coll?) (rest q))))
 
 ;; ## String operations
 
@@ -117,8 +117,8 @@
    :post [(string? %)]}
   (let [field (dashes->underscores (name field))]
     (format "%s%s"
-      field
-      (if (= order :descending) " DESC" ""))))
+            field
+            (if (= order :descending) " DESC" ""))))
 
 (defn order-by->sql
   "Given a list of legal result columns an array of maps (where each map is
@@ -131,8 +131,8 @@
   (if (empty? order-by)
     ""
     (format " ORDER BY %s"
-      (string/join ", "
-        (map order-by-term->sql order-by)))))
+            (string/join ", "
+                         (map order-by-term->sql order-by)))))
 
 (defn paged-sql
   "Given a sql string and a map of paging options, return a modified SQL string
@@ -148,42 +148,42 @@
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
   ([sql {:keys [limit offset order-by]}]
-   (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
+     (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
   ([sql {:keys [limit offset order-by]} entity]
-  {:pre [(string? sql)
-         ((some-fn nil? integer?) limit)
-         ((some-fn nil? integer?) offset)
-         ((some-fn nil? sequential?) order-by)
-         (every? kitchensink/order-by-expr? order-by)]
-   :post [(string? %)]}
-    (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
-          offset-clause    (if offset (format " OFFSET %s" offset) "")
-          order-by-clause  (order-by->sql order-by)
-          inner-order-by   (str/replace order-by-clause #"environment"
-                                        "COALESCE(distinct_names.environment,'')")]
-      (case entity
-        :factsets
-        (format "SELECT paged_results.* FROM (%s) paged_results
+     {:pre [(string? sql)
+            ((some-fn nil? integer?) limit)
+            ((some-fn nil? integer?) offset)
+            ((some-fn nil? sequential?) order-by)
+            (every? kitchensink/order-by-expr? order-by)]
+      :post [(string? %)]}
+     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
+           offset-clause    (if offset (format " OFFSET %s" offset) "")
+           order-by-clause  (order-by->sql order-by)
+           inner-order-by   (str/replace order-by-clause #"environment"
+                                         "COALESCE(distinct_names.environment,'')")]
+       (case entity
+         :factsets
+         (format "SELECT paged_results.* FROM (%s) paged_results
                 WHERE (certname,COALESCE(paged_results.environment,''),timestamp) IN
                 (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp FROM (%s)
                 distinct_names %s%s%s) %s"
-                sql sql inner-order-by limit-clause offset-clause order-by-clause)
-        (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-                sql order-by-clause limit-clause offset-clause)))))
+                 sql sql inner-order-by limit-clause offset-clause order-by-clause)
+         (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+                 sql order-by-clause limit-clause offset-clause)))))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
   ([sql]
-   (count-sql nil sql))
+     (count-sql nil sql))
   ([entity sql]
-  {:pre   [(string? sql)]
-   :post  [(string? %)]}
-  (case entity
-    :factsets
-    (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
+     {:pre   [(string? sql)]
+      :post  [(string? %)]}
+     (case entity
+       :factsets
+       (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
             from (%s) paged_sql) results_to_count" sql)
-    (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
+       (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
@@ -273,7 +273,7 @@
    retries are done. If still some exception is thrown it is bubbled upwards in
    the call chain."
   [n & body]
-    `(retry-sql* ~n (fn [] ~@body)))
+  `(retry-sql* ~n (fn [] ~@body)))
 
 (defn with-transacted-connection-fn
   "Function for creating a connection that has the specified isolation

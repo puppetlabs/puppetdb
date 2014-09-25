@@ -52,7 +52,7 @@
            (set (map #(hash-map :key (name %)) [:absence :abundant])))))
   (testing "query exceeds limit"
     (is (thrown-with-msg? IllegalStateException #"more than the maximum number of results"
-          (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
+                          (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
 
 (deftest order-by->sql
   (testing "should return an empty string if no order-by is provided"
@@ -65,7 +65,7 @@
     (is (= " ORDER BY foo DESC" (subject/order-by->sql [[:foo :descending]]))))
   (testing "should support multiple order-by fields"
     (is (= " ORDER BY foo DESC, bar"
-          (subject/order-by->sql
+           (subject/order-by->sql
             [[:foo :descending]
              [:bar :ascending]])))))
 

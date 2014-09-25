@@ -11,13 +11,13 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals]}]
-            (let [{:strs [query summarize-by counts-filter count-by] :as query-params} params
-                  counts-filter (if counts-filter (json/parse-string counts-filter true))
-                  distinct-options (events-http/validate-distinct-options! query-params)
-                  query-options (merge {:counts-filter counts-filter :count-by count-by} distinct-options)]
-            (produce-streaming-body
+   [""]
+   {:get (fn [{:keys [params globals]}]
+           (let [{:strs [query summarize-by counts-filter count-by] :as query-params} params
+                 counts-filter (if counts-filter (json/parse-string counts-filter true))
+                 distinct-options (events-http/validate-distinct-options! query-params)
+                 query-options (merge {:counts-filter counts-filter :count-by count-by} distinct-options)]
+             (produce-streaming-body
               :aggregate-event-counts
               version
               query
