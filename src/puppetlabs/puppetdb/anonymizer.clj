@@ -13,24 +13,24 @@
   "Returns true if it looks like an edge"
   [edge]
   (and
-    (map? edge)
-    (contains? edge "source")
-    (contains? edge "target")
-    (contains? edge "relationship")))
+   (map? edge)
+   (contains? edge "source")
+   (contains? edge "target")
+   (contains? edge "relationship")))
 
 (defn resource-event?
   "Returns true if it looks like a resource event"
   [event]
   (and
-    (map? event)
-    (contains? event "status")
-    (contains? event "timestamp")
-    (contains? event "resource-title")
-    (contains? event "property")
-    (contains? event "message")
-    (contains? event "new-value")
-    (contains? event "old-value")
-    (contains? event "resource-type")))
+   (map? event)
+   (contains? event "status")
+   (contains? event "timestamp")
+   (contains? event "resource-title")
+   (contains? event "property")
+   (contains? event "message")
+   (contains? event "new-value")
+   (contains? event "old-value")
+   (contains? event "resource-type")))
 
 (defn report?
   "Returns true if it looks like a report"
@@ -42,12 +42,12 @@
   "Returns true if it looks like a resource"
   [resource]
   (and
-    (map? resource)
-    (contains? resource "parameters")
-    (contains? resource "exported")
-    (contains? resource "tags")
-    (contains? resource "title")
-    (contains? resource "type")))
+   (map? resource)
+   (contains? resource "parameters")
+   (contains? resource "exported")
+   (contains? resource "tags")
+   (contains? resource "title")
+   (contains? resource "type")))
 
 (defn catalog?
   "Returns true if it looks like a catalog"
@@ -56,9 +56,9 @@
   ;; it isn't designed for the post-processed format, only the original format
   ;; that the master gives us.
   (and
-    (map? catalog)
-    (contains? catalog "name")
-    (contains? catalog "version")))
+   (map? catalog)
+   (contains? catalog "name")
+   (contains? catalog "version")))
 
 ;; Rules engine functions
 
@@ -81,11 +81,11 @@
   [test value]
   {:post [(boolean? %)]}
   (cond
-    (string? test) (if (pattern-string? test)
-                     (let [pattern (pattern->regexp test)]
-                       (boolean (and (not (nil? value)) (re-find pattern value))))
-                     (= test value))
-    (vector? test) (boolean (some true? (map #(matcher-match? % value) test)))))
+   (string? test) (if (pattern-string? test)
+                    (let [pattern (pattern->regexp test)]
+                      (boolean (and (not (nil? value)) (re-find pattern value))))
+                    (= test value))
+   (vector? test) (boolean (some true? (map #(matcher-match? % value) test)))))
 
 (defn rule-match?
   "Given a single rule map, and a context map returns true if the rule matches.
@@ -102,12 +102,12 @@
         context-keys (keys context)
         rule-keys    (keys rule-context)]
     (every? true?
-      (for [k    rule-keys
-            :let [test  (get rule-context k)
-                  value (get context k)]]
-        (if (and (coll? value) (empty? value))
-          false
-          (matcher-match? test value))))))
+            (for [k    rule-keys
+                  :let [test  (get rule-context k)
+                        value (get context k)]]
+              (if (and (coll? value) (empty? value))
+                false
+                (matcher-match? test value))))))
 
 (defn rules-match
   "Cycles through a set of rules, return the value of the :anonymize parameter
@@ -130,35 +130,35 @@
   "Based on the input value, return an appropriate random replacement"
   [value]
   (cond
-    (string? value)            (random-string 30)
-    (integer? value)           (rand-int 300)
-    (float? value)             (rand)
-    (boolean? value)           (random-bool)
-    (vector? value)            (vec (map anonymize-leaf-value value))
-    (seq? value)               (seq (map anonymize-leaf-value value))
-    (map? value)               (zipmap (take (count value)
-                                             (repeatedly #(random-string 10)))
-                                       (vals (utils/update-vals value (keys value)
-                                                          anonymize-leaf-value)))
-    (nil? value)               nil
-    :else (random-string 30)))
+   (string? value)            (random-string 30)
+   (integer? value)           (rand-int 300)
+   (float? value)             (rand)
+   (boolean? value)           (random-bool)
+   (vector? value)            (vec (map anonymize-leaf-value value))
+   (seq? value)               (seq (map anonymize-leaf-value value))
+   (map? value)               (zipmap (take (count value)
+                                            (repeatedly #(random-string 10)))
+                                      (vals (utils/update-vals value (keys value)
+                                                               anonymize-leaf-value)))
+   (nil? value)               nil
+   :else (random-string 30)))
 
 (def anonymize-leaf-memoize
   (memoize
-    (fn [ltype value]
-      (case ltype
-        :node (random-node-name)
-        :type (random-type-name)
-        :title (random-string 15)
-        :parameter-name (random-string-alpha 10)
-        :parameter-value (anonymize-leaf-value value)
-        :message (random-string 50)
-        :file (random-pp-path)
-        :line (rand-int 300)
-        :transaction-uuid (uuid)
-        :fact-name (random-string 15)
-        :fact-value (anonymize-leaf-value value)
-        :environment (random-string 15)))))
+   (fn [ltype value]
+     (case ltype
+       :node (random-node-name)
+       :type (random-type-name)
+       :title (random-string 15)
+       :parameter-name (random-string-alpha 10)
+       :parameter-value (anonymize-leaf-value value)
+       :message (random-string 50)
+       :file (random-pp-path)
+       :line (rand-int 300)
+       :transaction-uuid (uuid)
+       :fact-name (random-string 15)
+       :fact-value (anonymize-leaf-value value)
+       :environment (random-string 15)))))
 
 (defn anonymize-leaf
   "Anonymize leaf data, if the context matches a rule"
@@ -224,9 +224,9 @@
       ;; References get randomized in a special way
       ("require" "before"
        "notify" "subscribe") [key (anonymize-references val newcontext config)]
-      ;; Everything else gets anonymized as per normal
-      [(anonymize-leaf key :parameter-name newcontext config)
-       (anonymize-leaf val :parameter-value newcontext config)])))
+       ;; Everything else gets anonymized as per normal
+       [(anonymize-leaf key :parameter-name newcontext config)
+        (anonymize-leaf val :parameter-value newcontext config)])))
 
 (defn anonymize-parameters
   "Anonymize the parameters keys and values for a resource"
@@ -271,10 +271,10 @@
                        "type"  (get-in edge ["target" "type"])
                        "title" (get-in edge ["target" "title"])}]
     (-> edge
-      (update-in ["source" "title"] anonymize-leaf :title sourcecontext config)
-      (update-in ["source" "type"]  anonymize-leaf :type sourcecontext config)
-      (update-in ["target" "title"] anonymize-leaf :title targetcontext config)
-      (update-in ["target" "type"]  anonymize-leaf :type targetcontext config))))
+        (update-in ["source" "title"] anonymize-leaf :title sourcecontext config)
+        (update-in ["source" "type"]  anonymize-leaf :type sourcecontext config)
+        (update-in ["target" "title"] anonymize-leaf :title targetcontext config)
+        (update-in ["target" "type"]  anonymize-leaf :type targetcontext config))))
 
 (defn anonymize-edges
   "Anonymize a collection of edge references from a catalog"
@@ -289,9 +289,9 @@
   {:pre  [(string? element)]
    :post [(string? %)]}
   (cond
-    (.isEmpty element) ""
-    (string-contains? "[" element) (anonymize-reference element context config)
-    :else (anonymize-leaf element :title (assoc context "type" "Class") config)))
+   (.isEmpty element) ""
+   (string-contains? "[" element) (anonymize-reference element context config)
+   :else (anonymize-leaf element :title (assoc context "type" "Class") config)))
 
 (defn anonymize-containment-path
   "Anonymize a collection of containment path resource references from an event"
@@ -321,12 +321,12 @@
                     "line"  (get resource "line")
                     "type"  (get resource "type")}]
     (-> resource
-      (update-in-nil ["file"]       anonymize-leaf :file newcontext config)
-      (update-in-nil ["line"]       anonymize-leaf :line newcontext config)
-      (update-in     ["parameters"] anonymize-parameters newcontext config)
-      (update-in     ["tags"]       anonymize-tags newcontext config)
-      (update-in     ["title"]      anonymize-leaf :title newcontext config)
-      (update-in     ["type"]       anonymize-leaf :type newcontext config))))
+        (update-in-nil ["file"]       anonymize-leaf :file newcontext config)
+        (update-in-nil ["line"]       anonymize-leaf :line newcontext config)
+        (update-in     ["parameters"] anonymize-parameters newcontext config)
+        (update-in     ["tags"]       anonymize-tags newcontext config)
+        (update-in     ["title"]      anonymize-leaf :title newcontext config)
+        (update-in     ["type"]       anonymize-leaf :type newcontext config))))
 
 (defn anonymize-resources
   "Anonymize a collection of resources"
@@ -348,15 +348,15 @@
                     "file"          (get event "file")
                     "line"          (get event "line")}]
     (-> event
-      (update-in     ["resource-title"]   anonymize-leaf :title newcontext config)
-      (update-in     ["message"]          anonymize-leaf :message newcontext config)
-      (update-in     ["property"]         anonymize-leaf :parameter-name newcontext config)
-      (update-in     ["new-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
-      (update-in     ["old-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
-      (update-in     ["resource-type"]    anonymize-leaf :type newcontext config)
-      (update-in-nil ["file"]             anonymize-leaf :file newcontext config)
-      (update-in-nil ["line"]             anonymize-leaf :line newcontext config)
-      (update-in-nil ["containment-path"] anonymize-containment-path newcontext config))))
+        (update-in     ["resource-title"]   anonymize-leaf :title newcontext config)
+        (update-in     ["message"]          anonymize-leaf :message newcontext config)
+        (update-in     ["property"]         anonymize-leaf :parameter-name newcontext config)
+        (update-in     ["new-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "new-value")) config)
+        (update-in     ["old-value"]        anonymize-leaf :parameter-value (assoc newcontext :parameter-value (get event "old-value")) config)
+        (update-in     ["resource-type"]    anonymize-leaf :type newcontext config)
+        (update-in-nil ["file"]             anonymize-leaf :file newcontext config)
+        (update-in-nil ["line"]             anonymize-leaf :line newcontext config)
+        (update-in-nil ["containment-path"] anonymize-containment-path newcontext config))))
 
 (defn anonymize-resource-events
   "Anonymize a collection of resource events from a report"
@@ -364,8 +364,8 @@
   {:pre  [(coll? events)]
    :post [(coll? %)]}
   (sort-by
-    #(mapv % ["timestamp" "resource-type" "resource-title" "property"])
-    (map #(anonymize-resource-event % context config) events)))
+   #(mapv % ["timestamp" "resource-type" "resource-title" "property"])
+   (map #(anonymize-resource-event % context config) events)))
 
 ;; Primary entry points, for anonymizing catalogs and reports
 
@@ -376,11 +376,11 @@
    :post [(catalog? %)]}
   (let [context {"node" (get catalog ["name"])}]
     (-> catalog
-      (update-in ["resources"]        anonymize-resources context config)
-      (update-in ["edges"]            anonymize-edges context config)
-      (update-in ["name"]             anonymize-leaf :node context config)
-      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
-      (update-in ["environment"] anonymize-leaf :environment context config))))
+        (update-in ["resources"]        anonymize-resources context config)
+        (update-in ["edges"]            anonymize-edges context config)
+        (update-in ["name"]             anonymize-leaf :node context config)
+        (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
+        (update-in ["environment"] anonymize-leaf :environment context config))))
 
 (defn anonymize-report
   "Anonymize a report"
@@ -389,10 +389,10 @@
    :post [(report? % version)]}
   (let [context {"node" (get report "certname")}]
     (-> report
-      (update-in ["certname"]         anonymize-leaf :node context config)
-      (update-in ["resource-events"]  anonymize-resource-events context config)
-      (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
-      (update-in ["environment"] anonymize-leaf :environment context config))))
+        (update-in ["certname"]         anonymize-leaf :node context config)
+        (update-in ["resource-events"]  anonymize-resource-events context config)
+        (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
+        (update-in ["environment"] anonymize-leaf :environment context config))))
 
 (defn anonymize-fact-values
   "Anonymizes fact names and values"

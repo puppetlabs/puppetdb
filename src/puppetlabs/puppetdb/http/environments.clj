@@ -25,17 +25,17 @@
 (defn routes
   [version]
   (app
-    []
-    {:get
-     (-> (fn [{:keys [params globals paging-options]}]
-           (produce-streaming-body
-             :environments
-             version
-             (params "query")
-             paging-options
-             (:scf-read-db globals)))
-         (validate-query-params
-           {:optional (cons "query" paging/query-params)}))}
+   []
+   {:get
+    (-> (fn [{:keys [params globals paging-options]}]
+          (produce-streaming-body
+           :environments
+           version
+           (params "query")
+           paging-options
+           (:scf-read-db globals)))
+        (validate-query-params
+         {:optional (cons "query" paging/query-params)}))}
 
    [environment]
    {:get

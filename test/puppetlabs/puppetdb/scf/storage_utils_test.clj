@@ -22,7 +22,7 @@
             (is (= str1 str2)))
           (when-not (= value1 value2)
             (is (not= str1 str2)
-              (str value1 " should not serialize the same as " value2)))))))
+                (str value1 " should not serialize the same as " value2)))))))
   (let [values ["foo" 0 {"z" 1 "a" 1}]
         expected ["foo" 0 {"a" 1 "z" 1}]]
     (testing "should sort beforehand"

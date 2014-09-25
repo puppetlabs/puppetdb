@@ -44,15 +44,15 @@
   unmodified)."
   [out]
   (cond
-    ((some-fn string? #(instance? File %)) out)
-      (FileOutputStream. out)
-    (instance? OutputStream out)
-      out
-    :else
-      (throw (IOException.
-               (format (str "Unable to convert type '%s' to an OutputStream; "
-                            "expected String, File, or OutputStream")
-                 (type out))))))
+   ((some-fn string? #(instance? File %)) out)
+   (FileOutputStream. out)
+   (instance? OutputStream out)
+   out
+   :else
+   (throw (IOException.
+           (format (str "Unable to convert type '%s' to an OutputStream; "
+                        "expected String, File, or OutputStream")
+                   (type out))))))
 
 (defn- get-instream
   "Private helper function for coercing an object into an `InputStream`.  Currently
@@ -61,15 +61,15 @@
   unmodified)."
   [in]
   (cond
-    ((some-fn string? #(instance? File %)) in)
-    (FileInputStream. in)
-    (instance? InputStream in)
-    in
-    :else
-    (throw (IOException.
-             (format (str "Unable to convert type '%s' to an InputStream; "
-                       "expected String, File, or InputStream")
-               (type in))))))
+   ((some-fn string? #(instance? File %)) in)
+   (FileInputStream. in)
+   (instance? InputStream in)
+   in
+   :else
+   (throw (IOException.
+           (format (str "Unable to convert type '%s' to an InputStream; "
+                        "expected String, File, or InputStream")
+                   (type in))))))
 
 (defn tarball-writer
   "Returns a `TarGzWriter` object, which can be used to write entries to a
@@ -81,7 +81,7 @@
   (let [out-stream  (get-outstream out)
         gzip-stream (GzipCompressorOutputStream. out-stream)
         tar-stream  (doto
-                      (new TarArchiveOutputStream gzip-stream)
+                        (new TarArchiveOutputStream gzip-stream)
                       (.setLongFileMode TarArchiveOutputStream/LONGFILE_POSIX))
         tar-writer  (writer tar-stream)]
     (TarGzWriter. tar-stream tar-writer gzip-stream)))
@@ -153,9 +153,9 @@
   likely to ensue."
   ([tar-reader] (all-entries tar-reader (next-entry tar-reader)))
   ([tar-reader next-entry]
-    (if next-entry
-      (cons next-entry (lazy-seq (all-entries tar-reader)))
-      '())))
+     (if next-entry
+       (cons next-entry (lazy-seq (all-entries tar-reader)))
+       '())))
 
 (defn find-entry
   "Given a `TarGzReader` and a relative file path, returns the `TarArchiveEntry`
@@ -167,12 +167,12 @@
    :post [((some-fn nil? #(instance? TarArchiveEntry %)) %)]}
   (loop [tar-entry (next-entry reader)]
     (cond
-      (nil? tar-entry)
-        nil
-      (= path (.getName tar-entry))
-        tar-entry
-      :else
-        (recur (next-entry reader)))))
+     (nil? tar-entry)
+     nil
+     (= path (.getName tar-entry))
+     tar-entry
+     :else
+     (recur (next-entry reader)))))
 
 (defn read-entry-content
   "Given a `TarGzReader`, reads and returns the contents of the current `TarArchiveEntry`

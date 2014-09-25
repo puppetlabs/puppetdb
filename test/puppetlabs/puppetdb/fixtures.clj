@@ -131,7 +131,7 @@
   "A variant of internal-request designed to submit application/json requests
   instead."
   ([body]
-    (internal-request-post body {}))
+     (internal-request-post body {}))
   ([body params]
      {:params params
       :headers {"accept" "application/json"

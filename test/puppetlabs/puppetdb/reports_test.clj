@@ -6,8 +6,8 @@
             [puppetlabs.puppetdb.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports
              :refer [munge-example-report-for-storage
-                    munge-v2-example-report-to-v1
-                    munge-v1-example-report-to-v2]]))
+                     munge-v2-example-report-to-v1
+                     munge-v1-example-report-to-v2]]))
 
 (let [report (munge-example-report-for-storage (:basic reports))]
 
@@ -22,25 +22,25 @@
       (let [add-key-fn              (fn [event] (assoc event :file "/tmp/foo"))
             v1-report               (munge-v2-example-report-to-v1 report)
             v1-report-with-v2-key   (update-in
-                                      v1-report
-                                      [:resource-events]
-                                      #(mapv add-key-fn %))]
+                                     v1-report
+                                     [:resource-events]
+                                     #(mapv add-key-fn %))]
         (is (thrown-with-msg?
-            IllegalArgumentException #"ResourceEvent has unknown keys: :file.*version 1"
-            (validate! 1 v1-report-with-v2-key)))))
+             IllegalArgumentException #"ResourceEvent has unknown keys: :file.*version 1"
+             (validate! 1 v1-report-with-v2-key)))))
 
     (testing "should accept a valid v2 report"
       (is (= report (validate! 2 report))))
 
     (testing "should fail when a report is missing a key"
       (is (thrown-with-msg?
-            IllegalArgumentException #"Report is missing keys: :certname$"
-            (validate! 2 (dissoc report :certname)))))
+           IllegalArgumentException #"Report is missing keys: :certname$"
+           (validate! 2 (dissoc report :certname)))))
 
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
-            IllegalArgumentException #":timestamp should be Datetime"
-            (validate! 2 (assoc-in report [:resource-events 0 :timestamp] "foo")))))))
+           IllegalArgumentException #":timestamp should be Datetime"
+           (validate! 2 (assoc-in report [:resource-events 0 :timestamp] "foo")))))))
 
 (deftest test-sanitize-events
   (testing "ensure extraneous keys are removed"

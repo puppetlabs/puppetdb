@@ -184,16 +184,16 @@
 
       (is (= facts
              (dissoc
-               (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
-               :environment))))))
+              (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
+              :environment))))))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [4 :empty])
                     (assoc :name "foo.local"))]
     (jutils/puppetdb-instance
-      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
-      (fn []
-        (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-        (submit-command :replace-catalog 5 catalog)
-        (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-                              @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))
+     (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
+     (fn []
+       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
+       (submit-command :replace-catalog 5 catalog)
+       (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
+                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))

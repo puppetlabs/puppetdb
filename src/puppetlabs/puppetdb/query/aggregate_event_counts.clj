@@ -25,7 +25,7 @@
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
   (let [query-options (if (nil? query-options) {} query-options)
         [count-sql & params] (:results-query
-                               (event-counts/query->sql version query [summarize-by query-options {}]))
+                              (event-counts/query->sql version query [summarize-by query-options {}]))
         aggregate-sql        (get-aggregate-sql count-sql)]
     {:results-query (apply vector aggregate-sql params)}))
 

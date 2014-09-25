@@ -266,9 +266,9 @@
   {:pre  [(map? query-result)]
    :post [(rr/response? %)]}
   (reduce
-    (fn [r [k v]] (rr/header r (header-for-key k) v))
-    response
-    query-result))
+   (fn [r [k v]] (rr/header r (header-for-key k) v))
+   response
+   query-result))
 
 (defn query-result-response
   "Given a PuppetDB query result map (as returned by `query/execute-query`),
@@ -278,8 +278,8 @@
          (contains? query-result :result)]
    :post [(rr/response? %)]}
   (->
-    (json-response (:result query-result))
-    (add-headers (dissoc query-result :result))))
+   (json-response (:result query-result))
+   (add-headers (dissoc query-result :result))))
 
 (defn remove-status
   "Status is only for the v4 or newer version of the reports response"

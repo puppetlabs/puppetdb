@@ -110,5 +110,5 @@
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
   (paging/validate-order-by! (map keyword (keys query/factset-columns)) paging-options)
-    (qe/compile-user-query->sql
-     qe/factsets-query query paging-options))
+  (qe/compile-user-query->sql
+   qe/factsets-query query paging-options))

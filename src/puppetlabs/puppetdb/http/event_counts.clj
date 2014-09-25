@@ -14,18 +14,18 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (let [{:strs [query summarize-by counts-filter count-by] :as query-params} params
-                  query-options (merge {:counts-filter (if counts-filter (json/parse-strict-string counts-filter true))
-                                        :count-by count-by}
-                                       (events-http/validate-distinct-options! query-params))]
-              (produce-streaming-body
-                :event-counts
-                version
-                query
-                [summarize-by query-options paging-options]
-                (:scf-read-db globals))))}))
+   [""]
+   {:get (fn [{:keys [params globals paging-options]}]
+           (let [{:strs [query summarize-by counts-filter count-by] :as query-params} params
+                 query-options (merge {:counts-filter (if counts-filter (json/parse-strict-string counts-filter true))
+                                       :count-by count-by}
+                                      (events-http/validate-distinct-options! query-params))]
+             (produce-streaming-body
+              :event-counts
+              version
+              query
+              [summarize-by query-options paging-options]
+              (:scf-read-db globals))))}))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
@@ -36,5 +36,5 @@
                               :optional (concat ["counts-filter" "count-by"
                                                  "distinct-resources" "distinct-start-time"
                                                  "distinct-end-time"]
-                                          paging/query-params) })
+                                                paging/query-params) })
       wrap-with-paging-options))

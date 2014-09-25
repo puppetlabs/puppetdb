@@ -204,5 +204,4 @@
 
   (testing "should disallow anything else"
     (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
-          (normalize-product-name "puppet")))))
-
+                          (normalize-product-name "puppet")))))

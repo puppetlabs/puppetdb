@@ -22,9 +22,9 @@
 (defn munge-v1-example-event-to-v2
   [example-event]
   (reduce
-    #(update-in %1 [%2] (constantly nil))
-    example-event
-    report/v2-new-event-fields))
+   #(update-in %1 [%2] (constantly nil))
+   example-event
+   report/v2-new-event-fields))
 
 (defn munge-v1-example-events-to-v2
   [example-events]
@@ -49,18 +49,18 @@
   event into the format that we expect to be returned from a real query."
   [version example-resource-event report]
   (-> example-resource-event
-    ;; the examples don't have the report-id or configuration-version,
-    ;; but the results from the database do... so we need to munge those in.
-    (assoc-in [:report] (:hash report))
-    (assoc-in [:configuration-version] (:configuration-version report))
-    (assoc-in [:run-start-time] (to-timestamp (:start-time report)))
-    (assoc-in [:run-end-time] (to-timestamp (:end-time report)))
-    (assoc-in [:report-receive-time] (to-timestamp (:receive-time report)))
-    ;; we need to convert the datetime fields from the examples to timestamp objects
-    ;; in order to compare them.
-    (update-in [:timestamp] to-timestamp)
-    (environment report version)
-    (dissoc :test-id)))
+      ;; the examples don't have the report-id or configuration-version,
+      ;; but the results from the database do... so we need to munge those in.
+      (assoc-in [:report] (:hash report))
+      (assoc-in [:configuration-version] (:configuration-version report))
+      (assoc-in [:run-start-time] (to-timestamp (:start-time report)))
+      (assoc-in [:run-end-time] (to-timestamp (:end-time report)))
+      (assoc-in [:report-receive-time] (to-timestamp (:receive-time report)))
+      ;; we need to convert the datetime fields from the examples to timestamp objects
+      ;; in order to compare them.
+      (update-in [:timestamp] to-timestamp)
+      (environment report version)
+      (dissoc :test-id)))
 
 (defn raw-expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,
@@ -96,9 +96,9 @@
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
   ([version query]
-    (resource-events-query-result version query nil))
+     (resource-events-query-result version query nil))
   ([version query paging-options]
-    (resource-events-query-result version query paging-options nil))
+     (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
      (->> (query/query->sql version query [query-options paging-options])
           (query/query-resource-events version)
@@ -110,7 +110,7 @@
   simply returns the map with the query results and any metadata for use in test
   comparisons. This does not do anything to the results from the query."
   ([version query paging-options]
-    (raw-resource-events-query-result version query paging-options nil))
+     (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
      (->> (query/query->sql version query [query-options paging-options])
           (query/query-resource-events version))))

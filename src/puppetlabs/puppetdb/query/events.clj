@@ -21,13 +21,13 @@
           (string? (first %))
           ((some-fn nil? sequential?) (second %))]}
   [(format
-     "SELECT %s
+    "SELECT %s
          FROM resource_events
          JOIN reports ON resource_events.report = reports.hash
          LEFT OUTER JOIN environments on reports.environment_id = environments.id
          WHERE %s"
-     select-fields
-     where)
+    select-fields
+    where)
    params])
 
 (defn distinct-select
@@ -44,7 +44,7 @@
           (string? (first %))
           ((some-fn nil? sequential?) (second %))]}
   [(format
-     "SELECT %s
+    "SELECT %s
          FROM resource_events
          JOIN reports ON resource_events.report = reports.hash
          LEFT OUTER JOIN environments ON reports.environment_id = environments.id
@@ -65,8 +65,8 @@
                     (resource_events.property IS NULL AND latest_events.property IS NULL))
                AND resource_events.timestamp = latest_events.timestamp
          WHERE %s"
-     select-fields
-     where)
+    select-fields
+    where)
    (concat [distinct-start-time distinct-end-time] params)])
 
 (defn legacy-query->sql
@@ -83,15 +83,15 @@
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
-                                   (map
-                                     (fn [[column [table alias]]]
-                                       (str table "." column
-                                            (if alias (format " AS %s" alias) "")))
-                                     query/event-columns))
+                                             (map
+                                              (fn [[column [table alias]]]
+                                                (str table "." column
+                                                     (if alias (format " AS %s" alias) "")))
+                                              query/event-columns))
         [sql params]            (if (:distinct-resources? query-options)
                                   (distinct-select select-fields where params
-                                    (:distinct-start-time query-options)
-                                    (:distinct-end-time query-options))
+                                                   (:distinct-start-time query-options)
+                                                   (:distinct-end-time query-options))
                                   (default-select select-fields where params))
         paged-select (jdbc/paged-sql sql paging-options)
         result {:results-query (apply vector paged-select params)}]

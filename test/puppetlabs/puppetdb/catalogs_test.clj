@@ -12,9 +12,9 @@
   [version before after]
   (let [b (parse-catalog before version)
         a after]
-    ; To make it easier to pinpoint the source of errors, we test
-    ; individual components of the catalog first, then finally test
-    ; equality of the entire catalog
+    ;; To make it easier to pinpoint the source of errors, we test
+    ;; individual components of the catalog first, then finally test
+    ;; equality of the entire catalog
     (is (= (:name b) (:name a)))
     (is (= (:version b) (:version a)))
     (is (= (:api_version b) (:api_version a)))
@@ -45,7 +45,7 @@
         (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar" :transaction-uuid "HIYA" :resources [{}] :edges [{}]}
                         :metadata {:api_version 1}}]
           (is (= (transform-fn (assoc-in catalog [:data :transaction-uuid] "HIYA"))
-                {:name "myhost" :version "12345" :api_version 1 :foo "bar" :transaction-uuid "HIYA" :resources [{}] :edges [{}]}))))
+                 {:name "myhost" :version "12345" :api_version 1 :foo "bar" :transaction-uuid "HIYA" :resources [{}] :edges [{}]}))))
 
       (testing "should error on malformed input"
         (is (thrown? AssertionError (transform-fn {})))
@@ -147,7 +147,7 @@
                :v1 v1-catalog))))))
 
 (deftest resource-normalization
-  (let [; Synthesize some fake resources
+  (let [;; Synthesize some fake resources
         catalog {:resources [{:type       "File"
                               :title      "/etc/foobar"
                               :exported   false
@@ -159,7 +159,7 @@
                                            :group  "root"
                                            :source "puppet:///foobar/foo/bar"}}]}]
     (is (= (-> catalog
-             (transform-resources))
+               (transform-resources))
            {:resources {{:type "File" :title "/etc/foobar"} {:type       "File"
                                                              :title      "/etc/foobar"
                                                              :exported   false
@@ -171,546 +171,547 @@
                                                                           :group  "root"
                                                                           :source "puppet:///foobar/foo/bar"}}}}))
 
-  (let [resources (:resources catalog)
-        new-resources (conj resources (first resources))
-        catalog (assoc catalog :resources new-resources)]
-    (testing "Duplicate resources should throw error"
-      (is (thrown? AssertionError
-                   (transform-resources catalog)))))
+    (let [resources (:resources catalog)
+          new-resources (conj resources (first resources))
+          catalog (assoc catalog :resources new-resources)]
+      (testing "Duplicate resources should throw error"
+        (is (thrown? AssertionError
+                     (transform-resources catalog)))))
 
     (testing "Resource normalization edge case handling"
-      ; nil resources aren't allowed
+      ;; nil resources aren't allowed
       (is (thrown? AssertionError (transform-resources {:resources nil})))
-      ; missing resources aren't allowed
+      ;; missing resources aren't allowed
       (is (thrown? AssertionError (transform-resources {})))
-      ; pre-created resource maps aren't allow
+      ;; pre-created resource maps aren't allow
       (is (thrown? AssertionError (transform-resources {:resources {}}))))))
 
 
 (deftest complete-transformation-v1
-  (catalog-before-and-after 1
-    {:data
-     {:edges [{:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}],
-      :name "nick-lewis.puppetlabs.lan",
-      :resources [{:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 3,
-                   :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/foo",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {},
-                   :tags ["class" "settings"],
-                   :title "Settings",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 11,
-                   :parameters {:require "File[/tmp/quux]"},
-                   :tags ["file" "class"],
-                   :title "/tmp/baz",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["stage"],
-                   :title "main",
-                   :type "Stage"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 7,
-                   :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/bar",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["class"],
-                   :title "main",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 12,
-                   :parameters {},
-                   :tags ["file" "class"],
-                   :title "/tmp/quux",
-                   :type "File"}],
-      :classes [],
-      :tags [],
-      :version "1330995750"},
-     :document_type "Catalog",
-     :metadata {:api_version 1}}
-
-    {:name "nick-lewis.puppetlabs.lan",
-     :api_version 1,
-     :edges #{{:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :contains}
-              {:source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}},
-     :resources {{:type "File", :title "/tmp/foo"}
-                 {:exported false,
+  (catalog-before-and-after
+   1
+   {:data
+    {:edges [{:relationship "contains",
+              :source {:title "main", :type "Class"},
+              :target {:title "/tmp/foo", :type "File"}}
+             {:relationship "contains",
+              :source {:title "main", :type "Stage"},
+              :target {:title "Settings", :type "Class"}}
+             {:relationship "contains",
+              :source {:title "main", :type "Class"},
+              :target {:title "/tmp/baz", :type "File"}}
+             {:relationship "contains",
+              :source {:title "main", :type "Class"},
+              :target {:title "/tmp/bar", :type "File"}}
+             {:relationship "contains",
+              :source {:title "main", :type "Stage"},
+              :target {:title "main", :type "Class"}}
+             {:relationship "contains",
+              :source {:title "main", :type "Class"},
+              :target {:title "/tmp/quux", :type "File"}}
+             {:relationship "required-by",
+              :source {:title "/tmp/bar", :type "File"},
+              :target {:title "/tmp/foo", :type "File"}}
+             {:relationship "required-by",
+              :source {:title "/tmp/baz", :type "File"},
+              :target {:title "/tmp/foo", :type "File"}}
+             {:relationship "required-by",
+              :source {:title "/tmp/quux", :type "File"},
+              :target {:title "/tmp/baz", :type "File"}}
+             {:relationship "required-by",
+              :source {:title "/tmp/baz", :type "File"},
+              :target {:title "/tmp/bar", :type "File"}}
+             {:relationship "required-by",
+              :source {:title "/tmp/quux", :type "File"},
+              :target {:title "/tmp/bar", :type "File"}}],
+     :name "nick-lewis.puppetlabs.lan",
+     :resources [{:exported false,
                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
                   :line 3,
                   :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                  :tags #{"class" "file"},
+                  :tags ["file" "class"],
                   :title "/tmp/foo",
-                  :type "File"},
-                 {:type "Class", :title "Settings"}
+                  :type "File"}
                  {:exported false,
                   :parameters {},
-                  :tags #{"settings" "class"},
+                  :tags ["class" "settings"],
                   :title "Settings",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/baz"}
+                  :type "Class"}
                  {:exported false,
                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
                   :line 11,
                   :parameters {:require "File[/tmp/quux]"},
-                  :tags #{"class" "file"},
+                  :tags ["file" "class"],
                   :title "/tmp/baz",
-                  :type "File"},
-                 {:type "Stage", :title "main"}
+                  :type "File"}
                  {:exported false,
                   :parameters {:name "main"},
-                  :tags #{"stage"},
+                  :tags ["stage"],
                   :title "main",
-                  :type "Stage"},
-                 {:type "File", :title "/tmp/bar"}
+                  :type "Stage"}
                  {:exported false,
                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
                   :line 7,
                   :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                  :tags #{"class" "file"},
+                  :tags ["file" "class"],
                   :title "/tmp/bar",
-                  :type "File"},
-                 {:type "Class", :title "main"}
+                  :type "File"}
                  {:exported false,
                   :parameters {:name "main"},
-                  :tags #{"class"},
+                  :tags ["class"],
                   :title "main",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/quux"}
+                  :type "Class"}
                  {:exported false,
                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
                   :line 12,
                   :parameters {},
-                  :tags #{"class" "file"},
+                  :tags ["file" "class"],
                   :title "/tmp/quux",
-                  :type "File"}},
-     :version "1330995750",
-     :transaction-uuid nil
-     :producer-timestamp nil
-     :environment nil}))
+                  :type "File"}],
+     :classes [],
+     :tags [],
+     :version "1330995750"},
+    :document_type "Catalog",
+    :metadata {:api_version 1}}
+
+   {:name "nick-lewis.puppetlabs.lan",
+    :api_version 1,
+    :edges #{{:source {:title "/tmp/baz", :type "File"},
+              :target {:title "/tmp/bar", :type "File"},
+              :relationship :required-by}
+             {:source {:title "main", :type "Class"},
+              :target {:title "/tmp/foo", :type "File"},
+              :relationship :contains}
+             {:source {:title "/tmp/bar", :type "File"},
+              :target {:title "/tmp/foo", :type "File"},
+              :relationship :required-by}
+             {:source {:title "/tmp/quux", :type "File"},
+              :target {:title "/tmp/bar", :type "File"},
+              :relationship :required-by}
+             {:source {:title "main", :type "Class"},
+              :target {:title "/tmp/bar", :type "File"},
+              :relationship :contains}
+             {:source {:title "main", :type "Stage"},
+              :target {:title "Settings", :type "Class"},
+              :relationship :contains}
+             {:source {:title "/tmp/quux", :type "File"},
+              :target {:title "/tmp/baz", :type "File"},
+              :relationship :required-by}
+             {:source {:title "main", :type "Class"},
+              :target {:title "/tmp/baz", :type "File"},
+              :relationship :contains}
+             {:source {:title "main", :type "Class"},
+              :target {:title "/tmp/quux", :type "File"},
+              :relationship :contains}
+             {:source {:title "main", :type "Stage"},
+              :target {:title "main", :type "Class"},
+              :relationship :contains}
+             {:source {:title "/tmp/baz", :type "File"},
+              :target {:title "/tmp/foo", :type "File"},
+              :relationship :required-by}},
+    :resources {{:type "File", :title "/tmp/foo"}
+                {:exported false,
+                 :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                 :line 3,
+                 :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                 :tags #{"class" "file"},
+                 :title "/tmp/foo",
+                 :type "File"},
+                {:type "Class", :title "Settings"}
+                {:exported false,
+                 :parameters {},
+                 :tags #{"settings" "class"},
+                 :title "Settings",
+                 :type "Class"},
+                {:type "File", :title "/tmp/baz"}
+                {:exported false,
+                 :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                 :line 11,
+                 :parameters {:require "File[/tmp/quux]"},
+                 :tags #{"class" "file"},
+                 :title "/tmp/baz",
+                 :type "File"},
+                {:type "Stage", :title "main"}
+                {:exported false,
+                 :parameters {:name "main"},
+                 :tags #{"stage"},
+                 :title "main",
+                 :type "Stage"},
+                {:type "File", :title "/tmp/bar"}
+                {:exported false,
+                 :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                 :line 7,
+                 :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                 :tags #{"class" "file"},
+                 :title "/tmp/bar",
+                 :type "File"},
+                {:type "Class", :title "main"}
+                {:exported false,
+                 :parameters {:name "main"},
+                 :tags #{"class"},
+                 :title "main",
+                 :type "Class"},
+                {:type "File", :title "/tmp/quux"}
+                {:exported false,
+                 :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                 :line 12,
+                 :parameters {},
+                 :tags #{"class" "file"},
+                 :title "/tmp/quux",
+                 :type "File"}},
+    :version "1330995750",
+    :transaction-uuid nil
+    :producer-timestamp nil
+    :environment nil}))
 
 (deftest complete-transformation-v2
   (catalog-before-and-after 2
-    {:data
-     {:edges [{:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}],
-      :name "nick-lewis.puppetlabs.lan",
-      :resources [{:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 3,
-                   :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/foo",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {},
-                   :tags ["class" "settings"],
-                   :title "Settings",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 11,
-                   :parameters {:require "File[/tmp/quux]"},
-                   :tags ["file" "class"],
-                   :title "/tmp/baz",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["stage"],
-                   :title "main",
-                   :type "Stage"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 7,
-                   :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/bar",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["class"],
-                   :title "main",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 12,
-                   :parameters {},
-                   :tags ["file" "class"],
-                   :title "/tmp/quux",
-                   :type "File"}],
-      :version "1330995750"},
-     :document_type "Catalog",
-     :metadata {:api_version 1}}
+                            {:data
+                             {:edges [{:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Stage"},
+                                       :target {:title "Settings", :type "Class"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/baz", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/bar", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Stage"},
+                                       :target {:title "main", :type "Class"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/quux", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/bar", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/baz", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"}}],
+                              :name "nick-lewis.puppetlabs.lan",
+                              :resources [{:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 3,
+                                           :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/foo",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {},
+                                           :tags ["class" "settings"],
+                                           :title "Settings",
+                                           :type "Class"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 11,
+                                           :parameters {:require "File[/tmp/quux]"},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/baz",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {:name "main"},
+                                           :tags ["stage"],
+                                           :title "main",
+                                           :type "Stage"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 7,
+                                           :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/bar",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {:name "main"},
+                                           :tags ["class"],
+                                           :title "main",
+                                           :type "Class"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 12,
+                                           :parameters {},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/quux",
+                                           :type "File"}],
+                              :version "1330995750"},
+                             :document_type "Catalog",
+                             :metadata {:api_version 1}}
 
-    {:name "nick-lewis.puppetlabs.lan",
-     :api_version 1,
-     :edges #{{:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :contains}
-              {:source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}},
-     :resources {{:type "File", :title "/tmp/foo"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 3,
-                  :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                  :tags #{"class" "file"},
-                  :title "/tmp/foo",
-                  :type "File"},
-                 {:type "Class", :title "Settings"}
-                 {:exported false,
-                  :parameters {},
-                  :tags #{"settings" "class"},
-                  :title "Settings",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/baz"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 11,
-                  :parameters {:require "File[/tmp/quux]"},
-                  :tags #{"class" "file"},
-                  :title "/tmp/baz",
-                  :type "File"},
-                 {:type "Stage", :title "main"}
-                 {:exported false,
-                  :parameters {:name "main"},
-                  :tags #{"stage"},
-                  :title "main",
-                  :type "Stage"},
-                 {:type "File", :title "/tmp/bar"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 7,
-                  :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                  :tags #{"class" "file"},
-                  :title "/tmp/bar",
-                  :type "File"},
-                 {:type "Class", :title "main"}
-                 {:exported false,
-                  :parameters {:name "main"},
-                  :tags #{"class"},
-                  :title "main",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/quux"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 12,
-                  :parameters {},
-                  :tags #{"class" "file"},
-                  :title "/tmp/quux",
-                  :type "File"}},
-     :version "1330995750",
-     :transaction-uuid nil
-     :producer-timestamp nil
-     :environment nil}))
+                            {:name "nick-lewis.puppetlabs.lan",
+                             :api_version 1,
+                             :edges #{{:source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/bar", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Stage"},
+                                       :target {:title "Settings", :type "Class"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/baz", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/baz", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/quux", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Stage"},
+                                       :target {:title "main", :type "Class"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :required-by}},
+                             :resources {{:type "File", :title "/tmp/foo"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 3,
+                                          :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/foo",
+                                          :type "File"},
+                                         {:type "Class", :title "Settings"}
+                                         {:exported false,
+                                          :parameters {},
+                                          :tags #{"settings" "class"},
+                                          :title "Settings",
+                                          :type "Class"},
+                                         {:type "File", :title "/tmp/baz"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 11,
+                                          :parameters {:require "File[/tmp/quux]"},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/baz",
+                                          :type "File"},
+                                         {:type "Stage", :title "main"}
+                                         {:exported false,
+                                          :parameters {:name "main"},
+                                          :tags #{"stage"},
+                                          :title "main",
+                                          :type "Stage"},
+                                         {:type "File", :title "/tmp/bar"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 7,
+                                          :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/bar",
+                                          :type "File"},
+                                         {:type "Class", :title "main"}
+                                         {:exported false,
+                                          :parameters {:name "main"},
+                                          :tags #{"class"},
+                                          :title "main",
+                                          :type "Class"},
+                                         {:type "File", :title "/tmp/quux"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 12,
+                                          :parameters {},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/quux",
+                                          :type "File"}},
+                             :version "1330995750",
+                             :transaction-uuid nil
+                             :producer-timestamp nil
+                             :environment nil}))
 
 (deftest complete-transformation-v3
   (catalog-before-and-after 3
-    {:data
-     {:edges [{:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"}}
-              {:relationship "contains",
-               :source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}
-              {:relationship "required-by",
-               :source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"}}],
-      :name "nick-lewis.puppetlabs.lan",
-      :resources [{:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 3,
-                   :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/foo",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {},
-                   :tags ["class" "settings"],
-                   :title "Settings",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 11,
-                   :parameters {:require "File[/tmp/quux]"},
-                   :tags ["file" "class"],
-                   :title "/tmp/baz",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["stage"],
-                   :title "main",
-                   :type "Stage"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 7,
-                   :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                   :tags ["file" "class"],
-                   :title "/tmp/bar",
-                   :type "File"}
-                  {:exported false,
-                   :parameters {:name "main"},
-                   :tags ["class"],
-                   :title "main",
-                   :type "Class"}
-                  {:exported false,
-                   :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                   :line 12,
-                   :parameters {},
-                   :tags ["file" "class"],
-                   :title "/tmp/quux",
-                   :type "File"}],
-      :version "1330995750"
-      :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"},
-     :document_type "Catalog",
-     :metadata {:api_version 1}}
+                            {:data
+                             {:edges [{:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Stage"},
+                                       :target {:title "Settings", :type "Class"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/baz", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/bar", :type "File"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Stage"},
+                                       :target {:title "main", :type "Class"}}
+                                      {:relationship "contains",
+                                       :source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/quux", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/bar", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/baz", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"}}
+                                      {:relationship "required-by",
+                                       :source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"}}],
+                              :name "nick-lewis.puppetlabs.lan",
+                              :resources [{:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 3,
+                                           :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/foo",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {},
+                                           :tags ["class" "settings"],
+                                           :title "Settings",
+                                           :type "Class"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 11,
+                                           :parameters {:require "File[/tmp/quux]"},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/baz",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {:name "main"},
+                                           :tags ["stage"],
+                                           :title "main",
+                                           :type "Stage"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 7,
+                                           :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/bar",
+                                           :type "File"}
+                                          {:exported false,
+                                           :parameters {:name "main"},
+                                           :tags ["class"],
+                                           :title "main",
+                                           :type "Class"}
+                                          {:exported false,
+                                           :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                           :line 12,
+                                           :parameters {},
+                                           :tags ["file" "class"],
+                                           :title "/tmp/quux",
+                                           :type "File"}],
+                              :version "1330995750"
+                              :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"},
+                             :document_type "Catalog",
+                             :metadata {:api_version 1}}
 
-    {:name "nick-lewis.puppetlabs.lan",
-     :api_version 1,
-     :edges #{{:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :contains}
-              {:source {:title "/tmp/bar", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/bar", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "Settings", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/quux", :type "File"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :required-by}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/baz", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Class"},
-               :target {:title "/tmp/quux", :type "File"},
-               :relationship :contains}
-              {:source {:title "main", :type "Stage"},
-               :target {:title "main", :type "Class"},
-               :relationship :contains}
-              {:source {:title "/tmp/baz", :type "File"},
-               :target {:title "/tmp/foo", :type "File"},
-               :relationship :required-by}},
-     :resources {{:type "File", :title "/tmp/foo"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 3,
-                  :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
-                  :tags #{"class" "file"},
-                  :title "/tmp/foo",
-                  :type "File"},
-                 {:type "Class", :title "Settings"}
-                 {:exported false,
-                  :parameters {},
-                  :tags #{"settings" "class"},
-                  :title "Settings",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/baz"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 11,
-                  :parameters {:require "File[/tmp/quux]"},
-                  :tags #{"class" "file"},
-                  :title "/tmp/baz",
-                  :type "File"},
-                 {:type "Stage", :title "main"}
-                 {:exported false,
-                  :parameters {:name "main"},
-                  :tags #{"stage"},
-                  :title "main",
-                  :type "Stage"},
-                 {:type "File", :title "/tmp/bar"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 7,
-                  :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
-                  :tags #{"class" "file"},
-                  :title "/tmp/bar",
-                  :type "File"},
-                 {:type "Class", :title "main"}
-                 {:exported false,
-                  :parameters {:name "main"},
-                  :tags #{"class"},
-                  :title "main",
-                  :type "Class"},
-                 {:type "File", :title "/tmp/quux"}
-                 {:exported false,
-                  :file "/Users/nicklewis/projects/puppetdb/test.pp",
-                  :line 12,
-                  :parameters {},
-                  :tags #{"class" "file"},
-                  :title "/tmp/quux",
-                  :type "File"}},
-     :version "1330995750",
-     :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
-     :producer-timestamp nil
-     :environment nil}))
+                            {:name "nick-lewis.puppetlabs.lan",
+                             :api_version 1,
+                             :edges #{{:source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/bar", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/bar", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Stage"},
+                                       :target {:title "Settings", :type "Class"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/quux", :type "File"},
+                                       :target {:title "/tmp/baz", :type "File"},
+                                       :relationship :required-by}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/baz", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Class"},
+                                       :target {:title "/tmp/quux", :type "File"},
+                                       :relationship :contains}
+                                      {:source {:title "main", :type "Stage"},
+                                       :target {:title "main", :type "Class"},
+                                       :relationship :contains}
+                                      {:source {:title "/tmp/baz", :type "File"},
+                                       :target {:title "/tmp/foo", :type "File"},
+                                       :relationship :required-by}},
+                             :resources {{:type "File", :title "/tmp/foo"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 3,
+                                          :parameters {:require ["File[/tmp/bar]" "File[/tmp/baz]"]},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/foo",
+                                          :type "File"},
+                                         {:type "Class", :title "Settings"}
+                                         {:exported false,
+                                          :parameters {},
+                                          :tags #{"settings" "class"},
+                                          :title "Settings",
+                                          :type "Class"},
+                                         {:type "File", :title "/tmp/baz"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 11,
+                                          :parameters {:require "File[/tmp/quux]"},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/baz",
+                                          :type "File"},
+                                         {:type "Stage", :title "main"}
+                                         {:exported false,
+                                          :parameters {:name "main"},
+                                          :tags #{"stage"},
+                                          :title "main",
+                                          :type "Stage"},
+                                         {:type "File", :title "/tmp/bar"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 7,
+                                          :parameters {:require ["File[/tmp/baz]" "File[/tmp/quux]"]},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/bar",
+                                          :type "File"},
+                                         {:type "Class", :title "main"}
+                                         {:exported false,
+                                          :parameters {:name "main"},
+                                          :tags #{"class"},
+                                          :title "main",
+                                          :type "Class"},
+                                         {:type "File", :title "/tmp/quux"}
+                                         {:exported false,
+                                          :file "/Users/nicklewis/projects/puppetdb/test.pp",
+                                          :line 12,
+                                          :parameters {},
+                                          :tags #{"class" "file"},
+                                          :title "/tmp/quux",
+                                          :type "File"}},
+                             :version "1330995750",
+                             :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+                             :producer-timestamp nil
+                             :environment nil}))
 
 (deftest test-canonical-catalog
   (let [catalog (:basic catalogs)]
