@@ -1,5 +1,6 @@
 require 'cgi'
 require 'beaker/dsl/install_utils'
+require 'beaker/dsl/helpers'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
@@ -756,11 +757,6 @@ EOS
   #   Temp copy of Justins new Puppet Master Methods
   ############################################################################
 
-  def puppet_conf_for host
-    puppetconf = on( host, "cat #{host['puppetpath']}/puppet.conf" ).stdout
-    IniFile.new( puppetconf )
-  end
-
   # Restore puppet.conf from backup, if puppet.conf.bak exists.
   #
   # @api private
@@ -770,50 +766,6 @@ EOS
                "#{host['puppetpath']}/puppet.conf; " +
                "rm -rf #{host['puppetpath']}/puppet.conf.bak; " +
              "fi"
-  end
-
-  def with_puppet_running_on host, conf_opts, testdir = host.tmpdir(File.basename(@path)), &block
-    new_conf = puppet_conf_for( host )
-    new_conf.each_section do |key|
-      new_conf[key].merge!( conf_opts.delete( key ) ) if conf_opts[key]
-    end
-    new_conf.merge!( conf_opts )
-    create_remote_file host, "#{testdir}/puppet.conf", new_conf.to_s
-
-    begin
-      on host, "cp #{host['puppetpath']}/puppet.conf #{host['puppetpath']}/puppet.conf.bak"
-      on host, "cat #{testdir}/puppet.conf > #{host['puppetpath']}/puppet.conf", :silent => true
-      on host, "cat #{host['puppetpath']}/puppet.conf"
-      if host.is_pe?
-        on host, '/etc/init.d/pe-httpd restart' # we work with PE yo!
-      else
-        on host, puppet( 'master' ) # maybe we even work with FOSS?!?!??
-        require 'socket'
-        inc = 0
-        logger.debug 'Waiting for the puppet master to start'
-        begin
-          h = host['ip'] || host.to_s
-          p = 8140
-          logger.debug "Attempt to connect to #{h} on port #{p}: #{inc}"
-          TCPSocket.new(h, p).close
-        rescue Errno::ECONNREFUSED
-          sleep 1
-          inc += 1
-          retry unless inc >= 9
-          raise 'Puppet master did not start in a timely fashion'
-        end
-      end
-
-      yield self if block_given?
-    ensure
-      if host.is_pe?
-        restore_puppet_conf host
-        on host, '/etc/init.d/pe-httpd restart'
-      else
-        on host, 'kill $(cat `puppet master --configprint pidfile`)'
-        restore_puppet_conf host
-      end
-    end
   end
 
   ##############################################################################
