@@ -527,6 +527,21 @@ module PuppetDBExtensions
     end
   end
 
+  # Queries the metrics endpoint for command processing results, return a hash
+  # of results.
+  def command_processing_stats(host, counter = "processed")
+    metric = "com.puppetlabs.puppetdb.command:type=global,name=discarded"
+
+    result = on host, %Q(curl http://localhost:8080/v3/metrics/mbean/#{CGI.escape(metric)})
+
+    begin
+      JSON.parse(result.stdout)
+    rescue JSON::ParserError => e
+      Beaker::Log.notify "Invalid JSON response: #{result.stdout}"
+      raise e
+    end
+  end
+
   def apply_manifest_on(host, manifest_content)
     manifest_path = host.tmpfile("puppetdb_manifest.pp")
     create_remote_file(host, manifest_path, manifest_content)
@@ -621,7 +636,7 @@ EOS
       expected_path = File.join(export_dir2, relative_path)
 
       if(relative_path !~ /^puppetdb-bak\/facts.*/ || opts[:facts])
-          assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+        assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
       end
 
       puts "Comparing file '#{relative_path}'"

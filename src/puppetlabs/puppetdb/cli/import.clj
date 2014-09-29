@@ -6,18 +6,14 @@
   (:import  [puppetlabs.puppetdb.archive TarGzReader]
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:require [fs.core :as fs]
-            [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.command :as command]
-            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
             [slingshot.slingshot :refer [try+]]
-            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.utils :refer [export-root-dir]]
             [puppetlabs.kitchensink.core :refer [cli!]]
-            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]))
+            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")
 
@@ -47,56 +43,6 @@
                         tarball))))
       (json/parse-string (archive/read-entry-content tar-reader) true))))
 
-(defn submit-catalog
-  "Send the given wire-format `catalog` (associated with `host`) to a
-  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port command-version catalog-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (integer? command-version)
-          (string?  catalog-payload)]}
-  (let [result (command/submit-command-via-http!
-                puppetdb-host puppetdb-port
-                (command-names :replace-catalog) command-version
-                catalog-payload)]
-    (when-not (= http/status-ok (:status result))
-      (log/error result))))
-
-(defn submit-report
-  "Send the given wire-format `report` (associated with `host`) to a
-  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port command-version report-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (integer? command-version)
-          (string?  report-payload)]}
-  (let [payload (-> report-payload
-                    json/parse-string
-                    reports/sanitize-report)
-        result  (command/submit-command-via-http!
-                 puppetdb-host puppetdb-port
-                 (command-names :store-report) command-version
-                 payload)]
-    (when-not (= http/status-ok (:status result))
-      (log/error result))))
-
-(defn submit-facts
-  "Send the given wire-format `facts` (associated with `host`) to a
-  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port facts-version fact-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (string?  fact-payload)]}
-  (let [payload (case facts-version
-                  1 fact-payload
-                  (json/parse-string fact-payload))
-        result  (command/submit-command-via-http!
-                 puppetdb-host puppetdb-port
-                 (command-names :replace-facts)
-                 facts-version
-                 payload)]
-    (when-not (= http/status-ok (:status result))
-      (log/error result))))
 
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
@@ -118,18 +64,18 @@
       ;;   that polls puppetdb until the command queue is empty, then does a
       ;;   query to the /nodes endpoint and shows the set difference between
       ;;   the list of nodes that we submitted and the output of that query
-      (submit-catalog host port
-                      (get-in metadata [:command-versions :replace-catalog])
-                      (archive/read-entry-content tar-reader)))
+      (client/submit-catalog host port
+                             (get-in metadata [:command-versions :replace-catalog])
+                             (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern report-pattern) path)
       (println (format "Importing report from archive entry '%s'" path))
-      (submit-report host port
-                     (get-in metadata [:command-versions :store-report])
-                     (archive/read-entry-content tar-reader)))
+      (client/submit-report host port
+                            (get-in metadata [:command-versions :store-report])
+                            (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern facts-pattern) path)
       (println (format "Importing facts from archive entry '%s'" path))
-      (submit-facts host port (get-in metadata [:command-versions :replace-facts])
-                    (archive/read-entry-content tar-reader)))))
+      (client/submit-facts host port (get-in metadata [:command-versions :replace-facts])
+                           (archive/read-entry-content tar-reader)))))
 
 (defn- validate-cli!
   [args]
