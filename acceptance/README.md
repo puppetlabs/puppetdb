@@ -10,7 +10,7 @@ The acceptance tests utilise the gem `beaker`, and are initiated by the rake tas
 An example of how to run the tests:
 
     $ bundle install
-    $ rake test:beaker
+    $ rake beaker:acceptance
 
 However, there are a number of environment variables that can be utilised to modify the build.
 
@@ -18,18 +18,18 @@ An example of how to run a package based build, with vagrant/virtualbox on Cento
 
     PUPPETDB_INSTALL_TYPE='package' \
     PUPPETDB_EXPECTED_RPM_VERSION="1.3.3.73-1" \
-    rake test:beaker
+    rake beaker:acceptance
 
 Source based build, from a particular branch:
 
     PUPPETDB_REPO_PUPPETDB='git://github.com/puppetlabs/puppetdb#1.3.x'
-    rake test:beaker
+    rake beaker:acceptance
 
 EC2 build from source on Debian 6:
 
     BEAKER_CONFIG="ec2-west-debian6-64mda-64a" \
     PUPPETDB_REPO_PUPPETDB="git://github.com/puppetlabs/puppetdb#1.3.x" \
-    rake test:beaker
+    rake beaker:acceptance
 
 EC2 build with packages on Debian 6:
 
@@ -37,7 +37,7 @@ EC2 build with packages on Debian 6:
     PUPPETDB_INSTALL_TYPE='package' \
     PUPPETDB_PACKAGE_REPO_URL="http://puppetdb-prerelease.s3.amazonaws.com/puppetdb/1.3.x" \
     PUPPETDB_EXPECTED_DEB_VERSION="1.3.3.73-1puppetlabs1" \
-    rake test:beaker
+    rake beaker:acceptance
 
 ## How to set options
 
@@ -126,7 +126,7 @@ in your hash; the environment variable names are the same but uppercased
 
 ## Beaker Specific Options
 
-These options are only environment variables, and are specific to the `test:beaker` rake task.
+These options are only environment variables, and are specific to the `beaker:acceptance` rake task.
 
 ###`BEAKER_TYPE`
 

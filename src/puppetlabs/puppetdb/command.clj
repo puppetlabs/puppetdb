@@ -206,31 +206,6 @@
 
 ;; ## Command submission
 
-(defn submit-command-via-http!
-  "Submits `payload` as a valid command of type `command` and
-  `version` to the PuppetDB instance specified by `host` and
-  `port`. The `payload` will be converted to JSON before
-  submission. Alternately accepts a command-map object (such as those
-  returned by `parse-command`). Returns the server response."
-  ([host port command version payload]
-     {:pre [(string? command)
-            (integer? version)]}
-     (->> payload
-          (assemble-command command version)
-          (submit-command-via-http! host port)))
-  ([host port command-map]
-     {:pre [(string? host)
-            (integer? port)
-            (map? command-map)]}
-     (let [message (json/generate-string command-map)
-           checksum (kitchensink/utf8-string->sha1 message)
-           url     (format "http://%s:%s/v4/commands?checksum=%s" host port checksum)]
-       (client/post url {:body               message
-                         :throw-exceptions   false
-                         :content-type       :json
-                         :character-encoding "UTF-8"
-                         :accept             :json}))))
-
 (defn enqueue-raw-command!
   "Takes the given command and submits it to the `mq-endpoint`
   location on the MQ identified by `mq-spec`. We will annotate the
