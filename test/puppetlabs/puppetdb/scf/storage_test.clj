@@ -510,26 +510,27 @@
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
            [{:c 3}]))))
 
-(deftest fact-delete-with-gc-fact-paths
-  (testing "when deleted but no GC should leave facts"
-    (add-certname! certname)
+(deftest fact-delete-should-prune-paths-and-values
+  (add-certname! certname)
 
-    ;; Add some facts
-    (let [facts {"domain" "mydomain.com"
-                 "fqdn" "myhost.mydomain.com"
-                 "hostname" "myhost"
-                 "kernel" "Linux"
-                 "operatingsystem" "Debian"
-                 "networking" {"eth0" {"ipaddresses" ["192.168.0.11"]}}}]
-      (add-facts! {:name certname
-                   :values facts
-                   :timestamp (-> 2 days ago)
-                   :environment "ENV3"
-                   :producer-timestamp nil})
-      (delete-facts! certname))
+  ;; Add some facts
+  (let [facts {"domain" "mydomain.com"
+               "fqdn" "myhost.mydomain.com"
+               "hostname" "myhost"
+               "kernel" "Linux"
+               "operatingsystem" "Debian"
+               "networking" {"eth0" {"ipaddresses" ["192.168.0.11"]}}}]
+    (add-facts! {:name certname
+                 :values facts
+                 :timestamp (-> 2 days ago)
+                 :environment "ENV3"
+                 :producer-timestamp nil}))
+  (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
+        fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
+
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 7))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 7))
-    (garbage-collect!)
+    (delete-facts! factset-id fact-value-ids)
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
 
