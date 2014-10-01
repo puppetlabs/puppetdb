@@ -733,15 +733,6 @@
 
 ;; ## Database compaction
 
-(defn delete-unassociated-fact-paths!
-  "Remove fact paths that are not associated with a fact"
-  []
-  (time! (:gc-fact-paths metrics)
-         (sql/delete-rows :fact_values
-                          ["ID NOT IN (SELECT DISTINCT fact_value_id FROM facts)"])
-         (sql/delete-rows :fact_paths
-                          ["ID NOT IN (SELECT path_id FROM fact_values)"])))
-
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
@@ -777,9 +768,7 @@
          (sql/transaction
           (delete-unassociated-environments!))
          (sql/transaction
-          (delete-unassociated-statuses!))
-         (sql/transaction
-          (delete-unassociated-fact-paths!))))
+          (delete-unassociated-statuses!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
@@ -988,10 +977,48 @@
   ([factset :- s/Int
     fact-ids :- #{s/Int}]
      (when (seq fact-ids)
-       (sql/delete-rows :facts
-                        (into [(str "factset_id=? and fact_value_id "
-                                    (jdbc/in-clause fact-ids)) factset]
-                              fact-ids)))))
+       (let [in-list (jdbc/in-clause fact-ids)]
+         (sql/transaction
+
+          (when (sutils/postgres?)
+            (sql/do-commands "SET CONSTRAINTS ALL DEFERRED")
+
+
+            (sql/do-prepared (format "DELETE FROM fact_paths fp
+                                      WHERE fp.id in ( SELECT fp.id
+                                                       FROM fact_paths fp inner join fact_values fv on fp.id = fv.path_id
+                                                       WHERE fp.id in ( select fv.path_id from fact_values fv where fv.id %s )
+                                                       GROUP BY fp.id
+                                                       HAVING COUNT(fv.id) = 1)" in-list)
+                             fact-ids)
+
+            (sql/do-prepared (format "DELETE FROM fact_values WHERE id in (
+                                          SELECT fact_value_id FROM facts where factset_id = ? and fact_value_id %s
+                                          EXCEPT
+                                          SELECT fact_value_id FROM facts where factset_id <> ? and fact_value_id %s)" in-list in-list)
+                             (concat (cons factset fact-ids)
+                                     (cons factset fact-ids))))
+
+          (sql/delete-rows :facts
+                           (into [(str "factset_id=? and fact_value_id "
+                                       in-list) factset]
+                                 fact-ids))
+
+          ;; HSQLDB doesn't support delayed constraints. This query
+          ;; achieves the same goals as the DELETE FROM fact_values
+          ;; above, but does so in a less efficient manner. Having
+          ;; these two separated allows Postgres queries to execute
+          ;; faster, but still support HSQLDB
+          (when-not (sutils/postgres?)
+            (sql/do-prepared (format "DELETE FROM fact_values WHERE id in (
+                                        SELECT fv.id
+                                        FROM fact_values fv left join facts f on fv.id = f.fact_value_id
+                                        WHERE f.fact_value_id is NULL and fv.id %s )" in-list)
+                             fact-ids)
+            (sql/do-prepared (format "DELETE FROM fact_paths fp
+                                      WHERE fp.id in ( SELECT fp.id
+                                                       FROM fact_paths fp left join fact_values fv on fp.id = fv.path_id
+                                                       WHERE fv.path_id is NULL )"))))))))
 
 (pls/defn-validated update-facts!
   "Given a certname, querys the DB for existing facts for that
