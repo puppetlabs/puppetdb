@@ -102,6 +102,13 @@
   catalog format"
   5)
 
+(pls/defn-validated collapse :- {s/Any s/Any}
+  "Combines the `data` and `metadata` section of the given `catalog` into a
+  single map."
+  [{:keys [metadata data] :as catalog} :- {:metadata {s/Any s/Any} :data {s/Any s/Any} s/Any s/Any}]
+  {:pre [(empty? (set/intersection (kitchensink/keyset metadata) (kitchensink/keyset data)))]}
+  (merge metadata data))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
 
@@ -117,7 +124,7 @@
    :version s/Str
    :environment (s/maybe s/Str)
    :transaction-uuid (s/maybe s/Str)
-   :producer-timestamp (s/either (s/maybe s/Str) pls/Timestamp)
+   :producer-timestamp (s/maybe pls/Timestamp)
 
    ;; This is a crutch. We use sets for easier searching and avoid
    ;; reliance on ordering. We should pick one of the below (probably
@@ -134,67 +141,25 @@
                         {s/Any {s/Any s/Any}})
    :api_version (s/maybe s/Int)})
 
+(defn old-wire-format-schema
+  "Function for converting a v1-v3 schema into the wire format for that version"
+  [canonical-catalog-wireformat]
+  {:metadata {:api_version (:api_version canonical-catalog-wireformat)}
+   :data (dissoc canonical-catalog-wireformat :api_version)})
 
-(def v5-catalog
-  "Used for v5 commands and responses"
-  (dissoc full-catalog :api_version))
-
-(def v4-catalog
-  "Used for v4 commands and responses"
-  (dissoc full-catalog :api_version :producer-timestamp))
-
-(def v3-catalog
-  "Used for v3 commands and responses"
-  (dissoc full-catalog :environment :producer-timestamp))
-
-(def v2-catalog
-  "Used for v2 commands and responses"
-  (dissoc v3-catalog :transaction-uuid))
-
-(def v1-catalog
-  "Used for v1 commands and respones, allows additional unrecognized keys"
-  (assoc v2-catalog s/Any s/Any))
-
-(defn catalog-schema
+(defn catalog-wireformat
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [version]
   (case version
     :all full-catalog
-    :v1 v1-catalog
-    :v2 v2-catalog
-    :v3 v3-catalog
-    :v4 v4-catalog
-    v5-catalog))
-
-(defn old-wire-format-schema
-  "Function for converting a v1-v3 schema into the wire format for that version"
-  [canonical-catalog-schema]
-  {:metadata {:api_version (:api_version canonical-catalog-schema)}
-   :data (dissoc canonical-catalog-schema :api_version)})
-
-(def v3-wire-format-catalog
-  "v3 wire format for commands, always uses keywords"
-  (old-wire-format-schema v3-catalog))
-
-(def v2-wire-format-catalog
-  "v2 wire format for commands, always uses keywords"
-  (old-wire-format-schema v2-catalog))
-
-(def v1-wire-format-catalog
-  "v1 wire format for commands, always uses keywords, allows extra keys
-   in addition to metadata and data at the top level of the map"
-  (assoc (old-wire-format-schema v1-catalog) s/Any s/Any))
-
-(defn wire-format-schema
-  "Returns the correct schema wire format schema for `version`. Does not recognize
-   :all as a version"
-  [version]
-  (case version
-    :v1 v1-wire-format-catalog
-    :v2 v2-wire-format-catalog
-    :v3 v3-wire-format-catalog
-    :v4 v4-catalog
-    v5-catalog))
+    :v5 (dissoc full-catalog :api_version)
+    :v4 (dissoc full-catalog :api_version :producer-timestamp)
+    :v3 (-> full-catalog
+            (dissoc :environment :producer-timestamp)
+            old-wire-format-schema)
+    :v2 (update-in (catalog-wireformat :v3) [:data] dissoc :transaction-uuid)
+    :v1 (assoc-in (catalog-wireformat :v2) [:data s/Any] s/Any)
+    (catalog-wireformat :v5)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -209,33 +174,29 @@
                     :producer-timestamp nil
                     :api_version 1))
 
+(defn collapse-if
+  [catalog]
+  (if (:data catalog)
+    (collapse catalog)
+    catalog))
+
 (pls/defn-validated canonical-catalog
   "Converts `catalog` to `version` in the canonical format, adding
    and removing keys as needed"
   [version catalog]
-  (let [target-schema (catalog-schema version)
+  (let [target-schema (catalog-wireformat version)
         strip-keys #(pls/strip-unknown-keys target-schema %)]
     (s/validate target-schema
                 (case version
-                  :v1 (dissoc catalog :transaction-uuid :environment :producer-timestamp)
-                  :v2 (strip-keys (dissoc catalog :transaction-uuid :environment :producer-timestamp))
-                  :v3 (strip-keys (dissoc catalog :environment :producer-timestamp))
-                  :v4 (strip-keys (dissoc catalog :api_version :producer-timestamp))
-                  :all (strip-keys (default-missing-keys catalog))
-                  (strip-keys (dissoc catalog :api_version))))))
-
-(pls/defn-validated canonical->wire-format
-  "Converts the `catalog` in the canonical format to the correct wire-format version.
-   Note that the wire format is still in keywords"
-  [version catalog]
-  (let [versioned-catalog (->> catalog
-                               (canonical-catalog :all)
-                               (canonical-catalog version))]
-    (s/validate (wire-format-schema version)
-                (case version
-                  (:v1 :v2 :v3) {:metadata {:api_version (:api_version versioned-catalog)}
-                                 :data (dissoc versioned-catalog :api_version)}
-                  versioned-catalog))))
+                  :v1 (strip-keys
+                        (old-wire-format-schema
+                          (dissoc catalog :transaction-uuid :environment :producer-timestamp)))
+                  :v2 (strip-keys (old-wire-format-schema (dissoc catalog :transaction-uuid
+                                            :environment :producer-timestamp)))
+                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp)))
+                  :v4 (strip-keys (dissoc (collapse-if catalog) :api_version :producer-timestamp))
+                  :all (strip-keys (default-missing-keys (collapse-if catalog)))
+                  (strip-keys (dissoc (collapse-if catalog) :api_version))))))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -364,19 +325,10 @@
 
 (def validate
   "Function for validating v1->v3 of the catalogs"
-  (comp validate-edges validate-resources #(s/validate (catalog-schema :all) %)))
+  (comp validate-edges validate-resources #(s/validate (catalog-wireformat :all) %)))
 
 ;; ## High-level parsing routines
 
-(defn collapse
-  "Combines the `data` and `metadata` section of the given `catalog` into a
-  single map."
-  [{:keys [metadata data] :as catalog}]
-  {:pre [(map? metadata)
-         (map? data)
-         (empty? (set/intersection (kitchensink/keyset metadata) (kitchensink/keyset data)))]
-   :post [(map? %)]}
-  (merge metadata data))
 
 (def transform
   "Applies every transformation to the catalog, converting it from wire format

@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [clojure.walk :as walk]
             [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [to-string]]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.tools.logging.impl :as li]
@@ -90,7 +91,8 @@
                :values {:foo "the foo"
                         :bar "the bar"
                         :baz "the baz"
-                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}}
+                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
+               :producer-timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [5 :empty])
                     (assoc :name "foo.local"))
@@ -104,7 +106,7 @@
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
              (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
 
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
@@ -122,7 +124,7 @@
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
              (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
@@ -149,7 +151,8 @@
   (let [facts {:name "foo.local"
                :values {:foo "the foo"
                         :bar "the bar"
-                        :baz "the baz"}}
+                        :baz "the baz"}
+               :producer-timestamp nil}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (assoc-in (get-in wire-catalogs [2 :empty])
                           [:data :name] "foo.local")

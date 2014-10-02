@@ -77,7 +77,7 @@
    Moving the more restrictive resource/edge schemas into puppetdb.catalogs is TODO. Upstream
    code needs to assume a map of resources (not a vector) and tests need to be update to adhere
    to the new format."
-  (assoc (cat/catalog-schema :all)
+  (assoc (cat/catalog-wireformat :all)
     :resources resource-ref->resource-schema
     :edges #{edge-schema}))
 

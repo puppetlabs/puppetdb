@@ -158,14 +158,19 @@
       :post [(string? %)]}
      (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
            offset-clause    (if offset (format " OFFSET %s" offset) "")
-           order-by-clause  (order-by->sql order-by)
-           inner-order-by   (str/replace order-by-clause #"environment"
-                                         "COALESCE(distinct_names.environment,'')")]
+           order-by-clause  (-> order-by
+                                order-by->sql
+                                (str/replace #"producer_timestamp" "\"producer-timestamp\""))
+           inner-order-by   (-> order-by-clause
+                                (str/replace
+                                  #"environment" "COALESCE(distinct_names.environment, '')"))]
        (case entity
          :factsets
          (format "SELECT paged_results.* FROM (%s) paged_results
-                WHERE (certname,COALESCE(paged_results.environment,''),timestamp) IN
-                (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp FROM (%s)
+                WHERE (certname,COALESCE(paged_results.environment,''),timestamp,
+                 \"producer-timestamp\") IN
+                (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp,
+                \"producer-timestamp\" FROM (%s)
                 distinct_names %s%s%s) %s"
                  sql sql inner-order-by limit-clause offset-clause order-by-clause)
          (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"

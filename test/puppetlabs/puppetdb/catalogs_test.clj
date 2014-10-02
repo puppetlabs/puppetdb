@@ -3,6 +3,7 @@
   (:require [schema.core :as s]
             [puppetlabs.puppetdb.catalogs :refer :all]
             [puppetlabs.puppetdb.catalog.utils :refer :all]
+            [puppetlabs.puppetdb.testutils.catalogs :refer [canonical->wire-format]]
             [puppetlabs.puppetdb.examples :refer :all]
             [clojure.test :refer :all]))
 
@@ -40,17 +41,19 @@
 
 (deftest catalog-restructuring
   (testing "Transforming catalog metadata"
-    (let [transform-fn (comp #(s/validate (catalog-schema :v1) %) collapse)]
+    (let [transform-fn (comp collapse #(s/validate (catalog-wireformat :v1) %))]
       (testing "should work on well-formed input"
-        (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar" :transaction-uuid "HIYA" :resources [{}] :edges [{}]}
+        (let [catalog  {:data {:name "myhost" :version "12345" :foo "bar"
+                               :transaction-uuid "HIYA" :resources [{}] :edges [{}]}
                         :metadata {:api_version 1}}]
           (is (= (transform-fn (assoc-in catalog [:data :transaction-uuid] "HIYA"))
-                 {:name "myhost" :version "12345" :api_version 1 :foo "bar" :transaction-uuid "HIYA" :resources [{}] :edges [{}]}))))
+                 {:name "myhost" :version "12345" :api_version 1 :foo "bar"
+                  :transaction-uuid "HIYA" :resources [{}] :edges [{}]}))))
 
       (testing "should error on malformed input"
-        (is (thrown? AssertionError (transform-fn {})))
-        (is (thrown? AssertionError (transform-fn nil)))
-        (is (thrown? AssertionError (transform-fn [])))
+        (is (thrown? ExceptionInfo (transform-fn {})))
+        (is (thrown? ExceptionInfo (transform-fn nil)))
+        (is (thrown? ExceptionInfo (transform-fn [])))
 
         (testing "like non-numeric api versions"
           (let [catalog  {:data {:name "myhost" :version "12345"}
@@ -60,7 +63,7 @@
         (testing "like a missing 'data' section"
           (let [catalog  {:name "myhost" :version "12345"
                           :metadata {:api_version 123}}]
-            (is (thrown? AssertionError (transform-fn catalog)))))))))
+            (is (thrown? ExceptionInfo (transform-fn catalog)))))))))
 
 (deftest integrity-checking
   (testing "Catalog validation"
@@ -116,17 +119,17 @@
             v2-catalog (dissoc catalog :transaction-uuid :environment :producer-timestamp)
             v1-catalog (assoc catalog :something "random")]
         (testing "should accept catalogs with the correct set of keys"
-          (are [version catalog] (= catalog (s/validate (catalog-schema version) catalog))
+          (are [version catalog] (= catalog (s/validate (catalog-wireformat version) catalog))
                :all catalog
                :v5 v5-catalog
                :v4 v4-catalog
-               :v3 v3-catalog
-               :v2 v2-catalog
-               :v1 v1-catalog))
+               :v3 (old-wire-format-schema v3-catalog)
+               :v2 (old-wire-format-schema v2-catalog)
+               :v1 (old-wire-format-schema v1-catalog)))
 
         (testing "should fail if the catalog has an extra key"
           (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
-                                                   (s/validate (catalog-schema version) (assoc catalog :classes #{})))
+                                                   (s/validate (catalog-wireformat version) (assoc catalog :classes #{})))
                :all catalog
                :v5 v5-catalog
                :v4 v4-catalog
@@ -137,7 +140,7 @@
 
         (testing "should fail if the catalog is missing a key"
           (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
-                                                   (s/validate (catalog-schema version) (dissoc catalog :version)))
+                                                   (s/validate (catalog-wireformat version) (dissoc catalog :version)))
 
                :all catalog
                :v5 v5-catalog
@@ -721,23 +724,23 @@
                (canonical-catalog version (canonical-catalog :all catalog))))))
     (testing "version 1"
       (let [v1-catalog (canonical-catalog :v1 (assoc catalog :more "stuff"))
-            v1->all-catalog (canonical-catalog :all (canonical-catalog :v1 (assoc catalog :more "stuff")))]
+            v1->all-catalog (canonical-catalog :all v1-catalog)]
         (is (string? (:transaction-uuid catalog)))
         (is (not (contains? v1-catalog :transaction-uuid)))
         (is (not (contains? v1-catalog :environment)))
-        (is (= "stuff" (:more v1-catalog)))
+        (is (= "stuff" (get-in v1-catalog [:data :more])))
         (is (= (dissoc v1->all-catalog :transaction-uuid :environment :producer-timestamp)
-               (dissoc v1-catalog :more)))))
+               (dissoc (collapse v1-catalog) :more)))))
     (testing "version 2"
-      (let [v2-catalog (canonical-catalog :v2 catalog)]
+      (let [v2-catalog (collapse (canonical-catalog :v2 catalog))]
         (is (string? (:transaction-uuid catalog)))
-        (is (not (contains? v1-catalog :transaction-uuid)))
-        (is (not (contains? v1-catalog :environment)))))
+        (is (not (contains? v2-catalog :transaction-uuid)))
+        (is (not (contains? v2-catalog :environment)))))
     (testing "version 3"
-      (let [v3-catalog (canonical-catalog :v3 catalog)]
+      (let [v3-catalog (collapse (canonical-catalog :v3 catalog))]
         (is (= (:transaction-uuid catalog)
                (:transaction-uuid v3-catalog)))
-        (is (not (contains? v1-catalog :environment)))))
+        (is (not (contains? v3-catalog :environment)))))
     (testing "version 4"
       (let [v4-catalog (canonical-catalog :v4 catalog)]
         (is (= (:transaction-uuid catalog)
@@ -758,9 +761,9 @@
 (deftest test-canonical->wire-format
   (let [catalog (:basic catalogs)]
     (testing "version 1"
-      (let [{:keys [metadata data] :as wire-catalog} (canonical->wire-format :v1 (assoc catalog :more "stuff"))]
-        (is (= {:api_version 1}
-               metadata))
+      (let [{:keys [metadata data] :as wire-catalog} (canonical->wire-format
+                                                       :v1 (assoc catalog :more "stuff"))]
+        (is (= {:api_version 1} metadata))
         (is (= (dissoc catalog :api_version :transaction-uuid :environment :producer-timestamp :more)
                data))))
     (testing "version 2"
