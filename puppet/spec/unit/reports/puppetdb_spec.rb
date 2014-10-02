@@ -65,16 +65,9 @@ describe processor do
     end
 
     it "should include the transaction uuid or nil" do
-      # Prevents subject.send(:report_to_hash) from exploding
-      if subject.report_format >= 4
-        subject.transaction_uuid = 'abc123'
-        result = subject.send(:report_to_hash)
-        result["transaction-uuid"].should == 'abc123'
-      else
-        result = subject.send(:report_to_hash)
-        result.has_key?("transaction-uuid").should == true
-        result["transaction-uuid"].should == nil
-      end
+      subject.transaction_uuid = 'abc123'
+      result = subject.send(:report_to_hash)
+      result["transaction-uuid"].should == 'abc123'
     end
 
     context "start/end time" do
@@ -131,13 +124,7 @@ describe processor do
           res_event["message"].should == "foomessage"
           res_event["file"].should == "foo"
           res_event["line"].should == 1
-
-          if subject.report_format >= 4
-            res_event["containment-path"].should == ["foo", "bar", "baz"]
-          else
-            res_event.has_key?("containment-path").should == true
-            res_event["containment-path"].should == nil
-          end
+          res_event["containment-path"].should == ["foo", "bar", "baz"]
         end
       end
 
@@ -154,6 +141,7 @@ describe processor do
           event["new-val"].should be_nil
           event["old-val"].should be_nil
           event["message"].should be_nil
+          event["containment-path"].should == ["foo", "bar", "baz"]
         end
       end
 
@@ -163,7 +151,7 @@ describe processor do
         end
 
         context "with no events" do
-          it "should include have no events" do
+          it "should have no events" do
             result = subject.send(:report_to_hash)
             result["resource-events"].length.should == 0
           end
@@ -189,6 +177,7 @@ describe processor do
             res_event["message"].should == "barmessage"
             res_event["file"].should == "foo"
             res_event["line"].should == 1
+            res_event["containment-path"].should == ["foo", "bar", "baz"]
           end
         end
       end
@@ -259,6 +248,7 @@ describe processor do
             res_event["new-value"].should == "fooval"
             res_event["old-value"].should == "oldfooval"
             res_event["message"].should == "foomessage"
+            res_event["containment-path"].should == ["foo", "bar", "baz"]
           end
         end
 

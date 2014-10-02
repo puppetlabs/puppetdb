@@ -124,6 +124,7 @@ Puppet::Reports.register_report(:puppetdb) do
       "message"           => nil,
       "file"              => resource_status.file,
       "line"              => resource_status.line,
+      "containment-path" => resource_status.containment_path,
     }
   end
 
