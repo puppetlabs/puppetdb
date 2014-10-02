@@ -733,7 +733,7 @@
 
 ;; ## Database compaction
 
-defn delete-unassociated-params!
+(defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params metrics)
