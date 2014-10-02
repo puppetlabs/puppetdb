@@ -844,6 +844,36 @@
    "DROP TABLE certname_facts"
    "DROP TABLE certname_facts_metadata"))
 
+(defn structured-facts-deferrable-constraints []
+
+  ;;This migration is switching from a GC background thread to
+  ;;removing fact values as they are orphaned. Before switching to
+  ;;that model (which only cleans up the specific fact values it
+  ;;orphans) we need to clean up any ones that have appeared between
+  ;;the last run and the current run.
+  (sql/delete-rows :fact_values
+                   ["ID NOT IN (SELECT DISTINCT fact_value_id FROM facts)"])
+  (sql/delete-rows :fact_paths
+                   ["ID NOT IN (SELECT path_id FROM fact_values)"])
+
+  (when (scf-utils/postgres?)
+    (sql/do-commands
+
+     "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
+     (str "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_fk
+           FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
+           ON UPDATE NO ACTION ON DELETE NO ACTION
+           DEFERRABLE")
+
+     "ALTER TABLE facts DROP CONSTRAINT fact_value_id_fk"
+     (str "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+           FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+           ON UPDATE NO ACTION  ON DELETE NO ACTION
+           DEFERRABLE")))
+
+  (sql/do-commands
+   "CREATE INDEX fact_value_id_idx ON facts(fact_value_id)"))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -870,7 +900,8 @@
    22 add-environments
    23 add-report-status
    24 add-producer-timestamps
-   25 structured-facts})
+   25 structured-facts
+   26 structured-facts-deferrable-constraints})
 
 (def desired-schema-version (apply max (keys migrations)))
 
