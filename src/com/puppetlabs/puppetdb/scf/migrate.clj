@@ -874,6 +874,15 @@
   (sql/do-commands
    "CREATE INDEX fact_value_id_idx ON facts(fact_value_id)"))
 
+(defn switch-value-string-index-to-gin []
+  "This drops the fact_values_string_trgm index so that it can be recreated
+   as a GIN index."
+
+  (when (and (scf-utils/postgres?)
+             (scf-utils/index-exists? "fact_values_string_trgm"))
+    (sql/do-commands
+     "DROP INDEX fact_values_string_trgm")))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -901,7 +910,8 @@
    23 add-report-status
    24 add-producer-timestamps
    25 structured-facts
-   26 structured-facts-deferrable-constraints})
+   26 structured-facts-deferrable-constraints
+   27 switch-value-string-index-to-gin})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -975,7 +985,7 @@
   (when-not (scf-utils/index-exists? "fact_values_string_trgm")
     (log/info "Creating additional index `fact_values_string_trgm`")
     (sql/do-commands
-     "CREATE INDEX fact_values_string_trgm ON fact_values USING gist (value_string gist_trgm_ops)")))
+     "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
