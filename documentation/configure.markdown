@@ -553,6 +553,33 @@ If not supplied, PuppetDB uses the default SSL protocols for your local system.
 
 > **Note:** This setting is only effective when PuppetDB is running with Java version 1.7 or better.
 
+### `ssl-crl-path`
+
+Optional. This describes a path to a Certificate Revocation List file. Incoming SSL connections will be rejected if the client certificate matches a revocation entry in the file.
+
+### `ssl-cert-chain`
+
+This sets the path to a PEM with CA certificates for use in presenting a
+client with the server's chain of trust.  Certs found in this PEM file are
+appended after the first certificate from the `ssl-cert` PEM in the
+construction of the certificate chain.  This is an optional setting.  The
+certificates in the `ssl-cert-chain` PEM file should be ordered from the
+least-root CA certificate first to the most-root CA certificate last.  For
+example, a certificate chain could contain:
+
+* An end certificate
+* An intermediate CA certificate with which the end certificate was issued
+* A root CA certificate with which the intermediate CA certificate was issued
+
+The end certificate should appear in the `ssl-cert` PEM file.  In the
+`ssl-cert-chain` PEM file, the intermediate CA certificate should appear
+first and the root CA certificate should appear last.
+
+The chain is not required to be complete.
+
+> **Note:** This setting overrides the alternate configuration settings
+`keystore` and `key-password`.
+
 `[repl]` Settings
 -----
 
