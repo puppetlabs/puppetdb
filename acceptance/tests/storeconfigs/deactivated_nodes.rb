@@ -74,6 +74,10 @@ MANIFEST
       end
     end
 
+    step "ensure the queue is drained" do
+      sleep_until_queue_empty database
+    end
+
     step "resources should be collected before deactivation" do
       test_collection.call collectors, "not_deactivated", %w[from_exporter]
     end
