@@ -111,9 +111,6 @@ end
 
 # We only need the ruby major, minor versions
 @ruby_version = (ENV['RUBY_VER'] || Facter.value(:rubyversion))[0..2]
-unless ['1.8','1.9'].include?(@ruby_version)
-  STDERR.puts "Warning: Existing rake commands are untested on #{@ruby_version} currently supported rubies include 1.8 or 1.9"
-end
 
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
@@ -160,31 +157,10 @@ end
 file "ext/files/config.ini" => [ :template, JAR_FILE ]   do
 end
 
+# An alias, for backwards compatibility
 namespace :test do
-  desc "Run beaker based acceptance tests"
-  task :beaker, :test_files do |t, args|
-    args.with_defaults(:test_files => 'acceptance/tests/')
-    config = ENV["BEAKER_CONFIG"] || "vbox-el6-64mda"
-    options = ENV["BEAKER_OPTIONS"] || "postgres"
-    preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] || "never"
-    color = ENV["BEAKER_COLOR"] == "false" ? false : true
-    xml = ENV["BEAKER_XML"] == "true" ? true : false
-    type = ENV["BEAKER_TYPE"] || "git"
-
-    beaker = "beaker " +
-       "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
-       "--type #{type} " +
-       "--debug " +
-       "--tests " + args[:test_files] + " " +
-       "--options-file 'acceptance/options/#{options}.rb' " +
-       "--root-keys " +
-       "--preserve-hosts #{preserve_hosts}"
-
-    beaker += " --no-color" unless color
-    beaker += " --xml" if xml
-
-    sh beaker
-  end
+  desc "DEPRECATED: use beaker:acceptance instead"
+  task :beaker, [:test_files] => "beaker:acceptance"
 end
 
 # The first package build tasks in puppetdb were rake deb and rake srpm (due to
@@ -200,4 +176,3 @@ task :deb => [ 'package:implode', 'package:bootstrap', 'package:deb' ]
 
 desc 'Build a Source rpm for puppetdb'
 task :srpm => [ 'package:implode', 'package:bootstrap', 'package:srpm' ]
-

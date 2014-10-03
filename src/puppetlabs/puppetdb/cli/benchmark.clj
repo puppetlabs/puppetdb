@@ -38,22 +38,15 @@
    tick."
   (:import (java.io File))
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.trapperkeeper.logging :as logutils]
-            [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.command :as command]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clj-http.client :as client]
-            [clj-http.util :as util]
             [fs.core :as fs]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time]
+            [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [puppetlabs.puppetdb.cli.import :refer [submit-facts]]
             [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Development-only benchmarking tool")
@@ -74,25 +67,6 @@
        (map try-load-file)
        (remove nil?)
        (vec)))
-
-(defn submit-catalog
-  "Send the given wire-format `catalog` (associated with `host`) to a
-  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port catalog]
-  (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
-                                                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
-    (when-not (= http/status-ok (:status result))
-      (log/error result))))
-
-(defn submit-report
-  "Send the given wire-format `report` (associated with `host`) to a
-  command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port report]
-  (let [result (command/submit-command-via-http!
-                puppetdb-host puppetdb-port
-                (command-names :store-report) 3 report)]
-    (when-not (= http/status-ok (:status result))
-      (log/error result))))
 
 (def mutate-fns
   "Functions that randomly change a wire-catalog format"
@@ -135,6 +109,7 @@
 
 (defn populate-database-with-facts
   "This will populate a database with semi-random structured facts.
+
   Aside from database host, port, and fact command version, arguments are
 
   *nodes : number of nodes to be submitted
@@ -153,7 +128,7 @@
                                                      (repeatedly #(if (< (rand) dup-rate)
                                                                     (rand-nth facts-pool)
                                                                     (random-structured-fact)))))}]
-        (submit-facts host port facts-version (json/generate-string fact-payload))))))
+        (client/submit-facts host port facts-version (json/generate-string fact-payload))))))
 
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
@@ -169,9 +144,45 @@
    computing the same hash again (causing constraint errors in the DB)"
   [report]
   (assoc report
-    "configuration-version" (kitchensink/uuid)
+    "configuration-version" (ks/uuid)
     "start-time" (time/now)
     "end-time" (time/now)))
+
+(defn randomize-map-leaf
+  "Randomizes a fact leaf based on a percentage provided with `rp`."
+  [rp leaf]
+  (if (< (rand 100) rp)
+    (cond
+     (string? leaf)  (random-string (inc (rand-int 100)))
+     (integer? leaf) (rand-int 100000)
+     (float? leaf)   (* (rand) (rand-int 100000))
+     (ks/boolean? leaf) (random-bool))
+    leaf))
+
+(defn randomize-map-leaves
+  "Runs through a map and randomizes leafs based on a percentage provided with
+   `rp`."
+  [rp value]
+  (cond
+   (map? value)
+   (into {}
+         (for [[k v] value]
+           [k (randomize-map-leaves rp v)]))
+
+   (coll? value)
+   (for [v value]
+     (randomize-map-leaves rp v))
+
+   :else
+   (randomize-map-leaf rp value)))
+
+(defn update-factset
+  "Updates the producer-timestamp to be current, and randomly updates the leaves
+   of the factset based on a percentage provided in `rand-percentage`."
+  [rand-percentage factset]
+  (-> factset
+      (assoc "producer-timestamp" (time/now))
+      (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
   "Send a new _clock tick_ to a host
@@ -186,27 +197,37 @@
     hosts catalog changes in accordance to the users preference)
 
   * Submit the resulting catalog"
-  [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
+  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
   (if (> (- clock lastrun) run-interval)
     (let [catalog (if catalog (maybe-tweak-catalog rand-percentage catalog))
-          report (and report (update-report-run-fields report))]
+          report (and report (update-report-run-fields report))
+          factset (and factset (update-factset rand-percentage factset))]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
         (future
           (try
-            (submit-catalog puppetdb-host puppetdb-port catalog)
+            (client/submit-catalog puppetdb-host puppetdb-port 5 catalog)
             (log/info (format "[%s] submitted catalog" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit catalog: %s" host e))))))
       (when report
         (future
           (try
-            (submit-report puppetdb-host puppetdb-port report)
+            (client/submit-report puppetdb-host puppetdb-port 3 report)
             (log/info (format "[%s] submitted report" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit report: %s" host e))))))
-      (assoc state :lastrun clock :catalog catalog))
+      (when factset
+        (future
+          (try
+            (client/submit-facts puppetdb-host puppetdb-port 3 (json/generate-string factset))
+            (log/info (format "[%s] submitted factset" host))
+            (catch Exception e
+              (log/error (format "[%s] failed to submit factset: %s" host e))))))
+      (assoc state
+        :lastrun clock
+        :catalog catalog))
     state))
 
 (defn update-host
@@ -214,13 +235,16 @@
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
+  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
   (let [catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))
-        report (and report (update-report-run-fields report))]
+        report (and report (update-report-run-fields report))
+        factset (and factset (update-factset rand-percentage factset))]
     (when catalog
-      (submit-catalog puppetdb-host puppetdb-port catalog))
+      (client/submit-catalog puppetdb-host puppetdb-port 5 catalog))
     (when report
-      (submit-report puppetdb-host puppetdb-port report))
+      (client/submit-report puppetdb-host puppetdb-port 3 report))
+    (when factset
+      (client/submit-facts puppetdb-host puppetdb-port 3 (json/generate-string factset)))
     (assoc state :catalog catalog)))
 
 (defn submit-n-messages
@@ -228,7 +252,8 @@
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
   [hosts num-msgs]
-  (printf "Sending %s messages for %s hosts, will exit upon completion" num-msgs hosts)
+  (log/info (format "Sending %s messages for %s hosts, will exit upon completion"
+                    num-msgs (count hosts)))
   (loop [mutated-hosts hosts
          msgs-to-send num-msgs]
     (when-not (zero? msgs-to-send)
@@ -269,13 +294,20 @@
   [hostname report]
   (assoc report "certname" hostname))
 
+(defn associate-factset-with-host
+  "Takes the given `factset` and transforms it to appear related to
+   `hostname`"
+  [hostname factset]
+  (assoc factset "name" hostname))
+
 (def supported-cli-options
   [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
+   ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
    ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
    ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"]
    ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation"]
-   ["-rp" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
+   ["-r" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
    ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"]])
 
 (def required-cli-options
@@ -284,7 +316,7 @@
 (defn- validate-cli!
   [args]
   (try+
-   (kitchensink/cli! args supported-cli-options required-cli-options)
+   (ks/cli! args supported-cli-options required-cli-options)
    (catch map? m
      (println (:message m))
      (case (:type m)
@@ -299,9 +331,9 @@
 
 (defn -main
   [& args]
-  (let [[options _]     (kitchensink/cli! args supported-cli-options required-cli-options)
+  (let [[options _]     (validate-cli! args)
         config          (-> (:config options)
-                            (kitchensink/inis-to-map)
+                            (ks/inis-to-map)
                             (get-in [:global :logging-config])
                             (logutils/configure-logging!))
 
@@ -309,12 +341,13 @@
 
         catalogs        (if (:catalogs options) (load-sample-data (:catalogs options)))
         reports         (if (:reports options) (load-sample-data (:reports options)))
+        facts           (if (:facts options) (load-sample-data (:facts options)))
 
         nhosts          (:numhosts options)
         hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
         hostname        (get-in config [:jetty :host] "localhost")
         port            (get-in config [:jetty :port] 8080)
-        rand-percentage (Integer/parseInt (:rand-perc options))
+        rand-percentage (Integer/parseInt (or (:rand-perc options) "0"))
 
         ;; Create an agent for each host
         hosts (mapv (fn [host]
@@ -325,13 +358,17 @@
                        :catalog (when catalogs
                                   (associate-catalog-with-host host (rand-nth catalogs)))
                        :report (when reports
-                                 (associate-report-with-host host (rand-nth reports)))})
+                                 (associate-report-with-host host (rand-nth reports)))
+                       :factset (when facts
+                                   (associate-factset-with-host host (rand-nth facts)))})
                     hostnames)]
 
     (when-not catalogs
       (log/info "No catalogs specified; skipping catalog submission"))
     (when-not reports
       (log/info "No reports specified; skipping report submission"))
+    (when-not facts
+      (log/info "No facts specified; skipping fact submission"))
     (if-let [num-cmds (:nummsgs options)]
       (submit-n-messages hosts (Long/valueOf num-cmds))
       (world-loop (mapv (fn [host-map]
