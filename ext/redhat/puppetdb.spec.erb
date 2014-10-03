@@ -215,6 +215,11 @@ useradd -r -g %{name} -d <%= @install_dir %> -s /sbin/nologin \
 export PATH=/opt/puppet/bin:$PATH
 <% end -%>
 %if 0%{?_with_systemd}
+# Reload the systemd units if this is an upgrade
+if [ "$1" = "2" ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || :
+    systemctl try-restart %{name}.service
+fi
 %if 0%{?fedora} || 0%{?rhel}
 %systemd_post %{name}.service
 %else
@@ -225,8 +230,13 @@ export PATH=/opt/puppet/bin:$PATH
 %else
 # If this is an install (as opposed to an upgrade)...
 if [ "$1" = "1" ]; then
-  # Register the puppetDB service
-  /sbin/chkconfig --add %{name}
+    # Register the puppetDB service
+    /sbin/chkconfig --add %{name}
+# If this is an upgrade, restart if we are already running
+elif [ "$1" = "2" ]; then
+    if /sbin/service %{name} status > /dev/null 2>&1; then
+        /sbin/service %{name} restart || :
+    fi
 fi
 %endif
 
