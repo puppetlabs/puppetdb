@@ -986,7 +986,9 @@
 
             (sql/do-prepared (format "DELETE FROM fact_paths fp
                                       WHERE fp.id in ( SELECT fp.id
-                                                       FROM fact_paths fp inner join fact_values fv on fp.id = fv.path_id
+                                                       FROM fact_paths fp
+                                                            inner join fact_values fv on fp.id = fv.path_id
+                                                            inner join facts f on fv.id = f.fact_value_id
                                                        WHERE fp.id in ( select fv.path_id from fact_values fv where fv.id %s )
                                                        GROUP BY fp.id
                                                        HAVING COUNT(fv.id) = 1)" in-list)
