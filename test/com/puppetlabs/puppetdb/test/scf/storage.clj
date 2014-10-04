@@ -82,7 +82,7 @@
                [{:name certname}])))
       (testing "producer-timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
-                [{:producer_timestamp nil}])))
+               [{:producer_timestamp nil}])))
       (testing "replacing facts"
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
