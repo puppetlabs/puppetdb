@@ -1,5 +1,7 @@
 [jetty]
-# Hostname or IP address to listen for clear-text HTTP.  Default is localhost
+# IP address or hostname to listen for clear-text HTTP. To avoid resolution
+# issues, IP addresses are recommended over hostnames.
+# Default is `localhost`.
 # host = <host>
 
 # Port to listen on for clear-text HTTP.
@@ -11,7 +13,9 @@ port = 8080
 # automatically with the tool `puppetdb ssl-setup`, which is normally
 # ran during package installation.
 
-# The host or IP address to listen on for HTTPS connections
+# IP address to listen on for HTTPS connections. Hostnames can also be used
+# but are not recommended to avoid DNS resolution issues. To listen on all
+# interfaces, use `0.0.0.0`.
 # ssl-host = <host>
 
 # The port to listen on for HTTPS connections
