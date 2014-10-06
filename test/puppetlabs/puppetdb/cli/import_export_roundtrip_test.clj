@@ -12,7 +12,6 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
-            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [clojure.walk :as walk]
@@ -20,6 +19,7 @@
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.tools.logging.impl :as li]
+            [puppetlabs.puppetdb.client :as pdb-client]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.testutils.jetty :as jutils]))
 
@@ -36,7 +36,7 @@
 (defn submit-command
   "Submits a command to the running PuppetDB, launched by `puppetdb-instance`."
   [cmd-kwd version payload]
-  (command/submit-command-via-http! "localhost" jutils/*port* (command-names cmd-kwd) version payload))
+  (pdb-client/submit-command-via-http! "localhost" jutils/*port* (command-names cmd-kwd) version payload))
 
 (defn block-until-results-fn
   "Executes `f`, if results are found, return them, otherwise
