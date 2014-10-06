@@ -482,7 +482,9 @@ The `[jetty]` section configures HTTP for PuppetDB.
 
 ### `host`
 
-This sets the hostname to listen on for _unencrypted_ HTTP traffic. If not supplied, we bind to `localhost`, which will reject connections from anywhere but the PuppetDB server itself. To listen on all available interfaces, use `0.0.0.0`.
+This sets the IP interface to listen on for _unencrypted_ HTTP traffic. If not supplied, we bind to `localhost`, which will reject connections from anywhere but the PuppetDB server itself. To listen on all available interfaces, use `0.0.0.0`.
+
+To avoid DNS resolution confusion, it is recommended that if you wish to set this to something other than `localhost` an IP address should be used instead of a hostname.
 
 > **Note:** Unencrypted HTTP is the only way to view the [performance dashboard][dashboard], since PuppetDB uses host verification for SSL. However, it can also be used to make any call to PuppetDB's API, including inserting exported resources and retrieving arbitrary data about your Puppet-managed nodes. **If you enable cleartext HTTP, you MUST configure your firewall to protect unverified access to PuppetDB.**
 
@@ -498,7 +500,9 @@ This sets the maximum number of threads assigned to responding to HTTP and HTTPS
 
 ### `ssl-host`
 
-This sets the hostname to listen on for _encrypted_ HTTPS traffic. If not supplied, we bind to `localhost`. To listen on all available interfaces, use `0.0.0.0`.
+This sets IP interface to listen on for _encrypted_ HTTPS traffic. If not supplied, we bind to `localhost`. To listen on all available interfaces, use `0.0.0.0`.
+
+To avoid DNS resolution confusion, it is recommended that if you wish to set this to something other than `localhost` an IP address should be used instead of a hostname.
 
 ### `ssl-port`
 

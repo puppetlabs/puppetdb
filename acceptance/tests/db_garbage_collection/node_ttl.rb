@@ -28,6 +28,10 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
     end
   end
 
+  step "ensure the queue is drained" do
+    sleep_until_queue_empty database
+  end
+
   step "Verify that the number of active nodes is what we expect" do
     result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
     result_node_statuses = JSON.parse(result.stdout)

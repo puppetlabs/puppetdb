@@ -970,7 +970,10 @@
   (when-not (scf-utils/index-exists? "fact_paths_path_trgm")
     (log/info "Creating additional index `fact_paths_path_trgm`")
     (sql/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"
+     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+  (when-not (scf-utils/index-exists? "fact_values_string_trgm")
+    (log/info "Creating additional index `fact_values_string_trgm`")
+    (sql/do-commands
      "CREATE INDEX fact_values_string_trgm ON fact_values USING gist (value_string gist_trgm_ops)")))
 
 (defn indexes!
