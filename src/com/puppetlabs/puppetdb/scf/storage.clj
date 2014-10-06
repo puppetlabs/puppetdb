@@ -973,7 +973,10 @@
 (pls/defn-validated delete-facts!
   "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
   ([certname :- String]
-     (sql/delete-rows :factsets ["certname=?" certname]))
+     (let [factset-value-ids (query-to-vec ["select id, fact_value_id from factsets fs inner join facts f on fs.id = f.factset_id where fs.certname = ?" certname])
+           factset-id (:id (first factset-value-ids))]
+       (delete-facts! factset-id (set (map :fact_value_id factset-value-ids)))
+       (sql/delete-rows :factsets ["id=?" factset-id])))
   ([factset :- s/Int
     fact-ids :- #{s/Int}]
      (when (seq fact-ids)
@@ -983,10 +986,11 @@
           (when (sutils/postgres?)
             (sql/do-commands "SET CONSTRAINTS ALL DEFERRED")
 
-
             (sql/do-prepared (format "DELETE FROM fact_paths fp
                                       WHERE fp.id in ( SELECT fp.id
-                                                       FROM fact_paths fp inner join fact_values fv on fp.id = fv.path_id
+                                                       FROM fact_paths fp
+                                                            inner join fact_values fv on fp.id = fv.path_id
+                                                            inner join facts f on fv.id = f.fact_value_id
                                                        WHERE fp.id in ( select fv.path_id from fact_values fv where fv.id %s )
                                                        GROUP BY fp.id
                                                        HAVING COUNT(fv.id) = 1)" in-list)
@@ -1032,10 +1036,10 @@
                        {:timestamp (to-timestamp timestamp)
                         :environment_id (ensure-environment environment)
                         :producer_timestamp (to-timestamp producer-timestamp)})
-    (utils/diff-fn (zipmap old-facts (repeat nil))
-                   (zipmap new-facts (repeat nil))
-                   #(delete-facts! factset %)
+    (utils/diff-fn (zipmap new-facts (repeat nil))
+                   (zipmap old-facts (repeat nil))
                    #(insert-facts! factset %)
+                   #(delete-facts! factset %)
                    identity)))
 
 (pls/defn-validated factset-timestamp :- (s/maybe pls/Timestamp)
