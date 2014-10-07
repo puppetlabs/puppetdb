@@ -207,14 +207,14 @@
       (when catalog
         (future
           (try
-            (client/submit-catalog puppetdb-host puppetdb-port 5 catalog)
+            (client/submit-catalog puppetdb-host puppetdb-port 5 (json/generate-string catalog))
             (log/info (format "[%s] submitted catalog" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit catalog: %s" host e))))))
       (when report
         (future
           (try
-            (client/submit-report puppetdb-host puppetdb-port 3 report)
+            (client/submit-report puppetdb-host puppetdb-port 3 (json/generate-string report))
             (log/info (format "[%s] submitted report" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit report: %s" host e))))))
@@ -240,9 +240,9 @@
         report (and report (update-report-run-fields report))
         factset (and factset (update-factset rand-percentage factset))]
     (when catalog
-      (client/submit-catalog puppetdb-host puppetdb-port 5 catalog))
+      (client/submit-catalog puppetdb-host puppetdb-port 5 (json/generate-string catalog)))
     (when report
-      (client/submit-report puppetdb-host puppetdb-port 3 report))
+      (client/submit-report puppetdb-host puppetdb-port 3 (json/generate-string report)))
     (when factset
       (client/submit-facts puppetdb-host puppetdb-port 3 (json/generate-string factset)))
     (assoc state :catalog catalog)))
