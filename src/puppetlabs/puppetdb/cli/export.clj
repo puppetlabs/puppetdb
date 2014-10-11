@@ -52,7 +52,7 @@
                                   (format
                                    "http://%s:%s/%s/catalogs/%s"
                                    host port (name version) node)
-                                  { :accept :json})]
+                                  {:accept :json})]
        (when (= status 200) body))))
 
 (pls/defn-validated catalog->tar :- utils/tar-item
@@ -94,7 +94,8 @@
                                {:accept :json})))]
        {:name node
         :values (:facts facts)
-        :environment (:environment facts)})))
+        :environment (:environment facts)
+        :producer-timestamp (:producer-timestamp facts)})))
 
 (pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"

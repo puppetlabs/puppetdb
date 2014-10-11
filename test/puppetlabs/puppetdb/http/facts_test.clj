@@ -1052,27 +1052,27 @@
                              :values facts1
                              :timestamp test-time
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer-timestamp test-time})
       (scf-store/add-facts! {:name  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer-timestamp (to-timestamp "2013-01-01")})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp test-time
                              :environment "PROD"
-                             :producer-timestamp nil})
+                             :producer-timestamp test-time})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
                              :timestamp test-time
                              :environment "PROD"
-                             :producer-timestamp nil})
+                             :producer-timestamp test-time})
       (scf-store/deactivate-node! "foo4"))))
 
 (defn factset-results
   [current-time]
-  (map #(utils/assoc-when % "timestamp" (to-string current-time))
+  (map #(utils/assoc-when % "timestamp" (to-string current-time) "producer-timestamp" (to-string current-time))
        [{"facts" {"domain" "testing.com", "uptime_seconds" "4000", "test#~delimiter" "foo",
                   "my_structured_fact" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"],
                                         "f" nil, "b" 3.14, "a" 1}},
@@ -1080,7 +1080,8 @@
         {"facts" {"uptime_seconds" "6000", "domain" "testing.com",
                   "my_structured_fact" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"],
                                         "a" 1, "e" "1"}},
-         "timestamp" "2013-01-01T00:00:00.000Z", "environment" "DEV", "certname" "foo2"}
+         "timestamp" "2013-01-01T00:00:00.000Z", "environment" "DEV", "certname" "foo2"
+         "producer-timestamp" "2013-01-01T00:00:00.000Z"}
         {"facts" {"domain" "testing.com", "operatingsystem" "Darwin",
                   "my_structured_fact" {"e" "1", "b" 3.14, "f" nil, "a" 1,
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
@@ -1093,7 +1094,8 @@
         expected-results (factset-results current-time)]
     (populate-for-structured-tests current-time)
     (testing "include total results count"
-      (let [actual (json/parse-string (slurp (:body (get-response endpoint nil {:include-total true}))))]
+      (let [actual (json/parse-string
+                     (slurp (:body (get-response endpoint nil {:include-total true}))))]
         (is (= (count actual) factset-count))))
 
     (testing "limit results"
@@ -1105,8 +1107,11 @@
     (testing "order-by"
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
-                        (:body (*app* (get-request endpoint nil
-                                                   {:order-by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
+                        (:body (*app*
+                                 (get-request endpoint nil
+                                              {:order-by (json/generate-string
+                                                           [{"field" "invalid-field"
+                                                             "order" "ASC"}])}))))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" (sort-by #(get % "certname") expected-results)]
                                   ["DESC" (reverse (sort-by #(get % "certname") expected-results))]]]
@@ -1121,8 +1126,19 @@
                                                              [["ASC" "DESC"]  [1 0 2]]
                                                              [["ASC" "ASC"]   [0 1 2]]]]
           (testing (format "environment %s certname %s" env-order certname-order)
-            (let [params {:order-by (json/generate-string [{"field" "environment" "order" env-order}
-                                                           {"field" "certname" "order" certname-order}])}
+            (let [params {:order-by
+                          (json/generate-string [{"field" "environment" "order" env-order}
+                                                 {"field" "certname" "order" certname-order}])}
+                  actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+              (is (= actual (map #(nth expected-results %) expected-order))))))
+        (doseq [[[pt-order certname-order] expected-order] [[["DESC" "ASC"]  [0 2 1]]
+                                                             [["DESC" "DESC"] [2 0 1]]
+                                                             [["ASC" "DESC"]  [1 2 0]]
+                                                             [["ASC" "ASC"]   [1 0 2]]]]
+          (testing (format "producer-timestamp %s certname %s" pt-order certname-order)
+            (let [params {:order-by
+                          (json/generate-string [{"field" "producer-timestamp" "order" pt-order}
+                                                 {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
               (is (= actual (map #(nth expected-results %) expected-order))))))))
 
@@ -1157,7 +1173,8 @@
     (testing "factset queries should return appropriate results"
       (let [queries [["=" "certname" "foo1"]
                      ["=" "environment" "DEV"]
-                     ["<" "timestamp" "2014-01-01"]]
+                     ["<" "timestamp" "2014-01-01"]
+                     ["<" "producer-timestamp" "2014-01-01"]]
             responses (map (comp json/parse-string
                                  slurp
                                  :body
@@ -1174,6 +1191,7 @@
                          "uptime_seconds" "4000"
                          "test#~delimiter" "foo"}
                 "timestamp" (to-string current-time)
+                "producer-timestamp" (to-string current-time)
                 "environment" "DEV"
                 "certname" "foo1"}))
         (is (= (into [] (nth responses 1))
@@ -1188,6 +1206,7 @@
                           "uptime_seconds" "4000"
                           "test#~delimiter" "foo"}
                  "timestamp" (to-string current-time)
+                "producer-timestamp" (to-string current-time)
                  "environment" "DEV"
                  "certname" "foo1"}
 
@@ -1200,6 +1219,7 @@
                           "domain" "testing.com"
                           "uptime_seconds" "6000"}
                  "timestamp" (to-string (to-timestamp "2013-01-01"))
+                 "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                  "environment" "DEV"
                  "certname" "foo2"}]))
         (is (= (into [] (nth responses 2))
@@ -1212,6 +1232,20 @@
                           "domain" "testing.com"
                           "uptime_seconds" "6000"}
                  "timestamp" (to-string (to-timestamp "2013-01-01"))
+                 "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
+                 "environment" "DEV"
+                 "certname" "foo2"}]))
+        (is (= (into [] (nth responses 3))
+               [{"facts" {"my_structured_fact"
+                          {"a" 1
+                           "b" 3.14
+                           "c" ["a" "b" "c"]
+                           "d" {"n" ""}
+                           "e" "1"}
+                          "domain" "testing.com"
+                          "uptime_seconds" "6000"}
+                 "timestamp" (to-string (to-timestamp "2013-01-01"))
+                 "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                  "environment" "DEV"
                  "certname" "foo2"}]))))))
 

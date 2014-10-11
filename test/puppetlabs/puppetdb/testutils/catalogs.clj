@@ -7,6 +7,7 @@
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-string]]
             [puppetlabs.puppetdb.testutils :refer [test-db]]
+            [schema.core :as s]
             [puppetlabs.puppetdb.fixtures :refer [*db*]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.catalogs :refer [catalog-version]]))
@@ -28,6 +29,15 @@
    calling update-in"
   [m ks f & args]
   (apply update-in m (remove nil? ks) f args))
+
+(defn canonical->wire-format
+  "Converts the `catalog` in the canonical format to the correct wire-format version.
+   Note that the wire format is still in keywords"
+  [version catalog]
+  (let [versioned-catalog (->> catalog
+                               (cats/canonical-catalog :all)
+                               (cats/canonical-catalog version))]
+    (s/validate (cats/catalog-wireformat version) versioned-catalog)))
 
 (defn munge-catalog-for-comparison* [catalog-root-key catalog]
   (-> catalog
@@ -101,7 +111,7 @@
    stringifies the keys and munges the catalog"
   [version catalog]
   (->> catalog
-       (cats/canonical->wire-format version)
+       (canonical->wire-format version)
        (munge-catalog-for-comparison version)))
 
 (defn replace-catalog

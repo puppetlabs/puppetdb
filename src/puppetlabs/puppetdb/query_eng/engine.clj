@@ -277,9 +277,10 @@
                          "value_float" :number
                          "value_integer" :number
                          "environment" :string
+                         "\"producer-timestamp\"" :timestamp
                          "type" :string}
                :alias "factsets"
-               :queryable-fields ["certname" "environment" "timestamp"]
+               :queryable-fields ["certname" "environment" "timestamp" "producer-timestamp"]
                :entity :factsets
                :source-table "factsets"
                :subquery? false
@@ -290,6 +291,7 @@
                                fact_values.value_integer as value_integer,
                                fact_values.value_float as value_float,
                                factsets.certname,
+                               factsets.producer_timestamp as \"producer-timestamp\",
                                environments.name as environment,
                                value_types.type
                         FROM factsets
@@ -756,9 +758,13 @@
   "Convert field names with dashes to underscores"
   [node state]
   (cm/match [node]
+            [[(op :guard binary-operators) (field :guard #(contains?
+                                                            #{"producer-timestamp"
+                                                             :producer-timestamp} %)) value]]
+            {:node (with-meta [op (str \" (name field) \") value] (meta node)) :state state}
             [[(op :guard binary-operators) (field :guard string?) value]]
             {:node (with-meta [op (jdbc/dashes->underscores field) value]
-                     (meta node))
+                              (meta node))
              :state state}
             :else {:node node :state state}))
 

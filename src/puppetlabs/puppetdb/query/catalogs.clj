@@ -6,6 +6,7 @@
   (:require [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.catalogs :as cats]
+            [schema.core :as s]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
@@ -97,9 +98,44 @@
        :api_version api_version
        :producer-timestamp producer-timestamp})))
 
+(defn catalog-response-schema
+  "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
+  [api-version]
+  (case api-version
+    :v4 (cats/catalog-wireformat :v5)
+    (cats/catalog-wireformat api-version)))
+
+(defn validate-api-catalog
+  [api-version catalog]
+  (case api-version
+    :v4 (cats/canonical-catalog :v5 catalog)
+   (cats/canonical-catalog api-version catalog)))
+
+(pls/defn-validated validate-api-catalog
+  "Converts `catalog` to `version` in the canonical format, adding
+   and removing keys as needed"
+  [api-version catalog]
+  (let [target-schema (catalog-response-schema api-version)
+        strip-keys #(pls/strip-unknown-keys target-schema %)]
+    (s/validate target-schema
+                (case api-version
+                  :v1 (-> catalog
+                          (dissoc :transaction-uuid :environment :producer-timestamp)
+                          cats/old-wire-format-schema)
+                  :v2 (-> catalog
+                          (dissoc :transaction-uuid :environment :producer-timestamp)
+                          cats/old-wire-format-schema
+                          strip-keys)
+                  :v3 (-> catalog
+                          (dissoc :environment :producer-timestamp)
+                          cats/old-wire-format-schema
+                          strip-keys)
+                  :v4 (strip-keys (dissoc catalog :api_version))
+                  (strip-keys (dissoc catalog :api_version))))))
+
 (pls/defn-validated catalog-for-node
   "Retrieve the catalog for `node`."
   [version node]
   {:pre  [(string? node)]}
   (when-let [catalog (get-full-catalog version node)]
-    (cats/canonical-catalog version catalog)))
+    (validate-api-catalog version catalog)))
