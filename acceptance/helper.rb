@@ -35,6 +35,7 @@ module PuppetDBExtensions
             [:true, :false], "'validate package version'",
             "PUPPETDB_VALIDATE_PACKAGE_VERSION", :true)
 
+    # TODO: probably need to remove this at some point
     expected_rpm_version =
         get_option_value(options[:puppetdb_expected_rpm_version],
             nil, "'expected RPM package version'",
@@ -76,6 +77,11 @@ module PuppetDBExtensions
           "PUPPETDB_PACKAGE_REPO_URL",
           "http://#{package_repo_host}/dev/puppetdb/master")
 
+    package_build_version =
+      get_option_value(options[:puppetdb_package_build_version],
+        nil, "'package build version'",
+        "PUPPETDB_PACKAGE_BUILD_VERSION", nil)
+
     puppetdb_repo_puppet = get_option_value(options[:puppetdb_repo_puppet],
       nil, "git repo for puppet source installs", "PUPPETDB_REPO_PUPPET", nil)
 
@@ -106,6 +112,7 @@ module PuppetDBExtensions
       :package_build_host => package_build_host,
       :package_repo_host => package_repo_host,
       :package_repo_url => package_repo_url,
+      :package_build_version => package_build_version,
       :repo_puppet => puppetdb_repo_puppet,
       :repo_hiera => puppetdb_repo_hiera,
       :repo_facter => puppetdb_repo_facter,
@@ -215,7 +222,7 @@ module PuppetDBExtensions
 
   def puppetdb_pids(host)
     java_bin = "java"
-    jar_file = "puppetdb.jar"
+    jar_file = "puppetdb-release.jar"
     result = on host, %Q(ps -ef | grep "#{java_bin}" | grep "#{jar_file}" | grep " services -c " | awk '{print $2}')
     pids = result.stdout.chomp.split("\n")
     Beaker::Log.notify "PuppetDB PIDs appear to be: '#{pids}'"
@@ -250,16 +257,16 @@ module PuppetDBExtensions
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
     if host['platform'].include?('el-5')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el5"
     elsif host['platform'].include?('el-6')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el6"
     elsif host['platform'].include?('el-7')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el7"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el7"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.fc#{version_tag}"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{PuppetDBExtensions.config[:expected_deb_version]}"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1puppetlabs1"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end

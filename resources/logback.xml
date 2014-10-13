@@ -7,9 +7,9 @@
 
     <!-- Silence particularly noisy packages -->
     <logger name="org.apache.activemq" level="warn"/>
-    <logger name="org.springframework.jms.connection" level="warn"/>
     <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
         level="info"/>
+    <logger name="org.springframework.jms.connection" level="warn"/>
 
     <!-- turn on to see verbose storage activity -->
     <!--

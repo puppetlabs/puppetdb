@@ -65,7 +65,6 @@
             [overtone.at-at :refer [mk-pool interspaced]]
             [puppetlabs.puppetdb.time :refer [to-secs to-millis parse-period format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
-            [puppetlabs.puppetdb.repl :refer [start-repl]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]))
@@ -321,11 +320,6 @@
         (gc-task #(apply perform-db-maintenance! write-db (remove nil? db-maintenance-tasks)))
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
 
-      ;; Start debug REPL if necessary
-      (let [{:keys [enabled type host port] :or {type "nrepl" host "localhost"}} (:repl config)]
-        (when (kitchensink/true-str? enabled)
-          (log/warn (format "Starting %s server on port %d" type port))
-          (start-repl type host port)))
       (assoc context :shared-globals globals))))
 
 (defprotocol PuppetDBServer

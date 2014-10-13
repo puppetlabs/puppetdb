@@ -634,29 +634,21 @@ complete before actually shutting down. New requests will be blocked during this
 
 This sets the maximum size of an HTTP Request Header. If a header is sent that exceeds this value, Jetty will return an HTTP 413 Error response. This defaults to 8192 bytes, and only needs to be configured if an exceedingly large header is being sent in an HTTP Request.
 
-`[repl]` Settings
+`[nrepl]` Settings
 -----
 
-The `[repl]` section configures remote runtime modification.  For more detailed info, see [Debugging with the Remote REPL][repl].
+The `[nrepl]` section configures remote runtime modification.  For more detailed info, see [Debugging with the Remote REPL][repl].
 
 Enabling a remote [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) allows you to manipulate the behavior of PuppetDB at runtime. This should only be done for debugging purposes, and is thus disabled by default. An example configuration stanza:
 
-    [repl]
-    enabled = true
+    [nrepl]
     type = nrepl
     port = 8081
+    host = 127.0.0.1
 
 ### `enabled`
 
 Set to `true` to enable the REPL. Defaults to false.
-
-### `type`
-
-Either `nrepl` or `telnet`.
-
-The _telnet_ repl type opens up a socket you can connect to via telnet. The interface is pretty low-level and raw (no completion or command history), but it is nonetheless usable on just about any system without the need of any external tools other than telnet itself.
-
-The _nrepl_ repl type opens up a socket you can connect to via any nrepl-protocol client, such as via [Leiningen](https://github.com/technomancy/leiningen) using `lein repl :connect localhost:8082` or via Emacs (via `M-x nrepl`), Vim, or integration with other editors like Netbeans or Eclipse. This is much more user-friendly than telnet.
 
 ### `port`
 

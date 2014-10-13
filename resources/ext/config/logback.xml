@@ -1,0 +1,38 @@
+<configuration scan="true">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="F1" class="ch.qos.logback.core.FileAppender">
+        <file>/var/log/puppetdb/puppetdb.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Supress internal ActiveMQ logging -->
+    <logger name="org.apache.activemq" level="warn"/>
+
+    <!-- Supress internal Spring Framework logging -->
+    <logger name="org.springframework.jms.connection" level="warn"/>
+
+    <!-- Lower the log level for ActiveMQ KahaDB MessageDatabase -->
+    <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
+        level="info"/>
+
+    <!-- turn on to see verbose storage activity -->
+    <!--
+    <logger name="com.puppetlabs.puppetdb.scf.storage" level="debug"/>
+    -->
+
+    <!-- Info level provides migration and index creation information -->
+    <logger name="com.puppetlabs.puppetdb.scf.migrate" level="info"/>
+
+    <root level="info">
+        <!-- <appender-ref ref="STDOUT" /> -->
+        <appender-ref ref="F1" />
+    </root>
+</configuration>
