@@ -34,6 +34,10 @@ See [the Operators page.](./operators.html)
 * `environment` (string): the environment associated with the fact
 * `timestamp` (string): the most recent time of fact submission from the
    associated certname
+* `producer-timestamp` (string): the most recent time of fact submission for
+  the relevant certname from the master. Generation of this field will
+  be pushed back to the agent in a later release, so it should not be relied on
+  in its current form (use the `timestamp` field instead.)
 
 ### Response Format
 
@@ -47,6 +51,7 @@ the form:
       "certname": <node name>,
       "environment": <node environment>,
       "timestamp": <time of last fact submission>,
+      "producer-timestamp": <time of command submission from master>,
       "facts": <facts for node>
     }
 
@@ -82,6 +87,7 @@ which returns
 
       },
       "timestamp" : "2014-07-25T16:39:06.265Z",
+      "producer-timestamp" : "2014-07-25T16:39:06.265Z",
       "environment" : "production",
       "certname" : "desktop.localdomain"
     } ]
