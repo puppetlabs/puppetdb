@@ -4,6 +4,151 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+2.2.1
+-----
+
+PuppetDB 2.2.1 consists of bug fixes and documentation updates and is
+backwards compatible with PuppetDB 2.2.0.
+
+### Before Upgrading
+
+* For best-possible performance and scaling capacity, we recommend using the latest version of PostgreSQL (9.3 or higher).
+We have officially deprecated PostgreSQL 9.1 and below. If you are using HSQLDB for production,
+we also recommended switching to PostgreSQL at least 9.3, as HSQLDB has a number of scaling
+and operational issues and is only recommended for testing and proof of concept installations.
+
+* For PostgreSQL 9.3 we advise that users install the PostgreSQL extension `pg_trgm` for increased
+indexing performance for regular expression queries. Using the command `create extension pg_trgm`
+as PostgreSQL super-user and before starting PuppetDB will allow these new indexes to be created.
+
+* Ensure during a package upgrade that you analyze any changed configuration files. For Debian
+you will receive warnings when upgrading interactively about these files, and for RedHat based
+distributions you will find that the RPM drops .rpmnew files that you should diff and ensure
+that any new content is merged into your existing configuration.
+
+* Make sure all your PuppetDB instances are shut down and only upgrade one at a time.
+
+* As usual, don't forget to also upgrade your puppetdb-terminus package
+(on the host where your Puppet Master lives), and restart your
+master service.
+
+* If you receive the error "Could not open
+/etc/puppet/log4j.properties" or "Problem parsing XML document",
+this is because we have changed the packaged config.ini to point at a new logging configuration file:
+logback.xml. However during package installation some package managers
+will cowardly refuse to just update config.ini, this in particular
+affects RPM. After upgrading you should ensure any .rpmnew files are
+reviewed and that changes to our vendored version are now merged with
+your version of config.ini on disk. See
+[PDB-656](https://tickets.puppetlabs.com/browse/PDB-656) for more details.
+
+* If you are running Ubuntu 12.04 and Ruby 1.9.3-p0 you may find
+that you will sometimes receive the error "idle timeout expired" in your
+Puppet agent/master logs and your PuppetDB logs. This is due to a bug
+in that version of Ruby in particular. See
+[PDB-686](https://tickets.puppetlabs.com/browse/PDB-686) for more details.
+
+### Contributors
+
+Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Alt.
+
+#### Database and Performance
+
+* [PDB-900](https://tickets.puppetlabs.com/browse/PDB-900) Make performance improvements to fact values GC process
+
+    Switched from a background thread to cleanup orphaned fact_values to one
+    that deletes as it goes. Switching to deferred constraints also
+    significantly improved performance on PostgreSQL. Deferred constrains are
+    not available in HSQLDB, but since HSQLDB is unlikely to be running at the
+    scale that will surface the issue, simply switching to delete-as-you-go
+    should be sufficient to mitigate the issue to the extent that HSQL
+    installations are affected.
+
+### Bug Fixes and Maintenance
+
+* [PDB-847](https://tickets.puppetlabs.com/browse/PDB-847) remove GlobalCheck for PE compatibility
+
+    This patch deletes the GlobalCheck method that ran before each call to
+    the PDB indirectors to check that the running version of Puppet was greater
+    than 3.5. The check is redundant because Puppet 3.5 is a requirement for
+    puppetdb-terminus and was causing a bug by mis-parsing PE semvers.
+
+* [PDB-707](https://tickets.puppetlabs.com/browse/PDB-707) The first request to PuppetDB after DB backend restart fails
+
+    This patch adds retry handling for 57P01 failures, which result in an
+    PSQLException with a status code of 08003. The patch has been made
+    forward compatible by catching all SQLExceptions with this status code.
+
+    Version 0.8.0-RELEASE of Bonecp does not throw the correct sql state code
+    today, however a patch has been raised to make this happen so we can
+    upgrade to this version in the future.
+
+* [PDB-653](https://tickets.puppetlabs.com/browse/PDB-653) DLO metrics don't update on PDB startup
+
+    Previously, the DLO metrics only updated on a failed command submission, which
+    meant restarting PDB would blank the metrics until the next failure. This patch
+    initializes DLO metrics on PDB startup if the DLO directory, which is created
+    on first failure, already exists.
+
+* [PDB-865](https://tickets.puppetlabs.com/browse/PDB-865) PDB 2.2 migration fails when nodes have no facts
+
+    This patch handles an error that occurs if a user attempts the 2.2 upgrade
+    with nodes that have no associated facts in the database, and adds some
+    additional testing around the migration.
+
+* [PDB-868](https://tickets.puppetlabs.com/browse/PDB-868) Add exponential backoffs for db retry logic
+
+    This patch increases the number of retries and adds exponential backoff
+    logic to avoid the case where the database is still throwing errors for a short
+    period of time. This commonly occurs during database restarts.
+
+* [PDB-905](https://tickets.puppetlabs.com/browse/PDB-905) Fix containment-path for skipped events
+
+    We had removed some < v4 reporting code as part of the last release, but I had
+    also accidentally removed containment-path for skipped events. This was an
+    effort to drop older Puppet support basically.
+
+    This patch fixes that problem, and fixes the tests.
+
+    I've also cleaned up a couple of other typos and style items, plus
+    removed one more case of < v4 report format checking.
+
+* [PDB-904](https://tickets.puppetlabs.com/browse/PDB-904) Switch fact_values.value_string trgm index to be GIN not GIST 
+
+    There were reports of crashing due to a bug in pg_trgm indexing when a
+    large fact value was loaded into PuppetDB.
+
+    This patch removes the old index via migration, and will then replace it
+    with the index handling mechanism.
+
+* Add thread names to logging
+
+    This patch adds thread names to the various logback.xml configuration files
+    in this project. This provides us with better traceability when attempting
+    to understand where a log message came from.
+
+### Documentation
+
+* [DOCUMENT-18](https://tickets.puppetlabs.com/browse/DOCUMENT-18) Mention DLO cleanup in docs
+
+* [PDB-347](https://tickets.puppetlabs.com/browse/PDB-347) Add docs for new CRL and cert-chain TK features 
+
+* Updated contributor link to https://cla.puppetlabs.com/
+
+### Testing
+
+* [PDB-13](https://tickets.puppetlabs.com/browse/PDB-13) Add acceptance test for Debian Wheezy
+
+    This patch adds Debian Wheezy to our acceptance tests.
+
+* Allow beaker rake task to accept preserve-hosts options
+
+    In the past it just allowed true/false, but the current beaker accepts a series
+    of options, including 'onfail'. This change passes through the value specified
+    in the environment variable BEAKER_PRESERVE_HOSTS.
+
+* Remove deprecated open_postgres_port option from puppetdb helper class
+
 2.2.0
 -----
 
@@ -35,12 +180,12 @@ that any new content is merged into your existing configuration.
 
 * Make sure all your PuppetDB instances are shut down and only upgrade one at a time.
 
-* As usual, don’t forget to upgrade your puppetdb-terminus package
+* As usual, don't forget to upgrade your puppetdb-terminus package
 also (on the host where your Puppet Master lives), and restart your
 master service.
 
-* If you receive the error “Could not open
-/etc/puppet/log4j.properties” or "Problem parsing XML document",
+* If you receive the error "Could not open
+/etc/puppet/log4j.properties" or "Problem parsing XML document",
 this is because we have changed the packaged config.ini to point at a new logging configuration file:
 logback.xml. However during package installation some package managers
 will cowardly refuse to just update config.ini, this in particular
@@ -264,8 +409,8 @@ PuppetDB terminus to 2.1.0 when upgrading the PuppetDB instance to
 
 Things to take note of before upgrading:
 
-* If you receive the error “Could not open
-/etc/puppet/log4j.properties” or "Problem parsing XML document",
+* If you receive the error "Could not open
+/etc/puppet/log4j.properties" or "Problem parsing XML document",
 this is because we have changed the packaged config.ini to point at a new logging configuration file:
 logback.xml. However during package installation some package managers
 will cowardly refuse to just update config.ini, this in particular
@@ -283,7 +428,7 @@ in that version of Ruby in particular. See
 * Make sure all your PuppetDB instances are shut down and only upgrade
 one at a time.
 
-* As usual, don’t forget to upgrade your puppetdb-terminus package
+* As usual, don't forget to upgrade your puppetdb-terminus package
 also (on the host where your Puppet Master lives), and restart your
 master service.
 
@@ -487,8 +632,8 @@ breaking changes" section below for more information.
 
 Things to take note of before upgrading:
 
-* If you receive the error “Could not open
-/etc/puppet/log4j.properties” or "Problem parsing XML document",
+* If you receive the error "Could not open
+/etc/puppet/log4j.properties" or "Problem parsing XML document",
 this is because we have changed the packaged config.ini to point at a new logging configuration file:
 logback.xml. However during package installation some package managers
 will cowardly refuse to just update config.ini, this in particular
