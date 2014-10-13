@@ -1,9 +1,16 @@
 #!/bin/bash -e
 
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"
-rvm use $ruby$gemset
+echo "**********************************************"
+echo "PARAMS FROM UPSTREAM:"
+echo ""
+echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
+echo "GEM_SOURCE: ${GEM_SOURCE}"
+echo "SHIP_NIGHTLY: ${SHIP_NIGHTLY}"
+echo "REPO_URL: ${REPO_URL}"
+echo "**********************************************"
 
-set -x
+[[ -s "/usr/local/rvm/scripts/rvm" ]] && source "/usr/local/rvm/scripts/rvm"
+rvm use $ruby
 
 # Remove old vendor directory to ensure we have a clean slate
 if [ -d "vendor" ];
@@ -12,29 +19,7 @@ then
 fi
 mkdir vendor
 
-# Lets install the gems in bundle
-if [ "$ruby" != "ruby-1.8.5" ];
-then
-  bundle install --path vendor/bundle --without acceptance
-  BUNDLE_PREFIX="bundle exec"
-fi
-
-echo "**********************************************"
-echo "RUNNING SPECS; PARAMS FROM UPSTREAM BUILD:"
-echo ""
-echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
-echo "**********************************************"
-
-export RUBYLIB=$RUBYLIB:`pwd`/puppet/lib
-
-cat >/tmp/force_gc.rb <<RUBY
-def GC.disable; end
-class RSpec::Core::Configuration
-  def exclusion_filter=(filter)
-    settings[:exclusion_filter].merge!(filter)
-  end
-end
-RUBY
+bundle install --path vendor/bundle --without acceptance
 
 cd puppet
-$BUNDLE_PREFIX rspec spec -r /tmp/force_gc.rb -fd --tag "~@fails_on_${ruby/-/_}"
+bundle exec rspec spec -fd

@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/api/index.html"
 ---
 
 [commands]: ./commands.html
-[terminus]: ../connect_puppet_master.html
+[termini]: ../connect_puppet_master.html
 
 Since PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.
 
@@ -96,7 +96,7 @@ PuppetDB supports a relatively small number of commands. The command submission 
 
 * [Commands (all commands, all API versions)][commands]
 
-Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB terminus plugins][terminus] on your puppet master.
+Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB termini][termini] on your puppet master.
 
 The "replace" commands all require data in one of the wire formats described below.
 

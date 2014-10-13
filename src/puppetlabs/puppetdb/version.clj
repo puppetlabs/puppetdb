@@ -17,7 +17,7 @@
   "Get the version number of this PuppetDB installation."
   []
   {:post [(string? %)]}
-  (version/get-version "puppetdb" "puppetdb"))
+  (version/get-version "puppetlabs" "puppetdb"))
 
 (def version
   "Get the version number of this PuppetDB installation."

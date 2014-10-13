@@ -10,7 +10,7 @@ if (test_config[:install_type] == :package)
       when :debian
         result = on database, "lsb_release -sc"
         deb_flavor = result.stdout.chomp
-        apt_list_url = "#{test_config[:package_repo_url]}/repo_configs/deb/pl-puppetdb-#{test_config[:git_ref]}-#{deb_flavor}.list"
+        apt_list_url = "#{test_config[:package_repo_url]}/repo_configs/deb/pl-puppetdb-#{test_config[:package_build_version]}-#{deb_flavor}.list"
         apt_list_file_path = "/etc/apt/sources.list.d/puppetdb-prerelease.list"
         on database, "curl \"#{apt_list_url}\" | #{sed_cmd} > #{apt_list_file_path}"
         result = on database, "cat #{apt_list_file_path}"
@@ -18,7 +18,7 @@ if (test_config[:install_type] == :package)
         on database, "apt-get update"
       when :redhat
         el_version = db_facts["operatingsystemmajrelease"]
-        yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-el-#{el_version}-x86_64.repo"
+        yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:package_build_version]}-el-#{el_version}-x86_64.repo"
         yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
         on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
 
@@ -26,7 +26,7 @@ if (test_config[:install_type] == :package)
         Log.notify("Yum REPO DEFINITION:\n\n#{result.stdout}\n\n")
       when :fedora
         version = db_facts["operatingsystemrelease"]
-        yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-fedora-f#{version}-x86_64.repo"
+        yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:package_build_version]}-fedora-f#{version}-x86_64.repo"
         yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
         on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
 

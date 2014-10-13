@@ -30,7 +30,7 @@ You will need to take the following steps to configure your standalone nodes to 
 
 ## Step 1: Configure SSL
 
-PuppetDB requires client authentication for its SSL connections and the PuppetDB terminus plugins require SSL to talk to PuppetDB. You must configure Puppet and PuppetDB to work around this double-bind by using one of the following options:
+PuppetDB requires client authentication for its SSL connections and the PuppetDB termini require SSL to talk to PuppetDB. You must configure Puppet and PuppetDB to work around this double-bind by using one of the following options:
 
 ### Option A: Set Up an SSL Proxy for PuppetDB
 
@@ -54,10 +54,10 @@ You will have to sign a certificate for every new node you add to your site.
 Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
 * First, ensure that the appropriate Puppet Labs package repository ([Puppet Enterprise](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories), or [open source](/guides/puppetlabs_package_repositories.html#open-source-repositories)) is enabled. You can use a [package][] resource to do this or use the apt::source (from the [puppetlabs-apt][apt] module) and [yumrepo][] types.
-* Next, use Puppet to ensure that the `puppetdb-terminus` package is installed:
+* Next, use Puppet to ensure that the `puppetdb-termini` package is installed:
 
 {% highlight ruby %}
-    package {'puppetdb-terminus':
+    package { 'puppetdb-termini':
       ensure => installed,
     }
 {% endhighlight %}
@@ -76,7 +76,7 @@ If your puppet master isn't running Puppet from a supported package, you will ne
     class puppetdb::terminus {
       $puppetdir = "$rubysitedir/puppet"
 
-      file {$puppetdir:
+      file { $puppetdir:
         ensure => directory,
         recurse => remote, # Copy these files without deleting the existing files
         source => "puppet:///modules/puppetdb/puppet",
@@ -101,7 +101,7 @@ You can specify the contents of [puppetdb.conf][puppetdb_conf] directly in your 
 
 PuppetDB's port for secure traffic defaults to 8081. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
 
-For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB terminus to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
+For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB termini to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
 If no puppetdb.conf file exists, the following default values will be used:
 
