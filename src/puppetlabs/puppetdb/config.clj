@@ -336,15 +336,16 @@
    In particular:
    * Move certificate-whitelist from [jetty] to [global]"
   [config-data]
-  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
-    (do
-      ;; Log to stderr, logging is not yet initialized (and may never be).
-      (binding [*out* *err*]
+  (let [config-data (assoc-in config-data [:jetty :ssl-protocols] ["TLSv1" "TLSv1.1" "TLSv1.2"])]
+    (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
+      (do
+        ;; Log to stderr, logging is not yet initialized (and may never be).
+        (binding [*out* *err*]
           (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
-      (-> config-data
-          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
-          (assoc-in [:puppetdb :certificate-whitelist] cw)))
-    config-data))
+        (-> config-data
+            (kitchensink/dissoc-in [:jetty :certificate-whitelist])
+            (assoc-in [:puppetdb :certificate-whitelist] cw)))
+      config-data)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
