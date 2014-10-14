@@ -1,6 +1,6 @@
 require 'puppet/error'
-require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/http'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
 require 'json'
@@ -44,9 +44,9 @@ class Puppet::Util::Puppetdb::Command
 
     begin
       response = profile "Submit command HTTP post" do
-        http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
-        http.post(Puppet::Util::Puppetdb.url_path(CommandsUrl + "?checksum=#{checksum}"),
-                  payload, headers)
+        Http.action("#{CommandsUrl}?checksum=#{checksum}") do |http_instance, path|
+          http_instance.post(path, payload, headers)
+        end
       end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
@@ -65,9 +65,8 @@ class Puppet::Util::Puppetdb::Command
         end
       end
     rescue => e
-      error = "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
       if config.soft_write_failure
-        Puppet.err error
+        Puppet.err e.message
       else
         # TODO: Use new exception handling methods from Puppet 3.0 here as soon as
         #  we are able to do so (can't call them yet w/o breaking backwards
@@ -75,7 +74,7 @@ class Puppet::Util::Puppetdb::Command
         #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
         #  we lose context as to where the original exception occurred.
         puts e, e.backtrace if Puppet[:trace]
-        raise Puppet::Error, error
+        raise Puppet::Util::Puppetdb::CommandSubmissionError.new(e.message, {:command => command, :for_whom => for_whom})
       end
     end
   end

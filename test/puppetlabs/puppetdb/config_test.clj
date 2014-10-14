@@ -8,8 +8,8 @@
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.testutils :as tu]
-            [fs.core :as fs]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [fs.core :as fs]))
 
 (deftest commandproc-configuration
   (testing "should throw an error on unrecognized config options"
@@ -200,7 +200,7 @@
 
   (doseq [product-name ["PUPPETDB" "PE-PUPPETDB" "PuppetDB" "PE-PuppetDB"]]
     (testing (format "should accept %s and return it lower-cased" product-name)
-      (is (= (clojure.string/lower-case product-name)
+      (is (= (str/lower-case product-name)
              (normalize-product-name product-name)))))
 
   (testing "should disallow anything else"

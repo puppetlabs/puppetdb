@@ -59,8 +59,14 @@ describe Puppet::Util::Puppetdb::Command do
       let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
 
       it "should make a request to the correct url" do
-        config = Puppet::Util::Puppetdb.config
-        config.stubs(:url_prefix).returns "/puppetdb"
+        tempconfig = Tempfile.new('config')
+        File.open(tempconfig.path, 'w') {|f| f.write('[main]
+url_prefix = /puppetdb
+server = puppetdb
+port = 8081
+soft_write_failure = false
+ignore_blacklisted_events = true') }
+        config = Puppet::Util::Puppetdb::Config.load(tempconfig.path)
         Puppet::Util::Puppetdb.expects(:config).at_least_once.returns(config)
 
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
