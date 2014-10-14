@@ -54,25 +54,33 @@ step "Install rubygems and sqlite3 on master" do
 
   case os
   when :redhat
-    if master['platform'].include? 'el-5'
+    case master['platform']
+    when /^el-5/
       on master, "yum install -y rubygems sqlite-devel rubygem-activerecord ruby-devel.x86_64"
       on master, "gem install sqlite3"
-    else
+    when /^el-6/
       on master, "yum install -y rubygems ruby-sqlite3 rubygem-activerecord"
+    else
+      # EL7 very much matches what Fedora 20 uses
+      on master, "yum install -y rubygems rubygem-sqlite3"
+      on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
     end
   when :fedora
+    # This was really set with Fedora 20 in mind, later versions might differ
     on master, "yum install -y rubygems rubygem-sqlite3"
     on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
   when :debian
-    # Ubuntu has rubygems 1.3.5 which is known to not be reliable, so therefore
-    # we skip.
-    unless master['platform'].include? 'ubuntu-10.04-amd64'
+    case master['platform']
+    when /^ubuntu-10.04/
+      # Ubuntu 10.04 has rubygems 1.3.5 which is known to not be reliable, so therefore
+      # we skip.
+    else
       on master, "apt-get install -y rubygems ruby-dev libsqlite3-dev"
       on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
       on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
     end
   else
-    raise ArgumentError, "Unsupported OS '#{os}'"
+    raise ArgumentError, "Unsupported OS: '#{os}'"
   end
 
   # Make sure there isn't a gemrc file, because that could ruin our day.
