@@ -24,10 +24,23 @@ This endpoint does not use any URL parameters or query strings.
 Successful responses will be in `application/json`. Errors will be returned as
 non-JSON strings.
 
-The result will be a JSON map, with a `metadata` key and a `data` key.  The value
-of the `data` key is another map, containing the keys `name`, `version`,
-`transaction-uuid`, `edges`, and `resources`.  For more details on any of this
-data, please refer to the [catalog wire format][catalog].
+The result will be a JSON map with the following fields:
+* `name`: the certname associated with the catalog
+* `version`: an arbitrary string that uniquely identifies each catalog for a
+  node
+* `environment`: the environment associated with the catalog's certname
+* `transaction-uuid`: a string used to tie a catalog to a report from the same
+  puppet run
+* `producer-timestamp`: a string representing the time at which the
+  `replace-catalog` command for a given catalog was submitted from the master.
+  Generation of this field will be pushed back to the agent in a later release, so it
+  should not be relied on in its current form.
+* `resources`: a list of resource objects, containing every resource in the
+  catalog
+* `edges`: a list of edge objects, representing relationships between
+  resources
+
+**Note**: For more details refer to the [catalog wire format][catalog].
 
 ### Examples
 
@@ -37,13 +50,11 @@ data, please refer to the [catalog wire format][catalog].
       "name" : "yo.delivery.puppetlabs.net",
       "version" : "e4c339f",
       "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+      "producer-timestamp": "2014-10-13T20:46:00.000Z",
       "environment" : "production",
       "edges" : [...],
-      "resources" : [...],
+      "resources" : [...]
     }
-
-**Note:** the `edges` and `resources` fields above will be populated with data
-conforming to the [catalog wire format][catalog].
 
 ## No Paging
 
