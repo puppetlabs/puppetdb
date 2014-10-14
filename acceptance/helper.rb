@@ -253,6 +253,8 @@ module PuppetDBExtensions
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
     elsif host['platform'].include?('el-6')
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
+    elsif host['platform'].include?('el-7')
+      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el7"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
       "#{PuppetDBExtensions.config[:expected_rpm_version]}.fc#{version_tag}"
