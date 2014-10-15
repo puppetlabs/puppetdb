@@ -551,11 +551,11 @@ EOS
 
   def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
     desired_exit_codes = [desired_exit_codes].flatten
-    result = on host, "curl #{curl_args}", :acceptable_exit_codes => (0...127)
+    result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
     num_retries = 0
     until desired_exit_codes.include?(exit_code) and (result.stdout =~ expected_output)
       sleep retry_interval
-      result = on host, "curl #{curl_args}", :acceptable_exit_codes => (0...127)
+      result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
       num_retries += 1
       if (num_retries > max_retries)
         fail("Unable to #{desc}")
