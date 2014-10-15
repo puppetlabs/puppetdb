@@ -543,11 +543,9 @@ If not supplied, PuppetDB uses the default cipher suites for your local system o
 
 ### `ssl-protocols`
 
-Optional. A comma-separated list of protocols to allow for incoming SSL connections. Valid names are listed in the [official JDK cryptographic protocol documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider); you'll need to use the names with verbatim capitalization. For example: `SSLv3, TLSv1, TLSv1.1, TLSv1.2`.
+Optional. A comma-separated list of protocols to allow for incoming SSL connections. Valid names are listed in the [official JDK cryptographic protocol documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider); you'll need to use the names with verbatim capitalization. For example: `TLSv1, TLSv1.1, TLSv1.2`.
 
-If not supplied, PuppetDB uses the default SSL protocols for your local system.
-
-> **Note:** This setting is only effective when PuppetDB is running with Java version 1.7 or better.
+If not supplied, PuppetDB uses a default of `TLSv1, TLSv1.1, TLSv1.2`. By default SSLv3 is not included in that list due to known vulnerabilities. Users wanting to use SSLv3 need to specify it in their list explicitly.
 
 `[repl]` Settings
 -----
