@@ -67,7 +67,8 @@
             [com.puppetlabs.repl :refer [start-repl]]
             [com.puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [com.puppetlabs.puppetdb.version :refer [version update-info]]
-            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]))
+            [com.puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [robert.hooke :as rh]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -369,4 +370,5 @@
 
 (defn -main
   [& args]
+  (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
   (apply main args))
