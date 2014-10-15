@@ -30,7 +30,7 @@ This requires that PuppetDB be [configured to accept non-SSL connections][config
 
 **With SSL:**
 
-`curl -X GET https://puppetdb.example.com:8081/v3/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --data-urlencode query@<filename>`
+`curl -X GET https://puppetdb.example.com:8081/v3/resources --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/thisnode.pem --key /etc/puppet/ssl/private_keys/thisnode.pem --tlsv1 --data-urlencode query@<filename>`
 
 This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
 
