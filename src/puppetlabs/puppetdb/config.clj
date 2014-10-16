@@ -346,6 +346,26 @@
           (assoc-in [:puppetdb :certificate-whitelist] cw)))
     config-data))
 
+(defn warn-if-sslv3
+  "If the ssl-protocols config is present and contains sslv3, warn the user. Logging
+   at this point may or may not be setup, so warning via *err* and logging is done."
+  [config-data]
+  (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
+    (when (re-matches #"(?i).*sslv3.*" protocol-str)
+      (binding [*out* *err*]
+        (let [warn-str "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"]
+          (println warn-str)
+          (log/warn warn-str)))))
+  config-data)
+
+(defn default-ssl-protocols
+  "Provide a default for ssl-protocols (that does NOT include sslv3). If sslv3
+   is present in the user provided config, warn the user."
+  [config-data]
+  (if (get-in config-data [:jetty :ssl-protocols])
+    (warn-if-sslv3 config-data)
+    (assoc-in config-data [:jetty :ssl-protocols] "TLSv1, TLSv1.1, TLSv1.2")))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -355,7 +375,9 @@
    customize it."
   [f args]
   (let [config (f args)]
-    (fix-tk-config config)))
+    (-> config
+        fix-tk-config
+        default-ssl-protocols)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values

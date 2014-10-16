@@ -45,7 +45,7 @@ Any node managed by puppet agent will already have all of these and you can re-u
 
 > **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
 
-    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem
+    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tslv1
 
 ### Locating Puppet Certificate Files
 

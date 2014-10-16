@@ -1,8 +1,8 @@
 AMI:
-  debian-7-amd64-west:
+  el-7-x86_64-west:
     :image:
-      :pe: ami-99e0ada9
-      :foss: ami-99e0ada9
+      :pe: ami-bd420e8d
+      :foss: ami-bd420e8d
     :region: us-west-2
 
   el-6-x86_64-west:
@@ -17,16 +17,22 @@ AMI:
       :foss: ami-4a6df87a
     :region: us-west-2
 
+  ubuntu-12.04-amd64-west:
+    :image:
+      :pe: ami-d6e860e6
+      :foss: ami-d6e860e6
+    :region: us-west-2
+
   ubuntu-10.04-amd64-west:
     :image:
       :pe: ami-52ea6262
       :foss: ami-52ea6262
     :region: us-west-2
 
-  ubuntu-12.04-amd64-west:
+  debian-7-amd64-west:
     :image:
-      :pe: ami-d6e860e6
-      :foss: ami-d6e860e6
+      :pe: ami-99e0ada9
+      :foss: ami-99e0ada9
     :region: us-west-2
 
   debian6-amd64-west:
