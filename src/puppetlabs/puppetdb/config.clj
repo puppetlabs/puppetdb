@@ -351,7 +351,7 @@
    at this point may or may not be setup, so warning via *err* and logging is done."
   [config-data]
   (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
-    (when (re-matches #"(?i).*sslv3.*" protocol-str)
+    (when (some #(re-matches #"(?i).*sslv3.*" %) protocol-str)
       (binding [*out* *err*]
         (let [warn-str "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"]
           (println warn-str)
@@ -364,7 +364,7 @@
   [config-data]
   (if (get-in config-data [:jetty :ssl-protocols])
     (warn-if-sslv3 config-data)
-    (assoc-in config-data [:jetty :ssl-protocols] "TLSv1, TLSv1.1, TLSv1.2")))
+    (assoc-in config-data [:jetty :ssl-protocols] ["TLSv1" "TLSv1.1" "TLSv1.2"])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
