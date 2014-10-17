@@ -210,13 +210,13 @@
 (deftest sslv3-warn-test
   (testing "output to log"
     (tu-log/with-log-output log-output
-      (let [bad-config {:jetty {:ssl-protocols "SSLv3, TLSv1, TLSv1.1, TLSv1.2"}}]
+      (let [bad-config {:jetty {:ssl-protocols ["SSLv3" "TLSv1" "TLSv1.1" "TLSv1.2"]}}]
         (is (= bad-config
                (default-ssl-protocols bad-config)))
         (is (.contains (last (first @log-output)) "contains SSLv3")))))
 
   (testing "output to standard out"
-    (let [bad-config {:jetty {:ssl-protocols "SSLv3, TLSv1, TLSv1.1, TLSv1.2"}}
+    (let [bad-config {:jetty {:ssl-protocols ["SSLv3" "TLSv1" "TLSv1.1" "TLSv1.2"]}}
           out-str (with-out-str
                     (binding [*err* *out*]
                       (default-ssl-protocols bad-config)))]
@@ -224,7 +224,7 @@
 
   (testing "defaulted-config"
     (tu-log/with-log-output log-output
-      (is (= {:jetty {:ssl-protocols "TLSv1, TLSv1.1, TLSv1.2"}}
+      (is (= {:jetty {:ssl-protocols ["TLSv1" "TLSv1.1" "TLSv1.2"]}}
              (default-ssl-protocols {})))
       (is (empty? @log-output))
       (is (str/blank?
