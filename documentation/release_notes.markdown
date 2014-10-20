@@ -4,6 +4,75 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+2.2.2
+-----
+
+PuppetDB 2.2.2 is a backwards-compatible security release to update our default
+ssl settings and tests in response to the POODLE SSLv3 vulnerability disclosed 10/14/2014.
+
+(see http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-3566)
+
+### Before Upgrading
+
+* For best-possible performance and scaling capacity, we recommend using the latest version of PostgreSQL (9.3 or higher).
+We have officially deprecated PostgreSQL 9.1 and below. If you are using HSQLDB for production,
+we also recommended switching to PostgreSQL at least 9.3, as HSQLDB has a number of scaling
+and operational issues and is only recommended for testing and proof of concept installations.
+
+* For PostgreSQL 9.3 we advise that users install the PostgreSQL extension `pg_trgm` for increased
+indexing performance for regular expression queries. Using the command `create extension pg_trgm`
+as PostgreSQL super-user and before starting PuppetDB will allow these new indexes to be created.
+
+* Ensure during a package upgrade that you analyze any changed configuration files. For Debian
+you will receive warnings when upgrading interactively about these files, and for RedHat based
+distributions you will find that the RPM drops .rpmnew files that you should diff and ensure
+that any new content is merged into your existing configuration.
+
+* Make sure all your PuppetDB instances are shut down and only upgrade one at a time.
+
+* As usual, don't forget to also upgrade your puppetdb-terminus package
+(on the host where your Puppet Master lives), and restart your
+master service.
+
+* If you receive the error "Could not open
+/etc/puppet/log4j.properties" or "Problem parsing XML document",
+this is because we have changed the packaged config.ini to point at a new logging configuration file:
+logback.xml. However during package installation some package managers
+will cowardly refuse to just update config.ini, this in particular
+affects RPM. After upgrading you should ensure any .rpmnew files are
+reviewed and that changes to our vendored version are now merged with
+your version of config.ini on disk. See
+[PDB-656](https://tickets.puppetlabs.com/browse/PDB-656) for more details.
+
+* If you are running Ubuntu 12.04 and Ruby 1.9.3-p0 you may find
+that you will sometimes receive the error "idle timeout expired" in your
+Puppet agent/master logs and your PuppetDB logs. This is due to a bug
+in that version of Ruby in particular. See
+[PDB-686](https://tickets.puppetlabs.com/browse/PDB-686) for more details.
+
+### Contributors
+
+Ken Barber, Ryan Senior
+
+#### Security
+* [PDB-962](https://tickets.puppetlabs.com/browse/PDB-962)
+
+    This commit changes the default ssl protocol in the Jetty config from SSLv3 to TLSv1.
+    If the user has specified SSLv3, this is allowed, but the user will be warned.
+
+#### Testing
+* [PDB-964](https://tickets.puppetlabs.com/browse/PDB-964)
+
+    Change tests to use TLSv1 to avoid dependency issues on sites dropping TLSv1.
+
+* [PDB-952](https://tickets.puppetlabs.com/browse/PDB-952)
+
+     Add acceptance tests for CentOS 7
+
+#### Documentation
+
+* Update docs to include --tlsv1 in all https curl examples
+
 2.2.1
 -----
 
