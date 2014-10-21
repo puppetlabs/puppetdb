@@ -58,7 +58,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [robert.hooke :as rh]
             [puppetlabs.trapperkeeper.core :refer [defservice main]]
-            [puppetlabs.trapperkeeper.services :refer [service-id]]
+            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [compojure.core :as compojure]
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
@@ -80,22 +80,6 @@
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
-
-(defn load-from-mq
-  "Process commands from the indicated endpoint on the supplied message queue.
-
-  This function doesn't terminate. If we encounter an exception when
-  processing commands from the message queue, we retry the operation
-  after reopening a fresh connection with the MQ."
-  [mq mq-endpoint discard-dir opt-map]
-  {:pre [(:db opt-map)]}
-  (kitchensink/keep-going
-   (fn [exception]
-     (log/error exception "Error during command processing; reestablishing connection after 10s")
-     (Thread/sleep 10000))
-
-   (with-open [conn (mq/activemq-connection mq)]
-     (command/process-commands! conn mq-endpoint discard-dir opt-map))))
 
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
@@ -233,11 +217,6 @@
   "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
   [context]
   (log/error "A fatal error occurred; shutting down all subsystems.")
-  (when-let [command-procs (context :command-procs)]
-    (log/info "Shutting down command processing threads.")
-    (doseq [cp command-procs]
-      (future-cancel cp)))
-
   (when-let [updater (context :updater)]
     (log/info "Shutting down updater thread.")
     (future-cancel updater))
@@ -256,7 +235,7 @@
          (ifn? add-ring-handler)
          (ifn? shutdown-on-error)]
    :post [(map? %)
-          (every? (partial contains? %) [:broker :command-procs :updater])]}
+          (every? (partial contains? %) [:broker :updater])]}
   (let [{:keys [jetty database read-database global command-processing puppetdb]
          :as config}                            (conf/process-config! config)
          product-name                               (:product-name global)
@@ -277,7 +256,12 @@
                                                                             :endpoint          mq-endpoint}
                                                      :update-server        update-server
                                                      :product-name         product-name
-                                                     :url-prefix           url-prefix}]
+                                                     :url-prefix           url-prefix
+                                                     :discard-dir          (.getAbsolutePath discard-dir)
+                                                     :mq-addr              mq-addr
+                                                     :mq-dest              mq-endpoint
+                                                     :mq-threads           (:threads command-processing)
+                                                     :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}]
 
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
@@ -307,20 +291,10 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
-          command-procs (let [nthreads (command-processing :threads)]
-                          (log/info (format "Starting %d command processor threads" nthreads))
-                          (vec (for [n (range nthreads)]
-                                 (future (shutdown-on-error
-                                          service-id
-                                          #(load-from-mq
-                                            mq-addr
-                                            mq-endpoint
-                                            discard-dir
-                                            {:db                     write-db
-                                             :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
-                                          error-shutdown!)))))
-          context (assoc context :command-procs command-procs)
-          updater (future (maybe-check-for-updates product-name update-server read-db))
+          updater (future (shutdown-on-error
+                           service-id
+                           #(maybe-check-for-updates product-name update-server read-db)
+                           error-shutdown!))
           context (assoc context :updater updater)
           _       (let [authorized? (if-let [wl (puppetdb :certificate-whitelist)]
                                       (build-whitelist-authorizer wl)
@@ -352,21 +326,26 @@
         (when (kitchensink/true-str? enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
-      context)))
+      (assoc context :shared-globals globals))))
+
+(defprotocol PuppetDBServer
+  (shared-globals [this]))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
   for initializing all of the PuppetDB subsystems and registering shutdown hooks
   that trapperkeeper will call on exit."
+  PuppetDBServer
   [[:ConfigService get-config]
    [:WebserverService add-ring-handler]
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
          (start-puppetdb context (get-config) (service-id this) add-ring-handler shutdown-on-error))
-
   (stop [this context]
-        (stop-puppetdb context)))
+        (stop-puppetdb context))
+  (shared-globals [this]
+                  (:shared-globals (service-context this))))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
