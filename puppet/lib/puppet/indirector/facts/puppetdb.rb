@@ -42,9 +42,10 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     profile "facts#find" do
       begin
-        url = Puppet::Util::Puppetdb.url_path("/v3/nodes/#{CGI.escape(request.key)}/facts")
-        response = profile "Query for nodes facts: #{url}" do
-          http_get(request, url, headers)
+        response = Http.action("/v3/nodes/#{CGI.escape(request.key)}/facts") do |http_instance, path|
+          profile "Query for nodes facts: #{path}" do
+            http_instance.get(path, headers)
+          end
         end
         log_x_deprecation_header(response)
 
@@ -111,9 +112,10 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       query_param = CGI.escape(query.to_json)
 
       begin
-        url = Puppet::Util::Puppetdb.url_path("/v3/nodes?query=#{query_param}")
-        response = profile "Fact query request: #{URI.unescape(url)}" do
-          http_get(request, url, headers)
+        response = Http.action("/v3/nodes?query=#{query_param}") do |http_instance, path|
+          profile "Fact query request: #{URI.unescape(path)}" do
+            http_instance.get(path, headers)
+          end
         end
         log_x_deprecation_header(response)
 
@@ -126,7 +128,10 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
         end
       rescue => e
-        raise Puppet::Error, "Could not perform inventory search from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
+        uri = Puppet::Util::Puppetdb.config.server_urls.first
+        server = uri.host
+        port = uri.port
+        raise Puppet::Error, "Could not perform inventory search from PuppetDB at #{server}:#{port}: #{e}"
       end
     end
   end

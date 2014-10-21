@@ -1,6 +1,6 @@
 require 'puppet/error'
-require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
+require 'puppet/util/puppetdb/http'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
 require 'json'
@@ -44,9 +44,9 @@ class Puppet::Util::Puppetdb::Command
 
     begin
       response = profile "Submit command HTTP post" do
-        http = Puppet::Network::HttpPool.http_instance(config.server, config.port)
-        http.post(Puppet::Util::Puppetdb.url_path(CommandsUrl + "?checksum=#{checksum}"),
-                  payload, headers)
+        Http.action("#{CommandsUrl}?checksum=#{checksum}") do |http_instance, path|
+          http_instance.post(path, payload, headers)
+        end
       end
 
       Puppet::Util::Puppetdb.log_x_deprecation_header(response)
@@ -65,7 +65,10 @@ class Puppet::Util::Puppetdb::Command
         end
       end
     rescue => e
-      error = "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{config.server}:#{config.port}: #{e}"
+      uri = Puppet::Util::Puppetdb.config.server_urls.first
+      server = uri.host
+      port = uri.port
+      error = "Failed to submit '#{command}' command#{for_whom} to PuppetDB at #{server}:#{port}: #{e}"
       if config.soft_write_failure
         Puppet.err error
       else

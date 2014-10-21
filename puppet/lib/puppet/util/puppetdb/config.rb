@@ -1,5 +1,6 @@
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/blacklist'
+require 'uri'
 
 module Puppet::Util::Puppetdb
 class Config
@@ -14,6 +15,7 @@ class Config
       :url_prefix                => "",
       :soft_write_failure        => false,
       :ignore_blacklisted_events => true,
+      :server_url_timeout        => 120
     }
 
     config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -35,7 +37,8 @@ class Config
         when /^\[(\w+)\s*\]$/
           section = $1
           result[section] ||= {}
-        when /^\s*(\w+)\s*=\s*(\S+)\s*$/
+
+        when /^\s*(\w+)\s*=\s*(\S+|[\S+\s*\,\s*\S]+)\s*$/
           raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config_file}:#{number}" unless section
           result[section][$1] = $2
         when /^\s*[#;]/
@@ -47,17 +50,21 @@ class Config
       end
     end
 
-
     main_section = result['main'] || {}
     # symbolize the keys
     main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
     # merge with defaults but filter out anything except the legal settings
     config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure].include?(k))
+      !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure, :server_urls, :server_url_timeout].include?(k))
     end
 
-    config_hash[:server] = config_hash[:server].strip
-    config_hash[:port] = config_hash[:port].to_i
+    if config_hash[:server_urls]
+      config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls].split(",").map {|s| s.strip})
+    else
+      config_hash[:server_urls] = [URI("https://" + config_hash[:server].strip + ':' + config_hash[:port].to_s + normalize_url_prefix(config_hash[:url_prefix].strip))]
+    end
+
+    config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
     config_hash[:url_prefix] = normalize_url_prefix(config_hash[:url_prefix].strip)
     config_hash[:ignore_blacklisted_events] =
       Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
@@ -78,12 +85,12 @@ class Config
     initialize_blacklisted_events()
   end
 
-  def server
-    config[:server]
+  def server_urls
+    config[:server_urls]
   end
 
-  def port
-    config[:port]
+  def server_url_timeout
+    config[:server_url_timeout]
   end
 
   def url_prefix
@@ -124,6 +131,23 @@ class Config
   # @api private
   def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
     @blacklist = Blacklist.new(events)
+  end
+
+  def self.convert_and_validate_urls(uri_strings)
+    uri_strings.map do |uri_string|
+
+      begin
+        uri = URI(uri_string.strip)
+      rescue URI::InvalidURIError => e
+        raise URI::InvalidURIError.new, "Error parsing URL '#{uri_string}' in PuppetDB 'server_urls', error message was '#{e.message}'"
+      end
+
+      if uri.scheme != 'https'
+        raise "PuppetDB 'server_urls' must be https, found '#{uri_string}'"
+      end
+
+      uri
+    end
   end
 end
 end

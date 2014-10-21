@@ -10,41 +10,9 @@ require 'fileutils'
 
 module Puppet::Util::Puppetdb
 
-  def self.server
-    config.server
-  end
-
-  def self.port
-    config.port
-  end
-
-  def self.url_path(path)
-    unless path.start_with?("/")
-      path = "/" + path
-    end
-    config.url_prefix + path
-  end
-
   def self.config
     @config ||= Puppet::Util::Puppetdb::Config.load
     @config
-  end
-
-  # This magical stuff is needed so that the indirector termini will make requests to
-  # the correct host/port, because this module gets mixed in to our indirector
-  # termini.
-  module ClassMethods
-    def server
-      Puppet::Util::Puppetdb.server
-    end
-
-    def port
-      Puppet::Util::Puppetdb.port
-    end
-  end
-
-  def self.included(child)
-    child.extend ClassMethods
   end
 
   # Given an instance of ruby's Time class, this method converts it to a String
