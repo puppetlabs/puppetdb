@@ -14,6 +14,7 @@
    :environment (s/maybe s/Str)
    :path String
    :value s/Any
+   :hash s/Str
    :value_float (s/maybe s/Num)
    :value_integer (s/maybe s/Int)
    :producer-timestamp (s/maybe pls/Timestamp)
@@ -24,6 +25,7 @@
   {:certname String
    :environment (s/maybe s/Str)
    :path String
+   :hash s/Str
    :value s/Any
    :producer-timestamp (s/maybe pls/Timestamp)
    :timestamp pls/Timestamp})
@@ -33,6 +35,7 @@
    :environment (s/maybe s/Str)
    :timestamp pls/Timestamp
    :producer-timestamp (s/maybe pls/Timestamp)
+   :hash s/Str
    :facts {s/Str s/Any}})
 
 ;; FUNCS
@@ -84,7 +87,7 @@
    certname-rows :- [converted-row-schema]]
   (let [first-row (first certname-rows)
         facts (reduce recreate-fact-path {} certname-rows)]
-    (assoc (select-keys first-row [:certname :environment :timestamp :producer-timestamp])
+    (assoc (select-keys first-row [:hash :certname :environment :timestamp :producer-timestamp])
       :facts (int-maps->vectors facts))))
 
 (pls/defn-validated structured-data-seq

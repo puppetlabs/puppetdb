@@ -38,6 +38,7 @@
 (use-fixtures :each with-test-db with-http-app)
 
 (def c-t http/json-response-content-type)
+(def reference-time "2014-10-28T20:26:21.727Z")
 
 (defn get-response
   ([endpoint]      (get-response endpoint nil))
@@ -1070,29 +1071,39 @@
                              :producer-timestamp test-time})
       (scf-store/deactivate-node! "foo4"))))
 
-(defn factset-results
-  [current-time]
-  (map #(utils/assoc-when % "timestamp" (to-string current-time) "producer-timestamp" (to-string current-time))
-       [{"facts" {"domain" "testing.com", "uptime_seconds" "4000", "test#~delimiter" "foo",
-                  "my_structured_fact" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"],
+(def factset-results
+  (map #(utils/assoc-when % "timestamp" reference-time "producer-timestamp" reference-time)
+       [{"facts" {"domain" "testing.com"
+                  "uptime_seconds" "4000"
+                  "test#~delimiter" "foo"
+                  "my_structured_fact" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"]
                                         "f" nil, "b" 3.14, "a" 1}},
-         "environment" "DEV","certname" "foo1"}
-        {"facts" {"uptime_seconds" "6000", "domain" "testing.com",
-                  "my_structured_fact" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"],
+         "environment" "DEV"
+         "certname" "foo1"
+         "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
+
+        {"facts" {"uptime_seconds" "6000"
+                  "domain" "testing.com"
+                  "my_structured_fact" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"]
                                         "a" 1, "e" "1"}},
-         "timestamp" "2013-01-01T00:00:00.000Z", "environment" "DEV", "certname" "foo2"
-         "producer-timestamp" "2013-01-01T00:00:00.000Z"}
-        {"facts" {"domain" "testing.com", "operatingsystem" "Darwin",
+         "timestamp" "2013-01-01T00:00:00.000Z"
+         "environment" "DEV"
+         "certname" "foo2"
+         "producer-timestamp" "2013-01-01T00:00:00.000Z"
+         "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}
+
+        {"facts" {"domain" "testing.com"
+                  "operatingsystem" "Darwin"
                   "my_structured_fact" {"e" "1", "b" 3.14, "f" nil, "a" 1,
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
-         "environment" "PROD", "certname" "foo3"}]))
+         "environment" "PROD"
+         "certname" "foo3"
+         "hash" "aa3b47b7337a04b34f395f02ede01ec2d2f577d9"}]))
 
 (deftestseq factset-paging-results
   [[version endpoint] factsets-endpoints]
-  (let [factset-count 3
-        current-time (now)
-        expected-results (factset-results current-time)]
-    (populate-for-structured-tests current-time)
+  (let [factset-count 3]
+    (populate-for-structured-tests reference-time)
     (testing "include total results count"
       (let [actual (json/parse-string
                      (slurp (:body (get-response endpoint nil {:include-total true}))))]
@@ -1113,8 +1124,8 @@
                                                            [{"field" "invalid-field"
                                                              "order" "ASC"}])}))))))
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC" (sort-by #(get % "certname") expected-results)]
-                                  ["DESC" (reverse (sort-by #(get % "certname") expected-results))]]]
+        (doseq [[order expected] [["ASC" (sort-by #(get % "certname") factset-results)]
+                                  ["DESC" (reverse (sort-by #(get % "certname") factset-results))]]]
           (testing order
             (let [ordering {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
@@ -1130,7 +1141,7 @@
                           (json/generate-string [{"field" "environment" "order" env-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-              (is (= actual (map #(nth expected-results %) expected-order))))))
+              (is (= actual (map #(nth factset-results %) expected-order))))))
         (doseq [[[pt-order certname-order] expected-order] [[["DESC" "ASC"]  [0 2 1]]
                                                              [["DESC" "DESC"] [2 0 1]]
                                                              [["ASC" "DESC"]  [1 2 0]]
@@ -1140,7 +1151,7 @@
                           (json/generate-string [{"field" "producer-timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-              (is (= actual (map #(nth expected-results %) expected-order))))))))
+              (is (= actual (map #(nth factset-results %) expected-order))))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [0 1 2]]
@@ -1154,12 +1165,11 @@
         (doseq [[offset expected-order] expected-sequences]
           (let [params {:order-by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
                 actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-            (is (= actual (map #(nth expected-results %) expected-order)))))))))
+            (is (= actual (map #(nth factset-results %) expected-order)))))))))
 
 (deftestseq factset-queries
   [[version endpoint] factsets-endpoints]
-  (let [current-time (now)]
-    (populate-for-structured-tests current-time)
+  (populate-for-structured-tests reference-time)
 
     (testing "query without param should not fail"
       (let [response (get-response endpoint)]
@@ -1190,10 +1200,11 @@
                          "domain" "testing.com"
                          "uptime_seconds" "4000"
                          "test#~delimiter" "foo"}
-                "timestamp" (to-string current-time)
-                "producer-timestamp" (to-string current-time)
+                "timestamp" reference-time
+                "producer-timestamp" reference-time
                 "environment" "DEV"
-                "certname" "foo1"}))
+                "certname" "foo1"
+                "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}))
         (is (= (into [] (nth responses 1))
                [{"facts" {"my_structured_fact"
                           {"a" 1
@@ -1205,10 +1216,11 @@
                           "domain" "testing.com"
                           "uptime_seconds" "4000"
                           "test#~delimiter" "foo"}
-                 "timestamp" (to-string current-time)
-                "producer-timestamp" (to-string current-time)
+                 "timestamp" reference-time
+                "producer-timestamp" reference-time
                  "environment" "DEV"
-                 "certname" "foo1"}
+                 "certname" "foo1"
+                 "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
 
                 {"facts" {"my_structured_fact"
                           {"a" 1
@@ -1221,7 +1233,9 @@
                  "timestamp" (to-string (to-timestamp "2013-01-01"))
                  "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                  "environment" "DEV"
-                 "certname" "foo2"}]))
+                 "certname" "foo2"
+                 "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
+
         (is (= (into [] (nth responses 2))
                [{"facts" {"my_structured_fact"
                           {"a" 1
@@ -1234,7 +1248,8 @@
                  "timestamp" (to-string (to-timestamp "2013-01-01"))
                  "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                  "environment" "DEV"
-                 "certname" "foo2"}]))
+                 "certname" "foo2"
+                 "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
         (is (= (into [] (nth responses 3))
                [{"facts" {"my_structured_fact"
                           {"a" 1
@@ -1247,7 +1262,8 @@
                  "timestamp" (to-string (to-timestamp "2013-01-01"))
                  "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                  "environment" "DEV"
-                 "certname" "foo2"}]))))))
+                 "certname" "foo2"
+                 "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}])))))
 
 (defn structured-fact-results
   [version endpoint]
@@ -1314,8 +1330,7 @@
 
 (deftestseq structured-fact-queries
   [[version endpoint] facts-endpoints]
-  ( let [current-time (now)
-         facts1 {"my_structured_fact" {"a" 1
+  ( let [facts1 {"my_structured_fact" {"a" 1
                                        "b" 3.14
                                        "c" ["a" "b" "c"]
                                        "d" {"n" ""}
@@ -1356,7 +1371,7 @@
       (scf-store/add-certname! "foo4")
       (scf-store/add-facts! {:name "foo1"
                              :values facts1
-                             :timestamp current-time
+                             :timestamp reference-time
                              :environment "DEV"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name  "foo2"
@@ -1366,12 +1381,12 @@
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
-                             :timestamp current-time
+                             :timestamp reference-time
                              :environment "PROD"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
-                             :timestamp current-time
+                             :timestamp reference-time
                              :environment "PROD"
                              :producer-timestamp nil})
       (scf-store/deactivate-node! "foo4"))
@@ -1401,8 +1416,7 @@
 
 (deftestseq fact-contents-queries
   [[version endpoint] fact-contents-endpoints]
-  (let [current-time (now)]
-    (populate-for-structured-tests current-time)
+    (populate-for-structured-tests reference-time)
 
     (testing "query without param should not fail"
       (let [response (get-response endpoint)]
@@ -1508,4 +1522,4 @@
         (is (= (into [] (response ["=", "name" "domain"]))
                [{"certname" "foo1", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "DEV"}
                 {"certname" "foo2", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "DEV"}
-                {"certname" "foo3", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "PROD"}]))))))
+                {"certname" "foo3", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "PROD"}])))))

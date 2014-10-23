@@ -38,6 +38,8 @@ See [the Operators page.](./operators.html)
   the relevant certname from the master. Generation of this field will
   be pushed back to the agent in a later release, so it should not be relied on
   in its current form (use the `timestamp` field instead.)
+* `hash` (string): a hash of the factset's certname, environment,
+  timestamp, facts, and producer-timestamp.
 
 ### Response Format
 
@@ -52,7 +54,8 @@ the form:
       "environment": <node environment>,
       "timestamp": <time of last fact submission>,
       "producer-timestamp": <time of command submission from master>,
-      "facts": <facts for node>
+      "facts": <facts for node>,
+      "hash": <sha1 sum of "facts" value>
     }
 
 The value of "facts" is a map describing facts for the node. The array is
@@ -89,7 +92,8 @@ which returns
       "timestamp" : "2014-07-25T16:39:06.265Z",
       "producer-timestamp" : "2014-07-25T16:39:06.265Z",
       "environment" : "production",
-      "certname" : "desktop.localdomain"
+      "certname" : "desktop.localdomain",
+      "hash": "b920822bc3872c9e2977cf40f87811393ead71aa"
     } ]
 
 ## Paging

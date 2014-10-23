@@ -9,16 +9,16 @@
 (deftest test-structured-data-seq
   (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
                     :value "abc" :type "string" :timestamp current-time :value_integer nil
-                    :value_float nil :producer-timestamp current-time}
+                    :value_float nil :producer-timestamp current-time :hash "1234"}
                    {:certname "foo.com" :environment "DEV" :path "a#~b#~d"
                     :value nil :type "integer" :timestamp current-time
-                    :value_integer 1 :value_float nil :producer-timestamp current-time}
+                    :value_integer 1 :value_float nil :producer-timestamp current-time :hash  "1234"}
                    {:certname "foo.com" :environment "DEV" :path "a#~b#~e"
                     :value "true" :type "boolean" :timestamp current-time
-                    :value_integer nil :value_float nil :producer-timestamp current-time}
+                    :value_integer nil :value_float nil :producer-timestamp current-time :hash "1234"}
                    {:certname "foo.com" :environment "DEV" :path "a#~b#~f"
                     :value_float 3.14 :type "float" :timestamp current-time
-                    :value_integer nil :value nil :producer-timestamp current-time}]]
+                    :value_integer nil :value nil :producer-timestamp current-time :hash "1234"}]]
     (is (= [{:certname "foo.com"
              :environment "DEV"
              :facts {"a" {"b" {"c" "abc"
@@ -26,7 +26,8 @@
                                "e" true
                                "f" 3.14}}}
              :timestamp current-time
-             :producer-timestamp current-time}]
+             :producer-timestamp current-time
+             :hash "1234"}]
            (structured-data-seq :v4 test-rows))))
 
   (testing "laziness of the collapsing fns"
@@ -40,42 +41,42 @@
                                [{:certname certname :environment "DEV" :path "a#~b#~c"
                                  :value "abc" :type "string" :timestamp current-time
                                  :value_integer nil :value_float nil
-                                 :producer-timestamp current-time}
+                                 :producer-timestamp current-time :hash "1234"}
                                 {:certname certname :environment "DEV" :path "a#~b#~d"
                                  :value_integer 1 :type "integer" :timestamp current-time
                                  :value nil :value_float nil
-                                 :producer-timestamp current-time}
+                                 :producer-timestamp current-time :hash "1234"}
                                 {:certname certname :environment "DEV" :path "a#~b#~e"
                                  :value_float 3.14 :type "float" :timestamp current-time
                                  :value_integer nil :value nil
-                                 :producer-timestamp current-time}
+                                 :producer-timestamp current-time :hash "1234"}
                                 {:certname certname :environment "DEV" :path "a#~b#~f"
                                  :value "true" :type "boolean" :timestamp current-time
                                  :value_integer nil :value_float nil
-                                 :producer-timestamp current-time}])
+                                 :producer-timestamp current-time :hash "1234"}])
                              (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
 
   (testing "map with a nested vector"
     (let [test-rows [{:certname "foo.com" :environment "DEV"
                       :path "a#~b#~c" :value "abc" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV"
                       :path "a#~b#~d#~0" :value_integer 1 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV"
                       :path "a#~b#~d#~1" :value_integer 3 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV"
                       :path "a#~b#~e" :value "true" :type "boolean" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV"
                       :path "a#~b#~f" :value "abf" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}]]
+                      :producer-timestamp current-time :hash "1234"}]]
 
       (is (= [{:certname "foo.com"
                :environment "DEV"
@@ -84,30 +85,31 @@
                                  "e" true
                                  "f" "abf"}}}
                :timestamp current-time
-               :producer-timestamp current-time}]
+               :producer-timestamp current-time
+               :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
   (testing "map with a nested vector of maps"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
                       :value "abc" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~0#~e#~f#~0"
                       :value_integer 1 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~1#~e#~f#~0"
                       :value_integer 2 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~e"
                       :value "abe" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~f"
                       :value "abf" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}]]
+                      :producer-timestamp current-time :hash "1234"}]]
       (is (= [{:certname "foo.com"
                :environment "DEV"
                :facts {"a" {"b" {"c" "abc"
@@ -116,30 +118,31 @@
                                  "e" "abe"
                                  "f" "abf"}}}
                :timestamp current-time
-               :producer-timestamp current-time}]
+               :producer-timestamp current-time
+               :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
   (testing "json numeric formats"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
                       :value_integer 100000000000 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~\"0\"#~e#~f#~0"
                       :value_float 3.14E10 :type "float" :timestamp current-time
                       :value_integer nil :value nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~\"1\"#~e#~f#~0"
                       :value_float 1.4e-5 :type "float" :timestamp current-time
                       :value_integer nil :value nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~e"
                       :value_float -10E-5 :type "float" :timestamp current-time
                       :value_integer nil :value nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~f"
                       :value_float -0.25e-5 :type "float" :timestamp current-time
                       :value_integer nil :value nil
-                      :producer-timestamp current-time}]]
+                      :producer-timestamp current-time :hash "1234"}]]
       (is (= [{:certname "foo.com"
                :environment "DEV"
                :facts {"a" {"b" {"c" 100000000000
@@ -148,34 +151,35 @@
                                  "e"  -1.0e-4
                                  "f" -2.5E-6}}}
                :timestamp current-time
-               :producer-timestamp current-time}]
+               :producer-timestamp current-time
+               :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
   (testing "map stringified integer keys"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
                       :value "abc" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~\"0\"#~e#~f#~0"
                       :value_integer 1 :type "integer" :timestamp current-time
                       :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV"
                       :path "a#~b#~d#~\"1\"#~e#~f#~0" :value_integer 2 :type "integer"
                       :timestamp current-time :value nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~e"
                       :value "abe" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~j"
                       :value nil :type "null" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}
+                      :producer-timestamp current-time :hash "1234"}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~f"
                       :value "abf" :type "string" :timestamp current-time
                       :value_integer nil :value_float nil
-                      :producer-timestamp current-time}]]
+                      :producer-timestamp current-time :hash "1234"}]]
 
       (is (= [{:certname "foo.com"
                :environment "DEV"
@@ -186,7 +190,8 @@
                                  "f" "abf"
                                  "j" nil}}}
                :timestamp current-time
-               :producer-timestamp current-time}]
+               :producer-timestamp current-time
+               :hash "1234"}]
              (structured-data-seq :v4 test-rows))))))
 
 (deftest test-int-map->vector
