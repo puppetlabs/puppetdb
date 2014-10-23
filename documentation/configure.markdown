@@ -510,7 +510,27 @@ This sets the port to use for _encrypted_ HTTPS traffic. If not supplied, we won
 
 ### `ssl-cert`
 
-This sets the path to the server certificate PEM file used by the PuppetDB web service for HTTPS.
+This sets the path to the server certificate PEM file used by the PuppetDB web
+service for HTTPS.  During the SSL handshake for a connection, certificates
+extracted from this file are presented to the client for the client's use in
+validating the server.  This file may contain a single certificate or a chain
+of certificates ordered from the end certificate first to the most-root
+certificate last.  For example, a certificate chain could contain:
+
+* An end certificate
+* An intermediate CA certificate with which the end certificate was issued
+* A root CA certificate with which the intermediate CA certificate was issued
+
+In the PEM file, the end certificate should appear first, the intermediate CA
+certificate should appear second, and the root CA certificate should appear
+last.
+
+If a chain is present, it is not required to be complete.  If a
+path has been specified for the `ssl-cert-chain` setting, the server will
+construct the cert chain starting with the first certificate found in the
+`ssl-cert` PEM and followed by any certificates in the `ssl-cert-chain` PEM.  In
+the latter case, any certificates in the `ssl-cert` PEM beyond the first one
+would be ignored.
 
 > **Note:** This setting overrides the alternate configuration settings `keystore` and `key-password`.
 
@@ -581,6 +601,38 @@ The chain is not required to be complete.
 
 > **Note:** This setting overrides the alternate configuration settings
 `keystore` and `key-password`.
+
+### `access-log-config`
+
+Optional. This is a path to an XML file containing configuration information for the `Logback-access` module. If present, a logger will be set up to log
+information about any HTTP requests Jetty receives according to the logging configuration,
+as long as the XML file pointed to exists and is valid. Information on configuring the
+`Logback-access` module is available [here](http://logback.qos.ch/access.html#configuration).
+
+A configuration file may resemble the following:
+
+    <configuration debug="false">
+      <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>./dev-resources/access.log</file>
+          <encoder>
+            <pattern>%h %l %u %user %date "%r" %s %b</pattern>
+          </encoder>
+        </appender>
+        <appender-ref ref="FILE" />
+    </configuration>
+
+This example configures a `FileAppender` that outputs to a file, `access.log`, in the `dev-resources`
+directory. It will log the remote host making the request, the log name, the remote user making
+the request, the date/time of the request, the URL and method of the request, the status of
+the response, and the size in bytes of the response.
+
+### `graceful-shutdown-timeout`
+After receiving a shut down, this is the number of milliseconds the server will wait for in-flight requests to
+complete before actually shutting down. New requests will be blocked during this time. Defaults to 30000.
+
+### `request-header-max-size`
+
+This sets the maximum size of an HTTP Request Header. If a header is sent that exceeds this value, Jetty will return an HTTP 413 Error response. This defaults to 8192 bytes, and only needs to be configured if an exceedingly large header is being sent in an HTTP Request.
 
 `[repl]` Settings
 -----
