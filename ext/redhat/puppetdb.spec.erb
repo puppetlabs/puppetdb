@@ -28,7 +28,7 @@
 %endif
 <% end -%>
 
-# Fedora 17 and later, EL > 7 and OpenSUSE >= 12.1 use systemd. This spec uses 
+# Fedora 17 and later, EL > 7 and OpenSUSE >= 12.1 use systemd. This spec uses
 # macros present in the versions referenced here.
 %if 0%{?fedora} >= 18 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1210
 %global _with_systemd 1
@@ -112,7 +112,7 @@ Requires:      procps
 %else
 BuildRequires: /usr/sbin/useradd
 %endif
-%if 0%{?_with_systemd} 
+%if 0%{?_with_systemd}
 %if 0%{?fedora} || 0%{?rhel}
 BuildRequires:    systemd
 Requires(post):   systemd
@@ -334,22 +334,15 @@ fi
 
 %files terminus
 %defattr(-, root, root)
-%{puppet_libdir}/puppet/application/storeconfigs.rb
-%{puppet_libdir}/puppet/face/node/deactivate.rb
-%{puppet_libdir}/puppet/face/node/status.rb
+%{puppet_libdir}/puppet/application/*
+%{puppet_libdir}/puppet/face/node/*
 %{puppet_libdir}/puppet/face/storeconfigs.rb
-%{puppet_libdir}/puppet/indirector/catalog/puppetdb.rb
-%{puppet_libdir}/puppet/indirector/facts/puppetdb.rb
-%{puppet_libdir}/puppet/indirector/facts/puppetdb_apply.rb
-%{puppet_libdir}/puppet/indirector/node/puppetdb.rb
-%{puppet_libdir}/puppet/indirector/resource/puppetdb.rb
-%{puppet_libdir}/puppet/reports/puppetdb.rb
-%{puppet_libdir}/puppet/util/puppetdb.rb
-%{puppet_libdir}/puppet/util/puppetdb/char_encoding.rb
-%{puppet_libdir}/puppet/util/puppetdb/command.rb
-%{puppet_libdir}/puppet/util/puppetdb/command_names.rb
-%{puppet_libdir}/puppet/util/puppetdb/config.rb
-%{puppet_libdir}/puppet/util/puppetdb/blacklist.rb
+%{puppet_libdir}/puppet/indirector/catalog/*
+%{puppet_libdir}/puppet/indirector/facts/*
+%{puppet_libdir}/puppet/indirector/node/*
+%{puppet_libdir}/puppet/indirector/resource/*
+%{puppet_libdir}/puppet/reports/*
+%{puppet_libdir}/puppet/util/puppetdb*
 
 %changelog
 <%
