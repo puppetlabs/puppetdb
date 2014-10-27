@@ -5,7 +5,7 @@ unless (options[:vmrun])
   end
 
   step "Clean up configuration files on puppetdb server" do
-    on database, "rm -rf /etc/puppetdb/ssl"
+    on databases, "rm -rf /etc/puppetdb/ssl"
   end
 
   step "Remove old modules from master" do

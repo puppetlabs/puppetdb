@@ -463,13 +463,17 @@ module PuppetDBExtensions
     on host, "#{LeinCommandPrefix} rake sourceterminus"
 
     manifest = <<-EOS
-      include puppetdb::master::storeconfigs
-      class { 'puppetdb::master::puppetdb_conf':
-        server => '#{database.node_name}',
-      }
       include puppetdb::master::routes
+      include puppetdb::master::storeconfigs
       class { 'puppetdb::master::report_processor':
         enable => true,
+      }
+      ini_setting {'server_urls':
+        ensure => present,
+        section => 'main',
+        path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
+        setting => 'server_urls',
+        value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
       }
     EOS
     apply_manifest_on(host, manifest)
@@ -816,7 +820,6 @@ EOS
     end
   end
 
-
   def hash_diff(obj1, obj2)
     result =
       (obj1.keys | obj2.keys).inject({}) do |diff, k|
@@ -1045,6 +1048,15 @@ EOS
     puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
+  def databases
+    extend Beaker::DSL::Roles
+    hosts_as(:database).sort_by {|db| db.to_str}
+  end
+
+  def database
+    # primary database must be numbered lowest
+    databases[0]
+  end
 end
 
 # oh dear.

@@ -1,41 +1,44 @@
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/blacklist'
+require 'uri'
 
 module Puppet::Util::Puppetdb
-class Config
-  include Puppet::Util::Puppetdb::CommandNames
+  class Config
+    include Puppet::Util::Puppetdb::CommandNames
 
-  # Public class methods
+    # Public class methods
 
-  def self.load(config_file = nil)
-    defaults = {
-      :server                    => "puppetdb",
-      :port                      => 8081,
-      :url_prefix                => "",
-      :soft_write_failure        => false,
-      :ignore_blacklisted_events => true,
-    }
+    def self.load(config_file = nil)
+      defaults = {
+        :server                    => "puppetdb",
+        :port                      => 8081,
+        :url_prefix                => "",
+        :soft_write_failure        => false,
+        :ignore_blacklisted_events => true,
+        :server_url_timeout        => 30
+      }
 
-    config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
+      config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
 
-    if File.exists?(config_file)
-      Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
-      content = File.read(config_file)
-    else
-      Puppet.debug("No #{config_file} file found; falling back to default server and port #{defaults[:server]}:#{defaults[:port]}")
-      content = ''
-    end
+      if File.exists?(config_file)
+        Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
+        content = File.read(config_file)
+      else
+        Puppet.debug("No #{config_file} file found; falling back to default server and port #{defaults[:server]}:#{defaults[:port]}")
+        content = ''
+      end
 
-    result = {}
-    section = nil
-    content.lines.each_with_index do |line,number|
-      # Gotta track the line numbers properly
-      number += 1
-      case line
+      result = {}
+      section = nil
+      content.lines.each_with_index do |line,number|
+        # Gotta track the line numbers properly
+        number += 1
+        case line
         when /^\[(\w+)\s*\]$/
           section = $1
           result[section] ||= {}
-        when /^\s*(\w+)\s*=\s*(\S+)\s*$/
+
+        when /^\s*(\w+)\s*=\s*(\S+|[\S+\s*\,\s*\S]+)\s*$/
           raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config_file}:#{number}" unless section
           result[section][$1] = $2
         when /^\s*[#;]/
@@ -44,86 +47,126 @@ class Config
           # Skip blank lines
         else
           raise "Unparseable line '#{line}' in PuppetDB config #{config_file}:#{number}"
+        end
+      end
+
+      main_section = result['main'] || {}
+      # symbolize the keys
+      main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
+      # merge with defaults but filter out anything except the legal settings
+      config_hash = defaults.merge(main_section).reject do |k, v|
+        !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure, :server_urls, :server_url_timeout].include?(k))
+      end
+
+      if config_hash[:server_urls]
+        uses_server_urls = true
+        config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls].split(",").map {|s| s.strip})
+      else
+        uses_server_urls = false
+        config_hash[:server_urls] = [URI("https://" + config_hash[:server].strip + ':' + config_hash[:port].to_s + normalize_url_prefix(config_hash[:url_prefix].strip))]
+      end
+
+      config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
+      config_hash[:url_prefix] = normalize_url_prefix(config_hash[:url_prefix].strip)
+      config_hash[:ignore_blacklisted_events] =
+        Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+      config_hash[:soft_write_failure] =
+        Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
+
+      self.new(config_hash, uses_server_urls)
+    rescue => detail
+      puts detail.backtrace if Puppet[:trace]
+      Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"
+      raise
+    end
+
+    # @!group Public instance methods
+
+    def initialize(config_hash = {}, uses_server_urls=nil)
+      @config = config_hash
+      initialize_blacklisted_events()
+      if !uses_server_urls
+        Puppet.warning("Specification of server and port in puppetdb.conf is deprecated. Use the setting server_urls.")
+      end
+      if config_hash[:url_prefix] != ''
+        Puppet.warning("Specification of url_prefix in puppetdb.conf is deprecated. Use the setting server_urls.")
+      end
+
+      # To provide accurate error messages to users about HTTP failures, we
+      # need to know whether they initially defined their config via the old
+      # server/port combo or the new server_urls. This boolean keeps track
+      # of how the user defined that config so that we can give them a
+      # better error message
+      @server_url_config = uses_server_urls
+    end
+
+    def server_url_config?
+      @server_url_config
+    end
+
+    def server_urls
+      config[:server_urls]
+    end
+
+    def server_url_timeout
+      config[:server_url_timeout]
+    end
+
+    def url_prefix
+      config[:url_prefix]
+    end
+
+    def ignore_blacklisted_events?
+      config[:ignore_blacklisted_events]
+    end
+
+    def is_event_blacklisted?(event)
+      @blacklist.is_event_blacklisted? event
+    end
+
+    def soft_write_failure
+      config[:soft_write_failure]
+    end
+
+    # @!group Private class methods
+    def self.normalize_url_prefix(prefix)
+      if prefix == ""
+        prefix
+      elsif prefix.start_with?("/")
+        prefix
+      else
+        "/" + prefix
       end
     end
 
+    # @!group Private instance methods
 
-    main_section = result['main'] || {}
-    # symbolize the keys
-    main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
-    # merge with defaults but filter out anything except the legal settings
-    config_hash = defaults.merge(main_section).reject do |k, v|
-      !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure].include?(k))
+    # @!attribute [r] count
+    #   @api private
+    attr_reader :config
+
+    Blacklist = Puppet::Util::Puppetdb::Blacklist
+
+    # @api private
+    def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
+      @blacklist = Blacklist.new(events)
     end
 
-    config_hash[:server] = config_hash[:server].strip
-    config_hash[:port] = config_hash[:port].to_i
-    config_hash[:url_prefix] = normalize_url_prefix(config_hash[:url_prefix].strip)
-    config_hash[:ignore_blacklisted_events] =
-      Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
-    config_hash[:soft_write_failure] =
-      Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
+    def self.convert_and_validate_urls(uri_strings)
+      uri_strings.map do |uri_string|
 
-    self.new(config_hash)
-  rescue => detail
-    puts detail.backtrace if Puppet[:trace]
-    Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"
-    raise
-  end
+        begin
+          uri = URI(uri_string.strip)
+        rescue URI::InvalidURIError => e
+          raise URI::InvalidURIError.new, "Error parsing URL '#{uri_string}' in PuppetDB 'server_urls', error message was '#{e.message}'"
+        end
 
-  # @!group Public instance methods
+        if uri.scheme != 'https'
+          raise "PuppetDB 'server_urls' must be https, found '#{uri_string}'"
+        end
 
-  def initialize(config_hash = {})
-    @config = config_hash
-    initialize_blacklisted_events()
-  end
-
-  def server
-    config[:server]
-  end
-
-  def port
-    config[:port]
-  end
-
-  def url_prefix
-    config[:url_prefix]
-  end
-
-  def ignore_blacklisted_events?
-    config[:ignore_blacklisted_events]
-  end
-
-  def is_event_blacklisted?(event)
-   @blacklist.is_event_blacklisted? event
-  end
-
-  def soft_write_failure
-    config[:soft_write_failure]
-  end
-
-  # @!group Private class methods
-  def self.normalize_url_prefix(prefix)
-    if prefix == ""
-      prefix
-    elsif prefix.start_with?("/")
-      prefix
-    else
-      "/" + prefix
+        uri
+      end
     end
   end
-
-  # @!group Private instance methods
-
-  # @!attribute [r] count
-  #   @api private
-  attr_reader :config
-
-  Blacklist = Puppet::Util::Puppetdb::Blacklist
-
-  # @api private
-  def initialize_blacklisted_events(events = Blacklist::BlacklistedEvents)
-    @blacklist = Blacklist.new(events)
-  end
-end
 end

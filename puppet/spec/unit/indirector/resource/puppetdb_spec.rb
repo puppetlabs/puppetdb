@@ -26,7 +26,12 @@ describe Puppet::Resource::Puppetdb do
     it "should return an empty array if no resources match" do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns '[]'
-      subject.stubs(:http_get).returns response
+
+      query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
+      http = stub 'http'
+      Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+      http.stubs(:get).with("/v3/resources?query=#{query}",  subject.headers).returns response
+
       search("exec").should == []
     end
 
@@ -36,7 +41,10 @@ describe Puppet::Resource::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      subject.stubs(:http_get).returns response
+      query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
+      http = stub 'http'
+      Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+      http.stubs(:get).with("/v3/resources?query=#{query}",  subject.headers).returns response
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /Deprecated, yo\./
@@ -79,10 +87,9 @@ describe Puppet::Resource::Puppetdb do
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
 
-        subject.stubs(:http_get).with do |request, uri, headers|
-          path, query_string = uri.split('?query=')
-          path == '/v3/resources' and JSON.load(CGI.unescape(query_string)) == query
-        end.returns response
+        http = stub 'http'
+        Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
+        http.stubs(:get).with("/v3/resources?query=#{CGI.escape(query.to_json)}",  subject.headers).returns response
       end
 
       context "with resources from a single host" do
@@ -190,4 +197,3 @@ describe Puppet::Resource::Puppetdb do
     end
   end
 end
-
