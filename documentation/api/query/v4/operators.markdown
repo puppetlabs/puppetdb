@@ -54,7 +54,7 @@ database value.
 
 **Matches if:** the field is greater than the provided value.
 
-### `>=` (less than or equal to)
+### `<=` (less than or equal to)
 
 **Works with:** numbers, timestamps, multi
 
