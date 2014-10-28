@@ -60,7 +60,7 @@ database value.
 
 **Matches if:** the field is greater than the provided value.
 
-### `<=` (greater than or equal to)
+### `>=` (greater than or equal to)
 
 **Works with:** numbers, timestamps, multi
 
