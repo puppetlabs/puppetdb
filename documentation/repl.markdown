@@ -40,9 +40,9 @@ Executing Functions
 
 Within the REPL, you can interactively execute PuppetDB's functions. For example, to manually compact the database:
 
-    user=> (use 'com.puppetlabs.puppetdb.cli.services)
+    user=> (use 'puppetlabs.puppetdb.cli.services)
     nil
-    user=> (use 'com.puppetlabs.puppetdb.scf.storage)
+    user=> (use 'puppetlabs.puppetdb.scf.storage)
     nil
     user=> (use 'clojure.java.jdbc)
     nil
@@ -55,17 +55,17 @@ Redefining Functions
 
 You can also manipulate the running PuppetDB instance by redefining functions on the fly. Let's say that for debugging purposes, you'd like to log every time a catalog is deleted. You can just redefine the existing `delete-catalog!` function dynamically:
 
-    user=> (ns com.puppetlabs.puppetdb.scf.storage)
+    user=> (ns puppetlabs.puppetdb.scf.storage)
     nil
-    com.puppetlabs.puppetdb.scf.storage=>
+    puppetlabs.puppetdb.scf.storage=>
     (def original-delete-catalog! delete-catalog!)
-    #'com.puppetlabs.puppetdb.scf.storage/original-delete-catalog!
-    com.puppetlabs.puppetdb.scf.storage=>
+    #'puppetlabs.puppetdb.scf.storage/original-delete-catalog!
+    puppetlabs.puppetdb.scf.storage=>
     (defn delete-catalog!
       [catalog-hash]
       (log/info (str "Deleting catalog " catalog-hash))
       (original-delete-catalog! catalog-hash))
-    #'com.puppetlabs.puppetdb.scf.storage/delete-catalog!
+    #'puppetlabs.puppetdb.scf.storage/delete-catalog!
 
 Now any time that function is called, you'll see a message logged.
 

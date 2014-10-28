@@ -1,7 +1,7 @@
 <configuration scan="true">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d %-5p [%c{2}] %m%n</pattern>
+            <pattern>%d %-5p [%thread] [%c{2}] %m%n</pattern>
         </encoder>
     </appender>
 
@@ -13,9 +13,9 @@
 
     <!-- turn on to see verbose storage activity -->
     <!--
-    <logger name="com.puppetlabs.puppetdb.scf.storage" level="debug"/>
+    <logger name="puppetlabs.puppetdb.scf.storage" level="debug"/>
     -->
-    <logger name="com.puppetlabs.puppetdb.scf.migrate" level="info"/>
+    <logger name="puppetlabs.puppetdb.scf.migrate" level="info"/>
 
     <root level="info">
         <appender-ref ref="STDOUT" />

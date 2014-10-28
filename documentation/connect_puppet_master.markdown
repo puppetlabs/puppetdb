@@ -58,19 +58,23 @@ You will need to edit (or create) three files in this directory:
 The [puppetdb.conf][puppetdb_conf] file will probably not exist yet. Create it, and add the PuppetDB server's hostname and port:
 
     [main]
-    server = puppetdb.example.com
-    port = 8081
+    server_urls = https://puppetdb.example.com:8081/
 
-PuppetDB's port for secure traffic defaults to 8081. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
+PuppetDB's port for secure traffic defaults to 8081 with the url prefix '/'. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port. If you have specified a [`url-prefix` setting in your PuppetDB configuration][url_prefix_setting] that prefix must be reflected in your urls.
+
+Note that a comma separated list of the URLs can be provided if there are more than one PuppetDB instances available, for instance:
+
+    [main]
+    server_urls = https://puppetdb1.example.com:8081/,https://puppetdb2.example.com:8081/
 
 For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB terminus to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
-You may also, optionally, specify a setting named `url_prefix` if you have configured your PuppetDB server to run the web application at a URL other than "/".  This should not be necessary in most cases, and should only be used if you have modified the corresponding [`url-prefix` setting in your PuppetDB configuration][url_prefix_setting].
+The `server_url_timeout` field sets the maximum amount of time (in seconds) the PuppetDB terminus will wait for an HTTP request to be responded to by PuppetDB. If the user has specified more than one PuppetDB URL and a timeout has occurred, it will attempt the same request in the next server in the list.
 
 If no puppetdb.conf file exists, the following default values will be used:
 
-    server = puppetdb
-    port = 8081
+    server_urls = https://puppetdb:8081/
+    server_url_timeout = 30
     soft_write_failure = false
 
 ### 2. Edit puppet.conf

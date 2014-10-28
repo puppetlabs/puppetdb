@@ -16,7 +16,7 @@ function usage {
   fi
 
   cat <<EOD
-usage: $(basename $0) [--help] <command> [<args>]
+usage: $(basename $0) ([--help] | [--version]) <command> [<args>]
 
 The most commonly used puppetdb commands are:
 EOD
@@ -32,6 +32,14 @@ EOD
   cat << EOD
 
 See '$(basename $0) <command> -h' for more information on a specific command.
+EOD
+  exit 0
+}
+
+# Display version then exit
+function show_version {
+  cat <<EOD
+PuppetDB Version: <%= @version %>
 EOD
   exit 0
 }
@@ -63,6 +71,9 @@ function execsubcommand {
 
 if [ -z $1 ] || [ $1 = "--help" ] || [ $1 = "-h" ]; then
   usage
+fi
+if [ $1 = "--version" ] || [ $1 = "-v" ]; then
+  show_version
 fi
 
 execsubcommand "$@"

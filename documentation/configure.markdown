@@ -180,6 +180,19 @@ This optional setting may be used to mount the PuppetDB web application at a URL
 unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
 this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
 
+
+`[puppetdb]` Settings
+-----
+
+The `[puppetdb]` section is used to configure PuppetDB application specific behavior.
+
+### `certificate-whitelist`
+
+Optional. This describes the path to a file that contains a list of certificate names, one per line.  Incoming HTTPS requests will have their certificates validated against this list of names and only those with an _exact_ matching entry will be allowed through. (For a puppet master, this compares against the value of the `certname` setting, rather than the `dns_alt_names` setting.)
+
+If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
+
+
 `[database]` Settings
 -----
 
@@ -497,7 +510,27 @@ This sets the port to use for _encrypted_ HTTPS traffic. If not supplied, we won
 
 ### `ssl-cert`
 
-This sets the path to the server certificate PEM file used by the PuppetDB web service for HTTPS.
+This sets the path to the server certificate PEM file used by the PuppetDB web
+service for HTTPS.  During the SSL handshake for a connection, certificates
+extracted from this file are presented to the client for the client's use in
+validating the server.  This file may contain a single certificate or a chain
+of certificates ordered from the end certificate first to the most-root
+certificate last.  For example, a certificate chain could contain:
+
+* An end certificate
+* An intermediate CA certificate with which the end certificate was issued
+* A root CA certificate with which the intermediate CA certificate was issued
+
+In the PEM file, the end certificate should appear first, the intermediate CA
+certificate should appear second, and the root CA certificate should appear
+last.
+
+If a chain is present, it is not required to be complete.  If a
+path has been specified for the `ssl-cert-chain` setting, the server will
+construct the cert chain starting with the first certificate found in the
+`ssl-cert` PEM and followed by any certificates in the `ssl-cert-chain` PEM.  In
+the latter case, any certificates in the `ssl-cert` PEM beyond the first one
+would be ignored.
 
 > **Note:** This setting overrides the alternate configuration settings `keystore` and `key-password`.
 
@@ -529,11 +562,6 @@ This describes the path to a Java keystore file containing the CA certificate(s)
 
 This sets the passphrase to use for unlocking the truststore file.
 
-### `certificate-whitelist`
-
-Optional. This describes the path to a file that contains a list of certificate names, one per line.  Incoming HTTPS requests will have their certificates validated against this list of names and only those with an _exact_ matching entry will be allowed through. (For a puppet master, this compares against the value of the `certname` setting, rather than the `dns_alt_names` setting.)
-
-If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
 
 ### `cipher-suites`
 
@@ -546,6 +574,65 @@ If not supplied, PuppetDB uses the default cipher suites for your local system o
 Optional. A comma-separated list of protocols to allow for incoming SSL connections. Valid names are listed in the [official JDK cryptographic protocol documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider); you'll need to use the names with verbatim capitalization. For example: `TLSv1, TLSv1.1, TLSv1.2`.
 
 If not supplied, PuppetDB uses a default of `TLSv1, TLSv1.1, TLSv1.2`. By default SSLv3 is not included in that list due to known vulnerabilities. Users wanting to use SSLv3 need to specify it in their list explicitly.
+
+### `ssl-crl-path`
+
+Optional. This describes a path to a Certificate Revocation List file. Incoming SSL connections will be rejected if the client certificate matches a revocation entry in the file.
+
+### `ssl-cert-chain`
+
+This sets the path to a PEM with CA certificates for use in presenting a
+client with the server's chain of trust.  Certs found in this PEM file are
+appended after the first certificate from the `ssl-cert` PEM in the
+construction of the certificate chain.  This is an optional setting.  The
+certificates in the `ssl-cert-chain` PEM file should be ordered from the
+least-root CA certificate first to the most-root CA certificate last.  For
+example, a certificate chain could contain:
+
+* An end certificate
+* An intermediate CA certificate with which the end certificate was issued
+* A root CA certificate with which the intermediate CA certificate was issued
+
+The end certificate should appear in the `ssl-cert` PEM file.  In the
+`ssl-cert-chain` PEM file, the intermediate CA certificate should appear
+first and the root CA certificate should appear last.
+
+The chain is not required to be complete.
+
+> **Note:** This setting overrides the alternate configuration settings
+`keystore` and `key-password`.
+
+### `access-log-config`
+
+Optional. This is a path to an XML file containing configuration information for the `Logback-access` module. If present, a logger will be set up to log
+information about any HTTP requests Jetty receives according to the logging configuration,
+as long as the XML file pointed to exists and is valid. Information on configuring the
+`Logback-access` module is available [here](http://logback.qos.ch/access.html#configuration).
+
+A configuration file may resemble the following:
+
+    <configuration debug="false">
+      <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>./dev-resources/access.log</file>
+          <encoder>
+            <pattern>%h %l %u %user %date "%r" %s %b</pattern>
+          </encoder>
+        </appender>
+        <appender-ref ref="FILE" />
+    </configuration>
+
+This example configures a `FileAppender` that outputs to a file, `access.log`, in the `dev-resources`
+directory. It will log the remote host making the request, the log name, the remote user making
+the request, the date/time of the request, the URL and method of the request, the status of
+the response, and the size in bytes of the response.
+
+### `graceful-shutdown-timeout`
+After receiving a shut down, this is the number of milliseconds the server will wait for in-flight requests to
+complete before actually shutting down. New requests will be blocked during this time. Defaults to 30000.
+
+### `request-header-max-size`
+
+This sets the maximum size of an HTTP Request Header. If a header is sent that exceeds this value, Jetty will return an HTTP 413 Error response. This defaults to 8192 bytes, and only needs to be configured if an exceedingly large header is being sent in an HTTP Request.
 
 `[repl]` Settings
 -----

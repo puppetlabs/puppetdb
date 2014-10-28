@@ -6,22 +6,11 @@ After=syslog.target network.target
 Type=simple
 EnvironmentFile=/etc/sysconfig/<%= @name %>
 User=<%= @name %>
-PIDFile=/var/run/<%= @name %>/<%= @name %>.pid
-<%- if @pe -%>
-ExecStart=<%= @java_bin %> \
-          $JAVA_ARGS \
-          -cp ${INSTALL_DIR}/puppetdb.jar \
-          clojure.main -m com.puppetlabs.puppetdb.core \
-          services -c ${CONFIG} $@
-<%- else -%>
 ExecStart=/usr/lib/jvm/jre-1.7.0-openjdk/bin/java \
           $JAVA_ARGS \
           -cp ${INSTALL_DIR}/puppetdb.jar \
-          clojure.main -m com.puppetlabs.puppetdb.core \
-          services -c ${CONFIG} $@
-<%- end -%>
-
-ExecStop=/bin/kill $MAINPID
+          clojure.main -m puppetlabs.puppetdb.core \
+          services -c $CONFIG $@
 
 [Install]
 WantedBy=multi-user.target

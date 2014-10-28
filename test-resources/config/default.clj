@@ -24,17 +24,15 @@
       {:classname   "org.hsqldb.jdbcDriver"
        :subprotocol "hsqldb"
        :subname     (str "mem:"
-                      (java.util.UUID/randomUUID)
-                      ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})))
+                         (java.util.UUID/randomUUID)
+                         ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})))
 
 ;; here is a sample test-db-config function for use with postgres
-;(defn test-db-config
-;  "Return a map of connection attrs for the test database"
-;  []
-;  {:classname   "org.postgresql.Driver"
-;   :subprotocol "postgresql"
-;   :subname     "//localhost:5432/puppetdb_test"
-;   :user        "puppetdb"
-;   :password    "puppet"
-;   })
-
+#_(defn test-db-config
+    "Return a map of connection attrs for the test database"
+    []
+    {:classname   "org.postgresql.Driver"
+     :subprotocol "postgresql"
+     :subname     "//localhost:5432/puppetdb_test"
+     :user        "puppetdb"
+     :password    "puppet"})

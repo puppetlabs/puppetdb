@@ -333,12 +333,18 @@ module PuppetDBExtensions
     # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server          => '#{database.node_name}',
       puppetdb_version         => '#{get_package_version(host, version)}',
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
       restart_puppet           => false,
+    }
+    ini_setting {'server_urls':
+      ensure => present,
+      section => 'main',
+      path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
+      setting => 'server_urls',
+      value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -463,13 +469,17 @@ module PuppetDBExtensions
     on host, "#{LeinCommandPrefix} rake sourceterminus"
 
     manifest = <<-EOS
-      include puppetdb::master::storeconfigs
-      class { 'puppetdb::master::puppetdb_conf':
-        server => '#{database.node_name}',
-      }
       include puppetdb::master::routes
+      include puppetdb::master::storeconfigs
       class { 'puppetdb::master::report_processor':
         enable => true,
+      }
+      ini_setting {'server_urls':
+        ensure => present,
+        section => 'main',
+        path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
+        setting => 'server_urls',
+        value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
       }
     EOS
     apply_manifest_on(host, manifest)
@@ -527,6 +537,21 @@ module PuppetDBExtensions
       end
     rescue Timeout::Error => e
       raise "Queue took longer than allowed #{timeout} seconds to empty"
+    end
+  end
+
+  # Queries the metrics endpoint for command processing results, return a hash
+  # of results.
+  def command_processing_stats(host, counter = "processed")
+    metric = "com.puppetlabs.puppetdb.command:type=global,name=discarded"
+
+    result = on host, %Q(curl http://localhost:8080/v3/metrics/mbean/#{CGI.escape(metric)})
+
+    begin
+      JSON.parse(result.stdout)
+    rescue JSON::ParserError => e
+      Beaker::Log.notify "Invalid JSON response: #{result.stdout}"
+      raise e
     end
   end
 
@@ -624,7 +649,7 @@ EOS
       expected_path = File.join(export_dir2, relative_path)
 
       if(relative_path !~ /^puppetdb-bak\/facts.*/ || opts[:facts])
-          assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
+        assert(File.exists?(expected_path), "Export file '#{export_file2}' is missing entry '#{relative_path}'")
       end
 
       puts "Comparing file '#{relative_path}'"
@@ -800,7 +825,6 @@ EOS
       to_a.to_json(arg)
     end
   end
-
 
   def hash_diff(obj1, obj2)
     result =
@@ -1030,6 +1054,15 @@ EOS
     puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
+  def databases
+    extend Beaker::DSL::Roles
+    hosts_as(:database).sort_by {|db| db.to_str}
+  end
+
+  def database
+    # primary database must be numbered lowest
+    databases[0]
+  end
 end
 
 # oh dear.

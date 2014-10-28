@@ -23,7 +23,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     {
       :transaction_uuid => request.options[:transaction_uuid],
       :environment => request.environment,
-      :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601,
+      :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601(5),
     }
   end
 

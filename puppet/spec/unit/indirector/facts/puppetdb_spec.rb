@@ -5,20 +5,23 @@ require 'puppet/indirector/facts/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
 
+
 describe Puppet::Node::Facts::Puppetdb do
 
   CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
+  let(:http) {stub 'http'}
+
   before :each do
-    Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
-    Puppet::Util::Puppetdb.stubs(:port).returns 0
+    Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]
     Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
+
+    Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
   end
 
   describe "#save" do
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
     let(:facts)    { Puppet::Node::Facts.new('foo') }
-    let(:http)     { mock 'http' }
 
     let(:options) {{
       :producer_timestamp => 'a test',
@@ -26,7 +29,6 @@ describe Puppet::Node::Facts::Puppetdb do
     }}
 
     before :each do
-      Puppet::Network::HttpPool.expects(:http_instance).returns http
       response.stubs(:body).returns '{"uuid": "a UUID"}'
     end
 
@@ -121,7 +123,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
 
-      subject.stubs(:http_get).returns response
+      http.stubs(:get).with("/v3/nodes/some_node/facts",  subject.headers).returns response
 
       result = find_facts
       result.should be_a(Puppet::Node::Facts)
@@ -135,7 +137,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
 
-      subject.stubs(:http_get).returns response
+      http.stubs(:get).with("/v3/nodes/some_node/facts",  subject.headers).returns response
 
       find_facts.should be_nil
     end
@@ -144,7 +146,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPForbidden.new('1.1', 403, "Forbidden")
       response.stubs(:body).returns ''
 
-      subject.stubs(:http_get).returns response
+      http.stubs(:get).with("/v3/nodes/some_node/facts",  subject.headers).returns response
 
       expect {
         find_facts
@@ -152,7 +154,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should fail if an error occurs" do
-      subject.stubs(:http_get).raises Puppet::Error, "Everything is terrible!"
+      http.stubs(:get).with("/v3/nodes/some_node/facts",  subject.headers).raises Puppet::Error, "Everything is terrible!"
 
       expect {
         find_facts
@@ -167,7 +169,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns body
 
-      subject.stubs(:http_get).returns response
+      http.stubs(:get).with("/v3/nodes/some_node/facts",  subject.headers).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/
@@ -192,7 +194,9 @@ describe Puppet::Node::Facts::Puppetdb do
       response.stubs(:body).returns '[{"name": "foo", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
                                       {"name": "bar", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
                                       {"name": "baz", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
-      subject.stubs(:http_get).returns response
+
+      query = CGI.escape("[\"and\",[\"=\",[\"fact\",\"kernel\"],\"Linux\"]]")
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       search_facts(args).should == ['foo', 'bar', 'baz']
     end
@@ -219,9 +223,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      subject.expects(:http_get).with do |_,url,_|
-        url.should == "/v3/nodes?query=#{query}"
-      end.returns response
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       search_facts(args)
     end
@@ -235,9 +237,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      subject.expects(:http_get).with do |_,url,_|
-        url.should == "/v3/nodes?query=#{query}"
-      end.returns response
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       search_facts(args)
     end
@@ -251,9 +251,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      subject.expects(:http_get).with do |_,url,_|
-        url.should == "/v3/nodes?query=#{query}"
-      end.returns response
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       search_facts(args)
     end
@@ -273,9 +271,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
         response.stubs(:body).returns '[]'
 
-        subject.expects(:http_get).with do |_,url,_|
-          url.should == "/v3/nodes?query=#{query}"
-        end.returns response
+        http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
         search_facts(args)
       end
@@ -285,18 +281,21 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPBadRequest.new('1.1', 400, 'Bad Request')
       response.stubs(:body).returns 'Something bad happened!'
 
-      subject.stubs(:http_get).returns response
+      query = CGI.escape(["and"].to_json)
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       expect do
         search_facts(nil)
-      end.to raise_error(Puppet::Error, /Could not perform inventory search from PuppetDB at localhost:0: \[400 Bad Request\] Something bad happened!/)
+      end.to raise_error(Puppet::Error, /\[400 Bad Request\] Something bad happened!/)
+
     end
 
     it "should log a deprecation warning if one is returned from PuppetDB" do
       response['x-deprecation'] = "This is deprecated!"
       response.stubs(:body).returns '[]'
 
-      subject.stubs(:http_get).returns response
+      query = CGI.escape(["and"].to_json)
+      http.stubs(:get).with("/v3/nodes?query=#{query}",  subject.headers).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/

@@ -44,7 +44,7 @@
   necessary.
 * In these rare circumstances where a schema change must be made against more
   than one branch of the code, see the notes at the beginning of the file
-  `src/com/puppetlabs/puppetdb/scf/migrate.clj` on this subject.  Exercise extreme
+  `src/puppetlabs/puppetdb/scf/migrate.clj` on this subject.  Exercise extreme
   caution to make sure that you are adhering to the guidelines therein.
 
 # Additional Resources
