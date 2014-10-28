@@ -333,12 +333,18 @@ module PuppetDBExtensions
     # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
     class { 'puppetdb::master::config':
-      puppetdb_server          => '#{database.node_name}',
       puppetdb_version         => '#{get_package_version(host, version)}',
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
       restart_puppet           => false,
+    }
+    ini_setting {'server_urls':
+      ensure => present,
+      section => 'main',
+      path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
+      setting => 'server_urls',
+      value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
     }
     EOS
     apply_manifest_on(host, manifest)
