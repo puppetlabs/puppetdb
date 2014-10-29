@@ -44,12 +44,12 @@ they can't be coerced, the operator will not match.
 **Matches if:** the field is less than the provided value. Coerces both the field and value to floats or integers; if
 they can't be coerced, the operator will not match.
 
-### `>=` (less than or equal to)
+### `>=` (greater than or equal to)
 
 **Matches if:** the field is greater than or equal to the provided value. Coerces both the field and value to floats or integers; if
 they can't be coerced, the operator will not match.
 
-### `<=` (greater than or equal to)
+### `<=` (less than or equal to)
 
 **Matches if:** the field is less than or equal to the provided value. Coerces both the field and value to floats or integers; if
 they can't be coerced, the operator will not match.
