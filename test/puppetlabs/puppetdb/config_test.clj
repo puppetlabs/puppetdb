@@ -231,3 +231,52 @@
              (with-out-str
                (binding [*err* *out*]
                  (default-ssl-protocols {}))))))))
+
+;;;;;;;;;;
+;; Function-under-test: hook-tk-parse-config-data'
+;;
+;; Test cases to consider:
+;; 1. Missing configuration file
+;;    - triggers an java.io.IOException (specifically, java.io.FileNotFoundException)
+;; 2. Empty configuration file
+;;    - triggers an java.lang.IllegalArgumentException
+;; 3. Invalid configuration file info/format
+;;    - triggers an org.ini4j.InvalidFileFormatException
+;;
+;; Fut is given a fake config parser along with an :exc argument to indicate the exception type to be
+;; tested for.  Fut is also told to re-throw an Exception via the 'action-on-error-fn' parameter.
+;; Expect fut to output error messages to the log and to stderr.
+;;
+(defn fake-tk-parse-config-function
+  [args]
+  (when (= "IOE"  (:exc args)) (throw (java.io.IOException. (str (:exc args)))))
+  (when (= "FNFE" (:exc args)) (throw (java.io.FileNotFoundException. (str (:exc args)))))
+  (when (= "IAE"  (:exc args)) (throw (java.lang.IllegalArgumentException. (str (:exc args)))))
+  (when (= "IFFE" (:exc args)) (throw (org.ini4j.InvalidFileFormatException. (str (:exc args))))))
+
+(deftest hook-tk-parse-config-data-test
+  (testing "missing config file, verify java.io.FileNotFoundException occurrence"
+    (let [exc-msg "FNFException re-toss for hook-tk-test"]
+      (is (thrown-with-msg? Exception (re-pattern exc-msg)
+                            (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                        #(throw (Exception. exc-msg))
+                                                        {:exc "FNFE" :config "hook-tk-test.ini" :help false}))))
+    (let [exc-msg "IOException re-toss for hook-tk-test"]
+      (is (thrown-with-msg? Exception (re-pattern exc-msg)
+                            (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                        #(throw (Exception. exc-msg))
+                                                        {:exc "IOE" :config "hook-tk-test.ini" :help false})))))
+
+  (testing "empty config file, verify java.lang.IllegalArgumentException occurrence"
+    (let [exc-msg "IAException re-toss for hook-tk-test"]
+      (is (thrown-with-msg? Exception (re-pattern exc-msg)
+                            (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                        #(throw (Exception. exc-msg))
+                                                        {:exc "IAE" :config "hook-tk-test.ini" :help false})))))
+
+  (testing "invalid config, verify org.ini4j.InvalidFileFormatException occurrence"
+    (let [exc-msg "IFFException re-toss for hook-tk-test"]
+      (is (thrown-with-msg? Exception (re-pattern exc-msg)
+                            (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                        #(throw (Exception. exc-msg))
+                                                        {:exc "IFFE" :config "hook-tk-test.ini" :help false}))))))
