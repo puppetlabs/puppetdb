@@ -122,6 +122,17 @@
                :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
+  (testing "ensure that nil-valued hashes are legal"
+    (let [test-row [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
+                      :value "abc" :type "string" :timestamp current-time
+                      :value_integer nil :value_float nil
+                      :producer-timestamp current-time :hash nil}]]
+      (is (= [{:facts {"a" {"b" {"c" "abc"}}}
+               :producer-timestamp current-time
+               :timestamp current-time :environment "DEV"
+               :certname "foo.com", :hash nil}]
+             (structured-data-seq :v4 test-row)))))
+
   (testing "json numeric formats"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
                       :value_integer 100000000000 :type "integer" :timestamp current-time
