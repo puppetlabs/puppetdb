@@ -271,6 +271,7 @@
 (def factsets-query
   "Query for the top level facts query"
   (map->Query {:project {"path" :string
+                         "hash" :string
                          "value" :variable
                          "certname" :string
                          "timestamp" :timestamp
@@ -280,7 +281,7 @@
                          "\"producer-timestamp\"" :timestamp
                          "type" :string}
                :alias "factsets"
-               :queryable-fields ["certname" "environment" "timestamp" "producer-timestamp"]
+               :queryable-fields ["certname" "environment" "timestamp" "producer-timestamp" "hash"]
                :entity :factsets
                :source-table "factsets"
                :subquery? false
@@ -291,6 +292,7 @@
                                fact_values.value_integer as value_integer,
                                fact_values.value_float as value_float,
                                factsets.certname,
+                               factsets.hash,
                                factsets.producer_timestamp as \"producer-timestamp\",
                                environments.name as environment,
                                value_types.type

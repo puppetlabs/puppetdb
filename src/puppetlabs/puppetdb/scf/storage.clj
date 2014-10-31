@@ -847,14 +847,19 @@
   "Give a list of fact-values-to-ids-map constructs, returns a map with the
   fact-values-to-ids-map being the key, and any new value id's as the value."
   [factvalues :- [fact-values-to-ids-map]]
-  (let [record-set (mapv #(select-keys % [:path_id :value_type_id :value_hash :value_string :value_json :value_integer :value_float :value_boolean])
-                         factvalues)
+  (let [record-set (mapv
+                     #(select-keys % [:path_id :value_type_id :value_hash
+                                      :value_string :value_json :value_integer
+                                      :value_float :value_boolean])
+                     factvalues)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
                                 (apply sql/insert-records :fact_values record-set))]
     (into {} (map (fn [data]
-                    [(select-keys data [:path_id :value_type_id :value_hash :value_string :value_json :value_integer :value_float :value_boolean])
+                    [(select-keys data [:path_id :value_type_id :value_hash
+                                        :value_string :value_json :value_integer
+                                        :value_float :value_boolean])
                      (:id data)])
                   result-set))))
 
@@ -959,16 +964,22 @@
 
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
-  facts associated with the certname."
-  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
-  (sql/insert-record :factsets
-                     {:certname name
-                      :timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer-timestamp)})
-  (let [new-facts (new-fact-value-ids values)
-        factset (certname-to-factset-id name)]
-    (insert-facts! factset (set new-facts))))
+   facts associated with the certname."
+  ([fact-data]
+   (add-facts! fact-data true))
+  ([{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema
+    include-hash? :- s/Bool]
+   (let [factset {:certname name
+                  :timestamp (to-timestamp timestamp)
+                  :environment_id (ensure-environment environment)
+                  :producer_timestamp (to-timestamp producer-timestamp)}
+         fact-data-hash (shash/generic-identity-hash fact-data)]
+     (sql/insert-record :factsets
+                        (if include-hash?
+                          (assoc factset :hash fact-data-hash) factset))
+     (insert-facts!
+       (certname-to-factset-id name)
+       (set (new-fact-value-ids values))))))
 
 (pls/defn-validated delete-facts!
   "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
@@ -1026,20 +1037,21 @@
 
 (pls/defn-validated update-facts!
   "Given a certname, querys the DB for existing facts for that
-   certname and will update, delete or insert the facts as necessary
-   to match the facts argument."
+  certname and will update, delete or insert the facts as necessary
+  to match the facts argument."
   [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
-  (let [factset (certname-to-factset-id name)
-        old-facts (current-fact-value-ids factset)
-        new-facts (new-fact-value-ids values)]
-    (sql/update-values :factsets ["id=?" factset]
-                       {:timestamp (to-timestamp timestamp)
-                        :environment_id (ensure-environment environment)
-                        :producer_timestamp (to-timestamp producer-timestamp)})
+  (let [factset-id (certname-to-factset-id name)
+        old-facts (current-fact-value-ids factset-id)
+        new-facts (new-fact-value-ids values)
+        factset {:timestamp (to-timestamp timestamp)
+                 :environment_id (ensure-environment environment)
+                 :producer_timestamp (to-timestamp producer-timestamp)
+                 :hash (shash/generic-identity-hash fact-data)}]
+    (sql/update-values :factsets ["id=?" factset-id] factset)
     (utils/diff-fn (zipmap new-facts (repeat nil))
                    (zipmap old-facts (repeat nil))
-                   #(insert-facts! factset %)
-                   #(delete-facts! factset %)
+                   #(insert-facts! factset-id %)
+                   #(delete-facts! factset-id %)
                    identity)))
 
 (pls/defn-validated factset-timestamp :- (s/maybe pls/Timestamp)
@@ -1228,7 +1240,7 @@
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the factsets will have changed while the transaction was in-flight."
-  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
+  [{:keys [name timestamp] :as fact-data} :- facts-schema]
   (time! (:replace-facts metrics)
          (if-let [factset-ts (factset-timestamp name)]
            (when (.before factset-ts (to-timestamp timestamp))

@@ -32,6 +32,9 @@
 
 (use-fixtures :each with-test-db)
 
+(def reference-time "2014-10-28T20:26:21.727Z")
+(def previous-time "2014-10-26T20:26:21.727Z")
+
 (deftest fact-persistence
   (testing "Persisted facts"
     (let [certname "some_certname"
@@ -49,7 +52,7 @@
 
       (add-facts! {:name certname
                    :values facts
-                   :timestamp (-> 2 days ago)
+                   :timestamp previous-time
                    :environment nil
                    :producer-timestamp nil})
       (testing "should have entries for each fact"
@@ -94,13 +97,12 @@
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
                            "kernel" "Linux"
-                           "uptime_seconds" "3600"}
-                current-time (now)]
+                           "uptime_seconds" "3600"}]
             (replace-facts! {:name certname
                              :values new-facts
                              :environment "DEV"
-                             :producer-timestamp current-time
-                             :timestamp current-time})
+                             :producer-timestamp reference-time
+                             :timestamp reference-time})
             (testing "should have only the new facts"
               (is (= (query-to-vec
                       "SELECT fp.path as name,
@@ -122,16 +124,17 @@
                       {:name "uptime_seconds" :value "3600"}])))
             (testing "producer-timestamp should store current time"
               (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
-                     [{:producer_timestamp (to-timestamp current-time)}])))
+                     [{:producer_timestamp (to-timestamp reference-time)}])))
             (testing "should only delete operatingsystem key"
               (is (= [[:facts "factset_id=? and fact_value_id in (?,?,?)"]]
                      ;; We munge the output here so we aren't trying to match on ids
                      ;; as that is not cross-db compatible
                      (map (fn [itm] [(first itm) (first (second itm))]) @deletes))))
             (testing "should update existing keys"
-              (is (some #{{:timestamp (to-timestamp current-time)
+              (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :producer_timestamp (to-timestamp current-time)}}
+                           :hash "66c90476f974812b6532207f39d80d6010da1363"
+                           :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm] (last itm)) @updates)))
               (is (some (fn [update-call]
@@ -156,7 +159,7 @@
         (delete-facts! certname)
         (add-facts! {:name certname
                      :values facts
-                     :timestamp (-> 2 days ago)
+                     :timestamp previous-time
                      :environment nil
                      :producer-timestamp nil})
         (replace-facts! {:name certname
@@ -204,7 +207,7 @@
 
       (add-facts! {:name certname
                    :values facts
-                   :timestamp (-> 2 days ago)
+                   :timestamp previous-time
                    :environment "PROD"
                    :producer-timestamp nil})
 

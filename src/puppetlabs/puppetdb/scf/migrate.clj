@@ -57,12 +57,12 @@
             [clojure.set :refer :all]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-query-results-cursor]]))
+            [puppetlabs.puppetdb.jdbc :as jdbc]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
   [table constraint-type]
-  (let [results     (query-to-vec
+  (let [results     (jdbc/query-to-vec
                      (str "SELECT constraint_name FROM information_schema.table_constraints "
                           "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
                      table constraint-type)
@@ -312,7 +312,7 @@
                          params   (into {} (map #(vector (:name %) (json/parse-string (:value %))) rows))]
                      [resource params]))]
 
-    (with-query-results-cursor query [] rs
+    (jdbc/with-query-results-cursor query [] rs
       (let [param-sets (->> rs
                             (partition-by :resource)
                             (map collapse))]
@@ -712,22 +712,24 @@
 (defn migrate-to-structured-facts
   "Pulls data from 'pre-structured' tables and moves to new."
   []
-  (let [certname-facts-metadata (query-to-vec "SELECT * FROM certname_facts_metadata")]
+  (let [certname-facts-metadata (jdbc/query-to-vec "SELECT * FROM certname_facts_metadata")]
     (doseq [{:keys [certname timestamp environment_id]} certname-facts-metadata]
       (let [facts (->> certname
-                       (query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
+                       (jdbc/query-to-vec "SELECT * FROM certname_facts WHERE certname = ?")
                        (reduce #(assoc %1 (:name %2) (:value %2)) {}))
             environment (->> environment_id
-                             (query-to-vec "SELECT name FROM environments WHERE id = ?")
+                             (jdbc/query-to-vec "SELECT name FROM environments WHERE id = ?")
                              first
-                             :name)]
+                             :name)
+            include-hash? false]
         (when-not (empty? facts)
           (scf-store/add-facts!
-           {:name (str certname)
-            :values facts
-            :timestamp timestamp
-            :environment environment
-            :producer-timestamp nil}))))))
+            {:name (str certname)
+             :values facts
+             :timestamp timestamp
+             :environment environment
+             :producer-timestamp nil}
+            include-hash?))))))
 
 (defn structured-facts []
   ;; -----------
@@ -882,8 +884,15 @@
     (sql/do-commands
      "DROP INDEX fact_values_string_trgm")))
 
-;; The available migrations, as a map from migration version to migration function.
+(defn insert-factset-hash-column
+  "Insert a column in factsets to be populated by a hash."
+  []
+  (sql/do-commands
+    "ALTER TABLE factsets ADD hash VARCHAR(40)"
+    "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
+
 (def migrations
+  "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
    2 allow-node-deactivation
    3 add-catalog-timestamps
@@ -910,7 +919,8 @@
    24 add-producer-timestamps
    25 structured-facts
    26 structured-facts-deferrable-constraints
-   27 switch-value-string-index-to-gin})
+   27 switch-value-string-index-to-gin
+   28 insert-factset-hash-column})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -932,7 +942,7 @@
            (apply < 0 %)]}
   (try
     (let [query   "SELECT version FROM schema_migrations ORDER BY version"
-          results (sql/transaction (query-to-vec query))]
+          results (sql/transaction (jdbc/query-to-vec query))]
       (apply sorted-set (map :version results)))
     (catch java.sql.SQLException e
       (sorted-set))))
