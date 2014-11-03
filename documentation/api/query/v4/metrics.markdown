@@ -9,7 +9,10 @@ canonical: "/puppetdb/latest/api/query/v4/metrics.html"
 Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/v4/metrics` REST endpoint.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
+**Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
+
+**Note** In most cases PuppetDB is simply a conduit for mbeans made available
+by its components. PuppetDB makes no guarantee about the stability of mbean names.
 
 ## Listing available metrics
 
