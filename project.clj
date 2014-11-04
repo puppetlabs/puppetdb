@@ -15,7 +15,7 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
-(def tk-version "0.5.1")
+(def tk-version "0.5.2")
 (def tk-jetty9-version "0.9.0")
 (def ks-version "0.7.2")
 

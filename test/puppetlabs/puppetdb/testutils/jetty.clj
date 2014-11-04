@@ -4,6 +4,7 @@
             [puppetlabs.trapperkeeper.app :as tka]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
+            [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
@@ -19,7 +20,8 @@
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}})
+   :command-processing {}
+   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service "/"}})
 
 (defn current-url
   "Uses the dynamically bound port to create a v4 URL to the
@@ -45,7 +47,7 @@
   ([f] (puppetdb-instance (create-config) f))
   ([config f]
      (tkbs/with-app-with-config server
-       [jetty9-service puppetdb-service message-listener-service command-service]
+       [jetty9-service puppetdb-service message-listener-service command-service webrouting-service]
        config
        (binding [*port* (current-port server)]
          (f)))))

@@ -9,6 +9,7 @@ pom.xml
 *#
 /pkg/
 test-resources/config/local.clj
+checkouts
 ext/packaging/*
 /scripts
 Gemfile.lock
