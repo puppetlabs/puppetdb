@@ -366,6 +366,25 @@
     (warn-if-sslv3 config-data)
     (assoc-in config-data [:jetty :ssl-protocols] ["TLSv1" "TLSv1.1" "TLSv1.2"])))
 
+(defn hook-tk-parse-config-data'
+  [f action-on-error-fn args]
+  (try
+    (-> (f args)
+        fix-tk-config
+        default-ssl-protocols)
+    (catch org.ini4j.InvalidFileFormatException e
+      (log/error e (format "Error while processing '%s'." (:config args)))
+      (utils/println-err (format "Error while processing '%s': %s" (:config args) (.getMessage e)))
+      (action-on-error-fn))
+    (catch java.lang.IllegalArgumentException e
+      (log/error e (format "Error evaluating '%s'." (:config args)))
+      (utils/println-err (format "Error evaluating '%s': %s" (:config args) (.getMessage e)))
+      (action-on-error-fn))
+    (catch java.io.IOException e
+      (log/error e (format "Error while reading '%s'." (:config args)))
+      (utils/println-err (format "Error while reading '%s': %s" (:config args) (.getMessage e)))
+      (action-on-error-fn))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -374,11 +393,8 @@
    trapperkeeper configuration before it is used, so that we may munge &
    customize it."
   [f args]
-  (let [config (f args)]
-    (-> config
-        fix-tk-config
-        default-ssl-protocols)))
-
+  (hook-tk-parse-config-data' f #(System/exit 1) args))
+  
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values
   and configures the various PuppetDB subsystems."

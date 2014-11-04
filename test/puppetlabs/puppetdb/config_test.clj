@@ -231,3 +231,57 @@
              (with-out-str
                (binding [*err* *out*]
                  (default-ssl-protocols {}))))))))
+
+;;;;;;;;;;
+;; Function-under-test: hook-tk-parse-config-data'
+;;
+;; Test cases to consider:
+;; 1. Missing configuration file
+;;    - triggers an java.io.IOException (specifically, java.io.FileNotFoundException)
+;; 2. Empty configuration file
+;;    - triggers an java.lang.IllegalArgumentException
+;; 3. Invalid configuration file info/format
+;;    - triggers an org.ini4j.InvalidFileFormatException
+;;
+;; Fut is given a fake config parser along with an :exc argument to indicate the exception type to be
+;; tested for.  We use testutils to scrape and verify the expected output to log and stderr.
+;;
+(defn fake-tk-parse-config-function
+  [args]
+  (when (= "IOE"  (:exc args)) (throw (java.io.IOException. (str (:exc args)))))
+  (when (= "IAE"  (:exc args)) (throw (java.lang.IllegalArgumentException. (str (:exc args)))))
+  (when (= "IFFE" (:exc args)) (throw (org.ini4j.InvalidFileFormatException. (str (:exc args))))))
+
+(deftest hook-tk-parse-config-data-test
+  (testing "missing config file, verify java.io.IOException (FileNotFoundException) occurrence"
+    (let [changed? (atom false)]
+      (tu-log/with-log-output log
+        (is (re-find #"Error while reading 'hook-tk-test.ini'."
+                     (tu/with-err-str
+                       (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                   #(reset! changed? true)
+                                                   {:exc "IOE" :config "hook-tk-test.ini" :help false}))))
+        (is (true? @changed?))
+        (is (re-find #"Error while reading 'hook-tk-test.ini'." (last (first @log)))))))
+
+  (testing "empty config file, verify java.lang.IllegalArgumentException occurrence"
+    (let [changed? (atom false)]
+      (tu-log/with-log-output log
+        (is (re-find #"Error evaluating 'hook-tk-test.ini'."
+                     (tu/with-err-str
+                       (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                   #(reset! changed? true)
+                                                   {:exc "IAE" :config "hook-tk-test.ini" :help false}))))
+        (is (true? @changed?))
+        (is (re-find #"Error evaluating 'hook-tk-test.ini'." (last (first @log)))))))
+
+  (testing "invalid config, verify org.ini4j.InvalidFileFormatException occurrence"
+    (let [changed? (atom false)]
+      (tu-log/with-log-output log
+        (is (re-find #"Error while processing 'hook-tk-test.ini'."
+                     (tu/with-err-str
+                       (hook-tk-parse-config-data' fake-tk-parse-config-function
+                                                   #(reset! changed? true)
+                                                   {:exc "IFFE" :config "hook-tk-test.ini" :help false}))))
+        (is (true? @changed?))
+        (is (re-find #"Error while processing 'hook-tk-test.ini'." (last (first @log))))))))
