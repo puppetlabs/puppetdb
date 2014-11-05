@@ -212,11 +212,11 @@ module PuppetDBExtensions
     end
   end
 
-  def puppetdb_sbin_dir(host)
+  def puppetdb_bin_dir(host)
     if host.is_pe?
-      "/opt/puppet/sbin"
+      "/opt/puppet/bin"
     else
-      "/usr/sbin"
+      "/usr/bin"
     end
   end
 

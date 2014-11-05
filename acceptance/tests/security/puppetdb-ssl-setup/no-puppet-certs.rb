@@ -2,7 +2,7 @@ test_name "puppetdb ssl-setup with no puppet certs" do
   db_conf_dir = puppetdb_confdir(database)
   db_ssl_dir = "#{db_conf_dir}/ssl"
   db_confd = "#{puppetdb_confdir(database)}/conf.d"
-  sbin_loc = "#{puppetdb_sbin_dir(database)}"
+  bin_loc = "#{puppetdb_bin_dir(database)}"
 
   ssl_dir = on(database, puppet_master("--configprint ssldir")).stdout.chomp
 
@@ -24,7 +24,7 @@ test_name "puppetdb ssl-setup with no puppet certs" do
   step "run puppetdb ssl-setup with no puppet certs, and make sure it returns a meaningful error" do
     on database, "rm -rf #{ssl_dir}.bak.ssl_setup_tests"
     on database, "mv #{ssl_dir} #{ssl_dir}.bak.ssl_setup_tests"
-    result = on database, "#{sbin_loc}/puppetdb ssl-setup", :acceptable_exit_codes => [1]
+    result = on database, "#{bin_loc}/puppetdb ssl-setup", :acceptable_exit_codes => [1]
     assert_match(/Warning: Unable to find all puppet certificates to copy/, result.output)
   end
 
@@ -35,6 +35,6 @@ test_name "puppetdb ssl-setup with no puppet certs" do
   end
 
   step "retest puppetdb ssl-setup again now there are certs" do
-    on database, "#{sbin_loc}/puppetdb ssl-setup"
+    on database, "#{bin_loc}/puppetdb ssl-setup"
   end
 end
