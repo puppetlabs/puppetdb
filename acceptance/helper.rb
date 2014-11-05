@@ -257,7 +257,7 @@ module PuppetDBExtensions
     # Retry until an HTTP response code of 200 is received.
     curl_with_retries("start puppetdb", host, "http://localhost:8080/v3/version", 0, 120)
     curl_with_retries("start puppetdb (ssl)", host,
-                      "https://#{host.node_name}:8081", [35, 60])
+                      "https://#{host.node_name}:8081/", [35, 60])
   rescue RuntimeError => e
     display_last_logs(host)
     raise
