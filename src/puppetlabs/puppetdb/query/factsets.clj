@@ -14,7 +14,7 @@
    :environment (s/maybe s/Str)
    :path String
    :value s/Any
-   :hash s/Str
+   :hash (s/maybe s/Str)
    :value_float (s/maybe s/Num)
    :value_integer (s/maybe s/Int)
    :producer-timestamp (s/maybe pls/Timestamp)
@@ -25,7 +25,7 @@
   {:certname String
    :environment (s/maybe s/Str)
    :path String
-   :hash s/Str
+   :hash (s/maybe s/Str)
    :value s/Any
    :producer-timestamp (s/maybe pls/Timestamp)
    :timestamp pls/Timestamp})
@@ -35,7 +35,7 @@
    :environment (s/maybe s/Str)
    :timestamp pls/Timestamp
    :producer-timestamp (s/maybe pls/Timestamp)
-   :hash s/Str
+   :hash (s/maybe s/Str)
    :facts {s/Str s/Any}})
 
 ;; FUNCS
