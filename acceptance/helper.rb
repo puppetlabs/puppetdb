@@ -345,6 +345,8 @@ module PuppetDBExtensions
       manage_report_processor  => true,
       enable_reports           => true,
       restart_puppet           => false,
+      # TODO: need to figure out if this needs changing in the termini, or just override it here
+      terminus_package         => 'puppetdb-termini',
     }
     ini_setting {'server_urls':
       ensure => present,
