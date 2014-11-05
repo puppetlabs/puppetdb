@@ -11,7 +11,6 @@ module PuppetDBExtensions
   include Test::Unit::Assertions
 
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
-
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true LEIN_SNAPSHOTS_IN_RELEASE=true"
 
   def self.initialize_test_config(options, os_families)
@@ -129,7 +128,6 @@ module PuppetDBExtensions
     attr_reader :config
   end
 
-
   def self.get_option_value(value, legal_values, description,
     env_var_name = nil, default_value = nil)
 
@@ -195,29 +193,28 @@ module PuppetDBExtensions
     end
   end
 
-
   def puppetdb_confdir(host)
-    if host.is_pe?
-      "/etc/puppetlabs/puppetdb"
-    else
-      "/etc/puppetdb"
-    end
+    host.is_pe? ? "/etc/puppetlabs/puppetdb" : "/etc/puppetdb"
   end
 
   def puppetdb_sharedir(host)
-    if host.is_pe?
-      "/opt/puppet/share/puppetdb"
-    else
-      "/usr/share/puppetdb"
-    end
+    host.is_pe? ? "/opt/puppet/share/puppetdb" : "/usr/share/puppetdb"
   end
 
   def puppetdb_bin_dir(host)
-    if host.is_pe?
-      "/opt/puppet/bin"
-    else
-      "/usr/bin"
-    end
+    host.is_pe? ? "/opt/puppet/bin" : "/usr/bin"
+  end
+
+  def puppetdb_log_dir(host)
+    host.is_pe? ? "/var/log/pe-puppetdb" : "/var/log/puppetdb"
+  end
+
+  def puppetdb_vardir(host)
+    host.is_pe? ? "/var/lib/pe-puppetdb" : "/var/lib/puppetdb"
+  end
+
+  def catalog_hash_debug_dir(host)
+    puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
   def puppetdb_pids(host)
@@ -240,14 +237,30 @@ module PuppetDBExtensions
     end
   end
 
+  # Display the last few log lines for debugging purposes
+  #
+  # @param host Hostname to display results for
+  # @return [void]
+  # @api private
+  def display_last_logs(host)
+    on host, "tail -n 100 #{puppetdb_log_dir}/puppetdb-daemon.log"
+    on host, "tail -n 100 #{puppetdb_log_dir}/puppetdb.log"
+  end
+
+  # Sleep until PuppetDB is completely started
+  #
+  # @param host Hostname to test for PuppetDB availability
+  # @return [void]
+  # @api public
   def sleep_until_started(host)
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
-    curl_with_retries("start puppetdb", host,
-                      "-s -w '%{http_code}' http://localhost:8080/v3/version -o /dev/null",
-                      0, 120, 1, /200/)
+    curl_with_retries("start puppetdb", host, "http://localhost:8080/v3/version", 0, 120)
     curl_with_retries("start puppetdb (ssl)", host,
-                      "https://#{host.node_name}:8081/", [35, 60])
+                      "https://#{host.node_name}:8081", [35, 60])
+  rescue RuntimeError => e
+    display_last_logs(host)
+    raise
   end
 
   def get_package_version(host, version = nil)
@@ -270,7 +283,6 @@ module PuppetDBExtensions
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
-
   end
 
   def el5?(host)
@@ -309,7 +321,6 @@ module PuppetDBExtensions
     sleep_until_started(host)
   end
 
-
   def validate_package_version(host)
     step "Verifying package version" do
       os = PuppetDBExtensions.config[:os_families][host.name]
@@ -332,7 +343,6 @@ module PuppetDBExtensions
       end
     end
   end
-
 
   def install_puppetdb_termini(host, database, version=nil)
     # We pass 'restart_puppet' => false to prevent the module from trying to
@@ -359,7 +369,6 @@ module PuppetDBExtensions
     apply_manifest_on(host, manifest)
   end
 
-
   def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
       on host, "cat /etc/puppetdb/conf.d/jetty.ini"
@@ -374,21 +383,8 @@ module PuppetDBExtensions
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
   end
 
-  ############################################################################
-  # NOTE: the following methods should only be called during run-from-source
-  #  acceptance test runs.
-  ############################################################################
-
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
-
-
-    ############################################################################
-    # NOTE: A lot of the differences between the PE and FOSS manifests here is
-    #   only necessary because the puppetdb::database::postgresql module
-    #   doesn't parameterize things like the service name. It would be nice
-    #   to simplify this once we've added more paramters to the module.
-    ############################################################################
 
     if host.is_pe?
       service_name = "pe-postgresql"
@@ -494,9 +490,6 @@ module PuppetDBExtensions
     apply_manifest_on(host, manifest)
   end
 
-  ###########################################################################
-
-
   def stop_puppetdb(host)
     pids = puppetdb_pids(host)
 
@@ -581,20 +574,6 @@ ini_setting {'puppetdb-config-#{setting}':
 }
 EOS
     apply_manifest_on(host, manifest_content)
-  end
-
-  def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
-    desired_exit_codes = [desired_exit_codes].flatten
-    result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
-    num_retries = 0
-    until desired_exit_codes.include?(exit_code) and (result.stdout =~ expected_output)
-      sleep retry_interval
-      result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
-      num_retries += 1
-      if (num_retries > max_retries)
-        fail("Unable to #{desc}")
-      end
-    end
   end
 
   def clear_database(host)
@@ -777,12 +756,12 @@ EOS
   end
 
   def parse_json_with_error(input)
-      begin
-          facts = JSON.parse(input)
-      rescue Exception => e
-          facts = "#{e.message} on input '#{input}'"
-      end
-      return facts
+    begin
+      facts = JSON.parse(input)
+    rescue Exception => e
+      facts = "#{e.message} on input '#{input}'"
+    end
+    return facts
   end
 
   ############################################################################
@@ -1049,18 +1028,6 @@ EOS
       agents.each{ |agent| on agent, puppet_agent("--test --server #{host}", { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
 
     end
-  end
-
-  def puppetdb_vardir(host)
-    if host.is_pe?
-      "/var/lib/pe-puppetdb"
-    else
-      "/var/lib/puppetdb"
-    end
-  end
-
-  def catalog_hash_debug_dir(host)
-    puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
   def databases
