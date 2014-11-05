@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ssl_command="puppetdb ssl-setup"
+
 #############
 # FUNCTIONS #
 #############
@@ -14,7 +16,7 @@
 #   usage
 #
 function usage() {
-  echo "Usage: $0 [-if]"
+  echo "Usage: ${ssl_command} [-if]"
   echo "Configuration helper for enabling SSL for PuppetDB."
   echo
   echo "This tool will attempt to copy the necessary Puppet SSL PEM files into "\
@@ -160,7 +162,7 @@ function copy_pem_from_puppet {
       echo "  Afterwards re-run this tool then restart PuppetDB to complete the SSL"
       echo "  setup:"
       echo
-      echo "      $0 -f"
+      echo "      ${ssl_command} -f"
       exit 1
     fi
   done
@@ -275,7 +277,7 @@ if ! ${force}; then
           echo "  Use the following to ignore this error and force this tool to repair"
           echo "  your setup anyway:"
           echo
-          echo "      $0 -f"
+          echo "      ${ssl_command} -f"
           echo
           exit 1
         fi
@@ -295,7 +297,7 @@ if ! ${force}; then
       echo "  Your can however force this tool to overwrite your existing"
       echo "  configuration with the newer PEM based configuration with:"
       echo
-      echo "      $0 -f"
+      echo "      ${ssl_command} -f"
       echo
       exit 1
     fi
@@ -357,7 +359,7 @@ if [ -f "$jettyfile" ] ; then
           replaceline "^${setting}.*" "${setting} = ${value}" ${jettyfile}
           echo "Updated setting ${setting} in ${jettyfile}."
         else
-          echo "Warning: Setting ${setting} in ${jettyfile} should be ${value}. This can be remedied with $0 -f."
+          echo "Warning: Setting ${setting} in ${jettyfile} should be ${value}. This can be remedied with ${ssl_command} -f."
         fi
       fi
     else
@@ -369,7 +371,7 @@ if [ -f "$jettyfile" ] ; then
           echo "Appending setting ${setting} to ${jettyfile}."
           appendline "${setting} = ${value}" ${jettyfile}
         else
-          echo "Warning: Could not find active ${setting} setting in ${jettyfile}. Include that setting yourself manually. Or force with $0 -f."
+          echo "Warning: Could not find active ${setting} setting in ${jettyfile}. Include that setting yourself manually. Or force with ${ssl_command} -f."
         fi
       fi
     fi
@@ -383,7 +385,7 @@ if [ -f "$jettyfile" ] ; then
         echo "Commenting out setting '${setting}'"
         commentline "^${setting}" ${jettyfile}
       else
-        echo "Warning: The setting '${setting}' is not commented out in ${jettyfile}. Allow us to comment it out for you with $0 -f."
+        echo "Warning: The setting '${setting}' is not commented out in ${jettyfile}. Allow us to comment it out for you with ${ssl_command} -f."
       fi
     fi
   done
