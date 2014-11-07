@@ -5,6 +5,8 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
+            [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
+            [puppetlabs.puppetdb.command :refer [command-service]]
             [clj-http.client :as client]))
 
 (def ^:dynamic *port* nil)
@@ -43,7 +45,7 @@
   ([f] (puppetdb-instance (create-config) f))
   ([config f]
      (tkbs/with-app-with-config server
-       [jetty9-service puppetdb-service]
+       [jetty9-service puppetdb-service message-listener-service command-service]
        config
        (binding [*port* (current-port server)]
          (f)))))

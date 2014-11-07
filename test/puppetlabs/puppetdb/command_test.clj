@@ -21,7 +21,8 @@
             [clj-time.core :refer [days ago now]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.slingshot :refer [try+ throw+]]))
+            [slingshot.slingshot :refer [throw+]]
+            [puppetlabs.puppetdb.mq-listener :as mql]))
 
 (use-fixtures :each with-test-db)
 
@@ -70,159 +71,12 @@
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
 
-(defn global-count
-  "Returns the counter for the given global metric"
-  [metric-name]
-  (.count (global-metric metric-name)))
-
-(deftest exception-handling-middleware
-  (testing "Exception handling middleware"
-    (testing "should invoke on-fatal when fatal exception occurs"
-      (let [on-fatal       (call-counter)
-            on-retry       (call-counter)
-            on-msg         (fn [msg]
-                             (throw+ (fatality :foo)))
-            processor      (wrap-with-exception-handling on-msg on-retry on-fatal)
-            prev-seen      (global-count :seen)
-            prev-processed (global-count :processed)
-            prev-fatal     (global-count :fatal)
-            prev-retried   (global-count :retried)]
-        (processor :foobar)
-        (is (= 1 (- (global-count :seen) prev-seen)))
-        (is (= 1 (times-called on-fatal)))
-        (is (= 1 (- (global-count :fatal) prev-fatal)))
-        (is (= 0 (- (global-count :processed) prev-processed)))
-        (is (= 0 (- (global-count :retried) prev-retried)))
-        (is (= 0 (times-called on-retry)))))
-
-    (testing "should invoke on-retry when non-fatal exception occurs"
-      (let [on-fatal       (call-counter)
-            on-retry       (call-counter)
-            on-msg         (fn [msg]
-                             (throw (IllegalArgumentException. "foo")))
-            processor      (wrap-with-exception-handling on-msg on-retry on-fatal)
-            prev-seen      (global-count :seen)
-            prev-processed (global-count :processed)
-            prev-fatal     (global-count :fatal)
-            prev-retried   (global-count :retried)]
-        (processor :foobar)
-        (is (= 1 (- (global-count :seen) prev-seen)))
-        (is (= 0 (- (global-count :processed) prev-processed)))
-        (is (= 0 (times-called on-fatal)))
-        (is (= 0 (- (global-count :fatal) prev-fatal)))
-        (is (= 1 (times-called on-retry)))
-        (is (= 1 (- (global-count :retried) prev-retried)))))
-
-    (testing "should invoke on-retry on on exceptions"
-      (let [on-fatal     (call-counter)
-            on-retry     (call-counter)
-            on-msg       (fn [msg]
-                           (when (even? msg)
-                             (throw (IllegalArgumentException. "foo"))))
-            processor    (wrap-with-exception-handling on-msg on-retry on-fatal)
-            prev-seen      (global-count :seen)
-            prev-processed (global-count :processed)
-            prev-fatal     (global-count :fatal)
-            prev-retried   (global-count :retried)]
-        (doseq [n (range 5)]
-          (processor n))
-        (is (= 5 (- (global-count :seen) prev-seen)))
-        (is (= 2 (- (global-count :processed) prev-processed)))
-        (is (= 0 (times-called on-fatal)))
-        (is (= 0 (- (global-count :fatal) prev-fatal)))
-        ;; Only retry when the number is even, which is 3 times
-        (is (= 3 (times-called on-retry)))
-        (is (= 3 (- (global-count :retried) prev-retried)))))))
-
-(deftest command-counting-middleware
-  (testing "Command counting middleware"
-    (testing "should mark the supplied meter and invoke the wrapped function"
-      (let [meter (global-metric :seen)
-            prev-seen (.count meter)
-            called (call-counter)
-            counter (wrap-with-meter called meter)]
-        (counter "{}")
-        (is (= 1 (- (.count meter) prev-seen)))
-        (is (= 1 (times-called called)))))))
-
-(deftest command-parsing-middleware
-  (testing "Command parsing middleware"
-
-    (testing "should invoke its on-failure handler if a command can't be parsed"
-      (let [called (call-counter)
-            failed (call-counter)
-            parser (wrap-with-command-parser called failed)]
-        (parser {:body "/s++-"})
-        (is (= 0 (times-called called)))
-        (is (= 1 (times-called failed)))))
-
-    (testing "should normally pass through a parsed message"
-      (let [called (call-counter)
-            failed (call-counter)
-            parser (wrap-with-command-parser called failed)]
-        (parser {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"})
-        (is (= 1 (times-called called)))
-        (is (= 0 (times-called failed)))))))
-
-(deftest command-processing-middleware
-  (testing "Command processing middleware"
-
-    (testing "should work normally if a message has not yet exceeded the max allowable attempts"
-      (let [called         (call-counter)
-            on-discard     (call-counter)
-            prev-discarded (global-count :discarded)
-            processor      (wrap-with-discard called on-discard 5)]
-        (processor {:command "foobar" :version 1 :attempts [{} {} {}]})
-        (is (= 1 (times-called called)))
-        (is (= 0 (times-called on-discard)))
-        (is (= 0 (- (global-count :discarded) prev-discarded)))
-        ;; Verify that all the command-specific metrics are present
-        (is (= (set (keys (get-in @metrics ["foobar" 1])))
-               #{:seen :processed :fatal :retried :discarded :processing-time :retry-counts}))))
-
-    (testing "should discard messages that exceed the max allowable attempts"
-      (let [called         (call-counter)
-            on-discard     (call-counter)
-            prev-discarded (global-count :discarded)
-            processor      (wrap-with-discard called on-discard 5)
-            attempts       [{} {} {} {} {}]]
-        (processor {:command "foobar" :version 1 :annotations {:attempts attempts}})
-        (is (= 0 (times-called called)))
-        (is (= 1 (times-called on-discard)))
-        (is (= 1 (- (global-count :discarded) prev-discarded)))))))
-
-(deftest thread-name-middleware
-  (testing "Thread naming middleware"
-
-    (testing "should use the supplied prefix"
-      (let [f (fn [_] (-> (Thread/currentThread)
-                         (.getName)
-                         (.startsWith "foobar")))
-            p (wrap-with-thread-name f "foobar")]
-        (is (= true (p :unused)))))
-
-    (testing "should use different names for different threads"
-      ;; Create 2 threads, each of which places their thread's name
-      ;; into an atom. When the threads complete, the atom should
-      ;; contain 2 distinct names, each with the correct prefix.
-      (let [names (atom #{})
-            f     (fn [_] (swap! names conj (.getName (Thread/currentThread))))
-            p     (wrap-with-thread-name f "foobar")
-            t1    (Thread. #(p :unused))
-            t2    (Thread. #(p :unused))]
-        (.start t1)
-        (.start t2)
-        (.join t1)
-        (.join t2)
-        (is (= (count @names) 2))
-        (is (= true (every? #(.startsWith % "foobar") @names)))))))
-
 (defmacro test-msg-handler*
   [command publish-var discard-var opts-map & body]
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir)
-         handle-message# (produce-message-handler publish# discard-dir# ~opts-map)
+         handle-message# (mql/produce-message-handler publish# discard-dir# #(process-command! % ~opts-map))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]
@@ -282,7 +136,7 @@
                 (is (:trace attempt)))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc-in command [:annotations :attempts] (repeat maximum-allowable-retries {}))
+        (let [command (assoc-in command [:annotations :attempts] (repeat mql/maximum-allowable-retries {}))
               process-counter (call-counter)]
           (with-redefs [process-command! process-counter]
             (test-msg-handler command publish discard-dir
@@ -307,21 +161,21 @@
 (deftest command-retry-handler
   (testing "Retry handler"
     (with-redefs [metrics.meters/mark!  (call-counter)
-                  annotate-with-attempt (call-counter)]
+                  mql/annotate-with-attempt (call-counter)]
 
       (testing "should log errors"
         (let [publish  (call-counter)]
           (testing "to DEBUG for initial retries"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
-                (handle-command-retry (make-cmd 1) nil publish))
+                (mql/handle-command-retry (make-cmd 1) nil publish))
 
               (is (= (get-in @log-output [0 1]) :debug))))
 
           (testing "to ERROR for later retries"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
-                (handle-command-retry (make-cmd maximum-allowable-retries) nil publish))
+                (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
 
               (is (= (get-in @log-output [0 1]) :error)))))))))
 
@@ -331,14 +185,14 @@
       (testing "Exception with stacktrace, no more retries"
         (let [log-output (atom [])]
           (binding [*logger-factory* (atom-logger log-output)]
-            (handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
+            (mql/handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
           (is (= (get-in @log-output [0 1]) :debug))
           (is (instance? Exception (get-in @log-output [0 2])))))
 
       (testing "Exception with stacktrace, no more retries"
         (let [log-output (atom [])]
           (binding [*logger-factory* (atom-logger log-output)]
-            (handle-command-retry (make-cmd maximum-allowable-retries) (RuntimeException. "foo") publish))
+            (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) (RuntimeException. "foo") publish))
           (is (= (get-in @log-output [0 1]) :error))
           (is (instance? Exception (get-in @log-output [0 2]))))))))
 
