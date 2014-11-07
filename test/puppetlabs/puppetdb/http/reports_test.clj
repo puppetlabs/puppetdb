@@ -82,6 +82,25 @@
            (reports-response version [basic])
            remove-receive-times))))))
 
+(deftestseq query-with-projection
+  [[version endpoint] endpoints]
+  (when (not (contains? #{:v2 :v3} version))
+    (let [basic         (:basic reports)
+          report-hash   (:hash (store-example-report! basic (now)))
+          basic (assoc basic :hash report-hash)]
+
+      (testing "one projected column"
+        (response-equal?
+         (get-response endpoint ["extract" "hash"
+                                 ["=" "certname" (:certname basic)]])
+         #{(select-keys basic [:hash])}))
+
+      (testing "three projected columns"
+        (response-equal?
+         (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
+                                 ["=" "certname" (:certname basic)]])
+         #{(select-keys basic [:hash :certname :transaction-uuid])})))))
+
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
 

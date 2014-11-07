@@ -848,10 +848,10 @@
   fact-values-to-ids-map being the key, and any new value id's as the value."
   [factvalues :- [fact-values-to-ids-map]]
   (let [record-set (mapv
-                     #(select-keys % [:path_id :value_type_id :value_hash
-                                      :value_string :value_json :value_integer
-                                      :value_float :value_boolean])
-                     factvalues)
+                    #(select-keys % [:path_id :value_type_id :value_hash
+                                     :value_string :value_json :value_integer
+                                     :value_float :value_boolean])
+                    factvalues)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
@@ -966,20 +966,20 @@
   "Given a certname and a map of fact names to values, store records for those
    facts associated with the certname."
   ([fact-data]
-   (add-facts! fact-data true))
+     (add-facts! fact-data true))
   ([{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-   (let [factset {:certname name
-                  :timestamp (to-timestamp timestamp)
-                  :environment_id (ensure-environment environment)
-                  :producer_timestamp (to-timestamp producer-timestamp)}
-         fact-data-hash (shash/generic-identity-hash fact-data)]
-     (sql/insert-record :factsets
-                        (if include-hash?
-                          (assoc factset :hash fact-data-hash) factset))
-     (insert-facts!
-       (certname-to-factset-id name)
-       (set (new-fact-value-ids values))))))
+     (let [factset {:certname name
+                    :timestamp (to-timestamp timestamp)
+                    :environment_id (ensure-environment environment)
+                    :producer_timestamp (to-timestamp producer-timestamp)}
+           fact-data-hash (shash/generic-identity-hash fact-data)]
+       (sql/insert-record :factsets
+                          (if include-hash?
+                            (assoc factset :hash fact-data-hash) factset))
+       (insert-facts!
+        (certname-to-factset-id name)
+        (set (new-fact-value-ids values))))))
 
 (pls/defn-validated delete-facts!
   "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
@@ -1122,10 +1122,10 @@
   (let [report-hash         (shash/report-identity-hash report)
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
-                                      (update-in [:timestamp] to-timestamp)
-                                      (update-in [:old-value] sutils/db-serialize)
-                                      (update-in [:new-value] sutils/db-serialize)
-                                      (update-in [:containment-path] containment-path-fn)
+                                      (utils/update-when [:timestamp] to-timestamp)
+                                      (utils/update-when [:old-value] sutils/db-serialize)
+                                      (utils/update-when [:new-value] sutils/db-serialize)
+                                      (utils/update-when [:containment-path] containment-path-fn)
                                       (assoc :containing-class (find-containing-class (% :containment-path)))
                                       (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
                                  resource-events)]

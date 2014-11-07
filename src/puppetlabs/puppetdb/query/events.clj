@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -137,8 +138,8 @@
      ;; at least for V4. Consider moving this operation to
      ;; query/streamed-query-result in the future.
      #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
-          (update-in [:old-value] json/parse-string)
-          (update-in [:new-value] json/parse-string))
+          (utils/update-when [:old-value] json/parse-string)
+          (utils/update-when [:new-value] json/parse-string))
      rows)))
 
 (defn query-resource-events

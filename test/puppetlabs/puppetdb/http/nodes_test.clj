@@ -271,3 +271,15 @@
       (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
       (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
       (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))
+
+(deftestseq node-query-projections
+  [[version endpoint] endpoints]
+  (when (not (contains? #{:v2 :v3} version))
+    (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
+      (is-query-result endpoint ["extract" "catalog-environment"
+                                 ["=" "certname" "web1.example.com"]]
+                       [{:catalog-environment (:catalog-environment web1)}])
+      (is-query-result endpoint ["extract" ["catalog-environment" "certname"]
+                                 ["=" "certname" "web1.example.com"]]
+                       [{:catalog-environment (:catalog-environment web1)
+                         :certname (:name web1)}]))))

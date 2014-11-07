@@ -3,12 +3,25 @@
 
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
-  (:require [puppetlabs.puppetdb.cheshire :as json]))
+  (:require [puppetlabs.puppetdb.cheshire :as json]
+            [clojure.core.match :as cm]))
 
 (defn- are-queries-different?
   [req1 req2]
   (not= (get-in req1 [:params "query"])
         (get-in req2 [:params "query"])))
+
+(defn add-criteria [crit query]
+  (cm/match [query]
+            [["extract" columns expr :guard nil?]]
+            ["extract" columns crit]
+
+            [["extract" columns expr :guard identity]]
+            ["extract" columns ["and" expr crit]]
+            :else
+            (if query
+              ["and" query crit]
+              crit)))
 
 (defn restrict-query
   "Given a clause that will restrict a query, modify the supplied
@@ -18,8 +31,8 @@
   {:pre  [(coll? restriction)]
    :post [(are-queries-different? req %)]}
   (let [restricted-query (if-let [query (params "query")]
-                           (if-let [q (json/parse-string query true)]
-                             (conj restriction q)
+                           (if-let [q (json/parse-strict-string query true)]
+                             (add-criteria restriction q)
                              restriction)
                            restriction)]
     (assoc-in req [:params "query"] (json/generate-string restricted-query))))
@@ -29,8 +42,7 @@
   only returns results for the supplied node"
   [req]
   {:post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" ["node" "active"] true]]
+  (restrict-query ["=" ["node" "active"] true]
                   req))
 
 (defn restrict-query-to-node
@@ -50,8 +62,7 @@
   [environment req]
   {:pre  [(string? environment)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "environment" environment]]
+  (restrict-query ["=" "environment" environment]
                   req))
 
 (defn restrict-environment-query-to-environment
@@ -61,8 +72,7 @@
   [environment req]
   {:pre  [(string? environment)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "name" environment]]
+  (restrict-query ["=" "name" environment]
                   req))
 
 (defn restrict-fact-query-to-name
@@ -71,8 +81,7 @@
   [fact req]
   {:pre  [(string? fact)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "name" fact]]
+  (restrict-query ["=" "name" fact]
                   req))
 
 (defn restrict-fact-query-to-value
@@ -81,8 +90,7 @@
   [value req]
   {:pre  [(string? value)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "value" value]]
+  (restrict-query ["=" "value" value]
                   req))
 
 (defn restrict-resource-query-to-type
@@ -91,8 +99,7 @@
   [type req]
   {:pre  [(string? type)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "type" type]]
+  (restrict-query ["=" "type" type]
                   req))
 
 (defn restrict-resource-query-to-title
@@ -101,6 +108,5 @@
   [title req]
   {:pre  [(string? title)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "title" title]]
+  (restrict-query ["=" "title" title]
                   req))

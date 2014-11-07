@@ -238,7 +238,8 @@
                      "float" (constantly (:value_float row))
                      "integer" (constantly (:value_integer row))
                      "json" json/parse-string
-                     ("string" "null") identity)]
+                     ("string" "null") identity
+                     identity)]
     (reduce #(dissoc %1 %2)
-            (update-in row [:value] conversion)
+            (utils/update-when row [:value] conversion)
             dissociated-fields)))

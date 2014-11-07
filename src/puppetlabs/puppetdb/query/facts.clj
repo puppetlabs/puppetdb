@@ -13,21 +13,21 @@
 ;; SCHEMA
 
 (def row-schema
-  {:certname String
+  {(s/optional-key :certname) String
    (s/optional-key :environment) (s/maybe s/Str)
-   :path String
-   :name s/Str
-   :depth s/Int
-   :value_integer (s/maybe s/Int)
-   :value_float (s/maybe s/Num)
-   :value s/Any
-   :type (s/maybe String)})
+   (s/optional-key :path) String
+   (s/optional-key :name) s/Str
+   (s/optional-key :depth) s/Int
+   (s/optional-key :value_integer) (s/maybe s/Int)
+   (s/optional-key :value_float) (s/maybe s/Num)
+   (s/optional-key :value) s/Any
+   (s/optional-key :type) (s/maybe String)})
 
 (def converted-row-schema
-  {:certname s/Str
-   :path s/Str
-   :name s/Str
-   :value s/Any
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :path) s/Str
+   (s/optional-key :name) s/Str
+   (s/optional-key :value) s/Any
    (s/optional-key :environment) (s/maybe s/Str)})
 
 (def fact-schema

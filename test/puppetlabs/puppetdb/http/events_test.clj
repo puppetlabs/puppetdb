@@ -133,6 +133,31 @@
                          basic)]
           (response-equal? response expected munge-event-values))))
 
+    (testing "compound queries with a projection"
+      (when (not (contains? #{:v2 :v3} version))
+        (doseq [[query matches ks]
+                [[["extract" "status"
+                   ["and"
+                    ["or"
+                     ["=" "resource-title" "hi"]
+                     ["=" "resource-title" "notify, yo"]]
+                    ["=" "status" "success"]]]
+                  [1]
+                  [:status]]
+                 [["extract" ["status" "line"]
+                   ["and"
+                    ["or"
+                     ["=" "resource-title" "hi"]
+                     ["=" "resource-title" "notify, yo"]]
+                    ["=" "status" "success"]]]
+                  [1]
+                  [:status :line]]]]
+          (let [response (get-response endpoint query)
+                expected (->> (kitchensink/select-values basic-events-map matches)
+                              (map #(select-keys % ks))
+                              set)]
+            (response-equal? response expected)))))
+
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]

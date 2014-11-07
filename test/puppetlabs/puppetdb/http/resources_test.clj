@@ -356,6 +356,18 @@ to the result of the form supplied to this method."
           (is (re-find #"'environment' cannot be the target.*version 3*" (:body response)))
           (is (= 400 (:status response))))))))
 
+(deftestseq query-with-projection
+  [[version endpoint] endpoints]
+
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+    (when (not-any? #(= version %) [:v2 :v3])
+      (testing "querying by equality and regexp should be allowed"
+        (are [query] (is-response-equal (get-response endpoint query)
+                                        #{{:type (:type foo1)}
+                                          {:type (:type foo2)}})
+             ["extract" "type"
+              ["=" "environment" "DEV"]])))))
+
 (deftestseq query-null-environments
   [[version endpoint] endpoints
    :when (not-any? #(= version %) [:v2 :v3])]

@@ -576,6 +576,22 @@
   (:node (zip/post-order-transform (zip/tree-zipper user-query)
                                    [expand-query-node validate-binary-operators])))
 
+(declare user-node->plan-node)
+
+(defn create-extract-node [query-rec column-list expr]
+  (if (or (nil? expr)
+          (not (contains? (set (keys user-query->logical-obj))
+                          (first expr))))
+    (assoc query-rec
+      :project (zipmap column-list (repeat (count column-list) nil))
+      :where (user-node->plan-node query-rec expr))
+    (let [[subquery-name & subquery-expression] expr]
+      (assoc (user-query->logical-obj subquery-name)
+        :project (zipmap column-list (repeat (count column-list) nil))
+        :where (when (seq subquery-expression)
+                 (user-node->plan-node (user-query->logical-obj subquery-name)
+                                       (first subquery-expression)))))))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -672,20 +688,21 @@
 
             [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
-            [["extract" column
-              [subquery-name & subquery-expression]]]
-            (let [columns (maybe-vectorize-string column)]
-              (assoc (user-query->logical-obj subquery-name)
-                :project (zipmap columns (repeat (count columns) nil))
-                :where (when (seq subquery-expression)
-                         (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
+            [["extract" column expr]]
+            (create-extract-node query-rec (maybe-vectorize-string column) expr)
+
             :else nil))
+
+
 
 (defn convert-to-plan
   "Converts the given `user-query` to a query plan that can later be converted into
    a SQL statement"
   [query-rec user-query]
-  (assoc query-rec :where (user-node->plan-node query-rec user-query)))
+  (let [where (user-node->plan-node query-rec user-query)]
+    (if (instance? Query (user-node->plan-node query-rec user-query))
+      where
+      (assoc query-rec :where where))))
 
 (declare push-down-context)
 
@@ -761,12 +778,12 @@
   [node state]
   (cm/match [node]
             [[(op :guard binary-operators) (field :guard #(contains?
-                                                            #{"producer-timestamp"
+                                                           #{"producer-timestamp"
                                                              :producer-timestamp} %)) value]]
             {:node (with-meta [op (str \" (name field) \") value] (meta node)) :state state}
             [[(op :guard binary-operators) (field :guard string?) value]]
             {:node (with-meta [op (jdbc/dashes->underscores field) value]
-                              (meta node))
+                     (meta node))
              :state state}
             :else {:node node :state state}))
 

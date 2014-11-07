@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the
@@ -49,10 +50,14 @@
        (qe/compile-user-query->sql
         qe/resources-query query paging-options))))
 
+(defn parse-params [param-string]
+  (if param-string
+    (json/parse-string param-string)
+    {}))
+
 (defn deserialize-params
   [resources]
-  (let [parse-params #(if % (json/parse-string %) {})]
-    (map #(update-in % [:parameters] parse-params) resources)))
+  (map #(utils/update-when % [:parameters] parse-params) resources))
 
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the version
