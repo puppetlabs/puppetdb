@@ -71,7 +71,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     # create the catalog based on that manifest simply by asking for it.
     def catalog_data_hash
       Puppet[:code] = resource.to_manifest
-      catalog.to_pson_data_hash['data']
+      catalog.to_data_hash
     end
 
     describe "#add_transaction_uuid" do
@@ -117,7 +117,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           notify { $foo: }
         MANIFEST
 
-        hash = catalog.to_pson_data_hash['data']
+        hash = catalog.to_data_hash
         result = subject.stringify_titles(hash)
 
         result['resources'].should be_any { |res|
@@ -166,7 +166,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
             #  way to accomplish this...
             Puppet[:code] = file_resource.to_manifest
 
-            hash = subject.add_parameters_if_missing(catalog.to_pson_data_hash['data'])
+            hash = subject.add_parameters_if_missing(catalog.to_data_hash)
             result = subject.add_namevar_aliases(hash, catalog)
 
             resource = result['resources'].find do |res|
@@ -314,7 +314,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         other_resource = Puppet::Resource.new(:notify, 'noone', :parameters => {:require => "Notify[anyone]"})
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        hash = catalog.to_pson_data_hash['data']
+        hash = catalog.to_data_hash
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash, catalog)
 
@@ -330,7 +330,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
         Puppet[:code] << "Notify[anyone] -> Notify[noone]"
 
-        hash = catalog.to_pson_data_hash['data']
+        hash = catalog.to_data_hash
         subject.add_parameters_if_missing(hash)
         result = subject.synthesize_edges(hash, catalog)
 
@@ -524,7 +524,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource[:require] = 'Notify[another_thing]'
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        hash = catalog.to_pson_data_hash['data']
+        hash = catalog.to_data_hash
         subject.add_parameters_if_missing(hash)
         subject.add_namevar_aliases(hash, catalog)
         result = subject.synthesize_edges(hash, catalog)

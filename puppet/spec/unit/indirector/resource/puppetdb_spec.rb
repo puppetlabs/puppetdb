@@ -67,7 +67,7 @@ describe Puppet::Resource::Puppetdb do
 
         res = Puppet::Type.type(:file).new(:title => File.expand_path(name),
                                            :ensure => :present,
-                                           :mode => 0777)
+                                           :mode => "0777")
         params = res.to_hash
         res_hash = metadata.merge(:type => res.type, :title => res.title)
         res_hash.merge(:parameters => params)
