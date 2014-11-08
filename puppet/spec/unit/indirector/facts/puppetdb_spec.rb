@@ -39,7 +39,7 @@ describe Puppet::Node::Facts::Puppetdb do
     it "should POST the facts as a JSON string" do
       f = {
         "name" => facts.name,
-        "values" => facts.strip_internal,
+        "values" => facts.values,
         "environment" => "my_environment",
         "producer-timestamp" => "a test",
       }
@@ -64,7 +64,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       f = {
         "name" => facts.name,
-        "values" => facts.strip_internal.merge({"trusted" => trusted_data}),
+        "values" => facts.values.merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
         "producer-timestamp" => "a test",
       }

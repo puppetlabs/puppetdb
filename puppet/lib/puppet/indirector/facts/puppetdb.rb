@@ -20,7 +20,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     profile "facts#save" do
       payload = profile "Encode facts command submission payload" do
         facts = request.instance.dup
-        facts.values = facts.strip_internal
         if Puppet[:trusted_node_data]
           facts.values[:trusted] = get_trusted_info(request.node)
         end
