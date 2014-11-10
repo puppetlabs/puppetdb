@@ -1,4 +1,6 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
+puppet_branch = ENV['puppet_branch'] || "latest"
+oldest_supported_puppet = "3.5.1"
 
 gem 'facter'
 
@@ -14,7 +16,15 @@ group :test do
   gem 'rspec', '2.13.0'
   gem 'puppetlabs_spec_helper', '0.4.1', :require => false
 
-  gem 'puppet', '>= 3.5.1', :require => false
+  case puppet_branch
+  when "latest"
+    gem 'puppet', ">= #{oldest_supported_puppet}", :require => false
+  when "oldest"
+    gem 'puppet', oldest_supported_puppet, :require => false
+  else
+    gem 'puppet', :git => 'git://github.com/puppetlabs/puppet.git',
+      :branch => puppet_branch, :require => false
+  end
 
   gem 'mocha', '~> 1.0'
 
