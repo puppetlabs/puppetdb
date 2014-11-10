@@ -39,6 +39,8 @@
       first
       .getLocalPort))
 
+(def ^:dynamic *server*)
+
 (defn puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
    If the port is assigned by Jetty, use *port* to get the currently running port."
@@ -47,7 +49,8 @@
      (tkbs/with-app-with-config server
        [jetty9-service puppetdb-service message-listener-service command-service]
        config
-       (binding [*port* (current-port server)]
+       (binding [*port* (current-port server)
+                 *server* server]
          (f)))))
 
 (defmacro with-puppetdb-instance

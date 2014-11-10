@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.cli.import-export-roundtrip-test
   (:require [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.import :as import]
-            [puppetlabs.trapperkeeper.core :as tk]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :as testutils]
             [fs.core :as fs]

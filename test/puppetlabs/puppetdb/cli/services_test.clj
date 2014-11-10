@@ -15,7 +15,14 @@
             [clj-time.core :refer [days hours minutes secs]]
             [clojure.java.io :refer [resource]]
             [puppetlabs.puppetdb.time :refer [to-secs to-minutes to-hours to-days period?]]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]))
+            [puppetlabs.puppetdb.testutils.jetty :as jutils]
+            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-on-node
+                                                                          submit-command
+                                                                          block-until-results]]
+            [clj-time.coerce :refer [to-string]]
+            [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.cli.export :as export]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -53,3 +60,40 @@
          (is (= 404 (:status response))))
        (let [response (client/get (jutils/current-url "/puppetdb/v4/version"))]
          (is (= 200 (:status response))))))))
+
+
+(deftest query-via-puppdbserver-service
+  (jutils/with-puppetdb-instance
+    (submit-command :replace-facts 3 {:name "foo.local"
+                                      :environment "DEV"
+                                      :values {:foo "the foo"
+                                               :bar "the bar"
+                                               :baz "the baz"}
+                                      :producer-timestamp (to-string (now))})
+
+    @(block-until-results 100 (export/facts-for-node "localhost" jutils/*port* "foo.local"))
+    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)
+          results (atom nil)
+          before-slurp? (atom nil)
+          after-slurp? (atom nil)]
+      (query pdb-service :facts :v4 ["=" "certname" "foo.local"] (fn [f]
+                                                                   (f
+                                                                    (fn [result-set]
+                                                                      (reset! before-slurp? (realized? result-set))
+                                                                      (reset! results result-set)
+                                                                      (reset! after-slurp? (realized? result-set))))))
+      (is (false? @before-slurp?))
+      (is (= #{{:value "the baz",
+                :name "baz",
+                :environment "DEV",
+                :certname "foo.local"}
+               {:value "the bar",
+                :name "bar",
+                :environment "DEV",
+                :certname "foo.local"}
+               {:value "the foo",
+                :name "foo",
+                :environment "DEV",
+                :certname "foo.local"}}
+             (set @results)))
+      (is (false? @after-slurp?)))))
