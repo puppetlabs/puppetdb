@@ -9,9 +9,12 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.testutils :refer [response-equal? assert-success!
-                                                   get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [response-equal?
+                                                   assert-success!
+                                                   get-request
+                                                   paged-results
+                                                   deftestseq
+                                                   after-v3?]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]
@@ -84,7 +87,7 @@
 
 (deftestseq query-with-projection
   [[version endpoint] endpoints]
-  (when (not (contains? #{:v2 :v3} version))
+  (when (after-v3? version)
     (let [basic         (:basic reports)
           report-hash   (:hash (store-example-report! basic (now)))
           basic (assoc basic :hash report-hash)]

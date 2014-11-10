@@ -9,9 +9,12 @@
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [clj-time.core :refer [ago now secs]]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
-            [puppetlabs.puppetdb.testutils :refer [response-equal? assert-success!
-                                                   get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [response-equal?
+                                                   assert-success!
+                                                   get-request
+                                                   paged-results
+                                                   deftestseq
+                                                   after-v3?]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
@@ -134,7 +137,7 @@
           (response-equal? response expected munge-event-values))))
 
     (testing "compound queries with a projection"
-      (when (not (contains? #{:v2 :v3} version))
+      (when (after-v3? version)
         (doseq [[query matches ks]
                 [[["extract" "status"
                    ["and"

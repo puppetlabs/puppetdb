@@ -17,9 +17,13 @@
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.examples :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :refer [get-request assert-success!
-                                                   paged-results paged-results*
-                                                   deftestseq parse-result]]
+            [puppetlabs.puppetdb.testutils :refer [get-request
+                                                   assert-success!
+                                                   paged-results
+                                                   paged-results*
+                                                   deftestseq
+                                                   parse-result
+                                                   after-v3?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
 (def v2-facts-endpoint "/v2/facts")
@@ -897,7 +901,7 @@
                                          {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                                           :offset offset})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))
-        (when-not (contains? #{:v2 :v3} version)
+        (when (after-v3? version)
           (testing "rejects order by value on v4+"
             (is (re-matches #"Unrecognized column 'value' specified in :order-by.*"
                             (:body (*app*(get-request endpoint nil
@@ -907,7 +911,8 @@
 
 (deftestseq facts-environment-paging
   [[version endpoint] facts-endpoints
-   :when (and (not (contains? #{:v2 :v3} version)) (not= endpoint v4-facts-environment))]
+   :when (and (after-v3? version)
+              (not= endpoint v4-facts-environment))]
 
   (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "A"}
         f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "B"}

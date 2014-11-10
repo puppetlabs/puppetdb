@@ -94,7 +94,7 @@ to the result of the form supplied to this method."
         (is-response-equal (get-response endpoint query) result)))
 
     (testing "only v4 or after queries"
-      (when-not (contains? #{:v2 :v3} version)
+      (when (tu/after-v3? version)
         (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
                                 [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
           (is-response-equal (get-response endpoint query) result))))
@@ -247,7 +247,7 @@ to the result of the form supplied to this method."
               result #{bar2}]
           (is-response-equal (get-response endpoint query) result))))
 
-    (when-not (contains? #{:v2 :v3} version)
+    (when (tu/after-v3? version)
       (testing "sourcefile and source is not supported"
         (let [query ["=" "sourceline" 22]
               response (get-response endpoint query)]

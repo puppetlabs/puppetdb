@@ -5,8 +5,10 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [get-request
+                                                   paged-results
+                                                   deftestseq
+                                                   after-v3?]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [puppetlabs.puppetdb.zip :as zip]
             [clojure.core.match :as cm]))
@@ -274,7 +276,7 @@
 
 (deftestseq node-query-projections
   [[version endpoint] endpoints]
-  (when (not (contains? #{:v2 :v3} version))
+  (when (after-v3? version)
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
       (is-query-result endpoint ["extract" "catalog-environment"
                                  ["=" "certname" "web1.example.com"]]
