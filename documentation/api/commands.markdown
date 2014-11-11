@@ -100,7 +100,7 @@ the exact catalog that was used for the run.  All previous versions of the
 
 The payload is expected to be a Puppet catalog, as either a JSON string or an
 object, conforming exactly to the [catalog wire
-format v1][catalogv4]. Extra or missing fields are an error.
+format v1][catalogv1]. Extra or missing fields are an error.
 
 ### "replace catalog", version 4
 
@@ -113,7 +113,7 @@ format. Other changes in this version were related to removing unused
 metadata fields added by puppet.
 
 The payload is expected to be a Puppet catalog, as a JSON object, conforming
-exactly to the [catalog wire format v4][catalog]. Extra or missing fields
+exactly to the [catalog wire format v4][catalogv4]. Extra or missing fields
 are an error.
 
 ### "replace catalog", version 5
@@ -125,7 +125,7 @@ multiple-master setup. Previous versions of the command will store a `null`
 value for this field.
 
 The payload is expected to be a Puppet catalog, as a JSON object, conforming
-exactly to the [catalog wire format v5][catalog]. Extra or missing fields
+exactly to the [catalog wire format v5][catalogv5]. Extra or missing fields
 are an error.
 
 ### "replace facts", version 1
@@ -133,7 +133,7 @@ are an error.
 > **Note:** This version is deprecated, use the latest version instead.
 
 The payload is expected to be a set of facts, as a JSON string, conforming to
-the [fact wire format v1][facts]
+the [fact wire format v1][factsv1]
 
 ### "replace facts", version 2
 
