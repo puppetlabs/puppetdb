@@ -117,7 +117,7 @@ This operator allows you to match against path elements using an array of regula
 
 The example shows a query that extracts all `macaddresses` for all ethernet devices (that is, devices starting with `eth`):
 
-    curl -G 'http://puppetdb:8080/v4/fact-point' --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
+    curl -G 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
 
 which returns:
 
