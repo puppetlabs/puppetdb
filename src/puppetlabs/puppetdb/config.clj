@@ -171,7 +171,7 @@
             db-config
             (-> db-config
                 (assoc :node-ttl (or (maybe-days (:node-ttl-days db-config))
-                                     (pl-time/parse-period "0s")))  ))
+                                     (pl-time/parse-period "0s")))))
           :node-ttl-days))
 
 (defn convert-write-db-config
@@ -366,6 +366,11 @@
     (warn-if-sslv3 config-data)
     (assoc-in config-data [:jetty :ssl-protocols] ["TLSv1" "TLSv1.1" "TLSv1.2"])))
 
+(defn add-web-routing-config
+  [config-data]
+  (let [prefix (get-in config-data [:global :url-prefix] "/")]
+    (assoc-in config-data [:web-router-service
+                           :puppetlabs.puppetdb.cli.services/puppetdb-service] prefix)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -377,7 +382,8 @@
   (let [config (f args)]
     (-> config
         fix-tk-config
-        default-ssl-protocols)))
+        default-ssl-protocols
+        add-web-routing-config)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values

@@ -229,7 +229,7 @@
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
 
 (defn start-puppetdb
-  [context config service-id add-ring-handler shutdown-on-error]
+  [context config service add-ring-handler shutdown-on-error]
   {:pre [(map? context)
          (map? config)
          (ifn? add-ring-handler)
@@ -292,7 +292,7 @@
                      (throw e)))
           context (assoc context :broker broker)
           updater (future (shutdown-on-error
-                           service-id
+                           (service-id service)
                            #(maybe-check-for-updates product-name update-server read-db)
                            error-shutdown!))
           context (assoc context :updater updater)
@@ -301,7 +301,7 @@
                                       (constantly true))
                         app (server/build-app :globals globals :authorized? authorized?)]
                     (log/info "Starting query server")
-                    (add-ring-handler (compojure/context url-prefix [] app) url-prefix))
+                    (add-ring-handler service (compojure/context url-prefix [] app)))
           job-pool (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
@@ -337,11 +337,12 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:ConfigService get-config]
-   [:WebserverService add-ring-handler]
+   [:WebroutingService add-ring-handler]
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
-         (start-puppetdb context (get-config) (service-id this) add-ring-handler shutdown-on-error))
+         (start-puppetdb context (get-config) this add-ring-handler shutdown-on-error))
+
   (stop [this context]
         (stop-puppetdb context))
   (shared-globals [this]
