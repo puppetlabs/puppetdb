@@ -5,21 +5,21 @@
             [schema.core :as s]))
 
 (def row-schema
-  {:certname s/Str
-   :environment (s/maybe s/Str)
-   :path s/Str
-   :name s/Str
-   :value (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
-   :value_float (s/maybe s/Num)
-   :type s/Str})
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :path) s/Str
+   (s/optional-key :name) s/Str
+   (s/optional-key :value) (s/maybe s/Str)
+   (s/optional-key :value_integer) (s/maybe s/Int)
+   (s/optional-key :value_float) (s/maybe s/Num)
+   (s/optional-key :type) s/Str})
 
 (def converted-row-schema
-  {:certname s/Str
-   :environment (s/maybe s/Str)
-   :path f/fact-path
-   :name s/Str
-   :value s/Any})
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :path) f/fact-path
+   (s/optional-key :name) s/Str
+   (s/optional-key :value) s/Any})
 
 (pls/defn-validated munge-result-row :- converted-row-schema
   "Coerce the value of a row to the proper type, and convert the path back to
@@ -31,10 +31,18 @@
       (update-in [:path] f/string-to-factpath)
       (dissoc :type :value_integer :value_float)))
 
+(defn fact-contents-project
+  "Returns a function will remove non-projected columns if projections is specified."
+  [projections]
+  (if (seq projections)
+    #(select-keys % projections)
+    identity))
+
 (defn munge-result-rows
   "Munge resulting rows for fact-contents endpoint."
-  [rows]
-  (map munge-result-row rows))
+  [version projections]
+  (fn [rows]
+    (map (comp (fact-contents-project projections) munge-result-row) rows)))
 
 (defn query->sql
   "Compile a query into an SQL expression."

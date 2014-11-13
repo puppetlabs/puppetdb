@@ -131,7 +131,7 @@
   presentation.
 
   Version is provided to alter the munge function depending on the API query."
-  [version]
+  [version _]
   (fn [rows]
     (map
      ;; TODO: conversion to underscore should be standard anyway
@@ -150,12 +150,13 @@
   [version query-sql]
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
+         count-query    :count-query
+         projections    :projections} query-sql
          result {:result (query/streamed-query-result
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version)))}]
+                          (comp doall (munge-result-rows version projections)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

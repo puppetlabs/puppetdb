@@ -20,7 +20,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defrecord Query [source source-table alias project where subquery? queryable-fields entity])
+(defrecord Query [source source-table alias project where subquery? queryable-fields entity supports-extract?])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -49,6 +49,7 @@
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
+               :supports-extract? true
                :source "SELECT certnames.name as certname,
                                certnames.deactivated,
                                catalogs.timestamp AS catalog_timestamp,
@@ -76,6 +77,7 @@
                :source-table "resource_params"
                :alias "resource_params"
                :subquery? false
+               :supports-extract? true
                :source "select resource as res_param_resource, name as res_param_name, value as res_param_value from resource_params"}))
 
 (def fact-paths-query
@@ -86,6 +88,7 @@
                :source-table "fact_paths"
                :alias "fact_paths"
                :subquery? false
+               :supports-extract? true
                :source "SELECT path, type
                         FROM fact_paths fp
                         INNER JOIN value_types vt ON fp.value_type_id=vt.id
@@ -108,6 +111,7 @@
                :source-table "facts"
                :entity :facts
                :subquery? false
+               :supports-extract? false
                :source
                "SELECT fs.certname,
                        fp.path as path,
@@ -144,6 +148,7 @@
                :queryable-fields ["path" "value" "certname" "environment" "name"]
                :source-table "facts"
                :subquery? false
+               :supports-extract? false
                :source
                "SELECT fs.certname,
                        fp.path,
@@ -179,6 +184,7 @@
                :queryable-fields ["certname" "environment" "resource" "type" "title" "tag" "exported" "file" "line" "parameters"]
                :alias "resources"
                :subquery? false
+               :supports-extract? true
                :source-table "catalog_resources"
                :source "SELECT c.certname, c.hash as catalog, e.name as environment, cr.resource,
                                type, title, tags, exported, file, line, rpc.parameters
@@ -204,6 +210,7 @@
                                   "receive-time" "transaction-uuid" "environment" "status"]
                :alias "reports"
                :subquery? false
+               :supports-extract? true
                :source-table "reports"
                :source "select hash, certname, puppet_version, report_format, configuration_version, start_time, end_time,
                                receive_time, transaction_uuid, environments.name as environment,
@@ -239,6 +246,7 @@
                                   "containing-class" "file" "report" "latest-report?"]
                :alias "events"
                :subquery? false
+               :supports-extract? true
                :source-table "resource_events"
                :source "select reports.certname, reports.configuration_version, reports.start_time as run_start_time,
                                reports.end_time as run_end_time, reports.receive_time as report_receive_time, report, status,
@@ -255,6 +263,7 @@
                :alias "latest_report"
                :subquery? false
                :source-table "latest_report"
+               :supports-extract? true
                :source "SELECT latest_reports.report as latest_report_hash
                         FROM latest_reports"}))
 
@@ -264,6 +273,7 @@
                :queryable-fields ["name"]
                :alias "environments"
                :subquery? false
+               :supports-extract? true
                :source-table "environments"
                :source "SELECT name
                         FROM environments"}))
@@ -285,6 +295,7 @@
                :entity :factsets
                :source-table "factsets"
                :subquery? false
+               :supports-extract? false
                :source "SELECT fact_paths.path, timestamp,
                                COALESCE(fact_values.value_string,
                                         fact_values.value_json,
@@ -578,19 +589,31 @@
 
 (declare user-node->plan-node)
 
-(defn create-extract-node [query-rec column-list expr]
-  (if (or (nil? expr)
-          (not (contains? (set (keys user-query->logical-obj))
-                          (first expr))))
-    (assoc query-rec
-      :project (zipmap column-list (repeat (count column-list) nil))
-      :where (user-node->plan-node query-rec expr))
-    (let [[subquery-name & subquery-expression] expr]
-      (assoc (user-query->logical-obj subquery-name)
-        :project (zipmap column-list (repeat (count column-list) nil))
-        :where (when (seq subquery-expression)
-                 (user-node->plan-node (user-query->logical-obj subquery-name)
-                                       (first subquery-expression)))))))
+(defn subquery-expression?
+  "Returns true if expr is a subquery expression"
+  [expr]
+  (contains? (ks/keyset user-query->logical-obj)
+             (first expr)))
+
+(defn create-extract-node
+  "Returns a `query-rec` that has the correct projection for the given
+   `column-list`. Updating :project causes the select in the SQL query
+   to be modified. Setting :late-project does not affect the SQL, but
+   includes in the information for later removing the columns."
+  [query-rec column-list expr]
+  (let [project-map (zipmap column-list (repeat (count column-list) nil))]
+    (if (or (nil? expr)
+            (not (subquery-expression? expr)))
+      (let [qr (assoc query-rec :where (user-node->plan-node query-rec expr))]
+        (if (:supports-extract? query-rec)
+          (assoc qr :project project-map)
+          (assoc qr :late-project project-map)))
+      (let [[subquery-name & subquery-expression] expr]
+        (assoc (user-query->logical-obj subquery-name)
+          :project project-map
+          :where (when (seq subquery-expression)
+                   (user-node->plan-node (user-query->logical-obj subquery-name)
+                                         (first subquery-expression))))))))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -847,7 +870,8 @@
         paged-sql (if augmented-paging-options
                     (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
-        result-query {:results-query (apply vector paged-sql query-params)}]
+        result-query {:results-query (apply vector paged-sql query-params)
+                      :projections (map keyword (keys (:late-project plan)))}]
     (if count?
       (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
       result-query)))

@@ -452,6 +452,19 @@
              {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
              {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
 
+            ["and" ["=" "name" "uptime_seconds"]
+             [">" "value" 5000]]
+            [{:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}]
+
+            ["and" ["=" "name" "uptime_seconds"]
+             [">=" "value" 4000]
+             ["<" "value" 6000.0]]
+            [{:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}]
+
+            ["and" ["=" "name" "domain"]
+             [">" "value" 5000]]
+            []
+
             ["extract" "certname"
              ["not" ["=" "name" "domain"]]]
             [{:certname "foo1"}
@@ -483,19 +496,6 @@
              {:certname "foo3" :name "hostname"}
              {:certname "foo3" :name "kernel"}
              {:certname "foo3" :name "operatingsystem"}]
-
-            ["and" ["=" "name" "uptime_seconds"]
-             [">" "value" 5000]]
-            [{:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}]
-
-            ["and" ["=" "name" "uptime_seconds"]
-             [">=" "value" 4000]
-             ["<" "value" 6000.0]]
-            [{:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}]
-
-            ["and" ["=" "name" "domain"]
-             [">" "value" 5000]]
-            []
 
             ["=" "certname" "foo2"]
             [{:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
@@ -1221,7 +1221,9 @@
     (let [queries [["=" "certname" "foo1"]
                    ["=" "environment" "DEV"]
                    ["<" "timestamp" "2014-01-01"]
-                   ["<" "producer-timestamp" "2014-01-01"]]
+                   ["<" "producer-timestamp" "2014-01-01"]
+                   ["extract" ["certname" "hash"]
+                    ["=" "certname" "foo1"]]]
           responses (map (comp json/parse-string
                                slurp
                                :body
@@ -1300,7 +1302,10 @@
                "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}])))))
+               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
+      (is (= (into [] (nth responses 4))
+             [{"certname" "foo1"
+               "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}])))))
 
 (defn structured-fact-results
   [version endpoint]
@@ -1451,6 +1456,13 @@
            (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
            version))))))
 
+(defn fact-content-response [endpoint order-by-map]
+  (fn [req]
+    (-> (get-response endpoint req order-by-map)
+        :body
+        slurp
+        json/parse-string)))
+
 (deftestseq fact-contents-queries
   [[version endpoint] fact-contents-endpoints]
   (populate-for-structured-tests reference-time)
@@ -1465,10 +1477,7 @@
       (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
   (testing "fact nodes queries should return appropriate results"
-    (let [response (comp json/parse-string
-                         slurp
-                         :body
-                         #(get-response endpoint % {:order-by (json/generate-string [{:field "path"} {:field "certname"}])}))]
+    (let [response (fact-content-response endpoint {:order-by (json/generate-string [{:field "path"} {:field "certname"}])})]
       (is (= (into {} (first (response ["=" "certname" "foo1"])))
              {"certname" "foo1", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}))
       (is (= (into [] (response ["=" "environment" "DEV"]))
@@ -1559,4 +1568,18 @@
       (is (= (into [] (response ["=", "name" "domain"]))
              [{"certname" "foo1", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "DEV"}
               {"certname" "foo2", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "DEV"}
-              {"certname" "foo3", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "PROD"}])))))
+              {"certname" "foo3", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "PROD"}]))))
+
+  (testing "fact nodes queries should return appropriate results"
+    (let [response (fact-content-response endpoint {})]
+      (when (after-v3? version)
+        (is (= (response ["extract" "value" ["=", "name" "domain"]])
+               [{"value" "testing.com"}
+                {"value" "testing.com"}
+                {"value" "testing.com"}]))
+        (is (= (sort-by #(get % "certname")
+                        (response ["extract" ["certname" "value"] ["=", "name" "domain"]]))
+               (sort-by #(get % "certname")
+                        [{"certname" "foo1" "value" "testing.com"}
+                         {"certname" "foo2" "value" "testing.com"}
+                         {"certname" "foo3" "value" "testing.com"}])))))))

@@ -65,7 +65,7 @@
         qe/nodes-query query paging-options))))
 
 (defn munge-result-rows
-  [version]
+  [version _]
   (case version
     (:v1 :v2 :v3) identity
 
@@ -82,10 +82,11 @@
    :post [(map? %)
           (sequential? (:result %))]}
   (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
+         count-query    :count-query
+         projections    :projections} query-sql
          result {:result (query/streamed-query-result
                           version sql params
-                          (comp doall (munge-result-rows version)))}]
+                          (comp doall (munge-result-rows version projections)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

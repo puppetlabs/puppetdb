@@ -48,13 +48,14 @@
   (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
 
 (defn munge-result-rows
-  [version]
+  [version projections]
   (fn [rows]
     (if (empty? rows)
       []
       (let [new-rows (->> rows
                           convert-types
-                          (map #(select-keys % [:certname :environment :timestamp :name :value])))]
+                          (map #(select-keys % (or (seq projections)
+                                                   [:certname :environment :timestamp :name :value]))))]
         (case version
           (:v2 :v3) (map #(update-in % [:value] stringify-value) new-rows)
           new-rows)))))
