@@ -29,11 +29,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
   def munge_catalog(catalog, extra_request_data = {})
     profile "Munge catalog" do
-      hash = profile "Convert catalog to PSON data hash" do
-        catalog.to_pson_data_hash
+      data = profile "Convert catalog to JSON data hash" do
+        catalog.to_data_hash
       end
-
-      data = hash['data']
 
       add_parameters_if_missing(data)
       add_namevar_aliases(data, catalog)
@@ -239,7 +237,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
           # exported resources which haven't been also collected will appears as
           # exported and virtual (collected ones will only be exported). They will
           # eventually be removed from the catalog, so we can't add edges involving
-          # them. Puppet::Resource#to_pson_data_hash omits 'virtual', so we have to
+          # them. Puppet::Resource#to_data_hash omits 'virtual', so we have to
           # look it up in the catalog to find that information. This isn't done in
           # a separate step because we don't actually want to send the field (it
           # will always be false). See ticket #16472.
