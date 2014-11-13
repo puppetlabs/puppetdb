@@ -25,17 +25,7 @@ echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
 echo "**********************************************"
 
-(
-  cd vendor
-  git clone --depth 1 git://github.com/puppetlabs/facter.git
-
-  # Checkout Puppet branch
-  git clone --depth 1 --branch ${puppet_branch} git://github.com/puppetlabs/puppet.git
-
-  git clone --depth 1 git://github.com/puppetlabs/puppetlabs_spec_helper.git
-)
-
-export RUBYLIB=$RUBYLIB:`pwd`/vendor/facter/lib/:`pwd`/vendor/puppet/lib/:`pwd`/vendor/puppetlabs_spec_helper/lib
+export RUBYLIB=$RUBYLIB:`pwd`/puppet/lib
 
 cat >/tmp/force_gc.rb <<RUBY
 def GC.disable; end

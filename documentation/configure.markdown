@@ -18,7 +18,7 @@ Summary
 
 PuppetDB has three main groups of settings:
 
-* The init script's configuration file, which sets the Java heap size and the location of PuppetDB's main config file
+* The init script's configuration file, which sets the JVM heap size and the location of PuppetDB's main config file
 * Logging settings, which go in the [logback.xml](#logging-config) file and can be changed without restarting PuppetDB
 * All other settings, which go in PuppetDB's configuration file(s) and take effect after the service is restarted
 
