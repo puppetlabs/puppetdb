@@ -17,8 +17,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   end
 
   def save(request)
-    profile "facts#save" do
-      payload = profile "Encode facts command submission payload" do
+    profile("facts#save", [:puppetdb, :facts, :save, request.key]) do
+      payload = profile("Encode facts command submission payload",
+                        [:puppetdb, :facts, :encode]) do
         facts = request.instance.dup
         facts.values = facts.strip_internal
         if Puppet[:trusted_node_data]
@@ -40,16 +41,18 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   end
 
   def find(request)
-    profile "facts#find" do
+    profile("facts#find", [:puppetdb, :facts, :find, request.key]) do
       begin
         url = Puppet::Util::Puppetdb.url_path("/v3/nodes/#{CGI.escape(request.key)}/facts")
-        response = profile "Query for nodes facts: #{url}" do
+        response = profile("Query for nodes facts: #{url}",
+                           [:puppetdb, :facts, :find, :query_nodes, request.key]) do
           http_get(request, url, headers)
         end
         log_x_deprecation_header(response)
 
         if response.is_a? Net::HTTPSuccess
-          profile "Parse fact query response (size: #{response.body.size})" do
+          profile("Parse fact query response (size: #{response.body.size})",
+                  [:puppetdb, :facts, :find, :parse_response, request.key]) do
             result = JSON.parse(response.body)
             # Note: the Inventory Service API appears to expect us to return nil here
             # if the node isn't found.  However, PuppetDB returns an empty array in
@@ -87,7 +90,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   # `operator` may be one of {eq, ne, lt, gt, le, ge}, and will default to 'eq'
   # if unspecified.
   def search(request)
-    profile "facts#search" do
+    profile("facts#search", [:puppetdb, :facts, :search, request.key]) do
       return [] unless request.options
       operator_map = {
         'eq' => '=',
@@ -112,13 +115,15 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
       begin
         url = Puppet::Util::Puppetdb.url_path("/v3/nodes?query=#{query_param}")
-        response = profile "Fact query request: #{URI.unescape(url)}" do
+        response = profile("Fact query request: #{URI.unescape(url)}",
+                           [:puppetdb, :facts, :search, :query_request, request.key]) do
           http_get(request, url, headers)
         end
         log_x_deprecation_header(response)
 
         if response.is_a? Net::HTTPSuccess
-          profile "Parse fact query response (size: #{response.body.size})" do
+          profile("Parse fact query response (size: #{response.body.size})",
+                  [:puppetdb, :facts, :search, :parse_query_response, request.key,]) do
             JSON.parse(response.body).collect {|s| s["name"]}
           end
         else
