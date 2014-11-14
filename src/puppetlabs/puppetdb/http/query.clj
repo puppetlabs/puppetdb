@@ -56,6 +56,15 @@
                    ["=" ["node" "active"] true]]
                   req))
 
+(defn restrict-catalog-query-to-node
+  "Restrict the query parameter of the supplied request so that it
+  only returns results for the supplied active node"
+  [node req]
+  {:pre  [(string? node)]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "name" node]
+                  req))
+
 (defn restrict-query-to-environment
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied environment"

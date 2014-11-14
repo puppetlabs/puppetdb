@@ -2,14 +2,15 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.catalogs :as cats]
-            [clojure.java.io :refer [resource]]
+            [clojure.java.io :refer [resource reader]]
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.puppetdb.scf.hash :as shash]
             [clojure.test :refer :all]
             [ring.mock.request :as request]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
             [puppetlabs.puppetdb.fixtures :as fixt]))
 
-(def endpoints [[:v3 "/v3/catalogs"]
-                [:v4 "/v4/catalogs"]])
+(def endpoints [[:v4 "/v4/catalogs"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -19,41 +20,97 @@
   ([endpoint]
      (get-response endpoint nil))
   ([endpoint node]
-     (fixt/*app* (get-request (str endpoint "/" node)))))
+     (fixt/*app* (get-request (str endpoint "/" node))))
+  ([endpoint node query]
+   (fixt/*app* (get-request (str endpoint "/" node) query)))
+  ([endpoint node query params]
+   (fixt/*app* (get-request (str endpoint "/" node) query params))))
 
-(deftestseq catalog-retrieval
-  [[version endpoint] endpoints
-   :let [original-catalog-str (slurp (resource "puppetlabs/puppetdb/cli/export/big-catalog.json"))
-         original-catalog     (json/parse-string original-catalog-str true)
-         certname             (:name original-catalog)
-         catalog-version      (:version original-catalog)]]
 
-  (testcat/replace-catalog original-catalog-str)
-  (testing "it should return the catalog if it's present"
-    (let [{:keys [status body] :as response} (get-response endpoint certname)
-          result (json/parse-string body)]
-      (is (= status 200))
+(def catalog1
+  (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
+      json/parse-string
+      keywordize-keys))
 
-      (when (not= version :v3)
-        (is (string? (get result "environment")))
-        (is (= (get original-catalog :environment)
-               (get result "environment"))))
+(def catalog2 (merge catalog1
+                 {:name "host2.localdomain"
+                  :producer-timestamp "2010-07-10T22:33:54.781Z"
+                  :transaction-uuid "000000000000000000000000000"
+                  :environment "PROD"}))
 
-      (let [original (if (= version :v3)
-                       (testcat/munged-canonical->wire-format version original-catalog)
-                       (testcat/munge-catalog-for-comparison version result))
-            result (if (= version :v3)
-                     (testcat/munged-canonical->wire-format version (update-in
-                                                                     (cats/parse-catalog body 3)
-                                                                     [:resources] vals))
-                     (testcat/munge-catalog-for-comparison version result))]
-        (is (= original result))))))
+(def queries
+  {["=" "name" "myhost.localdomain"]
+   [catalog1]
 
-(deftestseq catalog-not-found
-  [[version endpoint] endpoints
-   :let [result (get-response endpoint "something-random.com")]]
+   ["=" "name" "host2.localdomain"]
+   [catalog2]
 
-  (is (= 404 (:status result)))
-  (is (re-find #"Could not find catalog" (-> (:body result)
-                                             (json/parse-string true)
-                                             :error))))
+   ["<" "producer-timestamp" "2014-07-10T22:33:54.781Z"]
+   [catalog2]
+
+   ["=" "environment" "PROD"]
+   [catalog2]
+
+   ["~" "environment" "PR"]
+   [catalog2]
+
+   []
+   [catalog1 catalog2]})
+
+(def paging-options
+  {{:order-by (json/generate-string [{:field "environment"}])}
+   [catalog1 catalog2]
+
+   {:order-by (json/generate-string [{:field "producer-timestamp"}])}
+   [catalog2 catalog1]
+
+   {:order-by (json/generate-string [{:field "name"}])}
+   [catalog2 catalog1]
+
+   {:order-by (json/generate-string [{:field "transaction-uuid"}])}
+   [catalog2 catalog1]
+
+   {:order-by (json/generate-string [{:field "name" :order "desc"}])}
+   [catalog1 catalog2]})
+
+(defn extract-tags
+  [xs]
+  (sort (flatten (map :tags (flatten (map :resources xs))))))
+
+(defn strip-hash
+  [xs]
+  (map #(dissoc % :hash) xs))
+
+(deftestseq v4-catalog-queries
+  [[version endpoint] [[:v4 "/v4/catalogs"]]]
+  (testcat/replace-catalog (json/generate-string catalog1))
+  (testcat/replace-catalog (json/generate-string catalog2))
+  (testing "v4 catalog endpoint is queryable"
+    (doseq [q (keys queries)]
+      (let [{:keys [status body] :as response} (get-response endpoint nil q)
+            response-body (strip-hash (json/parse-stream (reader body) true))
+            expected (get queries q)]
+        (is (= (count expected) (count response-body)))
+        (is (= (sort (map :name expected)) (sort (map :name response-body))))
+        (is (= (extract-tags expected) (extract-tags response-body))))))
+
+  (testing "top-level extract works with catalogs"
+    (let [query ["extract" ["name"] ["~" "name" ""]]
+          {:keys [body]} (get-response endpoint nil query)
+          response-body (strip-hash (json/parse-stream (reader body) true))
+          expected [{:name "myhost.localdomain"}
+                    {:name "host2.localdomain"}]]
+      (is (= (sort-by :name expected) (sort-by :name response-body)))))
+
+  (testing "paging options"
+    (doseq [p (keys paging-options)]
+      (testing (format "checking ordering %s" p)
+      (let [{:keys [status body] :as response} (get-response endpoint nil nil p)
+            response-body (strip-hash (json/parse-stream (reader body) true))
+            expected (get paging-options p)]
+        (is (= (map :name expected) (map :name response-body)))))))
+
+  (testing "/v4 endpoint is still responsive to old-style node queries"
+    (let [{:keys [body]} (get-response "/v4/catalogs" "myhost.localdomain")
+          response-body  (json/parse-string body true)]
+      (is (= "myhost.localdomain" (:name response-body))))))

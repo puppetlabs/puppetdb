@@ -159,8 +159,7 @@
      (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
            offset-clause    (if offset (format " OFFSET %s" offset) "")
            order-by-clause  (-> order-by
-                                order-by->sql
-                                (str/replace #"producer_timestamp" "\"producer-timestamp\""))
+                                order-by->sql)
            inner-order-by   (-> order-by-clause
                                 (str/replace
                                   #"environment" "COALESCE(distinct_names.environment, '')"))]
@@ -168,9 +167,9 @@
          :factsets
          (format "SELECT paged_results.* FROM (%s) paged_results
                 WHERE (certname,COALESCE(paged_results.environment,''),timestamp,
-                 \"producer-timestamp\") IN
+                producer_timestamp) IN
                 (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp,
-                \"producer-timestamp\" FROM (%s)
+                producer_timestamp FROM (%s)
                 distinct_names %s%s%s) %s"
                  sql sql inner-order-by limit-clause offset-clause order-by-clause)
          (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"

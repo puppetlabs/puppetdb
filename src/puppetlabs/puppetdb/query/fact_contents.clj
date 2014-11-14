@@ -31,18 +31,11 @@
       (update-in [:path] f/string-to-factpath)
       (dissoc :type :value_integer :value_float)))
 
-(defn fact-contents-project
-  "Returns a function will remove non-projected columns if projections is specified."
-  [projections]
-  (if (seq projections)
-    #(select-keys % projections)
-    identity))
-
 (defn munge-result-rows
   "Munge resulting rows for fact-contents endpoint."
   [version projections]
   (fn [rows]
-    (map (comp (fact-contents-project projections) munge-result-row) rows)))
+    (map (comp (qe/basic-project projections) munge-result-row) rows)))
 
 (defn query->sql
   "Compile a query into an SQL expression."

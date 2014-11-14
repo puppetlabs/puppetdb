@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.query.factsets
   (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
@@ -17,7 +19,7 @@
    :hash (s/maybe s/Str)
    :value_float (s/maybe s/Num)
    :value_integer (s/maybe s/Int)
-   :producer-timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp (s/maybe pls/Timestamp)
    :type (s/maybe String)
    :timestamp pls/Timestamp})
 
@@ -27,7 +29,7 @@
    :path String
    :hash (s/maybe s/Str)
    :value s/Any
-   :producer-timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp (s/maybe pls/Timestamp)
    :timestamp pls/Timestamp})
 
 (def factset-schema
@@ -85,7 +87,7 @@
   "Aggregate all facts for a certname into a single structure."
   [version :- s/Keyword
    certname-rows :- [converted-row-schema]]
-  (let [first-row (first certname-rows)
+  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first certname-rows))
         facts (reduce recreate-fact-path {} certname-rows)]
     (assoc (select-keys first-row [:hash :certname :environment :timestamp :producer-timestamp])
       :facts (int-maps->vectors facts))))
@@ -99,12 +101,6 @@
       (cons ((comp (partial collapse-factset version) convert-types) certname-facts)
             (lazy-seq (structured-data-seq version more-rows))))))
 
-(defn factset-project [projections]
-  (if (seq projections)
-    (fn [row]
-      (select-keys row projections))
-    identity))
-
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
@@ -112,7 +108,7 @@
   (fn [rows]
     (if (empty? rows)
       []
-      (map (factset-project projections) (structured-data-seq version rows)))))
+      (map (qe/basic-project projections) (structured-data-seq version rows)))))
 
 (pls/defn-validated query->sql
   "Compile a query into an SQL expression."

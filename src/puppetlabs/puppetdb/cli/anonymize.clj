@@ -5,9 +5,12 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
             [clojure.string :as string]
+            [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.archive :as archive]
+            [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.schema :as pls]
+            [clojure.walk :refer [keywordize-keys]]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
@@ -206,6 +209,8 @@
       (let [new-catalog  (->> (next-json-tar-entry tar-reader)
                               (anon/anonymize-catalog config))
             new-hostname (get new-catalog "name")
+            new-hash (shash/catalog-similarity-hash (catalogs/transform (keywordize-keys new-catalog)))
+            new-catalog (assoc new-catalog "hash" new-hash)
             file-suffix  ["catalogs" (format "%s.json" new-hostname)]
             new-path     (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path new-path))
