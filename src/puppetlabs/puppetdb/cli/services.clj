@@ -68,7 +68,8 @@
             [puppetlabs.puppetdb.repl :refer [start-repl]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]))
+            [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.query-eng :as qeng]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -329,7 +330,8 @@
       (assoc context :shared-globals globals))))
 
 (defprotocol PuppetDBServer
-  (shared-globals [this]))
+  (shared-globals [this])
+  (query [this query-obj version query-expr query-row-callback-fn]))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -346,7 +348,15 @@
   (stop [this context]
         (stop-puppetdb context))
   (shared-globals [this]
-                  (:shared-globals (service-context this))))
+                  (:shared-globals (service-context this)))
+  (query [this query-obj version query-expr query-row-callback-fn]
+         (qeng/stream-query-result
+          query-obj
+          version
+          query-expr
+          nil
+          (get-in (service-context this) [:shared-globals :scf-read-db])
+          query-row-callback-fn)))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.

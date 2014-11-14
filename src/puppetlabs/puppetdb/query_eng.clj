@@ -17,11 +17,11 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]))
 
-(defn produce-streaming-body
+(defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
   results.
   If the query can't be parsed, a 400 is returned."
-  [entity version query paging-options db]
+  [entity version query paging-options db output-fn]
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql (facts/munge-result-rows version)]
@@ -36,21 +36,28 @@
           :reports [reports/query->sql (reports/munge-result-rows version)]
           :factsets [factsets/query->sql (factsets/munge-result-rows version)]
           :resources [resources/query->sql (resources/munge-result-rows version)])]
-    (try
-      (jdbc/with-transacted-connection db
-        (let [parsed-query (json/parse-strict-string query true)
-              {[sql & params] :results-query
-               count-query :count-query} (query->sql version parsed-query
-                                                     paging-options)
-              resp (pl-http/stream-json-response
-                    (fn [f]
-                      (jdbc/with-transacted-connection db
-                        (query/streamed-query-result version sql params
-                                                     (comp f munge-fn)))))]
-          (if count-query
-            (http/add-headers resp {:count (jdbc/get-result-count count-query)})
-            resp)))
-      (catch com.fasterxml.jackson.core.JsonParseException e
-        (pl-http/error-response e))
-      (catch IllegalArgumentException e
-        (pl-http/error-response e)))))
+    (jdbc/with-transacted-connection db
+      (let [{[sql & params] :results-query
+             count-query :count-query} (query->sql version query
+                                                   paging-options)
+             resp (output-fn
+                   (fn [f]
+                     (jdbc/with-transacted-connection db
+                       (query/streamed-query-result version sql params
+                                                    (comp f munge-fn)))))]
+        (if count-query
+          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
+          resp)))))
+
+(defn produce-streaming-body
+  "Given a query, and database connection, return a Ring response with the query
+  results.
+  If the query can't be parsed, a 400 is returned."
+  [entity version query paging-options db]
+  (try
+    (let [parsed-query (json/parse-strict-string query true)]
+      (stream-query-result entity version parsed-query paging-options db pl-http/stream-json-response))
+    (catch com.fasterxml.jackson.core.JsonParseException e
+      (pl-http/error-response e))
+    (catch IllegalArgumentException e
+      (pl-http/error-response e))))
