@@ -34,9 +34,9 @@ Currently, puppet masters need additional Ruby plugins in order to use PuppetDB.
 
 ### On Platforms With Packages
 
-[Enable the Puppet Labs repo](/guides/puppetlabs_package_repositories.html#open-source-repositories) and then install the `puppetdb-terminus` package:
+[Enable the Puppet Labs repo](/guides/puppetlabs_package_repositories.html#open-source-repositories) and then install the `puppetdb-termini` package:
 
-    $ sudo puppet resource package puppetdb-terminus ensure=latest
+    $ sudo puppet resource package puppetdb-termini ensure=latest
 
 ### On Platforms Without Packages
 
@@ -67,9 +67,9 @@ Note that a comma separated list of the URLs can be provided if there are more t
     [main]
     server_urls = https://puppetdb1.example.com:8081/,https://puppetdb2.example.com:8081/
 
-For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB terminus to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
+For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB termini to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
-The `server_url_timeout` field sets the maximum amount of time (in seconds) the PuppetDB terminus will wait for an HTTP request to be responded to by PuppetDB. If the user has specified more than one PuppetDB URL and a timeout has occurred, it will attempt the same request in the next server in the list.
+The `server_url_timeout` field sets the maximum amount of time (in seconds) the PuppetDB termini will wait for an HTTP request to be responded to by PuppetDB. If the user has specified more than one PuppetDB URL and a timeout has occurred, it will attempt the same request in the next server in the list.
 
 If no puppetdb.conf file exists, the following default values will be used:
 

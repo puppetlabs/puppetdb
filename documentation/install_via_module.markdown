@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/install_via_module.html"
 > **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
 
 You can install and configure all of PuppetDB's components and prerequisites (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems, and the
-terminus plugins for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge.
+PuppetDB termini for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge.
 
 * If you are **already familiar with Puppet** and have a working Puppet deployment, this is the easiest method for installing PuppetDB. In this guide, we expect that you already know how to assign Puppet classes to nodes.
 * If you are **just getting started with Puppet,** you should probably follow the [Installing PuppetDB From Packages guide](./install_from_packages.html) instead.
@@ -26,7 +26,7 @@ Step 1: Enable the Puppet Labs Package Repository
 If you haven't already, you will need to do **one** of the following:
 
 * [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html#open-source-repositories) on your PuppetDB server and puppet master server.
-* Grab the PuppetDB and terminus plugin packages, and import them into your site's local package repos.
+* Grab the PuppetDB and termini packages, and import them into your site's local package repos.
 
 Step 2: Assign Classes to Nodes
 -----
