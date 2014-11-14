@@ -18,7 +18,7 @@ Puppet::Reports.register_report(:puppetdb) do
   #
   # @return [void]
   def process
-    profile "report#process" do
+    profile("report#process", [:puppetdb, :report, :process]) do
       submit_command(self.host, report_to_hash, CommandStoreReport, 4)
     end
 
@@ -31,7 +31,8 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def report_to_hash
-    profile "Convert report to wire format hash" do
+    profile("Convert report to wire format hash",
+            [:puppetdb, :report, :convert_to_wire_format_hash]) do
       if environment.nil?
         raise Puppet::Error, "Environment is nil, unable to submit report. This may be due a bug with Puppet. Ensure you are running the latest revision, see PUP-2508 for more details."
       end
@@ -54,7 +55,8 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Array[Hash]
   # @api private
   def build_events_list
-    profile "Build events list (count: #{resource_statuses.count})" do
+    profile("Build events list (count: #{resource_statuses.count})",
+            [:puppetdb, :events_list, :build]) do
       filter_events(resource_statuses.inject([]) do |events, status_entry|
         _, status = *status_entry
         if ! (status.events.empty?)
@@ -133,7 +135,8 @@ Puppet::Reports.register_report(:puppetdb) do
   # @api private
   def filter_events(events)
     if config.ignore_blacklisted_events?
-      profile "Filter blacklisted events" do
+      profile("Filter blacklisted events",
+              [:puppetdb, :events, :filter_blacklisted]) do
         events.select { |e| ! config.is_event_blacklisted?(e) }
       end
     else
