@@ -4,7 +4,7 @@ if (test_config[:install_mode] == :upgrade)
     databases.each do |database|
       install_puppetdb(database, test_config[:database], 'latest')
       start_puppetdb(database)
-      install_puppetdb_termini(master, database, 'latest')
+      install_puppetdb_termini(master, database, 'latest', 'puppetdb-terminus')
     end
   end
 end
