@@ -73,7 +73,10 @@ class Puppet::Util::Puppetdb::Command
         #  compatibility.)  We should either be using a nested exception or calling
         #  Puppet::Util::Logging#log_exception or #log_and_raise here; w/o them
         #  we lose context as to where the original exception occurred.
-        puts e, e.backtrace if Puppet[:trace]
+        if Puppet[:trace]
+          Puppet.err(e)
+          Puppet.err(e.backtrace)
+        end
         raise Puppet::Util::Puppetdb::CommandSubmissionError.new(e.message, {:command => command, :for_whom => for_whom})
       end
     end
