@@ -625,7 +625,7 @@ EOS
         end
         install_postgres(host)
       when :embedded
-        on host, "rm -rf #{puppetdb_sharedir(host)}/db/*"
+        on host, "rm -rf #{puppetdb_vardir(host)}/db"
       else
         raise ArgumentError, "Unsupported database: '#{PuppetDBExtensions.config[:database]}'"
     end
