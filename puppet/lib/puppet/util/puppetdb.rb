@@ -57,7 +57,8 @@ module Puppet::Util::Puppetdb
   # @param version [Number] version number of command
   # @return [Hash <String, String>]
   def submit_command(certname, payload, command_name, version)
-    profile "Submitted command '#{command_name}' version '#{version}'" do
+    profile("Submitted command '#{command_name}' version '#{version}'",
+            [:puppetdb, :command, :submit, command_name, version]) do
       command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
       command.submit
     end
@@ -71,11 +72,12 @@ module Puppet::Util::Puppetdb
   # in the profiled hierachy.
   #
   # @param message [String] A description of the profiled event
+  # @param metric_id [Array] A list of strings making up the ID of a metric to profile
   # @param block [Block] The segment of code to profile
   # @api public
-  def profile(message, &block)
+  def profile(message, metric_id, &block)
     message = "PuppetDB: " + message
-    Puppet::Util::Profiler.profile(message, &block)
+    Puppet::Util::Profiler.profile(message, metric_id, &block)
   end
 
   # @!group Private instance methods
