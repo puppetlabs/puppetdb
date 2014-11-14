@@ -13,8 +13,8 @@ AMI:
 
   el-5-x86_64-west:
     :image:
-      :pe: ami-4a6df87a
-      :foss: ami-4a6df87a
+      :pe: ami-2d5e141d
+      :foss: ami-2d5e141d
     :region: us-west-2
 
   ubuntu-12.04-amd64-west:
