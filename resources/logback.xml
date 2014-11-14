@@ -15,7 +15,6 @@
     <!--
     <logger name="puppetlabs.puppetdb.scf.storage" level="debug"/>
     -->
-    <logger name="puppetlabs.puppetdb.scf.migrate" level="info"/>
 
     <root level="info">
         <appender-ref ref="STDOUT" />
