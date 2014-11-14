@@ -243,8 +243,8 @@ module PuppetDBExtensions
   # @return [void]
   # @api private
   def display_last_logs(host)
-    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb-daemon.log"
-    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb.log"
+    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb-daemon.log", :acceptable_exit_codes => [0,1]
+    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb.log", :acceptable_exit_codes => [0,1]
   end
 
   # Sleep until PuppetDB is completely started
