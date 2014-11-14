@@ -23,22 +23,10 @@ AMI:
       :foss: ami-d6e860e6
     :region: us-west-2
 
-  ubuntu-10.04-amd64-west:
-    :image:
-      :pe: ami-52ea6262
-      :foss: ami-52ea6262
-    :region: us-west-2
-
   debian-7-amd64-west:
     :image:
       :pe: ami-99e0ada9
       :foss: ami-99e0ada9
-    :region: us-west-2
-
-  debian6-amd64-west:
-    :image:
-      :pe: ami-4eea627e
-      :foss: ami-4eea627e
     :region: us-west-2
 
   fedora-20-x86_64-west:

@@ -18,6 +18,11 @@
 (defproject puppetlabs/puppetdb "3.0.0-SNAPSHOT"
   :description "Puppet-integrated catalog and fact storage"
 
+  :license {:name "Apache License, Version 2.0"
+            :url "http://www.apache.org/licenses/LICENSE-2.0.html"}
+
+  :url "https://docs.puppetlabs.com/puppetdb/"
+
   ;; Abort when version ranges or version conflicts are detected in
   ;; dependencies. Also supports :warn to simply emit warnings.
   ;; requires lein 2.2.0+.
