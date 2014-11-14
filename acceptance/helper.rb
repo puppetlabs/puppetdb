@@ -255,7 +255,9 @@ module PuppetDBExtensions
   def sleep_until_started(host)
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
-    curl_with_retries("start puppetdb", host, "http://localhost:8080/v3/version", 0, 120)
+    curl_with_retries("start puppetdb", host,
+                      "-s -w '%{http_code}' http://localhost:8080/v3/version -o /dev/null",
+                      0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
                       "https://#{host.node_name}:8081/", [35, 60])
   rescue RuntimeError => e
@@ -574,6 +576,43 @@ ini_setting {'puppetdb-config-#{setting}':
 }
 EOS
     apply_manifest_on(host, manifest_content)
+  end
+
+  # Keep curling until the required condition is met
+  #
+  # Condition can be a desired_exit code, and/or expected_output, and it will
+  # keep executing the curl command until one of these conditions are met
+  # or the max_retries is reached.
+  #
+  # @param desc [String] descriptive name for this cycling
+  # @param host [String] host to execute retry on
+  # @param curl_args [String] the curl_args to use for testing
+  # @param desired_exit_codes [Number,Array<Number>] a desired exit code, or array of exist codes
+  # @param max_retries [Number] maximum number of retries before failing
+  # @param retry_interval [Number] time in secs to wait before next try
+  # @param expected_output [Regexp] a regexp to use for matching the output
+  # @return [void]
+  def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
+    command = "curl --tlsv1 #{curl_args}"
+    log_prefix = host.log_prefix
+    logger.debug "\n#{log_prefix} #{Time.new.strftime('%H:%M:%S')}$ #{command}"
+    logger.debug "  Trying command #{max_retries} times."
+    logger.debug ".", add_newline=false
+
+    desired_exit_codes = [desired_exit_codes].flatten
+    result = on host, command, :acceptable_exit_codes => (0...127), :silent => true
+    num_retries = 0
+    until desired_exit_codes.include?(exit_code) and (result.stdout =~ expected_output)
+      sleep retry_interval
+      result = on host, command, :acceptable_exit_codes => (0...127), :silent => true
+      num_retries += 1
+      logger.debug ".", add_newline=false
+      if (num_retries > max_retries)
+        logger.debug "  Command \`#{command}\` failed."
+        fail("Command \`#{command}\` failed. Unable to #{desc}.")
+      end
+    end
+    logger.debug "\n#{log_prefix} #{Time.new.strftime('%H:%M:%S')}$ #{command} ostensibly successful."
   end
 
   def clear_database(host)
