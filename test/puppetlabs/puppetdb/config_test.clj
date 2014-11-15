@@ -208,13 +208,6 @@
                           (normalize-product-name "puppet")))))
 
 (deftest sslv3-warn-test
-  (testing "output to log"
-    (tu-log/with-log-output log-output
-      (let [bad-config {:jetty {:ssl-protocols ["SSLv3" "TLSv1" "TLSv1.1" "TLSv1.2"]}}]
-        (is (= bad-config
-               (default-ssl-protocols bad-config)))
-        (is (.contains (last (first @log-output)) "contains SSLv3")))))
-
   (testing "output to standard out"
     (let [bad-config {:jetty {:ssl-protocols ["SSLv3" "TLSv1" "TLSv1.1" "TLSv1.2"]}}
           out-str (with-out-str
@@ -231,3 +224,11 @@
              (with-out-str
                (binding [*err* *out*]
                  (default-ssl-protocols {}))))))))
+
+(deftest warn-repl-retirements-test
+  (testing "output to standard out"
+    (let [bad-config {:repl {:port 123}}
+          out-str (with-out-str
+                    (binding [*err* *out*]
+                      (warn-repl-retirement bad-config)))]
+      (is (.contains out-str "[repl] is now retired")))))
