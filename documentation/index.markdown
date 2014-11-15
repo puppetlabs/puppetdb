@@ -66,10 +66,10 @@ System Requirements
 
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
-* Red Hat Enterprise Linux 5 or 6 or any distro derived from it (including CentOS)
-* Debian Squeeze (see [here](https://wiki.debian.org/JavaPackage) for JDK 1.7 packages), Wheezy, or Sid
-* Ubuntu 12.10, 12.04 LTS, 10.04 LTS (see [here](https://wiki.debian.org/JavaPackage) for JDK 1.7 packages), 11.10
-* Fedora 18, 19 or 20
+* Red Hat Enterprise Linux 5, 6 and 7 (and any distro derived from it including CentOS)
+* Debian Wheezy
+* Ubuntu 14.04 LTS, 12.04 LTS
+* Fedora 19, 20
 
 [See here for instructions for installing via the PuppetDB puppet module.][install_via_module]
 
@@ -85,9 +85,9 @@ If you're willing to do some manual configuration, PuppetDB can run on any Unix-
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 3.5.1
+### Puppet 3.7.3
 
-Your site's puppet masters must be running Puppet 3.5.1 or later. [You will need to connect your puppet masters to PuppetDB after installing it][connect]. If you wish to use PuppetDB with [standalone nodes that are running puppet apply][apply], every node must be running 3.5.1 or later.
+Your site's puppet masters must be running Puppet 3.7.3 or later. [You will need to connect your puppet masters to PuppetDB after installing it][connect]. If you wish to use PuppetDB with [standalone nodes that are running puppet apply][apply], every node must be running 3.7.3 or later.
 
 > #### Note about Puppet Enterprise
 >

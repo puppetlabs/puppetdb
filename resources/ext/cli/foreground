@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ARGS="$@"
+
+su ${USER} -s /bin/bash -c "${JAVA_BIN} ${JAVA_ARGS} -cp ${INSTALL_DIR}/puppetdb-release.jar clojure.main -m puppetlabs.puppetdb.core services -c ${CONFIG} ${@}"

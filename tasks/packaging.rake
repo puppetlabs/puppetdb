@@ -18,7 +18,7 @@ if File.exist?(build_defs_file)
     desc "Bootstrap packaging automation, e.g. clone into packaging repo"
     task :bootstrap do
       if File.exist?(File.join(RAKE_ROOT, 'ext', @packaging_repo))
-        puts "It looks like you already have ext/#{@packaging_repo}. If you don't like it, blow it away with packa    ge:implode."
+        puts "It looks like you already have ext/#{@packaging_repo}. If you don't like it, blow it away with package:implode."
       else
         cd 'ext' do
           %x{git clone #{@packaging_url}}

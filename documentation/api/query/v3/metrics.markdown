@@ -106,7 +106,7 @@ Additionally, we also support the following explicit names:
 **Note:** The use of these explicit names is deprecated; please use, e.g., `/v3/commands` instead.
 
 * `commands`: Stats relating to the command processing REST
-  endpoint. The PuppetDB terminus in Puppet talks to this endpoint to
+  endpoint. The PuppetDB termini in Puppet talks to this endpoint to
   submit new catalogs, facts, etc.
 * `metrics`: Stats relating to the metrics REST endpoint. This is the
   endpoint you're reading about right now!
