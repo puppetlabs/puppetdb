@@ -375,3 +375,11 @@
   (when *load-tests*
     `(def ~(vary-meta name assoc :test `(fn [] (doverseq ~seq-exprs ~@body)))
        (fn [] (test-var (var ~name))))))
+
+(defn after-v3?
+  "Returns true of the number after the version kwd ':v3' is after 3"
+  [version]
+  (< 3 (-> version
+           str
+           (subs 2)
+           Long/parseLong)))

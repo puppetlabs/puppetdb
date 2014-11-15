@@ -9,9 +9,12 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.testutils :refer [response-equal? assert-success!
-                                                   get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [response-equal?
+                                                   assert-success!
+                                                   get-request
+                                                   paged-results
+                                                   deftestseq
+                                                   after-v3?]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]
@@ -81,6 +84,25 @@
            result
            (reports-response version [basic])
            remove-receive-times))))))
+
+(deftestseq query-with-projection
+  [[version endpoint] endpoints]
+  (when (after-v3? version)
+    (let [basic         (:basic reports)
+          report-hash   (:hash (store-example-report! basic (now)))
+          basic (assoc basic :hash report-hash)]
+
+      (testing "one projected column"
+        (response-equal?
+         (get-response endpoint ["extract" "hash"
+                                 ["=" "certname" (:certname basic)]])
+         #{(select-keys basic [:hash])}))
+
+      (testing "three projected columns"
+        (response-equal?
+         (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
+                                 ["=" "certname" (:certname basic)]])
+         #{(select-keys basic [:hash :certname :transaction-uuid])})))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]

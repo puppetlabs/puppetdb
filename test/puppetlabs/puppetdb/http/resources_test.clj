@@ -94,7 +94,7 @@ to the result of the form supplied to this method."
         (is-response-equal (get-response endpoint query) result)))
 
     (testing "only v4 or after queries"
-      (when-not (contains? #{:v2 :v3} version)
+      (when (tu/after-v3? version)
         (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
                                 [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
           (is-response-equal (get-response endpoint query) result))))
@@ -247,7 +247,7 @@ to the result of the form supplied to this method."
               result #{bar2}]
           (is-response-equal (get-response endpoint query) result))))
 
-    (when-not (contains? #{:v2 :v3} version)
+    (when (tu/after-v3? version)
       (testing "sourcefile and source is not supported"
         (let [query ["=" "sourceline" 22]
               response (get-response endpoint query)]
@@ -355,6 +355,18 @@ to the result of the form supplied to this method."
         (let [response (get-response endpoint ["~" "environment" "DEV"])]
           (is (re-find #"'environment' cannot be the target.*version 3*" (:body response)))
           (is (= 400 (:status response))))))))
+
+(deftestseq query-with-projection
+  [[version endpoint] endpoints]
+
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+    (when (not-any? #(= version %) [:v2 :v3])
+      (testing "querying by equality and regexp should be allowed"
+        (are [query] (is-response-equal (get-response endpoint query)
+                                        #{{:type (:type foo1)}
+                                          {:type (:type foo2)}})
+             ["extract" "type"
+              ["=" "environment" "DEV"]])))))
 
 (deftestseq query-null-environments
   [[version endpoint] endpoints

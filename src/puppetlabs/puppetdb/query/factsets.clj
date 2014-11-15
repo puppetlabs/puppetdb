@@ -99,13 +99,20 @@
       (cons ((comp (partial collapse-factset version) convert-types) certname-facts)
             (lazy-seq (structured-data-seq version more-rows))))))
 
+(defn factset-project [projections]
+  (if (seq projections)
+    (fn [row]
+      (select-keys row projections))
+    identity))
+
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword]
+  [version :- s/Keyword
+   projections]
   (fn [rows]
     (if (empty? rows)
       []
-      (structured-data-seq version rows))))
+      (map (factset-project projections) (structured-data-seq version rows)))))
 
 (pls/defn-validated query->sql
   "Compile a query into an SQL expression."

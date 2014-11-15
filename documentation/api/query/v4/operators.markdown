@@ -129,6 +129,21 @@ Every argument of these operators should be a **complete query string** in its o
 
 **Matches if:** its argument **would not** match. Accepts a **single** query string as its argument.
 
+## Projection Operators
+
+### `extract`
+
+To reduce the keypairs returned for each result in the response, you can use **extract**. Using extract outside of a subquery (which is discussed below) has the form below:
+
+    ["extract" ["hash" "certname" "transaction_uuid"]
+      ["=" "certname" "foo.com"]]
+
+When only extracting a single column, the [] are optional
+
+    ["extract" "transaction_uuid"
+      ["=" "certname" "foo.com"]]
+
+At this time extract must always have an expression to extract from, like `["=" "certname" "foo.com"]` above.
 
 ## Subquery Operators
 

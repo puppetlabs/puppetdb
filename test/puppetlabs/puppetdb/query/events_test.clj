@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [deftestseq after-v3?]]
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
             [clj-time.core :refer [now ago days]]))
 
@@ -55,9 +55,9 @@
              (query/compile-term ops [">" "resource_type" "foo"])))))))
 
 (defmacro after-v3 [version v3-or-before v4-or-after]
-  `(if (contains? #{:v2 :v3} ~version)
-     ~v3-or-before
-     ~v4-or-after))
+  `(if (after-v3? ~version)
+     ~v4-or-after
+     ~v3-or-before))
 
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
@@ -331,7 +331,7 @@
 
 (deftestseq resource-event-queries-for-v4+
   [version versions
-   :when (not (contains? #{:v2 :v3} version))]
+   :when (after-v3? version)]
   (let [basic             (store-example-report! (:basic reports) (now))
         basic2            (store-example-report! (:basic2 reports) (now))
         report-hash       (:hash basic)

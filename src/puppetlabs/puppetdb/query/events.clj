@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -130,15 +131,15 @@
   presentation.
 
   Version is provided to alter the munge function depending on the API query."
-  [version]
+  [version _]
   (fn [rows]
     (map
      ;; TODO: conversion to underscore should be standard anyway
      ;; at least for V4. Consider moving this operation to
      ;; query/streamed-query-result in the future.
      #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
-          (update-in [:old-value] json/parse-string)
-          (update-in [:new-value] json/parse-string))
+          (utils/update-when [:old-value] json/parse-string)
+          (utils/update-when [:new-value] json/parse-string))
      rows)))
 
 (defn query-resource-events
@@ -149,12 +150,13 @@
   [version query-sql]
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
+         count-query    :count-query
+         projections    :projections} query-sql
          result {:result (query/streamed-query-result
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version)))}]
+                          (comp doall (munge-result-rows version projections)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

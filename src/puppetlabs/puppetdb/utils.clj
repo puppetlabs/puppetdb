@@ -110,3 +110,11 @@
   ks in map m."
   [m ks f]
   (reduce #(update-in %1 [%2] f) m ks))
+
+(defn update-when
+  "Works like update, but only if ks is found in the map(s)"
+  [m ks f & args]
+  (let [val (get-in m ks ::not-found)]
+    (if (= val ::not-found)
+      m
+      (assoc-in m ks (apply f val args)))))

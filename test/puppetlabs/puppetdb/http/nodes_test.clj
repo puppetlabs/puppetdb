@@ -5,8 +5,10 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [get-request
+                                                   paged-results
+                                                   deftestseq
+                                                   after-v3?]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [puppetlabs.puppetdb.zip :as zip]
             [clojure.core.match :as cm]))
@@ -271,3 +273,15 @@
       (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
       (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
       (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))
+
+(deftestseq node-query-projections
+  [[version endpoint] endpoints]
+  (when (after-v3? version)
+    (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
+      (is-query-result endpoint ["extract" "catalog-environment"
+                                 ["=" "certname" "web1.example.com"]]
+                       [{:catalog-environment (:catalog-environment web1)}])
+      (is-query-result endpoint ["extract" ["catalog-environment" "certname"]
+                                 ["=" "certname" "web1.example.com"]]
+                       [{:catalog-environment (:catalog-environment web1)
+                         :certname (:name web1)}]))))
