@@ -44,16 +44,10 @@ if defined?(Pkg) and defined?(Pkg::Config)
   end
   @version = Pkg::Config.version
 else
-  begin
-    %x{which git >/dev/null 2>&1}
-    if $?.success?
-      @version = %x{git describe --always --dirty}
-      if $?.success?
-        @version.chomp!
-      end
-    end
+  @version = begin
+    %x{lein with-profile ci pprint :version | tail -n 1 | cut -d\" -f2}.chomp
   rescue
-    @version = "0.0-dev-build"
+    "0.0-dev-build"
   end
   if ENV['PE_BUILD'] and ENV['PE_BUILD'].downcase == 'true'
     @pe = TRUE
@@ -65,8 +59,8 @@ ENV['PATH'] = "/opt/puppet/bin:" + ENV['PATH'] if @pe
 @osfamily = (Facter.value(:osfamily) || "").downcase
 
 # Specific minimum pinning for Puppet & Facter versions
-@puppetminversion = "3.5.1"
-@facterminversion = "1.7.0"
+@puppetminversion = "3.7.3"
+@facterminversion = "2.3.0"
 
 if @pe
     @install_dir = "/opt/puppet/share/puppetdb"
@@ -79,31 +73,26 @@ if @pe
     @pe_version = ENV['PE_VER'] || '3.0'
     @java_bin = "/opt/puppet/bin/java"
 else
-    @install_dir = case @osfamily
-      when /openbsd/
-        "/usr/local/share/puppetdb"
-      else
-        "/usr/share/puppetdb"
-      end
-    @etc_dir = "/etc/puppetdb"
-    @config_dir = "/etc/puppetdb/conf.d"
-    @lib_dir = "/var/lib/puppetdb"
-    @libexec_dir = case @osfamily
-      when /openbsd/
-        "/usr/local/libexec/puppetdb"
-      when /redhat/, /suse/, /darwin/, /bsd/
-        "/usr/libexec/puppetdb"
-      else
-        "/usr/lib/puppetdb"
-      end
-    @link = "/usr/share/puppetdb"
-    @name = "puppetdb"
-    @sbin_dir = case @osfamily
-      when /archlinux/
-        "/usr/bin"
-      else
-        "/usr/sbin"
-      end
+  @install_dir = case @osfamily
+    when /openbsd/
+      "/usr/local/share/puppetdb"
+    else
+      "/usr/share/puppetdb"
+    end
+  @etc_dir = "/etc/puppetdb"
+  @config_dir = "/etc/puppetdb/conf.d"
+  @lib_dir = "/var/lib/puppetdb"
+  @libexec_dir = case @osfamily
+    when /openbsd/
+      "/usr/local/libexec/puppetdb"
+    when /redhat/, /suse/, /darwin/, /bsd/
+      "/usr/libexec/puppetdb"
+    else
+      "/usr/lib/puppetdb"
+    end
+  @link = "/usr/share/puppetdb"
+  @name = "puppetdb"
+  @sbin_dir = "/usr/bin"
 end
 
 @initscriptname = "/etc/init.d/#{@name}"
@@ -115,7 +104,6 @@ end
 PATH = ENV['PATH']
 DESTDIR=  ENV['DESTDIR'] || ''
 PE_SITELIBDIR = "/opt/puppet/lib/ruby/site_ruby/1.9.1"
-
 
 case @osfamily
   when /debian/

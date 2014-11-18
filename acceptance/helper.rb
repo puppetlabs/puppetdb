@@ -11,7 +11,6 @@ module PuppetDBExtensions
   include Test::Unit::Assertions
 
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
-
   LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true LEIN_SNAPSHOTS_IN_RELEASE=true"
 
   def self.initialize_test_config(options, os_families)
@@ -76,6 +75,11 @@ module PuppetDBExtensions
           "PUPPETDB_PACKAGE_REPO_URL",
           "http://#{package_repo_host}/dev/puppetdb/master")
 
+    package_build_version =
+      get_option_value(options[:puppetdb_package_build_version],
+        nil, "'package build version'",
+        "PUPPETDB_PACKAGE_BUILD_VERSION", nil)
+
     puppetdb_repo_puppet = get_option_value(options[:puppetdb_repo_puppet],
       nil, "git repo for puppet source installs", "PUPPETDB_REPO_PUPPET", nil)
 
@@ -106,6 +110,7 @@ module PuppetDBExtensions
       :package_build_host => package_build_host,
       :package_repo_host => package_repo_host,
       :package_repo_url => package_repo_url,
+      :package_build_version => package_build_version,
       :repo_puppet => puppetdb_repo_puppet,
       :repo_hiera => puppetdb_repo_hiera,
       :repo_facter => puppetdb_repo_facter,
@@ -121,7 +126,6 @@ module PuppetDBExtensions
   class << self
     attr_reader :config
   end
-
 
   def self.get_option_value(value, legal_values, description,
     env_var_name = nil, default_value = nil)
@@ -188,34 +192,33 @@ module PuppetDBExtensions
     end
   end
 
-
   def puppetdb_confdir(host)
-    if host.is_pe?
-      "/etc/puppetlabs/puppetdb"
-    else
-      "/etc/puppetdb"
-    end
+    host.is_pe? ? "/etc/puppetlabs/puppetdb" : "/etc/puppetdb"
   end
 
   def puppetdb_sharedir(host)
-    if host.is_pe?
-      "/opt/puppet/share/puppetdb"
-    else
-      "/usr/share/puppetdb"
-    end
+    host.is_pe? ? "/opt/puppet/share/puppetdb" : "/usr/share/puppetdb"
   end
 
-  def puppetdb_sbin_dir(host)
-    if host.is_pe?
-      "/opt/puppet/sbin"
-    else
-      "/usr/sbin"
-    end
+  def puppetdb_bin_dir(host)
+    host.is_pe? ? "/opt/puppet/bin" : "/usr/bin"
+  end
+
+  def puppetdb_log_dir(host)
+    host.is_pe? ? "/var/log/pe-puppetdb" : "/var/log/puppetdb"
+  end
+
+  def puppetdb_vardir(host)
+    host.is_pe? ? "/var/lib/pe-puppetdb" : "/var/lib/puppetdb"
+  end
+
+  def catalog_hash_debug_dir(host)
+    puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
   def puppetdb_pids(host)
     java_bin = "java"
-    jar_file = "puppetdb.jar"
+    jar_file = "puppetdb-release.jar"
     result = on host, %Q(ps -ef | grep "#{java_bin}" | grep "#{jar_file}" | grep " services -c " | awk '{print $2}')
     pids = result.stdout.chomp.split("\n")
     Beaker::Log.notify "PuppetDB PIDs appear to be: '#{pids}'"
@@ -233,6 +236,21 @@ module PuppetDBExtensions
     end
   end
 
+  # Display the last few log lines for debugging purposes
+  #
+  # @param host Hostname to display results for
+  # @return [void]
+  # @api private
+  def display_last_logs(host)
+    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb-daemon.log", :acceptable_exit_codes => [0,1]
+    on host, "tail -n 100 #{puppetdb_log_dir(host)}/puppetdb.log", :acceptable_exit_codes => [0,1]
+  end
+
+  # Sleep until PuppetDB is completely started
+  #
+  # @param host Hostname to test for PuppetDB availability
+  # @return [void]
+  # @api public
   def sleep_until_started(host)
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
@@ -241,6 +259,9 @@ module PuppetDBExtensions
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
                       "https://#{host.node_name}:8081/", [35, 60])
+  rescue RuntimeError => e
+    display_last_logs(host)
+    raise
   end
 
   def get_package_version(host, version = nil)
@@ -250,20 +271,19 @@ module PuppetDBExtensions
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
     if host['platform'].include?('el-5')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el5"
     elsif host['platform'].include?('el-6')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el6"
     elsif host['platform'].include?('el-7')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el7"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.el7"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.fc#{version_tag}"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{PuppetDBExtensions.config[:expected_deb_version]}"
+      "#{PuppetDBExtensions.config[:package_build_version]}-1puppetlabs1"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
-
   end
 
   def el5?(host)
@@ -302,7 +322,6 @@ module PuppetDBExtensions
     sleep_until_started(host)
   end
 
-
   def validate_package_version(host)
     step "Verifying package version" do
       os = PuppetDBExtensions.config[:os_families][host.name]
@@ -326,8 +345,7 @@ module PuppetDBExtensions
     end
   end
 
-
-  def install_puppetdb_termini(host, database, version=nil)
+  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini')
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
@@ -338,6 +356,7 @@ module PuppetDBExtensions
       manage_report_processor  => true,
       enable_reports           => true,
       restart_puppet           => false,
+      terminus_package         => '#{terminus_package}',
     }
     ini_setting {'server_urls':
       ensure => present,
@@ -349,7 +368,6 @@ module PuppetDBExtensions
     EOS
     apply_manifest_on(host, manifest)
   end
-
 
   def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
@@ -365,21 +383,8 @@ module PuppetDBExtensions
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
   end
 
-  ############################################################################
-  # NOTE: the following methods should only be called during run-from-source
-  #  acceptance test runs.
-  ############################################################################
-
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
-
-
-    ############################################################################
-    # NOTE: A lot of the differences between the PE and FOSS manifests here is
-    #   only necessary because the puppetdb::database::postgresql module
-    #   doesn't parameterize things like the service name. It would be nice
-    #   to simplify this once we've added more paramters to the module.
-    ############################################################################
 
     if host.is_pe?
       service_name = "pe-postgresql"
@@ -432,6 +437,23 @@ module PuppetDBExtensions
     apply_manifest_on(host, manifest)
   end
 
+  # Prepare host's global git configuration so git tag will just work
+  # later on.
+  #
+  # @param host [String] host to execute on
+  # @return [void]
+  # @api private
+  def prepare_git_author(host)
+    on host, 'git config --global user.email "beaker@localhost"'
+    on host, 'git config --global user.name "Beaker"'
+  end
+
+  # Install puppetdb using `rake install` methodology, which works
+  # without packages today.
+  #
+  # @param host [String] host to execute on
+  # @return [void]
+  # @api public
   def install_puppetdb_via_rake(host)
     os = PuppetDBExtensions.config[:os_families][host.name]
     case os
@@ -444,6 +466,14 @@ module PuppetDBExtensions
       else
         raise ArgumentError, "Unsupported OS family: '#{os}'"
     end
+
+    # We tag here so the build system knows what version to use, first
+    # we grab the version to use as tag from the project.clj,
+    # reformatting the output as necessary (since its in CLJ).
+    prepare_git_author(host)
+    result = on host, "#{LeinCommandPrefix} lein with-profile ci pprint :version | tail -n 1"
+    jar_version = result.stdout.chomp.gsub(/"/, '')
+    on host, "#{LeinCommandPrefix} git tag -f -a '#{jar_version}' -m 'temporary tag for source build to work'"
 
     on host, "rm -rf /etc/puppetdb/ssl"
     on host, "#{LeinCommandPrefix} rake package:bootstrap"
@@ -484,9 +514,6 @@ module PuppetDBExtensions
     EOS
     apply_manifest_on(host, manifest)
   end
-
-  ###########################################################################
-
 
   def stop_puppetdb(host)
     pids = puppetdb_pids(host)
@@ -574,18 +601,41 @@ EOS
     apply_manifest_on(host, manifest_content)
   end
 
+  # Keep curling until the required condition is met
+  #
+  # Condition can be a desired_exit code, and/or expected_output, and it will
+  # keep executing the curl command until one of these conditions are met
+  # or the max_retries is reached.
+  #
+  # @param desc [String] descriptive name for this cycling
+  # @param host [String] host to execute retry on
+  # @param curl_args [String] the curl_args to use for testing
+  # @param desired_exit_codes [Number,Array<Number>] a desired exit code, or array of exist codes
+  # @param max_retries [Number] maximum number of retries before failing
+  # @param retry_interval [Number] time in secs to wait before next try
+  # @param expected_output [Regexp] a regexp to use for matching the output
+  # @return [void]
   def curl_with_retries(desc, host, curl_args, desired_exit_codes, max_retries = 60, retry_interval = 1, expected_output = /.*/)
+    command = "curl --tlsv1 #{curl_args}"
+    log_prefix = host.log_prefix
+    logger.debug "\n#{log_prefix} #{Time.new.strftime('%H:%M:%S')}$ #{command}"
+    logger.debug "  Trying command #{max_retries} times."
+    logger.debug ".", add_newline=false
+
     desired_exit_codes = [desired_exit_codes].flatten
-    result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
+    result = on host, command, :acceptable_exit_codes => (0...127), :silent => true
     num_retries = 0
     until desired_exit_codes.include?(exit_code) and (result.stdout =~ expected_output)
       sleep retry_interval
-      result = on host, "curl --tlsv1 #{curl_args}", :acceptable_exit_codes => (0...127)
+      result = on host, command, :acceptable_exit_codes => (0...127), :silent => true
       num_retries += 1
+      logger.debug ".", add_newline=false
       if (num_retries > max_retries)
-        fail("Unable to #{desc}")
+        logger.debug "  Command \`#{command}\` failed."
+        fail("Command \`#{command}\` failed. Unable to #{desc}.")
       end
     end
+    logger.debug "\n#{log_prefix} #{Time.new.strftime('%H:%M:%S')}$ #{command} ostensibly successful."
   end
 
   def clear_database(host)
@@ -598,7 +648,7 @@ EOS
         end
         install_postgres(host)
       when :embedded
-        on host, "rm -rf #{puppetdb_sharedir(host)}/db/*"
+        on host, "rm -rf #{puppetdb_vardir(host)}/db"
       else
         raise ArgumentError, "Unsupported database: '#{PuppetDBExtensions.config[:database]}'"
     end
@@ -768,12 +818,12 @@ EOS
   end
 
   def parse_json_with_error(input)
-      begin
-          facts = JSON.parse(input)
-      rescue Exception => e
-          facts = "#{e.message} on input '#{input}'"
-      end
-      return facts
+    begin
+      facts = JSON.parse(input)
+    rescue Exception => e
+      facts = "#{e.message} on input '#{input}'"
+    end
+    return facts
   end
 
   ############################################################################
@@ -1040,18 +1090,6 @@ EOS
       agents.each{ |agent| on agent, puppet_agent("--test --server #{host}", { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
 
     end
-  end
-
-  def puppetdb_vardir(host)
-    if host.is_pe?
-      "/var/lib/pe-puppetdb"
-    else
-      "/var/lib/puppetdb"
-    end
-  end
-
-  def catalog_hash_debug_dir(host)
-    puppetdb_vardir(host) + "/debug/catalog-hashes/"
   end
 
   def databases

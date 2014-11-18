@@ -1,5 +1,5 @@
 test_name "anonymize tool - with profile anonymization" do
-  sbin_loc = puppetdb_sbin_dir(database)
+  bin_loc = puppetdb_bin_dir(database)
 
   step "clear puppetdb database so that we can control exactly what we will eventually be exporting" do
     clear_and_restart_puppetdb(database)
@@ -22,7 +22,7 @@ test_name "anonymize tool - with profile anonymization" do
 
   step "export data from puppetdb" do
     sleep_until_queue_empty(database)
-    on database, "#{sbin_loc}/puppetdb export --outfile #{export_file1}"
+    on database, "#{bin_loc}/puppetdb export --outfile #{export_file1}"
     scp_from(database, export_file1, ".")
   end
 
@@ -33,17 +33,17 @@ test_name "anonymize tool - with profile anonymization" do
       end
 
       step "anonymize the data with profile '#{type}'" do
-        on database, "#{sbin_loc}/puppetdb anonymize --infile #{export_file1} --outfile #{anon_file} --profile #{type}"
+        on database, "#{bin_loc}/puppetdb anonymize --infile #{export_file1} --outfile #{anon_file} --profile #{type}"
         scp_from(database, anon_file, ".")
       end
 
       step "import data into puppetdb" do
-        on database, "#{sbin_loc}/puppetdb import --infile #{anon_file}"
+        on database, "#{bin_loc}/puppetdb import --infile #{anon_file}"
         sleep_until_queue_empty(database)
       end
 
       step "export data from puppetdb again" do
-        on database, "#{sbin_loc}/puppetdb export --outfile #{export_file2}"
+        on database, "#{bin_loc}/puppetdb export --outfile #{export_file2}"
         scp_from(database, export_file2, ".")
       end
 

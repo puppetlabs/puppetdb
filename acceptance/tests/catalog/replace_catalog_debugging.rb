@@ -13,7 +13,6 @@ test_name "validation of basic PuppetDB resource event queries" do
                           "catalog-hash-conflict-debugging", "true")
 
     restart_puppetdb(database)
-    sleep_until_started(database)
   end
 
   catalog_file_dir = master.tmpdir('catalog-test')

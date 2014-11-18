@@ -2,25 +2,26 @@
 (use '[clojure.java.shell :only (sh)]
      '[clojure.java.io :only (file)])
 
-(def version-string
-  (memoize
-   (fn []
-     "Determine the version number using 'rake version -s'"
-     []
-     (if (.exists (file "version"))
-       (s/trim (slurp "version"))
-       (let [command                ["rake" "package:version" "-s"]
-             {:keys [exit out err]} (apply sh command)]
-         (if (zero? exit)
-           (s/trim out)
-           "0.0-dev-build"))))))
+(defn deploy-info
+  "Generate deployment information from the URL supplied and the username and
+   password for Nexus supplied as environment variables."
+  [url]
+  {:url url
+   :username :env/nexus_jenkins_username
+   :password :env/nexus_jenkins_password
+   :sign-releases false})
 
 (def tk-version "0.5.2")
 (def tk-jetty9-version "0.9.0")
 (def ks-version "0.7.2")
 
-(defproject puppetdb (version-string)
+(defproject puppetlabs/puppetdb "3.0.0-SNAPSHOT"
   :description "Puppet-integrated catalog and fact storage"
+
+  :license {:name "Apache License, Version 2.0"
+            :url "http://www.apache.org/licenses/LICENSE-2.0.html"}
+
+  :url "https://docs.puppetlabs.com/puppetdb/"
 
   ;; Abort when version ranges or version conflicts are detected in
   ;; dependencies. Also supports :warn to simply emit warnings.
@@ -88,14 +89,27 @@
                                                         "hsqldb"))]
                                 (get test-var-meta dbtype true)))}
 
+  :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
+                 ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
+
+  :plugins [[lein-release "1.0.5"]]
+  :lein-release {:scm        :git
+                 :deploy-via :lein-deploy}
+
+  :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
+                        ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
+
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
-                                  [org.clojure/test.check "0.5.8"]]}}
+                                  [org.clojure/test.check "0.5.8"]]}
+             :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
+
+  :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/puppetdb" "resources/ext/docs"]
 
   :main ^:skip-aot puppetlabs.puppetdb.core)

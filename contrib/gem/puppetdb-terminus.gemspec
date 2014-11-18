@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |gem|
   gem.name          = "puppetdb-terminus"
-  gem.version       = "1.0"
+  gem.version       = "3.0.0"
   gem.authors       = ["Puppet Labs"]
   gem.email         = ["puppet@puppetlabs.com"]
   gem.description   = "Centralized Puppet Storage"
@@ -17,5 +17,5 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency 'json'
-  gem.add_runtime_dependency 'puppet', '>= 3.4.2'
+  gem.add_runtime_dependency 'puppet', ['>= 3.7.3', '<5.0']
 end

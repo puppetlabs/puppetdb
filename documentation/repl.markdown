@@ -11,13 +11,13 @@ This is mostly of use to developers who know Clojure and are familiar with Puppe
 Enabling the REPL
 -----
 
-To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the REPL type, and choose a port](./configure.html#repl-settings):
+To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.html#repl-settings):
 
     # /etc/puppetdb/conf.d/repl.ini
-    [repl]
+    [nrepl]
     enabled = true
-    type = telnet
     port = 8082
+    host = 127.0.0.1
 
 After configuring it, you should restart the PuppetDB service.
 
@@ -26,12 +26,19 @@ Connecting to a Remote REPL
 
 Once PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
 
-For example, with a _telnet_ type REPL configured on port 8082:
+For example, with a NREPL configured on port 8082, and using leiningen to connect:
 
-    $ telnet localhost 8082
-    Connected to localhost.
-    Escape character is '^]'.
-    ;; Clojure 1.4.0
+    # lein repl :connect localhost:8082
+    Connecting to nREPL at localhost:8082
+    REPL-y 0.3.1
+    Clojure 1.6.0
+        Docs: (doc function-name-here)
+              (find-doc "part-of-name-here")
+      Source: (source function-name-here)
+     Javadoc: (javadoc java-object-or-class-here)
+        Exit: Control+D or (exit) or (quit)
+     Results: Stored in vars *1, *2, *3, an exception in *e
+
     user=> (+ 1 2 3)
     6
 

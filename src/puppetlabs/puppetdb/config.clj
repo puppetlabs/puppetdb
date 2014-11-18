@@ -330,17 +330,18 @@
                      (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
-(defn fix-tk-config
-  "Fix configuration before passing it to trapperkeeper.
+(defn fix-certificate-whitelist
+  "Fix certificate-whitelist configuration before passing it to trapperkeeper.
 
    In particular:
-   * Move certificate-whitelist from [jetty] to [global]"
+   * Move certificate-whitelist from [jetty] to [global]
+   * Warn the user if they are still doing this"
   [config-data]
   (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
     (do
       ;; Log to stderr, logging is not yet initialized (and may never be).
       (binding [*out* *err*]
-          (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
+        (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
       (-> config-data
           (kitchensink/dissoc-in [:jetty :certificate-whitelist])
           (assoc-in [:puppetdb :certificate-whitelist] cw)))
@@ -353,9 +354,15 @@
   (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
     (when (some #(re-matches #"(?i).*sslv3.*" %) protocol-str)
       (binding [*out* *err*]
-        (let [warn-str "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"]
-          (println warn-str)
-          (log/warn warn-str)))))
+        (println "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"))))
+  config-data)
+
+(defn warn-repl-retirement
+  "Warn a user they are using the old [repl] block, instead of [nrepl]."
+  [config-data]
+  (when-let [cw (get-in config-data [:repl])]
+    (binding [*out* *err*]
+      (println "The configuration block [repl] is now retired and will be ignored. Use [nrepl] instead. Consult the documentation for more details.")))
   config-data)
 
 (defn default-ssl-protocols
@@ -371,6 +378,7 @@
   (let [prefix (get-in config-data [:global :url-prefix] "/")]
     (assoc-in config-data [:web-router-service
                            :puppetlabs.puppetdb.cli.services/puppetdb-service] prefix)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -381,7 +389,8 @@
   [f args]
   (let [config (f args)]
     (-> config
-        fix-tk-config
+        fix-certificate-whitelist
+        warn-repl-retirement
         default-ssl-protocols
         add-web-routing-config)))
 

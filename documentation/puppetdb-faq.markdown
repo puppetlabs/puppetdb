@@ -141,7 +141,7 @@ problem.
 
 ## My puppet master is going slow since enabling PuppetDB. How can I profile it?
 
-In Puppet 3.x a new profiling capability was introduced that we have leveraged in the PuppetDB terminus client code. By simply adding `profile=true` to your `puppet.conf` you can enable detailed profiling of all apsects of Puppet including the PuppetDB terminus. For this to work you must enable debugging on your master instance as well.
+In Puppet 3.x a new profiling capability was introduced that we have leveraged in the PuppetDB termini client code. By simply adding `profile=true` to your `puppet.conf` you can enable detailed profiling of all apsects of Puppet including the PuppetDB termini. For this to work you must enable debugging on your master instance as well.
 
 Of course use your common sense, any profiling mechanism will add more load which can increase your problems when you already have limited capacity. Enabling profiling in production should only be done with care and for a very short amount of time.
 
