@@ -96,7 +96,13 @@ module Puppet::Util::Puppetdb
   # @api public
   def profile(message, metric_id, &block)
     message = "PuppetDB: " + message
-    Puppet::Util::Profiler.profile(message, metric_id, &block)
+    arity = Puppet::Util::Profiler.method(:profile).arity
+    case arity
+    when 1
+      Puppet::Util::Profiler.profile(message, &block)
+    when 2, -2
+      Puppet::Util::Profiler.profile(message, metric_id, &block)
+    end
   end
 
   # @!group Private instance methods
