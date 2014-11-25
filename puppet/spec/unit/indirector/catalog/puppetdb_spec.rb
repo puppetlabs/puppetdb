@@ -3,6 +3,7 @@
 require 'spec_helper'
 
 require 'puppet/indirector/catalog/puppetdb'
+require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
 
@@ -111,18 +112,20 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     describe "#stringify_titles" do
-      it "should make all resource titles strings if they aren't" do
-        Puppet[:code] = <<-MANIFEST
+      if Puppet::Util::Puppetdb.puppet3compat?
+        it "should make all resource titles strings if they aren't" do
+          Puppet[:code] = <<-MANIFEST
           $foo = true
           notify { $foo: }
         MANIFEST
 
-        hash = catalog.to_data_hash
-        result = subject.stringify_titles(hash)
+          hash = catalog.to_data_hash
+          result = subject.stringify_titles(hash)
 
-        result['resources'].should be_any { |res|
-          res['type'] == 'Notify' and res['title'] == 'true'
-        }
+          result['resources'].should be_any { |res|
+            res['type'] == 'Notify' and res['title'] == 'true'
+          }
+        end
       end
     end
 
