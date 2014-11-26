@@ -188,8 +188,6 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 ### `extract`
 
-An `extract` statement **does not** constitute a full query string. It may only be used as the second argument of an `in` statement.
-
 "Extract" statements are **non-transitive** and take two arguments:
 
 * The first argument **must** be a valid set of **fields** for the endpoint **being subqueried** (see second argument). This is a string or vector of strings.
