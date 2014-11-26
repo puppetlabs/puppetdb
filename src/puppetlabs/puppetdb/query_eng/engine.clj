@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
             [clojure.string :as str]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
+            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize sql-current-connection-database-name]]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.facts :as facts]
             [clojure.core.match :as cm]
@@ -622,6 +622,27 @@
   [x]
   (instance? clojure.lang.IPersistentVector x))
 
+(defmulti validate-db-regexp-exception
+  "Returns app appropriate db-specific code for validating regexp according to db regexp syntax rules.
+   Returns nil if regexp-str is a valid regexp or Exception otherwise."
+  (fn [_] (sql-current-connection-database-name)))
+
+(defmethod validate-db-regexp-exception "PostgreSQL"
+  [_]
+  ;;PostgreSQL regexp is different from Java regexp syntaxt, so we can't do a simple upfront validation.
+  ;;Or we can?
+  nil)
+
+(defmethod validate-db-regexp-exception "HSQL Database Engine"
+  [regexp-str]
+  (if-not (string? regexp-str)
+    (IllegalArgumentException. (str regexp-str " is not a string"))
+    (try
+      (re-pattern regexp-str)
+      nil
+      (catch java.util.regex.PatternSyntaxException e
+        e))))
+
 (defn validate-binary-operators
   "Validation of the user provided query"
   [node]
@@ -635,10 +656,19 @@
                                          col-type))
                   (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
-              [["~>" field _]]
+              [["~>" field regexp-vec]]
               (let [col-type (get-in query-context [:project field])]
                 (when-not (contains? #{:path} col-type)
-                  (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field)))))
+                  (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field))))
+                (doseq [regexp regexp-vec]
+                  (when-let [regexp-exception (and (string? regexp) (validate-db-regexp-exception regexp))]
+                    (throw (IllegalArgumentException. (format "Invalid regexp:\n%s"
+                                                              (.getMessage regexp-exception)))))))
+
+              [["~" field regexp]]
+              (when-let [regexp-exception (validate-db-regexp-exception regexp)]
+                (throw (IllegalArgumentException. (format "Invalid regexp:\n%s"
+                                                          (.getMessage regexp-exception)))))
 
               ;;This validation check is added to fix a failing facts
               ;;test. The facts test is checking that you can't submit
