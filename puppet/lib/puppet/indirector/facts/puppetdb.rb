@@ -52,7 +52,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
     profile("facts#find", [:puppetdb, :facts, :find, request.key]) do
       begin
         response = Http.action("/v3/nodes/#{CGI.escape(request.key)}/facts") do |http_instance, path|
-          profile("Query for nodes facts: #{url}",
+          profile("Query for nodes facts: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
             http_instance.get(path, headers)
           end
@@ -124,7 +124,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
       begin
         response = Http.action("/v3/nodes?query=#{query_param}") do |http_instance, path|
-          profile("Fact query request: #{URI.unescape(url)}",
+          profile("Fact query request: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :search, :query_request, request.key]) do
             http_instance.get(path, headers)
           end

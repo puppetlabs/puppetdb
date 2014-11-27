@@ -28,7 +28,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
       begin
         response = Http.action("/v3/resources?query=#{query_param}") do |http_instance, path|
-          profile("Resources query: #{URI.unescape(url)}",
+          profile("Resources query: #{URI.unescape(path)}",
                   [:puppetdb, :resource, :search, :query, request.key]) do
             http_instance.get(path, headers)
           end
