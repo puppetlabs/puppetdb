@@ -16,8 +16,7 @@
             [clojure.tools.namespace :as ns]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]
-            [clojure.string :as str])
-  (:gen-class))
+            [clojure.string :as str]))
 
 (def ns-prefix "puppetlabs.puppetdb.cli.")
 
