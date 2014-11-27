@@ -479,7 +479,8 @@
                 [op "res_param_name" param-name]
                 [op "res_param_value" (db-serialize param-value)]]]]]
 
-            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(string? %))]]
+            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(or (string? %)
+                                                                                (instance? Boolean %)))]]
             ["in" "certname"
              ["extract" "certname"
               ["select-facts"
@@ -487,15 +488,17 @@
                 ["=" "name" fact-name]
                 [op "value" fact-value]]]]]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] (fact-value :guard #(number? %))]]
-            ["in" "certname"
-             ["extract" "certname"
-              ["select-facts"
-               ["and"
-                ["=" "name" fact-name]
-                ["or"
-                 [op "value_float" fact-value]
-                 [op "value_integer" fact-value]]]]]]
+            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+            (if-not (number? fact-value)
+              (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
+              ["in" "certname"
+               ["extract" "certname"
+                ["select-facts"
+                 ["and"
+                  ["=" "name" fact-name]
+                  ["or"
+                   [op "value_float" fact-value]
+                   [op "value_integer" fact-value]]]]]])
 
             [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"

@@ -32,22 +32,15 @@
                     (= version-endpoint endpoint))
                   endpoints)))
 
-(defn update-certname-in-query
-  "Function to convert name to certname when v4 or above"
-  [endpoint query]
-  (case (get-version endpoint)
-    (:v2 :v3) query
-    (:node (zip/post-order-transform (zip/tree-zipper query)
-                                     [(fn [node]
-                                        (cm/match [node]
-                                                  [[op "name" value]]
-                                                  [op "certname" value]
-                                                  :else nil))]))))
+(defn certname [version]
+  (case version
+    (:v2 :v3) "name"
+    "certname"))
 
 (defn status-for-node
   "Returns status information for the given `node-name`"
   [endpoint node-name]
-  (-> (get-response endpoint (update-certname-in-query endpoint ["=" "name" node-name]))
+  (-> (get-response endpoint ["=" (certname (get-version endpoint)) node-name])
       :body
       slurp
       (json/parse-string true)
@@ -55,8 +48,7 @@
 
 (defn is-query-result
   [endpoint query expected]
-  (let [query (update-certname-in-query endpoint query)
-        {:keys [body status]} (get-response endpoint query)
+  (let [{:keys [body status]} (get-response endpoint query)
         body   (if (string? body)
                  body
                  (slurp body))
@@ -64,17 +56,24 @@
                  (json/parse-string body true)
                  (catch com.fasterxml.jackson.core.JsonParseException e
                    body))]
+
+    (is (= (count result)
+           (count expected))
+        (str "Query was: " query))
+
     (doseq [res result]
       (case (get-version endpoint)
         (:v2 :v3)
         (do
-          (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res)))
+          (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res))
+              (str "Query was: " query))
           (is (= (set expected) (set (mapv :name result)))
               (str "Query was: " query)))
 
         (do
           (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
-                   :catalog-environment :facts-environment :report-environment} (keyset res)))
+                   :catalog-environment :facts-environment :report-environment} (keyset res))
+              (str "Query was: " query))
           (is (= (set expected) (set (mapv :certname result)))
               (str "Query was: " query)))))
 
@@ -111,12 +110,12 @@
             (is (:facts-timestamp (status-for-node endpoint web1)))))))
 
     (testing "basic equality is supported for name"
-      (is-query-result endpoint ["=" "name" "web1.example.com"] [web1]))
+      (is-query-result endpoint ["=" (certname version) "web1.example.com"] [web1]))
 
     (testing "regular expressions are supported for name"
-      (is-query-result endpoint ["~" "name" "web\\d+.example.com"] [web1 web2])
-      (is-query-result endpoint ["~" "name" "\\w+.example.com"] [db puppet web1 web2])
-      (is-query-result endpoint ["~" "name" "example.net"] []))
+      (is-query-result endpoint ["~" (certname version) "web\\d+.example.com"] [web1 web2])
+      (is-query-result endpoint ["~" (certname version) "\\w+.example.com"] [db puppet web1 web2])
+      (is-query-result endpoint ["~" (certname version) "example.net"] []))
 
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
@@ -137,7 +136,11 @@
     (testing "arithmetic works on facts"
       (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000] [web1])
       (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
-      (is-query-result endpoint ["<" ["fact" "uptime_seconds"] "12000"] [web1])
+
+      ;;Coercing to an integer from a string is not allowed in v4+
+      (when (contains? #{:v2 :v3} version)
+        (is-query-result endpoint ["<" ["fact" "uptime_seconds"] "12000"] [web1]))
+
       (is-query-result endpoint ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
       (is-query-result endpoint ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
 
@@ -145,13 +148,27 @@
       (is-query-result endpoint ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
       (is-query-result endpoint ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
+(deftestseq test-string-coercion-fail
+  [[version endpoint] endpoints
+   :when (not (contains? #{:v2 :v3} version))]
+
+  (store-example-nodes)
+
+  (let [{:keys [body status]} (get-response endpoint ["<" ["fact" "uptime_seconds"] "12000"])]
+    (is (= 400 status))
+    (is (re-find #"not allowed on value '12000'" body))))
+
+(defn v4-node-field [version]
+  (if (contains? #{:v2 :v3} version)
+    "name"
+    "certname"))
+
 (deftestseq basic-node-subqueries
   [[version endpoint] endpoints]
-
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (doseq [[query expected] {
                               ;; Basic sub-query for fact operatingsystem
-                              ["in" "name"
+                              ["in" (certname version)
                                ["extract" "certname"
                                 ["select-facts"
                                  ["and"
@@ -161,7 +178,7 @@
                               [db web1 web2]
 
                               ;; Nodes with a class matching their hostname
-                              ["in" "name"
+                              ["in" (certname version)
                                ["extract" "certname"
                                 ["select-facts"
                                  ["and"
@@ -190,7 +207,7 @@
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
       (doseq [[query expected] {
                                 ;; Nodes with matching select-resources for file/line
-                                ["in" "name"
+                                ["in" (certname version)
                                  ["extract" "certname"
                                   ["select-resources"
                                    ["and"
@@ -205,7 +222,7 @@
     (doseq [[query msg] {
                          ;; Ensure the v2 version of sourcefile/sourceline returns
                          ;; a proper error.
-                         ["in" "name"
+                         ["in" (certname version)
                           ["extract" "certname"
                            ["select-resources"
                             ["and"
@@ -228,16 +245,13 @@
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
-        (let [certname-field (case version
-                               :v3 "name"
-                               "certname")
-              results (paged-results
+        (let [results (paged-results
                        {:app-fn  fixt/*app*
                         :path    endpoint
                         :limit   1
                         :total   (count expected)
                         :include-total  count?
-                        :params {:order-by (json/generate-string [{:field certname-field :order "asc"}])}})]
+                        :params {:order-by (json/generate-string [{:field (certname version) :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (case version
             :v3 (is (= (set (vals expected))
@@ -273,15 +287,3 @@
       (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
       (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
       (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))
-
-(deftestseq node-query-projections
-  [[version endpoint] endpoints]
-  (when (after-v3? version)
-    (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-      (is-query-result endpoint ["extract" "catalog-environment"
-                                 ["=" "certname" "web1.example.com"]]
-                       [{:catalog-environment (:catalog-environment web1)}])
-      (is-query-result endpoint ["extract" ["catalog-environment" "certname"]
-                                 ["=" "certname" "web1.example.com"]]
-                       [{:catalog-environment (:catalog-environment web1)
-                         :certname (:name web1)}]))))

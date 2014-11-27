@@ -27,7 +27,7 @@ class Puppet::Util::Puppetdb::Command
     @command = command
     @version = version
     @certname = certname
-    profile "Format payload" do
+    profile("Format payload", [:puppetdb, :payload, :format]) do
       @payload = self.class.format_payload(command, version, payload)
     end
   end
@@ -43,7 +43,7 @@ class Puppet::Util::Puppetdb::Command
     for_whom = " for #{certname}" if certname
 
     begin
-      response = profile "Submit command HTTP post" do
+      response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?checksum=#{checksum}") do |http_instance, path|
           http_instance.post(path, payload, headers)
         end

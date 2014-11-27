@@ -7,7 +7,8 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
 
   def search(request)
-    profile "resource#search" do
+    profile("resource#search",
+            [:puppetdb, :resource, :search, request.key]) do
       type   = request.key
       host   = request.options[:host]
       filter = request.options[:filter]
@@ -27,7 +28,8 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
 
       begin
         response = Http.action("/v3/resources?query=#{query_param}") do |http_instance, path|
-          profile "Resources query: #{URI.unescape(path)}" do
+          profile("Resources query: #{URI.unescape(url)}",
+                  [:puppetdb, :resource, :search, :query, request.key]) do
             http_instance.get(path, headers)
           end
         end
@@ -42,11 +44,13 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
         raise Puppet::Error, "Could not retrieve resources from the PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
       end
 
-      resources = profile "Parse resource query response (size: #{response.body.size})" do
+      resources = profile("Parse resource query response (size: #{response.body.size})",
+                          [:puppetdb, :resource, :search, :parse_query_response, request.key]) do
         JSON.load(response.body)
       end
 
-      profile "Build up collected resource objects (count: #{resources.count})" do
+      profile("Build up collected resource objects (count: #{resources.count})",
+              [:puppetdb, :resource, :search, :build_up_collected_objects, request.key]) do
         resources.map do |res|
           params = res['parameters'] || {}
           params = params.map do |name,value|
