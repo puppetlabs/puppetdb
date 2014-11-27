@@ -732,6 +732,22 @@
 
 (declare push-down-context)
 
+(defn validate-query-operation-fields
+  "Checks if query operation contains allowed fields. Returns error
+  message string if some of the fields are invalid.
+
+  Error-action and error-context parameters help in formatting different error messages."
+  [field allowed-fields query-name error-action error-context]
+  (let [invalid-fields (remove (set allowed-fields) (ks/as-collection field))]
+    (when (> (count invalid-fields) 0)
+      (format "%s unknown '%s' %s '%s'%s. Acceptable fields are: %s"
+        error-action
+        query-name
+        (if (> (count invalid-fields) 1) "fields:" "field")
+        (str/join "', '" invalid-fields)
+        (if (empty? error-context) "" (str " " error-context))
+        (json/generate-string allowed-fields)))))
+
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
    the query context assocated to each query clause with it's associated context"
@@ -743,7 +759,11 @@
                   [subquery-name subquery-expression]]]
                 (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
                       nested-qc (:query-context (meta subquery-expr))
-                      queryable-fields (:queryable-fields nested-qc)]
+                      column-validation-message (validate-query-operation-fields
+                                                  column
+                                                  (:queryable-fields nested-qc)
+                                                  (:alias nested-qc)
+                                                  "Can't extract" "")]
 
                   {:node (vary-meta ["extract" column
                                      (vary-meta [subquery-name subquery-expr]
@@ -755,13 +775,8 @@
                    ;;longer traverse the tree, which was causing
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
-                   :state (if (and (not (vec? column))
-                                   (not (contains? (set queryable-fields) column)))
-                            (conj state (format "Can't extract unknown '%s' field '%s'. Acceptable fields are: %s"
-                                                (:alias nested-qc)
-                                                column
-                                                (json/generate-string queryable-fields)))
-
+                   :state (if column-validation-message
+                            (conj state column-validation-message)
                             state)
                    :cut true})
 
@@ -788,14 +803,14 @@
 
             [["in" field & _]]
             (let [query-context (:query-context (meta node))
-                  queryable-fields (:queryable-fields query-context)]
-              (when (and (not (vec? field))
-                         (not (contains? (set queryable-fields) field)))
+                  column-validation-message (validate-query-operation-fields
+                                              field
+                                              (:queryable-fields query-context)
+                                              (:alias query-context)
+                                              "Can't match on" "for 'in'")]
+              (when column-validation-message
                 {:node node
-                 :state (conj state (format "Can't match on unknown '%s' field '%s' for 'in'. Acceptable fields are: %s"
-                                            (:alias query-context)
-                                            field
-                                            (json/generate-string queryable-fields)))}))
+                 :state (conj state column-validation-message)}))
 
             :else nil))
 
