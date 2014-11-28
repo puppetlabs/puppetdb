@@ -431,3 +431,22 @@
             {:keys [status body] :as result} (*app* request)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
+
+(def versioned-invalid-projections
+  (omap/ordered-map
+    "/v4/events" (omap/ordered-map
+                   ;; Top level extract using invalid fields should throw an error
+                   ["extract" "nothing" ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'events' field 'nothing'.*Acceptable fields are.*"
+
+                   ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'events' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+
+(deftestseq invalid-projections
+  [[version endpoint] endpoints]
+
+  (doseq [[query msg] (get versioned-invalid-projections endpoint)]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status http/status-bad-request))))))
