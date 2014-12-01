@@ -20,15 +20,13 @@ An example of how to run a package based build, with vagrant/virtualbox on Cento
     PUPPETDB_EXPECTED_RPM_VERSION="1.3.3.73-1" \
     rake beaker:acceptance
 
-Source based build, from a particular branch:
+Source based build:
 
-    PUPPETDB_REPO_PUPPETDB='git://github.com/puppetlabs/puppetdb#1.3.x'
     rake beaker:acceptance
 
 EC2 build from source on Debian 6:
 
     BEAKER_CONFIG="ec2-west-debian6-64mda-64a" \
-    PUPPETDB_REPO_PUPPETDB="git://github.com/puppetlabs/puppetdb#1.3.x" \
     rake beaker:acceptance
 
 EC2 build with packages on Debian 6:
@@ -115,10 +113,6 @@ in your hash; the environment variable names are the same but uppercased
   Specify the git repository and reference to use for installing Puppet/Facter/Hiera
   from source. This is primarily so we can test against alternate versions of
   Puppet, so if the Puppet repo is not specified we fall back to using packages.
-
-* `:puppetdb_repo_puppetdb` (`PUPPETDB_REPO_PUPPETDB`) :
-  Specify the git repository and reference for where we are to download the
-  PuppetDB source code.
 
 * `:puppetdb_git_ref` (`REF`) :
   Specify the specific git ref that the tests should be run against.  This should

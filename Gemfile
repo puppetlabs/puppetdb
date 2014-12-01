@@ -42,5 +42,7 @@ group :test do
 end
 
 group :acceptance do
-  gem 'beaker', '~> 2.2'
+  #gem 'beaker', '~> 2.2'
+  # TODO: temporary while I'm testing this out
+  gem 'beaker', :git => 'https://github.com/kbarber/beaker.git', :branch => 'pdb-1034-ezbake-pr-testing'
 end

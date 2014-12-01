@@ -4,21 +4,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
 
     case test_config[:install_type]
     when :git
-      raise "No PUPPETDB_REPO_PUPPETDB set" unless test_config[:repo_puppetdb]
-
-      case os
-      when :redhat, :fedora
-        on database, "yum install -y git-core ruby rubygem-rake"
-      when :debian
-        on database, "apt-get install -y git-core ruby rake"
-      else
-        raise "OS #{os} not supported"
-      end
-
-      on database, "rm -rf #{GitReposDir}/puppetdb"
-      repo = extract_repo_info_from(test_config[:repo_puppetdb].to_s)
-      install_from_git database, GitReposDir, repo,
-        :refspec => '+refs/heads/*:refs/remotes/origin/* +refs/pull/*:refs/remotes/origin/pr/*'
+      Log.notify("Install puppetdb from source")
 
       if (test_config[:database] == :postgres)
         install_postgres(database)
