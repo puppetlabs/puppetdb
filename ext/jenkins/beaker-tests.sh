@@ -36,7 +36,7 @@ then
 fi
 mkdir vendor
 
-bundle install --path vendor/bundle --without test
+bundle install --path=vendor/bundle --without=test --retry=10
 
 # Now run our tests
 bundle exec rake beaker:acceptance

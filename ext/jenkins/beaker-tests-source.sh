@@ -30,8 +30,18 @@ then
 fi
 mkdir vendor
 
-bundle install --path vendor/bundle --without test
+bundle install --path=vendor/bundle --without=test --retry=10
+
+# Install a copy of leiningen
+if [ -d "leiningen" ];
+then
+  rm -rf leiningen
+fi
+mkdir leiningen
+
+wget 'https://raw.githubusercontent.com/technomancy/leiningen/2.5.1/bin/lein' -O leiningen/lein
+chmod +x leiningen/lein
 
 # Now run our tests
-PUPPETDB_REPO_PUPPETDB="${REPO_URL}#${sha1}" \
+PATH=$PATH:$(pwd)/leiningen \
 bundle exec rake test:beaker
