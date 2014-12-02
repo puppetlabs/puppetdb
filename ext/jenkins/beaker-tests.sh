@@ -29,7 +29,14 @@ export PUPPETDB_PACKAGE_BUILD_VERSION=$PACKAGE_BUILD_VERSION
 [[ -s "/usr/local/rvm/scripts/rvm" ]] && source /usr/local/rvm/scripts/rvm
 rvm use ruby-1.9.3-p484
 
-bundle install --without test
+# Remove old vendor directory to ensure we have a clean slate
+if [ -d "vendor" ];
+then
+  rm -rf vendor
+fi
+mkdir vendor
+
+bundle install --path vendor/bundle --without test
 
 # Now run our tests
 bundle exec rake beaker:acceptance
