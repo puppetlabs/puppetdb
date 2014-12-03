@@ -11,11 +11,6 @@
         level="info"/>
     <logger name="org.springframework.jms.connection" level="warn"/>
 
-    <!-- turn on to see verbose storage activity -->
-    <!--
-    <logger name="puppetlabs.puppetdb.scf.storage" level="debug"/>
-    -->
-
     <root level="info">
         <appender-ref ref="STDOUT" />
     </root>

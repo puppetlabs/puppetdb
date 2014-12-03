@@ -552,7 +552,7 @@ module PuppetDBExtensions
   end
 
   def sleep_until_queue_empty(host, timeout=60)
-    metric = "org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands"
+    metric = "org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands"
     queue_size = nil
 
     begin
@@ -570,7 +570,7 @@ module PuppetDBExtensions
   # Queries the metrics endpoint for command processing results, return a hash
   # of results.
   def command_processing_stats(host, counter = "processed")
-    metric = "com.puppetlabs.puppetdb.command:type=global,name=discarded"
+    metric = "puppetlabs.puppetdb.command:type=global,name=discarded"
 
     result = on host, %Q(curl http://localhost:8080/v3/metrics/mbean/#{CGI.escape(metric)})
 

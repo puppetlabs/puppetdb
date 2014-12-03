@@ -27,11 +27,6 @@
     <logger name="org.apache.activemq.store.kahadb.MessageDatabase"
         level="info"/>
 
-    <!-- turn on to see verbose storage activity -->
-    <!--
-    <logger name="com.puppetlabs.puppetdb.scf.storage" level="debug"/>
-    -->
-
     <root level="info">
         <appender-ref ref="${logappender:-DUMMY}" />
         <appender-ref ref="F1" />

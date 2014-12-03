@@ -250,9 +250,7 @@
   cannot contain ':', '=', or ',' characters. They will be replaced
   with '_'."
   [app storage normalize-uri]
-  ;; This is pinned to the old namespace for backwards compatibility
-  `(let [prefix# ~(str "com." *ns*)]
-     (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))
+  `(wrap-with-metrics* ~app (str *ns*) ~storage ~normalize-uri))
 
 (defn payload-to-body-string
   "Middleware to move the payload from the body or the payload param into the

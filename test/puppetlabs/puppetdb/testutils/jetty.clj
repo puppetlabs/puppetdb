@@ -65,6 +65,6 @@
 (defn current-queue-depth
   "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
   []
-  (-> (format "%smetrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands" (current-url))
+  (-> (format "%smetrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands" (current-url))
       (client/get {:as :json})
       (get-in [:body :QueueSize])))
