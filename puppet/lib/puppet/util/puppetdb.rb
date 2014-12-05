@@ -30,6 +30,10 @@ module Puppet::Util::Puppetdb
     @config
   end
 
+  def self.puppet3compat?
+    defined?(Puppet::Parser::AST::HashOrArrayAccess)
+  end
+
   # This magical stuff is needed so that the indirector termini will make requests to
   # the correct host/port, because this module gets mixed in to our indirector
   # termini.
