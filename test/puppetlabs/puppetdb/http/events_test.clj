@@ -404,15 +404,23 @@
 (def versioned-invalid-subqueries
   (omap/ordered-map
    "/v4/events" (omap/ordered-map
-                 ;; Extract using an invalid field should throw an error
+                 ;; Extract using invalid fields should throw an error
                  ["in" "certname" ["extract" "nothing" ["select-resources"
                                                         ["=" "type" "Class"]]]]
                  #"Can't extract unknown 'resources' field 'nothing'.*Acceptable fields are.*"
 
+                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                 #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"
+
                  ;; In-query for invalid fields should throw an error
                  ["in" "nothing" ["extract" "certname" ["select-resources"
                                                         ["=" "type" "Class"]]]]
-                 #"Can't match on unknown 'events' field 'nothing' for 'in'.*Acceptable fields are.*")))
+                 #"Can't match on unknown 'events' field 'nothing' for 'in'.*Acceptable fields are.*"
+
+                 ["in" ["certname" "nothing" "nothing2"] ["extract" "certname" ["select-resources"
+                                                                                ["=" "type" "Class"]]]]
+                 #"Can't match on unknown 'events' fields: 'nothing', 'nothing2' for 'in'.*Acceptable fields are.*")))
 
 (deftestseq invalid-subqueries
   [[version endpoint] endpoints]

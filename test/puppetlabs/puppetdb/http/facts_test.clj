@@ -281,7 +281,25 @@
                 ;; In-queries for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value, value_float, value_integer")))
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value, value_float, value_integer")
+   "/v4/facts" (omap/ordered-map
+                ;; Extract using invalid fields should throw an error
+                ["in" "certname" ["extract" "nothing" ["select-resources"
+                                                        ["=" "type" "Class"]]]]
+                "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
+
+                ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select-resources"
+                                                                               ["=" "type" "Class"]]]]
+                "Can't extract unknown 'resources' fields: 'nothing', 'nothing2'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
+
+                ;; In-query for invalid fields should throw an error
+                ["in" "nothing" ["extract" "certname" ["select-resources"
+                                                        ["=" "type" "Class"]]]]
+                "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]"
+
+                ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select-resources"
+                                                                            ["=" "type" "Class"]]]]
+                "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]")))
 
 (def common-well-formed-tests
   (omap/ordered-map
