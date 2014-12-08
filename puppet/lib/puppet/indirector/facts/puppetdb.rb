@@ -29,8 +29,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       payload = profile("Encode facts command submission payload",
                         [:puppetdb, :facts, :encode]) do
         facts = request.instance.dup
-        facts.values = maybe_strip_internal(facts)
-        if Puppet[:trusted_node_data]
+        facts.values = facts.strip_internal.dup
+
+        if ! Puppet::Util::Puppetdb.puppet3compat? || Puppet[:trusted_node_data]
           facts.values[:trusted] = get_trusted_info(request.node)
         end
         {

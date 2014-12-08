@@ -1,7 +1,9 @@
 #!/usr/bin/env rspec
 require 'spec_helper'
 
+require 'puppet/util/feature'
 require 'puppet/indirector/facts/puppetdb'
+require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
 
@@ -37,6 +39,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should POST the facts as a JSON string" do
+      Puppet::Util::Puppetdb.stubs(:puppet3compat?).returns(true)
       f = {
         "name" => facts.name,
         "values" => subject.maybe_strip_internal(facts),
@@ -58,7 +61,11 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should POST the trusted data we tell it to" do
-      Puppet[:trusted_node_data] = true
+
+      if Puppet::Util::Puppetdb.puppet3compat?
+        Puppet[:trusted_node_data] = true
+      end
+
       trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
       subject.stubs(:get_trusted_info).returns trusted_data
 
@@ -105,7 +112,11 @@ describe Puppet::Node::Facts::Puppetdb do
   describe "#get_trusted_info" do
 
     it 'should return trusted data' do
-      Puppet[:trusted_node_data] = true
+
+      if Puppet::Util::Puppetdb.puppet3compat?
+        Puppet[:trusted_node_data] = true
+      end
+
       node = Puppet::Node.new("my_certname")
       expect(subject.get_trusted_info(node)).to eq({"authenticated"=>"local", "certname"=>"testing", "extensions"=>{}})
     end
