@@ -54,7 +54,7 @@
   [f]
   (with-test-broker "test" conn
     (binding [*mq*   {:connection-string "vm://test"
-                      :endpoint          "com.puppetlabs.puppetdb.commands"}
+                      :endpoint          "puppetlabs.puppetdb.commands"}
               *conn* conn]
       (f))))
 

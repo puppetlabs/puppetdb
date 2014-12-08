@@ -66,7 +66,7 @@
 
 (def metrics (atom {}))
 ;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "com.puppetlabs.puppetdb.command")
+(def ns-str "puppetlabs.puppetdb.command")
 
 (defn create-metrics-for-command!
   "Create a subtree of metrics for the given command and version (if

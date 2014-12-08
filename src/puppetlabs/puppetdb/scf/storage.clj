@@ -124,7 +124,7 @@
 ;;; Metrics
 
 ;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "com.puppetlabs.puppetdb.scf.storage")
+(def ns-str "puppetlabs.puppetdb.scf.storage")
 
 ;; ## Performance metrics
 ;;

@@ -72,16 +72,16 @@
           ;; we documented as supported, but we broke when we
           ;; went to versioned apis.
           name' (cond
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=metrics")
+                 (.startsWith name "puppetlabs.puppetdb.http.server:type=metrics")
                  (s/replace name #"type=metrics" "type=/v2/metrics")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
+                 (.startsWith name "puppetlabs.puppetdb.http.server:type=commands")
                  (s/replace name #"type=commands" "type=/v2/commands")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=facts")
+                 (.startsWith name "puppetlabs.puppetdb.http.server:type=facts")
                  (s/replace name #"type=facts" "type=/v2/facts")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=resources")
+                 (.startsWith name "puppetlabs.puppetdb.http.server:type=resources")
                  (s/replace name #"type=resources" "type=/v2/resources")
 
                  :else

@@ -59,7 +59,7 @@
 ;; ## Population-wide metrics
 
 ;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "com.puppetlabs.puppetdb.query.population")
+(def ns-str "puppetlabs.puppetdb.query.population")
 (def metrics (atom nil))
 
 (defn population-gauges

@@ -48,13 +48,13 @@ Responses return a JSON Object mapping strings to (strings/numbers/booleans).
 
 ### Population metrics
 
-* `com.puppetlabs.puppetdb.query.population:type=default,name=num-nodes`:
+* `puppetlabs.puppetdb.query.population:type=default,name=num-nodes`:
   The number of nodes in your population.
-* `com.puppetlabs.puppetdb.query.population:type=default,name=num-resources`:
+* `puppetlabs.puppetdb.query.population:type=default,name=num-resources`:
   The number of resources in your population.
-* `com.puppetlabs.puppetdb.query.population:type=default,name=avg-resources-per-node`:
+* `puppetlabs.puppetdb.query.population:type=default,name=avg-resources-per-node`:
   The average number of resources per node in your population.
-* `com.puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes`:
+* `puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes`:
   The percentage of resources that exist on more than one node.
 
 ### Database metrics
@@ -81,16 +81,16 @@ statistics for each version independently.
 
 Metrics available for each command:
 
-* `com.puppetlabs.puppetdb.command:type=<name>,name=discarded`: stats
+* `puppetlabs.puppetdb.command:type=<name>,name=discarded`: stats
   about commands we've discarded (we've retried them as many times as
   we can, to no avail)
-* `com.puppetlabs.puppetdb.command:type=<name>,name=fatal`: stats about
+* `puppetlabs.puppetdb.command:type=<name>,name=fatal`: stats about
   commands we failed to process.
-* `com.puppetlabs.puppetdb.command:type=<name>,name=processed`: stats
+* `puppetlabs.puppetdb.command:type=<name>,name=processed`: stats
   about commands we've successfully processed
-* `com.puppetlabs.puppetdb.command:type=<name>,name=processing-time`:
+* `puppetlabs.puppetdb.command:type=<name>,name=processing-time`:
   stats about how long it takes to process commands
-* `com.puppetlabs.puppetdb.command:type=<name>,name=retried`: stats about
+* `puppetlabs.puppetdb.command:type=<name>,name=retried`: stats about
   commands that have been submitted for retry (due to transient
   errors)
 
@@ -122,22 +122,22 @@ see the stats for all `200` responses for the `resources`
 endpoint. This allows you to see, per endpoint and per response,
 independent counters and statistics.
 
-* `com.puppetlabs.puppetdb.http.server:type=<name>,name=service-time`:
+* `puppetlabs.puppetdb.http.server:type=<name>,name=service-time`:
   stats about how long it takes to service all HTTP requests to this endpoint
-* `com.puppetlabs.puppetdb.http.server:type=<name>,name=<status code>`:
+* `puppetlabs.puppetdb.http.server:type=<name>,name=<status code>`:
   stats about how often we're returning this response code
 
 ### Storage metrics
 
 Metrics involving the PuppetDB storage subsystem all begin with the
-`com.puppetlabs.puppetdb.scf.storage:type=default,name=` prefix. There are
+`puppetlabs.puppetdb.scf.storage:type=default,name=` prefix. There are
 a number of metrics concerned with individual storage operations (storing
 resources, storing edges, etc.). Metrics of particular note include:
 
-* `com.puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
+* `puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
   the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
-* `com.puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: state
+* `puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: state
   about how long it takes to do storage compaction
 
 ### JVM Metrics
@@ -147,7 +147,7 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 ### MQ Metrics
 
-* `org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=com.puppetlabs.puppetdb.commands`:
+* `org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands`:
   stats about the command processing queue: queue depth, how long messages remain in the queue, etc.
 
 ## Example

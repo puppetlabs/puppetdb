@@ -14,7 +14,7 @@
             [puppetlabs.puppetdb.time :refer [period?]]))
 
 ;; This is pinned for JMX, for backwards compatibility with old namespace
-(def ns-str "com.puppetlabs.puppetdb.command.dlo")
+(def ns-str "puppetlabs.puppetdb.command.dlo")
 
 (def metrics (atom {}))
 
