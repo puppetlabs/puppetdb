@@ -8,9 +8,11 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
+            [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [clojure.walk :as walk]
@@ -77,7 +79,7 @@
    found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
   [node-name]
   (block-until-queue-empty)
-  (let [catalog-fut (block-until-results 100 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* node-name)))
+  (let [catalog-fut (block-until-results 100  (export/catalog-for-node "localhost" jutils/*port* node-name))
         report-fut (block-until-results 100 (export/reports-for-node "localhost" jutils/*port* node-name))
         facts-fut (block-until-results 100 (export/facts-for-node "localhost" jutils/*port* node-name))]
     @catalog-fut
@@ -94,7 +96,8 @@
                :producer-timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [5 :empty])
-                    (assoc :name "foo.local"))
+                    (assoc :name "foo.local")
+                    (dissoc :hash))
         report (:basic reports)]
 
     (jutils/with-puppetdb-instance
@@ -105,8 +108,15 @@
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
-             (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
+      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> catalog
+                      (dissoc :hash)
+                      utils/vector-maybe))
+             (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
+                      (json/parse-string true)
+                      (dissoc :hash)
+                      utils/vector-maybe))))
 
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
@@ -119,12 +129,19 @@
     (jutils/with-puppetdb-instance
 
       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-      (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
+        (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
-             (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
+      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> catalog
+                      (dissoc :hash)
+                      utils/vector-maybe))
+             (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
+                      (json/parse-string true)
+                      (dissoc :hash)
+                      utils/vector-maybe))))
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
                                                   first
@@ -175,9 +192,10 @@
       (Thread/sleep 5000)
 
       (is (= (tuc/munge-catalog-for-comparison :v3 catalog)
-             (tuc/munge-catalog-for-comparison :v3 (->> (get-in catalog [:data :name])
-                                                        (export/catalog-for-node "localhost" jutils/*port* :v3)
-                                                        json/parse-string))))
+             (tuc/munge-catalog-for-comparison :v3
+               (catalogs/canonical-catalog :v3 (-> (export/catalog-for-node "localhost" jutils/*port* :v4 (get-in catalog [:data :name]) )
+                                                   (json/parse-string true)
+                                                   (assoc :api_version 1))))))
       (is (= (tur/munge-report-for-comparison (-> report
                                                   (dissoc :environment :status)
                                                   tur/munge-example-report-for-storage))
@@ -198,4 +216,4 @@
        (is (empty? (export/get-nodes "localhost" jutils/*port*)))
        (submit-command :replace-catalog 5 catalog)
        (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))
+                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port*  "foo.local")))))))))

@@ -18,8 +18,7 @@
             original-catalog      (json/parse-string original-catalog-str)]
         (testcat/replace-catalog original-catalog-str)
 
-        ;; This is explicitly set to v5, as per the current CLI tooling
-        (let [exported-catalog (c/catalog-for-node :v5 "myhost.localdomain")]
+        (let [exported-catalog (c/status :v4 "myhost.localdomain")]
 
           (is (= (testcat/munge-catalog-for-comparison :v5 original-catalog)
                  (testcat/munge-catalog-for-comparison :v5 exported-catalog)))))))

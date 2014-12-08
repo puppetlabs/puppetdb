@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.http.server-time :as st]
             [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
-            [puppetlabs.puppetdb.http.catalogs :as catalogs]
             [puppetlabs.puppetdb.http.reports :as reports]
             [puppetlabs.puppetdb.http.events :as events]
             [puppetlabs.puppetdb.http.fact-names :as fact-names]
@@ -50,9 +49,6 @@
 
     ["latest"]
     {:get ver/latest-version})
-
-   ["catalogs" &]
-   {:any (catalogs/catalog-app version)}
 
    ["events" &]
    {:any (events/events-app version)}

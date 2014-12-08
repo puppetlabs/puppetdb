@@ -118,3 +118,8 @@
     (if (= val ::not-found)
       m
       (assoc-in m ks (apply f val args)))))
+
+(defn vector-maybe
+  "Vectorize an argument if it's not already vector"
+  [v]
+  (if (vector? v) v (vector v)))

@@ -190,10 +190,10 @@
                 (case version
                   :v1 (strip-keys
                         (old-wire-format-schema
-                          (dissoc catalog :transaction-uuid :environment :producer-timestamp)))
+                          (dissoc catalog :transaction-uuid :environment :producer-timestamp :hash)))
                   :v2 (strip-keys (old-wire-format-schema (dissoc catalog :transaction-uuid
-                                            :environment :producer-timestamp)))
-                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp)))
+                                            :environment :producer-timestamp :hash)))
+                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp :hash)))
                   :v4 (strip-keys (dissoc (collapse-if catalog) :api_version :producer-timestamp))
                   :all (strip-keys (default-missing-keys (collapse-if catalog)))
                   (strip-keys (dissoc (collapse-if catalog) :api_version))))))

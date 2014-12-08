@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.environments :as environments]
             [puppetlabs.puppetdb.query.reports :as reports]
+            [puppetlabs.puppetdb.query.catalogs :as catalogs]
             [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -43,7 +44,8 @@
           :environments [environments/query->sql (fn [_ _] identity)]
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
-          :resources [resources/query->sql resources/munge-result-rows])]
+          :resources [resources/query->sql resources/munge-result-rows]
+          :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query

@@ -367,11 +367,16 @@
    :post [(map? %)
           (string? (:where %))]}
   (when (vector? field)
-    (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
+    (throw (IllegalArgumentException.
+             (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields."
+                     field))))
   (when-not (get (queryable-fields kind query-api-version) field)
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
+    (throw (IllegalArgumentException.
+             (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s"
+                     (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
-    (throw (IllegalArgumentException. (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
+    (throw (IllegalArgumentException.
+             (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
     (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
 
@@ -1136,6 +1141,9 @@
    If all you want is an unstreamed Seq, pass the function `doall` as `f` to
    convert the LazySeq to a Seq by full traversing it. This is useful for tests,
    that cannot analyze results easily in a streamed way."
-  [version sql params f]
-  (jdbc/with-query-results-cursor sql params rs
-    (f (remove-all-environments version rs))))
+  ([version sql params f]
+   (streamed-query-result version sql params f true))
+  ([version sql params f remove-environments?]
+   (jdbc/with-query-results-cursor sql params rs
+     (f (if remove-environments? (remove-all-environments version rs)
+          rs)))))
