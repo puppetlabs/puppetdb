@@ -1164,17 +1164,17 @@
    nil otherwise."
   []
   (when (and (sutils/postgres?)
-             (sutils/db-version-newer-than? [8 3])
-             (sutils/db-version-older-than? [9 2]))
-    "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."))
+             (sutils/db-version-newer-than? [0 0])
+             (sutils/db-version-older-than? [0 0]))
+    "PostgreSQL DB versions X.X - X.X are deprecated and won't be supported in the future."))
 
 (defn db-unsupported?
   "Returns a string with an unsupported message if the DB is not supported,
    nil otherwise."
   []
   (when (and (sutils/postgres?)
-             (sutils/db-version-older-than? [8 4]))
-    "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
+             (sutils/db-version-older-than? [9 3]))
+    "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -1274,5 +1274,4 @@
   "Checks to ensure that the database is supported, fails if supported, logs
    if deprecated"
   [action-for-unsupported-fn]
-  (fail-on-unsupported action-for-unsupported-fn)
-  (warn-on-db-deprecation))
+  (fail-on-unsupported action-for-unsupported-fn))

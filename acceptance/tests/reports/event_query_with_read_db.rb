@@ -7,15 +7,23 @@ test_name "validation of basic PuppetDB resource event queries" do
   skip_test "Skipping read-db test for HyperSQL.  This feature is only available for Postgres" if test_config[:database] == :embedded
 
   step "Create second database as a read-only database" do
-    second_db_manifest = add_el5_postgres(database, "
-include postgresql::server
-postgresql::server::db{ 'puppetdb2':
-  user     => 'puppetdb2',
-  password => 'puppetdb2',
-  grant    => 'all',
-  require  => Class['::postgresql::server'],
-}")
-  
+    second_db_manifest = <<-EOS
+    class { 'postgresql::globals':
+        manage_package_repo => true,
+        version             => '9.3',
+    }->
+    class { '::postgresql::server':
+      ip_mask_allow_all_users => '0.0.0.0/0',
+      listen_addresses        => 'localhost',
+    }
+    postgresql::server::db{ 'puppetdb2':
+      user     => 'puppetdb2',
+      password => 'puppetdb2',
+      grant    => 'all',
+      require  => Class['::postgresql::server'],
+    }
+    EOS
+
     apply_manifest_on(database, second_db_manifest)
     sleep_until_started(database)
   end
