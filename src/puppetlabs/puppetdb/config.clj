@@ -115,8 +115,14 @@
    (s/optional-key :temp-usage) s/Int})
 
 (def puppetdb-config-in
-  "Schema for validating the [puppetdb] block"
-  {(s/optional-key :certificate-whitelist) s/Str})
+  "Schema for validating the incoming [puppetdb] block"
+  {(s/optional-key :certificate-whitelist) s/Str
+   (s/optional-key :disable-update-checking) (pls/defaulted-maybe String "false")})
+
+(def puppetdb-config-out
+  "Schema for validating the parsed/processed [puppetdb] block"
+  {(s/optional-key :certificate-whitelist) s/Str
+   :disable-update-checking Boolean})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
@@ -215,7 +221,11 @@
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
   (s/validate puppetdb-config-in puppetdb)
-  (assoc config :puppetdb puppetdb))
+  (let [converted-config (->> puppetdb
+                              (pls/defaulted-data puppetdb-config-in)
+                              (pls/convert-to-schema puppetdb-config-out))]
+    (s/validate puppetdb-config-out converted-config)
+    (assoc config :puppetdb converted-config)))
 
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it

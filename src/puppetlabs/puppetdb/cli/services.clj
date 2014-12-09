@@ -235,7 +235,7 @@
          (ifn? add-ring-handler)
          (ifn? shutdown-on-error)]
    :post [(map? %)
-          (every? (partial contains? %) [:broker :updater])]}
+          (every? (partial contains? %) [:broker])]}
   (let [{:keys [jetty database read-database global command-processing puppetdb]
          :as config}                            (conf/process-config! config)
          product-name                               (:product-name global)
@@ -280,7 +280,6 @@
     (pop/initialize-metrics write-db)
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
-
     (let [broker (try
                    (log/info "Starting broker")
                    (mq/build-and-start-broker! "localhost" mq-dir command-processing)
@@ -291,12 +290,15 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
-          updater (future (shutdown-on-error
-                           (service-id service)
-                           #(maybe-check-for-updates product-name update-server read-db)
-                           error-shutdown!))
-          context (assoc context :updater updater)
-          _       (let [authorized? (if-let [wl (puppetdb :certificate-whitelist)]
+          updater (when-not (:disable-update-checking puppetdb)
+                    (future (shutdown-on-error
+                             (service-id service)
+                             #(maybe-check-for-updates product-name update-server read-db)
+                             error-shutdown!)))
+          context (if updater
+                    (assoc context :updater updater)
+                    context)
+          _       (let [authorized? (if-let [wl (:certificate-whitelist puppetdb)]
                                       (build-whitelist-authorizer wl)
                                       (constantly true))
                         app (server/build-app :globals globals :authorized? authorized?)]

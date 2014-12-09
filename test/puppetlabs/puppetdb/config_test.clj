@@ -11,6 +11,27 @@
             [clojure.string :as str]
             [fs.core :as fs]))
 
+(deftest puppetdb-configuration
+  (testing "puppetdb-configuration"
+    (testing "should throw an exception if unrecognized config options are specified"
+      (is (thrown? clojure.lang.ExceptionInfo (configure-puppetdb {:puppetdb {:foo "foo"}}))))
+
+    (testing "should convert disable-update-checking value to boolean, if it is specified"
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "true"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) true)))
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "false"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false)))
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "some-string"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
+
+    (testing "should throw exception if disable-update-checking cannot be converted to boolean"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
+
+    (testing "disable-update-checking should default to 'false' if left unspecified"
+      (let [config (configure-puppetdb {})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
+
 (deftest commandproc-configuration
   (testing "should throw an error on unrecognized config options"
     (is (thrown? clojure.lang.ExceptionInfo (configure-command-params {:command-processing {:foo "foo"}}))))

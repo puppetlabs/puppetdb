@@ -98,6 +98,10 @@ An example configuration file:
     subprotocol = postgresql
     subname = //localhost:5432/puppetdb
 
+    [puppetdb]
+    certificate-whitelist = /path/to/file/containing/certnames
+    disable-update-checking = false
+
     [jetty]
     port = 8080
 
@@ -191,6 +195,10 @@ The `[puppetdb]` section is used to configure PuppetDB application specific beha
 Optional. This describes the path to a file that contains a list of certificate names, one per line.  Incoming HTTPS requests will have their certificates validated against this list of names and only those with an _exact_ matching entry will be allowed through. (For a puppet master, this compares against the value of the `certname` setting, rather than the `dns_alt_names` setting.)
 
 If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
+
+### `disable-update-checking`
+
+Optional.  Setting this to `true` disables checking for updated versions of PuppetDB.  Defaults to `false`.
 
 
 `[database]` Settings
