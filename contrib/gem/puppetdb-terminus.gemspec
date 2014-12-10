@@ -7,11 +7,12 @@ Gem::Specification.new do |gem|
   gem.version       = "3.0.0"
   gem.authors       = ["Puppet Labs"]
   gem.email         = ["puppet@puppetlabs.com"]
-  gem.description   = "Centralized Puppet Storage"
-  gem.summary       = "PuppetDB is a Puppet data warehouse; it manages storage and retrieval of all platform-generated data, such as catalogs, facts, reports"
+  gem.description   = "Puppet terminus files to connect to PuppetDB"
+  gem.summary       = "Connect Puppet to PuppetDB by setting up a terminus for PuppetDB"
   gem.homepage      = "https://github.com/puppetlabs/puppetdb"
+  gem.license       = "Apache-2.0"
 
-  gem.files         = `git ls-files`.split($/)
+  gem.files         = Dir['LICENSE.txt', 'NOTICE.txt', 'README.md', 'puppet/lib/**/*', 'puppet/spec/**/*']
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
