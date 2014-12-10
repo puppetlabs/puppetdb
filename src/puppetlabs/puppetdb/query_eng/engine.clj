@@ -503,7 +503,7 @@
 
 (defn extract-params
   "Extracts the node's expression value, puts it in state
-   replacing it with `?`, used in a prepared statement"
+  replacing it with `?`, used in a prepared statement"
   [node state]
   (when (binary-expression? node)
     {:node (assoc node :value "?")
@@ -511,7 +511,7 @@
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
-   and return the parameters as a vector"
+  and return the parameters as a vector"
   [plan]
   (let [{:keys [node state]} (zip/post-order-visit (zip/tree-zipper plan)
                                                    []
@@ -525,7 +525,7 @@
 
 (def user-query->logical-obj
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
-   appropriate plan node"
+  appropriate plan node"
   {"select-nodes" (assoc nodes-query :subquery? true)
    "select-resources" (assoc resources-query :subquery? true)
    "select-params" (assoc resource-params-query :subquery? true)
@@ -538,7 +538,7 @@
 
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
-   query language"
+  query language"
   [node]
   (cm/match [node]
 
@@ -605,7 +605,7 @@
 
 (def binary-operator-checker
   "A function that will return nil if the query snippet successfully validates, otherwise
-   will return a data structure with error information"
+  will return a data structure with error information"
   (s/checker [(s/one
                (apply s/either (map s/eq binary-operators))
                :operator)
@@ -667,9 +667,9 @@
 
 (defn expand-user-query
   "Expands/translates the query from a user provided one to a
-   normalized query that only contains our lower-level operators.
-   Things like [node active] will be expanded into a full
-   subquery (via the `in` and `extract` operators)"
+  normalized query that only contains our lower-level operators.
+  Things like [node active] will be expanded into a full
+  subquery (via the `in` and `extract` operators)"
   [user-query]
   (:node (zip/post-order-transform (zip/tree-zipper user-query)
                                    [expand-query-node validate-binary-operators])))
@@ -684,9 +684,9 @@
 
 (defn create-extract-node
   "Returns a `query-rec` that has the correct projection for the given
-   `column-list`. Updating :project causes the select in the SQL query
-   to be modified. Setting :late-project does not affect the SQL, but
-   includes in the information for later removing the columns."
+  `column-list`. Updating :project causes the select in the SQL query
+  to be modified. Setting :late-project does not affect the SQL, but
+  includes in the information for later removing the columns."
   [query-rec column-list expr]
   (let [project-map (zipmap column-list (repeat (count column-list) nil))]
     (if (or (nil? expr)
@@ -807,7 +807,7 @@
 
 (defn convert-to-plan
   "Converts the given `user-query` to a query plan that can later be converted into
-   a SQL statement"
+  a SQL statement"
   [query-rec user-query]
   (let [where (user-node->plan-node query-rec user-query)]
     (if (instance? Query (user-node->plan-node query-rec user-query))
@@ -825,29 +825,29 @@
   (let [invalid-fields (remove (set allowed-fields) (ks/as-collection field))]
     (when (> (count invalid-fields) 0)
       (format "%s unknown '%s' %s '%s'%s. Acceptable fields are: %s"
-        error-action
-        query-name
-        (if (> (count invalid-fields) 1) "fields:" "field")
-        (str/join "', '" invalid-fields)
-        (if (empty? error-context) "" (str " " error-context))
-        (json/generate-string allowed-fields)))))
+              error-action
+              query-name
+              (if (> (count invalid-fields) 1) "fields:" "field")
+              (str/join "', '" invalid-fields)
+              (if (empty? error-context) "" (str " " error-context))
+              (json/generate-string allowed-fields)))))
 
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
-   the query context assocated to each query clause with it's associated context"
+  the query context assocated to each query clause with it's associated context"
   [context]
   (fn [node state]
     (when (vec? node)
       (cm/match [node]
                 [["extract" column
-                  [subquery-name subquery-expression]]]
+                  [(subquery-name :guard (set (keys user-query->logical-obj))) subquery-expression]]]
                 (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
                       nested-qc (:query-context (meta subquery-expr))
                       column-validation-message (validate-query-operation-fields
-                                                  column
-                                                  (:queryable-fields nested-qc)
-                                                  (:alias nested-qc)
-                                                  "Can't extract" "")]
+                                                 column
+                                                 (:queryable-fields nested-qc)
+                                                 (:alias nested-qc)
+                                                 "Can't extract" "")]
 
                   {:node (vary-meta ["extract" column
                                      (vary-meta [subquery-name subquery-expr]
@@ -871,7 +871,7 @@
 
 (defn validate-query-fields
   "Add an error message to `state` if the field is not available for querying
-   by the associated query-context"
+  by the associated query-context"
   [node state]
   (cm/match [node]
             [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
@@ -888,10 +888,10 @@
             [["in" field & _]]
             (let [query-context (:query-context (meta node))
                   column-validation-message (validate-query-operation-fields
-                                              field
-                                              (:queryable-fields query-context)
-                                              (:alias query-context)
-                                              "Can't match on" "for 'in'")]
+                                             field
+                                             (:queryable-fields query-context)
+                                             (:alias query-context)
+                                             "Can't match on" "for 'in'")]
               (when column-validation-message
                 {:node node
                  :state (conj state column-validation-message)}))
@@ -920,7 +920,7 @@
 
 (defn push-down-context
   "Pushes the top level query context down to each query node, throws IllegalArgumentException
-   if any unrecognized fields appear in the query"
+  if any unrecognized fields appear in the query"
   [context user-query]
   (let [{annotated-query :node
          errors :state} (zip/pre-order-visit (zip/tree-zipper user-query)
@@ -935,7 +935,7 @@
 
 (defn augment-paging-options
   "Specially augmented paging options to include handling the cases where name
-   and certname may be part of the ordering."
+  and certname may be part of the ordering."
   [{:keys [order-by] :as paging-options} entity]
   (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
     paging-options
