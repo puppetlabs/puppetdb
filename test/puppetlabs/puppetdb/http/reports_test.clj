@@ -90,13 +90,20 @@
   (when (after-v3? version)
     (let [basic         (:basic reports)
           report-hash   (:hash (store-example-report! basic (now)))
+          bar-report-hash (:hash (store-example-report! (assoc basic :certname "bar.local") (now)))
           basic (assoc basic :hash report-hash)]
 
       (testing "one projected column"
         (response-equal?
          (get-response endpoint ["extract" "hash"
                                  ["=" "certname" (:certname basic)]])
-         #{(select-keys basic [:hash])}))
+         #{{:hash report-hash}}))
+
+      (testing "one projected column with a not"
+        (response-equal?
+         (get-response endpoint ["extract" "hash"
+                                 ["not" ["=" "certname" (:certname basic)]]])
+         #{{:hash bar-report-hash}}))
 
       (testing "three projected columns"
         (response-equal?
