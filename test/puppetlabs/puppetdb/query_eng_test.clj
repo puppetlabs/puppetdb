@@ -89,3 +89,31 @@
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
+
+(deftest ^{:postgres false} test-valid-query-regexps
+  (is (thrown-with-msg? IllegalArgumentException
+        #"Invalid regexp:.*"
+        (compile-user-query->sql facts-query ["~" "name" 1])))
+
+  (is (thrown-with-msg? IllegalArgumentException
+        #"Invalid regexp:.*"
+        (compile-user-query->sql facts-query ["~" "name" true])))
+
+  (is (thrown-with-msg? IllegalArgumentException
+        #"Invalid regexp:.*"
+        (compile-user-query->sql facts-query ["~" "name" "*.bar"])))
+
+  (is (thrown-with-msg? IllegalArgumentException
+        #"Invalid regexp:.*"
+        (compile-user-query->sql fact-paths-query ["~>" "path" [".*" "*.bar"]])))
+
+  (is (thrown-with-msg? IllegalArgumentException
+        #"Invalid regexp:.*"
+        (compile-user-query->sql
+          facts-query
+          ["and"
+           ["=" ["node" "active"] "true"]
+           ["and"
+            ["=" "certname" "somename"]
+            ["=" ["node" "active"] "true"]
+            ["~" "name" "*.bar"]]]))))
