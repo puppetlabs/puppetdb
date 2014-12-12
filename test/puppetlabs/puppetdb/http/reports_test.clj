@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.query :refer [remove-environment]]
-            [puppetlabs.puppetdb.http :refer [remove-status]]
+            [puppetlabs.puppetdb.http :refer [remove-status status-bad-request]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -16,6 +16,7 @@
                                                    deftestseq
                                                    after-v3?]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
+            [flatland.ordered.map :as omap]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]
             [clojure.string :as str]
@@ -440,3 +441,22 @@
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
      remove-receive-times)))
+
+(def invalid-projection-queries
+  (omap/ordered-map
+    ;; Top level extract using invalid fields should throw an error
+    ["extract" "nothing" ["~" "certname" ".*"]]
+    #"Can't extract unknown 'reports' field 'nothing'.*Acceptable fields are.*"
+
+    ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+    #"Can't extract unknown 'reports' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
+
+(deftestseq invalid-projections
+  [[version endpoint] endpoints
+   :when ((complement #{:v2 :v3}) version)]
+
+  (doseq [[query msg] invalid-projection-queries]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status status-bad-request))))))

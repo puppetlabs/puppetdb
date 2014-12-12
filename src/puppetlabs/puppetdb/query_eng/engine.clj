@@ -2,7 +2,6 @@
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.facts :as facts]
@@ -884,6 +883,20 @@
                                             field
                                             (:alias query-context)
                                             (json/generate-string queryable-fields)))}))
+
+            ; This validation is only for top-level extract operator
+            ; For in-extract operator validation, please see annotate-with-context function
+            [["extract" field & _]]
+            (let [query-context (:query-context (meta node))
+                  queryable-fields (map #(str/replace % #"-" "_") (:queryable-fields query-context))
+                  column-validation-message (validate-query-operation-fields
+                                              field
+                                              queryable-fields
+                                              (:alias query-context)
+                                              "Can't extract" "")]
+              (when column-validation-message
+                {:node node
+                 :state (conj state column-validation-message)}))
 
             [["in" field & _]]
             (let [query-context (:query-context (meta node))

@@ -10,6 +10,7 @@
                                                    deftestseq
                                                    after-v3?]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
+            [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.zip :as zip]
             [clojure.core.match :as cm]))
 
@@ -287,3 +288,22 @@
       (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
       (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
       (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))
+
+(def invalid-projection-queries
+  (omap/ordered-map
+     ;; Top level extract using invalid fields should throw an error
+     ["extract" "nothing" ["~" "certname" ".*"]]
+     #"Can't extract unknown 'nodes' field 'nothing'.*Acceptable fields are.*"
+
+     ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+     #"Can't extract unknown 'nodes' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
+
+(deftestseq invalid-projections
+  [[version endpoint] endpoints
+   :when ((complement #{:v2 :v3}) version)]
+
+  (doseq [[query msg] invalid-projection-queries]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status http/status-bad-request))))))

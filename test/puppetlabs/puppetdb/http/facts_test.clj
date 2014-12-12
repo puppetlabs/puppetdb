@@ -301,6 +301,25 @@
                                                                             ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]")))
 
+(def versioned-invalid-projections
+  (omap/ordered-map
+    "/v4/facts" (omap/ordered-map
+                   ;; Top level extract using invalid fields should throw an error
+                   ["extract" "nothing" ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
+
+                   ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+
+(deftestseq invalid-projections
+  [[version endpoint] facts-endpoints]
+
+  (doseq [[query msg] (get versioned-invalid-projections endpoint)]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status http/status-bad-request))))))
+
 (def common-well-formed-tests
   (omap/ordered-map
    ["=" "name" "domain"]

@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
+            [flatland.ordered.map :as omap]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]))
 
@@ -376,3 +377,22 @@ to the result of the form supplied to this method."
     (testing "querying by equality and regexp should be allowed"
       (is (is-response-equal (get-response endpoint ["=" "type" "File"]) #{foo1 bar1}))
       (is (is-response-equal (get-response endpoint ["=" "type" "Notify"]) #{foo2 bar2})))))
+
+(def versioned-invalid-projections
+  (omap/ordered-map
+    "/v4/resources" (omap/ordered-map
+                   ;; Top level extract using invalid fields should throw an error
+                   ["extract" "nothing" ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'resources' field 'nothing'.*Acceptable fields are.*"
+
+                   ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+                   #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+
+(deftestseq invalid-projections
+  [[version endpoint] endpoints]
+
+  (doseq [[query msg] (get versioned-invalid-projections endpoint)]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status http/status-bad-request))))))
