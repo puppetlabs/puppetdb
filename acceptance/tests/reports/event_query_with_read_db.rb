@@ -31,7 +31,7 @@ test_name "validation of basic PuppetDB resource event queries" do
   step "Copy db schema to the new puppetdb2 database" do
 
     duplicate_db_command = <<DUPE
-    su postgres -c "pg_dump puppetdb | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' | psql puppetdb2"
+    su postgres -c "PATH=/usr/pgsql-9.3/bin:/usr/lib/postgresql/9.3/bin:$PATH pg_dump puppetdb | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' | psql puppetdb2"
 DUPE
   
     on database, duplicate_db_command
