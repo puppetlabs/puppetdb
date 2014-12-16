@@ -1159,15 +1159,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
 
-(defn db-deprecated?
-  "Returns a string with an deprecation message if the DB is deprecated,
-   nil otherwise."
-  []
-  (when (and (sutils/postgres?)
-             (sutils/db-version-newer-than? [0 0])
-             (sutils/db-version-older-than? [0 0]))
-    "PostgreSQL DB versions X.X - X.X are deprecated and won't be supported in the future."))
-
 (defn db-unsupported?
   "Returns a string with an unsupported message if the DB is not supported,
    nil otherwise."
@@ -1252,12 +1243,6 @@
   [report
    timestamp :- pls/Timestamp]
   (add-report!* report timestamp true))
-
-(defn warn-on-db-deprecation
-  "Log a warning message if the database is deprecated"
-  []
-  (when-let [deprecated-message (db-deprecated?)]
-    (log/warn deprecated-message)))
 
 (defn fail-on-unsupported
   "Log an error message to the log and console if the currently

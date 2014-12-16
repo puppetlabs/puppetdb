@@ -1194,19 +1194,6 @@
                    #'sutils/sql-current-connection-database-version (constantly version)}
     f))
 
-(deftest db-deprecation?
-  (testing "should return a string if db is deprecated"
-    (are [db version result]
-      (with-db-version db version
-        (fn []
-          (is (= result (db-deprecated?)))))
-      "PostgreSQL" [8 4] nil
-      "PostgreSQL" [9 0] nil
-      "PostgreSQL" [9 1] nil
-      "PostgreSQL" [9 2] nil
-      "PostgreSQL" [9 3] nil
-      "PostgreSQL" [9 4] nil)))
-
 (deftest test-db-unsupported?
   (testing "should return a string if db is deprecated"
     (are [db version result]
