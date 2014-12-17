@@ -289,10 +289,11 @@ module PuppetDBExtensions
   def install_puppetdb(host, db, version=nil)
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
+      database         => '#{db}',
       puppetdb_version => '#{get_package_version(host, version)}',
     }
     EOS
-    if db == "postgres"
+    if db == :postgres
       manifest = append_postgres_manifest(host, puppetdb_manifest)
       manifest += "\nPostgresql::Server::Db['puppetdb'] -> Class['puppetdb::server']"
       apply_manifest_on(host, manifest)
