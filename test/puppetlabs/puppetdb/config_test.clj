@@ -119,17 +119,6 @@
       (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
         (is (pl-time/period? node-ttl))
         (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
-    (testing "should support node-ttl-days for backward compatibility"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database { :node-ttl-days 10 }}))]
-        (is (pl-time/period? node-ttl))
-        (is (= 10 (pl-time/to-days node-ttl)))
-        (is (not (contains? dbconfig :node-ttl-days)))))
-    (testing "should prefer node-ttl over node-ttl-days"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database {:node-ttl "5d"
-                                                                                   :node-ttl-days 10 }}))]
-        (is (pl-time/period? node-ttl))
-        (is (= (time/days 5) (time/days (pl-time/to-days node-ttl))))
-        (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should default to zero (no expiration)"
       (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
         (is (pl-time/period? node-ttl))

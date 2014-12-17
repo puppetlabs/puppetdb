@@ -52,8 +52,7 @@
          {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
           (s/optional-key :report-ttl) (pls/defaulted-maybe String "14d")
           (s/optional-key :node-purge-ttl) (pls/defaulted-maybe String "0s")
-          (s/optional-key :node-ttl) String
-          (s/optional-key :node-ttl-days) (s/maybe s/Int)}))
+          (s/optional-key :node-ttl) (pls/defaulted-maybe String "0s")}))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -82,7 +81,7 @@
          {:gc-interval Minutes
           :report-ttl Period
           :node-purge-ttl Period
-          (s/optional-key :node-ttl) (s/either Period Days)}))
+          :node-ttl Period}))
 
 (defn half-the-cores*
   "Function for computing half the cores of the system, useful
@@ -169,22 +168,11 @@
     (s/validate database-config-out db-config)
     (assoc config :read-database db-config)))
 
-(defn default-node-ttl
-  "Assoc into `db-config` a :node-ttl when not already present. Default to node-ttl-days, if that's not there,
-   use 0 seconds"
-  [db-config]
-  (dissoc (if (:node-ttl db-config)
-            db-config
-            (-> db-config
-                (assoc :node-ttl (or (maybe-days (:node-ttl-days db-config))
-                                     (pl-time/parse-period "0s")))))
-          :node-ttl-days))
-
 (defn convert-write-db-config
   "Converts the `database` config using the write database config schema. Also defaults
    the node-ttl parameter."
   [global database]
-  (->> (default-node-ttl database)
+  (->> database
        (convert-db-config write-database-config-in write-database-config-out global)
        (pls/strip-unknown-keys write-database-config-out)))
 
