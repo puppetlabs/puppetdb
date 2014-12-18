@@ -328,23 +328,6 @@
                      (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
-(defn fix-certificate-whitelist
-  "Fix certificate-whitelist configuration before passing it to trapperkeeper.
-
-   In particular:
-   * Move certificate-whitelist from [jetty] to [global]
-   * Warn the user if they are still doing this"
-  [config-data]
-  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
-    (do
-      ;; Log to stderr, logging is not yet initialized (and may never be).
-      (binding [*out* *err*]
-        (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
-      (-> config-data
-          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
-          (assoc-in [:puppetdb :certificate-whitelist] cw)))
-    config-data))
-
 (defn warn-if-sslv3
   "If the ssl-protocols config is present and contains sslv3, warn the user. Logging
    at this point may or may not be setup, so warning via *err* and logging is done."
@@ -387,7 +370,6 @@
   [f args]
   (let [config (f args)]
     (-> config
-        fix-certificate-whitelist
         warn-repl-retirement
         default-ssl-protocols
         add-web-routing-config)))
