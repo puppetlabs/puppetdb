@@ -11,7 +11,7 @@
             [puppetlabs.kitchensink.core :refer [mapvals]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! store-v2-example-report!]]))
+            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
 (def db (test-db))
 

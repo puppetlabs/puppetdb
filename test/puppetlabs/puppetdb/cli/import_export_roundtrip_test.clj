@@ -96,8 +96,7 @@
                :producer-timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [5 :empty])
-                    (assoc :name "foo.local")
-                    (dissoc :hash))
+                    (assoc :name "foo.local"))
         report (:basic reports)]
 
     (jutils/with-puppetdb-instance
@@ -148,67 +147,8 @@
                                                   tur/munge-example-report-for-storage))))
       (is (= facts (export/facts-for-node "localhost" jutils/*port* "foo.local"))))))
 
-(defn spit-v3-export-tar
-  "Takes mtadata, catalog, facts, report for a node and spits a tarball (with v3 metadata)
-   to `tar-path`."
-  [tar-path metadata node-catalog node-facts node-report]
-  (with-open [tar-writer (archive/tarball-writer tar-path)]
-    (utils/add-tar-entry tar-writer {:msg (str "Exporting PuppetDB metadata")
-                                     :file-suffix [export/export-metadata-file-name]
-                                     :contents (json/generate-pretty-string metadata)})
-
-    (utils/add-tar-entry tar-writer (export/facts->tar (:name node-facts) node-facts))
-    (utils/add-tar-entry tar-writer (export/catalog->tar (get-in node-catalog [:data :name])
-                                                         (json/generate-string node-catalog)))
-    (utils/add-tar-entry tar-writer (first (export/report->tar (:certname node-report)
-                                                               [(tur/munge-example-report-for-storage (dissoc node-report :environment))])))))
-
-(deftest test-v3->v4-migration
-  (let [facts {:name "foo.local"
-               :values {:foo "the foo"
-                        :bar "the bar"
-                        :baz "the baz"}
-               :producer-timestamp nil}
-        export-out-file (testutils/temp-file "export-test" ".tar.gz")
-        catalog (assoc-in (get-in wire-catalogs [2 :empty])
-                          [:data :name] "foo.local")
-        report (:basic reports)]
-
-    (spit-v3-export-tar export-out-file
-                        {:timestamp (now)
-                         :command-versions
-                         {:replace-catalog 3
-                          :store-report 2
-                          :replace-facts 1}}
-                        catalog
-                        facts
-                        report)
-
-    (jutils/with-puppetdb-instance
-
-      (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
-
-      (block-on-node (:name facts))
-      (Thread/sleep 5000)
-
-      (is (= (tuc/munge-catalog-for-comparison :v3 catalog)
-             (tuc/munge-catalog-for-comparison :v3
-               (catalogs/canonical-catalog :v3 (-> (export/catalog-for-node "localhost" jutils/*port* :v4 (get-in catalog [:data :name]) )
-                                                   (json/parse-string true)
-                                                   (assoc :api_version 1))))))
-      (is (= (tur/munge-report-for-comparison (-> report
-                                                  (dissoc :environment :status)
-                                                  tur/munge-example-report-for-storage))
-             (tur/munge-report-for-comparison (-> (first (export/reports-for-node "localhost" jutils/*port* :v3 (:certname report)))
-                                                  (update-in [:resource-events] vec)))))
-
-      (is (= facts
-             (dissoc
-              (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
-              :environment))))))
-
 (deftest test-max-frame-size
-  (let [catalog (-> (get-in wire-catalogs [4 :empty])
+  (let [catalog (-> (get-in wire-catalogs [5 :empty])
                     (assoc :name "foo.local"))]
     (jutils/puppetdb-instance
      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")

@@ -16,10 +16,9 @@
         {:strs [name version transaction-uuid environment] :as catalog} (json/parse-string
                                                                           catalog-str)]
     (testcat/replace-catalog catalog-str)
-    (doseq [api-version [:v4]]
-      (testing "status"
-        (is (= (testcat/munged-canonical->wire-format api-version (json/parse-string catalog-str true))
-               (testcat/munged-canonical->wire-format api-version (c/status api-version name))))))))
+    (testing "status"
+      (is (= (testcat/munged-canonical->wire-format :v5 (json/parse-string catalog-str true))
+             (testcat/munged-canonical->wire-format :v5 (c/status :v4 name)))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/catalog-query-rows.json")
                       (json/parse-string)

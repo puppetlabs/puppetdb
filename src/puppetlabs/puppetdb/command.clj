@@ -180,7 +180,7 @@
 (defmulti process-command!
   "Takes a command object and processes it to completion. Dispatch is
   based on the command's name and version information"
-  (fn [{:keys [command version] :or {version 1}} _]
+  (fn [{:keys [command version]} _]
     [command version]))
 
 ;; Catalog replacement
@@ -203,53 +203,11 @@
   [version command]
   (log/warn (format "command '%s' version %s is deprecated, use the latest version" command version)))
 
-(defmethod process-command! [(command-names :replace-catalog) 1]
-  [{:keys [version payload] :as command} options]
-  (warn-deprecated version "replace catalog")
-  (when-not (string? payload)
-    (throw (IllegalArgumentException.
-            (format "Payload for a '%s' v1 command must be a JSON string."
-                    (command-names :replace-catalog)))))
-  (replace-catalog* command options))
-
-(defmethod process-command! [(command-names :replace-catalog) 2]
-  [{:keys [version] :as command} options]
-  (warn-deprecated version "replace catalog")
-  (replace-catalog* command options))
-
-(defmethod process-command! [(command-names :replace-catalog) 3]
-  [{:keys [version] :as command} options]
-  (warn-deprecated version "replace catalog")
-  (replace-catalog* command options))
-
-(defmethod process-command! [(command-names :replace-catalog) 4]
-  [{:keys [version] :as command} options]
-  (warn-deprecated version "replace catalog")
-  (replace-catalog* command options))
-
 (defmethod process-command! [(command-names :replace-catalog) 5]
   [{:keys [version] :as command} options]
   (replace-catalog* command options))
 
 ;; Fact replacement
-
-(defmethod process-command! [(command-names :replace-facts) 1]
-  [{:keys [version] :as command} config]
-  (warn-deprecated version "replace facts")
-  (-> command
-      (assoc :version 2)
-      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (json/parse-string %))))
-      (assoc-in [:payload :environment] nil)
-      (process-command! config)))
-
-(defmethod process-command! [(command-names :replace-facts) 2]
-  [{:keys [version] :as command} config]
-  (warn-deprecated version "replace facts")
-  (-> command
-      (assoc :version 3)
-      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if ( string? %) (json/parse-string %) %))))
-      (assoc-in [:payload :producer-timestamp] nil)
-      (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 3]
   [{:keys [payload annotations]} {:keys [db]}]
@@ -267,14 +225,6 @@
     (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
 
 ;; Node deactivation
-
-(defmethod process-command! [(command-names :deactivate-node) 1]
-  [{:keys [version] :as command} config]
-  (warn-deprecated version "deactivate node")
-  (-> command
-      (assoc :version 2)
-      (update-in [:payload] #(upon-error-throw-fatality (json/parse-string %)))
-      (process-command! config)))
 
 (defmethod process-command! [(command-names :deactivate-node) 2]
   [{certname :payload {:keys [id]} :annotations} {:keys [db]}]
@@ -299,16 +249,6 @@
     (log/info (format "[%s] [%s] puppet v%s - %s"
                       id (command-names :store-report)
                       (:puppet-version report) (:certname report)))))
-
-(defmethod process-command! [(command-names :store-report) 1]
-  [{:keys [version] :as command} {:keys [db]}]
-  (warn-deprecated version "store report")
-  (store-report* 1 db command))
-
-(defmethod process-command! [(command-names :store-report) 2]
-  [{:keys [version] :as command} {:keys [db] :as config}]
-  (warn-deprecated version "store report")
-  (store-report* 2 db command))
 
 (defmethod process-command! [(command-names :store-report) 3]
   [{:keys [version] :as command} {:keys [db]}]

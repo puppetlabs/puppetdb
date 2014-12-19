@@ -212,8 +212,3 @@ List of strings. Includes every tag the resource has. This is a normalized super
 #### `parameters`
 
 JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide booleans, strings, arrays, and hashes --- [resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.
-
-
-###  Differences with the previous catalog wire format
-
-1. The top-level catalog object now contains a "producer-timestamp" field.

@@ -5,22 +5,12 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
-            [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage
-                                                          munge-v2-example-events-to-v1
-                                                          munge-v1-example-events-to-v2]]))
+            [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn munge-v2-example-report-to-v1
-  [example-report]
-  (update-in example-report [:resource-events] munge-v2-example-events-to-v1))
-
-(defn munge-v1-example-report-to-v2
-  [example-report]
-  (update-in example-report [:resource-events] munge-v1-example-events-to-v2))
 
 (defn munge-example-report-for-storage
   [example-report]
@@ -83,13 +73,6 @@
      (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
      (store-example-report*! #(report/validate! 4 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
-
-(defn store-v2-example-report!
-  "See store-example-reports*! calls that, passing in a version 2 validation function"
-  ([example-report timestamp]
-     (store-example-report! example-report timestamp true))
-  ([example-report timestamp update-latest-report?]
-     (store-example-report*! #(report/validate! 2 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
 
 (defn expected-report
   [example-report]

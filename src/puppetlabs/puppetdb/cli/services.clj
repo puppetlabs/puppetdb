@@ -51,7 +51,6 @@
             [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.utils :as utils]
@@ -93,7 +92,7 @@
              (format-period node-ttl))
      (with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
+         (send-command! (command-names :deactivate-node) 2 node))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
