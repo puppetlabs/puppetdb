@@ -77,6 +77,7 @@ deb http://s3-us-west-2.amazonaws.com/puppetdb-jdk/jpkg/ pljdk main
         # we skip.
       else
         on master, "apt-get install -y rubygems ruby-dev libsqlite3-dev"
+        on master, "gem install i18n -v 0.6.9"
         on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
         on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
       end
