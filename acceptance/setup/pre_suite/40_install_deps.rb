@@ -76,6 +76,9 @@ step "Install rubygems and sqlite3 on master" do
       # we skip.
     else
       on master, "apt-get install -y rubygems ruby-dev libsqlite3-dev"
+      # this is to get around the activesupport dependency on Ruby 1.9.3 for
+      # Ubuntu 12.04. We can remove it when we drop support for 1.8.7.
+      on master, "gem install i18n -v 0.6.11"
       on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
       on master, "gem install sqlite3 -v 1.3.9 --no-ri --no-rdoc -V --backtrace"
     end
