@@ -327,7 +327,9 @@
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
-  (query [this query-obj version query-expr query-row-callback-fn]))
+  (query [this query-obj version query-expr paging-options row-callback-fn]
+    "Call `row-callback-fn' for matching rows.  The `paging-options' should
+    be a map containing :order-by, :offset, and/or :limit."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -345,14 +347,14 @@
         (stop-puppetdb context))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
-  (query [this query-obj version query-expr query-row-callback-fn]
+  (query [this query-obj version query-expr paging-options row-callback-fn]
          (qeng/stream-query-result
           query-obj
           version
           query-expr
-          nil
+          paging-options
           (get-in (service-context this) [:shared-globals :scf-read-db])
-          query-row-callback-fn)))
+          row-callback-fn)))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
