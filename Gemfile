@@ -7,6 +7,9 @@ gem 'facter'
 case RUBY_VERSION
 when '1.8.7'
   gem 'rake', '<= 10.1.1'
+  # activesupport calls in the latest i18n, which drops 1.8.7. This pins to
+  # a lower version
+  gem 'i18n', '~> 0.6.11'
 else
   gem 'rake'
 end
