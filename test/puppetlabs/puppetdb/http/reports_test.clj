@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.query :refer [remove-environment]]
             [puppetlabs.puppetdb.http :refer [remove-status status-bad-request]]
+            [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -15,7 +16,8 @@
                                                    paged-results
                                                    deftestseq
                                                    after-v3?]]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
+            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
+                                                           munge-resource-events]]
             [flatland.ordered.map :as omap]
             [clj-time.coerce :refer [to-date-time to-string]]
             [clj-time.core :refer [now]]
@@ -23,8 +25,7 @@
             [clj-time.format :as tfmt]
             [clj-time.coerce :as tcoerce]))
 
-(def endpoints [[:v3 "/v3/reports"]
-                [:v4 "/v4/reports"]])
+(def endpoints [[:v4 "/v4/reports"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -45,20 +46,18 @@
    [:start-time :end-time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
-   (dissoc report :resource-events)))
+   (update-in report [:resource-events] (comp keywordize-keys munge-resource-events))))
 
 (defn reports-response
   [version reports]
-  (set (map (case version
-              :v3 (comp #(remove-status % :v3) #(remove-environment % :v3) report-response)
-              report-response) reports)))
+  (set (map report-response reports)))
 
-(defn remove-receive-times
+(defn munge-reports-for-comparison
   [reports]
   ;; the example reports don't have a receive time (because this is
   ;; calculated by the server), so we remove this field from the response
   ;; for test comparison
-  (map #(dissoc % :receive-time) reports))
+  (map (comp #(dissoc % :receive-time) #(update-in % [:resource-events] set)) reports))
 
 (deftestseq query-by-certname
   [[version endpoint] endpoints]
@@ -84,7 +83,7 @@
           (response-equal?
            result
            (reports-response version [basic])
-           remove-receive-times))))))
+           munge-reports-for-comparison))))))
 
 (deftestseq query-with-projection
   [[version endpoint] endpoints]
@@ -134,7 +133,7 @@
           (is (= (reports-response version
                                    [(assoc basic1 :hash basic1-hash)
                                     (assoc basic2 :hash basic2-hash)])
-                 (set (remove-receive-times results)))))))))
+                 (set (munge-reports-for-comparison results)))))))))
 
 (deftestseq invalid-queries
   [[version endpoint] endpoints]
@@ -184,19 +183,19 @@
          unchanged-result
          (reports-response version [(assoc basic :hash hash1)
                                     (assoc basic2 :hash hash2)])
-         remove-receive-times)
+         munge-reports-for-comparison)
 
         (is (= 1 (count changed-reports)))
         (response-equal?
          changed-result
          (reports-response version [(assoc basic3 :hash hash3)])
-         remove-receive-times)
+         munge-reports-for-comparison)
 
         (is (= 1 (count failed-reports)))
         (response-equal?
          failed-result
          (reports-response version [(assoc basic4 :hash hash4)])
-         remove-receive-times)))))
+         munge-reports-for-comparison)))))
 
 (deftestseq query-by-certname-with-environment
   [[version endpoint] endpoints
@@ -211,7 +210,7 @@
         (response-equal?
          result
          (reports-response version [(assoc basic :hash report-hash)])
-         remove-receive-times)))
+         munge-reports-for-comparison)))
     (testing "PROD environment"
       (is (empty? (json/parse-string
                    (:body
@@ -241,20 +240,20 @@
     (response-equal?
      v301
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 1 (count v360-body)))
     (response-equal?
      v360
      (reports-response version [(assoc basic2 :hash hash2)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 2 (count v30x-body)))
     (response-equal?
      v30x
      (reports-response version [(assoc basic :hash hash1)
                                 (assoc basic3 :hash hash3)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (deftestseq query-by-report-format
   [[version endpoint] endpoints
@@ -283,20 +282,20 @@
     (response-equal?
      v3-format
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 1 (count v4-format-body)))
     (response-equal?
      v4-format
      (reports-response version [(assoc basic2 :hash hash2)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 2 (count v5-format-body)))
     (response-equal?
      v5-format
      (reports-response version [(assoc basic2 :hash hash2)
                                 (assoc basic3 :hash hash3)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (deftestseq query-by-configuration-version
   [[version endpoint] endpoints
@@ -317,14 +316,14 @@
     (response-equal?
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 2 (count basic2-result-body)))
     (response-equal?
      basic2-result
      (reports-response version [(assoc basic :hash hash1)
                                 (assoc basic2 :hash hash2)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (deftestseq query-by-start-and-end-time
   [[version endpoint] endpoints
@@ -353,26 +352,26 @@
     (response-equal?
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 1 (count basic-range-body)))
     (response-equal?
      basic-range
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 1 (count basic2-result-body)))
     (response-equal?
      basic2-result
      (reports-response version [(assoc basic2 :hash hash2)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 2 (count all-reports-body)))
     (response-equal?
      all-reports
      (reports-response version [(assoc basic :hash hash1)
                                 (assoc basic2 :hash hash2)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (defn ts->str [ts]
   (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
@@ -393,7 +392,7 @@
     (response-equal?
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (deftestseq query-by-transaction-uuid
   [[version endpoint] endpoints
@@ -414,14 +413,14 @@
     (response-equal?
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)
+     munge-reports-for-comparison)
 
     (is (= 2 (count all-results-body)))
     (response-equal?
      all-results
      (reports-response version [(assoc basic :hash hash1)
                                 (assoc basic2 :hash hash2)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (deftestseq query-by-hash
   [[version endpoint] endpoints
@@ -440,7 +439,7 @@
     (response-equal?
      basic-result
      (reports-response version [(assoc basic :hash hash1)])
-     remove-receive-times)))
+     munge-reports-for-comparison)))
 
 (def invalid-projection-queries
   (omap/ordered-map

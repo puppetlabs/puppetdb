@@ -57,7 +57,7 @@
                        (query/streamed-query-result version sql params
                                                     (comp f (munge-fn version projections))))))]
         (if count-query
-          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
+          (http/add-headers resp {:count (jdbc/get-result-count count-query entity)})
           resp)))))
 
 (defn produce-streaming-body
