@@ -139,7 +139,8 @@
   (case entity
     :factsets
     (-> clause
-        (str/replace #"environment" "COALESCE(distinct_names.environment, '')"))
+        (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
+        (str/replace #"hash" "COALESCE(distinct_names.hash, '')"))
     :reports
     (-> clause
         (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
@@ -175,11 +176,19 @@
        (case entity
          :factsets
          (format "SELECT paged_results.* FROM (%s) paged_results
-                WHERE (certname,COALESCE(paged_results.environment,''),timestamp,
-                producer_timestamp) IN
-                (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp,
-                producer_timestamp FROM (%s)
-                distinct_names %s%s%s) %s"
+                 WHERE
+                 (certname,
+                 COALESCE(paged_results.environment, ''),
+                 COALESCE(paged_results.hash, ''),
+                 timestamp,
+                 producer_timestamp) IN
+                 (SELECT DISTINCT
+                 certname,
+                 COALESCE(distinct_names.environment,''),
+                 COALESCE(distinct_names.hash, ''),
+                 timestamp,
+                 producer_timestamp FROM (%s)
+                 distinct_names %s%s%s) %s"
                  sql sql inner-order-by limit-clause offset-clause order-by-clause)
 
          :reports

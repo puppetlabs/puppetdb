@@ -207,7 +207,8 @@
 (def factset-columns {"certname" "factsets"
                       "environment" "factsets"
                       "timestamp" "factsets"
-                      "producer-timestamp" "factsets"})
+                      "producer-timestamp" "factsets"
+                      "hash" "factsets"})
 
 ;; This map's keys are the queryable fields for resources, and the values are the
 ;;  corresponding table names where the fields reside
