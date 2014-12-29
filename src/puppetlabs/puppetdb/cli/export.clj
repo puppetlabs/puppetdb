@@ -51,7 +51,7 @@
      (let [{:keys [status body]} (client/get
                                   (format
                                    "http://%s:%s/%s/catalogs/%s"
-                                   host port (name version) node)
+                                   host port (name version) (url-encode node))
                                   {:accept :json})]
        (when (= status 200) body))))
 
