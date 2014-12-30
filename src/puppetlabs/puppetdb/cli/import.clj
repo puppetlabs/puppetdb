@@ -12,12 +12,12 @@
             [clojure.java.io :as io]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :refer [base-url-schema
-                                               export-root-dir
-                                               describe-bad-base-url]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [base-url-schema export-root-dir]]
             [puppetlabs.kitchensink.core :refer [cli!]]
             [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")
 
@@ -96,15 +96,17 @@
          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
-(defn -main
+(defn- main
   [& args]
   (let [[{:keys [infile host port url-prefix]} _] (validate-cli! args)
         dest {:protocol "http" :host host :port port :prefix url-prefix}
-        _ (when-let [why (describe-bad-base-url dest)]
-            (binding [*out* *err*] (printf "Invalid destination (%s)\n" why))
-            (System/exit 1))
+        _ (when-let [why (utils/describe-bad-base-url dest)]
+            (throw+ {:type ::invalid-url :utils/exit-status 1}
+                    (format "Invalid destination (%s)" why)))
         metadata                       (parse-metadata infile)]
     ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-reader (archive/tarball-reader infile)]
       (doseq [tar-entry (archive/all-entries tar-reader)]
         (process-tar-entry tar-reader tar-entry dest metadata)))))
+
+(def -main (utils/wrap-main main))

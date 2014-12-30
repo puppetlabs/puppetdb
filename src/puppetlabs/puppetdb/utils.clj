@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [slingshot.slingshot :refer [try+]])
   (:import [java.net MalformedURLException URISyntaxException URL]))
 
 (defn jdk6?
@@ -163,3 +164,26 @@
     false
     (catch MalformedURLException ex (.getLocalizedMessage ex))
     (catch URISyntaxException ex (.getLocalizedMessage ex))))
+
+(defn wrap-main
+  "Returns a new main function that handles \"normal\" activities.
+  For now that means that if a map containing a :utils/exit-status
+  member is throw+n, then the exception's message (if any) will be
+  printed to *err* and the process will exit with that status.
+  Otherwise the exit status will be 0."
+  [main]
+  (fn [& args]
+    (let [status
+          (try+
+           (apply main args)
+           0
+           (catch (and (map? %) (::exit-status %)) {:keys [::exit-status]}
+             (let [msg (:message &throw-context)]
+               (when-not (empty? msg)
+                 (println-err (:message &throw-context))))
+             exit-status))]
+      (shutdown-agents)
+      ;; The JVM doesn't always flush on the way out.
+      (binding [*out* *err*] (flush))
+      (flush)
+      (System/exit status))))

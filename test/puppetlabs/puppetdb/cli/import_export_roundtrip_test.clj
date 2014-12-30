@@ -22,7 +22,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.tools.logging.impl :as li]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
+            [slingshot.test]
             [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]))
 
 (use-fixtures :each fixt/with-test-logging-silenced)
@@ -135,7 +136,7 @@
                   tur/munge-example-report-for-storage))))
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
-        (apply export/-main
+        (apply #'export/main
                "--outfile" export-out-file
                "--host" (:host *base-url*) "--port" (:port *base-url*)
                (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))) )
@@ -143,7 +144,7 @@
     (with-server
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
-        (apply import/-main
+        (apply #'import/main
                "--infile" export-out-file
                "--host" (:host *base-url*) "--port" (:port *base-url*)
                (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))
@@ -187,3 +188,19 @@
                                   (json/parse-string
                                    (export/catalog-for-node *base-url*
                                                             "foo.local")))))))))
+
+(defn- check-invalid-url-handling [cmd expected-msg-re]
+  (let [ex (is (thrown+-with-msg? #(and (map? %) (:utils/exit-status %))
+                                  expected-msg-re
+                                  (cmd)))]
+    (is (not (zero? (:utils/exit-status ex))))))
+
+(deftest invalid-export-source-handling
+  (check-invalid-url-handling
+   #(#'export/main "--host" "local:host" "--outfile" "/dev/null" "--port" 10000)
+   #"^Invalid source .*"))
+
+(deftest invalid-import-destination-handling
+  (check-invalid-url-handling
+   #(#'import/main "--host" "local:host" "--infile" "/dev/null" "--port" 10000)
+   #"^Invalid destination .*"))
