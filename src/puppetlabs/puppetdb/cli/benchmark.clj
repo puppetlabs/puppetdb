@@ -199,7 +199,8 @@
   * Submit the resulting catalog"
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
   (if (> (- clock lastrun) run-interval)
-    (let [catalog (if catalog (maybe-tweak-catalog rand-percentage catalog))
+    (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
+          catalog (when catalog (maybe-tweak-catalog rand-percentage catalog))
           report (and report (update-report-run-fields report))
           factset (and factset (update-factset rand-percentage factset))]
       ;; Submit the catalog and reports in separate threads, so as to not
@@ -207,21 +208,21 @@
       (when catalog
         (future
           (try
-            (client/submit-catalog puppetdb-host puppetdb-port 5 (json/generate-string catalog))
+            (client/submit-catalog base-url 5 (json/generate-string catalog))
             (log/info (format "[%s] submitted catalog" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit catalog: %s" host e))))))
       (when report
         (future
           (try
-            (client/submit-report puppetdb-host puppetdb-port 3 (json/generate-string report))
+            (client/submit-report base-url 3 (json/generate-string report))
             (log/info (format "[%s] submitted report" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit report: %s" host e))))))
       (when factset
         (future
           (try
-            (client/submit-facts puppetdb-host puppetdb-port 3 (json/generate-string factset))
+            (client/submit-facts base-url 3 (json/generate-string factset))
             (log/info (format "[%s] submitted factset" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit factset: %s" host e))))))
@@ -236,15 +237,16 @@
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
-  (let [catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))
+  (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
+        catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))
         report (and report (update-report-run-fields report))
         factset (and factset (update-factset rand-percentage factset))]
     (when catalog
-      (client/submit-catalog puppetdb-host puppetdb-port 5 (json/generate-string catalog)))
+      (client/submit-catalog base-url 5 (json/generate-string catalog)))
     (when report
-      (client/submit-report puppetdb-host puppetdb-port 3 (json/generate-string report)))
+      (client/submit-report base-url 3 (json/generate-string report)))
     (when factset
-      (client/submit-facts puppetdb-host puppetdb-port 3 (json/generate-string factset)))
+      (client/submit-facts base-url 3 (json/generate-string factset)))
     (assoc state :catalog catalog)))
 
 (defn submit-n-messages

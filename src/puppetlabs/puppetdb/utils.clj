@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk])
+  (:import [java.net MalformedURLException URISyntaxException URL]))
 
 (defn jdk6?
   "Returns true when the current JDK version is 1.6"
@@ -124,7 +125,6 @@
   [v]
   (if (vector? v) v (vector v)))
 
-
 (defn collapse-seq
   "Lazily consumes and collapses the seq `rows`. Uses `split-pred` to chunk the seq,
   passes in each chunk to `collapse-fn`. Each result of `collapse-fn` is an item in
@@ -134,3 +134,32 @@
     (let [[certname-facts more-rows] (split-with (split-pred rows) rows)]
       (cons (collapse-fn certname-facts)
             (lazy-seq (collapse-seq split-pred collapse-fn more-rows))))))
+
+(def base-url-schema
+  {:protocol s/Str
+   :host s/Str
+   :port s/Int
+   (s/optional-key :prefix) s/Str
+   (s/optional-key :version) (s/both
+                              s/Keyword
+                              (s/pred #(and (keyword? %)
+                                            (re-matches #"v\d+" (name %)))
+                                      'valid-version?))})
+
+(pls/defn-validated base-url->str :- s/Str
+  "Converts the `base-url' map to an ASCII URL.  May throw
+   MalformedURLException or URISyntaxException."
+  [{:keys [protocol host port prefix version] :as base-url} :- base-url-schema]
+  (-> (URL. protocol host port
+            (str (when-not (empty? prefix) (str "/" prefix))
+                 "/" (name (or version :v4))))
+    .toURI .toASCIIString))
+
+(defn describe-bad-base-url [base-url]
+  "If a problem is detected with `base-url`, returns a string
+  describing the issue. For example {:host \"x:y\" ...}."
+  (try
+    (base-url->str base-url)
+    false
+    (catch MalformedURLException ex (.getLocalizedMessage ex))
+    (catch URISyntaxException ex (.getLocalizedMessage ex))))

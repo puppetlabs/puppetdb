@@ -44,17 +44,12 @@
 
 (defn-validated catalog-for-node :- (s/maybe s/Str)
   "Given a node name, retrieve the catalog for the node."
-  ([host port node] (catalog-for-node host port api-version node))
-  ([host :- s/Str
-    port :- s/Int
-    version
-    node :- s/Str]
-     (let [{:keys [status body]} (client/get
-                                  (format
-                                   "http://%s:%s/%s/catalogs/%s"
-                                   host port (name version) (url-encode node))
-                                  {:accept :json})]
-       (when (= status 200) body))))
+  [base-url :- utils/base-url-schema
+   node :- s/Str]
+  (let [base-url (merge {:version api-version} base-url)
+        src (str (utils/base-url->str base-url) "/catalogs/" (url-encode node))
+        {:keys [status body]} (client/get src {:accept :json})]
+    (when (= status 200) body)))
 
 (defn-validated catalog->tar :- utils/tar-item
   "Create a tar-item map for the `catalog`"
@@ -75,25 +70,22 @@
 
 (defn-validated facts-for-node
   :- {s/Keyword s/Any}
-  "Supplying host, port, and optionally version,
-   retrieve the factset for a given certname `node`"
-  ([host port node] (facts-for-node host port api-version node))
-  ([host :- String
-    port :- s/Int
-    version :- s/Keyword
-    node :- String]
-     (when-let [facts (first (parse-response
-                              (client/get
-                               (format
-                                "http://%s:%s/%s/factsets?query=%s"
-                                host port (name version)
-                                (url-encode
-                                 (format "[\"=\",\"certname\",\"%s\"]" node)))
-                               {:accept :json})))]
-       {:name node
-        :values (:facts facts)
-        :environment (:environment facts)
-        :producer-timestamp (:producer-timestamp facts)})))
+  "Retrieves the factset for a given certname `node` from `base-url`."
+  [base-url :- utils/base-url-schema
+   node :- String]
+  (let [base-url (merge {:version api-version} base-url)]
+    (when-let [facts (first
+                      (parse-response
+                       (client/get
+                        (str (utils/base-url->str base-url)
+                             "/factsets?query="
+                             (url-encode
+                              (format "[\"=\",\"certname\",\"%s\"]" node)))
+                        {:accept :json})))]
+      {:name node
+       :values (:facts facts)
+       :environment (:environment facts)
+       :producer-timestamp (:producer-timestamp facts)})))
 
 (defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -108,42 +100,39 @@
 
 (defn-validated events-for-report-hash :- (s/pred seq? 'seq?)
   "Given a report hash, returns all events as a vector of maps."
-  ([host port report-hash] (events-for-report-hash host port api-version report-hash))
-  ([host :- s/Str
-    port :- s/Int
-    version
-    report-hash :- s/Str]
-     (let [body (parse-response
-                 (client/get
-                  (format
-                   "http://%s:%s/%s/events?query=%s"
-                   host port (name version)
-                   (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
-       (sort-by
-        #(mapv % [:timestamp :resource-type :resource-title :property])
-        (map
-         #(dissoc % :report :certname :configuration-version :containing-class
-                  :run-start-time :run-end-time :report-receive-time :environment)
-         body)))))
+  [base-url :- utils/base-url-schema
+   report-hash :- s/Str]
+  (let [base-url (merge {:version api-version} base-url)
+        body (parse-response
+              (client/get
+               (str (utils/base-url->str base-url)
+                    "/events?query="
+                    (url-encode (format "[\"=\",\"report\",\"%s\"]"
+                                        report-hash)))))]
+    (sort-by
+     #(mapv % [:timestamp :resource-type :resource-title :property])
+     (map
+      #(dissoc % :report :certname :configuration-version :containing-class
+               :run-start-time :run-end-time :report-receive-time :environment)
+      body))))
 
 (defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
   "Given a node name, retrieves the reports for the node."
-  ([host port node] (reports-for-node host port api-version node))
-  ([host :- s/Str
-    port :- s/Int
-    version
-    node :- s/Str]
-     (when-let [body (parse-response
-                      (client/get
-                       (format
-                        "http://%s:%s/%s/reports?query=%s"
-                        host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
-                       {:accept :json}))]
+  [base-url :- utils/base-url-schema
+   node :- s/Str]
+  (let [base-url (merge {:version api-version} base-url)]
+    (when-let [body (parse-response
+                     (client/get
+                      (str (utils/base-url->str base-url)
+                           "/reports?query="
+                           (url-encode (format "[\"=\",\"certname\",\"%s\"]"
+                                               node)))
+                      {:accept :json}))]
+      (map
+       #(dissoc % :receive-time)
        (map
-        #(dissoc % :receive-time)
-        (map
-         #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
-         body)))))
+        #(merge % {:resource-events (events-for-report-hash base-url (get % :hash))})
+        body)))))
 
 (defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
@@ -169,25 +158,21 @@
       :catalog [utils/tar-item]}
   "Returns tar-item maps for the reports, facts and catalog of the given
    node, ready for being written to the filesystem"
-  [host :- String
-   port :- s/Int
+  [base-url :- utils/base-url-schema
    {:keys [certname] :as node-data} :- node-map]
   {:node certname
    :facts (when-not (str/blank? (:facts-timestamp node-data))
-            [(facts->tar certname (facts-for-node host port certname))])
+            [(facts->tar certname (facts-for-node base-url certname))])
    :reports (when-not (str/blank? (:report-timestamp node-data))
-              (report->tar certname (reports-for-node host port certname)))
+              (report->tar certname (reports-for-node base-url certname)))
    :catalog (when-not (str/blank? (:catalog-timestamp node-data))
-              [(catalog->tar certname (catalog-for-node host port certname))])})
+              [(catalog->tar certname (catalog-for-node base-url certname))])})
 
 (defn-validated get-nodes :- (s/maybe (s/pred seq? 'seq?))
   "Get a list of the names of all active nodes."
-  [host :- s/Str
-   port :- s/Int]
-  (parse-response
-   (client/get
-    (format "http://%s:%s/%s/nodes" host port (name api-version))
-    {:accept :json})))
+  [base-url :- utils/base-url-schema]
+  (parse-response (client/get (str (utils/base-url->str base-url) "/nodes")
+                              {:accept :json})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
@@ -213,7 +198,9 @@
   [args]
   (let [specs    [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
                   ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
-                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
+                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]
+                  ["" "--url-prefix PREFIX" "Server prefix (HTTP protocol only)"
+                   :default ""]]
         required [:outfile]]
     (try+
      (kitchensink/cli! args specs required)
@@ -225,13 +212,17 @@
 
 (defn -main
   [& args]
-  (let [[{:keys [outfile host port]} _] (validate-cli! args)
-        nodes (get-nodes host port)]
+  (let [[{:keys [outfile host port url-prefix] :as opts} _] (validate-cli! args)
+        src {:protocol "http" :host host :port port :prefix url-prefix}
+        _ (when-let [why (utils/describe-bad-base-url src)]
+            (binding [*out* *err*] (printf "Invalid source (%s)\n" why))
+            (System/exit 1))
+        nodes (get-nodes src)]
     ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
     (with-open [tar-writer (archive/tarball-writer outfile)]
       (utils/add-tar-entry tar-writer (export-metadata))
       (doseq [node nodes
-              :let [node-data (get-node-data host port node)]]
+              :let [node-data (get-node-data src node)]]
         (doseq [{:keys [msg] :as tar-item} (mapcat node-data [:catalog :reports :facts])]
           (println msg)
           (utils/add-tar-entry tar-writer tar-item))))))

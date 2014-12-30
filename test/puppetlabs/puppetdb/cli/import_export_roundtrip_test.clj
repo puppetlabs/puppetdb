@@ -23,7 +23,7 @@
             [clojure.tools.logging.impl :as li]
             [puppetlabs.puppetdb.client :as pdb-client]
             [slingshot.slingshot :refer [throw+]]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]))
+            [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]))
 
 (use-fixtures :each fixt/with-test-logging-silenced)
 
@@ -37,8 +37,9 @@
 
 (defn submit-command
   "Submits a command to the running PuppetDB, launched by `puppetdb-instance`."
-  [cmd-kwd version payload]
-  (pdb-client/submit-command-via-http! "localhost" jutils/*port* (command-names cmd-kwd) version payload))
+  [base-url cmd-kwd version payload]
+  (pdb-client/submit-command-via-http! base-url
+                                       (command-names cmd-kwd) version payload))
 
 (defn block-until-results-fn
   "Executes `f`, if results are found, return them, otherwise
@@ -77,16 +78,17 @@
 (defn block-on-node
   "Waits for the queue to be empty, then blocks until the catalog, facts and reports are all
    found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
-  [node-name]
+  [base-url node-name]
   (block-until-queue-empty)
-  (let [catalog-fut (block-until-results 100  (export/catalog-for-node "localhost" jutils/*port* node-name))
-        report-fut (block-until-results 100 (export/reports-for-node "localhost" jutils/*port* node-name))
-        facts-fut (block-until-results 100 (export/facts-for-node "localhost" jutils/*port* node-name))]
+  (let [catalog-fut (block-until-results 100 (export/catalog-for-node base-url node-name))
+        report-fut (block-until-results 100 (export/reports-for-node base-url node-name))
+        facts-fut (block-until-results 100 (export/facts-for-node base-url node-name))]
     @catalog-fut
     @report-fut
     @facts-fut))
 
-(deftest test-basic-roundtrip
+(defn- test-basic-roundtrip
+  [url-prefix]
   (let [facts {:name "foo.local"
                :environment "DEV"
                :values {:foo "the foo"
@@ -97,55 +99,79 @@
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [5 :empty])
                     (assoc :name "foo.local"))
-        report (:basic reports)]
+        report (:basic reports)
+        with-server #(jutils/puppetdb-instance
+                      (if (empty? url-prefix)
+                        (jutils/create-config)
+                        (assoc-in (jutils/create-config)
+                                  [:global :url-prefix] url-prefix))
+                      %)]
 
-    (jutils/with-puppetdb-instance
-      (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-      (submit-command :replace-catalog 5 catalog)
-      (submit-command :store-report 3 (tur/munge-example-report-for-storage report))
-      (submit-command :replace-facts 3 facts)
+    (with-server
+      (fn []
+        (is (empty? (export/get-nodes *base-url*)))
+        (submit-command *base-url* :replace-catalog 5 catalog)
+        (submit-command *base-url* :store-report 3
+                        (tur/munge-example-report-for-storage report))
+        (submit-command *base-url* :replace-facts 3 facts)
 
-      (block-on-node (:name facts))
+        (block-on-node *base-url* (:name facts))
 
-      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
-                  (-> catalog
+        (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                    (-> catalog
                       (dissoc :hash)
                       utils/vector-maybe))
-             (map (partial tuc/munge-catalog-for-comparison :v5)
-                  (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
+               (map (partial tuc/munge-catalog-for-comparison :v5)
+                    (-> (export/catalog-for-node *base-url* (:name catalog))
                       (json/parse-string true)
                       (dissoc :hash)
                       utils/vector-maybe))))
 
-      (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
-             (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
-                                                  first
-                                                  tur/munge-example-report-for-storage))))
-      (is (= facts (export/facts-for-node "localhost" jutils/*port* "foo.local")))
+        (is (= (tur/munge-report-for-comparison
+                (tur/munge-example-report-for-storage report))
+               (tur/munge-report-for-comparison
+                (-> (export/reports-for-node *base-url* (:certname report))
+                  first
+                  tur/munge-example-report-for-storage))))
+        (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
-      (export/-main "--outfile" export-out-file "--host" "localhost" "--port" jutils/*port*))
+        (apply export/-main
+               "--outfile" export-out-file
+               "--host" (:host *base-url*) "--port" (:port *base-url*)
+               (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))) )
 
-    (jutils/with-puppetdb-instance
+    (with-server
+      (fn []
+        (is (empty? (export/get-nodes *base-url*)))
+        (apply import/-main
+               "--infile" export-out-file
+               "--host" (:host *base-url*) "--port" (:port *base-url*)
+               (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))
 
-      (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-        (import/-main "--infile" export-out-file "--host" "localhost" "--port" jutils/*port*)
+        (block-on-node *base-url* (:name facts))
 
-      (block-on-node (:name facts))
-
-      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
-                  (-> catalog
+        (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                    (-> catalog
                       (dissoc :hash)
                       utils/vector-maybe))
-             (map (partial tuc/munge-catalog-for-comparison :v5)
-                  (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
+               (map (partial tuc/munge-catalog-for-comparison :v5)
+                    (-> (export/catalog-for-node *base-url* (:name catalog))
                       (json/parse-string true)
                       (dissoc :hash)
                       utils/vector-maybe))))
-      (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
-             (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
-                                                  first
-                                                  tur/munge-example-report-for-storage))))
-      (is (= facts (export/facts-for-node "localhost" jutils/*port* "foo.local"))))))
+        (is (= (tur/munge-report-for-comparison
+                (tur/munge-example-report-for-storage report))
+               (tur/munge-report-for-comparison
+                (-> (export/reports-for-node *base-url* (:certname report))
+                  first
+                  tur/munge-example-report-for-storage))))
+        (is (= facts (export/facts-for-node *base-url* "foo.local")))))))
+
+(deftest basic-roundtrip
+  (test-basic-roundtrip nil))
+
+(deftest url-prefixed-roundtrip
+  (test-basic-roundtrip "foo"))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [5 :empty])
@@ -153,7 +179,11 @@
     (jutils/puppetdb-instance
      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
-       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-       (submit-command :replace-catalog 5 catalog)
-       (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port*  "foo.local")))))))))
+       (is (empty? (export/get-nodes *base-url*)))
+       (submit-command *base-url* :replace-catalog 5 catalog)
+       (is (thrown-with-msg?
+            java.util.concurrent.ExecutionException #"Results not found"
+            @(block-until-results 5
+                                  (json/parse-string
+                                   (export/catalog-for-node *base-url*
+                                                            "foo.local")))))))))

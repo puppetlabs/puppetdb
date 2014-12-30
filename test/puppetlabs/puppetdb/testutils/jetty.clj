@@ -8,10 +8,13 @@
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
+            [puppetlabs.puppetdb.utils :as utils]
+            [clj-http.client :as client]
             [puppetlabs.puppetdb.config :as conf]
-            [clj-http.client :as client]))
+            [clj-http.util :refer [url-encode]]))
 
-(def ^:dynamic *port* nil)
+;; See utils.clj for more information about base-urls.
+(def ^:dynamic *base-url* nil) ; Will not have a :version.
 
 (defn create-config
   "Creates a default config, populated with a temporary vardir and
@@ -21,15 +24,7 @@
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}
-   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service ""}})
-
-(defn current-url
-  "Uses the dynamically bound port to create a v4 URL to the
-   currently running PuppetDB instance"
-  ([] (current-url "/v4/"))
-  ([suffix]
-     (format "http://localhost:%s%s" *port* suffix)))
+   :command-processing {}})
 
 (defn current-port
   "Given a trapperkeeper server, return the port of the running jetty instance.
@@ -46,15 +41,21 @@
 
 (defn puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
-   If the port is assigned by Jetty, use *port* to get the currently running port."
+   Adjusts *server* and *base-url* to refer to the instance."
   ([f] (puppetdb-instance (create-config) f))
   ([config f]
-   (let [config (conf/adjust-tk-config config)]
+   (let [config (conf/adjust-tk-config config)
+         prefix (get-in config
+                        [:web-router-service
+                         :puppetlabs.puppetdb.cli.services/puppetdb-service])]
      (tkbs/with-app-with-config server
        [jetty9-service puppetdb-service message-listener-service command-service webrouting-service]
        config
-       (binding [*port* (current-port server)
-                 *server* server]
+       (binding [*server* server
+                 *base-url* (merge {:protocol "http"
+                                    :host "localhost"
+                                    :port (current-port server)}
+                                   (when prefix {:prefix prefix}))]
          (f))))))
 
 (defmacro with-puppetdb-instance
@@ -67,6 +68,9 @@
 (defn current-queue-depth
   "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
   []
-  (-> (format "%smetrics/mbean/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands" (current-url))
+  (-> (str (utils/base-url->str *base-url*)
+           "/metrics/mbean/org.apache.activemq:BrokerName="
+           (url-encode (:host *base-url*))
+           ",Type=Queue,Destination=puppetlabs.puppetdb.commands")
       (client/get {:as :json})
       (get-in [:body :QueueSize])))

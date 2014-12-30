@@ -68,3 +68,7 @@
         keys         (walk/keywordize-keys sample-data1)]
     (is (= sample-data1 (stringify-keys keys)))
     (is (= {"foo/bar" "data" "fuz/bash" "data2"} (stringify-keys sample-data2)))))
+
+(deftest describe-bad-base-url-behavior
+  (is (not (describe-bad-base-url {:protocol "http" :host "xy" :port 0})))
+  (is (string? (describe-bad-base-url {:protocol "http" :host "x:y" :port 0}))))
