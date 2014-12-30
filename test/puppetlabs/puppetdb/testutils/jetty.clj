@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
+            [puppetlabs.puppetdb.config :as conf]
             [clj-http.client :as client]))
 
 (def ^:dynamic *port* nil)
@@ -20,8 +21,7 @@
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}
-   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service "/"}})
+   :command-processing {}})
 
 (defn current-url
   "Uses the dynamically bound port to create a v4 URL to the
@@ -48,12 +48,13 @@
    If the port is assigned by Jetty, use *port* to get the currently running port."
   ([f] (puppetdb-instance (create-config) f))
   ([config f]
+   (let [config (conf/adjust-tk-config config)]
      (tkbs/with-app-with-config server
        [jetty9-service puppetdb-service message-listener-service command-service webrouting-service]
        config
        (binding [*port* (current-port server)
                  *server* server]
-         (f)))))
+         (f))))))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
