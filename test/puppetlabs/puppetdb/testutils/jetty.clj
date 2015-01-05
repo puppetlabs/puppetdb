@@ -17,11 +17,12 @@
   "Creates a default config, populated with a temporary vardir and
    a fresh hypersql instance"
   []
-  {:repl {}
+  {:nrepl {}
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}})
+   :command-processing {}
+   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service ""}})
 
 (defn current-url
   "Uses the dynamically bound port to create a v4 URL to the

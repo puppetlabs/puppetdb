@@ -228,7 +228,7 @@
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
 
 (defn start-puppetdb
-  [context config service add-ring-handler shutdown-on-error]
+  [context config service add-ring-handler get-route shutdown-on-error]
   {:pre [(map? context)
          (map? config)
          (ifn? add-ring-handler)
@@ -239,7 +239,7 @@
          :as config}                            (conf/process-config! config)
          product-name                               (:product-name global)
          update-server                              (:update-server global)
-         url-prefix                                 (:url-prefix global)
+         url-prefix                                 (get-route service)
          write-db                                   (pl-jdbc/pooled-datasource database)
          read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
          gc-interval                                (get database :gc-interval)
@@ -336,11 +336,11 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:ConfigService get-config]
-   [:WebroutingService add-ring-handler]
+   [:WebroutingService add-ring-handler get-route]
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
-         (start-puppetdb context (get-config) this add-ring-handler shutdown-on-error))
+         (start-puppetdb context (get-config) this add-ring-handler get-route shutdown-on-error))
 
   (stop [this context]
         (stop-puppetdb context))
