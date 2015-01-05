@@ -11,6 +11,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
     Puppet::Util::Puppetdb.stubs(:port).returns 0
+    Puppet::Util::Puppetdb.create_environmentdir("my_environment")
   end
 
   describe "#save" do
