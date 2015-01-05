@@ -356,23 +356,26 @@
 
 (defn add-web-routing-config
   [config-data]
-  (let [prefix (get-in config-data [:global :url-prefix] "/")]
+  (let [prefix (normalize-url-prefix (get-in config-data [:global :url-prefix]
+                                             ""))]
     (assoc-in config-data [:web-router-service
                            :puppetlabs.puppetdb.cli.services/puppetdb-service] prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
+(defn adjust-tk-config [config]
+  (-> config
+    warn-repl-retirement
+    default-ssl-protocols
+    add-web-routing-config))
+
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
    trapperkeeper configuration before it is used, so that we may munge &
    customize it."
   [f args]
-  (let [config (f args)]
-    (-> config
-        warn-repl-retirement
-        default-ssl-protocols
-        add-web-routing-config)))
+  (adjust-tk-config (f args)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values
