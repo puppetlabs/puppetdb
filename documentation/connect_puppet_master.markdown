@@ -120,7 +120,7 @@ Create it if necessary, and add the following:
 
 ## Step 3: Set Security Policy
 
-PuppetDB listens on tcp port 8081 (https). Ensure these ports are open between
+PuppetDB listens on tcp port 8081 (https). Ensure this port is open between
 the Master and DB services. If the services run on the same server, no
 additional configuration may be needed. If the services are on separate
 servers, ensure the server and network firewalls allow the traffic flow.
