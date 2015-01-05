@@ -32,6 +32,15 @@ module Puppet::Util::Puppetdb
     defined?(Puppet::Parser::AST::HashOrArrayAccess)
   end
 
+  def self.create_environmentdir(environment)
+    if not puppet3compat?
+      envdir = File.join(Puppet[:environmentpath], environment)
+      if not Dir.exists?(envdir)
+        Dir.mkdir(envdir)
+      end
+    end
+  end
+
   # Given an instance of ruby's Time class, this method converts it to a String
   # that conforms to PuppetDB's wire format for representing a date/time.
   def self.to_wire_time(time)
