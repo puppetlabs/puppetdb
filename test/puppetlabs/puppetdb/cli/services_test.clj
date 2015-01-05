@@ -61,6 +61,22 @@
        (let [response (client/get (jutils/current-url "/puppetdb/v4/version"))]
          (is (= 200 (:status response))))))))
 
+(defn- check-service-query
+  [endpoint version q pagination check-result]
+  (let [pdb-service (get-service jutils/*server* :PuppetDBServer)
+        results (atom nil)
+        before-slurp? (atom nil)
+        after-slurp? (atom nil)]
+    (query pdb-service endpoint version q pagination
+           (fn [f]
+             (f
+              (fn [result-set]
+                (reset! before-slurp? (realized? result-set))
+                (reset! results result-set)
+                (reset! after-slurp? (realized? result-set))))))
+    (is (false? @before-slurp?))
+    (check-result @results)
+    (is (false? @after-slurp?))))
 
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
@@ -70,30 +86,49 @@
                                                :bar "the bar"
                                                :baz "the baz"}
                                       :producer-timestamp (to-string (now))})
-
     @(block-until-results 100 (export/facts-for-node "localhost" jutils/*port* "foo.local"))
-    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)
-          results (atom nil)
-          before-slurp? (atom nil)
-          after-slurp? (atom nil)]
-      (query pdb-service :facts :v4 ["=" "certname" "foo.local"] (fn [f]
-                                                                   (f
-                                                                    (fn [result-set]
-                                                                      (reset! before-slurp? (realized? result-set))
-                                                                      (reset! results result-set)
-                                                                      (reset! after-slurp? (realized? result-set))))))
-      (is (false? @before-slurp?))
-      (is (= #{{:value "the baz",
-                :name "baz",
-                :environment "DEV",
-                :certname "foo.local"}
-               {:value "the bar",
-                :name "bar",
-                :environment "DEV",
-                :certname "foo.local"}
-               {:value "the foo",
-                :name "foo",
-                :environment "DEV",
-                :certname "foo.local"}}
-             (set @results)))
-      (is (false? @after-slurp?)))))
+    (check-service-query
+     :facts :v4 ["=" "certname" "foo.local"]
+     nil
+     (fn [result]
+       (is (= #{{:value "the baz",
+               :name "baz",
+                 :environment "DEV",
+                 :certname "foo.local"}
+                {:value "the bar",
+                 :name "bar",
+                 :environment "DEV",
+                 :certname "foo.local"}
+                {:value "the foo",
+                 :name "foo",
+                 :environment "DEV",
+                 :certname "foo.local"}}
+              (set result)))))))
+
+(deftest pagination-via-puppdbserver-service
+  (jutils/with-puppetdb-instance
+    (submit-command :replace-facts 3 {:name "foo.local"
+                                      :environment "DEV"
+                                      :values {:a "a" :b "b" :c "c"}
+                                      :producer-timestamp (to-string (now))})
+    @(block-until-results 100 (export/facts-for-node "localhost"
+                                                     jutils/*port*
+                                                     "foo.local"))
+    (let [exp ["a" "b" "c"]
+          rexp (reverse exp)]
+      (doseq [order [:ascending :descending]
+              offset (range (dec (count exp)))
+              limit (range 1 (count exp))]
+        (let [expected (take limit
+                             (drop offset (if (= order :ascending) exp rexp)))]
+          (check-service-query
+           :facts :v4 ["=" "certname" "foo.local"]
+           {:order-by [[:name order]]
+            :offset offset
+            :limit limit}
+           (fn [result]
+             (is (= (map #(hash-map :name % :value %
+                                    :environment "DEV",
+                                    :certname "foo.local")
+                         expected)
+                    result)))))))))
