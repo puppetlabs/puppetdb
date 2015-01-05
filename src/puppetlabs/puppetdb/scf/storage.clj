@@ -745,12 +745,12 @@
   []
   (time! (:gc-environments metrics)
          (sql/delete-rows :environments
-                          ["ID NOT IN
-              (SELECT environment_id FROM catalogs
-               UNION ALL
-               SELECT environment_id FROM reports
-               UNION ALL
-               SELECT environment_id FROM factsets)"])))
+           ["ID NOT IN
+              (SELECT environment_id FROM catalogs WHERE environment_id IS NOT NULL
+               UNION
+               SELECT environment_id FROM reports WHERE environment_id IS NOT NULL
+               UNION
+               SELECT environment_id FROM factsets WHERE environment_id IS NOT NULL)"])))
 
 (defn delete-unassociated-statuses!
   "Remove any statuses that aren't associated with a report"

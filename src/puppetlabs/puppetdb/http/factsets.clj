@@ -28,16 +28,7 @@
   [query-app]
   (app
    []
-   (verify-accepts-json query-app)
-
-   [fact value &]
-   (comp query-app
-         (partial http-q/restrict-fact-query-to-name fact)
-         (partial http-q/restrict-fact-query-to-value value))
-
-   [fact &]
-   (comp query-app
-         (partial http-q/restrict-fact-query-to-name fact))))
+   (verify-accepts-json query-app)))
 
 (defn factset-app
   [version]
