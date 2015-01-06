@@ -17,7 +17,7 @@ export BEAKER_XML=true
 export PUPPETDB_INSTALL_TYPE=package
 export PUPPETDB_USE_PROXIES=false
 export BEAKER_project=PuppetDB
-export BEAKER_department=Engineering
+export BEAKER_department=eso-dept
 export BEAKER_PRESERVE_HOSTS=onfail
 
 # S3 params
