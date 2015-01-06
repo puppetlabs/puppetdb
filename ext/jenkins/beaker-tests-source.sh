@@ -21,7 +21,7 @@ export BEAKER_COLOR=false
 export BEAKER_XML=true
 export PUPPETDB_USE_PROXIES=false
 export BEAKER_project=PuppetDB
-export BEAKER_department=Engineering
+export BEAKER_department=eso-dept
 
 # Remove old vendor directory to ensure we have a clean slate
 if [ -d "vendor" ];
