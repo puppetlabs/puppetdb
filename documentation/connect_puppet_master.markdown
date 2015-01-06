@@ -122,7 +122,16 @@ Create it if necessary, and add the following:
         terminus: puppetdb
         cache: yaml
 
-## Step 3: Restart Puppet Master
+## Step 3: Set Security Policy
+
+PuppetDB listens on tcp port 8081 (https). Ensure this port is open between
+the Master and DB services. If the services run on the same server, no
+additional configuration may be needed. If the services are on separate
+servers, ensure the server and network firewalls allow the traffic flow.
+
+PuppetDB works without modification with SELinux in enforcing mode.
+
+## Step 4: Restart Puppet Master
 
 Use your system's service tools to restart the puppet master service. For open source users, the command to do this will vary depending on the front-end web server being used.
 
