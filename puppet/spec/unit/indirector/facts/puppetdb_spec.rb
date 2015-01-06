@@ -15,6 +15,7 @@ describe Puppet::Node::Facts::Puppetdb do
     Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
     Puppet::Util::Puppetdb.stubs(:port).returns 0
     Puppet::Node::Facts.indirection.stubs(:terminus).returns(subject)
+    create_environmentdir("my_environment")
   end
 
   describe "#save" do

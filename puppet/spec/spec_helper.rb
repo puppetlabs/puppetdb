@@ -10,9 +10,17 @@ require 'puppetlabs_spec_helper/puppet_spec_helper'
 require 'tmpdir'
 require 'fileutils'
 require 'puppet'
+require 'puppet/util/puppetdb'
 require 'puppet/util/log'
-require 'puppet/util/puppetdb/command'
 
+def create_environmentdir(environment)
+  if not Puppet::Util::Puppetdb.puppet3compat?
+    envdir = File.join(Puppet[:environmentpath], environment)
+    if not Dir.exists?(envdir)
+      Dir.mkdir(envdir)
+    end
+  end
+end
 
 RSpec.configure do |config|
 
