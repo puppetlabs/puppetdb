@@ -2,6 +2,8 @@
 (use '[clojure.java.shell :only (sh)]
      '[clojure.java.io :only (file)])
 
+(def pdb-version "3.0.0-SNAPSHOT")
+
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
    password for Nexus supplied as environment variables."
@@ -15,7 +17,7 @@
 (def tk-jetty9-version "0.9.0")
 (def ks-version "0.7.2")
 
-(defproject puppetlabs/puppetdb "3.0.0-SNAPSHOT"
+(defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
 
   :license {:name "Apache License, Version 2.0"
@@ -96,6 +98,15 @@
   :lein-release {:scm        :git
                  :deploy-via :lein-deploy}
 
+  :uberjar-name "puppetdb-release.jar"
+  :lein-ezbake {:vars {:user "puppetdb"
+                       :group "puppetdb"
+                       :build-type "foss"
+                       :main-namespace "puppetlabs.puppetdb.main"
+                       :create-varlib true}
+                :config-dir "ext/config"
+                }
+
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
 
@@ -106,6 +117,11 @@
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
                                   [org.clojure/test.check "0.5.8"]]}
+             :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
+                                               [org.clojure/tools.nrepl "0.2.3"]]
+                      :name "puppetdb"
+                      :plugins [[puppetlabs/lein-ezbake "0.1.0-SNAPSHOT"
+                                 :exclusions [org.clojure/clojure]]]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
