@@ -1,5 +1,5 @@
 # The tar task for creating a tarball of puppetdb
-JAR_FILE_V = "puppetdb-#{@version}-standalone.jar"
+JAR_FILE_V = "puppetdb-release.jar"
 
 # JAR_FILE the constant is defined in Rakefile
 #
