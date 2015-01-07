@@ -13,7 +13,7 @@
             [clojure.java.io :as io]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.archive :as archive]
-            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [schema.core :as s]
             [clojure.string :as str]
             [puppetlabs.puppetdb.utils :as utils]
@@ -40,14 +40,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Exporting
 
-(defn catalog-for-node
+(defn-validated catalog-for-node :- (s/maybe s/Str)
   "Given a node name, retrieve the catalog for the node."
   ([host port node] (catalog-for-node host port :v4 node))
-  ([host port version node]
-     {:pre  [(string? host)
-             (integer? port)
-             (string? node)]
-      :post [((some-fn string? nil?) %)]}
+  ([host :- s/Str
+    port :- s/Int
+    version
+    node :- s/Str]
      (let [{:keys [status body]} (client/get
                                   (format
                                    "http://%s:%s/%s/catalogs/%s"
@@ -55,7 +54,7 @@
                                   {:accept :json})]
        (when (= status 200) body))))
 
-(pls/defn-validated catalog->tar :- utils/tar-item
+(defn-validated catalog->tar :- utils/tar-item
   "Create a tar-item map for the `catalog`"
   [node :- String
    catalog-json-str :- String]
@@ -72,14 +71,11 @@
   (when (= status 200)
     (seq (json/parse-string body true))))
 
-(pls/defn-validated facts-for-node
+(defn-validated facts-for-node
   :- {s/Keyword s/Any}
   "Supplying host, port, and optionally version,
    retrieve the factset for a given certname `node`"
-  ([host :- String
-    port :- s/Int
-    node :- String]
-     (facts-for-node host port :v4 node))
+  ([host port node] (facts-for-node host port :v4 node))
   ([host :- String
     port :- s/Int
     version :- s/Keyword
@@ -97,7 +93,7 @@
         :environment (:environment facts)
         :producer-timestamp (:producer-timestamp facts)})))
 
-(pls/defn-validated facts->tar :- utils/tar-item
+(defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
   [node :- String
    facts :- {s/Keyword s/Any}]
@@ -108,14 +104,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Report Exporting
 
-(defn events-for-report-hash
+(defn-validated events-for-report-hash :- (s/pred seq? 'seq?)
   "Given a report hash, returns all events as a vector of maps."
   ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
-  ([host port version report-hash]
-     {:pre [(string? host)
-            (integer? port)
-            (string? report-hash)]
-      :post [(seq? %)]}
+  ([host :- s/Str
+    port :- s/Int
+    version
+    report-hash :- s/Str]
      (let [body (parse-response
                  (client/get
                   (format
@@ -129,14 +124,13 @@
                   :run-start-time :run-end-time :report-receive-time :environment)
          body)))))
 
-(defn reports-for-node
+(defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
   "Given a node name, retrieves the reports for the node."
   ([host port node] (reports-for-node host port :v4 node))
-  ([host port version node]
-     {:pre  [(string? host)
-             (integer? port)
-             (string? node)]
-      :post [(or (nil? %) (seq? %))]}
+  ([host :- s/Str
+    port :- s/Int
+    version
+    node :- s/Str]
      (when-let [body (parse-response
                       (client/get
                        (format
@@ -149,7 +143,7 @@
          #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
          body)))))
 
-(pls/defn-validated report->tar :- [utils/tar-item]
+(defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
   [node :- String
    reports :- [{:configuration-version s/Any
@@ -166,7 +160,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Node Exporting
 
-(pls/defn-validated get-node-data
+(defn-validated get-node-data
   :- {:node String
       :facts [utils/tar-item]
       :reports [utils/tar-item]
@@ -184,12 +178,10 @@
    :catalog (when-not (str/blank? (:catalog-timestamp node-data))
               [(catalog->tar certname (catalog-for-node host port certname))])})
 
-(defn get-nodes
+(defn-validated get-nodes :- (s/maybe (s/pred seq? 'seq?))
   "Get a list of the names of all active nodes."
-  [host port]
-  {:pre  [(string? host)
-          (integer? port)]
-   :post [((some-fn nil? seq?) %)]}
+  [host :- s/Str
+   port :- s/Int]
   (parse-response
    (client/get
     (format "http://%s:%s/v4/nodes" host port)
@@ -198,7 +190,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
 
-(pls/defn-validated ^:dynamic export-metadata :- utils/tar-item
+(defn-validated ^:dynamic export-metadata :- utils/tar-item
   "Metadata about this export; used during import to ensure version compatibility."
   []
   {:msg (str "Exporting PuppetDB metadata")

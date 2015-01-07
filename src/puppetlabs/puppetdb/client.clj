@@ -6,24 +6,26 @@
             [clj-http.client :as http-client]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink]))
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [schema.core :as s]))
 
-(defn submit-command-via-http!
+(defn-validated submit-command-via-http!
   "Submits `payload` as a valid command of type `command` and
   `version` to the PuppetDB instance specified by `host` and
   `port`. The `payload` will be converted to JSON before
   submission. Alternately accepts a command-map object (such as those
   returned by `parse-command`). Returns the server response."
-  ([host port command version payload]
-     {:pre [(string? command)
-            (integer? version)]}
+  ([host port
+    command :- s/Str
+    version :- s/Int
+    payload]
      (->> payload
           (command/assemble-command command version)
           (submit-command-via-http! host port)))
-  ([host port command-map]
-     {:pre [(string? host)
-            (integer? port)
-            (map? command-map)]}
+  ([host :- s/Str
+    port :- s/Int
+    command-map :- {s/Any s/Any}]
      (let [message (json/generate-string command-map)
            checksum (kitchensink/utf8-string->sha1 message)
            url (format "http://%s:%s/v4/commands?checksum=%s" host port checksum)]
@@ -33,14 +35,13 @@
                               :character-encoding "UTF-8"
                               :accept             :json}))))
 
-(defn submit-catalog
+(defn-validated submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port command-version catalog-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (integer? command-version)
-          (string?  catalog-payload)]}
+  [puppetdb-host :- s/Str
+   puppetdb-port :- s/Int
+   command-version :- s/Int
+   catalog-payload :- s/Str]
   (let [result (submit-command-via-http!
                 puppetdb-host puppetdb-port
                 (command-names :replace-catalog) command-version
@@ -48,14 +49,13 @@
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
-(defn submit-report
+(defn-validated submit-report
   "Send the given wire-format `report` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port command-version report-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (integer? command-version)
-          (string?  report-payload)]}
+  [puppetdb-host :- s/Str
+   puppetdb-port :- s/Int
+   command-version :- s/Int
+   report-payload :- s/Str]
   (let [payload (-> report-payload
                     json/parse-string
                     reports/sanitize-report)
@@ -66,13 +66,13 @@
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
-(defn submit-facts
+(defn-validated submit-facts
   "Send the given wire-format `facts` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
-  [puppetdb-host puppetdb-port facts-version fact-payload]
-  {:pre  [(string?  puppetdb-host)
-          (integer? puppetdb-port)
-          (string?  fact-payload)]}
+  [puppetdb-host :- s/Str
+   puppetdb-port :- s/Int
+   facts-version
+   fact-payload :- s/Str]
   (let [payload (case facts-version
                   1 fact-payload
                   (json/parse-string fact-payload))

@@ -11,9 +11,11 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
             [slingshot.slingshot :refer [try+]]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :refer [export-root-dir]]
             [puppetlabs.kitchensink.core :refer [cli!]]
-            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]))
+            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
+            [schema.core :as s]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")
 
@@ -44,15 +46,14 @@
       (json/parse-string (archive/read-entry-content tar-reader) true))))
 
 
-(defn process-tar-entry
+(defn-validated process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
-  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry host port metadata]
-  {:pre  [(instance? TarGzReader tar-reader)
-          (instance? TarArchiveEntry tar-entry)
-          (string? host)
-          (integer? port)
-          (map? metadata)]}
+  [^TarGzReader tar-reader :- TarGzReader
+   ^TarArchiveEntry tar-entry :- TarArchiveEntry
+   host :- s/Str
+   port :- s/Int
+   metadata :- {s/Any s/Any}]
   (let [path    (.getName tar-entry)
         catalog-pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")
         report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")
