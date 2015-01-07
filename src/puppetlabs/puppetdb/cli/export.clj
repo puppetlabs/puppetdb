@@ -21,6 +21,8 @@
             [clj-time.core :refer [now]]
             [clj-http.util :refer [url-encode]]))
 
+(def ^:private api-version :v4)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
 
@@ -42,7 +44,7 @@
 
 (defn-validated catalog-for-node :- (s/maybe s/Str)
   "Given a node name, retrieve the catalog for the node."
-  ([host port node] (catalog-for-node host port :v4 node))
+  ([host port node] (catalog-for-node host port api-version node))
   ([host :- s/Str
     port :- s/Int
     version
@@ -75,7 +77,7 @@
   :- {s/Keyword s/Any}
   "Supplying host, port, and optionally version,
    retrieve the factset for a given certname `node`"
-  ([host port node] (facts-for-node host port :v4 node))
+  ([host port node] (facts-for-node host port api-version node))
   ([host :- String
     port :- s/Int
     version :- s/Keyword
@@ -106,7 +108,7 @@
 
 (defn-validated events-for-report-hash :- (s/pred seq? 'seq?)
   "Given a report hash, returns all events as a vector of maps."
-  ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
+  ([host port report-hash] (events-for-report-hash host port api-version report-hash))
   ([host :- s/Str
     port :- s/Int
     version
@@ -126,7 +128,7 @@
 
 (defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
   "Given a node name, retrieves the reports for the node."
-  ([host port node] (reports-for-node host port :v4 node))
+  ([host port node] (reports-for-node host port api-version node))
   ([host :- s/Str
     port :- s/Int
     version
@@ -184,7 +186,7 @@
    port :- s/Int]
   (parse-response
    (client/get
-    (format "http://%s:%s/v4/nodes" host port)
+    (format "http://%s:%s/%s/nodes" host port (name api-version))
     {:accept :json})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
