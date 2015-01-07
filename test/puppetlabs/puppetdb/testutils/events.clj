@@ -11,25 +11,6 @@
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn munge-v2-example-event-to-v1
-  [example-event]
-  (apply dissoc example-event report/v2-new-event-fields))
-
-(defn munge-v2-example-events-to-v1
-  [example-events]
-  (mapv munge-v2-example-event-to-v1 example-events))
-
-(defn munge-v1-example-event-to-v2
-  [example-event]
-  (reduce
-   #(update-in %1 [%2] (constantly nil))
-   example-event
-   report/v2-new-event-fields))
-
-(defn munge-v1-example-events-to-v2
-  [example-events]
-  (mapv munge-v1-example-event-to-v2 example-events))
-
 (defn munge-example-event-for-storage
   "Helper function to munge our example reports into a format suitable for submission
   via the 'store report' command."

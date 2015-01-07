@@ -102,13 +102,6 @@
   catalog format"
   5)
 
-(pls/defn-validated collapse :- {s/Any s/Any}
-  "Combines the `data` and `metadata` section of the given `catalog` into a
-  single map."
-  [{:keys [metadata data] :as catalog} :- {:metadata {s/Any s/Any} :data {s/Any s/Any} s/Any s/Any}]
-  {:pre [(empty? (set/intersection (kitchensink/keyset metadata) (kitchensink/keyset data)))]}
-  (merge metadata data))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
 
@@ -119,7 +112,7 @@
 (def full-catalog
   "This flattened catalog schema is for the superset of catalog information.
    Use this when in the general case as it can be converted to any of the other
-   (v1-v5) schemas"
+   (v5-) schemas"
   {:name s/Str
    :version s/Str
    :environment (s/maybe s/Str)
@@ -141,24 +134,12 @@
                         {s/Any {s/Any s/Any}})
    :api_version (s/maybe s/Int)})
 
-(defn old-wire-format-schema
-  "Function for converting a v1-v3 schema into the wire format for that version"
-  [canonical-catalog-wireformat]
-  {:metadata {:api_version (:api_version canonical-catalog-wireformat)}
-   :data (dissoc canonical-catalog-wireformat :api_version)})
-
 (defn catalog-wireformat
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [version]
   (case version
     :all full-catalog
     :v5 (dissoc full-catalog :api_version)
-    :v4 (dissoc full-catalog :api_version :producer-timestamp)
-    :v3 (-> full-catalog
-            (dissoc :environment :producer-timestamp)
-            old-wire-format-schema)
-    :v2 (update-in (catalog-wireformat :v3) [:data] dissoc :transaction-uuid)
-    :v1 (assoc-in (catalog-wireformat :v2) [:data s/Any] s/Any)
     (catalog-wireformat :v5)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -174,12 +155,6 @@
                     :producer-timestamp nil
                     :api_version 1))
 
-(defn collapse-if
-  [catalog]
-  (if (:data catalog)
-    (collapse catalog)
-    catalog))
-
 (pls/defn-validated canonical-catalog
   "Converts `catalog` to `version` in the canonical format, adding
    and removing keys as needed"
@@ -188,15 +163,8 @@
         strip-keys #(pls/strip-unknown-keys target-schema %)]
     (s/validate target-schema
                 (case version
-                  :v1 (strip-keys
-                        (old-wire-format-schema
-                          (dissoc catalog :transaction-uuid :environment :producer-timestamp :hash)))
-                  :v2 (strip-keys (old-wire-format-schema (dissoc catalog :transaction-uuid
-                                            :environment :producer-timestamp :hash)))
-                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp :hash)))
-                  :v4 (strip-keys (dissoc (collapse-if catalog) :api_version :producer-timestamp))
-                  :all (strip-keys (default-missing-keys (collapse-if catalog)))
-                  (strip-keys (dissoc (collapse-if catalog) :api_version))))))
+                  :all (strip-keys (default-missing-keys catalog))
+                  (strip-keys (dissoc catalog :api_version))))))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -324,7 +292,7 @@
     catalog))
 
 (def validate
-  "Function for validating v1->v3 of the catalogs"
+  "Function for validating v5- of the catalogs"
   (comp validate-edges validate-resources #(s/validate (catalog-wireformat :all) %)))
 
 ;; ## High-level parsing routines
@@ -363,46 +331,6 @@
   {:pre   [(string? catalog)]
    :post  [(map? %)]}
   (parse-catalog (json/parse-string catalog true) version))
-
-;; v1 is the same as v2, except with classes and tags. So remove those, and be
-;; on our merry way.
-(defmethod parse-catalog 1
-  [catalog version]
-  {:pre [(map? catalog)
-         (number? version)]
-   :post [(map? %)]}
-  (-> catalog
-      (update-in [:data] dissoc :classes :tags)
-      (parse-catalog (inc version))))
-
-(defmethod parse-catalog 2
-  [catalog version]
-  {:pre [(map? catalog)
-         (number? version)]
-   :post [(map? %)]}
-  (parse-catalog catalog (inc version)))
-
-(defmethod parse-catalog 3
-  [catalog version]
-  {:pre [(map? catalog)
-         (number? version)]
-   :post [(map? %)]}
-  (->> catalog
-       collapse
-       transform
-       transform-catalog
-       (canonical-catalog :all)
-       validate))
-
-(defmethod parse-catalog 4
-  [catalog version]
-  {:pre [(map? catalog)
-         (number? version)]
-   :post [(map? %)]}
-  (->> catalog
-       transform
-       (canonical-catalog :all)
-       validate))
 
 (defmethod parse-catalog 5
   [catalog version]

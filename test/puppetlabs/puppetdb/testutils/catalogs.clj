@@ -102,8 +102,6 @@
   [version catalog]
   {:pre  [(map? catalog)]}
   (case version
-    :v3 (munge-v3-catalog catalog)
-    :v4 (munge-v4-catalog catalog)
     (munge-v5-catalog catalog)))
 
 (defn munged-canonical->wire-format

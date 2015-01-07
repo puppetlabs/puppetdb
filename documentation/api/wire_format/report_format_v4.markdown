@@ -117,7 +117,3 @@ This should be `null` if `status` is `success`.
 
 `"containment-path"` is a collection of strings where each string is a Puppet type or class
 that represents the containment hierarchy of the resource within the catalog. This field may be `null`.
-
-###  Differences with the previous report wire format
-
-1. A new top-level key `status` was added, to report on the overall status of the puppet run.

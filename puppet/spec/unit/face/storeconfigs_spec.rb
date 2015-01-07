@@ -103,20 +103,16 @@ if Puppet::Util::Puppetdb.puppet3compat?
           metadata = JSON.load(results['export-metadata.json'])
 
           metadata.keys.should =~ ['timestamp', 'command-versions']
-          metadata['command-versions'].should == {'replace-catalog' => 2}
+          metadata['command-versions'].should == {'replace-catalog' => 5}
 
           catalog = JSON.load(results['catalogs/foo.json'])
 
-          catalog.keys.should =~ ['metadata', 'data']
+          catalog.keys.should =~ ['metadata', 'environment', 'name', 'version', 'edges', 'resources']
 
           catalog['metadata'].should == {'api_version' => 1}
 
-          data = catalog['data']
-
-          data.keys.should =~ ['name', 'version', 'edges', 'resources']
-
-          data['name'].should == 'foo'
-          data['edges'].to_set.should == [{
+          catalog['name'].should == 'foo'
+          catalog['edges'].to_set.should == [{
                                             'source' => {'type' => 'Stage', 'title' => 'main'},
                                             'target' => {'type' => 'Notify', 'title' => 'exported'},
                                             'relationship' => 'contains'},
@@ -124,7 +120,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
                                            "target"=>{"type"=>"User", "title"=>"someuser"},
                                            "relationship"=>"contains"}].to_set
 
-          data['resources'].should include({
+          catalog['resources'].should include({
                                              'type'       => 'Stage',
                                              'title'      => 'main',
                                              'exported'   => false,
@@ -132,7 +128,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
                                              'parameters' => {},
                                            })
 
-          data['resources'].should include({
+          catalog['resources'].should include({
                                              'type'       => 'Notify',
                                              'title'      => 'exported',
                                              'exported'   => true,
@@ -142,7 +138,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
                                              },
                                            })
 
-          data['resources'].should include({
+          catalog['resources'].should include({
                                              'type'       => 'User',
                                              'title'      => 'someuser',
                                              'exported'   => true,
@@ -163,17 +159,16 @@ if Puppet::Util::Puppetdb.puppet3compat?
 
           catalog = JSON.load(results['catalogs/foo.json'])
 
-          data = catalog['data']
-          data['name'].should == 'foo'
+          catalog['name'].should == 'foo'
 
-          data['edges'].map do |edge|
+          catalog['edges'].map do |edge|
             [edge['source']['type'], edge['source']['title'], edge['relationship'], edge['target']['type'], edge['target']['title']]
           end.to_set.should == [['Stage', 'main', 'contains', 'Notify', 'exported'],
                                 ['Stage', 'main', 'contains', 'User', 'someuser']].to_set
 
-          data['resources'].map { |resource| [resource['type'], resource['title']] }.to_set.should == [['Notify', 'exported'], ["User", "someuser"], ['Stage', 'main']].to_set
+          catalog['resources'].map { |resource| [resource['type'], resource['title']] }.to_set.should == [['Notify', 'exported'], ["User", "someuser"], ['Stage', 'main']].to_set
 
-          notify = data['resources'].find {|resource| resource['type'] == 'Notify'}
+          notify = catalog['resources'].find {|resource| resource['type'] == 'Notify'}
 
           notify['exported'].should == true
         end

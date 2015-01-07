@@ -45,7 +45,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
           FileUtils.mkdir(catalog_dir)
 
           catalogs.each do |catalog|
-            filename = File.join(catalog_dir, "#{catalog[:data][:name]}.json")
+            filename = File.join(catalog_dir, "#{catalog[:name]}.json")
 
             File.open(filename, 'w') do |file|
               file.puts catalog.to_pson
@@ -60,7 +60,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
             metadata = {
               'timestamp' => timestamp,
               'command-versions' => {
-                'replace-catalog' => 2,
+                'replace-catalog' => 5,
               }
             }
 
@@ -121,15 +121,14 @@ if Puppet::Util::Puppetdb.puppet3compat?
       edges = node.resources.map { |resource| resource_to_edge_hash(resource) }
 
       {
+        :environment => "production",
         :metadata => {
           :api_version => 1,
         },
-        :data => {
-          :name => node.name,
-          :version => node.last_compile || Time.now,
-          :edges => edges,
-          :resources => resources + [stage_main_hash],
-        },
+        :name => node.name,
+        :version => node.last_compile || Time.now,
+        :edges => edges,
+        :resources => resources + [stage_main_hash],
       }
     end
 

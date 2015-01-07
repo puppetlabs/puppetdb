@@ -55,40 +55,13 @@
   "Resource event fields"
   (keys (:fields ResourceEvent)))
 
-(def v2-new-event-fields [:file :line])
-
-(defn validate-and-add-v2-event-field!
-  [event field]
-  {:pre [(kitchensink/seq-contains? v2-new-event-fields field)]}
-  (if (contains? event field)
-    (throw (IllegalArgumentException.
-            (format
-             "ResourceEvent has unknown keys: %s ('%s' command, version 1)"
-             field (command-names :store-report)))))
-  (assoc event field nil))
-
-(defn validate-and-add-v2-event-fields!
-  [event]
-  (let [updated-event (reduce
-                       validate-and-add-v2-event-field!
-                       event
-                       v2-new-event-fields)]
-    (validate-against-model! ResourceEvent updated-event)
-    updated-event))
-
 (defmulti validate!
   "Validate a report data structure.  Throws IllegalArgumentException if
   the report is invalid."
   (fn [command-version _]
     command-version))
 
-(defmethod validate! 1
-  [_ report]
-  (validate-against-model! Report report)
-  (assoc report :resource-events
-         (mapv validate-and-add-v2-event-fields! (:resource-events report))))
-
-(defmethod validate! 2
+(defmethod validate! 3
   [_ report]
   (validate-against-model! Report report)
   (doseq [resource-event (:resource-events report)]
@@ -97,18 +70,19 @@
       (throw (IllegalArgumentException.
               (format "Containment path should only contain strings: '%s'"
                       (resource-event :containment-path))))))
-  report)
-
-(defmethod validate! 3
-  [_ report]
-  (validate! 2 report)
   (when (nil? (:environment report))
     (throw (IllegalArgumentException. "Version 3 of reports must contain an environment")))
   report)
 
 (defmethod validate! 4
   [_ report]
-  (validate! 2 report)
+  (validate-against-model! Report report)
+  (doseq [resource-event (:resource-events report)]
+    (validate-against-model! ResourceEvent resource-event)
+    (if (not-every? string? (resource-event :containment-path))
+      (throw (IllegalArgumentException.
+              (format "Containment path should only contain strings: '%s'"
+                      (resource-event :containment-path))))))
   (when (nil? (:environment report))
     (throw (IllegalArgumentException. "Version 4 of reports must contain an environment")))
   (when (nil? (:status report))

@@ -108,8 +108,3 @@ All of PuppetDB's "replace" commands contain payload data, which must be in one 
 * [Facts wire format version 3](./wire_format/facts_format_v3.html)
 * [Catalog wire format version 5](./wire_format/catalog_format_v5.html)
 * [Report wire format version 3](./wire_format/report_format_v3.html)
-* Deprecated - [Facts wire format version 1](./wire_format/facts_format_v1.html)
-* Deprecated - [Facts wire format version 2](./wire_format/facts_format_v2.html)
-* Deprecated - [Catalog wire format version 1](./wire_format/catalog_format_v1.html)
-* Deprecated - [Catalog wire format version 4](./wire_format/catalog_format_v4.html)
-* Deprecated - [Report wire format version 1](./wire_format/report_format_v1.html)
