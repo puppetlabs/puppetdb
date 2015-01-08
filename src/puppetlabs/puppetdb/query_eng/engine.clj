@@ -938,7 +938,7 @@
             ; For in-extract operator validation, please see annotate-with-context function
             [["extract" field & _]]
             (let [query-context (:query-context (meta node))
-                  queryable-fields (map #(str/replace % #"-" "_") (:queryable-fields query-context))
+                  queryable-fields (:queryable-fields query-context)
                   column-validation-message (validate-query-operation-fields
                                               field
                                               queryable-fields

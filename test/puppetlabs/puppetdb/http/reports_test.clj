@@ -107,7 +107,7 @@
 
       (testing "three projected columns"
         (response-equal?
-         (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
+         (get-response endpoint ["extract" ["hash" "certname" "transaction-uuid"]
                                  ["=" "certname" (:certname basic)]])
          #{(select-keys basic [:hash :certname :transaction-uuid])})))))
 
