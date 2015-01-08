@@ -170,8 +170,69 @@
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE fp.value_type_id != 5"}))
 
+(def reports-query
+  "Query for the resource-events entity"
+  (map->Query {:project {"certname" :string
+                         "environment" :string
+                         "puppet_version" :string
+                         "report_format" :number
+                         "configuration_version" :string
+                         "old_value" :string
+                         "new_value" :string
+                         "timestamp" :timestamp
+                         "containment_path" :string
+                         "event_status" :string
+                         "file" :string
+                         "resource_type" :string
+                         "resource_title" :string
+                         "start_time" :timestamp
+                         "end_time" :timestamp
+                         "receive_time" :timestamp
+                         "property" :string
+                         "line" :number
+                         "hash" :string
+                         "message" :string
+                         "transaction_uuid" :string
+                         "status" :string}
+               :queryable-fields ["certname" "environment" "puppet-version"
+                                  "report-format" "configuration-version"
+                                  "start-time" "end-time" "transaction-uuid"
+                                  "status" "hash" "receive-time"]
+               :alias "reports"
+               :subquery? false
+               :entity :reports
+               :source-table "reports"
+               :source "select reports.hash,
+                       reports.certname,
+                       reports.puppet_version,
+                       reports.report_format,
+                       reports.configuration_version,
+                       reports.start_time,
+                       reports.end_time,
+                       reports.receive_time,
+                       reports.transaction_uuid,
+                       environments.name as environment,
+                       report_statuses.status as status,
+                       re.report,
+                       re.status as event_status,
+                       re.timestamp,
+                       re.resource_type,
+                       re.resource_title,
+                       re.property,
+                       re.new_value,
+                       re.old_value,
+                       re.message,
+                       re.file,
+                       re.line,
+                       re.containment_path,
+                       re.containing_class
+                       FROM reports
+                       INNER JOIN resource_events re on reports.hash=re.report
+                       LEFT OUTER JOIN environments on reports.environment_id = environments.id
+                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
+
 (def catalog-query
-  "Query for the top level reports entity"
+  "Query for the top level catalogs entity"
   (map->Query {:project {"version" :string
                          "environment" :string
                          "transaction_uuid" :string
@@ -276,32 +337,6 @@
                              LEFT OUTER JOIN environments e on c.environment_id = e.id
                              LEFT OUTER JOIN resource_params_cache rpc on rpc.resource = cr.resource"}))
 
-(def reports-query
-  "Query for the top level reports entity"
-  (map->Query {:project {"hash" :string
-                         "certname" :string
-                         "puppet_version" :string
-                         "report_format" :number
-                         "configuration_version" :string
-                         "start_time" :timestamp
-                         "end_time" :timestamp
-                         "receive_time" :timestamp
-                         "transaction_uuid" :string
-                         "environment" :string
-                         "status" :string}
-               :queryable-fields ["hash" "certname" "puppet-version" "report-format" "configuration-version" "start-time" "end-time"
-                                  "receive-time" "transaction-uuid" "environment" "status"]
-               :alias "reports"
-               :subquery? false
-               :supports-extract? true
-               :source-table "reports"
-               :source "select hash, certname, puppet_version, report_format, configuration_version, start_time, end_time,
-                               receive_time, transaction_uuid, environments.name as environment,
-                               report_statuses.status as status
-                        FROM reports
-                             LEFT OUTER JOIN environments on reports.environment_id = environments.id
-                             LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
-
 (def report-events-query
   "Query for the top level reports entity"
   (map->Query {:project {"certname" :string
@@ -331,13 +366,28 @@
                :subquery? false
                :supports-extract? true
                :source-table "resource_events"
-               :source "select reports.certname, reports.configuration_version, reports.start_time as run_start_time,
-                               reports.end_time as run_end_time, reports.receive_time as report_receive_time, report, status,
-                               timestamp, resource_type, resource_title, property, new_value, old_value, message, file, line,
-                               containment_path, containing_class, environments.name as environment
-                        FROM resource_events
-                             JOIN reports ON resource_events.report = reports.hash
-                             LEFT OUTER JOIN environments on reports.environment_id = environments.id"}))
+               :source "select reports.certname,
+                       reports.configuration_version,
+                       reports.start_time as run_start_time,
+                       reports.end_time as run_end_time,
+                       reports.receive_time as report_receive_time,
+                       report,
+                       status,
+                       timestamp,
+                       resource_type,
+                       resource_title,
+                       property,
+                       new_value,
+                       old_value,
+                       message,
+                       file,
+                       line,
+                       containment_path,
+                       containing_class,
+                       environments.name as environment
+                       FROM resource_events
+                       JOIN reports ON resource_events.report = reports.hash
+                       LEFT OUTER JOIN environments on reports.environment_id = environments.id"}))
 
 (def latest-report-query
   "Usually used as a subquery of reports"
@@ -981,13 +1031,12 @@
                                    (convert-to-plan query-rec)
                                    extract-all-params)
         entity (:entity query-rec)
-        augmented-paging-options (augment-paging-options paging-options
-                                                         entity)
-        query-params (if (= entity :factsets) (concat params params) params)
+        augmented-paging-options (augment-paging-options paging-options entity)
+        query-params (if (contains? #{:factsets :reports} entity)
+                       (concat params params)
+                       params)
         sql (plan->sql plan)
-        paged-sql (if augmented-paging-options
-                    (jdbc/paged-sql sql augmented-paging-options entity)
-                    sql)
+        paged-sql (jdbc/paged-sql sql augmented-paging-options entity)
         result-query {:results-query (apply vector paged-sql query-params)
                       :projections (map keyword (keys (:late-project plan)))}]
     (if count?

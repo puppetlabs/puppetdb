@@ -24,8 +24,6 @@
                       (json/parse-string)
                       (keywordize-keys)))
 
-(def resource-example-rows (first data-seq))
-
 (def expected-resources
   [{:resources
     [{:tags  ["stage"],

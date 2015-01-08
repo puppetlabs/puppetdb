@@ -1173,8 +1173,10 @@
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
-            expected      (expected-reports [(assoc report2 :hash report2-hash)])
-            actual        (reports-query-result :v4 ["=" "certname" certname])]
+            expected      (map #(update-in % [:resource-events] munge-resource-events)
+                               (expected-reports [(assoc report2 :hash report2-hash)]))
+            actual        (map #(update-in % [:resource-events] munge-resource-events)
+                               (reports-query-result :v4 ["=" "certname" certname]))]
         (is (= expected actual)))))
 
   (deftest resource-events-cleanup

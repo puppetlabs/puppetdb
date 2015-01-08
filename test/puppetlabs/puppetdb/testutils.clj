@@ -383,3 +383,7 @@
            str
            (subs 2)
            Long/parseLong)))
+
+(defn strip-hash
+  [xs]
+  (map #(dissoc % :hash) xs))

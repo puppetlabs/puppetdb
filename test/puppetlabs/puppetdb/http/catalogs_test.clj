@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [clojure.test :refer :all]
             [ring.mock.request :as request]
-            [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
             [puppetlabs.puppetdb.fixtures :as fixt]))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
@@ -76,10 +76,6 @@
 (defn extract-tags
   [xs]
   (sort (flatten (map :tags (flatten (map :resources xs))))))
-
-(defn strip-hash
-  [xs]
-  (map #(dissoc % :hash) xs))
 
 (deftestseq v4-catalog-queries
   [[version endpoint] [[:v4 "/v4/catalogs"]]]

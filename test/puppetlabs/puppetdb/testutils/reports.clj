@@ -82,7 +82,13 @@
    [:start-time :end-time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
-   (dissoc example-report :resource-events)))
+   example-report))
+
+(defn munge-resource-events
+  [xs]
+  (set (map (fn [x] (-> x
+                        (update-in [:timestamp] time-coerce/to-string)
+                        (dissoc :environment :test-id :containing-class :certname))) xs)))
 
 (defn expected-reports
   [example-reports]

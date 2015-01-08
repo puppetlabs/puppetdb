@@ -134,6 +134,18 @@
             (string/join ", "
                          (map order-by-term->sql order-by)))))
 
+(defn construct-inner-ordering
+  [entity clause]
+  (case entity
+    :factsets
+    (-> clause
+        (str/replace #"environment" "COALESCE(distinct_names.environment, '')"))
+    :reports
+    (-> clause
+        (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
+        (str/replace #"status" "COALESCE(distinct_names.status, '')"))
+    clause))
+
 (defn paged-sql
   "Given a sql string and a map of paging options, return a modified SQL string
   that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
@@ -158,11 +170,8 @@
       :post [(string? %)]}
      (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
            offset-clause    (if offset (format " OFFSET %s" offset) "")
-           order-by-clause  (-> order-by
-                                order-by->sql)
-           inner-order-by   (-> order-by-clause
-                                (str/replace
-                                  #"environment" "COALESCE(distinct_names.environment, '')"))]
+           order-by-clause  (order-by->sql order-by)
+           inner-order-by   (construct-inner-ordering entity order-by-clause)]
        (case entity
          :factsets
          (format "SELECT paged_results.* FROM (%s) paged_results
@@ -172,6 +181,23 @@
                 producer_timestamp FROM (%s)
                 distinct_names %s%s%s) %s"
                  sql sql inner-order-by limit-clause offset-clause order-by-clause)
+
+         :reports
+         (format "SELECT paged_results.* FROM (%s) paged_results
+                 WHERE
+                 (hash, puppet_version, receive_time, report_format,
+                 start_time, end_time, transaction_uuid,
+                 COALESCE(paged_results.status, ''),
+                 COALESCE(paged_results.environment, ''),
+                 configuration_version, certname) IN
+                 (SELECT DISTINCT
+                 hash, puppet_version, receive_time, report_format,
+                 start_time, end_time, transaction_uuid,
+                 COALESCE(distinct_names.status, ''),
+                 COALESCE(distinct_names.environment,''),
+                 configuration_version, certname FROM (%s) distinct_names %s%s%s) %s"
+                 sql sql inner-order-by limit-clause offset-clause order-by-clause)
+
          (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
                  sql order-by-clause limit-clause offset-clause)))))
 
@@ -187,18 +213,26 @@
        :factsets
        (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
             from (%s) paged_sql) results_to_count" sql)
+       :reports
+       (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT transaction_uuid
+               from (%s) paged_sql) results_to_count" sql)
        (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
   and returns the number of results that the original query would have returned."
-  [[count-sql & params]]
-  {:pre [(string? count-sql)]
-   :post [(integer? %)]}
-  (-> (apply vector count-sql params)
-      query-to-vec
-      first
-      :result_count))
+  ([[count-sql & params :as args]]
+   (get-result-count args nil))
+  ([[count-sql & params] entity]
+   {:pre [(string? count-sql)]
+    :post [(integer? %)]}
+   (let [fixed-params (if (and (not (nil? params)) (contains? #{:reports :factsets} entity))
+                        (take (/ (count params) 2) params)
+                        params)]
+   (-> (apply vector count-sql fixed-params)
+       query-to-vec
+       first
+       :result_count))))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
