@@ -446,6 +446,28 @@ describe Puppet::Resource::Catalog::Puppetdb do
           result['edges'].should include(edge)
         end
 
+        it "should add edges which refer to collected virtual resources with hyphens in the classname" do
+          Puppet[:code] = <<-MANIFEST
+          define foo-bar- (){}
+          @foo-bar- { 'baz': }
+
+          notify { source:
+            before => Foo-bar-[baz],
+          }
+
+          Foo-bar- <| |>
+          MANIFEST
+
+          result = subject.munge_catalog(catalog)
+          other_edge = {
+            'source' => {'type' => 'Notify', 'title' => 'source'},
+            'target' => {'type' => 'Foo-bar-', 'title' => 'baz'},
+            'relationship' => 'before'
+          }
+
+          result['edges'].should include(other_edge)
+        end
+
         it "should add edges defined on collected virtual resources" do
           Puppet[:code] = <<-MANIFEST
           @notify { source:
