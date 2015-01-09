@@ -1,8 +1,8 @@
 (ns puppetlabs.puppetdb.query.catalogs
   "Catalog retrieval
 
-   Returns a catalog in the PuppetDB JSON wire format.  For more info, see
-   `documentation/api/wire_format/catalog_format.markdown`."
+  Returns a catalog in the PuppetDB JSON wire format.  For more info, see
+  `documentation/api/wire_format/catalog_format.markdown`."
   (:require [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.catalogs :as cats]
             [schema.core :as s]
@@ -67,9 +67,9 @@
                   :parameters (json/parse-strict-string parameters true)
                   :exported exported :file file}]
     (into acc
-            (-> resource
-                (kitchensink/dissoc-if-nil :line :file)
-                vector))))
+          (-> resource
+              (kitchensink/dissoc-if-nil :line :file)
+              vector))))
 
 (defn collapse-edges
   [acc row]
@@ -93,16 +93,13 @@
                    (into []))]
     (assoc (select-keys first-row [:name :version :environment :hash
                                    :transaction-uuid :producer-timestamp])
-           :edges edges :resources resources)))
+      :edges edges :resources resources)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
   [version :- s/Keyword
    rows]
-  (when (seq rows)
-    (let [[catalog-rows more-rows] (split-with (create-catalog-pred rows) rows)]
-      (cons (collapse-catalog version catalog-rows)
-            (lazy-seq (structured-data-seq version more-rows))))))
+  (utils/collapse-seq create-catalog-pred #(collapse-catalog version %) rows))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -117,7 +114,7 @@
                (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! catalog-columns paging-options)
    (qe/compile-user-query->sql
-     qe/catalog-query query paging-options)))
+    qe/catalog-query query paging-options)))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."

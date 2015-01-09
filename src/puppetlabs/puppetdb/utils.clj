@@ -90,8 +90,8 @@
 
 (defn stringify-keys
   "Recursively transforms all map keys from keywords to strings. This improves
-   on clojure.walk/stringify-keys by supporting the conversion of hyphenated
-   keywords to strings instead of trying to resolve them in a namespace first."
+  on clojure.walk/stringify-keys by supporting the conversion of hyphenated
+  keywords to strings instead of trying to resolve them in a namespace first."
   [m]
   (let [f (fn [[k v]] (if (keyword? k)
                         [(subs (str k) 1) v] [k v]))]
@@ -123,3 +123,14 @@
   "Vectorize an argument if it's not already vector"
   [v]
   (if (vector? v) v (vector v)))
+
+
+(defn collapse-seq
+  "Lazily consumes and collapses the seq `rows`. Uses `split-pred` to chunk the seq,
+  passes in each chunk to `collapse-fn`. Each result of `collapse-fn` is an item in
+  the return lazy-seq."
+  [split-pred collapse-fn rows]
+  (when (seq rows)
+    (let [[certname-facts more-rows] (split-with (split-pred rows) rows)]
+      (cons (collapse-fn certname-facts)
+            (lazy-seq (collapse-seq split-pred collapse-fn more-rows))))))
