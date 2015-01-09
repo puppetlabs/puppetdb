@@ -424,7 +424,8 @@
                          "producer_timestamp" :timestamp
                          "type" :string}
                :alias "factsets"
-               :queryable-fields ["certname" "environment" "timestamp" "producer-timestamp" "hash"]
+               :queryable-fields ["certname" "environment" "timestamp"
+                                  "producer-timestamp" "hash"]
                :entity :factsets
                :source-table "factsets"
                :subquery? false

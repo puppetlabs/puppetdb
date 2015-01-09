@@ -1205,6 +1205,14 @@
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
               (is (= actual expected))))))
 
+      (testing "order on hash"
+        (doseq [[order expected] [["ASC" (sort-by #(get % "hash") factset-results)]
+                                  ["DESC" (reverse (sort-by #(get % "hash") factset-results))]]]
+          (testing order
+            (let [ordering {:order-by (json/generate-string [{"field" "hash" "order" order}])}
+                  actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
+              (is (= actual expected))))))
+
       (testing "multiple fields"
         (doseq [[[env-order certname-order] expected-order] [[["DESC" "ASC"]  [2 0 1]]
                                                              [["DESC" "DESC"] [2 1 0]]
