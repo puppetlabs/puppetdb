@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.v4
   (:require [puppetlabs.puppetdb.http.version :as ver]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [puppetlabs.puppetdb.http.metrics :as met]
             [puppetlabs.puppetdb.http.server-time :as st]
             [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
@@ -48,15 +47,6 @@
 
    ["resources" &]
    {:any (resources/resources-app version)}
-
-   ["metrics" &]
-   (moustache/app
-    ["mbeans"]
-    {:get met/list-mbeans}
-
-    ["mbean" & names]
-    {:get (moustache/app
-           (met/mbean names))})
 
    ["version" &]
    (moustache/app

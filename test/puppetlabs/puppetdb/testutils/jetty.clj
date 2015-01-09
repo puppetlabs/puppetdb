@@ -6,6 +6,7 @@
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]
+            [puppetlabs.puppetdb.metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -24,7 +25,9 @@
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}})
+   :command-processing {}
+   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service ""
+                        :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}})
 
 (defn current-port
   "Given a trapperkeeper server, return the port of the running jetty instance.
@@ -49,7 +52,7 @@
                         [:web-router-service
                          :puppetlabs.puppetdb.cli.services/puppetdb-service])]
      (tkbs/with-app-with-config server
-       [jetty9-service puppetdb-service message-listener-service command-service webrouting-service]
+       [jetty9-service puppetdb-service message-listener-service command-service webrouting-service metrics-service]
        config
        (binding [*server* server
                  *base-url* (merge {:protocol "http"
@@ -68,9 +71,15 @@
 (defn current-queue-depth
   "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
   []
-  (-> (str (utils/base-url->str *base-url*)
-           "/metrics/mbean/org.apache.activemq:BrokerName="
-           (url-encode (:host *base-url*))
-           ",Type=Queue,Destination=puppetlabs.puppetdb.commands")
+  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)
+        _ (println (str (utils/base-url->str base-metrics-url)
+             "/mbeans/org.apache.activemq:BrokerName="
+             (url-encode (:host base-metrics-url))
+             ",Type=Queue,Destination=puppetlabs.puppetdb.commands"))
+        ]
+    (-> (str (utils/base-url->str base-metrics-url)
+             "/mbeans/org.apache.activemq:BrokerName="
+             (url-encode (:host base-metrics-url))
+             ",Type=Queue,Destination=puppetlabs.puppetdb.commands")
       (client/get {:as :json})
-      (get-in [:body :QueueSize])))
+      (get-in [:body :QueueSize]))))

@@ -191,37 +191,31 @@
   metric."
   [app prefix storage normalize-uri]
   (fn [req]
-    ;; IF the uri starts with '[path]/v<n>/metrics/mbean/' or is '[path]/v<n>/metrics/mbeans',
-    (if (or (string? (re-find #"/v\d+/metrics/mbean/" (:uri req)))
-            (string? (re-find #"/v\d+/metrics/mbeans\z" (:uri req))))
-      ;; THEN service the metrics request without adding mbeans tracking for metrics,
-      (app req)
+    ;; add metric timers for the uri as we service the request.
+    (let [metric-roots (let [s (normalize-uri (:uri req))]
+                         (if (string? s) [s] s))
+          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
 
-      ;; ELSE add metric timers for the uri as we service the request.
-      (let [metric-roots (let [s (normalize-uri (:uri req))]
-                           (if (string? s) [s] s))
-            metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
+      ;; Create timer objects for each metric the user has requested
+      (doseq [metric-root metric-roots
+              :let [timer-key [:timers metric-root]]
+              :when (not (get-in @storage timer-key))]
+        (swap! storage assoc-in timer-key (timer [prefix metric-root "service-time"])))
 
-        ;; Create timer objects for each metric the user has requested
-        (doseq [metric-root metric-roots
-                :let [timer-key [:timers metric-root]]
-                :when (not (get-in @storage timer-key))]
-          (swap! storage assoc-in timer-key (timer [prefix metric-root "service-time"])))
+      (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
+        (multitime! timers
+                    (let [response  (app req)
+                          status    (:status response)]
 
-        (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
-          (multitime! timers
-                      (let [response  (app req)
-                            status    (:status response)]
+                      ;; Create meter objects for each metric the user has
+                      ;; requested
+                      (doseq [metric-root metric-roots
+                              :let [meter-key [:meters metric-root status]]
+                              :when (not (get-in @storage meter-key))]
+                        (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
+                        (mark! (get-in @storage meter-key)))
 
-                        ;; Create meter objects for each metric the user has
-                        ;; requested
-                        (doseq [metric-root metric-roots
-                                :let [meter-key [:meters metric-root status]]
-                                :when (not (get-in @storage meter-key))]
-                          (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
-                          (mark! (get-in @storage meter-key)))
-
-                        response)))))))
+                        response))))))
 
 (defmacro wrap-with-metrics
   "Ring middleware that will tack performance counters for each URL.
@@ -257,7 +251,8 @@
   cannot contain ':', '=', or ',' characters. They will be replaced
   with '_'."
   [app storage normalize-uri]
-  `(wrap-with-metrics* ~app (str *ns*) ~storage ~normalize-uri))
+  `(let [prefix# ~(str *ns*)]
+    (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))
 
 (defn payload-to-body-string
   "Middleware to move the payload from the body or the payload param into the

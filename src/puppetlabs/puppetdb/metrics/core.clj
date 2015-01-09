@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.http.metrics
+(ns puppetlabs.puppetdb.metrics.core
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
@@ -40,7 +40,7 @@
   "Return a map of mbean name to a link that will retrieve the
   attributes"
   [names]
-  (zipmap names (map #(format "/metrics/mbean/%s" (url-encode %)) names)))
+  (zipmap names (map #(format "/mbeans/%s" (url-encode %)) names)))
 
 (defn mbean-names
   "Returns a JSON array of all MBean names"
@@ -65,28 +65,8 @@
    to the longer form needed by the metrics beans."
   [names-coll]
   (fn [req]
-    (let [name  (s/join "/" names-coll)
-          ;; Backwards-compatibility hacks to allow
-          ;; interrogation of "top-level" metrics like
-          ;; "commands" instead of "/v2/commands"...something
-          ;; we documented as supported, but we broke when we
-          ;; went to versioned apis.
-          name' (cond
-                 (.startsWith name "puppetlabs.puppetdb.http.server:type=metrics")
-                 (s/replace name #"type=metrics" "type=/v2/metrics")
-
-                 (.startsWith name "puppetlabs.puppetdb.http.server:type=commands")
-                 (s/replace name #"type=commands" "type=/v2/commands")
-
-                 (.startsWith name "puppetlabs.puppetdb.http.server:type=facts")
-                 (s/replace name #"type=facts" "type=/v2/facts")
-
-                 (.startsWith name "puppetlabs.puppetdb.http.server:type=resources")
-                 (s/replace name #"type=resources" "type=/v2/resources")
-
-                 :else
-                 name)]
-      (get-mbean name'))))
+    (-> (s/join "/" names-coll)
+        (get-mbean))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

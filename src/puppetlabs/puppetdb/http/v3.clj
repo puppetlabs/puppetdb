@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.v3
   (:require [puppetlabs.puppetdb.http.version :as ver]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [puppetlabs.puppetdb.http.metrics :as met]
+            [puppetlabs.puppetdb.metrics.core :as met]
             [puppetlabs.puppetdb.http.server-time :as st]
             [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
