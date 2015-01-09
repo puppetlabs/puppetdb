@@ -7,7 +7,8 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.zip :as zip]))
+            [puppetlabs.puppetdb.zip :as zip]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 ;; SCHEMA
 
@@ -73,12 +74,12 @@
 (defn recreate-fact-path
   "Produce the nested map corresponding to a path/value pair.
 
-   Operates by accepting an existing map `acc` and a map containing keys `path`
-   and `value`, it splits the path into its components and populates the data
-   structure with the `value` in the correct path.
+  Operates by accepting an existing map `acc` and a map containing keys `path`
+  and `value`, it splits the path into its components and populates the data
+  structure with the `value` in the correct path.
 
-   Returns the complete map structure after this operation is applied to
-   `acc`."
+  Returns the complete map structure after this operation is applied to
+  `acc`."
   [acc {:keys [path value]}]
   (let [split-path (facts/string-to-factpath path)]
     (assoc-in acc split-path value)))
@@ -96,10 +97,9 @@
   "Produce a lazy sequence of facts from a list of rows ordered by fact name"
   [version :- s/Keyword
    rows]
-  (when (seq rows)
-    (let [[certname-facts more-rows] (split-with (create-certname-pred rows) rows)]
-      (cons ((comp (partial collapse-factset version) convert-types) certname-facts)
-            (lazy-seq (structured-data-seq version more-rows))))))
+  (utils/collapse-seq create-certname-pred
+                      (comp #(collapse-factset version %) convert-types)
+                      rows))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."

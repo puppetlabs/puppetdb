@@ -10,7 +10,8 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.zip :as zip]))
+            [puppetlabs.puppetdb.zip :as zip]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (def row-schema
   {:hash String
@@ -90,9 +91,9 @@
                                          :message])]
     (into acc
           [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
-                (update-in [:new-value] json/parse-string)
-                (update-in [:old-value] json/parse-string)
-                (rename-keys {:event-status :status}))])))
+               (update-in [:new-value] json/parse-string)
+               (update-in [:old-value] json/parse-string)
+               (rename-keys {:event-status :status}))])))
 
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
@@ -101,16 +102,15 @@
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
     (assoc (select-keys first-row report-columns)
-           :resource-events resource-events)))
+      :resource-events resource-events)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
   [version :- s/Keyword
    rows]
-  (when (seq rows)
-    (let [[report-rows more-rows] (split-with (create-report-pred rows) rows)]
-      (cons (collapse-report version report-rows)
-            (lazy-seq (structured-data-seq version more-rows))))))
+  (utils/collapse-seq create-report-pred
+                      #(collapse-report version %)
+                      rows))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -125,7 +125,7 @@
                (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! report-columns paging-options)
    (qe/compile-user-query->sql
-     qe/reports-query query paging-options)))
+    qe/reports-query query paging-options)))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
