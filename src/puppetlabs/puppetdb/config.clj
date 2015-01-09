@@ -317,15 +317,13 @@
 (defn configure-globals
   "Configures the global properties from the user defined config"
   [{:keys [global] :as config}]
-  (let [product-name (normalize-product-name (get global :product-name "puppetdb"))
-        url-prefix   (normalize-url-prefix (get global :url-prefix ""))]
+  (let [product-name (normalize-product-name (get global :product-name "puppetdb"))]
     (when (:event-query-limit global)
       (log/warn "The configuration item `event-query-limit` in the [global] section is deprecated and now ignored. It will be removed in the future."))
     (update-in config [:global]
                (fn [global-config]
                  (-> global-config
                      (assoc :product-name product-name)
-                     (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
 (defn warn-if-sslv3
@@ -334,16 +332,20 @@
   [config-data]
   (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
     (when (some #(re-matches #"(?i).*sslv3.*" %) protocol-str)
-      (binding [*out* *err*]
-        (println "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"))))
+      (utils/println-err "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list")))
+  config-data)
+
+(defn warn-url-prefix-deprecation
+  [config-data]
+  (when-let [cw (get-in config-data [:global :url-prefix])]
+    (utils/println-err "The configuration item `url-prefix` in the [global] section is deprecated. It will be removed in the future."))
   config-data)
 
 (defn warn-repl-retirement
   "Warn a user they are using the old [repl] block, instead of [nrepl]."
   [config-data]
   (when-let [cw (get-in config-data [:repl])]
-    (binding [*out* *err*]
-      (println "The configuration block [repl] is now retired and will be ignored. Use [nrepl] instead. Consult the documentation for more details.")))
+    (utils/println-err "The configuration block [repl] is now retired and will be ignored. Use [nrepl] instead. Consult the documentation for more details."))
   config-data)
 
 (defn default-ssl-protocols
@@ -356,19 +358,22 @@
 
 (defn add-web-routing-config
   [config-data]
-  (let [prefix (normalize-url-prefix (get-in config-data [:global :url-prefix]
-                                             ""))]
-    (assoc-in config-data [:web-router-service
-                           :puppetlabs.puppetdb.cli.services/puppetdb-service] prefix)))
+  (let [url-prefix-path [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
+        prefix (or (get-in config-data url-prefix-path)
+                   ;; Setting url-prefix in [global] is deprecated
+                   (normalize-url-prefix (get-in config-data [:global :url-prefix]))
+                   "")]
+    (assoc-in config-data url-prefix-path prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
 (defn adjust-tk-config [config]
   (-> config
-    warn-repl-retirement
-    default-ssl-protocols
-    add-web-routing-config))
+      warn-repl-retirement
+      warn-url-prefix-deprecation
+      default-ssl-protocols
+      add-web-routing-config))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept

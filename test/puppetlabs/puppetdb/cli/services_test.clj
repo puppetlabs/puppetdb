@@ -54,7 +54,7 @@
         (is (= 200 (:status response))))))
   (testing "should support mounting web app at alternate url prefix"
     (jutils/puppetdb-instance
-     (assoc-in (jutils/create-config) [:global :url-prefix] "puppetdb")
+     (assoc-in (jutils/create-config) [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] "/puppetdb")
      (fn []
        (let [response (client/get (jutils/current-url "/v4/version") {:throw-exceptions false})]
          (is (= 404 (:status response))))

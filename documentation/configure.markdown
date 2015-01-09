@@ -180,6 +180,8 @@ When this is set to true, debugging information will be written to `<vardir>/deb
 
 ### `url-prefix`
 
+> **Deprecated:** This setting will be removed in the future and url-prefixes should be configured using the [`web-router-service`](#:web-router-service).
+
 This optional setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
 unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
 this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
@@ -665,3 +667,17 @@ The port to use for the REPL.
 ### `host`
 
 Specifies the host or IP address for the repl service to listen on. By default this is `127.0.0.1` only, as this is an insecure channel this is the only recommended setting for production environments. Although this is generally not recommended for production, you can listen on all interfaces, you can specify `0.0.0.0` for example.
+
+`:web-router-service` Settings
+-----
+
+
+The `:web-router-service` section is used to configure the routes at which applications running with your PuppetDB instance are mounted. This configuration section must be done in a `.conf` file (this is the [Human-Optimized Config Object Notation](https://github.com/typesafehub/config/blob/master/HOCON.md) format; a flexible superset of JSON defined by the [typesafe config library](https://github.com/typesafehub/config)). For more information on configuring the `web-router-service` see the [trapperkeeper-webserver-jetty9 docs](https://github.com/puppetlabs/trapperkeeper-webserver-jetty9/blob/master/doc/webrouting-service.md).
+
+### `:puppetlabs.puppetdb.cli.services/puppetdb-service`
+
+This setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
+unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
+this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
+
+
