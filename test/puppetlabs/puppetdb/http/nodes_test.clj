@@ -7,16 +7,13 @@
             [puppetlabs.kitchensink.core :refer [keyset]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results
-                                                   deftestseq
-                                                   after-v3?]]
+                                                   deftestseq]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.zip :as zip]
             [clojure.core.match :as cm]))
 
-(def endpoints [[:v2 "/v2/nodes"]
-                [:v3 "/v3/nodes"]
-                [:v4 "/v4/nodes"]])
+(def endpoints [[:v4 "/v4/nodes"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -34,9 +31,7 @@
                   endpoints)))
 
 (defn certname [version]
-  (case version
-    (:v2 :v3) "name"
-    "certname"))
+  "certname")
 
 (defn status-for-node
   "Returns status information for the given `node-name`"
@@ -63,20 +58,11 @@
         (str "Query was: " query))
 
     (doseq [res result]
-      (case (get-version endpoint)
-        (:v2 :v3)
-        (do
-          (is (= #{:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp} (keyset res))
-              (str "Query was: " query))
-          (is (= (set expected) (set (mapv :name result)))
-              (str "Query was: " query)))
-
-        (do
-          (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
-                   :catalog-environment :facts-environment :report-environment} (keyset res))
-              (str "Query was: " query))
-          (is (= (set expected) (set (mapv :certname result)))
-              (str "Query was: " query)))))
+      (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
+               :catalog-environment :facts-environment :report-environment} (keyset res))
+          (str "Query was: " query))
+      (is (= (set expected) (set (mapv :certname result)))
+          (str "Query was: " query)))
 
     (is (= status http/status-ok))))
 
@@ -89,26 +75,12 @@
         (is (nil? (:deactivated (status-for-node endpoint web1)))))
 
       (testing "when node has facts, but no catalog"
-        (case version
-          (:v2 :v3)
-          (do
-            (is (:facts_timestamp (status-for-node endpoint web2)))
-            (is (nil? (:catalog_timestamp (status-for-node endpoint web2)))))
-
-          (do
-            (is (:facts-timestamp (status-for-node endpoint web2)))
-            (is (nil? (:catalog-timestamp (status-for-node endpoint web2)))))))
+        (is (:facts-timestamp (status-for-node endpoint web2)))
+        (is (nil? (:catalog-timestamp (status-for-node endpoint web2)))))
 
       (testing "when node has an associated catalog and facts"
-        (case version
-          (:v2 :v3)
-          (do
-            (is (:catalog_timestamp (status-for-node endpoint web1)))
-            (is (:facts_timestamp (status-for-node endpoint web1))))
-
-          (do
-            (is (:catalog-timestamp (status-for-node endpoint web1)))
-            (is (:facts-timestamp (status-for-node endpoint web1)))))))
+        (is (:catalog-timestamp (status-for-node endpoint web1)))
+        (is (:facts-timestamp (status-for-node endpoint web1)))))
 
     (testing "basic equality is supported for name"
       (is-query-result endpoint ["=" (certname version) "web1.example.com"] [web1]))
@@ -121,12 +93,8 @@
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000] [web1])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] (case version
-                                                                          (:v2 :v3) [web1]
-                                                                          []))
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] (case version
-                                                                          (:v2 :v3) []
-                                                                          [web1]))
+      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] [])
+      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] [web1])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] true] [])
       (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 0] []))
 
@@ -137,11 +105,6 @@
     (testing "arithmetic works on facts"
       (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000] [web1])
       (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
-
-      ;;Coercing to an integer from a string is not allowed in v4+
-      (when (contains? #{:v2 :v3} version)
-        (is-query-result endpoint ["<" ["fact" "uptime_seconds"] "12000"] [web1]))
-
       (is-query-result endpoint ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
       (is-query-result endpoint ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
 
@@ -150,19 +113,14 @@
       (is-query-result endpoint ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
 (deftestseq test-string-coercion-fail
-  [[version endpoint] endpoints
-   :when (not (contains? #{:v2 :v3} version))]
-
+  [[version endpoint] endpoints]
   (store-example-nodes)
-
   (let [{:keys [body status]} (get-response endpoint ["<" ["fact" "uptime_seconds"] "12000"])]
     (is (= 400 status))
     (is (re-find #"not allowed on value '12000'" body))))
 
 (defn v4-node-field [version]
-  (if (contains? #{:v2 :v3} version)
-    "name"
-    "certname"))
+  "certname")
 
 (deftestseq basic-node-subqueries
   [[version endpoint] endpoints]
@@ -194,15 +152,8 @@
       (testing (str "query: " query " is supported")
         (is-query-result endpoint query expected)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; :v3 & v4 tests
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (deftestseq node-subqueries
-  [[version endpoint] endpoints
-   :when (not= version :v2)]
+  [[version endpoint] endpoints]
 
   (testing "subqueries: valid"
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
@@ -238,8 +189,7 @@
           (is (re-find msg body)))))))
 
 (deftestseq node-query-paging
-  [[version endpoint] endpoints
-   :when (not= version :v2)]
+  [[version endpoint] endpoints]
 
   (let [expected (store-example-nodes)]
 
@@ -254,21 +204,11 @@
                         :include-total  count?
                         :params {:order-by (json/generate-string [{:field (certname version) :order "asc"}])}})]
           (is (= (count results) (count expected)))
-          (case version
-            :v3 (is (= (set (vals expected))
-                       (set (map :name results))))
-            (is (= (set (vals expected))
-                   (set (map :certname results))))))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; :v4 tests
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          (is (= (set (vals expected))
+                 (set (map :certname results)))))))))
 
 (deftestseq node-timestamp-queries
-  [[version endpoint] endpoints
-   :when ((complement #{:v2 :v3}) version)]
+  [[version endpoint] endpoints]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)
         web1-catalog-ts (:catalog-timestamp (status-for-node endpoint web1))
@@ -299,9 +239,7 @@
      #"Can't extract unknown 'nodes' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
 
 (deftestseq invalid-projections
-  [[version endpoint] endpoints
-   :when ((complement #{:v2 :v3}) version)]
-
+  [[version endpoint] endpoints]
   (doseq [[query msg] invalid-projection-queries]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body] :as result} (get-response endpoint query)]

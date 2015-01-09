@@ -10,20 +10,11 @@
                                                    deftestseq parse-result]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
-(def fact-name-endpoints [[:v3 "/v3/fact-names"]
-                          [:v4 "/v4/fact-names"]])
+(def fact-name-endpoints [[:v4 "/v4/fact-names"]])
 
 (def fact-path-endpoints [[:v4 "/v4/fact-paths"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
-
-(deftest fact-names-legacy-paging-should-fail
-  (testing "should not support paging-related query parameters for :v2"
-    (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
-      (let [request (get-request "/v2/fact-names" nil {k v})
-            {:keys [status body]} (fixt/*app* request)]
-        (is (= status http/status-bad-request))
-        (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
 
 (deftestseq fact-names-endpoint-tests
   [[version endpoint] fact-name-endpoints]

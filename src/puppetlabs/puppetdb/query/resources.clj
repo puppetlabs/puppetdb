@@ -31,24 +31,7 @@
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (paging/validate-order-by! (map keyword (keys query/resource-columns)) paging-options)
-     (case version
-       (:v2 :v3)
-       (let [operators (query/resource-operators version)
-             [subselect & params] (query/resource-query->sql operators query)
-             sql (format (str "SELECT subquery1.certname, subquery1.resource, "
-                              "subquery1.type, subquery1.title, subquery1.tags, "
-                              "subquery1.exported, subquery1.file, "
-                              "subquery1.line, rpc.parameters, subquery1.environment "
-                              "FROM (%s) subquery1 "
-                              "LEFT OUTER JOIN resource_params_cache rpc "
-                              "ON rpc.resource = subquery1.resource")
-                         subselect)]
-         (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
-               (when (:count? paging-options)
-                 [:count-query (apply vector (jdbc/count-sql subselect) params)])))
-
-       (qe/compile-user-query->sql
-        qe/resources-query query paging-options))))
+     (qe/compile-user-query->sql qe/resources-query query paging-options)))
 
 (defn parse-params [param-string]
   (if param-string
@@ -63,14 +46,7 @@
   "Munge the result rows so that they will be compatible with the version
   specified API specification"
   [version _]
-  (let [rename-file-line
-        (fn [rows]
-          (map #(clojure.set/rename-keys % {:file :sourcefile
-                                            :line :sourceline})
-               rows))]
-    (case version
-      :v2 (comp deserialize-params rename-file-line)
-      deserialize-params)))
+  deserialize-params)
 
 (defn query-resources
   "Search for resources satisfying the given SQL filter."

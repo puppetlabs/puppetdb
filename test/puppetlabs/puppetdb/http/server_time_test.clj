@@ -7,8 +7,7 @@
             [clj-time.core :refer [ago secs interval in-secs]]
             [clj-time.coerce :refer [from-string]]))
 
-(def endpoints [[:v3 "/v3/server-time"]
-                [:v4 "/v4/server-time"]])
+(def endpoints [[:v4 "/v4/server-time"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 

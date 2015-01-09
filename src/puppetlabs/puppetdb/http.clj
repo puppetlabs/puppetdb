@@ -280,18 +280,3 @@
   (->
    (json-response (:result query-result))
    (add-headers (dissoc query-result :result))))
-
-(defn remove-status
-  "Status is only for the v4 or newer version of the reports response"
-  [result-map version]
-  (case version
-    (:v2 :v3) (dissoc result-map :status)
-    result-map))
-
-(defn v4-or-newer?
-  "Returns a function that always returns true if `version` is newer than :v4"
-  [version]
-  (constantly
-   (case version
-     (:v2 :v3) false
-     true)))

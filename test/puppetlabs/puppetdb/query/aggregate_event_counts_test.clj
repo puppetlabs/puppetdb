@@ -20,7 +20,7 @@
 (deftest aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))
 
-  (doseq [version [:v3 :v4]]
+  (let [version :v4]
     (testing (str "summarize-by for api version" version)
       (testing "rejects unsupported values"
         (is (thrown-with-msg?

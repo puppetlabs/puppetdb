@@ -52,46 +52,10 @@
   (fn [rows]
     (if (empty? rows)
       []
-      (let [new-rows (->> rows
-                          convert-types
-                          (map #(select-keys % (or (seq projections)
-                                                   [:certname :environment :timestamp :name :value]))))]
-        (case version
-          (:v2 :v3) (map #(update-in % [:value] stringify-value) new-rows)
-          new-rows)))))
-
-(defn facts-sql
-  "Return a vector with the facts SQL query string as the first element,
-  parameters needed for that query as the rest."
-  [operators query]
-  (if query
-    (let [[subselect & params] (query/fact-query->sql operators query)
-          sql (format "SELECT facts.certname, facts.environment, facts.name,
-                       facts.value, facts.path, facts.type, facts.depth,
-                       facts.value_float, facts.value_integer
-                      FROM (%s) facts" subselect)]
-      (apply vector sql params))
-    ["SELECT fs.certname,
-             fp.path as path,
-             fp.name as name,
-             fp.depth as depth,
-             fv.value_float as value_float,
-             fv.value_integer as value_integer,
-             fv.value_hash as value_hash,
-             COALESCE(fv.value_string,
-                      fv.value_json,
-                      cast(fv.value_float as value_float as text),
-                      cast(fv.value_integer as value_integer as text),
-                      cast(fv.value_boolean as text)) as value,
-             vt.type as type,
-             env.name as environment
-        FROM factsets fs
-          INNER JOIN facts as f on fs.id = f.factset_id
-          INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-          INNER JOIN fact_paths as fp on fv.path_id = fp.id
-          INNER JOIN value_types as vt on vt.id=fv.value_type_id
-          LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-        WHERE depth = 0"]))
+      (->> rows
+        convert-types
+        (map #(select-keys % (or (seq projections)
+                                 [:certname :environment :timestamp :name :value])))))))
 
 (defn fact-paths-query->sql
   [version query paging-options]
@@ -108,19 +72,9 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [columns (if (contains? #{:v2 :v3} version)
-                  (map keyword (keys (dissoc query/fact-columns "environment")))
-                  (map keyword (keys (dissoc query/fact-columns "value"))))]
+  (let [columns (map keyword (keys (dissoc query/fact-columns "value")))]
     (paging/validate-order-by! columns paging-options)
-    (case version
-      (:v2 :v3)
-      (let [operators (query/fact-operators version)
-            [sql & params] (facts-sql operators query)]
-        (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
-              (when (:count? paging-options)
-                [:count-query (apply vector (jdbc/count-sql sql) params)])))
-      (qe/compile-user-query->sql
-       qe/facts-query query paging-options))))
+    (qe/compile-user-query->sql qe/facts-query query paging-options)))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically

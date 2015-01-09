@@ -13,8 +13,7 @@
                                                    assert-success!
                                                    get-request
                                                    paged-results
-                                                   deftestseq
-                                                   after-v3?]]
+                                                   deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
@@ -22,8 +21,7 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]))
 
-(def endpoints [[:v3 "/v3/events"]
-                [:v4 "/v4/events"]
+(def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
 (def content-type-json http/json-response-content-type)
@@ -137,29 +135,28 @@
           (response-equal? response expected munge-event-values))))
 
     (testing "compound queries with a projection"
-      (when (after-v3? version)
-        (doseq [[query matches ks]
-                [[["extract" "status"
-                   ["and"
-                    ["or"
-                     ["=" "resource-title" "hi"]
-                     ["=" "resource-title" "notify, yo"]]
-                    ["=" "status" "success"]]]
-                  [1]
-                  [:status]]
-                 [["extract" ["status" "line"]
-                   ["and"
-                    ["or"
-                     ["=" "resource-title" "hi"]
-                     ["=" "resource-title" "notify, yo"]]
-                    ["=" "status" "success"]]]
-                  [1]
-                  [:status :line]]]]
-          (let [response (get-response endpoint query)
-                expected (->> (kitchensink/select-values basic-events-map matches)
-                              (map #(select-keys % ks))
-                              set)]
-            (response-equal? response expected)))))
+      (doseq [[query matches ks]
+              [[["extract" "status"
+                 ["and"
+                  ["or"
+                   ["=" "resource-title" "hi"]
+                   ["=" "resource-title" "notify, yo"]]
+                  ["=" "status" "success"]]]
+                [1]
+                [:status]]
+               [["extract" ["status" "line"]
+                 ["and"
+                  ["or"
+                   ["=" "resource-title" "hi"]
+                   ["=" "resource-title" "notify, yo"]]
+                  ["=" "status" "success"]]]
+                [1]
+                [:status :line]]]]
+        (let [response (get-response endpoint query)
+              expected (->> (kitchensink/select-values basic-events-map matches)
+                         (map #(select-keys % ks))
+                         set)]
+          (response-equal? response expected))))
 
 
     (doseq [[label count?] [["without" false]

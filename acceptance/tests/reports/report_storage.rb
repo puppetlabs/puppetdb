@@ -17,7 +17,7 @@ test_name "basic validation of puppet report submission" do
 
   agents.each do |agent|
     # Query for all of the reports for this node:
-    result = on database, %Q|curl -G http://localhost:8080/v3/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
 
     reports = JSON.parse(result.stdout)
 
@@ -26,7 +26,7 @@ test_name "basic validation of puppet report submission" do
     report = reports[0]
 
     # Now query for all of the events in this report
-    result = on database, %Q|curl -G 'http://localhost:8080/v3/events' --data 'query=["=",%20"report",%20"#{report["hash"]}"]'|
+    result = on database, %Q|curl -G 'http://localhost:8080/v4/events' --data 'query=["=",%20"report",%20"#{report["hash"]}"]'|
     events = JSON.parse(result.stdout)
 
     # This is a bit weird as well; all "skipped" resources during a puppet

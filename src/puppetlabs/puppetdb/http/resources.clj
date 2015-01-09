@@ -41,14 +41,8 @@
 
 (defn resources-app
   [version]
-  (case version
-    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-    :v2 (build-resources-app
-         (-> (query-app version)
-             (validate-query-params
-              {:optional ["query"]})))
-    (build-resources-app
-     (-> (query-app version)
-         (validate-query-params
-          {:optional (cons "query" paging/query-params)})
-         wrap-with-paging-options))))
+  (build-resources-app
+   (-> (query-app version)
+     (validate-query-params
+      {:optional (cons "query" paging/query-params)})
+     wrap-with-paging-options)))

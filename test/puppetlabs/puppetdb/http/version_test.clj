@@ -9,9 +9,7 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
 
-(def endpoints [[:v2 "/v2/version"]
-                [:v3 "/v3/version"]
-                [:v4 "/v4/version"]])
+(def endpoints [[:v4 "/v4/version"]])
 
 (def parsed-body
   "Returns clojure data structures from the JSON body of

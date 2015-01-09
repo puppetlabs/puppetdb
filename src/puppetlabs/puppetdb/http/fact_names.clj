@@ -21,12 +21,7 @@
 
 (defn fact-names-app
   [version]
-  (case version
-    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-    :v2 (-> routes
-            verify-accepts-json
-            (validate-no-query-params))
-    (-> routes
-        verify-accepts-json
-        (validate-query-params {:optional paging/query-params})
-        wrap-with-paging-options)))
+  (-> routes
+    verify-accepts-json
+    (validate-query-params {:optional paging/query-params})
+    wrap-with-paging-options))

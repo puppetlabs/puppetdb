@@ -5,8 +5,6 @@
    application."
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.http.v2 :refer [v2-app]]
-            [puppetlabs.puppetdb.http.v3 :refer [v3-app]]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
             [puppetlabs.puppetdb.http.experimental :refer [experimental-app]]
             [puppetlabs.puppetdb.middleware :refer
@@ -29,22 +27,9 @@
     (log/warn msg)
     (header result "Warning" msg)))
 
-(defn deprecated-v2-app
-  [request]
-  (deprecated-app
-   v2-app
-   "v2 query API is deprecated and will be removed in an upcoming release.  Please upgrade to v3."
-   request))
-
 (defn routes
   [url-prefix]
   (app
-   ["v2" &]
-   {:any deprecated-v2-app}
-
-   ["v3" &]
-   {:any v3-app}
-
    ["v4" &]
    {:any v4-app}
 

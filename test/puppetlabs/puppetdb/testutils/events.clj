@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.events
   (:require [puppetlabs.puppetdb.query.events :as query]
-            [puppetlabs.puppetdb.query :refer [remove-environment]]
             [puppetlabs.puppetdb.reports :as report]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
