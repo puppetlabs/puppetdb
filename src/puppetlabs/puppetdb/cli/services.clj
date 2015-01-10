@@ -76,7 +76,7 @@
 ;; PuppetDB components.
 
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
-(def mq-endpoint "puppetlabs.puppetdb.commands")
+(def ^:dynamic mq-endpoint "puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
 
 (defn auto-deactivate-nodes!

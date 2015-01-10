@@ -114,13 +114,40 @@
   []
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)
         _ (println (str (utils/base-url->str base-metrics-url)
-             "/mbeans/org.apache.activemq:BrokerName="
-             (url-encode (:host base-metrics-url))
-             ",Type=Queue,Destination=puppetlabs.puppetdb.commands"))
+                        "/mbeans/org.apache.activemq:BrokerName="
+                        (url-encode (:host base-metrics-url))
+                        ",Type=Queue,Destination=puppetlabs.puppetdb.commands"))
         ]
     (-> (str (utils/base-url->str base-metrics-url)
              "/mbeans/org.apache.activemq:BrokerName="
              (url-encode (:host base-metrics-url))
              ",Type=Queue,Destination=puppetlabs.puppetdb.commands")
-      (client/get {:as :json})
-      (get-in [:body :QueueSize]))))
+        (client/get {:as :json})
+        (get-in [:body :QueueSize]))))
+
+(defn dispatch-count
+  "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
+  [dest-name]
+  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
+    (-> (str (utils/base-url->str base-metrics-url)
+             "/mbeans/org.apache.activemq:BrokerName="
+             (url-encode (:host base-metrics-url))
+             ",Type=Queue,Destination="
+             dest-name)
+        (client/get {:as :json})
+        (get-in [:body :DispatchCount]))))
+
+(defmacro without-jmx
+  "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
+  the same instance, their JMX beans will collide. Disabling JMX will
+  allow them both to be started."
+  [& body]
+  `(with-redefs [puppetlabs.puppetdb.mq/enable-jmx (fn [broker# _#]
+                                                     (.setUseJmx broker# false))]
+     (do ~@body)))
+
+(defmacro with-command-endpoint
+  "Invoke `body` with a different command endpoint (destination) name"
+  [new-endpoint-name & body]
+  `(binding [puppetlabs.puppetdb.cli.services/mq-endpoint ~new-endpoint-name]
+     (do ~@body)))
