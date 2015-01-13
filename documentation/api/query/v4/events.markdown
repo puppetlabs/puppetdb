@@ -24,8 +24,6 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the `/events` endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
-
 ## `GET /v4/events`
 
 This will return all resource events matching the given query.  (Resource events

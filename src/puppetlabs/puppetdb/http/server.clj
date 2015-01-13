@@ -36,13 +36,6 @@
    "v2 query API is deprecated and will be removed in an upcoming release.  Please upgrade to v3."
    request))
 
-(defn experimental-v4-app
-  [request]
-  (experimental-warning
-   v4-app
-   "v4 query API is experimental and may change without warning. For stability use the v3 api."
-   request))
-
 (defn routes
   [url-prefix]
   (app
@@ -53,7 +46,7 @@
    {:any v3-app}
 
    ["v4" &]
-   {:any experimental-v4-app}
+   {:any v4-app}
 
    ["experimental" &]
    {:any experimental-app}

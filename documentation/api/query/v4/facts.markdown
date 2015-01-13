@@ -12,8 +12,6 @@ You can query facts by making an HTTP request to the `/facts` endpoint.
 
 In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
-
 
 ## `GET /v4/facts`
 

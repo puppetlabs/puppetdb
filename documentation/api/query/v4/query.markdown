@@ -19,8 +19,6 @@ PuppetDB's query API can retrieve data objects from PuppetDB for use in other ap
 
 The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
-
 ## Query Structure
 
 A query consists of:

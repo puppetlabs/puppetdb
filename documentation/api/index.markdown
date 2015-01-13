@@ -56,9 +56,7 @@ Version 3 of the query API added new endpoints, and introduces paging and sortin
 * [Server Time Endpoint](./query/v3/server-time.html)
 * [Version Endpoint](./query/v3/version.html)
 
-#### Version 4 (Experimental)
-
-Version 4 of the query API is currently experimental and may change without notice. For stability it is recommended to use the v3 query API.
+#### Version 4
 
 * [Nodes Endpoint](./query/v4/nodes.html)
 * [Environments Endpoint](./query/v4/environments.html)
