@@ -679,5 +679,3 @@ The `:web-router-service` section is used to configure the routes at which appli
 This setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
 unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
 this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
-
-
