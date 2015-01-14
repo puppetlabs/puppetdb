@@ -120,7 +120,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.1.0-SNAPSHOT"
+                      :plugins [[puppetlabs/lein-ezbake "0.1.0"
                                  :exclusions [org.clojure/clojure]]]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
