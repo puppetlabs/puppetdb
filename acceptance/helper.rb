@@ -89,9 +89,6 @@ module PuppetDBExtensions
     puppetdb_repo_facter = get_option_value(options[:puppetdb_repo_facter],
       nil, "git repo for facter source installs", "PUPPETDB_REPO_FACTER", nil)
 
-    puppetdb_repo_puppetdb = get_option_value(options[:puppetdb_repo_puppetdb],
-      nil, "git repo for puppetdb source installs", "PUPPETDB_REPO_PUPPETDB", nil)
-
     puppetdb_git_ref = get_option_value(options[:puppetdb_git_ref],
       nil, "git revision of puppetdb to test against", "REF", nil)
 
@@ -114,7 +111,6 @@ module PuppetDBExtensions
       :repo_puppet => puppetdb_repo_puppet,
       :repo_hiera => puppetdb_repo_hiera,
       :repo_facter => puppetdb_repo_facter,
-      :repo_puppetdb => puppetdb_repo_puppetdb,
       :git_ref => puppetdb_git_ref,
     }
 
@@ -424,32 +420,7 @@ module PuppetDBExtensions
   # @return [void]
   # @api public
   def install_puppetdb_via_rake(host)
-    os = PuppetDBExtensions.config[:os_families][host.name]
-    case os
-      when :debian
-        preinst = "debian/puppetdb.preinst install"
-        postinst = "debian/puppetdb.postinst"
-      when :redhat, :fedora
-        preinst = "dev/redhat/redhat_dev_preinst install"
-        postinst = "dev/redhat/redhat_dev_postinst install"
-      else
-        raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
-
-    # We tag here so the build system knows what version to use, first
-    # we grab the version to use as tag from the project.clj,
-    # reformatting the output as necessary (since its in CLJ).
-    prepare_git_author(host)
-    result = on host, "#{LeinCommandPrefix} lein with-profile ci pprint :version | tail -n 1"
-    jar_version = result.stdout.chomp.gsub(/"/, '')
-    on host, "#{LeinCommandPrefix} git tag -f -a '#{jar_version}' -m 'temporary tag for source build to work'"
-
-    on host, "rm -rf /etc/puppetdb/ssl"
-    on host, "#{LeinCommandPrefix} rake package:bootstrap"
-    on host, "#{LeinCommandPrefix} rake template"
-    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{preinst}"
-    on host, "#{LeinCommandPrefix} rake install"
-    on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{postinst}"
+    install_from_ezbake host
 
     step "Configure database.ini file" do
       manifest = "
@@ -465,7 +436,7 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_termini_via_rake(host, database)
-    on host, "#{LeinCommandPrefix} rake sourceterminus"
+    install_termini_from_ezbake host
 
     manifest = <<-EOS
       include puppetdb::master::routes
@@ -968,7 +939,7 @@ EOS
 
     tmp_repositories = []
 
-    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/ and k != 'repo_puppetdb' }.flatten].values
+    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/}.flatten].values
 
     repos.each do |uri|
       raise(ArgumentError, "#{uri} is not recognized.") unless(uri =~ git_uri)

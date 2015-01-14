@@ -1,7 +1,7 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 
 echo "**********************************************"
-echo "PARAMS FROM UPSTREAM:"
+echo "PARAMS:"
 echo ""
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
 echo "REF: ${REF}"
