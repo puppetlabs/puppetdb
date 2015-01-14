@@ -71,9 +71,10 @@
            (fn [f]
              (f
               (fn [result-set]
-                (reset! before-slurp? (realized? result-set))
+                ;; We evaluate a first element from lazy-seq just to check if DB query was successful or not
+                (reset! before-slurp? (and (realized? result-set) (realized? (rest result-set))))
                 (reset! results result-set)
-                (reset! after-slurp? (realized? result-set))))))
+                (reset! after-slurp? (and (realized? result-set) (realized? (rest result-set))))))))
     (is (false? @before-slurp?))
     (check-result @results)
     (is (false? @after-slurp?))))
