@@ -11,18 +11,19 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :as jetty9]
             [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [clj-time.core :refer [days hours minutes secs]]
             [clojure.java.io :refer [resource]]
             [puppetlabs.puppetdb.time :refer [to-secs to-minutes to-hours to-days period?]]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]
+            [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-on-node
                                                                           submit-command
                                                                           block-until-results]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.cli.export :as export]))
+            [puppetlabs.puppetdb.cli.export :as export :refer [facts-for-node]]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -50,15 +51,21 @@
 (deftest url-prefix-test
   (testing "should mount web app at `/` by default"
     (jutils/with-puppetdb-instance
-      (let [response (client/get (jutils/current-url "/v4/version"))]
+      (let [url (str (utils/base-url->str *base-url*) "/version")
+            response (client/get url)]
         (is (= 200 (:status response))))))
   (testing "should support mounting web app at alternate url prefix"
     (jutils/puppetdb-instance
-     (assoc-in (jutils/create-config) [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] "/puppetdb")
+     (assoc-in (jutils/create-config)
+               [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
+               "/puppetdb")
      (fn []
-       (let [response (client/get (jutils/current-url "/v4/version") {:throw-exceptions false})]
+       (let [url (str (utils/base-url->str (dissoc *base-url* :prefix))
+                      "/version")
+             response (client/get url {:throw-exceptions false})]
          (is (= 404 (:status response))))
-       (let [response (client/get (jutils/current-url "/puppetdb/v4/version"))]
+       (let [url (str (utils/base-url->str *base-url*) "/version")
+             response (client/get url)]
          (is (= 200 (:status response))))))))
 
 (defn- check-service-query
@@ -80,13 +87,14 @@
 
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
-    (submit-command :replace-facts 3 {:name "foo.local"
+    (submit-command *base-url*
+                    :replace-facts 3 {:name "foo.local"
                                       :environment "DEV"
                                       :values {:foo "the foo"
                                                :bar "the bar"
                                                :baz "the baz"}
                                       :producer-timestamp (to-string (now))})
-    @(block-until-results 100 (export/facts-for-node "localhost" jutils/*port* "foo.local"))
+    @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
     (check-service-query
      :facts :v4 ["=" "certname" "foo.local"]
      nil
@@ -107,13 +115,12 @@
 
 (deftest pagination-via-puppdbserver-service
   (jutils/with-puppetdb-instance
-    (submit-command :replace-facts 3 {:name "foo.local"
+    (submit-command *base-url*
+                    :replace-facts 3 {:name "foo.local"
                                       :environment "DEV"
                                       :values {:a "a" :b "b" :c "c"}
                                       :producer-timestamp (to-string (now))})
-    @(block-until-results 100 (export/facts-for-node "localhost"
-                                                     jutils/*port*
-                                                     "foo.local"))
+    @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
     (let [exp ["a" "b" "c"]
           rexp (reverse exp)]
       (doseq [order [:ascending :descending]
