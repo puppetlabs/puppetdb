@@ -16,8 +16,6 @@ Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assi
 
 When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
-> **Note:** The v4 API is experimental and may change without notice.
-
 ## `GET /v4/environments`
 
 This will return all environments known to PuppetDB.

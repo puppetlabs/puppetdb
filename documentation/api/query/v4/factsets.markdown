@@ -12,8 +12,6 @@ You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
 A factset is the set of all facts for a single certname.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
-
 ### `GET /v4/factsets`
 
 This will return all factsets matching the given query.

@@ -28,8 +28,6 @@ Structured fact data is normally represented as a hash, which allows hashes, arr
 
 With the fact points endpoint it allows you to query data at a particular part of the tree using the `path` field, and then either analyze or filter on the `value` of that node.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
-
 ### `GET /v4/fact-contents`
 
 This will return all fact contents that match the given query.

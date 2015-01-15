@@ -12,8 +12,6 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
-
 ## `GET /v4/catalogs`
 
 This will return a JSON array containing the most recent catalog for each node in your infrastructure.

@@ -16,8 +16,6 @@ building autocompletion in GUIs or for other applications that require a
 basic top-level view of fact paths.  The fact-paths endpoint is not available
 for API versions 2 and 3.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, we recommend that you use the v3 API instead.
-
 ## `GET /fact-paths`
 
 This will return all fact paths matching the given query.

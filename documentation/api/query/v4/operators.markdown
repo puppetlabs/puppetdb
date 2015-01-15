@@ -12,8 +12,6 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 
 PuppetDB's [query strings][query] can use several common operators.
 
-> **Note:** The v4 API is experimental and may change without notice. For stability, it is recommended that you use the v3 API instead.
-
 ## Binary Operators
 
 Each of these operators accepts two arguments: a **field,** and a
