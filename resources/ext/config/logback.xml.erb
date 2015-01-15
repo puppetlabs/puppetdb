@@ -6,7 +6,7 @@
     </appender>
 
     <appender name="F1" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/puppetdb/puppetdb.log</file>
+        <file>/var/log/<% if Pkg::Config.config[:build_pe] -%>pe-<% end -%>puppetdb/puppetdb.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>/var/log/puppetdb/puppetdb-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
