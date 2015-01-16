@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.v2
   (:require [puppetlabs.puppetdb.http.version :as ver]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [puppetlabs.puppetdb.http.metrics :as met]
+            [puppetlabs.puppetdb.metrics.core :as met]
             [puppetlabs.puppetdb.http.fact-names :as fact-names]
             [puppetlabs.puppetdb.http.facts :as facts]
             [puppetlabs.puppetdb.http.resources :as resources]

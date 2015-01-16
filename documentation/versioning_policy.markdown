@@ -13,6 +13,7 @@ Specifically there are a few different levels of versioning we have to consider 
 
 * PuppetDB Software
 * HTTP API
+* Metrics API
 * Commands & Wire Formats
 
 Some general statements about this policy:
@@ -28,7 +29,7 @@ This relates to the versioning associated with an overall PuppetDB release. In t
 
 ## HTTP API
 
-This means the top level (eg. /v2, /v3, /v4 ... /v10) parts we see prefixed to HTTP end-points. This includes the query API and the command submission API today.
+This means the top level (eg. /v2, /v3, /v4 ... /v10) parts we see prefixed to HTTP end-points. This includes the query API, metrics API and the command submission API today.
 
 There are 4 states a versioned API can be in:
 

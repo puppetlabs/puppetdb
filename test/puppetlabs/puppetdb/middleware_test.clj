@@ -30,19 +30,6 @@
       ;; Should have separate meters for each status code
       (is (= (set (range 200 210)) (keyset (get-in @storage [:meters "/foo/bar/baz"]))))))
 
-  (testing "Should NOT create timers and meters for metrics URLs (PDB-353)"
-    (let [storage       (atom {})
-          normalize-uri identity
-          handler       (fn [req] (-> (rr/response nil)
-                                      (rr/status http/status-ok)))
-          app (wrap-with-metrics handler storage normalize-uri)]
-
-          (app {:uri "/v99/metrics/mbeans"})                    ;; the list of available metrics
-          (app {:uri "/some/user/prefix/v1/metrics/mbean/foo"}) ;; example of a given metric
-
-      ;; Should not have created timers or meters
-      (is (= #{} (keyset @storage)))))
-
   (testing "Should normalize according to supplied func"
     (let [storage       (atom {})
           ;; Normalize urls based on reversing the url

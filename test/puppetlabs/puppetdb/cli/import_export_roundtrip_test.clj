@@ -102,10 +102,8 @@
                     (assoc :name "foo.local"))
         report (:basic reports)
         with-server #(jutils/puppetdb-instance
-                      (if (empty? url-prefix)
-                        (jutils/create-config)
-                        (assoc-in (jutils/create-config)
-                                  [:global :url-prefix] url-prefix))
+                       (assoc-in (jutils/create-config)
+                                 [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] url-prefix)
                       %)]
 
     (with-server
@@ -172,7 +170,7 @@
   (test-basic-roundtrip nil))
 
 (deftest url-prefixed-roundtrip
-  (test-basic-roundtrip "foo"))
+  (test-basic-roundtrip "/foo"))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [5 :empty])

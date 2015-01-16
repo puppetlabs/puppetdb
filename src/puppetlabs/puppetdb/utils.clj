@@ -152,8 +152,7 @@
    MalformedURLException or URISyntaxException."
   [{:keys [protocol host port prefix version] :as base-url} :- base-url-schema]
   (-> (URL. protocol host port
-            (str (when-not (empty? prefix) (str "/" prefix))
-                 "/" (name (or version :v4))))
+            (str prefix "/" (name (or version :v4))))
     .toURI .toASCIIString))
 
 (defn describe-bad-base-url [base-url]

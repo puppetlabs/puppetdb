@@ -362,8 +362,12 @@
         prefix (or (get-in config-data url-prefix-path)
                    ;; Setting url-prefix in [global] is deprecated
                    (normalize-url-prefix (get-in config-data [:global :url-prefix]))
-                   "")]
-    (assoc-in config-data url-prefix-path prefix)))
+                   "")
+        metrics-url-prefix-path [:web-router-service :puppetlabs.puppetdb.metrics/metrics-service]
+        metrics-prefix (get-in config-data metrics-url-prefix-path "/metrics")]
+    (-> config-data
+        (assoc-in url-prefix-path prefix)
+        (assoc-in metrics-url-prefix-path metrics-prefix))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
