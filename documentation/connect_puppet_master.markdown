@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
-[puppetdb_conf]: /puppet/latest/reference/config_file_puppetdb.html
+[puppetdb_conf]: ./puppetdb_connection.html
 [routes_yaml]: /puppet/latest/reference/config_file_routes.html
 [exported]: /puppet/latest/reference/lang_exported.html
 [install_via_module]: ./install_via_module.html
@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [report]: ./api/query/v3/reports.html
 [store_report]: ./api/commands.html#store-report-version-1
 [report_format]: ./api/wire_format/report_format_v3.html
-[url_prefix_setting]: ./configure.html#url-prefix
+[puppetdb_server_urls]: ./puppetdb_connection.html#server_urls
 
 > Note: To use PuppetDB, your site's puppet master(s) must be running Puppet 3.5.1 or later .
 
@@ -55,27 +55,13 @@ You will need to edit (or create) three files in this directory:
 
 ### 1. Edit puppetdb.conf
 
-The [puppetdb.conf][puppetdb_conf] file will probably not exist yet. Create it, and add the PuppetDB server's hostname and port:
+The [puppetdb.conf][puppetdb_conf] file will probably not exist yet. Create it, and add the PuppetDB server's URL that includes the hostname and port:
 
     [main]
     server_urls = https://puppetdb.example.com:8081/
 
-PuppetDB's port for secure traffic defaults to 8081 with the url prefix '/'. Puppet _requires_ use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port. If you have specified a [`url-prefix` setting in your PuppetDB configuration][url_prefix_setting] that prefix must be reflected in your urls.
+PuppetDB's port for secure traffic defaults to 8081 with the context root of '/'. For users that have not changed the defaults the above config (with the correct hostname) is sufficient. For more information on configuring `server_urls`, including support for multiple PuppetDB backends, see [configuring the PuppetDB server_urls][puppetdb_server_urls].
 
-Note that a comma separated list of the URLs can be provided if there are more than one PuppetDB instances available, for instance:
-
-    [main]
-    server_urls = https://puppetdb1.example.com:8081/,https://puppetdb2.example.com:8081/
-
-For availability reasons there is a setting named `soft_write_failure` that will cause the PuppetDB termini to fail in a soft-manner if PuppetDB is not accessable for command submission. This will mean that users who are either not using storeconfigs, or only exporting resources will still have their catalogs compile during a PuppetDB outage.
-
-The `server_url_timeout` field sets the maximum amount of time (in seconds) the PuppetDB termini will wait for an HTTP request to be responded to by PuppetDB. If the user has specified more than one PuppetDB URL and a timeout has occurred, it will attempt the same request in the next server in the list.
-
-If no puppetdb.conf file exists, the following default values will be used:
-
-    server_urls = https://puppetdb:8081/
-    server_url_timeout = 30
-    soft_write_failure = false
 
 ### 2. Edit puppet.conf
 
