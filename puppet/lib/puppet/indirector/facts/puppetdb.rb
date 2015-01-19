@@ -52,7 +52,8 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     profile("facts#find", [:puppetdb, :facts, :find, request.key]) do
       begin
-        response = Http.action("/v3/nodes/#{CGI.escape(request.key)}/facts") do |http_instance, path|
+        query = ['=', 'certname', request.key].to_json
+        response = Http.action("/v4/factsets?query=#{CGI.escape(query)}") do |http_instance, path|
           profile("Query for nodes facts: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
             http_instance.get(path, headers)
@@ -64,19 +65,11 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           profile("Parse fact query response (size: #{response.body.size})",
                   [:puppetdb, :facts, :find, :parse_response, request.key]) do
             result = JSON.parse(response.body)
-            # Note: the Inventory Service API appears to expect us to return nil here
-            # if the node isn't found.  However, PuppetDB returns an empty array in
-            # this case; for now we will just look for that condition and assume that
-            # it means that the node wasn't found, so we will return nil.  In the
-            # future we may want to improve the logic such that we can distinguish
-            # between the "node not found" and the "no facts for this node" cases.
+            # Empty array of factsets means no node with that name was found
             if result.empty?
               return nil
             end
-            facts = result.inject({}) do |a,h|
-              a.merge(h['name'] => h['value'])
-            end
-            Puppet::Node::Facts.new(request.key, facts)
+            Puppet::Node::Facts.new(request.key, result.first)
           end
         else
           # Newline characters cause an HTTP error, so strip them
