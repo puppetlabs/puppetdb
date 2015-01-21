@@ -139,3 +139,20 @@
                                     :certname "foo.local")
                          expected)
                     result)))))))))
+
+(deftest api-retirements
+  (jutils/with-puppetdb-instance
+    (letfn [(ping [v]
+              (client/get
+               (str (utils/base-url->str (assoc *base-url* :version v))
+                    "/version")
+               {:throw-exceptions false}))
+            (retirement-response? [v response]
+              (and (= 404 (:status response))
+                   (= (format "The %s API has been retired; please use v4"
+                              (name v))
+                      (:body  response))))]
+      (is (= 200 (:status (ping :v4))))
+      (doseq [v [:v1 :v2 :v3]]
+        (testing (format "%s requests are refused" (name v)))
+        (is (retirement-response? v (ping v)))))))

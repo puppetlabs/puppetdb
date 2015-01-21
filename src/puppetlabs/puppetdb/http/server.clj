@@ -27,17 +27,23 @@
     (log/warn msg)
     (header result "Warning" msg)))
 
+(defn- refuse-retired-api
+  [version]
+  (constantly
+   (http/error-response
+    (format "The %s API has been retired; please use v4" version)
+    404)))
+
 (defn routes
   [url-prefix]
   (app
-   ["v4" &]
-   {:any v4-app}
-
-   ["experimental" &]
-   {:any experimental-app}
-
-   [""]
-   {:get (constantly (redirect (format "%s/dashboard/index.html" url-prefix)))}))
+   ["v4" &] {:any v4-app}
+   ["experimental" &] {:any experimental-app}
+   ["v1" &] {:any (refuse-retired-api "v1")}
+   ["v2" &] {:any (refuse-retired-api "v2")}
+   ["v3" &] {:any (refuse-retired-api "v3")}
+   [""] {:get (constantly
+               (redirect (format "%s/dashboard/index.html" url-prefix)))}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests
