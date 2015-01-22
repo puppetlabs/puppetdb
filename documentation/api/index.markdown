@@ -30,8 +30,8 @@ PuppetDB 1.3 (and later) supports versions 1 and 2 of the query API. Version 1 i
 
 PuppetDB's data can be queried with a REST API.
 
-* [Specification of the General Query Structure](./query/v3/query.html)
-* [Available Operators](./query/v3/operators.html)
+* [Specification of the General Query Structure](./query/v4/query.html)
+* [Available Operators](./query/v4/operators.html)
 * [Query Tutorial](./query/tutorial.html)
 * [Curl Tips](./query/curl.html)
 
@@ -39,24 +39,9 @@ The available query endpoints are documented in the pages linked below.
 
 ### Query Endpoints
 
-#### Version 3
-
-Version 3 of the query API added new endpoints, and introduces paging and sorting operations. This is the current stable API.
-
-* [Nodes Endpoint](./query/v3/nodes.html)
-* [Facts Endpoint](./query/v3/facts.html)
-* [Fact-Names Endpoint](./query/v3/fact-names.html)
-* [Catalogs Endpoint](./query/v3/catalogs.html)
-* [Resources Endpoint](./query/v3/resources.html)
-* [Reports Endpoint](./query/v3/reports.html)
-* [Events Endpoint](./query/v3/events.html)
-* [Event Counts Endpoint](./query/v3/event-counts.html)
-* [Aggregate Event Counts Endpoint](./query/v3/aggregate-event-counts.html)
-* [Metrics Endpoint](./query/v3/metrics.html)
-* [Server Time Endpoint](./query/v3/server-time.html)
-* [Version Endpoint](./query/v3/version.html)
-
 #### Version 4
+
+This is the current stable API.
 
 * [Nodes Endpoint](./query/v4/nodes.html)
 * [Environments Endpoint](./query/v4/environments.html)
@@ -75,15 +60,13 @@ Version 3 of the query API added new endpoints, and introduces paging and sortin
 * [Server Time Endpoint](./query/v4/server-time.html)
 * [Version Endpoint](./query/v4/version.html)
 
-#### Version 2 (Deprecated)
+#### Version 3 (Retired)
 
-Version 2 of the query API is deprecated and will be retired soon. For stability it is recommended to use the v3 query API instead.
+Version 3 of the query API has been retired.  Please use v4.
 
-* [Nodes Endpoint](./query/v2/nodes.html)
-* [Facts Endpoint](./query/v2/facts.html)
-* [Fact-Names Endpoint](./query/v2/fact-names.html)
-* [Resources Endpoint](./query/v2/resources.html)
-* [Metrics Endpoint](./query/v2/metrics.html)
+#### Version 2 (Retired)
+
+Version 2 of the query API has been retired.  Please use v4.
 
 Commands
 -----

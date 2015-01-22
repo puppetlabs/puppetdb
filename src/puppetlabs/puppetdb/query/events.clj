@@ -114,14 +114,11 @@
            (not (:count? paging-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
-  (case version
-    (:v2 :v3) (legacy-query->sql version query-options query paging-options)
-
-    (if (:distinct-resources? query-options)
-      ;; The new query engine does not support distinct-resources yet, so we
-      ;; fall back to the old
-      (legacy-query->sql version query-options query paging-options)
-      (qe/compile-user-query->sql qe/report-events-query query paging-options))))
+  (if (:distinct-resources? query-options)
+    ;; The new query engine does not support distinct-resources yet, so we
+    ;; fall back to the old
+    (legacy-query->sql version query-options query paging-options)
+    (qe/compile-user-query->sql qe/report-events-query query paging-options)))
 
 ;; Below this line the code is more about turning a query into results,
 ;; above is the SQL engine code (as it stands).

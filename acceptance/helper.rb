@@ -255,7 +255,7 @@ module PuppetDBExtensions
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
     curl_with_retries("start puppetdb", host,
-                      "-s -w '%{http_code}' http://localhost:8080/v3/version -o /dev/null",
+                      "-s -w '%{http_code}' http://localhost:8080/v4/version -o /dev/null",
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
                       "https://#{host.node_name}:8081/", [35, 60])

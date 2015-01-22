@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.query :refer [remove-environment]]
-            [puppetlabs.puppetdb.http :refer [remove-status status-bad-request]]
+            [puppetlabs.puppetdb.http :refer [status-bad-request]]
             [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
@@ -14,8 +13,7 @@
                                                    assert-success!
                                                    get-request
                                                    paged-results
-                                                   deftestseq
-                                                   after-v3?]]
+                                                   deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-resource-events]]
             [flatland.ordered.map :as omap]
@@ -66,20 +64,14 @@
         report-hash   (:hash (store-example-report! basic (now)))
         basic (assoc basic :hash report-hash)]
 
-    (doseq [field (concat ["certname" "hash"]
-                          (when-not (= :v3 version)
-                            ;; "receive_time" is not tested here as it
-                            ;; makes more sense in <,>,<=, >=, which
-                            ;; will be added soon
-                            ["puppet-version" "report-format" "configuration-version" "start-time" "end-time" "transaction-uuid" "status"]))
+    (doseq [field ["certname" "hash" "puppet-version" "report-format"
+                   "configuration-version" "start-time" "end-time"
+                   "transaction-uuid" "status"]
             :let [field-kwd (keyword (str/replace field #"_" "-"))]]
       (testing (format "should return all reports for a %s" field)
         (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
-          (case version
-            :v3 (is (not-any? :environment (json/parse-string (:body result) true)))
-            (do
-              (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
-              (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))))
+          (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
+          (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))
           (response-equal?
            result
            (reports-response version [basic])
@@ -87,29 +79,29 @@
 
 (deftestseq query-with-projection
   [[version endpoint] endpoints]
-  (when (after-v3? version)
-    (let [basic         (:basic reports)
-          report-hash   (:hash (store-example-report! basic (now)))
-          bar-report-hash (:hash (store-example-report! (assoc basic :certname "bar.local") (now)))
-          basic (assoc basic :hash report-hash)]
 
-      (testing "one projected column"
-        (response-equal?
-         (get-response endpoint ["extract" "hash"
-                                 ["=" "certname" (:certname basic)]])
-         #{{:hash report-hash}}))
+  (let [basic         (:basic reports)
+        report-hash   (:hash (store-example-report! basic (now)))
+        bar-report-hash (:hash (store-example-report! (assoc basic :certname "bar.local") (now)))
+        basic (assoc basic :hash report-hash)]
 
-      (testing "one projected column with a not"
-        (response-equal?
-         (get-response endpoint ["extract" "hash"
-                                 ["not" ["=" "certname" (:certname basic)]]])
-         #{{:hash bar-report-hash}}))
+    (testing "one projected column"
+      (response-equal?
+       (get-response endpoint ["extract" "hash"
+                               ["=" "certname" (:certname basic)]])
+       #{{:hash report-hash}}))
 
-      (testing "three projected columns"
-        (response-equal?
-         (get-response endpoint ["extract" ["hash" "certname" "transaction-uuid"]
-                                 ["=" "certname" (:certname basic)]])
-         #{(select-keys basic [:hash :certname :transaction-uuid])})))))
+    (testing "one projected column with a not"
+      (response-equal?
+       (get-response endpoint ["extract" "hash"
+                               ["not" ["=" "certname" (:certname basic)]]])
+       #{{:hash bar-report-hash}}))
+
+    (testing "three projected columns"
+      (response-equal?
+       (get-response endpoint ["extract" ["hash" "certname" "transaction-uuid"]
+                               ["=" "certname" (:certname basic)]])
+       #{(select-keys basic [:hash :certname :transaction-uuid])}))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
@@ -139,25 +131,15 @@
   [[version endpoint] endpoints]
 
   (let [response (get-response endpoint ["<" "environment" 0])]
-    (if (= version :v3)
-      (is (re-matches #".*query operator '<' is unknown" (:body response)))
-      (is (re-matches #".*Query operators .*<.* not allowed .* environment" (:body response))))
+    (is (re-matches #".*Query operators .*<.* not allowed .* environment" (:body response)))
     (is (= 400 (:status response))))
 
   (let [response (get-response endpoint ["=" "timestamp" 0])]
-    (if (= version :v3)
-      (is (re-find #"'timestamp' is not a valid query term" (:body response)))
-      (is (re-find #"'timestamp' is not a queryable object for reports" (:body response))))
-    (is (= 400 (:status response))))
-
-  (when (= version :v3)
-    (let [response (get-response endpoint ["=" "environment" "FOO"])]
-      (is (re-find #"'environment' is not a valid query term" (:body response)))
-      (is (= 400 (:status response))))))
+    (is (re-find #"'timestamp' is not a queryable object for reports" (:body response)))
+    (is (= 400 (:status response)))))
 
 (deftestseq query-by-status
-  [[version endpoint] endpoints
-   :when (not= version :v3)]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -198,8 +180,7 @@
          munge-reports-for-comparison)))))
 
 (deftestseq query-by-certname-with-environment
-  [[version endpoint] endpoints
-   :when (not= version :v3)]
+  [[version endpoint] endpoints]
 
   (let [basic         (:basic reports)
         report-hash   (:hash (store-example-report! basic (now)))]
@@ -218,9 +199,7 @@
                                   ["=" "certname" (:certname basic)]))))))))
 
 (deftestseq query-by-puppet-version
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -256,9 +235,7 @@
      munge-reports-for-comparison)))
 
 (deftestseq query-by-report-format
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -298,9 +275,7 @@
      munge-reports-for-comparison)))
 
 (deftestseq query-by-configuration-version
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -326,9 +301,7 @@
      munge-reports-for-comparison)))
 
 (deftestseq query-by-start-and-end-time
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -377,9 +350,7 @@
   (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
 
 (deftestseq query-by-receive-time
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         stored-basic (store-example-report! basic (now))
@@ -395,9 +366,7 @@
      munge-reports-for-comparison)))
 
 (deftestseq query-by-transaction-uuid
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -423,9 +392,7 @@
      munge-reports-for-comparison)))
 
 (deftestseq query-by-hash
-  [[version endpoint] endpoints
-   :when (and (not= version :v2)
-              (not= version :v3))]
+  [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
@@ -451,8 +418,7 @@
     #"Can't extract unknown 'reports' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
 
 (deftestseq invalid-projections
-  [[version endpoint] endpoints
-   :when ((complement #{:v2 :v3}) version)]
+  [[version endpoint] endpoints]
 
   (doseq [[query msg] invalid-projection-queries]
     (testing (str "query: " query " should fail with msg: " msg)

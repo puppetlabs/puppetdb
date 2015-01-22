@@ -21,9 +21,7 @@
   ([version filter-expr paging-options]
      (->> (raw-retrieve-nodes version filter-expr paging-options)
           (:result)
-          (mapv (case version
-                  (:v2 :v3) :name
-                  :certname)))))
+          (mapv :certname))))
 
 (def names #{"node_a" "node_b" "node_c" "node_d" "node_e"})
 
@@ -97,7 +95,7 @@
                         #{}
                         ["=" ["fact" "uptime_seconds"] "10000"]
                         #{"node_d" "node_e"}}]
-        (combination-tests [:v2 :v3 :v4] test-cases)))
+        (combination-tests [:v4] test-cases)))
 
     (testing "environment testing"
       (let [test-cases {["=" "facts-environment" "production"]
@@ -115,7 +113,7 @@
       (sql/insert-record :factsets {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
       (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 
-  (doseq [version [:v2 :v3 :v4]]
+  (let [version [:v4]]
 
     (testing (str "version " version)
       (testing "include total results count"
@@ -140,7 +138,7 @@
                                     [:descending ["node_e" "node_d" "node_c" "node_b" "node_a"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[(case version (:v2 :v3) :name :certname) order]]})]
+                                                {:order-by [[:certname order]]})]
                 (is (= actual expected))))))
 
         (testing "timestamp fields"
@@ -157,7 +155,7 @@
             (testing (format "catalog-timestamp %s name %s" timestamp-order name-order)
               (let [actual (retrieve-node-names version nil
                                                 {:order-by [[:catalog-timestamp timestamp-order]
-                                                            [(case version (:v2 :v3) :name :certname) name-order]]})]
+                                                            [:certname name-order]]})]
                 (is (= actual expected)))))))
 
       (testing "offset"
@@ -176,5 +174,6 @@
           (testing order
             (doseq [[offset expected] expected-sequences]
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[(case version (:v2 :v3) :name :certname) order]] :offset offset})]
+                                                {:order-by [[:certname order]]
+                                                 :offset offset})]
                 (is (= actual expected))))))))))

@@ -54,13 +54,8 @@
 
 (defn node-app
   [version]
-  (case version
-    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
-    :v2 (-> (routes version)
-            verify-accepts-json
-            (validate-query-params {:optional ["query"]}))
-    (-> (routes version)
-        verify-accepts-json
-        (validate-query-params
-         {:optional (cons "query" paging/query-params)})
-        wrap-with-paging-options)))
+  (-> (routes version)
+    verify-accepts-json
+    (validate-query-params
+     {:optional (cons "query" paging/query-params)})
+    wrap-with-paging-options))

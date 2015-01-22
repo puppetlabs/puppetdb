@@ -9,18 +9,18 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [deftestseq after-v3?]]
+            [puppetlabs.puppetdb.testutils :refer [deftestseq]]
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
             [clj-time.core :refer [now ago days]]))
 
 (use-fixtures :each with-test-db)
 
-(def versions [:v2 :v3 :v4])
+(def versions [:v4])
 
 ;; Begin tests
 
 (deftest test-compile-resource-event-term
-  (doseq [version [:v3 :v4]]
+  (let [version :v4]
     (let [ops (query/resource-event-ops version)]
       (testing "should succesfully compile a valid equality query"
         (is (= (query/compile-term ops ["=" "report" "blah"])
@@ -54,17 +54,12 @@
              IllegalArgumentException #"> operator does not support object 'resource_type'"
              (query/compile-term ops [">" "resource_type" "foo"])))))))
 
-(defmacro after-v3 [version v3-or-before v4-or-after]
-  `(if (after-v3? ~version)
-     ~v4-or-after
-     ~v3-or-before))
-
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
         report-hash       (:hash basic)
         basic-events      (get-in reports [:basic :resource-events])
         basic-events-map  (get-events-map (:basic reports))]
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing (str "resource event retrieval by report - version " version)
         (testing "should return the list of resource events for a given report hash"
           (let [expected  (expected-resource-events version basic-events basic)
@@ -149,36 +144,22 @@
                 [[:resource-type    "Notify"                            []]
                  [:resource-title   "notify, yo"                        [2 3]]
                  [:status           "success"                           [3]]
-                 [:property         "message"                           (after-v3 version
-                                                                                  [3]
-                                                                                  [])]
+                 [:property         "message"                           []]
                  [:property         nil                                 [1 2]]
                  [:old-value        ["what" "the" "woah"]               [2 3]]
                  [:new-value        "notify, yo"                        [2 3]]
-                 [:message          "defined 'message' as 'notify, yo'" (after-v3 version
-                                                                                  [3]
-                                                                                  [])]
+                 [:message          "defined 'message' as 'notify, yo'" []]
                  [:message          nil                                 [1 2]]
                  [:resource-title   "bunk"                              [1 2 3]]
                  [:certname         "foo.local"                         []]
                  [:certname         "bunk.remote"                       [1 2 3]]
-                 [:file             "foo.pp"                            (after-v3 version
-                                                                                  [2 3]
-                                                                                  [3])]
-                 [:file             "bar"                               (after-v3 version
-                                                                                  [1 2]
-                                                                                  [1])]
+                 [:file             "foo.pp"                            [3]]
+                 [:file             "bar"                               [1]]
                  [:file             nil                                 [1 3]]
-                 [:line             1                                   (after-v3 version
-                                                                                  [2 3]
-                                                                                  [3])]
-                 [:line             2                                   (after-v3 version
-                                                                                  [1 2]
-                                                                                  [1])]
+                 [:line             1                                   [3]]
+                 [:line             2                                   [1]]
                  [:line             nil                                 [1 3]]
-                 [:containing-class "Foo"                               (after-v3 version
-                                                                                  [1 2]
-                                                                                  [])]
+                 [:containing-class "Foo"                               []]
                  [:containing-class nil                                 [3]]]]
           (testing (format "'not' query on field '%s'" field)
             (let [expected  (expected-resource-events
@@ -330,8 +311,7 @@
                 (format "Results didn't match for query '%s'" query))))))))
 
 (deftestseq resource-event-queries-for-v4+
-  [version versions
-   :when (after-v3? version)]
+  [version versions]
   (let [basic             (store-example-report! (:basic reports) (now))
         basic2            (store-example-report! (:basic2 reports) (now))
         report-hash       (:hash basic)
@@ -375,7 +355,7 @@
         report2-hash  (:hash basic2)
         events2       (get-in reports [:basic2 :resource-events])
         events2-map   (get-events-map (:basic2 reports))]
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing "retrieval of events for latest report only"
         (testing "applied to entire query"
           (let [expected  (expected-resource-events version events2 basic2)
@@ -411,7 +391,7 @@
         report-hash3  (:hash basic3)
         events1       (get-in reports [:basic :resource-events])
         events3       (get-in reports [:basic3 :resource-events])]
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing "retrieval of events for distinct resources only"
         (let [expected  (expected-resource-events version events3 basic3)
               actual    (resource-events-query-result version ["=" "certname" "foo.local"]
@@ -450,7 +430,7 @@
         events        (get-in reports [:basic4 :resource-events])
         event-count   (count events)
         select-values #(reverse (kitchensink/select-values (get-events-map (:basic4 reports)) %))]
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing "include total results count"
         (let [actual (:count (raw-resource-events-query-result version [">" "timestamp" 0] {:count? true}))]
           (is (= actual event-count))))
@@ -556,17 +536,3 @@
                 :let [actual  (set (:result (raw-resource-events-query-result :v4 query {})))]]
           (is (every? #(= "PROD" (:environment %)) actual))
           (is (= actual expected)))))))
-
-(deftest failed-environment-queries
-  (let [basic           (store-example-report! (:basic reports) (now))
-        basic2          (store-example-report! (assoc (:basic2 reports) :environment "PROD") (now))
-        basic-events    (get-in reports [:basic :resource-events])
-        basic-events2    (get-in reports [:basic2 :resource-events])]
-    (testing "query for DEV reports"
-      (let [expected    (expected-resource-events :v4 basic-events basic)]
-        (doseq [query [["=" "environment" "DEV"]
-                       ["not" ["=" "environment" "PROD"]]
-                       ["~" "environment" "DE.*"]
-                       ["not"["~" "environment" "PR.*"]]]]
-          (is (thrown-with-msg? IllegalArgumentException #"'environment' is not a queryable object.*version 3"
-                                (raw-resource-events-query-result :v3 query {}))))))))

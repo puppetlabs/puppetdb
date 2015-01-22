@@ -15,9 +15,7 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
 
-(def endpoints [[:v2 "/v2/commands"]
-                [:v3 "/v3/commands"]
-                [:v4 "/v4/commands"]])
+(def endpoints [[:v4 "/v4/commands"]])
 
 (defn get-request*
   "Makes a parameter only request"
@@ -41,11 +39,8 @@
       (let [payload  "This is a test"
             checksum (kitchensink/utf8-string->sha1 payload)
             req (fixt/internal-request {"payload" payload "checksum" checksum})
-            response (fixt/*app* (case version
-                                   (:v2 :v3)
-                                   (get-request* endpoint {"payload" payload "checksum" checksum})
-
-                                   (post-request* endpoint {"checksum" checksum} payload)))]
+            response (fixt/*app* (post-request* endpoint {"checksum" checksum}
+                                                payload))]
         (assert-success! response)
 
         (is (= (content-type response)
@@ -53,29 +48,18 @@
         (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [response (fixt/*app* (case version
-                                   (:v2 :v3)
-                                   (get-request endpoint)
-
-                                   (post-request* endpoint nil nil)))]
+      (let [response (fixt/*app* (post-request* endpoint nil nil))]
         (is (= (:status response)
                http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
-      (let [response (fixt/*app* (case version
-                                   (:v2 :v3)
-                                   (get-request* endpoint {"payload" "my payload!"})
-
-                                   (post-request* endpoint nil "my payload!")))]
+      (let [response (fixt/*app* (post-request* endpoint nil "my payload!"))]
         (assert-success! response)))
 
     (testing "should return 400 when checksums don't match"
-      (let [response (fixt/*app* (case version
-                                   (:v2 :v3)
-                                   (get-request* endpoint {"payload" "Testing"
-                                                           "checksum" "something bad"})
-
-                                   (post-request* endpoint {"checksum" "something bad"} "Testing")))]
+      (let [response (fixt/*app* (post-request* endpoint
+                                                {"checksum" "something bad"}
+                                                "Testing"))]
         (is (= (:status response)
                http/status-bad-request))))))
 
@@ -94,10 +78,7 @@
         bad-payload   "some test message"
         bad-checksum  (kitchensink/utf8-string->sha1 bad-payload)
         request       (fn [payload checksum]
-                        (case version
-                          (:v2 :v3)
-                          (get-request* endpoint {"payload" payload "checksum" checksum})
-                          (post-request* endpoint {"checksum" checksum} payload)))]
+                        (post-request* endpoint {"checksum" checksum} payload))]
     (fixt/*app* (request good-payload good-checksum))
     (fixt/*app* (request bad-payload bad-checksum))
 

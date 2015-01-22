@@ -27,7 +27,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
       query_param = CGI.escape(expr.to_json)
 
       begin
-        response = Http.action("/v3/resources?query=#{query_param}") do |http_instance, path|
+        response = Http.action("/v4/resources?query=#{query_param}") do |http_instance, path|
           profile("Resources query: #{URI.unescape(path)}",
                   [:puppetdb, :resource, :search, :query, request.key]) do
             http_instance.get(path, headers)

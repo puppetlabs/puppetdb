@@ -10,7 +10,7 @@
 
 (use-fixtures :each with-http-app)
 
-(def versions [:v2 :v3 :v4])
+(def versions [:v4])
 
 (def c-t "application/json")
 

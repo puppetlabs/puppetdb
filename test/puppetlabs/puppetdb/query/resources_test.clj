@@ -189,7 +189,7 @@
         ]
     ;; ...and, finally, ready for testing.
 
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing (str "version " version " queries against SQL data")
         (doseq [[input expect]
                 (partition
@@ -255,70 +255,8 @@
                     [foo4]
                     ])]
           (is (= (set (query-resources version (s/query->sql version input)))
-                 (set (query/remove-all-environments version expect)))
-              (str "  " input " =>\n  " expect)))))
-
-    (testing "v2 vs v3"
-      (testing "file/line in v2"
-        (doseq [param ["file" "line"]]
-          (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-                                (query-resources :v2 (s/query->sql :v2 ["=" param "foo"])))))
-
-        (doseq [[input expect]
-                (partition
-                 2 [
-                    ["=" "sourcefile" "c"] [foo3 bar3]
-                    ["=" "sourceline" 3] [bar5]
-                    ])]
-          (is (= (set (query-resources :v2 (s/query->sql :v2 input)))
-                 (set (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
-                           (query/remove-all-environments :v2 expect))))
+                 (set expect))
               (str "  " input " =>\n  " expect)))))))
-
-(deftest query-resources-not-operator
-  ;; These are tests that belong in query_eng for :v4
-  (doseq [version [:v2 :v3]]
-    (testing "'not' term without arguments in later version"
-      (doseq [op ["not" "NOT" "NoT"]]
-        (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
-                              (query-resources version (s/query->sql version [op]))))))))
-
-(deftest query-resources-with-extra-FAIL
-  ;; These are tests that belong in query_eng for :v4
-  (doseq [version [:v2 :v3]]
-    (testing (str "version " version)
-      (testing "combine terms without arguments"
-        (doseq [op ["and" "AND" "or" "OR" "AnD" "Or"]]
-          (is (thrown-with-msg? IllegalArgumentException #"requires at least one term"
-                                (query-resources version (s/query->sql version [op]))))
-          (is (thrown-with-msg? IllegalArgumentException (re-pattern (str "(?i)" op))
-                                (query-resources version (s/query->sql version [op]))))))
-
-      (testing "bad query operators"
-        (doseq [in [["if"] ["-"] [{}] [["="]]]]
-          (is (thrown-with-msg? IllegalArgumentException #"query operator .* is unknown"
-                                (query-resources version (s/query->sql version in))))))
-
-      (testing "wrong number of arguments to ="
-        (doseq [in [["="] ["=" "one"] ["=" "three" "three" "three"]]]
-          (is (thrown-with-msg? IllegalArgumentException
-                                (re-pattern (format "= requires exactly two arguments"
-                                                    (dec (count in))))
-                                (query-resources version (s/query->sql version in))))))
-
-      (testing "invalid columns"
-        (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-                              (query-resources version (s/query->sql version ["=" "foobar" "anything"])))))
-
-      (testing "bad types in input"
-        (doseq [path (list [] {} [{}] 12 true false 0.12)]
-          (doseq [input (list ["=" path "foo"]
-                              ["=" [path] "foo"]
-                              ["=" ["bar" path] "foo"])]
-            (is (thrown-with-msg? IllegalArgumentException
-                                  #"is not a queryable object"
-                                  (query-resources version (s/query->sql version input)))
-                (str "Input was " input))))))))
 
 (deftest paging-results
   (sql/insert-records
@@ -359,7 +297,7 @@
         r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :environment "DEV" :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
         r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :environment "DEV" :parameters {"content" "contents" "ensure" "present"}}]
 
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
       (testing (str "version " version)
 
         (testing "include total results count"
@@ -383,7 +321,7 @@
             (let [expected [r1 r3 r4 r2]
                   actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
                                                          {:order-by [[:line :ascending]]}))]
-              (is (= actual (query/remove-all-environments version expected)))))
+              (is (= actual expected))))
 
           (testing "alphabetical fields"
             (doseq [[order expected] [[:ascending  [r1 r2 r3 r4]]
@@ -391,7 +329,7 @@
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
                                                            {:order-by [[:title order]]}))]
-                  (is (= actual (query/remove-all-environments version expected)))))))
+                  (is (= actual expected))))))
 
           (testing "numerical fields"
             (doseq [[order expected] [[:ascending  [r1 r3 r4 r2]]
@@ -399,7 +337,7 @@
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
                                                            {:order-by [[:line order]]}))]
-                  (is (= actual (query/remove-all-environments version expected)))))))
+                  (is (= actual expected))))))
 
           (testing "multiple fields"
             (doseq [[[file-order line-order] expected] [[[:ascending :descending]  [r2 r1 r3 r4]]
@@ -410,7 +348,7 @@
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
                                                            {:order-by [[:file file-order]
                                                                        [:line line-order]]}))]
-                  (is (= actual (query/remove-all-environments version expected))))))))
+                  (is (= actual expected)))))))
 
         (testing "offset"
           (doseq [[order expected-sequences] [[:ascending [[0 [r1 r2 r3 r4]]
@@ -427,4 +365,4 @@
               (doseq [[offset expected] expected-sequences]
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
                                                            {:order-by [[:title order]] :offset offset}))]
-                  (is (= actual (query/remove-all-environments version expected))))))))))))
+                  (is (= actual expected)))))))))))

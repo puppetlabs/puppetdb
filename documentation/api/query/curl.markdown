@@ -4,11 +4,11 @@ title: "PuppetDB 2.2 » API » Query » Curl Tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
-[Facts]: ./v3/facts.html
-[Nodes]: ./v3/nodes.html
-[fact-names]: ./v3/fact-names.html
-[Resources]: ./v3/resources.html
-[Metrics]: ./v3/metrics.html
+[Facts]: ./v4/facts.html
+[Nodes]: ./v4/nodes.html
+[fact-names]: ./v4/fact-names.html
+[Resources]: ./v4/resources.html
+[Metrics]: ./v4/metrics.html
 [curl]: http://curl.haxx.se/docs/manpage.html
 [dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
 [whitelist]: ../../configure.html#certificate-whitelist
@@ -28,7 +28,7 @@ The instructions below are simplified. For full usage details, see [the curl man
 
 With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
 
-    curl 'http://localhost:8080/v3/facts/<node>'
+    curl 'http://localhost:8080/v4/facts/<node>'
     curl 'http://localhost:8080/metrics/v1/mbeans/java.lang:type=Memory'
 
 If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
@@ -45,7 +45,7 @@ Any node managed by puppet agent will already have all of these and you can re-u
 
 > **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
 
-    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tslv1
+    curl 'https://<your.puppetdb.server>:8081/v4/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tslv1
 
 ### Locating Puppet Certificate Files
 
@@ -66,4 +66,4 @@ Many query strings will contain characters like `[` and `]`, which must be URL-e
 
 If you do this with an endpoint that accepts `GET` requests, **you must also use the `-G` or `--get` option.** This is because `curl` defaults to `POST` requests when the `--data-urlencode` option is present.
 
-    curl -G 'http://localhost:8080/v3/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G 'http://localhost:8080/v4/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'

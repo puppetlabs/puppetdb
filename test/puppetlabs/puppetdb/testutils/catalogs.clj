@@ -50,20 +50,6 @@
       ;;  integer, rather than a string.  The correct data type is String.
       (update-in* [catalog-root-key "version"] str)))
 
-(defn munge-v3-catalog
-  "Uses a 'data' prefix path for getting to resources/edges etc needed for munging
-   a v3 catalog. Eventually this should be moved to support our canonical format, then
-   we could just convert to 'all' to compare the superset, or test comparison of each version
-   (taking into account missing keys etc)"
-  [catalog]
-  {:pre  [(map? catalog)]
-   :post [(map? %)
-          (every? string? (keys %))
-          (set? (get-in % ["data" "resources"]))
-          (set? (get-in % ["data" "edges"]))
-          (string? (get-in % ["data" "version"]))]}
-  (munge-catalog-for-comparison* "data" catalog))
-
 (defn munge-v4-catalog
   "Uses a 'nil' prefix path for getting to resources/edges etc needed for munging
    a v4 catalog. Eventually this should be moved to support our canonical format, then

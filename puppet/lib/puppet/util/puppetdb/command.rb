@@ -9,7 +9,7 @@ class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
 
-  CommandsUrl = "/v3/commands"
+  CommandsUrl = "/v4/commands"
 
   # Public instance methods
 

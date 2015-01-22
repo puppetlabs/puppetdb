@@ -9,8 +9,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
 
-(def endpoints [[:v3 "/v3/event-counts"]
-                [:v4 "/v4/event-counts"]])
+(def endpoints [[:v4 "/v4/event-counts"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -113,8 +112,7 @@
       (response-equal? response expected))))
 
 (deftestseq query-with-environment
-  [[version endpoint] endpoints
-   :when (not= version :v3)]
+  [[version endpoint] endpoints]
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
