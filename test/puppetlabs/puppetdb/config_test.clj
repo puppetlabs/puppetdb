@@ -13,66 +13,59 @@
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
-    (testing "should throw an exception if unrecognized config options are specified"
-      (is (thrown? clojure.lang.ExceptionInfo (configure-puppetdb {:puppetdb {:foo "foo"}}))))
+    (let [configure-puppetdb (fn [config] (configure-section config :puppetdb puppetdb-config-in puppetdb-config-out))]
+      (testing "should convert disable-update-checking value to boolean, if it is specified"
+        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "true"}})]
+          (is (= (get-in config [:puppetdb :disable-update-checking]) true)))
+        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "false"}})]
+          (is (= (get-in config [:puppetdb :disable-update-checking]) false)))
+        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "some-string"}})]
+          (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
 
-    (testing "should convert disable-update-checking value to boolean, if it is specified"
-      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "true"}})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) true)))
-      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "false"}})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) false)))
-      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "some-string"}})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
+      (testing "should throw exception if disable-update-checking cannot be converted to boolean"
+        (is (thrown? clojure.lang.ExceptionInfo
+                     (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
 
-    (testing "should throw exception if disable-update-checking cannot be converted to boolean"
-      (is (thrown? clojure.lang.ExceptionInfo
-                   (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
-
-    (testing "disable-update-checking should default to 'false' if left unspecified"
-      (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
+      (testing "disable-update-checking should default to 'false' if left unspecified"
+        (let [config (configure-puppetdb {})]
+          (is (= (get-in config [:puppetdb :disable-update-checking]) false)))))))
 
 (deftest commandproc-configuration
-  (testing "should throw an error on unrecognized config options"
-    (is (thrown? clojure.lang.ExceptionInfo (configure-command-params {:command-processing {:foo "foo"}}))))
+  (let [configure-command-params (fn [config] (configure-section config :command-processing command-processing-in command-processing-out))]
+    (testing "should use the thread value specified"
+      (let [config (configure-command-params {:command-processing {:threads 37}})]
+        (is (= (get-in config [:command-processing :threads]) 37))))
 
-  (testing "should use the thread value specified"
-    (let [config (configure-command-params {:command-processing {:threads 37}})]
-      (is (= (get-in config [:command-processing :threads]) 37))))
+    (testing "should use the store-usage specified"
+      (let [config (configure-command-params {:command-processing {:store-usage 10000}})]
+        (is (= (get-in config [:command-processing :store-usage]) 10000))))
 
-  (testing "should use the store-usage specified"
-    (let [config (configure-command-params {:command-processing {:store-usage 10000}})]
-      (is (= (get-in config [:command-processing :store-usage]) 10000))))
+    (testing "should use the temp-usage specified"
+      (let [config (configure-command-params {:command-processing {:temp-usage 10000}})]
+        (is (= (get-in config [:command-processing :temp-usage]) 10000))))
 
-  (testing "should use the temp-usage specified"
-    (let [config (configure-command-params {:command-processing {:temp-usage 10000}})]
-      (is (= (get-in config [:command-processing :temp-usage]) 10000))))
-
-  (let [with-ncores (fn [cores]
-                      (with-redefs [kitchensink/num-cpus (constantly cores)]
-                        (half-the-cores*)))]
-    (testing "should default to half the available CPUs"
-      (is (= (with-ncores 4) 2)))
-    (testing "should default to half the available CPUs, rounding down"
-      (is (= (with-ncores 5) 2)))
-    (testing "should default to half the available CPUs, even on single core boxes"
-      (is (= (with-ncores 1) 1)))))
+    (let [with-ncores (fn [cores]
+                        (with-redefs [kitchensink/num-cpus (constantly cores)]
+                          (half-the-cores*)))]
+      (testing "should default to half the available CPUs"
+        (is (= (with-ncores 4) 2)))
+      (testing "should default to half the available CPUs, rounding down"
+        (is (= (with-ncores 5) 2)))
+      (testing "should default to half the available CPUs, even on single core boxes"
+        (is (= (with-ncores 1) 1))))))
 
 (deftest database-configuration
   (testing "database"
-    (testing "should throw an error on unrecognized config options"
-      (is (thrown? clojure.lang.ExceptionInfo (configure-dbs {:database {:foo "foo"}}))))
-
     (testing "should use the value specified"
-      (let [config (configure-dbs {:database {:classname "something"
-                                              :subname "stuff"
-                                              :subprotocol "more stuff"}})]
+      (let [config (defaulted-db-connection {:database {:classname "something"
+                                                        :subname "stuff"
+                                                        :subprotocol "more stuff"}})]
         (is (= (get-in config [:database :classname]) "something"))
         (is (= "more stuff" (get-in config [:database :subprotocol])))
         (is (= "stuff" (get-in config [:database :subname])))))
 
     (testing "should default to hsqldb"
-      (let [config (configure-dbs {:global {:vardir "/var/lib/puppetdb"}})
+      (let [config (defaulted-db-connection {:global {:vardir "/var/lib/puppetdb"}})
             expected {:classname "org.hsqldb.jdbcDriver"
                       :subprotocol "hsqldb"
                       :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
@@ -80,58 +73,61 @@
                expected))))
 
     (testing "the read-db defaulted to the specified write-db"
-      (let [config (configure-dbs {:database {:classname "something"
-                                              :subname "stuff"
-                                              :subprotocol "more stuff"}})]
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
         (is (= (get-in config [:read-database :classname]) "something"))
-        (is (= "more stuff" (get-in config [:database :subprotocol])))
-        (is (= "stuff" (get-in config [:database :subname])))))
-
-    (testing "the read-db defaulted to the hsql write-db-default"
-      (let [config (configure-dbs {:global {:vardir "/var/lib/puppetdb"}})
-            expected {:classname "org.hsqldb.jdbcDriver"
-                      :subprotocol "hsqldb"
-                      :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
-        (is (= (select-keys (:read-database config) #{:classname :subprotocol :subname})
-               expected))))
+        (is (= "more stuff" (get-in config [:read-database :subprotocol])))
+        (is (= "stuff" (get-in config [:read-database :subname])))))
 
     (testing "the read-db should be specified by a read-database property"
-      (let [config (configure-dbs {:read-database {:classname "something"
-                                                   :subname "stuff"
-                                                   :subprotocol "more stuff"}})]
+      (let [config (-> {:database {:classname "wrong"
+                                   :subname "wronger"
+                                   :subprotocol "wrongest"}
+                        :read-database {:classname "something"
+                                        :subname "stuff"
+                                        :subprotocol "more stuff"}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
         (is (= (get-in config [:read-database :classname]) "something"))
         (is (= "more stuff" (get-in config [:read-database :subprotocol])))
         (is (= "stuff" (get-in config [:read-database :subname])))))))
 
 (deftest garbage-collection
-  (testing "gc-interval"
-    (testing "should use the value specified in minutes"
-      (let [{:keys [gc-interval]} (:database (configure-dbs {:database {:gc-interval 900}}))]
-        (is (pl-time/period? gc-interval))
-        (is (= 900 (pl-time/to-minutes gc-interval)))))
-    (testing "should default to 60 minutes"
-      (let [{:keys [gc-interval]} (:database (configure-dbs {:database {}}))]
-        (is (pl-time/period? gc-interval))
-        (is (= 60 (pl-time/to-minutes gc-interval))))))
+  (let [configure-dbs (fn [config]
+                        (-> config
+                            defaulted-db-connection
+                            (configure-section :database write-database-config-in write-database-config-out)))]
+    (testing "gc-interval"
+      (testing "should use the value specified in minutes"
+        (let [{:keys [gc-interval]} (:database (configure-dbs {:database {:gc-interval 900}}))]
+          (is (pl-time/period? gc-interval))
+          (is (= 900 (pl-time/to-minutes gc-interval)))))
+      (testing "should default to 60 minutes"
+        (let [{:keys [gc-interval]} (:database (configure-dbs {:database {}}))]
+          (is (pl-time/period? gc-interval))
+          (is (= 60 (pl-time/to-minutes gc-interval))))))
 
-  (testing "node-ttl"
-    (testing "should parse node-ttl and return a Pl-Time/Period object"
-      (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
-        (is (pl-time/period? node-ttl))
-        (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
-    (testing "should default to zero (no expiration)"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
-        (is (pl-time/period? node-ttl))
-        (is (= 0 (pl-time/to-secs node-ttl))))))
-  (testing "report-ttl"
-    (testing "should parse report-ttl and produce report-ttl"
-      (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]
-        (is (pl-time/period? report-ttl))
-        (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
-    (testing "should default to 14 days"
-      (let [{:keys [report-ttl]} (:database (configure-dbs {}))]
-        (is (pl-time/period? report-ttl))
-        (is (= (time/days 14) (time/days (pl-time/to-days report-ttl))))))))
+    (testing "node-ttl"
+      (testing "should parse node-ttl and return a Pl-Time/Period object"
+        (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
+          (is (pl-time/period? node-ttl))
+          (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
+      (testing "should default to zero (no expiration)"
+        (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
+          (is (pl-time/period? node-ttl))
+          (is (= 0 (pl-time/to-secs node-ttl))))))
+    (testing "report-ttl"
+      (testing "should parse report-ttl and produce report-ttl"
+        (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]
+          (is (pl-time/period? report-ttl))
+          (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
+      (testing "should default to 14 days"
+        (let [{:keys [report-ttl]} (:database (configure-dbs {}))]
+          (is (pl-time/period? report-ttl))
+          (is (= (time/days 14) (time/days (pl-time/to-days report-ttl)))))))))
 
 (defn vardir [path]
   {:global {:vardir (str path)}})
@@ -231,9 +227,17 @@
              (default-ssl-protocols {})))
       (is (empty? @log-output))
       (is (str/blank?
-             (with-out-str
-               (binding [*err* *out*]
-                 (default-ssl-protocols {}))))))))
+            (with-out-str
+              (binding [*err* *out*]
+                (default-ssl-protocols {}))))))))
+
+(deftest warn-url-prefix-deprecation-test
+  (testing "output to standard out"
+    (let [bad-config {:global {:url-prefix "/bwahaha"}}
+          out-str (with-out-str
+                    (binding [*err* *out*]
+                      (warn-url-prefix-deprecation bad-config)))]
+      (is (.contains out-str "[global] section is deprecated")))))
 
 (deftest warn-repl-retirements-test
   (testing "output to standard out"

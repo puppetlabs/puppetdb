@@ -121,6 +121,11 @@
       (throw+ (su/error-val result))
       result)))
 
+(defn unknown-keys
+  "Returns all the keys in `data` not specified by `schema`"
+  [schema data]
+  (keys (apply dissoc data (map schema-key->data-key (keys schema)))))
+
 (defn strip-unknown-keys
   "Remove all keys from `data` not specified by `schema`"
   [schema data]

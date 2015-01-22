@@ -45,6 +45,32 @@
        :foo :foo
        :foo (s/required-key :foo)))
 
+(deftest unknown-keys-test
+  (let [schema {(s/required-key :foo) Number
+                (s/optional-key :bar) Number
+                :baz String}]
+    (is (= '(:foo-1)
+           (unknown-keys
+            schema
+            {:foo 1
+             :foo-1 2
+             :bar 3
+             :baz 5})))
+    (is (= '(:foo-1)
+           (unknown-keys
+            schema
+            {:foo 1
+             :foo-1 2})))
+    (is (empty?
+          (unknown-keys
+            schema
+            {})))
+    (is (= '(:foo-1 :foo-2)
+           (unknown-keys
+            schema
+            {:foo-1 "foo"
+             :foo-2 "baz"})))))
+
 (deftest strip-unknown-keys-test
   (let [schema {(s/required-key :foo) Number
                 (s/optional-key :bar) Number
