@@ -10,7 +10,7 @@ test_name "basic validation of puppet report query by timestamp" do
 
   agents.each do |agent|
     # Query for all of the events after the start time
-    result = on database, %Q|curl -G http://localhost:8080/v3/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20[">",%20"timestamp",%20"#{start_times[agent.node_name]}"]]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20[">",%20"timestamp",%20"#{start_times[agent.node_name]}"]]'|
 
     # We expect no results (assuming all of the machines' timestamps are relatively sane),
     # because we haven't done any agent runs after the specified time.
@@ -35,7 +35,7 @@ test_name "basic validation of puppet report query by timestamp" do
     start_time = start_times[agent.node_name]
 
     # Query for all of the events after the start time
-    result = on database, %Q|curl -G http://localhost:8080/v3/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20[">",%20"timestamp",%20"#{start_time}"]]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20[">",%20"timestamp",%20"#{start_time}"]]'|
 
     # This time, we do expect results because we've done agent runs more recently than the timestamp
     events = JSON.parse(result.stdout)
@@ -46,7 +46,7 @@ test_name "basic validation of puppet report query by timestamp" do
     # previous query.
 
     end_time = current_time_on agent
-    result = on database, %Q|curl -G http://localhost:8080/v3/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20["and",%20[">",%20"timestamp",%20"#{start_time}"],%20["<",%20"timestamp",%20"#{end_time}"]]]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/events --data 'query=["and",%20["=",%20"certname",%20"#{agent.node_name}"],%20["and",%20[">",%20"timestamp",%20"#{start_time}"],%20["<",%20"timestamp",%20"#{end_time}"]]]'|
     events2 = JSON.parse(result.stdout)
     assert(events.length == events2.length, "Expected compound event time query to return the same number of results as the previous query")
   end

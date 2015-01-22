@@ -19,7 +19,7 @@ Puppet::Face.define(:node, '0.0.1') do
 
       args.map do |node|
         begin
-          response = Puppet::Util::Puppetdb::Http.action("/v3/nodes/#{CGI.escape(node)}") do |http_instance, path|
+          response = Puppet::Util::Puppetdb::Http.action("/v4/nodes/#{CGI.escape(node)}") do |http_instance, path|
              http_instance.get(path, headers)
           end
           if response.is_a? Net::HTTPSuccess

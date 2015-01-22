@@ -41,14 +41,8 @@
 
 (defn facts-app
   [version]
-  (case version
-    :v1 (throw (IllegalArgumentException. "No support for v1 for facts end-point"))
-    :v2 (build-facts-app
-         (-> (query-app version)
-             (validate-query-params
-              {:optional ["query"]})))
-    (build-facts-app
-     (-> (query-app version)
-         (validate-query-params
-          {:optional (cons "query" paging/query-params)})
-         wrap-with-paging-options))))
+  (build-facts-app
+   (-> (query-app version)
+     (validate-query-params
+      {:optional (cons "query" paging/query-params)})
+     wrap-with-paging-options)))

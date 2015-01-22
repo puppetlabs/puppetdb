@@ -26,15 +26,6 @@
       resp
       (update-in resp [:body] slurp))))
 
-(def versions
-  (omap/ordered-map
-   :v2 {:file :sourcefile
-        :line :sourceline}
-   :v3 {:file :file
-        :line :line}
-   :v4 {:file :file
-        :line :line}))
-
 (defmacro check-json-response
   "Test if the HTTP request is a success, and if the result is equal
   to the result of the form supplied to this method."
@@ -83,25 +74,23 @@
                            :producer-timestamp nil})
     (scf-store/deactivate-node! "host3")
 
-    (doseq [version (keys versions)
-            :let [get-response (partial get-versioned-response version)]]
+    (let [version :v4
+          get-response (partial get-versioned-response version)]
       (testing "/nodes should return all active nodes"
         (check-json-response
          nodes response (get-response "nodes")
-         (case version
-           (:v2 :v3) (is (= (set (mapv :name nodes)) #{"host1" "host2"}))
-           (is (= (set (mapv :certname nodes)) #{"host1" "host2"})))))
+         (is (= (set (mapv :certname nodes)) #{"host1" "host2"}))))
 
       (testing "/nodes/<node> should return status info"
         (doseq [host ["host1" "host2"]]
           (check-json-response
            status response (get-response (str "nodes/" host))
-           (is (= host ((case version (:v2 :v3) :name :certname) status)))
+           (is (= host (:certname status)))
            (is (nil? (:deactivated status)))))
         ;; host3 should be deactivated
         (check-json-response
          status response (get-response "nodes/host3")
-         (is (= "host3" ((case version (:v2 :v3) :name :certname) status)))
+         (is (= "host3" (:certname status)))
          (is (:deactivated status))))
 
       (testing "/nodes/<node> should return a 404 for unknown nodes"
@@ -133,8 +122,8 @@
            (is (= (set (map :certname resources)) #{host}))
            (is (= (set (map :type resources)) #{"File"}))
            (is (= (set (map :title resources)) #{"/etc/foobar"}))
-           (is (= (set (map (get-in versions [version :file]) resources)) #{"/tmp/foo"}))
-           (is (= (set (map (get-in versions [version :line]) resources)) #{10}))
+           (is (= (set (map :file resources)) #{"/tmp/foo"}))
+           (is (= (set (map :line resources)) #{10}))
            (is (= (count resources) 1)))))
 
       (testing "/resources without a query should not fail"

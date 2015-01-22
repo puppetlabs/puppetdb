@@ -49,19 +49,19 @@ test_name "export and import tools" do
   step "verify trusted fact present" do
     result = on master, "puppet facts find #{master.node_name} --terminus puppetdb"
     facts = parse_json_with_error(result.stdout.strip)
-    assert_equal("remote", JSON.parse(facts['values']['trusted'])["authenticated"],
+    assert_equal("remote", facts['values']['trusted']["authenticated"],
                  "Failed to retrieve trusted facts for '#{master.node_name}' via inventory service!")
   end
 
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
+    result = on database, %Q|curl -G http://localhost:8080/v4/nodes|
     result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
-    assert(node["catalog_timestamp"].nil?, "Should not have a catalog timestamp")
-    assert(node["facts_timestamp"], "Should have a facts timestamp")
+    assert(node["catalog-timestamp"].nil?, "Should not have a catalog timestamp")
+    assert(node["facts-timestamp"], "Should have a facts timestamp")
   end
 
   export_file1 = "./puppetdb-export1.tar.gz"
@@ -86,18 +86,18 @@ test_name "export and import tools" do
     facts = parse_json_with_error(result.stdout.strip)
     assert_equal('bar', facts['values']['foo'],
                  "Failed to retrieve facts for '#{master.node_name}' via inventory service!")
-    assert_equal("remote", JSON.parse(facts['values']['trusted'])["authenticated"],
+    assert_equal("remote", facts['values']['trusted']["authenticated"],
                  "Failed to retrieve trusted facts for '#{master.node_name}' via inventory service!")
   end
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G http://localhost:8080/v3/nodes|
+    result = on database, %Q|curl -G http://localhost:8080/v4/nodes|
     result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
-    assert(node["catalog_timestamp"].nil?, "Should not have a catalog timestamp")
-    assert(node["facts_timestamp"], "Should have a facts timestamp")
+    assert(node["catalog-timestamp"].nil?, "Should not have a catalog timestamp")
+    assert(node["facts-timestamp"], "Should have a facts timestamp")
   end
 
 end

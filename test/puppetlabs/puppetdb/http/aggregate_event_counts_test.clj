@@ -9,8 +9,7 @@
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
-(def endpoints [[:v3 "/v3/aggregate-event-counts"]
-                [:v4 "/v4/aggregate-event-counts"]])
+(def endpoints [[:v4 "/v4/aggregate-event-counts"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -72,8 +71,7 @@
       (is (= expected (json/parse-string (:body response) true))))))
 
 (deftestseq query-with-environment
-  [[version endpoint] endpoints
-   :when (not= version :v3)]
+  [[version endpoint] endpoints]
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)

@@ -5,7 +5,6 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.query :refer [remove-environment]]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
@@ -15,14 +14,10 @@
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]))
 
-(def v2-endpoint "/v2/resources")
-(def v3-endpoint "/v3/resources")
 (def v4-endpoint "/v4/resources")
 (def v4-environments-endpoint "/v4/environments/DEV/resources")
 
-(def endpoints [[:v2 v2-endpoint]
-                [:v3 v3-endpoint]
-                [:v4 v4-endpoint]])
+(def endpoints [[:v4 v4-endpoint]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
@@ -45,29 +40,10 @@ to the result of the form supplied to this method."
                 (set (json/parse-string (:body response) true))
                 nil))))
 
-(defn v3->v2-results
-  "Munge example resource output from v3 API format to v2 format"
-  [example-resources]
-  (ks/mapvals #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline}) example-resources))
-
-(defn v4->v3-results
-  "Munge example resource output from v4 API to v3"
-  [example-resources]
-  (ks/mapvals #(remove-environment % :v3) example-resources))
-
-(defn v4->v2-results
-  "Munge the example resource output from v4 to v2"
-  [example-resources]
-  (-> example-resources v4->v3-results v3->v2-results))
-
 (deftestseq resource-endpoint-tests
   [[version endpoint] endpoints]
 
-  (let [store-result (store-example-resources)
-        result (case version
-                 :v2 (v4->v2-results store-result)
-                 :v3 (v4->v3-results store-result)
-                 store-result)
+  (let [result (store-example-resources)
         {:keys [foo1 bar1 foo2 bar2] :as expected} result]
     (testing "query without filter should not fail"
       (let [response (get-response endpoint)
@@ -95,10 +71,9 @@ to the result of the form supplied to this method."
         (is-response-equal (get-response endpoint query) result)))
 
     (testing "only v4 or after queries"
-      (when (tu/after-v3? version)
-        (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
-                                [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
-          (is-response-equal (get-response endpoint query) result))))
+      (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
+                              [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
+        (is-response-equal (get-response endpoint query) result)))
 
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (get-response endpoint
@@ -154,8 +129,7 @@ to the result of the form supplied to this method."
         (is-response-equal (get-response endpoint query) result)))))
 
 (deftestseq environments-resource-endpoint
-  [[version endpoint] endpoints
-   :when (not-any? #(= version %) [:v2 :v3])]
+  [[version endpoint] endpoints]
   (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
         dev-endpoint (str "/" (name version) "/environments/DEV/resources")
         prod-endpoint (str "/" (name version) "/environments/PROD/resources")]
@@ -195,133 +169,64 @@ to the result of the form supplied to this method."
 (deftestseq query-sourcefile-sourceline
   [[version endpoint] endpoints]
 
-  (let [{:keys [bar2] :as results}
-        (case version
-          :v2 (v4->v2-results (store-example-resources))
-          :v3 (v4->v3-results (store-example-resources))
-          (store-example-resources))]
+  (let [{:keys [bar2] :as results} (store-example-resources)]
 
-    (when (= version :v2)
-      (testing "sourcefile and sourceline is queryable"
-        (are [query] (is-response-equal (get-response endpoint query) #{bar2})
-             ["=" "sourcefile" "/foo/bar"]
-             ["~" "sourcefile" "foo"]
-             ["=" "sourceline" 22]))
+    (testing "sourcefile and source is not supported"
+      (let [query ["=" "sourceline" 22]
+            response (get-response endpoint query)]
+        (is (= http/status-bad-request (:status response)))
+        (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
+      (let [query ["~" "sourcefile" "foo"]
+            response (get-response endpoint query)]
+        (is (= http/status-bad-request (:status response)))
+        (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
+      (let [query ["=" "sourcefile" "/foo/bar"]
+            response (get-response endpoint query)]
+        (is (= http/status-bad-request (:status response)))
+        (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
 
-      (testing "querying by file and line is not supported"
-        (let [query ["=" "line" 22]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (= "line is not a queryable object for resources" (:body response))))
-        (let [query ["~" "file" "foo"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (= "file cannot be the target of a regexp match" (:body response))))
-        (let [query ["=" "file" "/foo/bar"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (= "file is not a queryable object for resources" (:body response))))))
+    (testing "query by file and line is supported"
+      (let [query ["=" "file" "/foo/bar"]
+            result #{bar2}]
+        (is-response-equal (get-response endpoint query) result))
+      (let [query ["~" "file" "foo"]
+            result #{bar2}]
+        (is-response-equal (get-response endpoint query) result))
+      (let [query ["=" "line" 22]
+            result #{bar2}]
+        (is-response-equal (get-response endpoint query) result))
 
-    (when (= version :v3)
-      (testing "sourcefile and source is not supported"
-        (let [query ["=" "sourceline" 22]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourceline' is not a queryable object for resources" (:body response))))
-        (let [query ["~" "sourcefile" "foo"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourcefile' cannot be the target of a regexp match" (:body response))))
-        (let [query ["=" "sourcefile" "/foo/bar"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourcefile' is not a queryable object for resources" (:body response)))))
-
-      (testing "query by file and line is supported"
-        (let [query ["=" "file" "/foo/bar"]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-        (let [query ["~" "file" "foo"]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-        (let [query ["=" "line" 22]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))))
-
-    (when (tu/after-v3? version)
-      (testing "sourcefile and source is not supported"
-        (let [query ["=" "sourceline" 22]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
-        (let [query ["~" "sourcefile" "foo"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
-        (let [query ["=" "sourcefile" "/foo/bar"]
-              response (get-response endpoint query)]
-          (is (= http/status-bad-request (:status response)))
-          (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
-
-      (testing "query by file and line is supported"
-        (let [query ["=" "file" "/foo/bar"]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-        (let [query ["~" "file" "foo"]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-        (let [query ["=" "line" 22]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-
-        (let [query ["and"
-                     [">" "line" 21]
-                     ["<" "line" 23]]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))
-        (let [query ["and"
-                     [">" "line" "21"]
-                     ["<" "line" "23"]]
-              result #{bar2}]
-          (is-response-equal (get-response endpoint query) result))))))
+      (let [query ["and"
+                   [">" "line" 21]
+                   ["<" "line" 23]]
+            result #{bar2}]
+        (is-response-equal (get-response endpoint query) result))
+      (let [query ["and"
+                   [">" "line" "21"]
+                   ["<" "line" "23"]]
+            result #{bar2}]
+        (is-response-equal (get-response endpoint query) result)))))
 
 (deftestseq resource-query-paging
   [[version endpoint] endpoints]
-
-  (when (= version :v2)
-    (testing "does not support paging-related query parameters"
-      (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
-        (let [ {:keys [status body]} (get-response v2-endpoint nil {k v})]
-          (is (= status http/status-bad-request))
-          (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
-
-  (when (not= version :v2)
-    (testing "supports paging via include-total"
-      (let [expected
-            (case version
-              :v3 (v4->v3-results (store-example-resources))
-              (store-example-resources))]
-        (doseq [[label count?] [["without" false]
-                                ["with" true]]]
-          (testing (str "should support paging through nodes " label " counts")
-            (let [results (paged-results
-                           {:app-fn  fixt/*app*
-                            :path    endpoint
-                            :limit   2
-                            :total   (count expected)
-                            :include-total  count?})]
-              (is (= (count results) (count expected)))
-              (is (= (set (vals expected))
-                     (set results))))))))))
+  (testing "supports paging via include-total"
+    (let [expected (store-example-resources)]
+      (doseq [[label count?] [["without" false]
+                              ["with" true]]]
+        (testing (str "should support paging through nodes " label " counts")
+          (let [results (paged-results
+                         {:app-fn  fixt/*app*
+                          :path    endpoint
+                          :limit   2
+                          :total   (count expected)
+                          :include-total  count?})]
+            (is (= (count results) (count expected)))
+            (is (= (set (vals expected))
+                   (set results)))))))))
 
 (deftestseq resource-query-result-ordering
-  [[version endpoint] endpoints
-   :when (not= version :v2)]
-
-  (let [{:keys [foo1 foo2 bar1 bar2] :as expected}
-        (case version
-          :v3 (v4->v3-results (store-example-resources))
-          (store-example-resources))]
+  [[version endpoint] endpoints]
+  (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
     (testing "ordering results with order-by"
       (let [order-by {:order-by (json/generate-string [{"field" "certname" "order" "DESC"}
                                                        {"field" "resource" "order" "DESC"}])}
@@ -332,46 +237,33 @@ to the result of the form supplied to this method."
 
 (deftestseq query-environments
   [[version endpoint] endpoints]
-
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
-    (when (not-any? #(= version %) [:v2 :v3])
-      (testing "querying by equality and regexp should be allowed"
-        (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2})
-             ["=" "environment" "DEV"]
-             ["~" "environment" ".*V"]
-             ["not" ["~" "environment" "PR.*"]]
-             ["not" ["=" "environment" "PROD"]])
-        (are [query] (is-response-equal (get-response endpoint query) #{bar1 bar2})
-             ["=" "environment" "PROD"]
-             ["~" "environment" "PR.*"]
-             ["not" ["=" "environment" "DEV"]])
-        (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2 bar1 bar2})
-             ["not" ["=" "environment" "null"]])))
-
-    (when (some #(= version %) [:v2 :v3])
-      (testing "querying environment not allowed"
-        (let [response (get-response endpoint ["=" "environment" "DEV"])]
-          (is (re-find #"'environment' is not a queryable.*" (:body response)))
-          (is (= 400 (:status response))))
-        (let [response (get-response endpoint ["~" "environment" "DEV"])]
-          (is (re-find #"'environment' cannot be the target.*version 3*" (:body response)))
-          (is (= 400 (:status response))))))))
+    (testing "querying by equality and regexp should be allowed"
+      (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2})
+           ["=" "environment" "DEV"]
+           ["~" "environment" ".*V"]
+           ["not" ["~" "environment" "PR.*"]]
+           ["not" ["=" "environment" "PROD"]])
+      (are [query] (is-response-equal (get-response endpoint query) #{bar1 bar2})
+           ["=" "environment" "PROD"]
+           ["~" "environment" "PR.*"]
+           ["not" ["=" "environment" "DEV"]])
+      (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2 bar1 bar2})
+           ["not" ["=" "environment" "null"]]))))
 
 (deftestseq query-with-projection
   [[version endpoint] endpoints]
 
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
-    (when (not-any? #(= version %) [:v2 :v3])
-      (testing "querying by equality and regexp should be allowed"
-        (are [query] (is-response-equal (get-response endpoint query)
-                                        #{{:type (:type foo1)}
-                                          {:type (:type foo2)}})
-             ["extract" "type"
-              ["=" "environment" "DEV"]])))))
+    (testing "querying by equality and regexp should be allowed"
+      (are [query] (is-response-equal (get-response endpoint query)
+                                      #{{:type (:type foo1)}
+                                        {:type (:type foo2)}})
+           ["extract" "type"
+            ["=" "environment" "DEV"]]))))
 
 (deftestseq query-null-environments
-  [[version endpoint] endpoints
-   :when (not-any? #(= version %) [:v2 :v3])]
+  [[version endpoint] endpoints]
 
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources false)]
     (testing "querying by equality and regexp should be allowed"

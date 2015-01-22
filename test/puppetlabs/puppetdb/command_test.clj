@@ -9,7 +9,6 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
             [clojure.walk :as walk]
-            [puppetlabs.puppetdb.query :refer [remove-environment]]
             [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]

@@ -30,7 +30,7 @@
         count1      {:subject-type "containing-class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
         count2      {:subject-type "containing-class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
 
-    (doseq [version [:v3 :v4]]
+    (let [version :v4]
 
       (testing "include total results count"
         (let [actual (:count (raw-event-counts-query-result version ["=" "certname" "foo.local"] "resource" {} {:count? true}))]
@@ -85,7 +85,7 @@
 (deftest resource-event-count-queries
   (store-example-report! (:basic reports) (now))
 
-  (doseq [version [:v3 :v4]]
+  (let [version :v4]
 
     (testing "summarize-by"
       (testing "rejects unsupported values"

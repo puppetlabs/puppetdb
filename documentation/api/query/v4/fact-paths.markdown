@@ -13,8 +13,7 @@ The `/fact-paths` endpoint retrieves the set of all known fact paths for all
 known nodes, and is intended with the introduction of structured facts as the
 successor to the [fact-names][fact-names] endpoint.  The endpoint may be useful for
 building autocompletion in GUIs or for other applications that require a
-basic top-level view of fact paths.  The fact-paths endpoint is not available
-for API versions 2 and 3.
+basic top-level view of fact paths.
 
 ## `GET /fact-paths`
 

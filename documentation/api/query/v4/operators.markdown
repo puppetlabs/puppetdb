@@ -21,14 +21,6 @@ Each of these operators accepts two arguments: a **field,** and a
 
 The available fields for each endpoint are listed in that endpoint's documentation.
 
-**Note**
-In past API versions PuppetDB has supported comparisons between strings in the
-database and numerical values.  For example, equality and inequality queries for 0
-would match database values of "0". This behavior is not supported on the v4 API,
-since typed and structured facts allow us to distinguish the two in the database.
-Instead, binary operators must be predicated on the same type as the desired
-database value.
-
 ### `=` (equality)
 
 **Works with:** strings, numbers, timestamps, booleans, arrays, multi, path

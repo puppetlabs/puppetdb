@@ -145,11 +145,9 @@
            distinct-opts                   (select-keys query-options
                                                         [:distinct-resources? :distinct-start-time :distinct-end-time])
            [event-sql & event-params]      (:results-query
-                                            (case version
-                                              (:v2 :v3) (events/query->sql version query [distinct-opts nil])
-                                              (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
-                                                (events/query->sql version query [distinct-opts nil])
-                                                (qe/compile-user-query->sql qe/report-events-query query))))
+                                            (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                              (events/query->sql version query [distinct-opts nil])
+                                              (qe/compile-user-query->sql qe/report-events-query query)))
            count-by-sql                    (get-count-by-sql event-sql count-by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
            sql                             (get-filtered-sql event-count-sql counts-filter-where)

@@ -30,7 +30,7 @@ describe Puppet::Resource::Puppetdb do
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       http = stub 'http'
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-      http.stubs(:get).with("/v3/resources?query=#{query}",  subject.headers).returns response
+      http.stubs(:get).with("/v4/resources?query=#{query}",  subject.headers).returns response
 
       search("exec").should == []
     end
@@ -44,7 +44,7 @@ describe Puppet::Resource::Puppetdb do
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       http = stub 'http'
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-      http.stubs(:get).with("/v3/resources?query=#{query}",  subject.headers).returns response
+      http.stubs(:get).with("/v4/resources?query=#{query}",  subject.headers).returns response
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /Deprecated, yo\./
@@ -89,7 +89,7 @@ describe Puppet::Resource::Puppetdb do
 
         http = stub 'http'
         Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-        http.stubs(:get).with("/v3/resources?query=#{CGI.escape(query.to_json)}",  subject.headers).returns response
+        http.stubs(:get).with("/v4/resources?query=#{CGI.escape(query.to_json)}",  subject.headers).returns response
       end
 
       context "with resources from a single host" do

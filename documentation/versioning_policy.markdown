@@ -18,7 +18,7 @@ Specifically there are a few different levels of versioning we have to consider 
 
 Some general statements about this policy:
 
-* The API versioning policy does not apply historically, this is a new policy for v4. Once v4 becomes ‘current’ all rules applicable to current apply to it.
+* The API versioning policy only applies to versions after v3.
 * If it's not written down, one shouldn’t assume it to be true or false. We expect people to raise bugs on this policy if they find a matter needs clarification and it is not already covered.
 
 ## PuppetDB Software

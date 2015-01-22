@@ -7,7 +7,7 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(def versions [:v3 :v4])
+(def versions [:v4])
 
 (def types ["events"
             "event-counts"

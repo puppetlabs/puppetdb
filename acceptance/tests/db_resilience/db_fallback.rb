@@ -14,7 +14,7 @@ if databases.count > 1
     end
 
     step "Verify that the number of active nodes is what we expect" do
-      result = on databases[0], %Q|curl -G http://localhost:8080/v3/nodes|
+      result = on databases[0], %Q|curl -G http://localhost:8080/v4/nodes|
       parsed_result = JSON.parse(result.stdout)
       assert_equal(agents.length, parsed_result.length,
                    "Expected query to return '#{agents.length}' active nodes; returned '#{parsed_result.length}'")
@@ -25,7 +25,7 @@ if databases.count > 1
     end
 
     step "check that the fallback db is responsive to queries and has no nodes" do
-      result = on databases[1], %Q|curl -G http://localhost:8080/v3/nodes|
+      result = on databases[1], %Q|curl -G http://localhost:8080/v4/nodes|
       parsed_result = JSON.parse(result.stdout)
       assert_equal(0, parsed_result.length,
                    "Expected query to return 0 active nodes; returned '#{parsed_result.length}'")
@@ -38,7 +38,7 @@ if databases.count > 1
     end
 
     step "Verify that fallback occurred" do
-      result = on databases[1], %Q|curl -G http://localhost:8080/v3/nodes|
+      result = on databases[1], %Q|curl -G http://localhost:8080/v4/nodes|
       parsed_result = JSON.parse(result.stdout)
       assert_equal(agents.length, parsed_result.length,
                    "Expected query to return '#{agents.length}' active nodes; returned '#{parsed_result.length}'")
@@ -56,7 +56,7 @@ if databases.count > 1
     end
 
     step "check that the first db is responsive to queries" do
-      result = on databases[0], %Q|curl -G http://localhost:8080/v3/nodes|
+      result = on databases[0], %Q|curl -G http://localhost:8080/v4/nodes|
       parsed_result = JSON.parse(result.stdout)
       assert_equal(agents.length, parsed_result.length,
                    "Expected query to return '#{agents.length}' active nodes; returned '#{parsed_result.length}'")
@@ -92,7 +92,7 @@ if databases.count > 1
     end
 
     step "Verify that fallback occurred" do
-      result = on databases[1], %Q|curl -G http://localhost:8080/v3/nodes|
+      result = on databases[1], %Q|curl -G http://localhost:8080/v4/nodes|
       parsed_result = JSON.parse(result.stdout)
       assert_equal(agents.length, parsed_result.length,
                    "Expected query to return '#{agents.length}' active nodes; returned '#{parsed_result.length}'")

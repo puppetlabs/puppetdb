@@ -46,7 +46,7 @@ EOM
       query = CGI.escape(query)
 
       # Now query for all of the event for this agent
-      result = on database, %Q|curl -G 'http://localhost:8080/v3/events' --data 'query=#{query}'|
+      result = on database, %Q|curl -G 'http://localhost:8080/v4/events' --data 'query=#{query}'|
       events = JSON.parse(result.stdout)
 
       assert_equal(1, events.length, "Expected exactly one matching 'Notify' event for host '#{agent.node_name}'; found #{events.length}.")
