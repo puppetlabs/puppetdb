@@ -20,7 +20,7 @@
   (-> (:basic reports)
       (change-certname node-name)
       tur/munge-example-report-for-storage
-      (assoc :end-time (now))))
+      (assoc :end_time (now))))
 
 (defn store-example-nodes
   []
@@ -29,9 +29,12 @@
         puppet "puppet.example.com"
         db "db.example.com"
         catalog (:empty catalogs)
-        web1-catalog (update-in catalog [:resources] conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
-        puppet-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
-        db-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
+        web1-catalog (update-in catalog [:resources]
+                                conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
+        puppet-catalog  (update-in catalog [:resources]
+                                   conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
+        db-catalog  (update-in catalog [:resources]
+                               conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
     (scf-store/add-certname! web1)
     (scf-store/add-certname! web2)
     (scf-store/add-certname! puppet)
@@ -40,22 +43,22 @@
                            :values {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name web2
                            :values {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000}
                            :timestamp (plus (now) (secs 1))
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name puppet
                            :values {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000}
                            :timestamp (plus (now) (secs 2))
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name db
                            :values {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"}
                            :timestamp (plus (now) (secs 3))
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/replace-catalog! (assoc web1-catalog :name web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :name puppet) (plus (now) (secs 1)))
     (scf-store/replace-catalog! (assoc db-catalog :name db) (plus (now) (secs 2)))

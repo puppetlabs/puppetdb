@@ -20,7 +20,7 @@
     (let [server-time (-> response
                           :body
                           (json/parse-string true)
-                          :server-time
+                          :server_time
                           from-string)]
       (is (> (in-secs (interval test-time server-time)) 0))
       (is (> 5 (in-secs (interval test-time server-time)))))))

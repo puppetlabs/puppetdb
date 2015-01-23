@@ -10,7 +10,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 5)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 6)
     end
   end
 
@@ -79,7 +79,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @return [Hash] returns original hash augmented with producer_timestamp
   # @api private
   def add_producer_timestamp(hash, producer_timestamp)
-    hash['producer-timestamp'] = producer_timestamp
+    hash['producer_timestamp'] = producer_timestamp
 
     hash
   end
@@ -91,7 +91,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @return [Hash] returns original hash augmented with transaction_uuid
   # @api private
   def add_transaction_uuid(hash, transaction_uuid)
-    hash['transaction-uuid'] = transaction_uuid
+    hash['transaction_uuid'] = transaction_uuid
 
     hash
   end

@@ -19,8 +19,8 @@
 (def catalog-columns
   [:name
    :version
-   :transaction-uuid
-   :producer-timestamp
+   :transaction_uuid
+   :producer_timestamp
    :environment
    :hash
    :edges
@@ -82,7 +82,7 @@
 (pls/defn-validated collapse-catalog :- (catalog-response-schema :v4)
   [version :- s/Keyword
    catalog-rows :- [row-schema]]
-  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first catalog-rows))
+  (let [first-row (first catalog-rows)
         resources (->> catalog-rows
                        (filter #(not (nil? (:resource %))))
                        (reduce collapse-resources #{})
@@ -92,7 +92,7 @@
                    (reduce collapse-edges #{})
                    (into []))]
     (assoc (select-keys first-row [:name :version :environment :hash
-                                   :transaction-uuid :producer-timestamp])
+                                   :transaction_uuid :producer_timestamp])
       :edges edges :resources resources)))
 
 (pls/defn-validated structured-data-seq

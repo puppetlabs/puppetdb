@@ -83,7 +83,7 @@
    :values facts/fact-set
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
-   :producer-timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
+   :producer_timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
 
 (def fact-path-types-to-ids-map
   {:path s/Str
@@ -341,15 +341,15 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [api_version version transaction-uuid environment producer-timestamp]} :- catalog-schema
+   {:keys [api_version version transaction_uuid environment producer_timestamp]} :- catalog-schema
    timestamp :- pls/Timestamp]
   {:hash hash
    :api_version api_version
    :catalog_version  version
-   :transaction_uuid transaction-uuid
+   :transaction_uuid transaction_uuid
    :timestamp (to-timestamp timestamp)
    :environment_id (ensure-environment environment)
-   :producer_timestamp (to-timestamp producer-timestamp)})
+   :producer_timestamp (to-timestamp producer_timestamp)})
 
 (pls/defn-validated update-catalog-metadata!
   "Given some catalog metadata, update the db"
@@ -963,20 +963,20 @@
   "Given a certname and a map of fact names to values, store records for those
    facts associated with the certname."
   ([fact-data]
-   (add-facts! fact-data true))
-  ([{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema
+     (add-facts! fact-data true))
+  ([{:keys [name values environment timestamp producer_timestamp] :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-   (let [factset {:certname name
-                  :timestamp (to-timestamp timestamp)
-                  :environment_id (ensure-environment environment)
-                  :producer_timestamp (to-timestamp producer-timestamp)}
-         fact-data-hash (shash/generic-identity-hash (dissoc fact-data :producer-timestamp :timestamp))]
-     (sql/insert-record :factsets
-                        (if include-hash?
-                          (assoc factset :hash fact-data-hash) factset))
-     (insert-facts!
-      (certname-to-factset-id name)
-      (set (new-fact-value-ids values))))))
+     (let [factset {:certname name
+                    :timestamp (to-timestamp timestamp)
+                    :environment_id (ensure-environment environment)
+                    :producer_timestamp (to-timestamp producer_timestamp)}
+           fact-data-hash (shash/generic-identity-hash (dissoc fact-data :timestamp :producer_timestamp))]
+       (sql/insert-record :factsets
+                          (if include-hash?
+                            (assoc factset :hash fact-data-hash) factset))
+       (insert-facts!
+        (certname-to-factset-id name)
+        (set (new-fact-value-ids values))))))
 
 (pls/defn-validated delete-facts!
   "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
@@ -1036,14 +1036,14 @@
   "Given a certname, querys the DB for existing facts for that
   certname and will update, delete or insert the facts as necessary
   to match the facts argument."
-  [{:keys [name values environment timestamp producer-timestamp] :as fact-data} :- facts-schema]
+  [{:keys [name values environment timestamp producer_timestamp] :as fact-data} :- facts-schema]
   (let [factset-id (certname-to-factset-id name)
         old-facts (current-fact-value-ids factset-id)
         new-facts (new-fact-value-ids values)
         factset {:timestamp (to-timestamp timestamp)
                  :environment_id (ensure-environment environment)
-                 :producer_timestamp (to-timestamp producer-timestamp)
-                 :hash (shash/generic-identity-hash (dissoc fact-data :producer-timestamp :timestamp))}]
+                 :producer_timestamp (to-timestamp producer_timestamp)
+                 :hash (shash/generic-identity-hash (dissoc fact-data :producer_timestamp :timestamp))}]
     (sql/update-values :factsets ["id=?" factset-id] factset)
     (utils/diff-fn (zipmap new-facts (repeat nil))
                    (zipmap old-facts (repeat nil))
@@ -1108,11 +1108,12 @@
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
-  [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events transaction-uuid environment
+  [{:keys [puppet_version certname report_format configuration_version
+           start_time end_time resource_events transaction_uuid environment
            status]
     :as report}
-   timestamp update-latest-report?]
+   timestamp
+   update-latest-report?]
   {:pre [(map? report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
@@ -1120,25 +1121,25 @@
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                       (utils/update-when [:timestamp] to-timestamp)
-                                      (utils/update-when [:old-value] sutils/db-serialize)
-                                      (utils/update-when [:new-value] sutils/db-serialize)
-                                      (utils/update-when [:containment-path] containment-path-fn)
-                                      (assoc :containing-class (find-containing-class (% :containment-path)))
-                                      (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
-                                 resource-events)]
+                                      (utils/update-when [:old_value] sutils/db-serialize)
+                                      (utils/update-when [:new_value] sutils/db-serialize)
+                                      (utils/update-when [:containment_path] containment-path-fn)
+                                      (assoc :containing_class (find-containing-class (% :containment_path)))
+                                      (assoc :report report-hash))
+                                 resource_events)]
     (time! (:store-report metrics)
            (sql/transaction
             (sql/insert-record :reports
                                (maybe-environment
                                 {:hash                   report-hash
-                                 :puppet_version         puppet-version
+                                 :puppet_version         puppet_version
                                  :certname               certname
-                                 :report_format          report-format
-                                 :configuration_version  configuration-version
-                                 :start_time             (to-timestamp start-time)
-                                 :end_time               (to-timestamp end-time)
+                                 :report_format          report_format
+                                 :configuration_version  configuration_version
+                                 :start_time             (to-timestamp start_time)
+                                 :end_time               (to-timestamp end_time)
                                  :receive_time           (to-timestamp timestamp)
-                                 :transaction_uuid       transaction-uuid
+                                 :transaction_uuid       transaction_uuid
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
 

@@ -75,7 +75,7 @@ to the result of the form supplied to this method."
       (let [{:keys [body status]} (get-response endpoint
                                                 ["and"
                                                  ["=" "type" "File"]
-                                                 ["in" "certname" ["extract" "certname" ["select-facts"
+                                                 ["in" "certname" ["extract" "certname" ["select_facts"
                                                                                          ["and"
                                                                                           ["=" "name" "operatingsystem"]
                                                                                           ["=" "value" "Debian"]]]]]])]
@@ -84,7 +84,7 @@ to the result of the form supplied to this method."
 
       ;; Using the value of a fact as the title of a resource
       (let [{:keys [body status]} (get-response endpoint
-                                                ["in" "title" ["extract" "value" ["select-facts"
+                                                ["in" "title" ["extract" "value" ["select_facts"
                                                                                   ["=" "name" "message"]]]])]
         (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
@@ -96,7 +96,7 @@ to the result of the form supplied to this method."
                                                  ["=" "exported" true]
                                                  ["and"
                                                   ["=" "exported" false]
-                                                  ["in" "title" ["extract" "title" ["select-resources"
+                                                  ["in" "title" ["extract" "title" ["select_resources"
                                                                                     ["=" "exported" true]]]]]])]
         (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
@@ -205,7 +205,7 @@ to the result of the form supplied to this method."
 
 (deftestseq resource-query-paging
   [[version endpoint] endpoints]
-  (testing "supports paging via include-total"
+  (testing "supports paging via include_total"
     (let [expected (store-example-resources)]
       (doseq [[label count?] [["without" false]
                               ["with" true]]]
@@ -215,7 +215,7 @@ to the result of the form supplied to this method."
                           :path    endpoint
                           :limit   2
                           :total   (count expected)
-                          :include-total  count?})]
+                          :include_total  count?})]
             (is (= (count results) (count expected)))
             (is (= (set (vals expected))
                    (set results)))))))))
@@ -223,10 +223,10 @@ to the result of the form supplied to this method."
 (deftestseq resource-query-result-ordering
   [[version endpoint] endpoints]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
-    (testing "ordering results with order-by"
-      (let [order-by {:order-by (json/generate-string [{"field" "certname" "order" "DESC"}
+    (testing "ordering results with order_by"
+      (let [order_by {:order_by (json/generate-string [{"field" "certname" "order" "DESC"}
                                                        {"field" "resource" "order" "DESC"}])}
-            response (get-response endpoint nil order-by)
+            response (get-response endpoint nil order_by)
             actual   (json/parse-string (get response :body "null") true)]
         (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))

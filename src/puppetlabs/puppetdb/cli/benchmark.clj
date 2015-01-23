@@ -116,14 +116,14 @@
     catalog))
 
 (defn update-report-run-fields
-  "configuration-version, start-time and end-time should always change
+  "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
   [report]
   (assoc report
-    "configuration-version" (ks/uuid)
-    "start-time" (time/now)
-    "end-time" (time/now)))
+    "configuration_version" (ks/uuid)
+    "start_time" (time/now)
+    "end_time" (time/now)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
@@ -154,11 +154,11 @@
    (randomize-map-leaf rp value)))
 
 (defn update-factset
-  "Updates the producer-timestamp to be current, and randomly updates the leaves
+  "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
   [rand-percentage factset]
   (-> factset
-      (assoc "producer-timestamp" (time/now))
+      (assoc "producer_timestamp" (time/now))
       (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
@@ -185,21 +185,21 @@
       (when catalog
         (future
           (try
-            (client/submit-catalog base-url 5 (json/generate-string catalog))
+            (client/submit-catalog base-url 6 (json/generate-string catalog))
             (log/info (format "[%s] submitted catalog" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit catalog: %s" host e))))))
       (when report
         (future
           (try
-            (client/submit-report base-url 3 (json/generate-string report))
+            (client/submit-report base-url 5 (json/generate-string report))
             (log/info (format "[%s] submitted report" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit report: %s" host e))))))
       (when factset
         (future
           (try
-            (client/submit-facts base-url 3 (json/generate-string factset))
+            (client/submit-facts base-url 4 (json/generate-string factset))
             (log/info (format "[%s] submitted factset" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit factset: %s" host e))))))
@@ -219,11 +219,11 @@
         report (and report (update-report-run-fields report))
         factset (and factset (update-factset rand-percentage factset))]
     (when catalog
-      (client/submit-catalog base-url 5 (json/generate-string catalog)))
+      (client/submit-catalog base-url 6 (json/generate-string catalog)))
     (when report
-      (client/submit-report base-url 3 (json/generate-string report)))
+      (client/submit-report base-url 5 (json/generate-string report)))
     (when factset
-      (client/submit-facts base-url 3 (json/generate-string factset)))
+      (client/submit-facts base-url 4 (json/generate-string factset)))
     (assoc state :catalog catalog)))
 
 (defn submit-n-messages

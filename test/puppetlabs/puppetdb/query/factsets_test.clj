@@ -26,7 +26,7 @@
                                "e" true
                                "f" 3.14}}}
              :timestamp current-time
-             :producer-timestamp current-time
+             :producer_timestamp current-time
              :hash "1234"}]
            (structured-data-seq :v4 test-rows))))
 
@@ -85,7 +85,7 @@
                                  "e" true
                                  "f" "abf"}}}
                :timestamp current-time
-               :producer-timestamp current-time
+               :producer_timestamp current-time
                :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
@@ -118,7 +118,7 @@
                                  "e" "abe"
                                  "f" "abf"}}}
                :timestamp current-time
-               :producer-timestamp current-time
+               :producer_timestamp current-time
                :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
@@ -128,7 +128,7 @@
                       :value_integer nil :value_float nil
                       :producer_timestamp current-time :hash nil}]]
       (is (= [{:facts {"a" {"b" {"c" "abc"}}}
-               :producer-timestamp current-time
+               :producer_timestamp current-time
                :timestamp current-time :environment "DEV"
                :certname "foo.com", :hash nil}]
              (structured-data-seq :v4 test-row)))))
@@ -162,7 +162,7 @@
                                  "e"  -1.0e-4
                                  "f" -2.5E-6}}}
                :timestamp current-time
-               :producer-timestamp current-time
+               :producer_timestamp current-time
                :hash "1234"}]
              (structured-data-seq :v4 test-rows)))))
 
@@ -201,7 +201,7 @@
                                  "f" "abf"
                                  "j" nil}}}
                :timestamp current-time
-               :producer-timestamp current-time
+               :producer_timestamp current-time
                :hash "1234"}]
              (structured-data-seq :v4 test-rows))))))
 

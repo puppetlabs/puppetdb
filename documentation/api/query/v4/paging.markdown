@@ -13,7 +13,7 @@ can be used for paging results.
 
 ## URL Parameters for Paging Results
 
-### `order-by`
+### `order_by`
 
 This parameter can be used to ask PuppetDB to return results sorted by one or more fields, in
 ascending or descending order.  The value must be a JSON array of maps.  Each map represents a field
@@ -34,7 +34,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order_by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
 
 ### `limit`
 
@@ -63,11 +63,11 @@ query could specify `limit=10` and `offset=0`, your second query would specify `
 `offset=10`, etc.
 
 This value should be an integer.  Note that the order in which results are returned by PuppetDB
-is not guaranteed to be consistent unless you specify a value for `order-by`, so this parameter
-should generally be used in conjunction with `order-by`.
+is not guaranteed to be consistent unless you specify a value for `order_by`, so this parameter
+should generally be used in conjunction with `order_by`.
 
 #### Example:
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order-by=[{"field": "certname"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order_by=[{"field": "certname"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'

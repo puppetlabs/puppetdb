@@ -36,12 +36,12 @@
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
-  {:new-value s/Any
-   :old-value s/Any
-   :resource-title String
-   :resource-type String
+  {:new_value s/Any
+   :old_value s/Any
+   :resource_title String
+   :resource_type String
    :timestamp pls/Timestamp
-   :containment-path (s/maybe [String])
+   :containment_path (s/maybe [String])
    :property (s/maybe String)
    :file (s/maybe String)
    :line (s/maybe s/Int)
@@ -52,27 +52,27 @@
   {:hash String
    (s/optional-key :environment) (s/maybe String)
    :certname String
-   :puppet-version String
-   :receive-time pls/Timestamp
-   :start-time pls/Timestamp
-   :end-time pls/Timestamp
-   :report-format s/Int
-   :configuration-version String
-   :resource-events [resource-event-schema]
-   :transaction-uuid String
+   :puppet_version String
+   :receive_time pls/Timestamp
+   :start_time pls/Timestamp
+   :end_time pls/Timestamp
+   :report_format s/Int
+   :configuration_version String
+   :resource_events [resource-event-schema]
+   :transaction_uuid String
    :status (s/maybe String)})
 
 (def report-columns
   [:hash
-   :puppet-version
-   :receive-time
-   :report-format
-   :start-time
-   :end-time
-   :transaction-uuid
+   :puppet_version
+   :receive_time
+   :report_format
+   :start_time
+   :end_time
+   :transaction_uuid
    :status
    :environment
-   :configuration-version
+   :configuration_version
    :certname])
 
 (defn create-report-pred
@@ -88,19 +88,19 @@
                                          :property :file :line :event_status :timestamp
                                          :message])]
     (into acc
-          [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
-               (update-in [:new-value] json/parse-string)
-               (update-in [:old-value] json/parse-string)
-               (rename-keys {:event-status :status}))])))
+          [(-> resource-event
+               (update-in [:new_value] json/parse-string)
+               (update-in [:old_value] json/parse-string)
+               (rename-keys {:event_status :status}))])))
 
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
-  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
+  (let [first-row (first report-rows)
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
     (assoc (select-keys first-row report-columns)
-      :resource-events resource-events)))
+      :resource_events resource-events)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
@@ -132,7 +132,7 @@
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project (map jdbc/underscores->dashes projections))
+      (map (qe/basic-project projections)
            (structured-data-seq version rows)))))
 
 (defn query-reports
@@ -168,7 +168,7 @@
                      ;; can just pull the results out of the return value
                      :result)]
     (map
-     #(merge % {:resource-events (events-for-report-hash version (get % :hash))})
+     #(merge % {:resource_events (events-for-report-hash version (get % :hash))})
      reports)))
 
 (defn report-for-hash

@@ -59,19 +59,19 @@
   for comparison with test data.  This generally involves things like converting
   map keys from keywords to strings, etc."
   [events]
-  ;; It is possible for the `old-value` and `new-value` field of an event
+  ;; It is possible for the `old_value` and `new_value` field of an event
   ;; to contain values that are complex data types (arrays, maps).  In
   ;; the case where one of these values is a map, we will get it back
   ;; with keywords as keys, but real world-data has strings as keys.  Here
   ;; we simply convert the keys to strings so that we can compare them for
   ;; tests.
-  (map #(kitchensink/maptrans {[:old-value :new-value] stringify-keys} %) events))
+  (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
 
 (deftestseq query-by-report
   [[version endpoint] endpoints]
 
   (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource-events])
+        basic-events      (get-in reports [:basic :resource_events])
         basic-events-map  (get-events-map (:basic reports))
         report-hash       (:hash basic)]
 
@@ -85,11 +85,11 @@
     ;; NOTE: more exhaustive testing for these queries can be found in
     ;; `puppetlabs.puppetdb.query.event-test`
     (testing "should support querying resource events by timestamp"
-      (let [start-time "2011-01-01T12:00:01-03:00"
-            end-time   "2011-01-01T12:00:03-03:00"]
+      (let [start_time "2011-01-01T12:00:01-03:00"
+            end_time   "2011-01-01T12:00:03-03:00"]
 
         (testing "should support single term timestamp queries"
-          (let [response (get-response endpoint ["<" "timestamp" end-time])
+          (let [response (get-response endpoint ["<" "timestamp" end_time])
                 expected (http-expected-resource-events
                           version
                           (kitchensink/select-values basic-events-map [1 3])
@@ -97,8 +97,8 @@
             (response-equal? response expected munge-event-values)))
 
         (testing "should support compound timestamp queries"
-          (let [response (get-response endpoint ["and" [">" "timestamp" start-time]
-                                                 ["<" "timestamp" end-time]])
+          (let [response (get-response endpoint ["and" [">" "timestamp" start_time]
+                                                 ["<" "timestamp" end_time]])
                 expected (http-expected-resource-events
                           version
                           (kitchensink/select-values basic-events-map [3])
@@ -109,15 +109,15 @@
       (doseq [[query matches]
               [[["and"
                  ["or"
-                  ["=" "resource-title" "hi"]
-                  ["=" "resource-title" "notify, yo"]]
+                  ["=" "resource_title" "hi"]
+                  ["=" "resource_title" "notify, yo"]]
                  ["=" "status" "success"]]                       [1]]
                [["or"
                  ["and"
-                  ["=" "resource-title" "hi"]
+                  ["=" "resource_title" "hi"]
                   ["=" "status" "success"]]
                  ["and"
-                  ["=" "resource-type" "Notify"]
+                  ["=" "resource_type" "Notify"]
                   ["=" "property" "message"]]]                   [1 2]]
                [["and"
                  ["=" "status" "success"]
@@ -137,16 +137,16 @@
               [[["extract" "status"
                  ["and"
                   ["or"
-                   ["=" "resource-title" "hi"]
-                   ["=" "resource-title" "notify, yo"]]
+                   ["=" "resource_title" "hi"]
+                   ["=" "resource_title" "notify, yo"]]
                   ["=" "status" "success"]]]
                 [1]
                 [:status]]
                [["extract" ["status" "line"]
                  ["and"
                   ["or"
-                   ["=" "resource-title" "hi"]
-                   ["=" "resource-title" "notify, yo"]]
+                   ["=" "resource_title" "hi"]
+                   ["=" "resource_title" "notify, yo"]]
                   ["=" "status" "success"]]]
                 [1]
                 [:status :line]]]]
@@ -166,8 +166,8 @@
                         :query   ["=" "report" report-hash]
                         :limit   1
                         :total   (count basic-events)
-                        :include-total  count?
-                        :params  {:order-by (json/generate-string [{"field" "status"}])}})]
+                        :include_total  count?
+                        :params  {:order_by (json/generate-string [{"field" "status"}])}})]
           (is (= (count basic-events) (count results)))
           (is (= (http-expected-resource-events
                   version
@@ -175,66 +175,66 @@
                   basic)
                  (set (munge-event-values results)))))))
 
-    (testing "order-by field names"
-      (testing "should accept dashes"
+    (testing "order_by field names"
+      (testing "should accept underscores"
         (let [expected  (http-expected-resource-events version basic-events basic)
-              response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})]
+              response  (get-response endpoint [">" "timestamp" 0] {:order_by (json/generate-string [{:field "resource_title"}])})]
           (is (= (:status response) http/status-ok))
           (response-equal? response expected munge-event-values)))
 
-      (testing "should reject underscores"
-        (let [response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})
+      (testing "should reject dashes"
+        (let [response  (get-response endpoint [">" "timestamp" 0] {:order_by (json/generate-string [{:field "resource-title"}])})
               body      (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
-          (is (re-find #"Unrecognized column 'resource_title' specified in :order-by" body)))))))
+          (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftestseq query-distinct-resources
   [[version endpoint] endpoints]
 
   (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource-events])
+        basic-events      (get-in reports [:basic :resource_events])
         basic-events-map  (get-events-map (:basic reports))
 
         basic3            (store-example-report! (:basic3 reports) (now))
-        basic3-events     (get-in reports [:basic3 :resource-events])
+        basic3-events     (get-in reports [:basic3 :resource_events])
         basic3-events-map (get-events-map (:basic3 reports))]
 
-    (testing "should return an error if the caller passes :distinct-resources without timestamps"
-      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true})
+    (testing "should return an error if the caller passes :distinct_resources without timestamps"
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
-      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
-                                                                           :distinct-start-time 0})
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true
+                                                                           :distinct_start_time 0})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
-      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
-                                                                           :distinct-end-time 0})
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true
+                                                                           :distinct_end_time 0})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body))))
 
     (testing "should return only one event for a given resource"
       (let [expected  (http-expected-resource-events version basic3-events basic3)
-            response  (get-response endpoint ["=", "certname", "foo.local"] {:distinct-resources true
-                                                                             :distinct-start-time 0
-                                                                             :distinct-end-time (now)})]
+            response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true
+                                                                             :distinct_start_time 0
+                                                                             :distinct_end_time (now)})]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "events should be contained within distinct resource timestamps"
       (let [expected  (http-expected-resource-events version basic-events basic)
-            response  (get-response endpoint ["=", "certname", "foo.local"]
-                                    {:distinct-resources true
-                                     :distinct-start-time 0
-                                     :distinct-end-time "2011-01-02T12:00:01-03:00"})]
+            response  (get-response endpoint ["=" "certname" "foo.local"]
+                                    {:distinct_resources true
+                                     :distinct_start_time 0
+                                     :distinct_end_time "2011-01-02T12:00:01-03:00"})]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
@@ -242,10 +242,10 @@
       (let [expected  #{}
             response (get-response endpoint ["and" ["=" "certname" "foo.local"]
                                              ["=" "status" "success"]
-                                             ["=" "resource-title" "notify, yar"]]
-                                   {:distinct-resources true
-                                    :distinct-start-time 0
-                                    :distinct-end-time (now)})]
+                                             ["=" "resource_title" "notify, yar"]]
+                                   {:distinct_resources true
+                                    :distinct_start_time 0
+                                    :distinct_end_time (now)})]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 
@@ -253,26 +253,26 @@
   [[version endpoint] endpoints]
 
   (let [basic         (store-example-report! (:basic reports) (now))
-        basic-events  (get-in reports [:basic :resource-events])
+        basic-events  (get-in reports [:basic :resource_events])
 
         basic3        (store-example-report! (:basic3 reports) (now))
-        basic3-events (get-in reports [:basic3 :resource-events])]
+        basic3-events (get-in reports [:basic3 :resource_events])]
 
     (testing "query by report start time"
       (let [expected  (http-expected-resource-events version basic-events basic)
-            response  (get-response endpoint ["<" "run-start-time" "2011-01-02T00:00:00-03:00"])]
+            response  (get-response endpoint ["<" "run_start_time" "2011-01-02T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by report end time"
       (let [expected  (http-expected-resource-events version basic3-events basic3)
-            response  (get-response endpoint [">" "run-end-time" "2011-01-02T00:00:00-03:00"])]
+            response  (get-response endpoint [">" "run_end_time" "2011-01-02T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by end time w/no results"
       (let [expected  #{}
-            response  (get-response endpoint [">" "run-end-time" "2011-01-04T00:00:00-03:00"])]
+            response  (get-response endpoint [">" "run_end_time" "2011-01-04T00:00:00-03:00"])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 
@@ -282,16 +282,16 @@
   (let [test-start-time (ago (secs 1))
 
         basic           (store-example-report! (:basic reports) (now))
-        basic-events    (get-in reports [:basic :resource-events])]
+        basic-events    (get-in reports [:basic :resource_events])]
     (testing "query by report receive time"
       (let [expected  (http-expected-resource-events version basic-events basic)
-            response  (get-response endpoint [">" "report-receive-time" (to-string test-start-time)])]
+            response  (get-response endpoint [">" "report_receive_time" (to-string test-start-time)])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
     (testing "query by receive time w/no results"
       (let [expected  #{}
-            response  (get-response endpoint ["<" "report-receive-time" (to-string test-start-time)])]
+            response  (get-response endpoint ["<" "report_receive_time" (to-string test-start-time)])]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 
@@ -300,79 +300,79 @@
    "/v4/events"
    (omap/ordered-map
     ["and"
-     ["=" "containing-class" "Foo"]
-     ["in" "certname" ["extract" "certname" ["select-resources"
+     ["=" "containing_class" "Foo"]
+     ["in" "certname" ["extract" "certname" ["select_resources"
                                              ["=" "title" "foobar"]]]]]
 
-    #{{:containment-path ["Foo" "" "Bar[Baz]"]
-       :new-value nil
-       :containing-class "Foo"
-       :report-receive-time "2014-04-16T12:44:40.978Z"
-       :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
-       :resource-title "hi"
+    #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :new_value nil
+       :containing_class "Foo"
+       :report_receive_time "2014-04-16T12:44:40.978Z"
+       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :resource_title "hi"
        :property nil
        :file "bar"
-       :old-value nil
-       :run-start-time "2011-01-01T15:00:00.000Z"
+       :old_value nil
+       :run_start_time "2011-01-01T15:00:00.000Z"
        :line 2
        :status "skipped"
-       :run-end-time "2011-01-01T15:10:00.000Z"
-       :resource-type "Notify"
+       :run_end_time "2011-01-01T15:10:00.000Z"
+       :resource_type "Notify"
        :environment "DEV"
        :timestamp "2011-01-01T15:00:02.000Z"
-       :configuration-version "a81jasj123"
+       :configuration_version "a81jasj123"
        :certname "basic.catalogs.com"
        :message nil}}
 
     ["and"
-     ["=" "containing-class" "Foo"]
-     ["in" "certname" ["extract" "certname" ["select-facts"
+     ["=" "containing_class" "Foo"]
+     ["in" "certname" ["extract" "certname" ["select_facts"
                                              ["=" "value" "1.1.1.1"]]]]]
 
-    #{{:containment-path ["Foo" "" "Bar[Baz]"]
-       :new-value nil
-       :containing-class "Foo"
-       :report-receive-time "2014-04-16T12:44:40.978Z"
-       :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
-       :resource-title "hi"
+    #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :new_value nil
+       :containing_class "Foo"
+       :report_receive_time "2014-04-16T12:44:40.978Z"
+       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :resource_title "hi"
        :property nil
        :file "bar"
-       :old-value nil
-       :run-start-time "2011-01-01T15:00:00.000Z"
+       :old_value nil
+       :run_start_time "2011-01-01T15:00:00.000Z"
        :line 2
        :status "skipped"
-       :run-end-time "2011-01-01T15:10:00.000Z"
-       :resource-type "Notify"
+       :run_end_time "2011-01-01T15:10:00.000Z"
+       :resource_type "Notify"
        :environment "DEV"
        :timestamp "2011-01-01T15:00:02.000Z"
-       :configuration-version "a81jasj123"
+       :configuration_version "a81jasj123"
        :certname "basic.catalogs.com"
        :message nil}}
 
     ;; test vector-valued field
     ["and"
-     ["=" "containing-class" "Foo"]
-     ["in" ["certname", "environment"]
-      ["extract" ["certname", "environment"]
-       ["select-resources" ["=" "title" "foobar"]]]]]
+     ["=" "containing_class" "Foo"]
+     ["in" ["certname" "environment"]
+      ["extract" ["certname" "environment"]
+       ["select_resources" ["=" "title" "foobar"]]]]]
 
-    #{{:containment-path ["Foo" "" "Bar[Baz]"]
-       :new-value nil
-       :containing-class "Foo"
-       :report-receive-time "2014-04-16T12:44:40.978Z"
-       :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
-       :resource-title "hi"
+    #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :new_value nil
+       :containing_class "Foo"
+       :report_receive_time "2014-04-16T12:44:40.978Z"
+       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :resource_title "hi"
        :property nil
        :file "bar"
-       :old-value nil
-       :run-start-time "2011-01-01T15:00:00.000Z"
+       :old_value nil
+       :run_start_time "2011-01-01T15:00:00.000Z"
        :line 2
        :status "skipped"
-       :run-end-time "2011-01-01T15:10:00.000Z"
-       :resource-type "Notify"
+       :run_end_time "2011-01-01T15:10:00.000Z"
+       :resource_type "Notify"
        :environment "DEV"
        :timestamp "2011-01-01T15:00:02.000Z"
-       :configuration-version "a81jasj123"
+       :configuration_version "a81jasj123"
        :certname "basic.catalogs.com"
        :message nil}})))
 
@@ -390,7 +390,7 @@
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil
-                           :producer-timestamp nil}))
+                           :producer_timestamp nil}))
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
@@ -400,20 +400,20 @@
   (omap/ordered-map
    "/v4/events" (omap/ordered-map
                  ;; Extract using invalid fields should throw an error
-                 ["in" "certname" ["extract" "nothing" ["select-resources"
+                 ["in" "certname" ["extract" "nothing" ["select_resources"
                                                         ["=" "type" "Class"]]]]
                  #"Can't extract unknown 'resources' field 'nothing'.*Acceptable fields are.*"
 
-                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select-resources"
+                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select_resources"
                                                                                 ["=" "type" "Class"]]]]
                  #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"
 
                  ;; In-query for invalid fields should throw an error
-                 ["in" "nothing" ["extract" "certname" ["select-resources"
+                 ["in" "nothing" ["extract" "certname" ["select_resources"
                                                         ["=" "type" "Class"]]]]
                  #"Can't match on unknown 'events' field 'nothing' for 'in'.*Acceptable fields are.*"
 
-                 ["in" ["certname" "nothing" "nothing2"] ["extract" "certname" ["select-resources"
+                 ["in" ["certname" "nothing" "nothing2"] ["extract" "certname" ["select_resources"
                                                                                 ["=" "type" "Class"]]]]
                  #"Can't match on unknown 'events' fields: 'nothing', 'nothing2' for 'in'.*Acceptable fields are.*")))
 

@@ -48,7 +48,7 @@
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer-timestamp nil})
+                   :producer_timestamp nil})
       (testing "should have entries for each fact"
         (is (= (query-to-vec
                 "SELECT fp.path as name,
@@ -77,7 +77,7 @@
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
-      (testing "producer-timestamp should store nil"
+      (testing "producer_timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                [{:producer_timestamp nil}])))
       (testing "replacing facts"
@@ -95,7 +95,7 @@
             (replace-facts! {:name certname
                              :values new-facts
                              :environment "DEV"
-                             :producer-timestamp reference-time
+                             :producer_timestamp reference-time
                              :timestamp reference-time})
             (testing "should have only the new facts"
               (is (= (query-to-vec
@@ -116,7 +116,7 @@
                       {:name "hostname" :value "myhost"}
                       {:name "kernel" :value "Linux"}
                       {:name "uptime_seconds" :value "3600"}])))
-            (testing "producer-timestamp should store current time"
+            (testing "producer_timestamp should store current time"
               (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                      [{:producer_timestamp (to-timestamp reference-time)}])))
             (testing "should only delete operatingsystem key"
@@ -145,7 +145,7 @@
         (replace-facts! {:name certname
                          :values facts
                          :environment "DEV"
-                         :producer-timestamp nil
+                         :producer_timestamp nil
                          :timestamp (now)})
         (is (= facts (factset-map "some_certname"))))
 
@@ -155,11 +155,11 @@
                      :values facts
                      :timestamp previous-time
                      :environment nil
-                     :producer-timestamp nil})
+                     :producer_timestamp nil})
         (replace-facts! {:name certname
                          :values {"foo" "bar"}
                          :environment "DEV"
-                         :producer-timestamp nil
+                         :producer_timestamp nil
                          :timestamp (now)})
         (is (= {"foo" "bar"} (factset-map "some_certname"))))
 
@@ -168,7 +168,7 @@
           (replace-facts! {:name certname
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
-                           :producer-timestamp nil
+                           :producer_timestamp nil
                            :timestamp (now)})
           (is (= (assoc fact-map  "one more" "here")
                  (factset-map "some_certname")))))
@@ -178,7 +178,7 @@
           (replace-facts! {:name certname
                            :values fact-map
                            :environment "DEV"
-                           :producer-timestamp nil
+                           :producer_timestamp nil
                            :timestamp (now)})
           (is (= fact-map
                  (factset-map "some_certname")))))
@@ -188,14 +188,14 @@
           (replace-facts! {:name certname
                            :values fact-map
                            :environment "DEV"
-                           :producer-timestamp (now)
+                           :producer_timestamp (now)
                            :timestamp (now)})
           (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
             (is (= old-hash new-hash)))
           (replace-facts! {:name certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
-                           :producer-timestamp (now)
+                           :producer_timestamp (now)
                            :timestamp (now)})
           (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
             (is (not= old-hash new-hash))))))))
@@ -220,7 +220,7 @@
                    :values facts
                    :timestamp previous-time
                    :environment "PROD"
-                   :producer-timestamp nil})
+                   :producer_timestamp nil})
 
       (testing "should have entries for each fact"
         (is (= facts
@@ -250,7 +250,7 @@
         :values facts
         :timestamp (-> 1 days ago)
         :environment "DEV"
-        :producer-timestamp nil})
+        :producer_timestamp nil})
 
       (testing "should have the same entries for each fact"
         (is (= facts
@@ -280,7 +280,7 @@
 (deftest catalog-persistence
   (testing "Persisted catalogs"
     (add-certname! certname)
-    (add-catalog! (assoc catalog :producer-timestamp current-time))
+    (add-catalog! (assoc catalog :producer_timestamp current-time))
 
     (testing "should contain proper catalog metadata"
       (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
@@ -538,7 +538,7 @@
                  :values facts
                  :timestamp (-> 2 days ago)
                  :environment "ENV3"
-                 :producer-timestamp nil}))
+                 :producer_timestamp nil}))
   (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
         fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
 
@@ -582,7 +582,7 @@
     (let [timestamp     (now)
           report        (-> (:basic reports)
                             (assoc :environment "ENV2")
-                            (assoc :end-time (to-string (ago (days 5)))))
+                            (assoc :end_time (to-string (ago (days 5)))))
           report-hash   (shash/report-identity-hash report)
           certname      (:certname report)]
       (store-example-report! report timestamp)
@@ -598,7 +598,7 @@
                    :values facts
                    :timestamp (-> 2 days ago)
                    :environment "ENV3"
-                   :producer-timestamp nil})
+                   :producer_timestamp nil})
       (delete-facts! certname))
 
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
@@ -691,7 +691,7 @@
                                   deletes sql/delete-rows
                                   updates sql/update-values]
           (with-redefs [metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
-            (add-catalog! (assoc updated-catalog :transaction-uuid new-uuid) nil yesterday)
+            (add-catalog! (assoc updated-catalog :transaction_uuid new-uuid) nil yesterday)
 
             ;; 2 edge deletes
             ;; 2 edge inserts
@@ -1077,7 +1077,7 @@
                     #(replace-facts! {:name "node1"
                                       :values {"foo" "bar"}
                                       :environment "DEV"
-                                      :producer-timestamp "2014-07-10T22:33:54.781Z"
+                                      :producer_timestamp "2014-07-10T22:33:54.781Z"
                                       :timestamp (ago (days 2))})]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
@@ -1128,7 +1128,7 @@
     (testing "should store report with long puppet version string"
       (store-example-report!
        (assoc report
-         :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+         :puppet_version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
   (deftest report-storage-with-environment
     (is (nil? (environment-id "DEV")))
@@ -1169,8 +1169,8 @@
         (is (is-latest-report? node report-hash))
         (let [new-report-hash (:hash (store-example-report!
                                       (-> report
-                                          (assoc :configuration-version "bar")
-                                          (assoc :end-time (now)))
+                                          (assoc :configuration_version "bar")
+                                          (assoc :end_time (now)))
                                       timestamp))]
           (is (is-latest-report? node new-report-hash))
           (is (not (is-latest-report? node report-hash)))))))
@@ -1178,23 +1178,23 @@
 
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
-      (let [report1       (assoc report :end-time (to-string (ago (days 5))))
+      (let [report1       (assoc report :end_time (to-string (ago (days 5))))
             report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end-time (to-string (ago (days 2))))
+            report2       (assoc report :end_time (to-string (ago (days 2))))
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
-            expected      (map #(update-in % [:resource-events] munge-resource-events)
+            expected      (map #(update-in % [:resource_events] munge-resource-events)
                                (expected-reports [(assoc report2 :hash report2-hash)]))
-            actual        (map #(update-in % [:resource-events] munge-resource-events)
+            actual        (map #(update-in % [:resource_events] munge-resource-events)
                                (reports-query-result :v4 ["=" "certname" certname]))]
         (is (= expected actual)))))
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
-      (let [report1       (assoc report :end-time (to-string (ago (days 5))))
+      (let [report1       (assoc report :end_time (to-string (ago (days 5))))
             report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end-time (to-string (ago (days 2))))
+            report2       (assoc report :end_time (to-string (ago (days 2))))
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))

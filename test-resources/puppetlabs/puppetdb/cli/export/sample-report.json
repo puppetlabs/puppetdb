@@ -1,41 +1,41 @@
 {
-  "resource-events": [
+  "resource_events": [
     {
-      "old-value": "dreadly",
-      "resource-type": "melanospermous",
+      "old_value": "dreadly",
+      "resource_type": "melanospermous",
       "timestamp": "2012-10-09T22:15:17.005Z",
       "property": "auxotonic",
       "message": "infundibulate acmite uranium disciplinarianism",
-      "resource-title": "undoubting",
-      "new-value": "ultraloyal",
+      "resource_title": "undoubting",
+      "new_value": "ultraloyal",
       "status": "success",
       "file": "/Users/foo/bar.pp",
       "line": 11,
-      "containment-path": null,
-      "containing-class": null
+      "containment_path": null,
+      "containing_class": null
     },
     {
-      "old-value": "vacantly",
-      "resource-type": "photolithography",
+      "old_value": "vacantly",
+      "resource_type": "photolithography",
       "timestamp": "2012-10-09T22:15:17.000Z",
       "property": "lipuria",
       "message": "horizontalize noncoincident levity lucifugous nationalism undergirdle khutuktu somatosplanchnic",
-      "resource-title": "vitiator",
-      "new-value": "forecastlehead",
+      "resource_title": "vitiator",
+      "new_value": "forecastlehead",
       "status": "success",
       "file": null,
       "line": null,
-      "containment-path": ["Foo", "", "Bar[Baz]"],
-      "containing-class": "Foo"
+      "containment_path": ["Foo", "", "Bar[Baz]"],
+      "containing_class": "Foo"
     }
   ],
-  "configuration-version": "02ae0b7",
-  "start-time": "2012-01-10T05:14:02.000Z",
-  "end-time": "2012-01-10T05:15:01.098Z",
+  "configuration_version": "02ae0b7",
+  "start_time": "2012-01-10T05:14:02.000Z",
+  "end_time": "2012-01-10T05:15:01.098Z",
   "certname": "myhost.localdomain",
-  "puppet-version": "3.0.0",
-  "report-format": 4,
-  "transaction-uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b",
+  "puppet_version": "3.0.0",
+  "report_format": 4,
+  "transaction_uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b",
   "environment": "DEV",
   "status" : "unchanged"
 }

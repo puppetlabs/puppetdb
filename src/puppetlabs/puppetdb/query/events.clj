@@ -74,7 +74,7 @@
   "Compile a resource event `query` into an SQL expression."
   [version query-options query paging-options]
   {:pre  [(or (sequential? query) (nil? query))
-          (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
+          (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
             (or (not-any? #(contains? query-options %) distinct-options)
                 (every? #(contains? query-options %) distinct-options)))]
    :post [(map? %)
@@ -89,10 +89,10 @@
                                                 (str table "." column
                                                      (if alias (format " AS %s" alias) "")))
                                               query/event-columns))
-        [sql params]            (if (:distinct-resources? query-options)
+        [sql params]            (if (:distinct_resources? query-options)
                                   (distinct-select select-fields where params
-                                                   (:distinct-start-time query-options)
-                                                   (:distinct-end-time query-options))
+                                                   (:distinct_start_time query-options)
+                                                   (:distinct_end_time query-options))
                                   (default-select select-fields where params))
         paged-select (jdbc/paged-sql sql paging-options)
         result {:results-query (apply vector paged-select params)}]
@@ -105,7 +105,7 @@
   "Compile a resource event `query` into an SQL expression."
   [version query [query-options paging-options]]
   {:pre  [(or (sequential? query) (nil? query))
-          (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
+          (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
             (or (not-any? #(contains? query-options %) distinct-options)
                 (every? #(contains? query-options %) distinct-options)))]
    :post [(map? %)
@@ -114,7 +114,7 @@
            (not (:count? paging-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
-  (if (:distinct-resources? query-options)
+  (if (:distinct_resources? query-options)
     ;; The new query engine does not support distinct-resources yet, so we
     ;; fall back to the old
     (legacy-query->sql version query-options query paging-options)
@@ -134,9 +134,9 @@
      ;; TODO: conversion to underscore should be standard anyway
      ;; at least for V4. Consider moving this operation to
      ;; query/streamed-query-result in the future.
-     #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
-          (utils/update-when [:old-value] json/parse-string)
-          (utils/update-when [:new-value] json/parse-string))
+     #(-> %
+          (utils/update-when [:old_value] json/parse-string)
+          (utils/update-when [:new_value] json/parse-string))
      rows)))
 
 (defn query-resource-events
@@ -171,7 +171,7 @@
          (query-resource-events version)
          :result
          (mapv #(dissoc %
-                        :run-start-time
-                        :run-end-time
-                        :report-receive-time
+                        :run_start_time
+                        :run_end_time
+                        :report_receive_time
                         :environment)))))

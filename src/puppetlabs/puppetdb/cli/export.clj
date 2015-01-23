@@ -24,12 +24,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
 
-(def node-map {:catalog-timestamp (s/maybe String)
-               :facts-timestamp (s/maybe String)
-               :report-timestamp (s/maybe String)
-               :catalog-environment (s/maybe String)
-               :facts-environment (s/maybe String)
-               :report-environment (s/maybe String)
+(def node-map {:catalog_timestamp (s/maybe String)
+               :facts_timestamp (s/maybe String)
+               :report_timestamp (s/maybe String)
+               :catalog_environment (s/maybe String)
+               :facts_environment (s/maybe String)
+               :report_environment (s/maybe String)
                :certname String
                :deactivated (s/maybe String)})
 
@@ -83,7 +83,7 @@
       {:name node
        :values (:facts facts)
        :environment (:environment facts)
-       :producer-timestamp (:producer-timestamp facts)})))
+       :producer_timestamp (:producer_timestamp facts)})))
 
 (defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -108,10 +108,10 @@
                     (url-encode (format "[\"=\",\"report\",\"%s\"]"
                                         report-hash)))))]
     (sort-by
-     #(mapv % [:timestamp :resource-type :resource-title :property])
+     #(mapv % [:timestamp :resource_type :resource_title :property])
      (map
-      #(dissoc % :report :certname :configuration-version :containing-class
-               :run-start-time :run-end-time :report-receive-time :environment)
+      #(dissoc % :report :certname :configuration_version :containing_class
+               :run_start_time :run_end_time :report_receive_time :environment)
       body))))
 
 (defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
@@ -127,21 +127,21 @@
                                                node)))
                       {:accept :json}))]
       (map
-       #(dissoc % :receive-time)
+       #(dissoc % :receive_time)
        (map
-        #(merge % {:resource-events (events-for-report-hash base-url (get % :hash))})
+        #(merge % {:resource_events (events-for-report-hash base-url (get % :hash))})
         body)))))
 
 (defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
   [node :- String
-   reports :- [{:configuration-version s/Any
-                :start-time s/Any
+   reports :- [{:configuration_version s/Any
+                :start_time s/Any
                 s/Any s/Any}]]
-  (mapv (fn [{:keys [configuration-version start-time] :as report}]
-          (let [unique-seed (str start-time configuration-version)
+  (mapv (fn [{:keys [configuration_version start_time] :as report}]
+          (let [unique-seed (str start_time configuration_version)
                 hash (kitchensink/utf8-string->sha1 unique-seed)]
-            {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)" node start-time configuration-version hash)
+            {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)" node start_time configuration_version hash)
              :file-suffix ["reports" (format "%s-%s.json" node hash)]
              :contents (json/generate-pretty-string (dissoc report :hash))}))
         reports))
@@ -159,11 +159,11 @@
   [base-url :- utils/base-url-schema
    {:keys [certname] :as node-data} :- node-map]
   {:node certname
-   :facts (when-not (str/blank? (:facts-timestamp node-data))
+   :facts (when-not (str/blank? (:facts_timestamp node-data))
             [(facts->tar certname (facts-for-node base-url certname))])
-   :reports (when-not (str/blank? (:report-timestamp node-data))
+   :reports (when-not (str/blank? (:report_timestamp node-data))
               (report->tar certname (reports-for-node base-url certname)))
-   :catalog (when-not (str/blank? (:catalog-timestamp node-data))
+   :catalog (when-not (str/blank? (:catalog_timestamp node-data))
               [(catalog->tar certname (catalog-for-node base-url certname))])})
 
 (defn-validated get-nodes :- (s/maybe (s/pred seq? 'seq?))
@@ -182,21 +182,22 @@
    :file-suffix [export-metadata-file-name]
    :contents (json/generate-pretty-string
               {:timestamp (now)
-               :command-versions
+               :command_versions
                ;; This is not ideal that we are hard-coding the command version here, but
                ;;  in our current architecture I don't believe there is any way to introspect
                ;;  on which version of the `replace catalog` matches up with the current
                ;;  version of the `catalog` endpoint... or even to query what the latest
                ;;  version of a command is.  We should improve that.
-               {:replace-catalog 5
-                :store-report 3
-                :replace-facts 3}})})
+               {:replace_catalog 6
+                :store_report 5
+                :replace_facts 4}})})
 
 (defn- validate-cli!
   [args]
   (let [specs    [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
                   ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
-                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]
+                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
+                   :parse-fn #(Integer. %) :default 8080]
                   ["" "--url-prefix PREFIX" "Server prefix (HTTP protocol only)"
                    :default ""]]
         required [:outfile]]

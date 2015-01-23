@@ -31,11 +31,11 @@
      (qe/compile-user-query->sql qe/nodes-query query paging-options)))
 
 (defn munge-result-rows
-  [version _]
+  [version projections]
   (fn [rows]
-    (map
-     #(kitchensink/mapkeys jdbc/underscores->dashes %)
-     rows)))
+    (if (empty? rows)
+      []
+      (map (qe/basic-project projections) rows))))
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."

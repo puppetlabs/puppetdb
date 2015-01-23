@@ -34,17 +34,17 @@ This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and 
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
 This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
-* `summarize-by`: Required. A string specifying which type of object you'd like count. Supported values are
-`resource`, `containing-class`, and `certname`.
+* `summarize_by`: Required. A string specifying which type of object you'd like count. Supported values are
+`resource`, `containing_class`, and `certname`.
 
-* `count-by`: Optional. A string specifying what type of object is counted when building up the counts of
+* `count_by`: Optional. A string specifying what type of object is counted when building up the counts of
 `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
 
-* `counts-filter`: Optional. A JSON array of query predicates in the usual prefix form. This query is applied to
+* `counts_filter`: Optional. A JSON array of query predicates in the usual prefix form. This query is applied to
 the final event-counts output, but before the results are aggregated. Supported operators are `=`, `>`, `<`,
 `>=`, and `<=`. Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct-resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
+* `distinct_resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
 of this parameter may change in future releases.)  This parameter is passed along
 to the [`event`][events] query - see there for additional documentation.
 
@@ -75,7 +75,7 @@ You can use [`curl`][curl] to query information about aggregated resource event 
 
     curl -G 'http://localhost:8080/v4/aggregate-event-counts'
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
-            --data-urlencode 'summarize-by=containing-class'
+            --data-urlencode 'summarize_by=containing_class'
 
 ## No Paging
 

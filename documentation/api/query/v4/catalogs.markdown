@@ -30,11 +30,11 @@ See [the Operators page.](./operators.html)
 * `name` (string): the certname associated with the catalog
 * `version` (string): an arbitrary string that uniquely identifies each catalog for a node
 * `environment` (string): the environment associated with the catalog's certname
-* `transaction-uuid` (string): a string used to tie a catalog to a report from the same puppet run
+* `transaction_uuid` (string): a string used to tie a catalog to a report from the same puppet run
 * `hash` (string): sha1 hash of the resources of associated with a node's most
   recent catalog
-* `producer-timestamp` (string): a string representing the time at which the
-  `replace-catalog` command for a given catalog was submitted from the master.
+* `producer_timestamp` (string): a string representing the time at which the
+  `replace_catalog` command for a given catalog was submitted from the master.
   Generation of this field will be pushed back to the agent in a later release, so it
   should not be relied on in its current form.
 
@@ -50,8 +50,8 @@ the form:
       "version" : <catalog version>,
       "environment" : <catalog environment>,
       "hash" : <sha1 sum of catalog resources>,
-      "transaction-uuid" : <string to identify puppet run>,
-      "producer-timestamp": <time of transmission by master>,
+      "transaction_uuid" : <string to identify puppet run>,
+      "producer_timestamp": <time of transmission by master>,
       "resources" : <list of objects representing resources in the catalog>,
       "edges" : <list of objects representing relationships between resources>
     }
@@ -68,8 +68,8 @@ This query will return the complete list of catalogs:
       "name" : "yo.delivery.puppetlabs.net",
       "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
       "version" : "e4c339f",
-      "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
-      "producer-timestamp": "2014-10-13T20:46:00.000Z",
+      "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+      "producer_timestamp": "2014-10-13T20:46:00.000Z",
       "environment" : "production",
       "edges" : [...],
       "resources" : [...]
@@ -78,23 +78,23 @@ This query will return the complete list of catalogs:
       "name" : "foo.delivery.puppetlabs.net",
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
-      "transaction-uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
-      "producer-timestamp": "2014-11-20T02:15:20.861Z",
+      "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
+      "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
       "edges" : [...],
       "resources" : [...]
     } ]
 
-This query will return all catalogs with producer-timestamp after 2014-11-19:
+This query will return all catalogs with producer_timestamp after 2014-11-19:
 
-    curl -X GET http://puppetdb:8080/v4/catalogs --data-urlencode 'query=[">","producer-timestamp","2014-11-19"]'
+    curl -X GET http://puppetdb:8080/v4/catalogs --data-urlencode 'query=[">","producer_timestamp","2014-11-19"]'
 
     [ {
       "name" : "foo.delivery.puppetlabs.net",
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
-      "transaction-uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
-      "producer-timestamp": "2014-11-20T02:15:20.861Z",
+      "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
+      "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
       "edges" : [...],
       "resources" : [...]
@@ -119,8 +119,8 @@ a JSON error message if the catalog is not found:
      "name" : "yo.delivery.puppetlabs.net",
      "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
      "version" : "e4c339f",
-     "transaction-uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
-     "producer-timestamp": "2014-10-13T20:46:00.000Z",
+     "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+     "producer_timestamp": "2014-10-13T20:46:00.000Z",
      "environment" : "production",
      "edges" : [...],
      "resources" : [...]

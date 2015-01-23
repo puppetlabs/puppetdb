@@ -62,27 +62,27 @@
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name "node_b"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name "node_c"
                            :values {"kernel" "Darwin"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name "node_d"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-facts! {:name "node_e"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
 
     (testing "basic combination testing"
       (let [test-cases {["=" ["fact" "kernel"] "Linux"]
@@ -98,7 +98,7 @@
         (combination-tests [:v4] test-cases)))
 
     (testing "environment testing"
-      (let [test-cases {["=" "facts-environment" "production"]
+      (let [test-cases {["=" "facts_environment" "production"]
                         #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
         (combination-tests [:v4] test-cases)))))
 
@@ -126,19 +126,19 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order-by"
+      (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (retrieve-node-names version nil
-                                    {:order-by [[:invalid-field :ascending]]}))))
+                                    {:order_by [[:invalid-field :ascending]]}))))
 
         (testing "alphabetical fields"
           (doseq [[order expected] [[:ascending  ["node_a" "node_b" "node_c" "node_d" "node_e"]]
                                     [:descending ["node_e" "node_d" "node_c" "node_b" "node_a"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:certname order]]})]
+                                                {:order_by [[:certname order]]})]
                 (is (= actual expected))))))
 
         (testing "timestamp fields"
@@ -146,7 +146,7 @@
                                     [:descending ["node_a" "node_d" "node_c" "node_b" "node_e"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:facts-timestamp order]]})]
+                                                {:order_by [[:facts_timestamp order]]})]
                 (is (= actual expected))))))
 
         (testing "multiple fields"
@@ -154,7 +154,7 @@
                                                            [[:descending :ascending] ["node_c" "node_b" "node_e" "node_a" "node_d"]]]]
             (testing (format "catalog-timestamp %s name %s" timestamp-order name-order)
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:catalog-timestamp timestamp-order]
+                                                {:order_by [[:catalog_timestamp timestamp-order]
                                                             [:certname name-order]]})]
                 (is (= actual expected)))))))
 
@@ -174,6 +174,6 @@
           (testing order
             (doseq [[offset expected] expected-sequences]
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:certname order]]
+                                                {:order_by [[:certname order]]
                                                  :offset offset})]
                 (is (= actual expected))))))))))

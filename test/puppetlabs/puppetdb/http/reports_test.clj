@@ -38,10 +38,10 @@
    ;; them to be coerced to dates and then back to strings, which normalizes
    ;; the timezone so that it will match the value returned form the db.
    to-string
-   [:start-time :end-time]
+   [:start_time :end_time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
-   (update-in report [:resource-events] (comp keywordize-keys munge-resource-events))))
+   (update-in report [:resource_events] (comp keywordize-keys munge-resource-events))))
 
 (defn reports-response
   [version reports]
@@ -52,7 +52,7 @@
   ;; the example reports don't have a receive time (because this is
   ;; calculated by the server), so we remove this field from the response
   ;; for test comparison
-  (map (comp #(dissoc % :receive-time) #(update-in % [:resource-events] set)) reports))
+  (map (comp #(dissoc % :receive_time) #(update-in % [:resource_events] set)) reports))
 
 (deftestseq query-by-certname
   [[version endpoint] endpoints]
@@ -61,10 +61,10 @@
         report-hash   (:hash (store-example-report! basic (now)))
         basic (assoc basic :hash report-hash)]
 
-    (doseq [field ["certname" "hash" "puppet-version" "report-format"
-                   "configuration-version" "start-time" "end-time"
-                   "transaction-uuid" "status"]
-            :let [field-kwd (keyword (str/replace field #"_" "-"))]]
+    (doseq [field ["certname" "hash" "puppet_version" "report_format"
+                   "configuration_version" "start_time" "end_time"
+                   "transaction_uuid" "status"]
+            :let [field-kwd (keyword field)]]
       (testing (format "should return all reports for a %s" field)
         (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
           (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
@@ -96,9 +96,9 @@
 
     (testing "three projected columns"
       (response-equal?
-       (get-response endpoint ["extract" ["hash" "certname" "transaction-uuid"]
+       (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
                                ["=" "certname" (:certname basic)]])
-       #{(select-keys basic [:hash :certname :transaction-uuid])}))))
+       #{(select-keys basic [:hash :certname :transaction_uuid])}))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
@@ -117,7 +117,7 @@
                               :query   ["=" "certname" (:certname basic1)]
                               :limit   1
                               :total   2
-                              :include-total  count?})]
+                              :include_total  count?})]
           (is (= 2 (count results)))
           (is (= (reports-response version
                                    [(assoc basic1 :hash basic1-hash)
@@ -200,16 +200,16 @@
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
-        basic2 (assoc (:basic2 reports) :puppet-version "3.6.0")
+        basic2 (assoc (:basic2 reports) :puppet_version "3.6.0")
         hash2 (:hash (store-example-report! basic2 (now)))
-        basic3 (assoc (:basic3 reports) :puppet-version "3.0.3")
+        basic3 (assoc (:basic3 reports) :puppet_version "3.0.3")
         hash3 (:hash (store-example-report! basic3 (now)))
 
-        v301 (get-response endpoint ["=" "puppet-version" "3.0.1"])
+        v301 (get-response endpoint ["=" "puppet_version" "3.0.1"])
         v301-body (json/parse-strict-string (:body v301) true)
-        v360 (get-response endpoint ["=" "puppet-version" "3.6.0"])
+        v360 (get-response endpoint ["=" "puppet_version" "3.6.0"])
         v360-body (json/parse-strict-string (:body v360) true)
-        v30x (get-response endpoint ["~" "puppet-version" "3\\.0\\..*"])
+        v30x (get-response endpoint ["~" "puppet_version" "3\\.0\\..*"])
         v30x-body (json/parse-strict-string (:body v30x) true)]
 
     (is (= 1 (count v301-body)))
@@ -236,37 +236,37 @@
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
-        basic2 (assoc (:basic2 reports) :report-format 4)
+        basic2 (assoc (:basic2 reports) :report_format 5)
         hash2 (:hash (store-example-report! basic2 (now)))
-        basic3 (assoc (:basic3 reports) :report-format 5)
+        basic3 (assoc (:basic3 reports) :report_format 6)
         hash3 (:hash (store-example-report! basic3 (now)))
 
-        v3-format (get-response endpoint ["=" "report-format" 3])
-        v3-format-body (json/parse-strict-string (:body v3-format) true)
-        v4-format (get-response endpoint ["and"
-                                          [">" "report-format" 3]
-                                          ["<" "report-format" 5]])
+        v4-format (get-response endpoint ["=" "report_format" 4])
         v4-format-body (json/parse-strict-string (:body v4-format) true)
         v5-format (get-response endpoint ["and"
-                                          [">" "report-format" 3]
-                                          ["<=" "report-format" 5]])
-        v5-format-body (json/parse-strict-string (:body v5-format) true)]
-
-    (is (= 1 (count v3-format-body)))
-    (response-equal?
-     v3-format
-     (reports-response version [(assoc basic :hash hash1)])
-     munge-reports-for-comparison)
+                                          [">" "report_format" 4]
+                                          ["<" "report_format" 6]])
+        v5-format-body (json/parse-strict-string (:body v5-format) true)
+        v6-format (get-response endpoint ["and"
+                                          [">" "report_format" 4]
+                                          ["<=" "report_format" 6]])
+        v6-format-body (json/parse-strict-string (:body v6-format) true)]
 
     (is (= 1 (count v4-format-body)))
     (response-equal?
      v4-format
+     (reports-response version [(assoc basic :hash hash1)])
+     munge-reports-for-comparison)
+
+    (is (= 1 (count v5-format-body)))
+    (response-equal?
+     v5-format
      (reports-response version [(assoc basic2 :hash hash2)])
      munge-reports-for-comparison)
 
-    (is (= 2 (count v5-format-body)))
+    (is (= 2 (count v6-format-body)))
     (response-equal?
-     v5-format
+     v6-format
      (reports-response version [(assoc basic2 :hash hash2)
                                 (assoc basic3 :hash hash3)])
      munge-reports-for-comparison)))
@@ -279,9 +279,9 @@
         basic2 (:basic2 reports)
         hash2 (:hash (store-example-report! basic2 (now)))
 
-        basic-result (get-response endpoint ["=" "configuration-version" "a81jasj123"])
+        basic-result (get-response endpoint ["=" "configuration_version" "a81jasj123"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
-        basic2-result (get-response endpoint ["~" "configuration-version" ".*23"])
+        basic2-result (get-response endpoint ["~" "configuration_version" ".*23"])
         basic2-result-body (json/parse-strict-string (:body basic2-result) true)]
 
     (is (= 1 (count basic-result-body)))
@@ -305,17 +305,17 @@
         basic2 (:basic2 reports)
         hash2 (:hash (store-example-report! basic2 (now)))
 
-        basic-result (get-response endpoint ["=" "start-time" "2011-01-01T12:00:00-03:00"])
+        basic-result (get-response endpoint ["=" "start_time" "2011-01-01T12:00:00-03:00"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
         basic-range (get-response endpoint ["and"
-                                            [">" "start-time" "2010-01-01T12:00:00-03:00"]
-                                            ["<" "end-time" "2012-01-01T12:00:00-03:00"]])
+                                            [">" "start_time" "2010-01-01T12:00:00-03:00"]
+                                            ["<" "end_time" "2012-01-01T12:00:00-03:00"]])
         basic-range-body (json/parse-strict-string (:body basic-range) true)
         all-reports (get-response endpoint ["and"
-                                            [">" "start-time" "2010-01-01T12:00:00-03:00"]
-                                            ["<" "end-time" "2014-01-01T12:00:00-03:00"]])
+                                            [">" "start_time" "2010-01-01T12:00:00-03:00"]
+                                            ["<" "end_time" "2014-01-01T12:00:00-03:00"]])
         all-reports-body (json/parse-strict-string (:body all-reports) true)
-        basic2-result (get-response endpoint ["=" "end-time" "2013-08-28T19:10:00-03:00"])
+        basic2-result (get-response endpoint ["=" "end_time" "2013-08-28T19:10:00-03:00"])
         basic2-result-body (json/parse-strict-string (:body basic2-result) true)]
 
     (is (= 1 (count basic-result-body)))
@@ -353,7 +353,7 @@
         stored-basic (store-example-report! basic (now))
         hash1 (:hash stored-basic)
 
-        basic-result (get-response endpoint ["=" "receive-time" (ts->str (:receive-time stored-basic))])
+        basic-result (get-response endpoint ["=" "receive_time" (ts->str (:receive_time stored-basic))])
         basic-result-body (json/parse-strict-string (:body basic-result) true)]
 
     (is (= 1 (count basic-result-body)))
@@ -370,9 +370,9 @@
         basic2 (:basic2 reports)
         hash2 (:hash (store-example-report! basic2 (now)))
 
-        basic-result (get-response endpoint ["=" "transaction-uuid" "68b08e2a-eeb1-4322-b241-bfdf151d294b"])
+        basic-result (get-response endpoint ["=" "transaction_uuid" "68b08e2a-eeb1-4322-b241-bfdf151d294b"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
-        all-results (get-response endpoint ["~" "transaction-uuid" "b$"])
+        all-results (get-response endpoint ["~" "transaction_uuid" "b$"])
         all-results-body (json/parse-strict-string (:body all-results) true)]
 
     (is (= 1 (count basic-result-body)))

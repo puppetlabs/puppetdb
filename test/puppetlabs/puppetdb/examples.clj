@@ -5,9 +5,9 @@
    {:name             "empty.catalogs.com"
     :api_version      1
     :version          "1330463884"
-    :transaction-uuid nil
+    :transaction_uuid nil
     :environment      nil
-    :producer-timestamp nil
+    :producer_timestamp nil
     :edges            #{{:source       {:type "Stage" :title "main"}
                          :target       {:type "Class" :title "Settings"}
                          :relationship :contains}
@@ -33,10 +33,10 @@
    :basic
    {:name             "basic.catalogs.com"
     :api_version      1
-    :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
-    :producer-timestamp nil
+    :producer_timestamp nil
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
                          :relationship :contains}
@@ -70,7 +70,7 @@
    :invalid
    {:name             "invalid.catalogs.com"
     :api_version      1
-    :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "does not exist"}
@@ -84,7 +84,7 @@
                                                                          "group"  "root"
                                                                          "user"   "root"}}}}})
 
-(def v5-empty-wire-catalog
+(def v6-empty-wire-catalog
   "Basic wire catalog with a minimum number of resources/edges used/modified
    for examples of a catalog"
   {:edges
@@ -120,15 +120,15 @@
      :tags       ["node" "default" "class"]
      :type       "Node"}]
    :version          "1332533763"
-   :transaction-uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+   :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
    :environment "DEV"
-   :producer-timestamp "2014-07-10T22:33:54.781Z"})
+   :producer_timestamp "2014-07-10T22:33:54.781Z"})
 
 (def wire-catalogs
   "Catalogs keyed by version."
-  {5 {:empty v5-empty-wire-catalog
+  {6 {:empty v6-empty-wire-catalog
       :basic
-      (-> v5-empty-wire-catalog
+      (-> v6-empty-wire-catalog
           (assoc :name "basic.wire-catalogs.com")
           (update-in [:resources] conj {:type       "File"
                                         :title      "/etc/foobar"
@@ -138,5 +138,4 @@
                                         :tags       ["file" "class" "foobar"]
                                         :parameters {:ensure "directory"
                                                      :group  "root"
-                                                     :user   "root"}}))
-      }})
+                                                     :user   "root"}}))}})

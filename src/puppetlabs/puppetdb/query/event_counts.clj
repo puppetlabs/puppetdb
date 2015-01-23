@@ -11,14 +11,14 @@
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
   Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
   IllegalArgumentException is thrown."
-  [summarize-by]
-  {:pre  [(string? summarize-by)]
+  [summarize_by]
+  {:pre  [(string? summarize_by)]
    :post [(vector? %)]}
-  (condp = summarize-by
+  (condp = summarize_by
     "certname" ["certname"]
-    "containing-class" ["containing_class"]
+    "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
-    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize_by': '%s'" summarize_by)))))
 
 (defn- get-counts-filter-where-clause
   "Given a `counts-filter` query, return the appropriate SQL where clause and parameters.
@@ -44,14 +44,14 @@
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
-    (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'count_by': '%s'" count-by)))))
 
 (defn- event-counts-columns
   [group-by]
   {:pre [(vector? group-by)]}
   (concat
    ["failures" "successes" "noops" "skips"]
-   (map jdbc/underscores->dashes group-by)))
+   group-by))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -85,8 +85,8 @@
 (defn- munge-subject
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
-  [summarize-by result]
-  {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
+  [summarize_by result]
+  {:pre [(contains? #{"certname" "resource" "containing_class"} summarize_by)
          (map? result)
          (or
           (contains? result :certname)
@@ -95,60 +95,60 @@
    :post [(map? %)
           (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
-          (= summarize-by (:subject-type %))]}
-  (condp = summarize-by
+          (= summarize_by (:subject_type %))]}
+  (condp = summarize_by
     "certname"          (-> result
-                            (assoc :subject-type "certname")
+                            (assoc :subject_type "certname")
                             (assoc :subject {:title (:certname result)})
                             (dissoc :certname))
 
     "resource"          (-> result
-                            (assoc :subject-type "resource")
+                            (assoc :subject_type "resource")
                             (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
                             (dissoc :resource_type :resource_title))
 
-    "containing-class"  (-> result
-                            (assoc :subject-type "containing-class")
+    "containing_class"  (-> result
+                            (assoc :subject_type "containing_class")
                             (assoc :subject {:title (:containing_class result)})
                             (dissoc :containing_class))))
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
-  [summarize-by]
+  [summarize_by]
   (fn [rows]
     (mapv
-     (partial munge-subject summarize-by)
+     (partial munge-subject summarize_by)
      rows)))
 
 (defn query->sql
-  "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
+  "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
-  the value to `count-by` may also be specified (defaults to `resource`)."
-  ([version query [summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]]
+  the value to `count_by` may also be specified (defaults to `resource`)."
+  ([version query [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
      {:pre  [(sequential? query)
-             (string? summarize-by)
-             ((some-fn nil? sequential?) counts-filter)
-             ((some-fn nil? string?) count-by)]
+             (string? summarize_by)
+             ((some-fn nil? sequential?) counts_filter)
+             ((some-fn nil? string?) count_by)]
       :post [(map? %)
              (jdbc/valid-jdbc-query? (:results-query %))
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (let [count-by                        (or count-by "resource")
-           group-by                        (get-group-by summarize-by)
+     (let [count_by                        (or count_by "resource")
+           group-by                        (get-group-by summarize_by)
            _                               (paging/validate-order-by!
                                             (map keyword (event-counts-columns group-by))
                                             paging-options)
            {counts-filter-where  :where
-            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
+            counts-filter-params :params}  (get-counts-filter-where-clause counts_filter)
            distinct-opts                   (select-keys query-options
-                                                        [:distinct-resources? :distinct-start-time :distinct-end-time])
+                                                        [:distinct_resources? :distinct_start_time :distinct_end_time])
            [event-sql & event-params]      (:results-query
-                                            (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                            (if (:distinct_resources? query-options) ;;<- The query engine does not support distinct-resources!
                                               (events/query->sql version query [distinct-opts nil])
                                               (qe/compile-user-query->sql qe/report-events-query query)))
-           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+           count-by-sql                    (get-count-by-sql event-sql count_by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
            sql                             (get-filtered-sql event-count-sql counts-filter-where)
            params                          (concat event-params counts-filter-params)
@@ -159,7 +159,7 @@
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
-  [version summarize-by query-sql]
+  [version summarize_by query-sql]
   {:pre  [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
@@ -167,7 +167,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows summarize-by)))}]
+                          (comp doall (munge-result-rows summarize_by)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

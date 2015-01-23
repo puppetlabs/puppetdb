@@ -98,34 +98,34 @@
 (deftest wrapping-paging-options
   (let [app-fn      (fn [req] (req :paging-options))
         wrapped-fn  (wrap-with-paging-options app-fn)]
-    (testing "should return an error if order-by is not a valid JSON string"
+    (testing "should return an error if order_by is not a valid JSON string"
       (let [{:keys [status body]}
-            (wrapped-fn {:params {"order-by" "["}})]
+            (wrapped-fn {:params {"order_by" "["}})]
         (is (= http/status-bad-request status))
-        (is (= "Illegal value '[' for :order-by; expected a JSON array of maps."
+        (is (= "Illegal value '[' for :order_by; expected a JSON array of maps."
                body))))
 
-    (testing "should return an error if order-by is not an array of maps"
+    (testing "should return an error if order_by is not an array of maps"
       (let [{:keys [status body]}
             (wrapped-fn {:params
-                         {"order-by"
+                         {"order_by"
                           (json/generate-string {"field" "foo"})}})]
         (is (= http/status-bad-request status))
-        (is (= (str "Illegal value '{:field \"foo\"}' for :order-by; "
+        (is (= (str "Illegal value '{:field \"foo\"}' for :order_by; "
                     "expected an array of maps.")
                body))))
 
-    (testing "should return an error if an order-by map is missing 'field'"
+    (testing "should return an error if an order_by map is missing 'field'"
       (let [{:keys [status body]}
             (wrapped-fn {:params
-                         {"order-by"
+                         {"order_by"
                           (json/generate-string [{}])}})]
         (is (= http/status-bad-request status))
-        (is (= (str "Illegal value '{}' in :order-by; "
+        (is (= (str "Illegal value '{}' in :order_by; "
                     "missing required key 'field'.")
                body))))
 
-    (testing "should map nil/'asc' to :ascending for the order-by 'order'"
+    (testing "should map nil/'asc' to :ascending for the order_by 'order'"
       (doseq [valid-order-by [{"field" "foo"}
                               {"field" "foo"
                                "order" "asc"}
@@ -133,43 +133,43 @@
                                "order" "ASC"}]]
         (is (= :ascending (->
                            (wrapped-fn {:params
-                                        {"order-by"
+                                        {"order_by"
                                          (json/generate-string [valid-order-by])}})
-                           :order-by
+                           :order_by
                            first
                            second)))))
 
-    (testing "should map 'desc' to :descending for the order-by 'order'"
+    (testing "should map 'desc' to :descending for the order_by 'order'"
       (doseq [valid-order-by [{"field" "foo"
                                "order" "desc"}
                               {"field" "foo"
                                "order" "DESC"}]]
         (is (= :descending (->
                             (wrapped-fn {:params
-                                         {"order-by"
+                                         {"order_by"
                                           (json/generate-string [valid-order-by])}})
-                            :order-by
+                            :order_by
                             first
                             second)))))
 
-    (testing "should return an error if order-by map has an invalid 'order'"
+    (testing "should return an error if order_by map has an invalid 'order'"
       (let [{:keys [status body]}
             (wrapped-fn {:params
-                         {"order-by"
+                         {"order_by"
                           (json/generate-string [{"field" "foo"
                                                   "order" "baz"}])}})]
         (is (= http/status-bad-request status))
-        (is (re-find #"^Illegal value '\{.*\}' in :order-by; 'order' must be either 'asc' or 'desc'"
+        (is (re-find #"^Illegal value '\{.*\}' in :order_by; 'order' must be either 'asc' or 'desc'"
                      body))))
 
-    (testing "should return an error if an order-by map has unknown keys"
+    (testing "should return an error if an order_by map has unknown keys"
       (let [{:keys [status body]}
             (wrapped-fn {:params
-                         {"order-by"
+                         {"order_by"
                           (json/generate-string [{"field" "foo"
                                                   "bar" "baz"}])}})]
         (is (= http/status-bad-request status))
-        (is (re-find #"^Illegal value '\{.*\}' in :order-by; unknown key 'bar'."
+        (is (re-find #"^Illegal value '\{.*\}' in :order_by; unknown key 'bar'."
                      body))))
 
     (testing "`count?` should default to `false`"
@@ -180,13 +180,13 @@
               {:params
                {"limit"    "10"
                 "offset"   "10"
-                "order-by" (json/generate-string [{"field" "foo"
+                "order_by" (json/generate-string [{"field" "foo"
                                                    "order" "desc"}])
-                "include-total"   "true"
+                "include_total"   "true"
                 "foo"      "bar"}})
              {:limit     10
               :offset    10
-              :order-by  [[:foo :descending]]
+              :order_by  [[:foo :descending]]
               :count?    true })))))
 
 (deftest payload-to-body-string-test

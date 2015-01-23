@@ -48,19 +48,19 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `status` (string): the status associated to report's node. Possible values for this field come from Puppet's report status, which can be found [here][statuses].
 
-* `puppet-version` (string): the version of Puppet that generated the report.
+* `puppet_version` (string): the version of Puppet that generated the report.
 
-* `report-format` (number): the version number of the report format that Puppet used to generate the original report data.
+* `report_format` (number): the version number of the report format that Puppet used to generate the original report data.
 
-* `configuration-version` (string): an identifier string that Puppet uses to match a specific catalog for a node to a specific Puppet run.
+* `configuration_version` (string): an identifier string that Puppet uses to match a specific catalog for a node to a specific Puppet run.
 
-* `start-time` (timestamp): is the time at which the Puppet run began. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `start_time` (timestamp): is the time at which the Puppet run began. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `end-time` (timestamp): is the time at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `end_time` (timestamp): is the time at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `receive-time` (timestamp): is the time at which PuppetDB received the report. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `receive_time` (timestamp): is the time at which PuppetDB received the report. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `transaction-uuid` (string): string used to identify a Puppet run.
+* `transaction_uuid` (string): string used to identify a Puppet run.
 
 ### Response format
 
@@ -70,17 +70,17 @@ is of the form:
 
     {
       "hash": <sha1 of stored report command payload>,
-      "puppet-version": <report puppet version>,
-      "receive-time": <time of report reception by PDB>,
-      "report-format": <report wireformat version>,
-      "start-time": <start of run timestamp>,
-      "end-time": <end of run timestamp>,
-      "transaction-uuid": <string to identify puppet run>,
+      "puppet_version": <report puppet version>,
+      "receive_time": <time of report reception by PDB>,
+      "report_format": <report wireformat version>,
+      "start_time": <start of run timestamp>,
+      "end_time": <end of run timestamp>,
+      "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
       "environment": <report environment>,
-      "configuration-version": <catalog identifier>,
+      "configuration_version": <catalog identifier>,
       "certname": <node name>,
-      "resource-events": [<resource event>]
+      "resource_events": [<resource event>]
     }
 
 Resource event objects are of the following form:
@@ -88,23 +88,23 @@ Resource event objects are of the following form:
     {
       "status": <status of event (`success`, `failure`, `noop`, or `skipped`)>,
       "timestamp": <timestamp (from agent) at which event occurred>,
-      "resource-type": <type of resource event occurred on>,
-      "resource-title": <title of resource event occurred on>,
+      "resource_type": <type of resource event occurred on>,
+      "resource_title": <title of resource event occurred on>,
       "property": <property/parameter of resource on which event occurred>,
-      "new-value": <new value for resource property>,
-      "old-value": <old value of resource property>,
+      "new_value": <new value for resource property>,
+      "old_value": <old value of resource property>,
       "message": <description of what happened during event>,
       "file": <manifest file containing resource definition>,
       "line": <line in manifest file on which resource is defined>
-      "containment-path": <containment heirarchy of resource within catalog>
+      "containment_path": <containment heirarchy of resource within catalog>
     }
 
 **Note on fields that allow `NULL` values**
 
-In the resource-event schema above, `containment-path`, `new-value`, `old-value`, `property`, `file`, `line`, `status`, and `message` may all be null.
+In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 **Note on querying resource events**
-The `reports` endpoint does not support querying on the value of `resource-events`, but the same information can be be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
+The `reports` endpoint does not support querying on the value of `resource_events`, but the same information can be be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
 
 
 ### Examples
@@ -117,38 +117,38 @@ Query for all reports:
 
     [ {
       "hash" : "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe",
-      "puppet-version" : "3.7.3",
-      "receive-time" : "2014-12-24T00:00:50.716Z",
-      "report-format" : 4,
-      "start-time" : "2014-12-24T00:00:49.211Z",
-      "end-time" : "2014-12-24T00:00:49.705Z",
-      "transaction-uuid" : "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
+      "puppet_version" : "3.7.3",
+      "receive_time" : "2014-12-24T00:00:50.716Z",
+      "report_format" : 4,
+      "start_time" : "2014-12-24T00:00:49.211Z",
+      "end_time" : "2014-12-24T00:00:49.705Z",
+      "transaction_uuid" : "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
       "status" : "changed",
       "environment" : "production",
-      "configuration-version" : "1419379250",
+      "configuration_version" : "1419379250",
       "certname" : "foo.com",
-      "resource-events" : [ {
-        "containment-path" : [ "Stage[main]", "Main", "Notify[hi]" ],
-        "new-value" : "\"Hi world\"",
-        "resource-title" : "hi",
+      "resource_events" : [ {
+        "containment_path" : [ "Stage[main]", "Main", "Notify[hi]" ],
+        "new_value" : "\"Hi world\"",
+        "resource_title" : "hi",
         "property" : "message",
         "file" : "/home/wyatt/.puppet/manifests/site.pp",
-        "old-value" : "\"absent\"",
+        "old_value" : "\"absent\"",
         "line" : 3,
         "status" : "changed",
-        "resource-type" : "Notify",
+        "resource_type" : "Notify",
         "timestamp" : "2014-12-24T00:00:50.522Z",
         "message" : "defined 'message' as 'Hi world'"
       }, {
-        "containment-path" : [ "Stage[main]", "Main", "File[/home/wyatt/Desktop/foo]" ],
-        "new-value" : "\"file\"",
-        "resource-title" : "/home/wyatt/Desktop/foo",
+        "containment_path" : [ "Stage[main]", "Main", "File[/home/wyatt/Desktop/foo]" ],
+        "new_value" : "\"file\"",
+        "resource_title" : "/home/wyatt/Desktop/foo",
         "property" : "ensure",
         "file" : "/home/wyatt/.puppet/manifests/site.pp",
-        "old-value" : "\"absent\"",
+        "old_value" : "\"absent\"",
         "line" : 7,
         "status" : "changed",
-        "resource-type" : "File",
+        "resource_type" : "File",
         "timestamp" : "2014-12-24T00:00:50.514Z",
         "message" : "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"
       } ]

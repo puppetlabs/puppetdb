@@ -55,8 +55,8 @@
         (str "Query was: " query))
 
     (doseq [res result]
-      (is (= #{:certname :deactivated :catalog-timestamp :facts-timestamp :report-timestamp
-               :catalog-environment :facts-environment :report-environment} (keyset res))
+      (is (= #{:certname :deactivated :catalog_timestamp :facts_timestamp :report_timestamp
+               :catalog_environment :facts_environment :report_environment} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -72,12 +72,12 @@
         (is (nil? (:deactivated (status-for-node endpoint web1)))))
 
       (testing "when node has facts, but no catalog"
-        (is (:facts-timestamp (status-for-node endpoint web2)))
-        (is (nil? (:catalog-timestamp (status-for-node endpoint web2)))))
+        (is (:facts_timestamp (status-for-node endpoint web2)))
+        (is (nil? (:catalog_timestamp (status-for-node endpoint web2)))))
 
       (testing "when node has an associated catalog and facts"
-        (is (:catalog-timestamp (status-for-node endpoint web1)))
-        (is (:facts-timestamp (status-for-node endpoint web1)))))
+        (is (:catalog_timestamp (status-for-node endpoint web1)))
+        (is (:facts_timestamp (status-for-node endpoint web1)))))
 
     (testing "basic equality is supported for name"
       (is-query-result endpoint ["=" (certname version) "web1.example.com"] [web1]))
@@ -126,7 +126,7 @@
                               ;; Basic sub-query for fact operatingsystem
                               ["in" (certname version)
                                ["extract" "certname"
-                                ["select-facts"
+                                ["select_facts"
                                  ["and"
                                   ["=" "name" "operatingsystem"]
                                   ["=" "value" "Debian"]]]]]
@@ -136,12 +136,12 @@
                               ;; Nodes with a class matching their hostname
                               ["in" (certname version)
                                ["extract" "certname"
-                                ["select-facts"
+                                ["select_facts"
                                  ["and"
                                   ["=" "name" "hostname"]
                                   ["in" "value"
                                    ["extract" "title"
-                                    ["select-resources"
+                                    ["select_resources"
                                      ["and"
                                       ["=" "type" "Class"]]]]]]]]]
 
@@ -158,7 +158,7 @@
                                 ;; Nodes with matching select-resources for file/line
                                 ["in" (certname version)
                                  ["extract" "certname"
-                                  ["select-resources"
+                                  ["select_resources"
                                    ["and"
                                     ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
                                     ["=" "line" 1]]]]]
@@ -173,7 +173,7 @@
                          ;; a proper error.
                          ["in" (certname version)
                           ["extract" "certname"
-                           ["select-resources"
+                           ["select_resources"
                             ["and"
                              ["=" "sourcefile" "/etc/puppet/modules/settings/manifests/init.pp"]
                              ["=" "sourceline" 1]]]]]
@@ -198,8 +198,8 @@
                         :path    endpoint
                         :limit   1
                         :total   (count expected)
-                        :include-total  count?
-                        :params {:order-by (json/generate-string [{:field (certname version) :order "asc"}])}})]
+                        :include_total  count?
+                        :params {:order_by (json/generate-string [{:field (certname version) :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))
@@ -208,23 +208,23 @@
   [[version endpoint] endpoints]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)
-        web1-catalog-ts (:catalog-timestamp (status-for-node endpoint web1))
-        web1-facts-ts (:facts-timestamp (status-for-node endpoint web1))
-        web1-report-ts (:report-timestamp (status-for-node endpoint web1))]
+        web1-catalog-ts (:catalog_timestamp (status-for-node endpoint web1))
+        web1-facts-ts (:facts_timestamp (status-for-node endpoint web1))
+        web1-report-ts (:report_timestamp (status-for-node endpoint web1))]
 
     (testing "basic query for timestamps"
 
-      (is-query-result endpoint ["=" "facts-timestamp" web1-facts-ts] [web1])
-      (is-query-result endpoint [">" "facts-timestamp" web1-facts-ts] [web2 db puppet])
-      (is-query-result endpoint [">=" "facts-timestamp" web1-facts-ts] [web1 web2 db puppet])
+      (is-query-result endpoint ["=" "facts_timestamp" web1-facts-ts] [web1])
+      (is-query-result endpoint [">" "facts_timestamp" web1-facts-ts] [web2 db puppet])
+      (is-query-result endpoint [">=" "facts_timestamp" web1-facts-ts] [web1 web2 db puppet])
 
-      (is-query-result endpoint ["=" "catalog-timestamp" web1-catalog-ts] [web1])
-      (is-query-result endpoint [">" "catalog-timestamp" web1-catalog-ts] [db puppet])
-      (is-query-result endpoint [">=" "catalog-timestamp" web1-catalog-ts] [web1 db puppet])
+      (is-query-result endpoint ["=" "catalog_timestamp" web1-catalog-ts] [web1])
+      (is-query-result endpoint [">" "catalog_timestamp" web1-catalog-ts] [db puppet])
+      (is-query-result endpoint [">=" "catalog_timestamp" web1-catalog-ts] [web1 db puppet])
 
-      (is-query-result endpoint ["=" "report-timestamp" web1-report-ts] [web1])
-      (is-query-result endpoint [">" "report-timestamp" web1-report-ts] [db puppet])
-      (is-query-result endpoint [">=" "report-timestamp" web1-report-ts] [web1 db puppet]))))
+      (is-query-result endpoint ["=" "report_timestamp" web1-report-ts] [web1])
+      (is-query-result endpoint [">" "report_timestamp" web1-report-ts] [db puppet])
+      (is-query-result endpoint [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))
 
 (def invalid-projection-queries
   (omap/ordered-map

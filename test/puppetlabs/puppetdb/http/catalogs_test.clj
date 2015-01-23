@@ -31,8 +31,8 @@
 
 (def catalog2 (merge catalog1
                  {:name "host2.localdomain"
-                  :producer-timestamp "2010-07-10T22:33:54.781Z"
-                  :transaction-uuid "000000000000000000000000000"
+                  :producer_timestamp "2010-07-10T22:33:54.781Z"
+                  :transaction_uuid "000000000000000000000000000"
                   :environment "PROD"}))
 
 (def queries
@@ -42,7 +42,7 @@
    ["=" "name" "host2.localdomain"]
    [catalog2]
 
-   ["<" "producer-timestamp" "2014-07-10T22:33:54.781Z"]
+   ["<" "producer_timestamp" "2014-07-10T22:33:54.781Z"]
    [catalog2]
 
    ["=" "environment" "PROD"]
@@ -55,19 +55,19 @@
    [catalog1 catalog2]})
 
 (def paging-options
-  {{:order-by (json/generate-string [{:field "environment"}])}
+  {{:order_by (json/generate-string [{:field "environment"}])}
    [catalog1 catalog2]
 
-   {:order-by (json/generate-string [{:field "producer-timestamp"}])}
+   {:order_by (json/generate-string [{:field "producer_timestamp"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "name"}])}
+   {:order_by (json/generate-string [{:field "name"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "transaction-uuid"}])}
+   {:order_by (json/generate-string [{:field "transaction_uuid"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "name" :order "desc"}])}
+   {:order_by (json/generate-string [{:field "name" :order "desc"}])}
    [catalog1 catalog2]})
 
 (defn extract-tags

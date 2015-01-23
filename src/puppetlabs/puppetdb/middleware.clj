@@ -80,17 +80,17 @@
 
 (defn wrap-with-paging-options
   "Ring middleware that will add to each request a :paging-options attribute:
-  a map optionally containing :limit, :offset, and :order-by keys used to
-  implement result paging for the query.  The value for :order-by will be
+  a map optionally containing :limit, :offset, and :order_by keys used to
+  implement result paging for the query.  The value for :order_by will be
   a list of maps, containing information about the fields to order the result
-  by.  Each order-by map contains a key :field, and an optional key :order
+  by.  Each order_by map contains a key :field, and an optional key :order
   (whose value may be either 'asc' or 'desc', and defaults to 'asc')."
   [app]
   (fn [{:keys [params] :as req}]
     (try
       (app (assoc req :paging-options
                   (-> params
-                      (select-keys ["limit" "offset" "order-by" "include-total"])
+                      (select-keys ["limit" "offset" "order_by" "include_total"])
                       (keywordize-keys)
                       (paging/parse-limit)
                       (paging/parse-offset)

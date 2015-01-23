@@ -60,8 +60,8 @@ test_name "export and import tools" do
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
-    assert(node["catalog-timestamp"].nil?, "Should not have a catalog timestamp")
-    assert(node["facts-timestamp"], "Should have a facts timestamp")
+    assert(node["catalog_timestamp"].nil?, "Should not have a catalog timestamp")
+    assert(node["facts_timestamp"], "Should have a facts timestamp")
   end
 
   export_file1 = "./puppetdb-export1.tar.gz"
@@ -96,8 +96,8 @@ test_name "export and import tools" do
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
     node = result_node_statuses.first
-    assert(node["catalog-timestamp"].nil?, "Should not have a catalog timestamp")
-    assert(node["facts-timestamp"], "Should have a facts timestamp")
+    assert(node["catalog_timestamp"].nil?, "Should not have a catalog timestamp")
+    assert(node["facts_timestamp"], "Should have a facts timestamp")
   end
 
 end
