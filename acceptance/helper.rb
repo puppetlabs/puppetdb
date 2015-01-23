@@ -338,9 +338,9 @@ module PuppetDBExtensions
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
+      strict_validation        => false,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
-      test_url                 => '/v4/version',
     }
     ini_setting {'server_urls':
       ensure => present,
