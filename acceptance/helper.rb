@@ -340,6 +340,7 @@ module PuppetDBExtensions
       enable_reports           => true,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
+      test_url                 => '/v4/version',
     }
     ini_setting {'server_urls':
       ensure => present,
