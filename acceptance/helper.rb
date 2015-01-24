@@ -493,7 +493,7 @@ module PuppetDBExtensions
   end
 
   def sleep_until_queue_empty(host, timeout=60)
-    metric = "org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands"
+    metric = "org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands"
     queue_size = nil
 
     begin

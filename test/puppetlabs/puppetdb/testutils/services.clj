@@ -129,9 +129,10 @@
 (defn command-mbean-name
   "The full mbean name of the MQ destination used for commands"
   [base-url]
-  (format "org.apache.activemq:BrokerName=%s,Type=Queue,Destination=%s"
-          (url-encode (:host base-url))
-          svcs/mq-endpoint))
+  (str
+   "org.apache.activemq:type=Broker,brokerName=" (url-encode (:host base-url))
+   ",destinationType=Queue"
+   ",destinationName=" svcs/mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
@@ -268,12 +269,9 @@
   [dest-name]
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
     (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/org.apache.activemq:BrokerName="
-             (url-encode (:host base-metrics-url))
-             ",Type=Queue,Destination="
-             dest-name)
-        (client/get {:as :json})
-        (get-in [:body :DispatchCount]))))
+             "/mbeans/" (command-mbean-name base-metrics-url))
+      (client/get {:as :json})
+      (get-in [:body :DispatchCount]))))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
