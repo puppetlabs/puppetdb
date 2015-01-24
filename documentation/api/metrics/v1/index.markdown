@@ -145,7 +145,7 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 ### MQ Metrics
 
-* `org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands`:
+* `org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands`:
   stats about the command processing queue: queue depth, how long messages remain in the queue, etc.
 
 ## Example

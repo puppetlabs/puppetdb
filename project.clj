@@ -42,7 +42,7 @@
                  [clj-stacktrace "0.2.6"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.5.1"]
-                 [org.clojure/java.jmx "0.2.0"]
+                 [org.clojure/java.jmx "0.3.0"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
                  ;; Version information
@@ -58,9 +58,14 @@
                  [org.hsqldb/hsqldb "2.2.8"]
                  [org.postgresql/postgresql "9.2-1003-jdbc4"]
                  [clojureql "1.0.3"]
+
                  ;; MQ connectivity
-                 [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-core "5.7.0" :exclusions [org.slf4j/slf4j-api org.fusesource.fuse-extra/fusemq-leveldb]]
+                 [org.apache.activemq/activemq-broker "5.10.1"]
+                 [org.apache.activemq/activemq-kahadb-store "5.10.1"]
+                 [clamq/clamq-activemq "0.4"
+                  :exclusions [org.slf4j/slf4j-api
+                               org.apache.activemq/activemq-core]]
+
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
                  [org.slf4j/jcl-over-slf4j "1.7.6"]
                  ;; WebAPI support libraries.

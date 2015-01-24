@@ -220,7 +220,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/org.apache.activemq:BrokerName=localhost,Type=Queue,Destination=puppetlabs.puppetdb.commands")
+  .url("../metrics/v1/mbeans/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands")
   .snag(function(res) { return res["QueueSize"]; })
   .format(d3.format(",s"))
   .description("Command Queue")

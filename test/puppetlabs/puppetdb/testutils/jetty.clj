@@ -72,14 +72,11 @@
   "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
   []
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)
-        _ (println (str (utils/base-url->str base-metrics-url)
-             "/mbeans/org.apache.activemq:BrokerName="
-             (url-encode (:host base-metrics-url))
-             ",Type=Queue,Destination=puppetlabs.puppetdb.commands"))
-        ]
-    (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/org.apache.activemq:BrokerName="
-             (url-encode (:host base-metrics-url))
-             ",Type=Queue,Destination=puppetlabs.puppetdb.commands")
+        url (str (utils/base-url->str base-metrics-url)
+                 "/mbeans/org.apache.activemq:type=Broker,brokerName="
+                 (url-encode (:host base-metrics-url))
+                 ",destinationType=Queue"
+                 ",destinationName=puppetlabs.puppetdb.commands")]
+    (-> url
       (client/get {:as :json})
       (get-in [:body :QueueSize]))))
