@@ -285,7 +285,6 @@
           extra-keys (set/difference present-keys valid-catalog-attrs)
           missing-keys (set/difference valid-catalog-attrs present-keys)]
       (when (seq extra-keys)
-        catalog
         (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
       (when (seq missing-keys)
         (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))

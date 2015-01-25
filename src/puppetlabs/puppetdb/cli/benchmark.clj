@@ -107,29 +107,6 @@
                                                        (rand-nth (range depth))
                                                        (rand-nth (range children))))))}))))
 
-(defn populate-database-with-facts
-  "This will populate a database with semi-random structured facts.
-
-  Aside from database host, port, and fact command version, arguments are
-
-  *nodes : number of nodes to be submitted
-  *dup-rate : target duplication rated defined as 1 - (#distinct fact values)/(#facts)
-  *facts-per-node : number of facts per node
-
-  This function is only suitable for *rough* load testing, as its output has
-  not been compared to real user data."
-  [host port facts-version nodes dup-rate facts-per-node]
-  (let [name-pool (take (Math/round (* dup-rate facts-per-node)) (repeatedly #(random-string 10)))
-        facts-pool (take (* dup-rate facts-per-node) (repeatedly #(random-structured-fact)))]
-    (doseq [[certname env] (take nodes (repeatedly #(vector (random-string 10) (random-string 10))))]
-      (let [fact-payload {:environment env
-                          :name certname
-                          :values (apply merge (take facts-per-node
-                                                     (repeatedly #(if (< (rand) dup-rate)
-                                                                    (rand-nth facts-pool)
-                                                                    (random-structured-fact)))))}]
-        (client/submit-facts host port facts-version (json/generate-string fact-payload))))))
-
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
   percent of the time."

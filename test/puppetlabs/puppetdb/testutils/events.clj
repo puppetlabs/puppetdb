@@ -20,7 +20,7 @@
   (dissoc example-event :certname :test-id :containing-class :environment))
 
 (defn environment [resource-event report version]
-  (if (and (= :v4 version))
+  (if (= :v4 version)
     (assoc-when resource-event :environment (:environment report))
     (dissoc resource-event :environment)))
 

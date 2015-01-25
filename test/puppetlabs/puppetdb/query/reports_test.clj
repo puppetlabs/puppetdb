@@ -152,8 +152,6 @@
                                                  {:order-by [[:report-format order]] :offset offset})]
               (is (= (order-events actual) (order-events expected))))))))))
 
-
-
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
                   json/parse-string
                   keywordize-keys))
@@ -170,27 +168,27 @@
     :environment "production",
     :configuration-version "1419379250",
     :certname "foo.com",
-    :resource-events [{:new_value "\"Hi world\"",
+    :resource-events [{:new-value "Hi world",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "absent",
                        :line 3,
-                       :resource_type "Notify",
-                       :status "changed",
-                       :resource_title "hi",
+                       :resource-type "Notify",
+                       :status "success",
+                       :resource-title "hi",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}
-                      {:new_value "\"file\"",
+                      {:new-value "file",
                        :property "ensure",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "absent",
                        :line 7,
-                       :resource_type "File",
-                       :status "changed",
-                       :resource_title "/home/wyatt/Desktop/foo",
+                       :resource-type "File",
+                       :status "success",
+                       :resource-title "/home/wyatt/Desktop/foo",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment_path
+                       :containment-path
                        ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"],
                        :message
                        "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"}]}
@@ -205,21 +203,21 @@
     :environment "production",
     :configuration-version "1419379250",
     :certname "bar.com",
-    :resource-events [{:new_value "\"Hi world\"",
+    :resource-events [{:new-value "Hi world",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "absent",
                        :line 3,
-                       :resource_type "Notify",
-                       :status "changed",
-                       :resource_title "hi",
+                       :resource-type "Notify",
+                       :status "success",
+                       :resource-title "hi",
                        :timestamp "2014-12-24T00:01:12Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}]}])
 
 (deftest structured-data-seq
   (testing "structured data seq gets correct result"
-    (is (r/structured-data-seq :v4 data-seq) expected-result))
+    (is (= (r/structured-data-seq :v4 data-seq) expected-result)))
   (testing "laziness of collapsing fns"
     (let [ten-billion 10000000000]
       (is (= 10

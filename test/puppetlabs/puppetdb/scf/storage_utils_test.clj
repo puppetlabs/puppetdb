@@ -43,10 +43,10 @@
     (sql/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
     (is (true? (index-exists? "foobar")))))
 
-(deftest ^{:hsqldb false} test-postgres?-hsql
+(deftest ^{:postgres false} test-postgres?-hsql
   (testing "false if hsqldb"
-    (= (false? (postgres?)))))
+    (is (false? (postgres?)))))
 
-(deftest ^{:postgres false} test-postgres?-pg
+(deftest ^{:hsqldb false} test-postgres?-pg
   (testing "true if postgresql"
-    (= (true? (postgres?)))))
+    (is (true? (postgres?)))))

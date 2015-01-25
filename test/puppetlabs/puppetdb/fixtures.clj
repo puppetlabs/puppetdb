@@ -137,11 +137,11 @@
       :headers {"accept" "application/json"
                 "content-type" "application/json"}
       :content-type "application/json"
-      :globals (merge {:update-server "FOO"
-                       :scf-read-db          *db*
-                       :scf-write-db         *db*
-                       :command-mq           *mq*
-                       :product-name         "puppetdb"})
+      :globals {:update-server "FOO"
+                :scf-read-db          *db*
+                :scf-write-db         *db*
+                :command-mq           *mq*
+                :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
 (defmacro defixture

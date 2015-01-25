@@ -225,8 +225,8 @@
     (let [input  {"param1" "value", "param2" "value"}
           result (anonymize-parameters input {} {})]
       (is (map? result))
-      (is (= 2 (count result))
-          (is (not (= input result)))))))
+      (is (= 2 (count result)))
+      (is (not (= input result))))))
 
 (deftest test-capitalize-resource-type
   (testing "should change a resource type to upcase format like Foo::Bar"

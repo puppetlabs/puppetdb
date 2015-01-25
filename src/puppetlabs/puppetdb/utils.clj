@@ -53,11 +53,6 @@
    left-only-fn :- pls/Function
    right-only-fn :- pls/Function
    same-fn :- pls/Function]
-  {:pre [(map? left)
-         (map? right)
-         (fn? left-only-fn)
-         (fn? right-only-fn)
-         (fn? same-fn)]}
   (let [[left-only right-only same] (data/diff (kitchensink/keyset left) (kitchensink/keyset right))]
     (left-only-fn (or left-only #{}))
     (right-only-fn (or right-only #{}))
@@ -155,9 +150,10 @@
             (str prefix "/" (name (or version :v4))))
     .toURI .toASCIIString))
 
-(defn describe-bad-base-url [base-url]
+(defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string
   describing the issue. For example {:host \"x:y\" ...}."
+  [base-url]
   (try
     (base-url->str base-url)
     false
