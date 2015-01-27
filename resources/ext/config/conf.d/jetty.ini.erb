@@ -27,3 +27,7 @@ port = 8080
 
 # Certificate authority path
 # ssl-ca-cert = <ca_cert_path>
+
+# Access logging configuration path. To turn off access logging
+# comment out the line with `access-log-config=...`
+access-log-config = /etc<% if Pkg::Config.config[:build_pe] -%>/puppetlabs<% end -%>/puppetdb/request-logging.xml
