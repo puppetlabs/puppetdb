@@ -6,15 +6,13 @@
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.facts :as facts]
             [clojure.core.match :as cm]
-            [fast-zip.visit :as zv]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.cheshire :as json]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [clojure.tools.logging :as log]))
+            [puppetlabs.puppetdb.query.paging :as paging]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan

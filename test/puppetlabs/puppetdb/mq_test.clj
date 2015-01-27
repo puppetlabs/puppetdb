@@ -1,9 +1,7 @@
 (ns puppetlabs.puppetdb.mq-test
   (:import [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.broker BrokerService])
-  (:require [clamq.jms :as jms]
-            [fs.core :as fs]
-            [clojure.java.io :as io]
+  (:require [fs.core :as fs]
             [puppetlabs.puppetdb.mq :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer [with-test-logging-silenced]]

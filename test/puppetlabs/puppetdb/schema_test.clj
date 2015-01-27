@@ -4,7 +4,6 @@
             [puppetlabs.puppetdb.schema :refer :all]
             [schema.core :as s]
             [clj-time.core :as time]
-            [clj-time.coerce :as tc]
             [puppetlabs.puppetdb.time :as pl-time]
             [schema.coerce :as sc]))
 

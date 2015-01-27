@@ -2,10 +2,8 @@
   (:import [java.io ByteArrayInputStream])
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
-            [fs.core :as fs]
             [ring.util.response :as rr]
             [cheshire.core :as json]
-            [clojure.java.io :as io]
             [puppetlabs.puppetdb.middleware :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
             [clojure.test :refer :all]))

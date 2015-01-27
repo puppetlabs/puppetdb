@@ -5,8 +5,6 @@
    randomly modifying an existing catalog (wire format or parsed)."
   (:require [puppetlabs.puppetdb.catalogs :as cat]
             [clojure.walk :as walk]
-            [clojure.set :as set]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.random :refer [random-resource random-kw-resource
                                                 random-parameters]]))
 

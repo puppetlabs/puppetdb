@@ -3,15 +3,12 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
-            [flatland.ordered.map :as omap]
-            [puppetlabs.puppetdb.zip :as zip]
-            [clojure.core.match :as cm]))
+            [flatland.ordered.map :as omap]))
 
 (def endpoints [[:v4 "/v4/nodes"]])
 

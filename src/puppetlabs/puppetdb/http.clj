@@ -7,7 +7,6 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.reflect :as r]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as s]))
 
 ;; ## HTTP Status codes

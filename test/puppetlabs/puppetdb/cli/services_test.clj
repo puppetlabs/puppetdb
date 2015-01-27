@@ -1,21 +1,13 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:import [java.security KeyStore])
-  (:require clojure.string
-            [fs.core :as fs]
+  (:require [fs.core :as fs]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.version]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk]
-            [puppetlabs.trapperkeeper.services.webserver.jetty9-service :as jetty9]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [clj-time.core :refer [days hours minutes secs]]
-            [clojure.java.io :refer [resource]]
-            [puppetlabs.puppetdb.time :refer [to-secs to-minutes to-hours to-days period?]]
             [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-on-node

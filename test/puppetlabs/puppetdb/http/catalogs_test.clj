@@ -1,12 +1,9 @@
 (ns puppetlabs.puppetdb.http.catalogs-test
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [puppetlabs.puppetdb.catalogs :as cats]
             [clojure.java.io :refer [resource reader]]
             [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.scf.hash :as shash]
             [clojure.test :refer :all]
-            [ring.mock.request :as request]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
             [puppetlabs.puppetdb.fixtures :as fixt]))
 

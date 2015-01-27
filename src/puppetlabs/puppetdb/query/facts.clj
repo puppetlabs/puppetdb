@@ -1,9 +1,7 @@
 (ns puppetlabs.puppetdb.query.facts
   "Fact query generation"
-  (:require [puppetlabs.puppetdb.jdbc :as jdbc]
-            [schema.core :as s]
+  (:require [schema.core :as s]
             [puppetlabs.puppetdb.query :as query]
-            [clojure.edn :as clj-edn]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]

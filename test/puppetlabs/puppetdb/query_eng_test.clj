@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.query-eng-test
-  (:require [clojure.string :as str]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.scf.storage-utils :as su]))

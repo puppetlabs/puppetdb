@@ -2,17 +2,13 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
-            [flatland.ordered.map :as omap]
-            [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]))
+            [flatland.ordered.map :as omap]))
 
 (def v4-endpoint "/v4/resources")
 (def v4-environments-endpoint "/v4/environments/DEV/resources")

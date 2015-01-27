@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.query.environments
   (:require [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (defn query->sql

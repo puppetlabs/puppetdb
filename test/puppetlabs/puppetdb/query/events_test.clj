@@ -1,8 +1,5 @@
 (ns puppetlabs.puppetdb.query.events-test
-  (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.query.events :as event-query]
+  (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]

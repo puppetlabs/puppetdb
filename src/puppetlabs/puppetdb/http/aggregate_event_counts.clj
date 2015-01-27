@@ -1,10 +1,7 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts
-  (:require [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
-            [puppetlabs.puppetdb.cheshire :as json]
+  (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.events :as events-http]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params]]
             [net.cgrand.moustache :refer [app]]))
 

@@ -1,10 +1,7 @@
 (ns puppetlabs.puppetdb.http.catalogs
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.http :as http]
+  (:require [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.catalogs :as c]
-            [puppetlabs.puppetdb.catalogs :as cats]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.middleware :as middleware]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]

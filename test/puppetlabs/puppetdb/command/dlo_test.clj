@@ -1,11 +1,8 @@
 (ns puppetlabs.puppetdb.command.dlo-test
-  (:require [cheshire.core :as json]
-            [fs.core :as fs]
+  (:require [fs.core :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
             [clj-time.core :refer [years days secs ago now]]
-            [clj-time.coerce :refer [to-timestamp]]
-            [puppetlabs.puppetdb.time :refer [to-millis]]
             [puppetlabs.puppetdb.command.dlo :refer :all]))
 
 (deftest dlo-compression-introspection

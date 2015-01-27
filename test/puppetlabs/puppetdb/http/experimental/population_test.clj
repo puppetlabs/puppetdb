@@ -1,10 +1,8 @@
 (ns puppetlabs.puppetdb.http.experimental.population-test
   (:require [cheshire.core :as json]
-            ring.middleware.params
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.examples :refer :all]

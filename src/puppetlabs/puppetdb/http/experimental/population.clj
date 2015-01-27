@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.experimental.population
   (:require [puppetlabs.puppetdb.query.population :as p]
             [puppetlabs.puppetdb.http :as http]
-            [ring.util.response :as rr]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.middleware :refer :all]
             [net.cgrand.moustache :refer [app]]))

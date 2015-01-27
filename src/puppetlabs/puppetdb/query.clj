@@ -61,8 +61,6 @@
    another `SELECT` to pull out only the desired columns. Similarly for
    applying ordering constraints."
   (:require [clojure.string :as str]
-            [clojure.set :as set]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clj-time.coerce :refer [to-timestamp]]

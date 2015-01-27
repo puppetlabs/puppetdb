@@ -3,7 +3,6 @@
             [puppetlabs.puppetdb.catalog.utils :refer :all]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
-            [clojure.walk :as walk]
             [puppetlabs.puppetdb.examples :as ex]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.set :as set]))

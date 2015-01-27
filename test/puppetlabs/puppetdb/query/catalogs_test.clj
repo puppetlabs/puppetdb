@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.query.catalogs-test
-  (:require [puppetlabs.puppetdb.examples :as examples]
-            [clojure.walk :refer [keywordize-keys]]
+  (:require [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.query.catalogs :as c]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [cheshire.core :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [clj-time.core :refer [now]]
             [clojure.java.io :refer [resource]]))
 
 (use-fixtures :each with-test-db)

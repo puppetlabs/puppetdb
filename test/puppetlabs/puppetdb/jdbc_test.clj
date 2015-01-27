@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.jdbc-test
   (:require [puppetlabs.puppetdb.jdbc :as subject]
-            [clojure.java.jdbc :as sql]
             [clojure.java.jdbc.internal :as jint]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]

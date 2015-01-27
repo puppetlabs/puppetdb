@@ -4,8 +4,7 @@
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
                                                     validate-query-params
-                                                    wrap-with-paging-options]]
-            [puppetlabs.puppetdb.facts :refer [string-to-factpath]]))
+                                                    wrap-with-paging-options]]))
 
 (defn query-app
   [version]

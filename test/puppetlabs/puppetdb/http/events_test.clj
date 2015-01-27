@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.events-test
-  (:require [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
@@ -17,7 +16,6 @@
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]))
 

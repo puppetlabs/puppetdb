@@ -7,10 +7,8 @@
            [org.springframework.jms.connection CachingConnectionFactory]
            [org.springframework.jms.listener DefaultMessageListenerContainer])
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clamq.activemq :as activemq]
             [clamq.protocol.connection :as mq-conn]
             [clamq.protocol.consumer :as mq-consumer]
-            [clamq.protocol.seqable :as mq-seq]
             [clamq.protocol.producer :as mq-producer]
             [clojure.tools.logging :as log]
             [clamq.protocol.consumer :as consumer]

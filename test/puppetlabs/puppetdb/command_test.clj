@@ -8,7 +8,6 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
-            [clojure.walk :as walk]
             [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]

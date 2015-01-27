@@ -1,15 +1,11 @@
 (ns puppetlabs.puppetdb.http.event-counts
-  (:require [puppetlabs.puppetdb.query.event-counts :as event-counts]
-            [puppetlabs.puppetdb.cheshire :as json]
+  (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.events :as events-http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
-            [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query :as query]))
+            [net.cgrand.moustache :refer [app]]))
 
 (defn routes
   [version]

@@ -4,7 +4,6 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :refer [paged-results get-request
                                                    deftestseq parse-result]]

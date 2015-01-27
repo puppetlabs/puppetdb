@@ -1,13 +1,9 @@
 (ns puppetlabs.puppetdb.http.explore-test
   (:import [com.fasterxml.jackson.core JsonParseException])
   (:require [cheshire.core :as json]
-            ring.middleware.params
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
-            [flatland.ordered.map :as omap]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]

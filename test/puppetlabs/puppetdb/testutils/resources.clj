@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.resources
   (:require [clojure.java.jdbc :as sql]
-            [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]

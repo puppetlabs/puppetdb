@@ -14,7 +14,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query :as query]
-            [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]))
 

@@ -9,8 +9,6 @@
             [clojure.set :refer [rename-keys]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.utils :as utils]))
 
 (def row-schema
