@@ -2,7 +2,6 @@
   (:import [clojure.lang ExceptionInfo])
   (:require [schema.core :as s]
             [puppetlabs.puppetdb.catalogs :refer :all]
-            [puppetlabs.puppetdb.catalog.utils :refer :all]
             [puppetlabs.puppetdb.testutils.catalogs :refer [canonical->wire-format]]
             [puppetlabs.puppetdb.examples :refer :all]
             [clojure.test :refer :all]))

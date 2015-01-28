@@ -1,15 +1,11 @@
 (ns puppetlabs.puppetdb.http.events
   (:import (java.sql Timestamp))
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.query.events :as events]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.middleware :as middleware]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]))
 
 (defn validate-distinct-options!

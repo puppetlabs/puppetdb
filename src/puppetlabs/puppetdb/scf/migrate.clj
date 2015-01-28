@@ -49,7 +49,6 @@
    _TODO: consider using multimethods for migration funcs_"
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]

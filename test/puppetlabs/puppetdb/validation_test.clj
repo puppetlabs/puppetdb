@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.validation-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.validation :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]))
+            [puppetlabs.puppetdb.validation :refer :all]))
 
 (deftest defining-models
   (defmodel TestModel

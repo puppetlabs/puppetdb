@@ -8,7 +8,6 @@
            [org.joda.time Minutes Days Period])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.time :as pl-time]
             [clj-time.core :as time]
             [clojure.java.io :as io]
             [fs.core :as fs]

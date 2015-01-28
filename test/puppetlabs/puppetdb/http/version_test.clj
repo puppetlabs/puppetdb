@@ -2,7 +2,6 @@
   (:import (java.util.concurrent TimeUnit))
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.http.version :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
             [puppetlabs.puppetdb.version :as version]))

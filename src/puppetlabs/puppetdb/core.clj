@@ -11,10 +11,8 @@
    ...then we'll look for a namespace called
    `puppetlabs.puppetdb.cli.foo` and invoke its `-main` method with
    `[arg1 arg2 arg3]`."
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.trapperkeeper.logging :as logging-utils]
+  (:require [puppetlabs.trapperkeeper.logging :as logging-utils]
             [clojure.tools.namespace :as ns]
-            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.string :as str]))
 

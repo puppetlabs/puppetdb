@@ -9,8 +9,6 @@
    database."
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
-            [fs.core :as fs]
-            [clojure.java.io :as io]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]

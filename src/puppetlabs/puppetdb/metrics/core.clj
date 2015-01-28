@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.metrics.core
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.http :as http]
+  (:require [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [clj-http.util :refer [url-encode]]
             [cheshire.custom :refer [JSONable]]

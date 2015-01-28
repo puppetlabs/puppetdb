@@ -19,14 +19,12 @@
    likely result in dangling resources and catalogs; to clean these
    up, it's important to run `garbage-collect!`."
   (:require [puppetlabs.puppetdb.catalogs :as cat]
-            [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.data :as data]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -37,7 +35,6 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [ago secs now before?]]
-            [metrics.meters :refer [meter mark!]]
             [metrics.counters :refer [counter inc! value]]
             [metrics.gauges :refer [gauge]]
             [metrics.histograms :refer [histogram update!]]

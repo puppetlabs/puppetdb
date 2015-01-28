@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.anonymizer
-  (:require [puppetlabs.puppetdb.catalogs :as catalog]
-            [puppetlabs.puppetdb.reports :as report]
+  (:require [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.string :as str]
             [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]

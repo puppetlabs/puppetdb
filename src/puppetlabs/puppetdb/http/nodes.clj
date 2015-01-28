@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.http.nodes
   (:require [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.nodes :as node]
             [puppetlabs.puppetdb.http.facts :as f]
             [puppetlabs.puppetdb.http.resources :as r]
@@ -12,8 +10,7 @@
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.http :as http]))
 
 (defn node-status
   "Produce a response body for a request to obtain status information

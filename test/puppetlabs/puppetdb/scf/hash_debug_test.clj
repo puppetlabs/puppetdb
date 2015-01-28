@@ -3,7 +3,6 @@
             [puppetlabs.puppetdb.scf.hash-debug :refer :all]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [clj-time.core :as time]
             [puppetlabs.puppetdb.scf.storage :as store]
             [puppetlabs.puppetdb.testutils :as tu]
             [fs.core :as fs]

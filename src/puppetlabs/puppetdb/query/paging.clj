@@ -8,8 +8,7 @@
             [clojure.string :as string]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]
-            [puppetlabs.puppetdb.jdbc :refer [underscores->dashes]]
-            [clojure.walk :refer [keywordize-keys]]))
+            [puppetlabs.puppetdb.jdbc :refer [underscores->dashes]]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")

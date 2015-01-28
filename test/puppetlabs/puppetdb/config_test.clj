@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.time :as pl-time]
             [clj-time.core :as time]
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
-            [clojure.java.io :as io]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.string :as str]
             [fs.core :as fs]))

@@ -3,12 +3,8 @@
 
    Functions that handle conversion of reports from wire format to
    internal PuppetDB format, including validation."
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as s]
-            [clj-time.coerce :refer [to-timestamp]]
-            [puppetlabs.puppetdb.validation :refer [defmodel validate-against-model!]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]))
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.validation :refer [defmodel validate-against-model!]]))
 
 (defmodel Report
   {:certname                 :string

@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.testutils.catalogs
   (:require [puppetlabs.puppetdb.command :as command]
-            [cheshire.core :as json]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.catalogs :as cats]
             [puppetlabs.kitchensink.core :refer [uuid]]
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-string]]
-            [puppetlabs.puppetdb.testutils :refer [test-db]]
             [schema.core :as s]
             [puppetlabs.puppetdb.fixtures :refer [*db*]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]

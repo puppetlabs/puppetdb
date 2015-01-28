@@ -8,10 +8,8 @@
             [clj-time.core :refer [now ago days secs]]
             [clojure.test :refer :all]
             [clojure.set :refer :all]
-            [puppetlabs.kitchensink.core :refer [mapvals]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-transacted-connection]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]))
 
 (def db (test-db))
 

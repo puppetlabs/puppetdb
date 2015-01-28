@@ -1,11 +1,6 @@
 (ns puppetlabs.puppetdb.http.fact-contents
   (:require [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params

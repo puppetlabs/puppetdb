@@ -3,7 +3,6 @@
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 

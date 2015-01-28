@@ -5,8 +5,7 @@
    *subject to change without notice.*"
   (:import (com.jolbox.bonecp.hooks AbstractConnectionHook ConnectionState)
            (com.jolbox.bonecp PreparedStatementHandle))
-  (:require [clojure.java.jdbc :as sql]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.string :as str]))
 
 (defn query-param->str

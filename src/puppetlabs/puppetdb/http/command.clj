@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.command
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.command :as command]
+  (:require [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.middleware :as mid]))
 

@@ -1,5 +1,4 @@
-(ns puppetlabs.puppetdb.examples.reports
-  (:require [clj-time.coerce :as coerce]))
+(ns puppetlabs.puppetdb.examples.reports)
 
 (def reports
   {:basic

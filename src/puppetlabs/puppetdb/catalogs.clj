@@ -86,14 +86,11 @@
                        <dependency-spec>,
                        ...)}"
   (:require [clojure.string :as string]
-            [clojure.tools.logging :as log]
             [clojure.set :as set]
             [puppetlabs.puppetdb.cheshire :as json]
-            [digest]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
-            [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.core.match :refer [match]]))
 

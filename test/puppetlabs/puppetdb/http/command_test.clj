@@ -2,12 +2,10 @@
   (:import [java.io ByteArrayInputStream])
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.http.command :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :refer [get-request post-request
                                                    content-type uuid-in-response?
                                                    assert-success! deftestseq]]
-            [puppetlabs.puppetdb.version :as version]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.mq :as mq]

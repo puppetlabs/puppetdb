@@ -1,13 +1,8 @@
 (ns puppetlabs.puppetdb.cli.anonymize-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.cli.anonymize :refer :all]
-            [clojure.java.io :as io]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.archive :as archive]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [fs.core :as fs]
             [clojure.string :as str]
-            [clj-time.core :as time]
             [puppetlabs.puppetdb.testutils.tar :as tar]
             [puppetlabs.puppetdb.testutils.facts :refer [spit-facts-tarball create-host-facts]]))
 

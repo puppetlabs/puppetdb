@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.reports-test
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [cheshire.core :as json]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports

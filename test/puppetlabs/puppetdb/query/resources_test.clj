@@ -1,14 +1,9 @@
 (ns puppetlabs.puppetdb.query.resources-test
   (:require [puppetlabs.puppetdb.query.resources :as s]
             [clojure.java.jdbc :as sql]
-            [clojure.string :as string]
             [puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
-            [puppetlabs.puppetdb.jdbc :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize to-jdbc-varchar-array]]))
 
 (use-fixtures :each with-test-db)

@@ -1,13 +1,10 @@
 (ns puppetlabs.puppetdb.http.reports-test
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.http :refer [status-bad-request]]
             [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
-            [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
                                                    assert-success!

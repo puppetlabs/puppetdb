@@ -7,8 +7,6 @@
             [puppetlabs.puppetdb.query.reports :as r]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
-            [puppetlabs.puppetdb.time :refer [to-secs]]
-            [clj-time.coerce :refer  [to-string]]
             [clj-time.core :refer [now ago days]]))
 
 (use-fixtures :each with-test-db)
