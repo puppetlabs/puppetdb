@@ -13,9 +13,9 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "0.5.2")
-(def tk-jetty9-version "0.9.0")
-(def ks-version "0.7.2")
+(def tk-version "1.0.1")
+(def tk-jetty9-version "1.1.1")
+(def ks-version "1.0.0")
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
@@ -31,7 +31,7 @@
   :pedantic? :abort
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [cheshire "5.3.1"]
+                 [cheshire "5.4.0"]
                  [org.clojure/core.match "0.2.0-rc5"]
                  [org.clojure/math.combinatorics "0.0.4"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -66,7 +66,7 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [compojure "1.1.6"]
-                 [clj-http "0.5.3"]
+                 [clj-http "1.0.1"]
                  [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
                  [puppetlabs/kitchensink ~ks-version]
@@ -116,7 +116,7 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
-                                  [org.clojure/test.check "0.5.8"]]}
+                                  [org.clojure/test.check "0.5.9"]]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
