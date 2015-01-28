@@ -32,9 +32,9 @@
          "'log-statements' to true in the [database] section of your config file.)")))
 
 (defn on-query-execute-time-limit-exceeded
-  [conn stmt sql params time-elapsed log-statements? query-execution-limit]
   "Called *after* a query completes, if the elapsed time of a query exceeds
    the configure timeout."
+  [conn stmt sql params time-elapsed log-statements? query-execution-limit]
   (log/warn (format (str "Query slower than %ss threshold:  "
                          "actual execution time: %.4f seconds; Query: %s; "
                          (query-params->str log-statements? params))

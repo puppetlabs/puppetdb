@@ -126,8 +126,8 @@
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp
                      (:body)
-                     (json/parse-string)))
-              "N�rnberg"))))))
+                     (json/parse-string))
+                 "N�rnberg")))))))
 
 (deftest streaming-json
   (testing "empty seq should return []"

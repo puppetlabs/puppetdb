@@ -87,8 +87,7 @@
   JSON doesn't have a data type for)."
   [version catalog]
   {:pre  [(map? catalog)]}
-  (case version
-    (munge-v5-catalog catalog)))
+  (munge-v5-catalog catalog))
 
 (defn munged-canonical->wire-format
   "Converts the given canonical catalog to wire-format `version` then

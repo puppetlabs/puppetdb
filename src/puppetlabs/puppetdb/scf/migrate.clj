@@ -875,14 +875,14 @@
   (sql/do-commands
    "CREATE INDEX fact_value_id_idx ON facts(fact_value_id)"))
 
-(defn switch-value-string-index-to-gin []
+(defn switch-value-string-index-to-gin
   "This drops the fact_values_string_trgm index so that it can be recreated
-   as a GIN index."
-
+  as a GIN index."
+  []
   (when (and (scf-utils/postgres?)
              (scf-utils/index-exists? "fact_values_string_trgm"))
     (sql/do-commands
-     "DROP INDEX fact_values_string_trgm")))
+      "DROP INDEX fact_values_string_trgm")))
 
 (defn insert-factset-hash-column
   "Insert a column in factsets to be populated by a hash."
