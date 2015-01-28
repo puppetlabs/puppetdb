@@ -25,34 +25,53 @@
 ;; support defaulting/converting nested maps, these configs can be put
 ;; together in a single schema that defines the config for PuppetDB
 
+(defn warn-unknown-keys
+  [schema data]
+  (doseq [k (pls/unknown-keys schema data)]
+    (log/warn (format "The configuration item `%s` does not exist and should be removed from the config." k))))
+
+(defn warn-and-validate
+  "Warns a user about unknown configurations items, removes them and validates the config."
+  [schema data]
+  (warn-unknown-keys schema data)
+  (->> (pls/strip-unknown-keys schema data)
+       (s/validate schema)))
+
+(defn all-optional
+  "Returns a schema map with all the keys made optional"
+  [map-schema]
+  (kitchensink/mapkeys s/optional-key map-schema))
+
 (def database-config-in
   "Schema for incoming database config (user defined)"
-  {(s/optional-key :log-slow-statements) (pls/defaulted-maybe s/Int 10)
-   (s/optional-key :conn-max-age) (pls/defaulted-maybe s/Int 60)
-   (s/optional-key :conn-keep-alive) (pls/defaulted-maybe s/Int 45)
-   (s/optional-key :conn-lifetime) (s/maybe s/Int)
-   (s/optional-key :classname) (s/maybe String)
-   (s/optional-key :subprotocol) (s/maybe String)
-   (s/optional-key :subname) (s/maybe String)
-   (s/optional-key :username) String
-   (s/optional-key :user) String
-   (s/optional-key :password) String
-   (s/optional-key :syntax_pgs) String
-   (s/optional-key :read-only?) (pls/defaulted-maybe String "false")
-   (s/optional-key :partition-conn-min) (pls/defaulted-maybe s/Int 1)
-   (s/optional-key :partition-conn-max) (pls/defaulted-maybe s/Int 25)
-   (s/optional-key :partition-count) (pls/defaulted-maybe s/Int 1)
-   (s/optional-key :stats) (pls/defaulted-maybe String "true")
-   (s/optional-key :log-statements) (pls/defaulted-maybe String "true")
-   (s/optional-key :statements-cache-size) (pls/defaulted-maybe s/Int 1000)})
+  (all-optional
+    {:log-slow-statements (pls/defaulted-maybe s/Int 10)
+     :conn-max-age (pls/defaulted-maybe s/Int 60)
+     :conn-keep-alive (pls/defaulted-maybe s/Int 45)
+     :conn-lifetime (s/maybe s/Int)
+     :classname (s/maybe String)
+     :subprotocol (s/maybe String)
+     :subname (s/maybe String)
+     :username String
+     :user String
+     :password String
+     :syntax_pgs String
+     :read-only? (pls/defaulted-maybe String "false")
+     :partition-conn-min (pls/defaulted-maybe s/Int 1)
+     :partition-conn-max (pls/defaulted-maybe s/Int 25)
+     :partition-count (pls/defaulted-maybe s/Int 1)
+     :stats (pls/defaulted-maybe String "true")
+     :log-statements (pls/defaulted-maybe String "true")
+     :statements-cache-size (pls/defaulted-maybe s/Int 1000)}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
   (merge database-config-in
-         {(s/optional-key :gc-interval) (pls/defaulted-maybe s/Int 60)
-          (s/optional-key :report-ttl) (pls/defaulted-maybe String "14d")
-          (s/optional-key :node-purge-ttl) (pls/defaulted-maybe String "0s")
-          (s/optional-key :node-ttl) (pls/defaulted-maybe String "0s")}))
+         (all-optional
+           {:gc-interval (pls/defaulted-maybe s/Int 60)
+            :report-ttl (pls/defaulted-maybe String "14d")
+            :node-purge-ttl (pls/defaulted-maybe String "0s")
+            :node-ttl (pls/defaulted-maybe String "0s")})))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -99,11 +118,12 @@
 
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
-  {(s/optional-key :dlo-compression-threshold) (pls/defaulted-maybe String "1d")
-   (s/optional-key :threads) (pls/defaulted-maybe s/Int half-the-cores)
-   (s/optional-key :store-usage) s/Int
-   (s/optional-key :max-frame-size) (pls/defaulted-maybe String "209715200")
-   (s/optional-key :temp-usage) s/Int})
+  (all-optional
+    {:dlo-compression-threshold (pls/defaulted-maybe String "1d")
+     :threads (pls/defaulted-maybe s/Int half-the-cores)
+     :store-usage s/Int
+     :max-frame-size (pls/defaulted-maybe String "209715200")
+     :temp-usage s/Int}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
@@ -115,8 +135,9 @@
 
 (def puppetdb-config-in
   "Schema for validating the incoming [puppetdb] block"
-  {(s/optional-key :certificate-whitelist) s/Str
-   (s/optional-key :disable-update-checking) (pls/defaulted-maybe String "false")})
+  (all-optional
+    {:certificate-whitelist s/Str
+     :disable-update-checking (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
@@ -126,103 +147,57 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
 
-(defn maybe-days
-  "Convert the non-nil integer to days"
-  [days-int]
-  (when days-int
-    (time/days days-int)))
-
 (defn hsql-default-connection
   "Returns a map of default, file-backed, HyperSQL connection information"
-  [global]
+  [vardir]
   {:classname   "org.hsqldb.jdbcDriver"
    :subprotocol "hsqldb"
-   :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file (:vardir global) "db"))})
+   :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file vardir "db"))})
 
 (defn defaulted-db-connection
   "Adds each of `hsql-default-connection` keypairs to `database` if classname, subprotocol and subname
    are not found in the `database` config"
-  [global database]
-  (if (not-any? database [:classname :subprotocol :subname])
-    (into database (hsql-default-connection global))
-    database))
+  [{:keys [global database] :as config :or {database {}}}]
+  (conj config (when (not-any? database [:classname :subprotocol :subname])
+                 [:database (into database (hsql-default-connection (:vardir global)))])))
 
-(defn convert-db-config
-  "Converts a `db-config` to `db-schema-out` using defaults from `db-schema-in`. Will also
-   add default database connection information if it doesn't already have it"
-  [db-schema-in db-schema-out global-config db-config]
-  (->> (pls/defaulted-data db-schema-in db-config)
-       (defaulted-db-connection global-config)
-       (pls/convert-to-schema db-schema-out)))
+(defn convert-section-config
+  "validates and converts a `section-config` to `section-schema-out` using defaults from `section-schema-in`."
+  [section-schema-in section-schema-out section-config]
+  (->> section-config
+       (warn-and-validate section-schema-in)
+       (pls/defaulted-data section-schema-in)
+       (pls/convert-to-schema section-schema-out)))
+
+(defn configure-section
+  [config section section-schema-in section-schema-out]
+  (->> (get config section {})
+       (convert-section-config section-schema-in section-schema-out)
+       (s/validate section-schema-out)
+       (assoc config section)))
 
 (defn configure-read-db
-  "Validates, defaults and converts the given `config` (i.e. created from a user provided PuppetDB config),
-   to a read database config"
-  [{:keys [global read-database database] :as config}]
-  (let [db-config (pls/strip-unknown-keys database-config-out
-                                          (if read-database
-                                            (do
-                                              (s/validate database-config-in read-database)
-                                              (convert-db-config database-config-in database-config-out global read-database))
-                                            (assoc database :read-only? true)))]
-    (s/validate database-config-out db-config)
-    (assoc config :read-database db-config)))
-
-(defn convert-write-db-config
-  "Converts the `database` config using the write database config schema. Also defaults
-   the node-ttl parameter."
-  [global database]
-  (->> database
-       (convert-db-config write-database-config-in write-database-config-out global)
-       (pls/strip-unknown-keys write-database-config-out)))
-
-(defn configure-write-db
-  "Convert the gc related parameters of the user defined config to the
-   correct internal types."
-  [{:keys [global database] :as config :or {database {}}}]
-  (s/validate write-database-config-in database)
-  (let [db-config (convert-write-db-config global database)]
-    (s/validate write-database-config-out db-config)
-    (assoc config :database db-config)))
-
-(defn configure-dbs
-  "Given a `config` map (created from the user provided config), validate, default and convert the database parameters"
-  [config]
-  (-> config
-      configure-write-db
-      configure-read-db))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Command Processing Config
-
-(defn configure-command-params
-  "Validates and converts the command-processing portion of the PuppetDB config"
-  [{:keys [command-processing] :as config :or {command-processing {}}}]
-  (s/validate command-processing-in command-processing)
-  (let [converted-config (->> command-processing
-                              (pls/defaulted-data command-processing-in)
-                              (pls/convert-to-schema command-processing-out))]
-    (s/validate command-processing-out converted-config)
-    (assoc config :command-processing converted-config)))
-
-(defn configure-puppetdb
-  "Validates the [puppetdb] section of the config"
-  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (s/validate puppetdb-config-in puppetdb)
-  (let [converted-config (->> puppetdb
-                              (pls/defaulted-data puppetdb-config-in)
-                              (pls/convert-to-schema puppetdb-config-out))]
-    (s/validate puppetdb-config-out converted-config)
-    (assoc config :puppetdb converted-config)))
+  "Wrapper for configuring the read-database section of the config.
+  We rely on the fact that the database section has already been configured
+  using `configure-section`."
+  [{:keys [database read-database] :as config}]
+  (if read-database
+    (configure-section config :read-database database-config-in database-config-out)
+    (->> (assoc database :read-only? true)
+         (pls/strip-unknown-keys database-config-out)
+         (s/validate database-config-out)
+         (assoc config :read-database))))
 
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
-      configure-dbs
-      configure-command-params
-      configure-puppetdb))
+      defaulted-db-connection
+      (configure-section :database write-database-config-in write-database-config-out)
+      configure-read-db
+      (configure-section :command-processing command-processing-in command-processing-out)
+      (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Global Config
