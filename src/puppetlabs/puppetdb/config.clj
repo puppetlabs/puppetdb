@@ -292,14 +292,11 @@
 (defn configure-globals
   "Configures the global properties from the user defined config"
   [{:keys [global] :as config}]
-  (let [product-name (normalize-product-name (get global :product-name "puppetdb"))]
-    (when (:event-query-limit global)
-      (log/warn "The configuration item `event-query-limit` in the [global] section is deprecated and now ignored. It will be removed in the future."))
-    (update-in config [:global]
-               (fn [global-config]
-                 (-> global-config
-                     (assoc :product-name product-name)
-                     (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
+  (assoc config :global
+         (-> global
+             (utils/assoc-when :product-name "puppetdb")
+             (update-in [:product-name] normalize-product-name)
+             (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
 
 (defn warn-if-sslv3
   "If the ssl-protocols config is present and contains sslv3, warn the user. Logging
