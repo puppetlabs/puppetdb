@@ -81,6 +81,12 @@
   [bytes-message]
   (parse-command (update-in bytes-message [:body] #(String. % "UTF-8"))))
 
+(defn process-payload
+  [p]
+  (if (:values p)
+    (assoc (json/dash-keys (dissoc p :values)) :values (:values p))
+    (json/dash-keys p)))
+
 (defmethod parse-command String
   [{:keys [headers body]}]
   {:pre  [(string? body)]
@@ -89,7 +95,8 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message     (json/parse-string body true)
+  (let [message     (-> (json/parse-string body true)
+                        (update-in [:payload] process-payload))
         received    (get headers :received (kitchensink/timestamp))
         id          (get headers :id (kitchensink/uuid))]
     (-> message
@@ -199,13 +206,13 @@
   [version command]
   (log/warn (format "command '%s' version %s is deprecated, use the latest version" command version)))
 
-(defmethod process-command! [(command-names :replace-catalog) 5]
+(defmethod process-command! [(command-names :replace-catalog) 6]
   [{:keys [version] :as command} options]
   (replace-catalog* command options))
 
 ;; Fact replacement
 
-(defmethod process-command! [(command-names :replace-facts) 3]
+(defmethod process-command! [(command-names :replace-facts) 4]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:keys [name values] :as fact-data} payload
         id        (:id annotations)
@@ -246,13 +253,9 @@
                       id (command-names :store-report)
                       (:puppet-version report) (:certname report)))))
 
-(defmethod process-command! [(command-names :store-report) 3]
+(defmethod process-command! [(command-names :store-report) 5]
   [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 3 db command))
-
-(defmethod process-command! [(command-names :store-report) 4]
-  [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 4 db command))
+  (store-report* 5 db command))
 
 (def supported-commands
   #{"replace facts" "replace catalog" "store report" "deactivate node"})

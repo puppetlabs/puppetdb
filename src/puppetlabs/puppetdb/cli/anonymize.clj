@@ -183,14 +183,16 @@
    suffix :- [String]
    contents :- {s/Any s/Any}]
   (add-tar-entry tar-writer {:file-suffix suffix
-                             :contents (json/generate-pretty-string contents)}))
+                             :contents (json/generate-pretty-string
+                                         (json/underscore-keys contents))}))
 
 (defn next-json-tar-entry
   "Read and parse a JSON item from `tar-reader`"
   [tar-reader]
   (->> tar-reader
        archive/read-entry-content
-       json/parse-string))
+       json/parse-string
+       json/dash-keys))
 
 (defn process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
@@ -260,11 +262,12 @@
 (defn -main
   [& args]
   (let [[{:keys [outfile infile profile config]} _] (validate-cli! args)
-        extra-config                                (if (empty? config) {} (clojure.edn/read-string (slurp config)))
-        profile-config                              (get (merge anon-profiles extra-config) profile)
-        metadata                                    (parse-metadata infile)]
+        extra-config (if (empty? config) {} (clojure.edn/read-string (slurp config)))
+        profile-config (get (merge anon-profiles extra-config) profile)
+        metadata (parse-metadata infile)]
 
-    (println (str "Anonymizing input data file: " infile " with profile type: " profile " to output file: " outfile))
+    (println (str "Anonymizing input data file: " infile " with profile type: "
+                  profile " to output file: " outfile))
 
     (with-open [tar-reader (archive/tarball-reader infile)]
       (with-open [tar-writer (archive/tarball-writer outfile)]
@@ -274,4 +277,5 @@
         ;; Now process each entry
         (doseq [tar-entry (archive/all-entries tar-reader)]
           (process-tar-entry tar-reader tar-entry tar-writer profile-config metadata))))
-    (println (str "Anonymization complete. Check output file contents " outfile " to ensure anonymization was adequate before sharing data"))))
+    (println (str "Anonymization complete. Check output file contents "
+                  outfile " to ensure anonymization was adequate before sharing data"))))

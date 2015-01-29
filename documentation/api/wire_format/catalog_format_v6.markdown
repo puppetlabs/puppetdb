@@ -17,10 +17,6 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v5.html"
 [title]: /puppet/latest/reference/lang_resources.html#title
 [type]: /puppet/latest/reference/lang_resources.html#type
 [attributes]: /puppet/latest/reference/lang_resources.html#attributes
-[replace4]: ../commands.html#replace-catalog-version-4
-[replace3]: ../commands.html#replace-catalog-version-3
-[replace2]: ../commands.html#replace-catalog-version-2
-[replace1]: ../commands.html#replace-catalog-version-1
 
 PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are sent. [See below][below] for the justification for this separate format.
 
@@ -29,7 +25,7 @@ Catalog Interchange Format
 
 ### Version
 
-This is **version 5** of the catalog interchange format.
+This is **version 6** of the catalog interchange format.
 
 
 ### Encoding
@@ -42,8 +38,8 @@ The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. 
       "name": <string>,
       "version": <string>,
       "environment": <string>,
-      "transaction-uuid": <string>,
-      "producer-timestamp": <datetime>,
+      "transaction_uuid": <string>,
+      "producer_timestamp": <datetime>,
       "edges":
           [<edge>, <edge>, ...],
       "resources":
@@ -75,14 +71,14 @@ List of [`<edge>` objects](#data-type-edge). **Every** [relationship][] between 
 
 List of [`<resource>` objects](#data-type-resource). Contains **every** resource in the catalog.
 
-#### `transaction-uuid`
+#### `transaction_uuid`
 
 String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
 This field may be `null`.  (Note: support for this field was introduced in
 [Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
 a `null` value.
 
-#### `producer-timestamp`
+#### `producer_timestamp`
 
 Datetime.  The time of catalog submission from the master to PuppetDB.  This
 field is currently populated by the master.  This field may be `null`.

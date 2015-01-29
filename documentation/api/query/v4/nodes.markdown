@@ -36,17 +36,17 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `certname` (string): the name of the node that the report was received from.
 
-* `catalog-environment` (string): the environment for the last received catalog
+* `catalog_environment` (string): the environment for the last received catalog
 
-* `facts-environment` (string): the environment for the last received fact set
+* `facts_environment` (string): the environment for the last received fact set
 
-* `report-environment` (string): the environment for the last received report
+* `report_environment` (string): the environment for the last received report
 
-* `catalog-timestamp` (timestamp): last time a catalog was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `catalog_timestamp` (timestamp): last time a catalog was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `facts-timestamp` (timestamp): last time a fact set was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `facts_timestamp` (timestamp): last time a fact set was received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `report-timestamp` (timestamp): last time a report run was complete. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `report_timestamp` (timestamp): last time a report run was complete. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `["fact", <FACT NAME>]` (string, coercible to number): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
 
@@ -60,12 +60,12 @@ The response is a JSON array of hashes, where each hash has the form:
 
     {"certname": <string>,
      "deactivated": <timestamp or null>,
-     "catalog-timestamp": <timestamp or null>,
-     "facts-timestamp": <timestamp or null>,
-     "report-timestamp": <timestamp or null>,
-     "catalog-environment": <string or null>,
-     "facts-environment": <string or null>,
-     "report-environment": <string or null>}
+     "catalog_timestamp": <timestamp or null>,
+     "facts_timestamp": <timestamp or null>,
+     "report_timestamp": <timestamp or null>,
+     "catalog_environment": <string or null>,
+     "facts_environment": <string or null>,
+     "report_environment": <string or null>}
 
 At least one of the `-timestamp` fields will be non-null.
 
@@ -106,12 +106,12 @@ The response is a single hash, of the same form used for the plain `nodes` endpo
 
     {"certname": <string>,
      "deactivated": <timestamp|null>,
-     "catalog-timestamp": <timestamp>,
-     "facts-timestamp": <timestamp>,
-     "report-timestamp": <timestamp>,
-     "catalog-environment": <string>,
-     "facts-environment": <string>,
-     "report-environment": <string>}
+     "catalog_timestamp": <timestamp>,
+     "facts_timestamp": <timestamp>,
+     "report_timestamp": <timestamp>,
+     "catalog_environment": <string>,
+     "facts_environment": <string>,
+     "report_environment": <string>}
 
 If a node of that certname doesn't exist, the response will instead be a hash of the form:
 

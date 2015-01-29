@@ -173,5 +173,6 @@
          (mapv #(dissoc %
                         :run-start-time
                         :run-end-time
+                        :configuration-version
                         :report-receive-time
                         :environment)))))

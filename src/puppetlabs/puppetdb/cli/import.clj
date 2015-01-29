@@ -45,7 +45,9 @@
                 (format "Unable to find export metadata file '%s' in archive '%s'"
                         metadata-path
                         tarball))))
-      (json/parse-string (archive/read-entry-content tar-reader) true))))
+      (-> (archive/read-entry-content tar-reader)
+          (json/parse-string true)
+          json/dash-keys))))
 
 
 (defn-validated process-tar-entry
@@ -68,7 +70,7 @@
       ;;   the list of nodes that we submitted and the output of that query
       (client/submit-catalog dest
                              (get-in metadata [:command-versions :replace-catalog])
-                             (archive/read-entry-content tar-reader)))
+                             (json/dash-keys (archive/read-entry-content tar-reader))))
     (when (re-find (re-pattern report-pattern) path)
       (println (format "Importing report from archive entry '%s'" path))
       (client/submit-report dest

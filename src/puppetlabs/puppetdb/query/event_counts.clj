@@ -3,22 +3,23 @@
             [clojure.string :as string]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query-eng.engine :as qe]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
-  Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
+  Supported values are `certname`, `containing_class`, and `resource` (default), otherwise an
   IllegalArgumentException is thrown."
   [summarize-by]
   {:pre  [(string? summarize-by)]
    :post [(vector? %)]}
   (condp = summarize-by
     "certname" ["certname"]
-    "containing-class" ["containing_class"]
+    "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
-    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize_by': '%s'" summarize-by)))))
 
 (defn- get-counts-filter-where-clause
   "Given a `counts-filter` query, return the appropriate SQL where clause and parameters.
@@ -44,14 +45,14 @@
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
-    (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'count_by': '%s'" count-by)))))
 
 (defn- event-counts-columns
   [group-by]
   {:pre [(vector? group-by)]}
   (concat
    ["failures" "successes" "noops" "skips"]
-   (map jdbc/underscores->dashes group-by)))
+   (map jdbc/dashes->underscores group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -86,14 +87,14 @@
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize-by result]
-  {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
+  {:pre [(contains? #{"certname" "resource" "containing_class"} summarize-by)
          (map? result)
          (or
           (contains? result :certname)
-          (every? #(contains? result %) [:resource_type :resource_title])
-          (contains? result :containing_class))]
+          (every? #(contains? result %) [:resource-type :resource-title])
+          (contains? result :containing-class))]
    :post [(map? %)
-          (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
+          (not (kitchensink/contains-some % [:certname :resource-type :resource-title :containing-class]))
           (map? (:subject %))
           (= summarize-by (:subject-type %))]}
   (condp = summarize-by
@@ -104,13 +105,13 @@
 
     "resource"          (-> result
                             (assoc :subject-type "resource")
-                            (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
-                            (dissoc :resource_type :resource_title))
+                            (assoc :subject {:type (:resource-type result) :title (:resource-title result)})
+                            (dissoc :resource-type :resource-title))
 
-    "containing-class"  (-> result
-                            (assoc :subject-type "containing-class")
-                            (assoc :subject {:title (:containing_class result)})
-                            (dissoc :containing_class))))
+    "containing_class"  (-> result
+                            (assoc :subject-type "containing_class")
+                            (assoc :subject {:title (:containing-class result)})
+                            (dissoc :containing-class))))
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
@@ -167,7 +168,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows summarize-by)))}]
+                          (comp doall (munge-result-rows summarize-by) json/dash-keys))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

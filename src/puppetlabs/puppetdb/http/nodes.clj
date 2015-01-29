@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as pl-http]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
@@ -18,7 +19,7 @@
   [version node db]
   (if-let [status (jdbc/with-transacted-connection db
                     (node/status version node))]
-    (http/json-response status)
+    (http/json-response (json/underscore-keys status))
     (http/json-response {:error (str "No information is known about " node)} http/status-not-found)))
 
 (defn routes

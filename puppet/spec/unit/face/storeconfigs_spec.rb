@@ -102,8 +102,8 @@ if Puppet::Util::Puppetdb.puppet3compat?
 
           metadata = JSON.load(results['export-metadata.json'])
 
-          metadata.keys.should =~ ['timestamp', 'command-versions']
-          metadata['command-versions'].should == {'replace-catalog' => 5}
+          metadata.keys.should =~ ['timestamp', 'command_versions']
+          metadata['command_versions'].should == {'replace_catalog' => 6}
 
           catalog = JSON.load(results['catalogs/foo.json'])
 

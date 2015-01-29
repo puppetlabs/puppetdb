@@ -26,8 +26,8 @@ module Puppet::Util::Puppetdb
     end
 
     def is_event_blacklisted?(event)
-      @events.fetch(event["resource-type"], {}).
-        fetch(event["resource-title"], {}).
+      @events.fetch(event["resource_type"], {}).
+        fetch(event["resource_title"], {}).
         fetch(event["status"], {}).
         fetch(event["property"], false)
     end

@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.cli.export
+
   "Export utility
 
    This is a command-line tool for exporting data from PuppetDB.  It currently
@@ -55,7 +56,7 @@
    catalog-json-str :- String]
   {:msg (format "Writing catalog for node '%s'" node)
    :file-suffix ["catalogs" (format "%s.json" node)]
-   :contents catalog-json-str})
+   :contents (json/underscore-keys catalog-json-str)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Fact Exporting
@@ -64,7 +65,7 @@
   "The parsed JSON response body"
   [{:keys [status body]}]
   (when (= status 200)
-    (seq (json/parse-string body true))))
+    (seq (json/dash-keys (json/parse-string body true)))))
 
 (defn-validated facts-for-node
   :- {s/Keyword s/Any}
@@ -91,7 +92,7 @@
    facts :- {s/Keyword s/Any}]
   {:msg (format "Writing facts for node '%s'" node)
    :file-suffix ["facts" (format "%s.json" node)]
-   :contents (json/generate-pretty-string facts)})
+   :contents (json/generate-pretty-string (json/underscore-keys facts))})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Report Exporting
@@ -141,9 +142,10 @@
   (mapv (fn [{:keys [configuration-version start-time] :as report}]
           (let [unique-seed (str start-time configuration-version)
                 hash (kitchensink/utf8-string->sha1 unique-seed)]
-            {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)" node start-time configuration-version hash)
+            {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)"
+                          node start-time configuration-version hash)
              :file-suffix ["reports" (format "%s-%s.json" node hash)]
-             :contents (json/generate-pretty-string (dissoc report :hash))}))
+             :contents (json/generate-pretty-string (json/underscore-keys (dissoc report :hash)))}))
         reports))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -160,17 +162,21 @@
    {:keys [certname] :as node-data} :- node-map]
   {:node certname
    :facts (when-not (str/blank? (:facts-timestamp node-data))
-            [(facts->tar certname (facts-for-node base-url certname))])
+            [(->> (facts-for-node base-url certname)
+                  (facts->tar certname))])
    :reports (when-not (str/blank? (:report-timestamp node-data))
-              (report->tar certname (reports-for-node base-url certname)))
+              (->> (reports-for-node base-url certname)
+                   (report->tar certname)))
    :catalog (when-not (str/blank? (:catalog-timestamp node-data))
-              [(catalog->tar certname (catalog-for-node base-url certname))])})
+              [(->> (catalog-for-node base-url certname)
+                    (catalog->tar certname))])})
 
 (defn-validated get-nodes :- (s/maybe (s/pred seq? 'seq?))
   "Get a list of the names of all active nodes."
   [base-url :- utils/base-url-schema]
-  (parse-response (client/get (str (utils/base-url->str base-url) "/nodes")
-                              {:accept :json})))
+  (-> (str (utils/base-url->str base-url) "/nodes")
+      (client/get {:accept :json})
+      parse-response))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
@@ -181,16 +187,17 @@
   {:msg (str "Exporting PuppetDB metadata")
    :file-suffix [export-metadata-file-name]
    :contents (json/generate-pretty-string
-              {:timestamp (now)
-               :command-versions
-               ;; This is not ideal that we are hard-coding the command version here, but
-               ;;  in our current architecture I don't believe there is any way to introspect
-               ;;  on which version of the `replace catalog` matches up with the current
-               ;;  version of the `catalog` endpoint... or even to query what the latest
-               ;;  version of a command is.  We should improve that.
-               {:replace-catalog 5
-                :store-report 3
-                :replace-facts 3}})})
+               (json/underscore-keys
+                 {:timestamp (now)
+                  :command-versions
+                  ;; This is not ideal that we are hard-coding the command version here, but
+                  ;;  in our current architecture I don't believe there is any way to introspect
+                  ;;  on which version of the `replace catalog` matches up with the current
+                  ;;  version of the `catalog` endpoint... or even to query what the latest
+                  ;;  version of a command is.  We should improve that.
+                  {:replace-catalog 6
+                   :store-report 5
+                   :replace-facts 4}}))})
 
 (defn- validate-cli!
   [args]

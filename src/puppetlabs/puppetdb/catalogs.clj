@@ -97,7 +97,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  5)
+  6)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
@@ -129,15 +129,15 @@
    ;; the code can expect it (it's just a faster access version of the first)
    :resources (s/either [{s/Any s/Any}]
                         {s/Any {s/Any s/Any}})
-   :api_version (s/maybe s/Int)})
+   :api-version (s/maybe s/Int)})
 
 (defn catalog-wireformat
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [version]
   (case version
     :all full-catalog
-    :v5 (dissoc full-catalog :api_version)
-    (catalog-wireformat :v5)))
+    :v6 (dissoc full-catalog :api-version)
+    (catalog-wireformat :v6)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -150,7 +150,7 @@
                     :transaction-uuid nil
                     :environment nil
                     :producer-timestamp nil
-                    :api_version 1))
+                    :api-version 1))
 
 (pls/defn-validated canonical-catalog
   "Converts `catalog` to `version` in the canonical format, adding
@@ -161,7 +161,7 @@
     (s/validate target-schema
                 (case version
                   :all (strip-keys (default-missing-keys catalog))
-                  (strip-keys (dissoc catalog :api_version))))))
+                  (strip-keys (dissoc catalog :api-version))))))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -328,7 +328,7 @@
    :post  [(map? %)]}
   (parse-catalog (json/parse-string catalog true) version))
 
-(defmethod parse-catalog 5
+(defmethod parse-catalog 6
   [catalog version]
   {:pre [(map? catalog)
          (number? version)]

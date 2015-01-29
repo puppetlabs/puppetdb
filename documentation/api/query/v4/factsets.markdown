@@ -32,12 +32,12 @@ See [the Operators page.](./operators.html)
 * `environment` (string): the environment associated with the fact
 * `timestamp` (string): the most recent time of fact submission from the
    associated certname
-* `producer-timestamp` (string): the most recent time of fact submission for
+* `producer_timestamp` (string): the most recent time of fact submission for
   the relevant certname from the master. Generation of this field will
   be pushed back to the agent in a later release, so it should not be relied on
   in its current form (use the `timestamp` field instead.)
 * `hash` (string): a hash of the factset's certname, environment,
-  timestamp, facts, and producer-timestamp.
+  timestamp, facts, and producer_timestamp.
 
 ### Response Format
 
@@ -51,7 +51,7 @@ the form:
       "certname": <node name>,
       "environment": <node environment>,
       "timestamp": <time of last fact submission>,
-      "producer-timestamp": <time of command submission from master>,
+      "producer_timestamp": <time of command submission from master>,
       "facts": <facts for node>,
       "hash": <sha1 sum of "facts" value>
     }
@@ -75,7 +75,7 @@ Get all factsets with updated after "2014-07-21T16:13:44.334Z":
 Get all factsets corresponding to nodes running Darwin:
 
     curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=["in",
-    "certname", ["extract", "certname", ["select-facts", ["and", ["=", "name",
+    "certname", ["extract", "certname", ["select_facts", ["and", ["=", "name",
     "operatingsystem"], ["=", "value", "Darwin"]]]]]'
 
 which returns
@@ -88,7 +88,7 @@ which returns
 
       },
       "timestamp" : "2014-07-25T16:39:06.265Z",
-      "producer-timestamp" : "2014-07-25T16:39:06.265Z",
+      "producer_timestamp" : "2014-07-25T16:39:06.265Z",
       "environment" : "production",
       "certname" : "desktop.localdomain",
       "hash": "b920822bc3872c9e2977cf40f87811393ead71aa"

@@ -128,7 +128,7 @@
     (testing "query should return appropriate results"
       (let [request (get-request
                      endpoint nil
-                     {:order-by (json/generate-string [{:field "path" :order "asc"}])})
+                     {:order_by (json/generate-string [{:field "path" :order "asc"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status http/status-ok))
@@ -137,7 +137,7 @@
     (testing "regex operator on path"
       (let [request (get-request
                      endpoint (json/generate-string ["~" "path" "my"])
-                     {:order-by (json/generate-string [{:field "path"}])})
+                     {:order_by (json/generate-string [{:field "path"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status http/status-ok))
@@ -147,7 +147,7 @@
                 {:path ["my_SF" "foo"], :type "string"}]))))
     (testing "paging for fact-paths"
       (let [request (get-request endpoint nil
-                                 {:order-by (json/generate-string [{:field "path" :order "desc"}])
+                                 {:order_by (json/generate-string [{:field "path" :order "desc"}])
                                   :offset 2})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]

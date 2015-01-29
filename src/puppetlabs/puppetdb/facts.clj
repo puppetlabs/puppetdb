@@ -21,13 +21,13 @@
   {:path s/Str
    :depth s/Int
    :name s/Str
-   :value_hash s/Str
-   :value_float (s/maybe Double)
-   :value_string (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
-   :value_boolean (s/maybe s/Bool)
-   :value_json (s/maybe s/Str)
-   :value_type_id s/Int})
+   :value-hash s/Str
+   :value-float (s/maybe Double)
+   :value-string (s/maybe s/Str)
+   :value-integer (s/maybe s/Int)
+   :value-boolean (s/maybe s/Bool)
+   :value-json (s/maybe s/Str)
+   :value-type-id s/Int})
 
 (def fact-set
   {s/Str s/Any})
@@ -130,21 +130,21 @@
         initial-map {:path (factpath-to-string path)
                      :name (first path)
                      :depth (dec (count path))
-                     :value_type_id type-id
-                     :value_hash (hash/generic-identity-hash data)
-                     :value_string nil
-                     :value_integer nil
-                     :value_float nil
-                     :value_boolean nil
-                     :value_json nil}]
+                     :value-type-id type-id
+                     :value-hash (hash/generic-identity-hash data)
+                     :value-string nil
+                     :value-integer nil
+                     :value-float nil
+                     :value-boolean nil
+                     :value-json nil}]
     (if (nil? data)
       initial-map
       (let [value-keyword (case type-id
-                            0 :value_string
-                            1 :value_integer
-                            2 :value_float
-                            3 :value_boolean
-                            5 :value_json)
+                            0 :value-string
+                            1 :value-integer
+                            2 :value-float
+                            3 :value-boolean
+                            5 :value-json)
             data (if (coll? data)
                    (sutils/db-serialize data)
                    data)]
@@ -235,8 +235,8 @@
   [dissociated-fields row]
   (let [conversion (case (:type row)
                      "boolean" clj-edn/read-string
-                     "float" (constantly (:value_float row))
-                     "integer" (constantly (:value_integer row))
+                     "float" (constantly (:value-float row))
+                     "integer" (constantly (:value-integer row))
                      "json" json/parse-string
                      ("string" "null") identity
                      identity)]

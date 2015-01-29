@@ -29,9 +29,12 @@
         puppet "puppet.example.com"
         db "db.example.com"
         catalog (:empty catalogs)
-        web1-catalog (update-in catalog [:resources] conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
-        puppet-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
-        db-catalog  (update-in catalog [:resources] conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
+        web1-catalog (update-in catalog [:resources]
+                                conj {{:type "Class" :title "web"} {:type "Class" :title "web1" :exported false}})
+        puppet-catalog  (update-in catalog [:resources]
+                                   conj {{:type "Class" :title "puppet"} {:type "Class" :title "puppetmaster" :exported false}})
+        db-catalog  (update-in catalog [:resources]
+                               conj {{:type "Class" :title "db"} {:type "Class" :title "mysql" :exported false}})]
     (scf-store/add-certname! web1)
     (scf-store/add-certname! web2)
     (scf-store/add-certname! puppet)

@@ -72,16 +72,16 @@
         (let [{old-edn-res :resources
                old-edn-edges :edges
                :as old-edn} (slurp-clj "catalog-old.edn" debug-dir)
-               {new-edn-res :resources
-                new-edn-edges :edges
-                :as new-edn} (slurp-clj "catalog-new.edn" debug-dir)
-                {old-json-res "resources"
-                 old-json-edges "edges"
-                 :as old-json} (slurp-json "catalog-old.json" debug-dir)
-                 {new-json-res "resources"
-                  new-json-edges "edges"
-                  :as new-json} (slurp-json "catalog-new.json" debug-dir)
-                  catalog-metadata (slurp-json "catalog-metadata.json" debug-dir)]
+              {new-edn-res :resources
+               new-edn-edges :edges
+               :as new-edn} (slurp-clj "catalog-new.edn" debug-dir)
+              {old-json-res "resources"
+               old-json-edges "edges"
+               :as old-json} (slurp-json "catalog-old.json" debug-dir)
+              {new-json-res "resources"
+               new-json-edges "edges"
+               :as new-json} (slurp-json "catalog-new.json" debug-dir)
+              catalog-metadata (slurp-json "catalog-metadata.json" debug-dir)]
 
           (is (some #(= "/etc/foobar/bazv2" (:title %)) new-edn-res))
           (is (some #(= "/etc/foobar/bazv2" (get % "title")) new-json-res))

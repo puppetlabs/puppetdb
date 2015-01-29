@@ -77,7 +77,7 @@
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
-      (testing "producer-timestamp should store nil"
+      (testing "producer_timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                [{:producer_timestamp nil}])))
       (testing "replacing facts"
@@ -116,7 +116,7 @@
                       {:name "hostname" :value "myhost"}
                       {:name "kernel" :value "Linux"}
                       {:name "uptime_seconds" :value "3600"}])))
-            (testing "producer-timestamp should store current time"
+            (testing "producer_timestamp should store current time"
               (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                      [{:producer_timestamp (to-timestamp reference-time)}])))
             (testing "should only delete operatingsystem key"
@@ -674,7 +674,7 @@
 
     (testing "changing a resource title"
       (let [{orig-id :id
-             orig-tx-id :transaction_uuid
+             orig-tx-id :transaction-uuid
              orig-timestamp :timestamp} (first (query-to-vec "SELECT id from catalogs where certname=?" certname))
              updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
              new-uuid (kitchensink/uuid)

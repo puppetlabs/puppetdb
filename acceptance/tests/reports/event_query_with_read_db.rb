@@ -108,9 +108,9 @@ MANIFEST
       query = <<EOM
 ["and",
         ["=", "certname", "#{agent.node_name}"],
-        ["=", "resource-type", "Notify"],
+        ["=", "resource_type", "Notify"],
         ["not",
-          ["=", "resource-title", "bunk"]],
+          ["=", "resource_title", "bunk"]],
         ["or",
           ["=", "status", "success"],
           ["=", "status", "booyah"]],

@@ -14,25 +14,25 @@
 (def row-schema
   {:hash String
    :certname String
-   :puppet_version String
-   :report_format s/Int
-   :configuration_version String
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :receive_time pls/Timestamp
-   :transaction_uuid String
-   :event_status String
+   :puppet-version String
+   :report-format s/Int
+   :configuration-version String
+   :start-time pls/Timestamp
+   :end-time pls/Timestamp
+   :receive-time pls/Timestamp
+   :transaction-uuid String
+   :event-status String
    :timestamp pls/Timestamp
-   :resource_type String
-   :resource_title String
-   :new_value String
-   :old_value String
+   :resource-type String
+   :resource-title String
+   :new-value String
+   :old-value String
    :status (s/maybe String)
    :property (s/maybe String)
    :message (s/maybe String)
    :file (s/maybe String)
    :line (s/maybe s/Int)
-   :containment_path (s/maybe [String])
+   :containment-path (s/maybe [String])
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
@@ -83,12 +83,12 @@
 
 (defn collapse-resource-events
   [acc row]
-  (let [resource-event (select-keys row [:containment_path :new_value
-                                         :old_value :resource_title :resource_type
-                                         :property :file :line :event_status :timestamp
+  (let [resource-event (select-keys row [:containment-path :new-value
+                                         :old-value :resource-title :resource-type
+                                         :property :file :line :event-status :timestamp
                                          :message])]
     (into acc
-          [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
+          [(-> resource-event
                (update-in [:new-value] json/parse-string)
                (update-in [:old-value] json/parse-string)
                (rename-keys {:event-status :status}))])))
@@ -96,10 +96,10 @@
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
-  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
+  (let [first-row (first report-rows)
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
+    (assoc (select-keys first-row (map jdbc/underscores->dashes report-columns))
       :resource-events resource-events)))
 
 (pls/defn-validated structured-data-seq
@@ -132,7 +132,7 @@
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project (map jdbc/underscores->dashes projections))
+      (map (qe/basic-project projections)
            (structured-data-seq version rows)))))
 
 (defn query-reports
@@ -149,7 +149,8 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections)
+                                json/dash-keys))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query :reports))
       result)))

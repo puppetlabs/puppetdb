@@ -18,9 +18,9 @@
    :path String
    :value s/Any
    :hash (s/maybe s/Str)
-   :value_float (s/maybe s/Num)
-   :value_integer (s/maybe s/Int)
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :value-float (s/maybe s/Num)
+   :value-integer (s/maybe s/Int)
+   :producer-timestamp (s/maybe pls/Timestamp)
    :type (s/maybe String)
    :timestamp pls/Timestamp})
 
@@ -30,7 +30,7 @@
    :path String
    :hash (s/maybe s/Str)
    :value s/Any
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer-timestamp (s/maybe pls/Timestamp)
    :timestamp pls/Timestamp})
 
 (def factset-schema
@@ -53,7 +53,7 @@
 
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :value_integer :value_float]) rows))
+  (map (partial facts/convert-row-type [:type :value-integer :value-float]) rows))
 
 (defn int-map->vector
   "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"
