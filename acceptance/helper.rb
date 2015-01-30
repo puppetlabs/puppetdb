@@ -863,7 +863,10 @@ EOS
       case os
       when :debian
         on host, "apt-get install -y puppet puppetmaster-common"
-      when :redhat, :fedora
+      # Puppet 3.7.4 is broken on fedora, pinning to 3.7.3 until it's fixed
+      when :fedora
+        on host, "yum install -y puppet-3.7.3"
+      when :redhat
         on host, "yum install -y puppet"
       else
         raise ArgumentError, "Unsupported OS '#{os}'"
