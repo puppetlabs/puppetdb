@@ -18,8 +18,8 @@
             smaller-tree (gen/resize new-size (gen/sized (tree-generator coll-generators leaf-values)))]
         (gen/frequency
          (conj (mapv (fn [coll-generator]
-                       [3 (coll-generator smaller-tree)]) coll-generators)
-               [5 leaf-values]))))))
+                       [2 (coll-generator smaller-tree)]) coll-generators)
+               [1 leaf-values]))))))
 
 (def misc-leaves
   "Used for emulating typical tree contents with strings numbers and keywords"
@@ -86,7 +86,7 @@
 
 (cct/defspec post-order-collect
   50
-  (prop/for-all [w (gen/such-that coll? (gen/sized (tree-generator sequential-gen misc-leaves)))]
+  (prop/for-all [w (gen/such-that coll? (gen/sized (tree-generator sequential-gen misc-leaves)) 100)]
                 (= (:state (post-order-visit (tree-zipper w) [] [(extract-item number?)]))
                    (filter number? (flatten (seq w))))))
 

@@ -43,4 +43,7 @@ end
 
 group :acceptance do
   gem 'beaker', '~> 2.2'
+  # This forces google-api-client to not download retirable 2.0.0 which lacks
+  # ruby 1.9.x support.
+  gem 'retriable', '~> 1.4'
 end

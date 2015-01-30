@@ -10,9 +10,9 @@ elif [ `uname` == "OpenBSD" ] ; then
     USER="_puppetdb"
     INSTALL_DIR=<%= @install_dir %>
 else
-    JAVA_BIN=<%= @java_bin || "/usr/bin/java"  -%>
-    INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" -%>"
-    JAVA_ARGS="<%= @java_args || @default_java_args -%>"
-    USER="<%= @name -%>"
-    CONFIG="<%= @config_dir -%>"
+    JAVA_BIN=<%= @java_bin || "/usr/bin/java"  %>
+    INSTALL_DIR="<%= @install_dir || "/usr/share/puppetdb" %>"
+    JAVA_ARGS="<%= @java_args || @default_java_args %>"
+    USER="<%= @name %>"
+    CONFIG="<%= @config_dir %>"
 fi
