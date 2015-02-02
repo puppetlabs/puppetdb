@@ -127,7 +127,7 @@
             (testing "should update existing keys"
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :hash "66c90476f974812b6532207f39d80d6010da1363"
+                           :hash "8f86953a82ce346712be249e851499721daf3c63"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm] (last itm)) @updates)))
@@ -181,7 +181,24 @@
                            :producer-timestamp nil
                            :timestamp (now)})
           (is (= fact-map
-                 (factset-map "some_certname"))))))))
+                 (factset-map "some_certname")))))
+      (testing "stable hash when no facts change"
+        (let [fact-map (factset-map "some_certname")
+              {old-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+          (replace-facts! {:name certname
+                           :values fact-map
+                           :environment "DEV"
+                           :producer-timestamp (now)
+                           :timestamp (now)})
+          (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+            (is (= old-hash new-hash)))
+          (replace-facts! {:name certname
+                           :values (assoc fact-map "another thing" "goes here")
+                           :environment "DEV"
+                           :producer-timestamp (now)
+                           :timestamp (now)})
+          (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+            (is (not= old-hash new-hash))))))))
 
 (deftest fact-persistance-with-environment
   (testing "Persisted facts"

@@ -203,7 +203,7 @@
    "/v4/facts" (omap/ordered-map
                 ;; Extract using invalid fields should throw an error
                 ["in" "certname" ["extract" "nothing" ["select-resources"
-                                                        ["=" "type" "Class"]]]]
+                                                       ["=" "type" "Class"]]]]
                 "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
 
                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select-resources"
@@ -212,22 +212,22 @@
 
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
-                                                        ["=" "type" "Class"]]]]
+                                                       ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]"
 
                 ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select-resources"
-                                                                            ["=" "type" "Class"]]]]
+                                                                           ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]")))
 
 (def versioned-invalid-projections
   (omap/ordered-map
-    "/v4/facts" (omap/ordered-map
-                   ;; Top level extract using invalid fields should throw an error
-                   ["extract" "nothing" ["~" "certname" ".*"]]
-                   #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
+   "/v4/facts" (omap/ordered-map
+                ;; Top level extract using invalid fields should throw an error
+                ["extract" "nothing" ["~" "certname" ".*"]]
+                #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
 
-                   ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                   #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+                ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+                #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
 (deftestseq invalid-projections
   [[version endpoint] facts-endpoints]
@@ -398,13 +398,13 @@
 
 (defn test-app
   ([read-write-db]
-     (test-app read-write-db read-write-db))
+   (test-app read-write-db read-write-db))
   ([read-db write-db]
-     (server/build-app
-      :globals {:scf-read-db          read-db
-                :scf-write-db         write-db
-                :command-mq           *mq*
-                :product-name         "puppetdb"})))
+   (server/build-app
+    :globals {:scf-read-db          read-db
+              :scf-write-db         write-db
+              :command-mq           *mq*
+              :product-name         "puppetdb"})))
 
 (defn with-shutdown-after [dbs f]
   (f)
@@ -969,7 +969,7 @@
                                         "f" nil, "b" 3.14, "a" 1}},
          "environment" "DEV"
          "certname" "foo1"
-         "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
+         "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
 
         {"facts" {"uptime_seconds" "6000"
                   "domain" "testing.com"
@@ -979,7 +979,7 @@
          "environment" "DEV"
          "certname" "foo2"
          "producer-timestamp" "2013-01-01T00:00:00.000Z"
-         "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}
+         "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}
 
         {"facts" {"domain" "testing.com"
                   "operatingsystem" "Darwin"
@@ -987,7 +987,7 @@
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
          "environment" "PROD"
          "certname" "foo3"
-         "hash" "aa3b47b7337a04b34f395f02ede01ec2d2f577d9"}]))
+         "hash" "34a0dfb96739364467cab639a74802d6cf39a872"}]))
 
 (deftestseq factset-paging-results
   [[version endpoint] factsets-endpoints]
@@ -1103,7 +1103,7 @@
               "producer-timestamp" reference-time
               "environment" "DEV"
               "certname" "foo1"
-              "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}))
+              "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}))
       (is (= (into [] (nth responses 1))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1119,7 +1119,7 @@
                "producer-timestamp" reference-time
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
+               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
 
               {"facts" {"my_structured_fact"
                         {"a" 1
@@ -1133,7 +1133,7 @@
                "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
+               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
 
       (is (= (into [] (nth responses 2))
              [{"facts" {"my_structured_fact"
@@ -1148,7 +1148,7 @@
                "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
+               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
       (is (= (into [] (nth responses 3))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1162,10 +1162,10 @@
                "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
+               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}])))))
+               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}])))))
 
 (defn structured-fact-results
   [version endpoint]
