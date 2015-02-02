@@ -44,4 +44,4 @@ chmod +x leiningen/lein
 
 # Now run our tests
 PATH=$PATH:$(pwd)/leiningen \
-bundle exec rake test:beaker
+bundle exec rake beaker:acceptance
