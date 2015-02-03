@@ -10,9 +10,7 @@
             [clj-time.core :refer [days hours minutes secs]]
             [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-on-node
-                                                                          submit-command
-                                                                          block-until-results]]
+            [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-until-results]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cli.export :as export :refer [facts-for-node]]))
@@ -82,58 +80,59 @@
 
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
-    (submit-command *base-url*
-                    :replace-facts 3 {:name "foo.local"
-                                      :environment "DEV"
-                                      :values {:foo "the foo"
-                                               :bar "the bar"
-                                               :baz "the baz"}
-                                      :producer-timestamp (to-string (now))})
-    @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
-    (check-service-query
-     :facts :v4 ["=" "certname" "foo.local"]
-     nil
-     (fn [result]
-       (is (= #{{:value "the baz",
-               :name "baz",
-                 :environment "DEV",
-                 :certname "foo.local"}
-                {:value "the bar",
-                 :name "bar",
-                 :environment "DEV",
-                 :certname "foo.local"}
-                {:value "the foo",
-                 :name "foo",
-                 :environment "DEV",
-                 :certname "foo.local"}}
-              (set result)))))))
+    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+      (submit-command pdb-service :replace-facts 3 {:name "foo.local"
+                                                    :environment "DEV"
+                                                    :values {:foo "the foo"
+                                                             :bar "the bar"
+                                                             :baz "the baz"}
+                                                    :producer-timestamp (to-string (now))})
+
+      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
+      (check-service-query
+       :facts :v4 ["=" "certname" "foo.local"]
+       nil
+       (fn [result]
+         (is (= #{{:value "the baz",
+                   :name "baz",
+                   :environment "DEV",
+                   :certname "foo.local"}
+                  {:value "the bar",
+                   :name "bar",
+                   :environment "DEV",
+                   :certname "foo.local"}
+                  {:value "the foo",
+                   :name "foo",
+                   :environment "DEV",
+                   :certname "foo.local"}}
+                (set result))))))))
 
 (deftest pagination-via-puppdbserver-service
   (jutils/with-puppetdb-instance
-    (submit-command *base-url*
-                    :replace-facts 3 {:name "foo.local"
-                                      :environment "DEV"
-                                      :values {:a "a" :b "b" :c "c"}
-                                      :producer-timestamp (to-string (now))})
-    @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
-    (let [exp ["a" "b" "c"]
-          rexp (reverse exp)]
-      (doseq [order [:ascending :descending]
-              offset (range (dec (count exp)))
-              limit (range 1 (count exp))]
-        (let [expected (take limit
-                             (drop offset (if (= order :ascending) exp rexp)))]
-          (check-service-query
-           :facts :v4 ["=" "certname" "foo.local"]
-           {:order-by [[:name order]]
-            :offset offset
-            :limit limit}
-           (fn [result]
-             (is (= (map #(hash-map :name % :value %
-                                    :environment "DEV",
-                                    :certname "foo.local")
-                         expected)
-                    result)))))))))
+    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+      (submit-command pdb-service :replace-facts 3 {:name "foo.local"
+                                                    :environment "DEV"
+                                                    :values {:a "a" :b "b" :c "c"}
+                                                    :producer-timestamp (to-string (now))})
+      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
+      (let [exp ["a" "b" "c"]
+            rexp (reverse exp)]
+        (doseq [order [:ascending :descending]
+                offset (range (dec (count exp)))
+                limit (range 1 (count exp))]
+          (let [expected (take limit
+                               (drop offset (if (= order :ascending) exp rexp)))]
+            (check-service-query
+             :facts :v4 ["=" "certname" "foo.local"]
+             {:order-by [[:name order]]
+              :offset offset
+              :limit limit}
+             (fn [result]
+               (is (= (map #(hash-map :name % :value %
+                                      :environment "DEV",
+                                      :certname "foo.local")
+                           expected)
+                      result))))))))))
 
 (deftest api-retirements
   (jutils/with-puppetdb-instance
@@ -151,3 +150,32 @@
       (doseq [v [:v1 :v2 :v3]]
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
+
+(deftest in-process-command-submission
+  (jutils/with-puppetdb-instance
+    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+      (submit-command pdb-service :replace-facts 3 {:name "foo.local"
+                                                    :environment "DEV"
+                                                    :values {:foo "the foo"
+                                                             :bar "the bar"
+                                                             :baz "the baz"}
+                                                    :producer-timestamp (to-string (now))})
+      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
+
+      (check-service-query
+       :facts :v4 ["=" "certname" "foo.local"]
+       nil
+       (fn [result]
+         (is (= #{{:value "the baz",
+                   :name "baz",
+                   :environment "DEV",
+                   :certname "foo.local"}
+                  {:value "the bar",
+                   :name "bar",
+                   :environment "DEV",
+                   :certname "foo.local"}
+                  {:value "the foo",
+                   :name "foo",
+                   :environment "DEV",
+                   :certname "foo.local"}}
+                (set result))))))))

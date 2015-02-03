@@ -65,6 +65,7 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng :as qeng]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -326,7 +327,8 @@
   (shared-globals [this])
   (query [this query-obj version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order-by, :offset, and/or :limit."))
+    be a map containing :order-by, :offset, and/or :limit.")
+  (submit-command [this command version payload]))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -351,13 +353,15 @@
           query-expr
           paging-options
           (get-in (service-context this) [:shared-globals :scf-read-db])
-          row-callback-fn)))
+          row-callback-fn))
+  (submit-command [this command version payload]
+                  (send-command! (command-names command) version payload)))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
 
-   For configuration customization, we intercept the call to parse-config-data
-   within TK."
+  For configuration customization, we intercept the call to parse-config-data
+  within TK."
   [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
   (apply main args))
