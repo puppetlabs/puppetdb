@@ -15,7 +15,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.http :as http]))
+            [puppetlabs.puppetdb.http :as http]
+            [clojure.tools.logging :as log]))
 
 (defn ignore-engine-params
   "Query engine munge functions should take two arguments, a version
@@ -50,11 +51,24 @@
              count-query :count-query
              projections :projections} (query->sql version query
                                                    paging-options)
+             query-error (promise)
              resp (output-fn
                    (fn [f]
-                     (jdbc/with-transacted-connection db
-                       (query/streamed-query-result version sql params
-                                                    (comp f (munge-fn version projections))))))]
+                     (try
+                       (jdbc/with-transacted-connection db
+                         (query/streamed-query-result version sql params
+                           (comp
+                             f
+                             #(do
+                                (first %)
+                                (deliver query-error nil)
+                                %)
+                             (munge-fn version projections))))
+                       (catch java.sql.SQLException e
+                         (deliver query-error e)
+                         nil))))]
+        (when @query-error
+          (throw @query-error))
         (if count-query
           (http/add-headers resp {:count (jdbc/get-result-count count-query entity)})
           resp)))))
@@ -70,4 +84,10 @@
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e
-      (pl-http/error-response e))))
+      (pl-http/error-response e))
+    (catch org.postgresql.util.PSQLException e
+      (if (= (.getSQLState e) "2201B")
+        (do
+          (log/debug e "Caught PSQL processing exception")
+          (pl-http/error-response (.getMessage e)))
+        (throw e)))))
