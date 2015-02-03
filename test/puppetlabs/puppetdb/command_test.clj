@@ -710,6 +710,158 @@
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
 
+(defn thread-id []
+  (.getId (Thread/currentThread)))
+
+;; Run this from the repl with: (with-pg-test-db fact-path-update-issue)
+(deftest fact-path-update-issue
+  ;;Simulates to commands being process for two different machines at
+  ;;the same time
+  (let [certname-1 "some_certname1"
+        certname-2 "some_certname2"
+        ;;facts for server 1, has the same "mytimestamp" value as the
+        ;;facts for server 2
+        facts-1a {:name certname-1
+                  :environment nil
+                  :values {"domain" "mydomain1.com"
+                           "operatingsystem" "Debian"
+                           "mytimestamp" "1"}}
+        facts-2a {:name certname-2
+                  :environment nil
+                  :values {"domain" "mydomain2.com"
+                           "operatingsystem" "Debian"
+                           "mytimestamp" "1"}}
+
+        ;;same facts as before, but now certname-1 has a different
+        ;;fact value for mytimestamp (this will force a new fact_value
+        ;;that is only used for certname-1
+        facts-1b {:name certname-1
+                  :environment nil
+                  :values {"domain" "mydomain1.com"
+                           "operatingsystem" "Debian"
+                           "mytimestamp" "1b"}}
+
+        ;;with this, certname-1 and certname-2 now have their own
+        ;;fact_value for mytimestamp that is different from the
+        ;;original mytimestamp that they originally shared
+        facts-2b {:name certname-2
+                  :environment nil
+                  :values {"domain" "mydomain2.com"
+                           "operatingsystem" "Debian"
+                           "mytimestamp" "2b"}}
+
+        ;;this fact set will disassociate mytimestamp from the facts
+        ;;associated to certname-1, it will do the same thing for
+        ;;certname-2
+        facts-1c {:name certname-1
+                  :environment nil
+                  :values {"domain" "mydomain1.com"
+                           "operatingsystem" "Debian"}}
+        facts-2c {:name certname-2
+                  :environment nil
+                  :values {"domain" "mydomain2.com"
+                           "operatingsystem" "Debian"}}
+        command-1b   {:command (command-names :replace-facts)
+                      :version 3
+                      :payload facts-1b}
+        command-2b   {:command (command-names :replace-facts)
+                      :version 3
+                      :payload facts-2b}
+        command-1c   {:command (command-names :replace-facts)
+                      :version 3
+                      :payload facts-1c}
+        command-2c   {:command (command-names :replace-facts)
+                      :version 3
+                      :payload facts-2c}
+
+        ;; Wait for two threads to countdown before proceeding
+        latch (java.util.concurrent.CountDownLatch. 2)
+
+        ;; I'm modifying delete-facts! so that I can coordinate access
+        ;; between the two threads, I'm storing the reference to the
+        ;; original delete-facts! here, so that I can delegate to it
+        ;; once I'm done coordinating
+        storage-delete-facts! scf-store/delete-facts!]
+
+    (println "Before submitting anything (" (thread-id) "):")
+    (clojure.pprint/pprint (query-to-vec "SELECT * from fact_values"))
+
+    (sql/transaction
+     (scf-store/add-certname! certname-1)
+     (scf-store/add-certname! certname-2)
+     (scf-store/add-facts! {:name certname-1
+                            :values (:values facts-1a)
+                            :timestamp (now)
+                            :environment nil
+                            :producer-timestamp nil})
+     (scf-store/add-facts! {:name certname-2
+                            :values (:values facts-2a)
+                            :timestamp (now)
+                            :environment nil
+                            :producer-timestamp nil}))
+
+    ;;At this point, there will be 4 fact_value rows, 1 for
+    ;;mytimestamp, 1 for the operatingsystem, 2 for domain
+    (println "After first factsets:")
+    (clojure.pprint/pprint (query-to-vec "SELECT * from fact_values"))
+
+    (with-redefs [scf-store/delete-facts! (fn [factset fact-ids]
+
+                                            (println "In the hacked delete-facts, counting down - " (thread-id) )
+                                            (flush)
+
+                                            ;;Once this has been called, it will countdown the latch and block
+                                            (.countDown latch)
+                                            ;;After the second command has been executed and it has decremented the
+                                            ;;latch, the await will no longer block and both
+                                            ;;threads will begin running again
+                                            (.await latch)
+                                            (println "countdown to 2, proceeding" (thread-id))
+                                            (flush)
+                                            ;;Execute the normal delete-facts! function (unchanged)
+                                            (storage-delete-facts! factset fact-ids)
+                                            )]
+      (let [first-message? (atom false)
+            second-message? (atom false)
+            fut-1 (future
+                    (test-msg-handler command-1b publish discard-dir
+                      (reset! first-message? true)))
+            _ (println "future 1 launched")
+            _ (flush)
+            fut-2 (future
+                    (test-msg-handler command-2b publish discard-dir
+                      (println "in the message handler?????")
+                      (reset! second-message? true)))
+            _ (println "future 2 launched")
+            _ (flush)]
+
+        ;;The two commands are being submitted in future, ensure they
+        ;;have both completed before proceeding
+        @fut-2
+        @fut-1
+
+        ;;At this point there is 6 fact values, the original
+        ;;mytimestamp, the two new mytimestamps, operating system and
+        ;;the two domains
+        (println "After second factset:")
+        (clojure.pprint/pprint (query-to-vec "SELECT * from fact_values"))
+
+        (is (true? @first-message?))
+        (is (true? @second-message?))
+
+        ;;Submit another factset that does NOT include mytimestamp,
+        ;;this disassociates certname-1's fact_value (which is 1b)
+        (test-msg-handler command-1c publish discard-dir
+          (reset! first-message? true))
+
+        ;;Do the same thing with certname-2. Since the reference to 1b
+        ;;and 2b has been removed, mytimestamp's path is no longer
+        ;;connected to any fact values. The original mytimestamp value
+        ;;of 1 is still in the table. It now attempting to delete that
+        ;;fact path, when the mytimestamp 1 value is still in there.
+        (test-msg-handler command-2c publish discard-dir
+          (println (extract-error-message publish)))))))
+
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
