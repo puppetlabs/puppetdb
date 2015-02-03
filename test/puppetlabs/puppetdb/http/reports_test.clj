@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.http :refer [status-bad-request]]
+            [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
             [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -433,7 +433,7 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] endpoints]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)

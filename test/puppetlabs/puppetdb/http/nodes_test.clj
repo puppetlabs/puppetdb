@@ -253,7 +253,7 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] endpoints]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)

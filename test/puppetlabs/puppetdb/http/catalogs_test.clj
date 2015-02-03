@@ -4,7 +4,6 @@
             [clojure.java.io :refer [resource reader]]
             [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
-            [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
             [puppetlabs.puppetdb.fixtures :as fixt]))
 
@@ -108,21 +107,3 @@
     (let [{:keys [body]} (get-response "/v4/catalogs" "myhost.localdomain")
           response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:name response-body))))))
-
-(def pg-versioned-invalid-regexps
-  (omap/ordered-map
-    "/v4/catalogs" (omap/ordered-map
-                  ["~" "certname" "*abc"]
-                  #".*invalid regular expression: quantifier operand invalid"
-
-                  ["~" "certname" "[]"]
-                  #".*invalid regular expression: brackets.*not balanced")))
-
-(deftestseq ^{:hsqldb false} pg-invalid-regexps
-  [[version endpoint] facts-endpoints]
-
-  (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
-    (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (get-response endpoint query)]
-        (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
