@@ -34,4 +34,4 @@ bundle install --path vendor/bundle --without test
 
 # Now run our tests
 PUPPETDB_REPO_PUPPETDB="${REPO_URL}#${sha1}" \
-bundle exec rake test:beaker
+bundle exec rake beaker:acceptance
