@@ -93,3 +93,21 @@
                 ["and"
                  ["=" "type" "Class"]]]]]]]]]
          [{:name "DEV"}])))
+
+(def pg-versioned-invalid-regexps
+  (omap/ordered-map
+    "/v4/environments" (omap/ordered-map
+                  ["~" "name" "*abc"]
+                  #".*invalid regular expression: quantifier operand invalid"
+
+                  ["~" "name" "[]"]
+                  #".*invalid regular expression: brackets.*not balanced")))
+
+(deftestseq ^{:hsqldb false} pg-invalid-regexps
+  [[version endpoint] facts-endpoints]
+
+  (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
+    (testing (str "query: " query " should fail with msg: " msg)
+      (let [{:keys [status body] :as result} (get-response endpoint query)]
+        (is (re-find msg body))
+        (is (= status http/status-bad-request))))))

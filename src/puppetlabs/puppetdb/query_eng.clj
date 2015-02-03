@@ -18,14 +18,6 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.tools.logging :as log]))
 
-(defmacro process-psql-invalid-regexp-or-rethrow
-  [e & body]
-  `(if (= (.getSQLState ~e) "2201B")
-    (do
-      (log/debug ~e "Caught PSQL processing exception")
-      ~@body)
-    (throw ~e)))
-
 (defn ignore-engine-params
   "Query engine munge functions should take two arguments, a version
    and a list of columns to project. Some of the munge funcitons don't
@@ -94,5 +86,8 @@
     (catch IllegalArgumentException e
       (pl-http/error-response e))
     (catch org.postgresql.util.PSQLException e
-      (process-psql-invalid-regexp-or-rethrow e
-        (pl-http/error-response (.getMessage e))))))
+      (if (= (.getSQLState e) "2201B")
+        (do
+          (log/debug e "Caught PSQL processing exception")
+          (pl-http/error-response (.getMessage e)))
+        (throw e)))))

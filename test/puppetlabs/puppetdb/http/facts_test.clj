@@ -242,7 +242,10 @@
   (omap/ordered-map
     "/v4/facts" (omap/ordered-map
                   ["~" "certname" "*abc"]
-                  #".*invalid regular expression.*")))
+                  #".*invalid regular expression: quantifier operand invalid"
+
+                  ["~" "certname" "[]"]
+                  #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
   [[version endpoint] facts-endpoints]
