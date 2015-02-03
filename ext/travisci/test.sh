@@ -18,6 +18,7 @@ if [ $T_LANG == "ruby" ]; then
   bundle exec rspec spec/
 else
   if [ $T_LANG == "java" ]; then
+    ulimit -u 4096
     jdk_switcher use $T_VERSION
     java -version
     if [ $T_DB == "postgres" ]; then
