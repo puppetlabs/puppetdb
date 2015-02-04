@@ -30,7 +30,7 @@ then
 fi
 mkdir vendor
 
-bundle install --path vendor/bundle --without test
+bundle install --path=vendor/bundle --without=test --retry=10
 
 # Now run our tests
 PUPPETDB_REPO_PUPPETDB="${REPO_URL}#${sha1}" \
