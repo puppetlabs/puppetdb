@@ -36,8 +36,8 @@
 
 (defn block-until-results-fn
   "Executes `f`, if results are found, return them, otherwise
-   wait and try again. Will throw an exception if results aren't found
-   after 100 tries"
+  wait and try again. Will throw an exception if results aren't found
+  after 100 tries"
   [n f]
   (loop [count 0
          results (f)]
@@ -55,8 +55,8 @@
 
 (defmacro block-until-results
   "Body is some expression that will be executed in a future. All
-   errors from the body of the macro are ignored. Will block until
-   results are returned from the body of the macro"
+  errors from the body of the macro are ignored. Will block until
+  results are returned from the body of the macro"
   [n & body]
   `(future
      (block-until-results-fn
@@ -70,7 +70,7 @@
 
 (defn block-on-node
   "Waits for the queue to be empty, then blocks until the catalog, facts and reports are all
-   found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
+  found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
   [base-url node-name]
   (block-until-queue-empty)
   (let [catalog-fut (block-until-results 100 (export/catalog-for-node base-url node-name))
@@ -94,8 +94,8 @@
                     (assoc :name "foo.local"))
         report (:basic reports)
         with-server #(jutils/puppetdb-instance
-                       (assoc-in (jutils/create-config)
-                                 [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] url-prefix)
+                      (assoc-in (jutils/create-config)
+                                [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] url-prefix)
                       %)]
 
     (with-server
@@ -110,20 +110,20 @@
 
         (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
                     (-> catalog
-                      (dissoc :hash)
-                      utils/vector-maybe))
+                        (dissoc :hash)
+                        utils/vector-maybe))
                (map (partial tuc/munge-catalog-for-comparison :v5)
                     (-> (export/catalog-for-node *base-url* (:name catalog))
-                      (json/parse-string true)
-                      (dissoc :hash)
-                      utils/vector-maybe))))
+                        (json/parse-string true)
+                        (dissoc :hash)
+                        utils/vector-maybe))))
 
         (is (= (tur/munge-report-for-comparison
                 (tur/munge-example-report-for-storage report))
                (tur/munge-report-for-comparison
                 (-> (export/reports-for-node *base-url* (:certname report))
-                  first
-                  tur/munge-example-report-for-storage))))
+                    first
+                    tur/munge-example-report-for-storage))))
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
         (apply #'export/main
@@ -143,19 +143,19 @@
 
         (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
                     (-> catalog
-                      (dissoc :hash)
-                      utils/vector-maybe))
+                        (dissoc :hash)
+                        utils/vector-maybe))
                (map (partial tuc/munge-catalog-for-comparison :v5)
                     (-> (export/catalog-for-node *base-url* (:name catalog))
-                      (json/parse-string true)
-                      (dissoc :hash)
-                      utils/vector-maybe))))
+                        (json/parse-string true)
+                        (dissoc :hash)
+                        utils/vector-maybe))))
         (is (= (tur/munge-report-for-comparison
                 (tur/munge-example-report-for-storage report))
                (tur/munge-report-for-comparison
                 (-> (export/reports-for-node *base-url* (:certname report))
-                  first
-                  tur/munge-example-report-for-storage))))
+                    first
+                    tur/munge-example-report-for-storage))))
         (is (= facts (export/facts-for-node *base-url* "foo.local")))))))
 
 (deftest basic-roundtrip
@@ -194,3 +194,14 @@
   (check-invalid-url-handling
    #(#'import/main "--host" "local:host" "--infile" "/dev/null" "--port" 10000)
    #"^Invalid destination .*"))
+
+(deftest changing-queue-destination-name
+  (let [catalog (get-in wire-catalogs [5 :empty])]
+    (jutils/with-command-endpoint "foo"
+      (jutils/with-puppetdb-instance
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"status 404"
+                              (jutils/dispatch-count "puppetlabs.puppetdb.commands")))
+        (submit-command *base-url* :replace-catalog 5 catalog)
+        @(block-until-results 100 (export/catalog-for-node *base-url* (:name catalog)))
+        (is (= 1 (jutils/dispatch-count "foo")))))))

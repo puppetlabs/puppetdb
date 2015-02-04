@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.mq :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer [with-test-logging-silenced]]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [puppetlabs.puppetdb.testutils.jetty :as jutils]))
 
 (use-fixtures :each with-test-logging-silenced)
 
@@ -115,3 +116,10 @@
       (with-test-broker "test" conn
         (publish-json! conn "queue" "foo")
         (is (= ["\"foo\""] (map :body (bounded-drain-into-vec! conn "queue" 1))))))))
+
+(deftest test-jmx-enabled
+  (jutils/without-jmx
+   (jutils/with-puppetdb-instance
+     (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                           #"status 404"
+                           (jutils/current-queue-depth))))))

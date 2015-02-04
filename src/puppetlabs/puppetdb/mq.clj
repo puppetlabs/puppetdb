@@ -22,7 +22,7 @@
   `broker`    - the `BrokerService` instance
   `megabytes` - the value to set as the limit for the desired `SystemUsage` setting
   `usage-fn`  - a function that accepts a `SystemUsage` instance and returns
-                the child object whose limit we are configuring.
+  the child object whose limit we are configuring.
   `desc`      - description of the setting we're configuring, to be used in a log message
   "
   [broker megabytes usage-fn desc]
@@ -41,11 +41,11 @@
 (defn- set-store-usage!
   "Configures the `StoreUsage` setting for an instance of `BrokerService`.
 
-   `broker`     - the `BrokerService` to configure
-   `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
-                  or `nil` to use the default value of 100GB.
+  `broker`     - the `BrokerService` to configure
+  `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
+  or `nil` to use the default value of 100GB.
 
-   Returns the (potentially modified) `broker` object."
+  Returns the (potentially modified) `broker` object."
   [broker megabytes]
   (set-usage!* broker megabytes #(.getStoreUsage %) "StoreUsage"))
 
@@ -54,11 +54,19 @@
 
   `broker`     - the `BrokerService` to configure
   `megabytes ` - the maximum amount of disk usage to allow for temporary messages,
-                 or `nil` to use the default value of 50GB.
+  or `nil` to use the default value of 50GB.
 
   Returns the (potentially modified) `broker` object."
   [broker megabytes]
   (set-usage!* broker megabytes #(.getTempUsage %) "TempUsage"))
+
+(defn ^:dynamic enable-jmx
+  "This function exists to enable starting multiple PuppetDB instances
+  inside a single JVM. Starting up a second instance results in a
+  collision exception between JMX beans from the two
+  instances. Disabling JMX from the broker avoids that issue"
+  [broker should-enable?]
+  (.setUseJmx broker should-enable?))
 
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
@@ -74,38 +82,39 @@
   `config` - an optional map containing configuration values for initializing
   the broker.  Currently supported options:
 
-      :store-usage  - sets the limit of disk storage (in megabytes) for persistent messages
-      :temp-usage   - sets the limit of disk storage in the broker's temp dir
-                      (in megabytes) for temporary messages"
+  :store-usage  - sets the limit of disk storage (in megabytes) for persistent messages
+  :temp-usage   - sets the limit of disk storage in the broker's temp dir
+  (in megabytes) for temporary messages"
   ([dir]
-     {:pre  [(string? dir)]
-      :post [(instance? BrokerService %)]}
-     (build-embedded-broker "localhost" dir))
+   {:pre  [(string? dir)]
+    :post [(instance? BrokerService %)]}
+   (build-embedded-broker "localhost" dir))
   ([name dir]
-     {:pre  [(string? name)
-             (string? dir)]
-      :post [(instance? BrokerService %)]}
-     (build-embedded-broker name dir {}))
+   {:pre  [(string? name)
+           (string? dir)]
+    :post [(instance? BrokerService %)]}
+   (build-embedded-broker name dir {}))
   ([name dir config]
-     {:pre   [(string? name)
-              (string? dir)
-              (map? config)]
-      :post  [(instance? BrokerService %)]}
-     (let [mq (doto (BrokerService.)
-                (.setBrokerName name)
-                (.setDataDirectory dir)
-                (.setSchedulerSupport true)
-                (.setPersistent true)
-                (set-store-usage! (:store-usage config))
-                (set-temp-usage!  (:temp-usage config)))
-           mc (doto (.getManagementContext mq)
-                (.setCreateConnector false))
-           db (doto (.getPersistenceAdapter mq)
-                (.setIgnoreMissingJournalfiles true)
-                (.setArchiveCorruptedIndex true)
-                (.setCheckForCorruptJournalFiles true)
-                (.setChecksumJournalFiles true))]
-       mq)))
+   {:pre   [(string? name)
+            (string? dir)
+            (map? config)]
+    :post  [(instance? BrokerService %)]}
+   (let [mq (doto (BrokerService.)
+              (.setBrokerName name)
+              (.setDataDirectory dir)
+              (.setSchedulerSupport true)
+              (.setPersistent true)
+              (enable-jmx true)
+              (set-store-usage! (:store-usage config))
+              (set-temp-usage!  (:temp-usage config)))
+         mc (doto (.getManagementContext mq)
+              (.setCreateConnector false))
+         db (doto (.getPersistenceAdapter mq)
+              (.setIgnoreMissingJournalfiles true)
+              (.setArchiveCorruptedIndex true)
+              (.setCheckForCorruptJournalFiles true)
+              (.setChecksumJournalFiles true))]
+     mq)))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept
@@ -214,20 +223,20 @@
   published only after a delay. The following invokations are
   equivalent:
 
-    (delay-property 3600000)
-    (delay-property 1 :hours)
+  (delay-property 3600000)
+  (delay-property 1 :hours)
   "
   ([number unit]
-     (condp = unit
-       :seconds (delay-property (* 1000 number))
-       :minutes (delay-property (* 60 1000 number))
-       :hours   (delay-property (* 60 60 1000 number))
-       :days    (delay-property (* 24 60 60 1000 number))))
+   (condp = unit
+     :seconds (delay-property (* 1000 number))
+     :minutes (delay-property (* 60 1000 number))
+     :hours   (delay-property (* 60 60 1000 number))
+     :days    (delay-property (* 24 60 60 1000 number))))
   ([millis]
-     {:pre  [(number? millis)
-             (pos? millis)]
-      :post [(map? %)]}
-     {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
+   {:pre  [(number? millis)
+           (pos? millis)]
+    :post [(map? %)]}
+   {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
 
 (defn convert-message
   "Convert the given `message` to a string using the type-specific method."
@@ -244,7 +253,7 @@
 
 (defn extract-headers
   "Creates a map of custom headers included in `message`, currently only
-   supports String headers."
+  supports String headers."
   [^Message msg]
   (reduce (fn [acc k]
             (assoc acc
@@ -254,8 +263,8 @@
 
 (defn create-message-listener
   "Creates an implementation of the MessageListener interface needed by JMS for
-   consuming messages. This is based on a related clamq macro, but includes all
-   message headers"
+  consuming messages. This is based on a related clamq macro, but includes all
+  message headers"
   [handler-fn failure-fn limit container]
   (let [counter (atom 0)]
     (reify MessageListener
@@ -275,7 +284,7 @@
 
 (defn message-consumer
   "Instantiates the MQ listening container along with the
-   correct message listener"
+  correct message listener"
   [connection {endpoint :endpoint
                handler-fn :on-message
                transacted :transacted
@@ -305,8 +314,8 @@
 
 (defn wrap-connection
   "Provides a shim between the clamq JMS implementation and it's usage.
-   Most functions delegate directly to clamq ones, but the consumer function
-   uses the above functions instead to include all the headers in the message"
+  Most functions delegate directly to clamq ones, but the consumer function
+  uses the above functions instead to include all the headers in the message"
   [conn-factory shutdown-fn]
   (let [jms-conn (jms/jms-connection conn-factory shutdown-fn)]
     (reify mq-conn/Connection
