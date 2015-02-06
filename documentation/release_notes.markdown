@@ -4,6 +4,150 @@ layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
 
+[configure_postgres]: ./configure.html#using-postgresql
+[pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
+
+2.3.0
+-----
+
+PuppetDB 2.3.0 is a backwards-compatible release that adds support for
+Puppet 4.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet Master lives), and restart your master service.
+
+### Contributors
+
+Andrew Roetker, Erik Dalén, Ken Barber, Preben Ingvaldsen, Rob Braden,
+Rob Nelson, Roger Ignazio, Ryan Senior, Wyatt Alt, and Jean Bond
+
+### Changes
+
+#### New Features
+
+* PuppetDB now supports Puppet 4
+  ([RE-3879](https://tickets.puppetlabs.com/browse/RE-3879))
+
+* To support Puppet 2.7.x - 3.7.x. PuppetDB now handles hyphenated
+  classnames
+  ([PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024))
+
+#### Bug Fixes and Maintenance
+
+* NULL environment_ids should no longer prevent garbage collection.
+  ([PDB-1076](https://tickets.puppetlabs.com/browse/PDB-1076))
+
+    If a factset, report, or catalog is migrated from an earlier
+    PuppetDB version or is submitted via an earlier puppetdb-terminus
+    version, it will have NULL for the environment_id.  Previously
+    that could prevent PuppetDB from cleaning up any environments at
+    all.  The fix should also improve collection performance.
+
+* The puppet-env script should no longer contain invalid code.
+  Previously commands could end up on the same line, preventing (for
+  example) environment variables from being set
+  correctly. ([PDB-1212](https://tickets.puppetlabs.com/browse/PDB-1212))
+
+* PuppetDB now uses the new Puppet Profiler API.
+  ([PUP-3512](https://tickets.puppetlabs.com/browse/PUP-3512))
+
+* `Profiler.profile()` should now be called with the correct arguments
+  across all supported versions.
+  ([PDB-1029](https://tickets.puppetlabs.com/browse/PDB-1029))
+
+* The factset endpoint should no longer accept some unused and
+  unintentionally accepted arguments.
+
+#### Documentation
+
+* The documentation for the `<=` and `>=`
+  [operators](./api/query/v2/operators) has been fixed (the
+  descriptions were incorrectly reversed).
+
+* The firewall and SELinux requirements have been documented
+  [here](./connect_puppet_master).
+  ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
+
+* Broken links have been fixed in the
+  [connection](./connect_puppet_master) and [commands](./api/commands)
+  documentation.
+
+* A missing `-L` option has been added to a curl invocation
+  [here](./install_from_souce).
+
+* An incorrect reference to "Java" has been changed to "JVM" in the
+  [configuration](./configure) documentation.
+
+* Some minor edits have been made to the
+  [fact-contents](./api/query/v4/fact-contents),
+  [connection](./connect_puppet_master), and
+  [KahaDB Corruption](./trouble_kahadb_corruption) documentation.
+
+#### Testing
+
+* The tests have been adjusted to accommodate Puppet 4.
+  ([PDB-1052](https://tickets.puppetlabs.com/browse/PDB-1052)
+  [PDB-995](https://tickets.puppetlabs.com/browse/PDB-995)
+  [68bf176e0bd4d51c1ba3](https://github.com/puppetlabs/puppetdb/commit/68bf176e0bd4d51c1ba36909f4966671379a775e)
+  [9ef68b635d1bb1f5338b](https://github.com/puppetlabs/puppetdb/commit/9ef68b635d1bb1f5338b3e40034a2ed787f2e107))
+
+* The memory limit has been raised to 4GB for Travis CI tests.
+  ([PDB-1202](https://tickets.puppetlabs.com/browse/PDB-1202))
+
+* For now, the Fedora acceptance tests pin Puppet to 3.7.3.
+  ([PDB-1200](https://tickets.puppetlabs.com/browse/PDB-1200))
+
+* The Puppet version used by the spec tests can now be specified.
+  ([PDB-1012](https://tickets.puppetlabs.com/browse/PDB-1012))
+
+    The desired puppet version can be selected by setting the
+    puppet_branch environment variable.  Values of `latest` and
+    `oldest` will select the latest and oldest supported versions of
+    puppet respectively.
+
+* The bundler `--retry` argument is now used during acceptance
+  testing.
+
+* Retriable has been pinned to version `~> 1.4` to avoid Ruby 1.9.x
+  incompatible versions.
+
+* The tree-generator should be less likely to generate inappropriate test data.
+  ([PDB-1109](https://tickets.puppetlabs.com/browse/PDB-1109))
+
+* The source of the Leiningen command has been updated.
+  ([OPS-5175](https://tickets.puppetlabs.com/browse/OPS-5175))
+
+* The ec2 acceptance test template's el-5 image has been updated.
+  ([7cd01ac051c719c6c768](https://github.com/puppetlabs/puppetdb/commit/68bf176e0bd4d51c1ba36909f4966671379a775e))
+
+* Some v4 node test failures should no longer be hidden.
+  ([PDB-1017](https://tickets.puppetlabs.com/browse/PDB-1017))
+
+* Pull request testing now invokes a script from the repository
+  instead of the Jenkins job.
+  ([PDB-1034](https://tickets.puppetlabs.com/browse/PDB-1034))
+
+* The Gemfile pins i18n to `~> 0.6.11` for Ruby 1.8.7 to prevent
+  activesupport from pulling in a version of i18n that isn't
+  compatible with Ruby 1.8.7.
+
+* The acceptance tests now use Virtual Private Cloud (VPC) hosts.
+
+* The Beaker AWS department (`BEAKER_department`) is now set to
+  `eso-dept` for the acceptance tests to improve AWS usage reporting.
+
 2.2.2
 -----
 
