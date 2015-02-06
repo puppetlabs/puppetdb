@@ -98,7 +98,7 @@
         (combination-tests [:v4] test-cases)))
 
     (testing "environment testing"
-      (let [test-cases {["=" "facts-environment" "production"]
+      (let [test-cases {["=" "facts_environment" "production"]
                         #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
         (combination-tests [:v4] test-cases)))))
 
@@ -129,7 +129,7 @@
       (testing "order-by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (retrieve-node-names version nil
                                     {:order-by [[:invalid-field :ascending]]}))))
 
@@ -146,7 +146,7 @@
                                     [:descending ["node_a" "node_d" "node_c" "node_b" "node_e"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:facts-timestamp order]]})]
+                                                {:order-by [[:facts_timestamp order]]})]
                 (is (= actual expected))))))
 
         (testing "multiple fields"
@@ -154,7 +154,7 @@
                                                            [[:descending :ascending] ["node_c" "node_b" "node_e" "node_a" "node_d"]]]]
             (testing (format "catalog-timestamp %s name %s" timestamp-order name-order)
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:catalog-timestamp timestamp-order]
+                                                {:order-by [[:catalog_timestamp timestamp-order]
                                                             [:certname name-order]]})]
                 (is (= actual expected)))))))
 

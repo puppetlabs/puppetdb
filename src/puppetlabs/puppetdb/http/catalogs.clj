@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.middleware :as middleware]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
@@ -15,7 +16,9 @@
   [api-version node db]
   (if-let [catalog (with-transacted-connection db
                      (c/status api-version node))]
-    (http/json-response (s/validate (c/catalog-response-schema api-version) catalog))
+    (http/json-response (-> (c/catalog-response-schema api-version)
+                            (s/validate catalog)
+                            json/underscore-keys))
     (http/json-response {:error (str "Could not find catalog for " node)} http/status-not-found)))
 
 (defn build-catalog-app

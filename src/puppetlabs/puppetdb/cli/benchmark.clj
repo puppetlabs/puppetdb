@@ -185,21 +185,21 @@
       (when catalog
         (future
           (try
-            (client/submit-catalog base-url 5 (json/generate-string catalog))
+            (client/submit-catalog base-url 6 (json/generate-string catalog))
             (log/info (format "[%s] submitted catalog" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit catalog: %s" host e))))))
       (when report
         (future
           (try
-            (client/submit-report base-url 3 (json/generate-string report))
+            (client/submit-report base-url 5 (json/generate-string report))
             (log/info (format "[%s] submitted report" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit report: %s" host e))))))
       (when factset
         (future
           (try
-            (client/submit-facts base-url 3 (json/generate-string factset))
+            (client/submit-facts base-url 4 (json/generate-string factset))
             (log/info (format "[%s] submitted factset" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit factset: %s" host e))))))
@@ -219,11 +219,11 @@
         report (and report (update-report-run-fields report))
         factset (and factset (update-factset rand-percentage factset))]
     (when catalog
-      (client/submit-catalog base-url 5 (json/generate-string catalog)))
+      (client/submit-catalog base-url 6 (json/generate-string catalog)))
     (when report
-      (client/submit-report base-url 3 (json/generate-string report)))
+      (client/submit-report base-url 5 (json/generate-string report)))
     (when factset
-      (client/submit-facts base-url 3 (json/generate-string factset)))
+      (client/submit-facts base-url 4 (json/generate-string factset)))
     (assoc state :catalog catalog)))
 
 (defn submit-n-messages

@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
+            [puppetlabs.puppetdb.cheshire :refer [dash-keys]]
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils :refer [response-equal? paged-results deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
@@ -17,23 +18,23 @@
 
   (store-example-report! (:basic reports) (now))
 
-  (testing "summarize-by rejects unsupported values"
+  (testing "summarize_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "illegal-summarize-by" {} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
+      (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
-  (testing "count-by rejects unsupported values"
+  (testing "count_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "certname"
-                                  {"count-by" "illegal-count-by"} true)
+                                  {"count_by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
+      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
-    (let [expected  #{{:subject-type "containing-class"
+    (let [expected  #{{:subject-type "containing_class"
                        :subject {:title "Foo"}
                        :failures 0
                        :successes 0
@@ -41,10 +42,10 @@
                        :skips 1}}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  "containing-class"
-                                  {"count-by"      "certname"
-                                   "counts-filter" ["<" "successes" 1]})]
-      (response-equal? response expected)))
+                                  "containing_class"
+                                  {"count_by"      "certname"
+                                   "counts_filter" ["<" "successes" 1]})]
+      (response-equal? response expected dash-keys)))
 
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
@@ -71,12 +72,12 @@
                      {:app-fn  fixt/*app*
                       :path    endpoint
                       :query   [">" "timestamp" 0]
-                      :params  {:summarize-by "resource"}
+                      :params  {:summarize_by "resource"}
                       :limit   1
                       :total   (count expected)
-                      :include-total count?})]
+                      :include_total count?})]
         (is (= (count expected) (count results)))
-        (is (= expected (set results)))))))
+        (is (= expected (set (dash-keys results))))))))
 
 (deftestseq query-distinct-event-counts
   [[version endpoint] endpoints]
@@ -105,10 +106,10 @@
           response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "resource"
-                                  {"distinct-resources" true
-                                   "distinct-start-time" 0
-                                   "distinct-end-time" (now)})]
-      (response-equal? response expected))))
+                                  {"distinct_resources" true
+                                   "distinct_start_time" 0
+                                   "distinct_end_time" (now)})]
+      (response-equal? response expected dash-keys))))
 
 (deftestseq query-with-environment
   [[version endpoint] endpoints]
@@ -120,10 +121,11 @@
   (are [result query] (response-equal? (get-response endpoint
                                                      query
                                                      "resource"
-                                                     {"distinct-resources" false
-                                                      "distinct-start-time" 0
-                                                      "distinct-end-time" (now)})
-                                       result)
+                                                     {"distinct_resources" false
+                                                      "distinct_start_time" 0
+                                                      "distinct_end_time" (now)})
+                                       result
+                                       dash-keys)
        #{{:subject-type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0

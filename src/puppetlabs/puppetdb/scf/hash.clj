@@ -132,13 +132,13 @@
   [{:keys [resource-type resource-title property timestamp status old-value
            new-value message file line] :as resource-event}]
   (generic-identity-string
-   {:resource-type resource-type
-    :resource-title resource-title
+   {:resource_type resource-type
+    :resource_title resource-title
     :property property
     :timestamp timestamp
     :status status
-    :old-value old-value
-    :new-value new-value
+    :old_value old-value
+    :new_value new-value
     :message message
     :file file
     :line line}))

@@ -22,6 +22,7 @@
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -89,17 +90,17 @@
   {:path s/Str
    :name s/Str
    :depth s/Int
-   :value_type_id s/Int})
+   :value-type-id s/Int})
 
 (def fact-values-to-ids-map
-  {:path_id s/Int
-   :value_type_id s/Int
-   :value_hash s/Str
-   (s/optional-key :value_float) (s/maybe Double)
-   (s/optional-key :value_string) (s/maybe s/Str)
-   (s/optional-key :value_integer) (s/maybe s/Int)
-   (s/optional-key :value_boolean) (s/maybe s/Bool)
-   (s/optional-key :value_json) (s/maybe s/Str)})
+  {:path-id s/Int
+   :value-type-id s/Int
+   :value-hash s/Str
+   (s/optional-key :value-float) (s/maybe Double)
+   (s/optional-key :value-string) (s/maybe s/Str)
+   (s/optional-key :value-integer) (s/maybe s/Int)
+   (s/optional-key :value-boolean) (s/maybe s/Bool)
+   (s/optional-key :value-json) (s/maybe s/Str)})
 
 (def environments-schema
   {:id s/Int
@@ -341,10 +342,10 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [api_version version transaction-uuid environment producer-timestamp]} :- catalog-schema
+   {:keys [api-version version transaction-uuid environment producer-timestamp]} :- catalog-schema
    timestamp :- pls/Timestamp]
   {:hash hash
-   :api_version api_version
+   :api_version api-version
    :catalog_version  version
    :transaction_uuid transaction-uuid
    :timestamp (to-timestamp timestamp)
@@ -772,35 +773,36 @@
 
 (pls/defn-validated fact-path-current-ids :- {fact-path-types-to-ids-map s/Int}
   "Given a list of fact path strings, return a map of paths to ids for existing
-   paths."
+  paths."
   [factpaths :- [fact-path-types-to-ids-map]]
   (let [factpath-data (map (fn [data]
                              [(:path data)
                               (:depth data)
-                              (:value_type_id data)
+                              (:value-type-id data)
                               (:name data)])
                            factpaths)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name FROM fact_paths fp WHERE (fp.path, fp.depth, fp.value_type_id, fp.name)"
-                          (jdbc/in-clause-multi factpath-data 4))
+                          (jdbc/in-clause-multi (map json/underscore-keys factpath-data) 4))
                      factpath-data]))
       (into {} (map (fn [data]
-                      [(select-keys data [:path :depth :value_type_id :name])
+                      [(select-keys data [:path :depth :value-type-id :name])
                        (:id data)])
-                    result-set)))))
+                    (json/dash-keys result-set))))))
 
 (pls/defn-validated fact-path-new-ids :- {fact-path-types-to-ids-map s/Int}
   "Given a list of fact path strings, return a map of paths to ids for newly
    created paths."
   [factpaths :- [fact-path-types-to-ids-map]]
-  (let [record-set (map #(select-keys % [:path :depth :value_type_id :name])
+  (let [record-set (map #(select-keys % [:path :depth :value-type-id :name])
                         factpaths)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get (vec record-set) idx) itm))
-                                (apply sql/insert-records :fact_paths record-set))]
+                                (apply sql/insert-records :fact_paths
+                                       (map json/underscore-keys record-set)))]
     (into {} (map (fn [data]
-                    [(select-keys data [:path :depth :value_type_id :name])
+                    [(select-keys data [:path :depth :value-type-id :name])
                      (:id data)])
                   result-set))))
 
@@ -811,7 +813,7 @@
         comparable-current-ids (zipmap (keys current-path-to-ids)
                                        (repeat nil))
         comparable-incoming-ids (zipmap (map #(select-keys % [:path :depth
-                                                              :value_type_id
+                                                              :value-type-id
                                                               :name])
                                              factpaths)
                                         (repeat nil))
@@ -827,36 +829,37 @@
   fact-values-to-ids-map being the key, and the current corresponding value id
   as the value."
   [factvalues :- [fact-values-to-ids-map]]
-  (let [fv-triples (map (fn [data] [(:path_id data)
-                                    (:value_type_id data)
-                                    (:value_hash data)])
+  (let [fv-triples (map (fn [data] [(:path-id data)
+                                    (:value-type-id data)
+                                    (:value-hash data)])
                         factvalues)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id FROM fact_values fv WHERE (fv.path_id, fv.value_type_id, fv.value_hash) "
-                          (jdbc/in-clause-multi fv-triples 3))
+                          (jdbc/in-clause-multi (json/underscore-keys fv-triples) 3))
                      fv-triples]))
       (into {} (map (fn [data]
-                      [(select-keys data [:path_id :value_type_id :value_hash])
+                      [(select-keys data [:path-id :value-type-id :value-hash])
                        (:id data)])
-                    result-set)))))
+                    (json/dash-keys result-set))))))
 
 (pls/defn-validated fact-value-new-ids :- {fact-values-to-ids-map s/Int}
   "Give a list of fact-values-to-ids-map constructs, returns a map with the
   fact-values-to-ids-map being the key, and any new value id's as the value."
   [factvalues :- [fact-values-to-ids-map]]
   (let [record-set (mapv
-                    #(select-keys % [:path_id :value_type_id :value_hash
-                                     :value_string :value_json :value_integer
-                                     :value_float :value_boolean])
+                    #(select-keys % [:path-id :value-type-id :value-hash
+                                     :value-string :value-json :value-integer
+                                     :value-float :value-boolean])
                     factvalues)
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
-                                (apply sql/insert-records :fact_values record-set))]
+                                (apply sql/insert-records :fact_values
+                                       (map json/underscore-keys record-set)))]
     (into {} (map (fn [data]
-                    [(select-keys data [:path_id :value_type_id :value_hash
-                                        :value_string :value_json :value_integer
-                                        :value_float :value_boolean])
+                    [(select-keys data [:path-id :value-type-id :value-hash
+                                        :value-string :value-json :value-integer
+                                        :value-float :value-boolean])
                      (:id data)])
                   result-set))))
 
@@ -866,7 +869,7 @@
   (let [current-values-to-ids (fact-value-current-ids factvalues)
         comparable-current-ids (zipmap (keys current-values-to-ids)
                                        (repeat nil))
-        primary-keys [:path_id :value_type_id :value_hash]
+        primary-keys [:path-id :value-type-id :value-hash]
         prepared-factvalues (map (fn [data]
                                    (select-keys data primary-keys))
                                  factvalues)
@@ -888,7 +891,7 @@
 (pls/defn-validated new-fact-value-ids* :- [s/Int]
   "Given a flattened list of fact path maps, return a list of value ids."
   [fact-path-maps :- [facts/fact-path-map]]
-  (let [factpaths (map #(select-keys % [:path :depth :value_type_id :name])
+  (let [factpaths (map #(select-keys % [:path :depth :value-type-id :name])
                        fact-path-maps)
         paths-to-id (fact-paths-to-ids factpaths)
         ;; New path map with path_id's set
@@ -896,12 +899,14 @@
                               (let [path-id (get paths-to-id
                                                  (select-keys path-map [:path :depth
                                                                         :name
-                                                                        :value_type_id]))]
-                                (assoc path-map :path_id path-id)))
+                                                                        :value-type-id]))]
+                                (assoc path-map :path-id path-id)))
                             fact-path-maps)
 
         ;; List of maps with value :path-id and :value
-        factvalues (map #(select-keys % [:path_id :value_string :value_json :value_integer :value_float :value_boolean :value_hash :value_type_id])
+        factvalues (map #(select-keys % [:path-id :value-string :value-json
+                                         :value-integer :value-float :value-boolean
+                                         :value-hash :value-type-id])
                         fact-path-maps)
 
         values-to-id (fact-values-to-ids factvalues)]
@@ -1041,10 +1046,10 @@
         old-facts (current-fact-value-ids factset-id)
         new-facts (new-fact-value-ids values)
         factset {:timestamp (to-timestamp timestamp)
-                 :environment_id (ensure-environment environment)
-                 :producer_timestamp (to-timestamp producer-timestamp)
+                 :environment-id (ensure-environment environment)
+                 :producer-timestamp (to-timestamp producer-timestamp)
                  :hash (shash/generic-identity-hash (dissoc fact-data :producer-timestamp :timestamp))}]
-    (sql/update-values :factsets ["id=?" factset-id] factset)
+    (sql/update-values :factsets ["id=?" factset-id] (json/underscore-keys factset))
     (utils/diff-fn (zipmap new-facts (repeat nil))
                    (zipmap old-facts (repeat nil))
                    #(insert-facts! factset-id %)
@@ -1099,8 +1104,8 @@
   nil, just omit it from the row map. For tests that are running older versions
   of migrations, this function prevents a failure"
   [row-map]
-  (if (nil? (:environment_id row-map))
-    (dissoc row-map :environment_id)
+  (if (nil? (:environment-id row-map))
+    (dissoc row-map :environment-id)
     row-map))
 
 (defn add-report!*
@@ -1124,7 +1129,8 @@
                                       (utils/update-when [:new-value] sutils/db-serialize)
                                       (utils/update-when [:containment-path] containment-path-fn)
                                       (assoc :containing-class (find-containing-class (% :containment-path)))
-                                      (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
+                                      (assoc :report report-hash)
+                                      ((partial kitchensink/mapkeys dashes->underscores)))
                                  resource-events)]
     (time! (:store-report metrics)
            (sql/transaction

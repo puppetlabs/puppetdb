@@ -18,23 +18,23 @@
 
   (store-example-report! (:basic reports) (now))
 
-  (testing "summarize-by rejects unsupported values"
+  (testing "summarize_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "illegal-summarize-by"
                                   {} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
+      (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
-  (testing "count-by rejects unsupported values"
+  (testing "count_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "certname"
-                                  {"count-by" "illegal-count-by"} true)
+                                  {"count_by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
+      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
     (let [expected  {:successes 0
@@ -44,9 +44,9 @@
                      :total 1}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  "containing-class"
-                                  {"count-by"      "certname"
-                                   "counts-filter" ["<" "successes" 1]})
+                                  "containing_class"
+                                  {"count_by"      "certname"
+                                   "counts_filter" ["<" "successes" 1]})
           actual    (json/parse-string (:body response) true)]
       (is (= actual expected)))))
 
@@ -64,9 +64,9 @@
           response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "resource"
-                                  {"distinct-resources" true
-                                   "distinct-start-time" 0
-                                   "distinct-end-time" (now)})]
+                                  {"distinct_resources" true
+                                   "distinct_start_time" 0
+                                   "distinct_end_time" (now)})]
       (assert-success! response)
       (is (= expected (json/parse-string (:body response) true))))))
 
@@ -80,9 +80,9 @@
   (are [result query] (= result (-> (get-response endpoint
                                                   query
                                                   "resource"
-                                                  {"distinct-resources" false
-                                                   "distinct-start-time" 0
-                                                   "distinct-end-time" (now)})
+                                                  {"distinct_resources" false
+                                                   "distinct_start_time" 0
+                                                   "distinct_end_time" (now)})
                                     :body
                                     (json/parse-string true)))
        {:successes 2

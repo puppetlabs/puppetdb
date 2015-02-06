@@ -4,13 +4,14 @@
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
+            [puppetlabs.puppetdb.cheshire :as json]
             [ring.util.request :as request]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [pantomime.media :as media]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
             [clojure.walk :refer [keywordize-keys]]))
@@ -75,8 +76,15 @@
   "Ring middleware that creates a database transaction on the read-db"
   [handler]
   (fn [{:keys [globals] :as req}]
-    (with-transacted-connection (:scf-read-db globals)
+    (jdbc/with-transacted-connection (:scf-read-db globals)
       (handler req))))
+
+(defn dashed-keys?
+  [m]
+  (let [ks (filter #(re-find #"-" %) (keys m))]
+    (if (empty? ks)
+      false
+      (s/join ", " ks))))
 
 (defn wrap-with-paging-options
   "Ring middleware that will add to each request a :paging-options attribute:
@@ -90,12 +98,13 @@
     (try
       (app (assoc req :paging-options
                   (-> params
-                      (select-keys ["limit" "offset" "order-by" "include-total"])
-                      (keywordize-keys)
-                      (paging/parse-limit)
-                      (paging/parse-offset)
-                      (paging/parse-count)
-                      (paging/parse-order-by))))
+                      (select-keys ["limit" "offset" "order_by" "include_total"])
+                      keywordize-keys
+                      json/dash-keys
+                      paging/parse-limit
+                      paging/parse-offset
+                      paging/parse-count
+                      paging/parse-order-by)))
       (catch IllegalArgumentException e
         (http/error-response e)))))
 
@@ -141,17 +150,23 @@
          (every? string? (:optional param-specs))]}
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
+                          (dashed-keys? params)
+                          (http/error-response (format "Valid parameters do not contain dashes; found '%s'." p))
+
                           (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (str "Missing required query parameter '" p "'"))
+                          (http/error-response (str "Missing required query parameter '"
+                                                    (jdbc/dashes->underscores p) "'"))
 
                           (let [diff (set/difference (kitchensink/keyset params)
                                                      (set (:required param-specs))
                                                      (set (:optional param-specs)))]
                             (seq diff))
-                          (http/error-response (str "Unsupported query parameter '" (first p) "'"))
+                          (http/error-response (str "Unsupported query parameter '"
+                                                    (jdbc/dashes->underscores (first p)) "'"))
 
                           :else
-                          (app req))))
+                          (app (-> req
+                                   (update-in [:paging-options] json/dash-keys))))))
 
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.

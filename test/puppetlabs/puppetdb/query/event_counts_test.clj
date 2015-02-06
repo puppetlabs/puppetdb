@@ -16,19 +16,19 @@
 (defn- event-counts-query-result
   "Utility function that executes an event-counts query and
   returns a set of results for use in test comparison."
-  ([version query summarize-by]
-     (event-counts-query-result version query summarize-by {}))
-  ([version query summarize-by query-options]
-     (event-counts-query-result version query summarize-by query-options {}))
-  ([version query summarize-by query-options paging-options]
-     (-> (raw-event-counts-query-result version query summarize-by query-options paging-options)
+  ([version query summarize_by]
+     (event-counts-query-result version query summarize_by {}))
+  ([version query summarize_by query-options]
+     (event-counts-query-result version query summarize_by query-options {}))
+  ([version query summarize_by query-options paging-options]
+     (-> (raw-event-counts-query-result version query summarize_by query-options paging-options)
          (:result)
          (set))))
 
 (deftest paging-results
   (let [_           (store-example-report! (:basic reports) (now))
-        count1      {:subject-type "containing-class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
-        count2      {:subject-type "containing-class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
+        count1      {:subject-type "containing_class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
+        count2      {:subject-type "containing_class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
 
     (let [version :v4]
 
@@ -42,10 +42,10 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order-by"
+      (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (event-counts-query-result
                 version
                 ["=" "certname" "foo.local"]
@@ -60,7 +60,7 @@
               (let [actual (:result (raw-event-counts-query-result
                                      version
                                      ["=" "certname" "foo.local"]
-                                     "containing-class"
+                                     "containing_class"
                                      {}
                                      {:order-by [[:successes order]]}))]
                 (is (= actual expected)))))))
@@ -77,7 +77,7 @@
               (let [actual (:result (raw-event-counts-query-result
                                      version
                                      ["=" "certname" "foo.local"]
-                                     "containing-class"
+                                     "containing_class"
                                      {}
                                      {:order-by [[:successes order]] :offset offset}))]
                 (is (= actual expected))))))))))
@@ -87,26 +87,26 @@
 
   (let [version :v4]
 
-    (testing "summarize-by"
+    (testing "summarize_by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
+             IllegalArgumentException #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
              (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
-      (testing "containing-class"
-        (let [expected #{{:subject-type "containing-class"
+      (testing "containing_class"
+        (let [expected #{{:subject-type "containing_class"
                           :subject {:title nil}
                           :failures 0
                           :successes 2
                           :noops 0
                           :skips 0}
-                         {:subject-type "containing-class"
+                         {:subject-type "containing_class"
                           :subject {:title "Foo"}
                           :failures 0
                           :successes 0
                           :noops 0
                           :skips 1}}
-              actual   (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class")]
+              actual   (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class")]
           (is (= actual expected))))
 
       (testing "certname"
@@ -141,15 +141,15 @@
               actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource")]
           (is (= actual expected)))))
 
-    (testing "counts-filter"
+    (testing "counts_filter"
       (testing "= operator"
-        (let [expected  #{{:subject-type "containing-class"
+        (let [expected  #{{:subject-type "containing_class"
                            :subject {:title nil}
                            :failures 0
                            :successes 2
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class" {:counts-filter ["=" "successes" 2]})]
+              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:counts-filter ["=" "successes" 2]})]
           (is (= actual expected))))
 
       (testing "> operator"
@@ -231,23 +231,23 @@
     (testing "count-by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
+             IllegalArgumentException #"Unsupported value for 'count_by': 'illegal-count-by'"
              (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
-        (let [expected  #{{:subject-type "containing-class"
+        (let [expected  #{{:subject-type "containing_class"
                            :subject {:title nil}
                            :failures 0
                            :successes 2
                            :noops 0
                            :skips 0}
-                          {:subject-type "containing-class"
+                          {:subject-type "containing_class"
                            :subject {:title "Foo"}
                            :failures 0
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class" {:count-by "resource"})]
+              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:count-by "resource"})]
           (is (= actual expected))))
 
       (testing "certname"

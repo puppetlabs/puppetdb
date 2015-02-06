@@ -65,7 +65,7 @@
 
          ["in" "name"
           ["extract" "environment"
-           ["select-facts"
+           ["select_facts"
             ["and"
              ["=" "name" "operatingsystem"]
              ["=" "value" "Debian"]]]]]
@@ -74,7 +74,7 @@
          ["not"
           ["in" "name"
            ["extract" "environment"
-            ["select-facts"
+            ["select_facts"
              ["and"
               ["=" "name" "operatingsystem"]
               ["=" "value" "Debian"]]]]]]
@@ -84,12 +84,12 @@
 
          ["in" "name"
           ["extract" "environment"
-           ["select-facts"
+           ["select_facts"
             ["and"
              ["=" "name" "hostname"]
              ["in" "value"
               ["extract" "title"
-               ["select-resources"
+               ["select_resources"
                 ["and"
                  ["=" "type" "Class"]]]]]]]]]
          [{:name "DEV"}])))

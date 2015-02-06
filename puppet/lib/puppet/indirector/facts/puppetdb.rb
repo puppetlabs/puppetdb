@@ -41,11 +41,11 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
           # legacy storeconfigs.
           "environment" => request.options[:environment] || request.environment.to_s,
-          "producer-timestamp" => request.options[:producer_timestamp] || Time.now.iso8601(5),
+          "producer_timestamp" => request.options[:producer_timestamp] || Time.now.iso8601(5),
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 3)
+      submit_command(request.key, payload, CommandReplaceFacts, 4)
     end
   end
 

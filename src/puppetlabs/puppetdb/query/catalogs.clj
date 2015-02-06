@@ -29,10 +29,10 @@
 (def row-schema
   {:version (s/maybe String)
    :hash (s/maybe String)
-   :transaction_uuid (s/maybe String)
+   :transaction-uuid (s/maybe String)
    :environment (s/maybe String)
    :name String
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer-timestamp (s/maybe pls/Timestamp)
    :resource (s/maybe String)
    :type (s/maybe String)
    :title (s/maybe String)
@@ -41,17 +41,17 @@
    :file (s/maybe String)
    :line (s/maybe s/Int)
    :parameters (s/maybe String)
-   :source_type (s/maybe String)
-   :source_title (s/maybe String)
-   :target_type (s/maybe String)
-   :target_title (s/maybe String)
+   :source-type (s/maybe String)
+   :source-title (s/maybe String)
+   :target-type (s/maybe String)
+   :target-title (s/maybe String)
    :relationship (s/maybe String)})
 
 (defn catalog-response-schema
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [api-version]
   (case api-version
-    :v4 (assoc (cats/catalog-wireformat :v5) :hash String)
+    :v4 (assoc (cats/catalog-wireformat :v6) :hash String)
     (cats/catalog-wireformat api-version)))
 
 (defn create-catalog-pred
@@ -73,9 +73,9 @@
 
 (defn collapse-edges
   [acc row]
-  (let [{:keys [source_type target_type source_title target_title relationship]} row
-        edge {:source {:type source_type :title source_title}
-              :target {:type target_type :title target_title}
+  (let [{:keys [source-type target-type source-title target-title relationship]} row
+        edge {:source {:type source-type :title source-title}
+              :target {:type target-type :title target-title}
               :relationship relationship}]
     (into acc [edge])))
 
@@ -88,7 +88,7 @@
                        (reduce collapse-resources #{})
                        (into []))
         edges (->> catalog-rows
-                   (filter #(not (nil? (:source_type %))))
+                   (filter #(not (nil? (:source-type %))))
                    (reduce collapse-edges #{})
                    (into []))]
     (assoc (select-keys first-row [:name :version :environment :hash
@@ -138,7 +138,8 @@
          result {:result (query/streamed-query-result
                           version sql params
                           (comp doall
-                                (munge-result-rows version projections)))}]
+                                (munge-result-rows version projections)
+                                json/dash-keys))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

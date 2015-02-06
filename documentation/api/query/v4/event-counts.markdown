@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 ## `GET /v4/event-counts`
 
 This will return count information about all of the resource events matching the given query.
-For a given object type (resource, containing-class, or node), you can retrieve counts of the
+For a given object type (resource, containing_class, or node), you can retrieve counts of the
 number of events on objects of that type that had a status of `success`, `failure`, `noop`,
 or `skip`.
 
@@ -35,18 +35,18 @@ See the [`events`][events] endpoint for additional documentation as this endpoin
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
 This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
-* `summarize-by`: Required. A string specifying which type of object you'd like to see counts for.
-Supported values are `resource`, `containing-class`, and `certname`.
+* `summarize_by`: Required. A string specifying which type of object you'd like to see counts for.
+Supported values are `resource`, `containing_class`, and `certname`.
 
-* `count-by`: Optional. A string specifying what type of object is counted when building up the
+* `count_by`: Optional. A string specifying what type of object is counted when building up the
 counts of `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default)
 and `certname`.
 
-* `counts-filter`: Optional. A JSON array of query predicates in the usual prefix form. This query
+* `counts_filter`: Optional. A JSON array of query predicates in the usual prefix form. This query
 is applied to the final event counts output. Supported operators are `=`, `>`, `<`, `>=`, and `<=`.
 Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct-resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
+* `distinct_resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
 of this parameter may change in future releases.)  This parameter is passed along
 to the [`event`][events] query - see there for additional documentation.
 
@@ -63,16 +63,16 @@ This endpoint builds on top of the [`events`][events] endpoint, and supports all
 The response is a JSON array of maps. Each map contains the counts of events that matched the input
 parameters. The events are counted based on their statuses: `failures`, `successes`, `noops`, `skips`.
 
-The maps also contain additional data about which object the events occurred on. The `subject-type`
-is the value that was used to summarize by (and therefore should match the input value to `summarize-by`).
+The maps also contain additional data about which object the events occurred on. The `subject_type`
+is the value that was used to summarize by (and therefore should match the input value to `summarize_by`).
 The `subject` map contains specific data about the object the event occurred on, and will vary based on
-the value specified for `summarize-by`.
+the value specified for `summarize_by`.
 
 When summarizing by `certname`, the `subject` will contain a `title` key:
 
     [
       {
-        "subject-type": "certname",
+        "subject_type": "certname",
         "subject": { "title": "foo.local" },
         "failures": 0,
         "successes": 2,
@@ -80,7 +80,7 @@ When summarizing by `certname`, the `subject` will contain a `title` key:
         "skips": 1
       },
       {
-        "subject-type": "certname",
+        "subject_type": "certname",
         "subject": { "title": "bar.local" },
         "failures": 1,
         "successes": 0,
@@ -93,7 +93,7 @@ When summarizing by `resource`, the `subject` will contain a `type` and `title` 
 
     [
       {
-        "subject-type": "resource",
+        "subject_type": "resource",
         "subject": { "type": "Notify", "title": "Foo happened" },
         "failures": 0,
         "successes": 1,
@@ -101,7 +101,7 @@ When summarizing by `resource`, the `subject` will contain a `type` and `title` 
         "skips": 0
       },
       {
-        "subject-type": "resource",
+        "subject_type": "resource",
         "subject": { "type": "Notify", "title": "Bar happened" },
         "failures": 0,
         "successes": 0,
@@ -110,11 +110,11 @@ When summarizing by `resource`, the `subject` will contain a `type` and `title` 
       }
     ]
 
-When summarizing by `containing-class`, the `subject` will contain a `title` key:
+When summarizing by `containing_class`, the `subject` will contain a `title` key:
 
     [
       {
-        "subject-type": "containing-class",
+        "subject_type": "containing_class",
         "subject": { "title": "Foo::Class" },
         "failures": 1,
         "successes": 2,
@@ -122,7 +122,7 @@ When summarizing by `containing-class`, the `subject` will contain a `title` key
         "skips": 1
       },
       {
-        "subject-type": "containing-class",
+        "subject_type": "containing_class",
         "subject": { "title": null },
         "failures": 0,
         "successes": 0,
@@ -137,9 +137,9 @@ You can use [`curl`][curl] to query information about resource event counts like
 
     curl -G 'http://localhost:8080/v4/event-counts' \
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
-            --data-urlencode 'summarize-by=resource' \
-            --data-urlencode 'count-by=certname' \
-            --data-urlencode 'counts-filter=[">", "failures", 0]'
+            --data-urlencode 'summarize_by=resource' \
+            --data-urlencode 'count_by=certname' \
+            --data-urlencode 'counts_filter=[">", "failures", 0]'
 
 ## Paging
 

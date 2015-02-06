@@ -16,8 +16,8 @@
    (s/optional-key :path) String
    (s/optional-key :name) s/Str
    (s/optional-key :depth) s/Int
-   (s/optional-key :value_integer) (s/maybe s/Int)
-   (s/optional-key :value_float) (s/maybe s/Num)
+   (s/optional-key :value-integer) (s/maybe s/Int)
+   (s/optional-key :value-float) (s/maybe s/Num)
    (s/optional-key :value) s/Any
    (s/optional-key :type) (s/maybe String)})
 
@@ -43,7 +43,7 @@
 (pls/defn-validated convert-types :- [converted-row-schema]
   "Coerce values for each row to the proper stored type."
   [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
+  (map (partial facts/convert-row-type [:type :depth :value-integer :value-float]) rows))
 
 (defn munge-result-rows
   [version projections]

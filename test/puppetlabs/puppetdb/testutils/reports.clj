@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]))
@@ -27,7 +28,7 @@
              (update-in ["timestamp"] time-coerce/to-string)
              (dissoc "report")
              (dissoc "certname")
-             (dissoc "configuration-version"))
+             (dissoc "configuration_version"))
         events)))
 
 (defn munge-report-for-comparison
@@ -42,7 +43,7 @@
    :post [(map? %)
           (set? (% "resource-events"))]}
   (-> report
-      (clojure.walk/stringify-keys)
+      clojure.walk/stringify-keys
       (update-in ["start-time"] time-coerce/to-string)
       (update-in ["end-time"] time-coerce/to-string)
       (update-in ["resource-events"] munge-events-for-comparison)
@@ -72,7 +73,8 @@
   ([example-report timestamp]
      (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-     (store-example-report*! #(report/validate! 4 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
+     (store-example-report*! #(report/validate! 5 (munge-example-report-for-storage example-report))
+                             example-report timestamp update-latest-report?)))
 
 (defn expected-report
   [example-report]

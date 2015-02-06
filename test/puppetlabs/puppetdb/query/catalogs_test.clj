@@ -15,12 +15,12 @@
                                                                           catalog-str)]
     (testcat/replace-catalog catalog-str)
     (testing "status"
-      (is (= (testcat/munged-canonical->wire-format :v5 (json/parse-string catalog-str true))
-             (testcat/munged-canonical->wire-format :v5 (c/status :v4 name)))))))
+      (is (= (testcat/munged-canonical->wire-format :v6 (json/parse-string catalog-str true))
+             (testcat/munged-canonical->wire-format :v6 (c/status :v4 name)))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/catalog-query-rows.json")
-                      (json/parse-string)
-                      (keywordize-keys)))
+                  json/parse-string
+                  keywordize-keys))
 
 (def expected-resources
   [{:resources
@@ -120,16 +120,23 @@
                                   (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
   (testing "collapse resources"
     (let [expected-result
-          #{{:tags ["stage"], :type "Stage", :title "main", :parameters {:alias ["main"], :name "main"}, :exported false}
-            {:tags ["settings" "class"], :type "Class", :title "Settings", :parameters {}, :exported false}
-            {:tags ["class"], :type "Class", :title "main", :parameters {:alias ["main"], :name "main"}, :exported false}
+          #{{:tags ["stage"], :type "Stage", :title "main",
+             :parameters {:alias ["main"], :name "main"}, :exported false}
+            {:tags ["settings" "class"], :type "Class", :title "Settings",
+             :parameters {}, :exported false}
+            {:tags ["class"], :type "Class", :title "main",
+             :parameters {:alias ["main"], :name "main"}, :exported false}
             {:tags ["class" "hi" "notify"], :type "Notify", :title "hi", :line 3,
-             :parameters {:message "Hi world"}, :exported false, :file "/home/wyatt/.puppet/manifests/site.pp"}}]
+             :parameters {:message "Hi world"}, :exported false,
+             :file "/home/wyatt/.puppet/manifests/site.pp"}}]
     (is (= expected-result (reduce c/collapse-resources #{} data-seq)))))
 
   (testing "collapse edges"
     (let [expected-result
-          #{{:source {:type "Stage", :title "main"}, :target {:type "Class", :title "Settings"}, :relationship "contains"}
-            {:source {:type "Class", :title "main"}, :target {:type "Notify", :title "hi"}, :relationship "contains"}
-            {:source {:type "Stage", :title "main"}, :target {:type "Class", :title "main"}, :relationship "contains"}}]
+          #{{:source {:type "Stage", :title "main"},
+             :target {:type "Class", :title "Settings"}, :relationship "contains"}
+            {:source {:type "Class", :title "main"},
+             :target {:type "Notify", :title "hi"}, :relationship "contains"}
+            {:source {:type "Stage", :title "main"},
+             :target {:type "Class", :title "main"}, :relationship "contains"}}]
       (is (= expected-result (reduce c/collapse-edges #{} data-seq))))))

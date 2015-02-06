@@ -44,12 +44,12 @@ describe Puppet::Node::Facts::Puppetdb do
         "name" => facts.name,
         "values" => subject.maybe_strip_internal(facts),
         "environment" => "my_environment",
-        "producer-timestamp" => "a test",
+        "producer_timestamp" => "a test",
       }
 
       payload = {
         :command => CommandReplaceFacts,
-        :version => 3,
+        :version => 4,
         :payload => f,
       }.to_pson
 
@@ -73,12 +73,12 @@ describe Puppet::Node::Facts::Puppetdb do
         "name" => facts.name,
         "values" => subject.maybe_strip_internal(facts).merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
-        "producer-timestamp" => "a test",
+        "producer_timestamp" => "a test",
       }
 
       payload = {
         :command => CommandReplaceFacts,
-        :version => 3,
+        :version => 4,
         :payload => f,
       }.to_pson
 

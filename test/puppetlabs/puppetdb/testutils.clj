@@ -234,16 +234,16 @@
   "Makes a ring request to `path` using the `app-fn` ring handler. Sets the necessary parameters
    for paged results.  Returns the ring response, with the body converted from the stream/JSON
    to clojure data structures."
-  [{:keys [app-fn path query params limit total include-total offset] :as paged-test-params}]
+  [{:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
   {:pre [(= #{} (difference
                  (keyset paged-test-params)
-                 #{:app-fn :path :query :params :limit :total :include-total :offset}))]}
+                 #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
   (let [params  (merge params
                        {:limit limit
                         :offset offset})
         request (get-request path query
-                             (if include-total
-                               (assoc params :include-total true)
+                             (if include_total
+                               (assoc params :include_total true)
                                params))
         resp (app-fn request)
         body    (if (string? (:body resp))
@@ -256,16 +256,16 @@
    results for `query`, a `limit` number of records at a time using the built in paging
    functions. See paged-results* for the code making the GET requests, this function
    drives the pages and the assertions of the result."
-  [{:keys [app-fn path query params limit total include-total] :as paged-test-params}]
+  [{:keys [app-fn path query params limit total include_total] :as paged-test-params}]
   {:pre [(= #{} (difference
                  (keyset paged-test-params)
-                 #{:app-fn :path :query :params :limit :total :include-total}))]}
+                 #{:app-fn :path :query :params :limit :total :include_total}))]}
   (reduce
    (fn [coll n]
      (let [{:keys [status body headers] :as resp} (paged-results* (assoc paged-test-params :offset (* limit n)))]
        (assert-success! resp)
        (is (>= limit (count body)))
-       (if include-total
+       (if include_total
          (do
            (is (contains? headers paging/count-header))
            (is (= total (parse-int (headers paging/count-header)))))

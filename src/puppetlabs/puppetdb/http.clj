@@ -170,7 +170,8 @@
   object."
   [coll buffer]
   {:pre [(instance? Writer buffer)]}
-  (json/generate-pretty-stream coll buffer))
+  (json/generate-pretty-stream
+    coll buffer {:key-fn (fn [k] (s/replace (subs (str k) 1) \- \_))}))
 
 (defmacro streamed-response
   "Evaluates `body` in a thread, with a local variable (`writer-var`)

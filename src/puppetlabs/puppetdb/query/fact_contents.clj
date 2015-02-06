@@ -10,8 +10,8 @@
    (s/optional-key :path) s/Str
    (s/optional-key :name) s/Str
    (s/optional-key :value) (s/maybe s/Str)
-   (s/optional-key :value_integer) (s/maybe s/Int)
-   (s/optional-key :value_float) (s/maybe s/Num)
+   (s/optional-key :value-integer) (s/maybe s/Int)
+   (s/optional-key :value-float) (s/maybe s/Num)
    (s/optional-key :type) s/Str})
 
 (def converted-row-schema
@@ -26,10 +26,10 @@
    an array structure."
   [row :- row-schema]
   (-> row
-      (update-in [:value] #(or (:value_integer row) (:value_float row)
+      (update-in [:value] #(or (:value-integer row) (:value-float row)
                                (f/unstringify-value (:type row) %)))
       (update-in [:path] f/string-to-factpath)
-      (dissoc :type :value_integer :value_float)))
+      (dissoc :type :value-integer :value-float)))
 
 (defn munge-result-rows
   "Munge resulting rows for fact-contents endpoint."

@@ -19,8 +19,7 @@
    :environment              {:optional? true
                               :type :string}
    :status                   {:optional? true
-                              :type :string}
-   })
+                              :type :string}})
 
 (def report-fields
   "Report fields"
@@ -57,7 +56,7 @@
   (fn [command-version _]
     command-version))
 
-(defmethod validate! 3
+(defmethod validate! 5
   [_ report]
   (validate-against-model! Report report)
   (doseq [resource-event (:resource-events report)]
@@ -67,22 +66,9 @@
               (format "Containment path should only contain strings: '%s'"
                       (resource-event :containment-path))))))
   (when (nil? (:environment report))
-    (throw (IllegalArgumentException. "Version 3 of reports must contain an environment")))
-  report)
-
-(defmethod validate! 4
-  [_ report]
-  (validate-against-model! Report report)
-  (doseq [resource-event (:resource-events report)]
-    (validate-against-model! ResourceEvent resource-event)
-    (if (not-every? string? (resource-event :containment-path))
-      (throw (IllegalArgumentException.
-              (format "Containment path should only contain strings: '%s'"
-                      (resource-event :containment-path))))))
-  (when (nil? (:environment report))
-    (throw (IllegalArgumentException. "Version 4 of reports must contain an environment")))
+    (throw (IllegalArgumentException. "Version 5 of reports must contain an environment")))
   (when (nil? (:status report))
-    (throw (IllegalArgumentException. "Version 4 of reports must contain a status")))
+    (throw (IllegalArgumentException. "Version 5 of reports must contain a status")))
   report)
 
 (defn sanitize-events

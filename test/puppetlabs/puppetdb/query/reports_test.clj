@@ -84,10 +84,10 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order-by"
+    (testing "order_by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
              (reports-query-result :v4 ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
@@ -97,7 +97,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]]})]
+                                                 {:order-by [[:report_format order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "alphabetical fields"
@@ -107,7 +107,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:transaction-uuid order]]})]
+                                                 {:order-by [[:transaction_uuid order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "timestamp fields"
@@ -117,7 +117,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:start-time order]]})]
+                                                 {:order-by [[:start_time order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "multiple fields"
@@ -127,8 +127,8 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:puppet-version puppet-version-order]
-                                                             [:configuration-version conf-version-order]]})]
+                                                 {:order-by [[:puppet_version puppet-version-order]
+                                                             [:configuration_version conf-version-order]]})]
               (is (= (order-events actual) (order-events expected))))))))
 
     (testing "offset"
@@ -147,7 +147,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]] :offset offset})]
+                                                 {:order-by [[:report_format order]] :offset offset})]
               (is (= (order-events actual) (order-events expected))))))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
@@ -158,7 +158,7 @@
   [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe",
     :puppet-version "3.7.3",
     :receive-time "2014-12-24T00:00:50Z",
-    :report-format 4,
+    :report-format 5,
     :start-time "2014-12-24T00:00:49Z",
     :end-time "2014-12-24T00:00:49Z",
     :transaction-uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
@@ -193,7 +193,7 @@
    {:hash "afe03ad7377e3c44d0f1f2abcf0834778759afff",
     :puppet-version "3.7.3",
     :receive-time "2014-12-24T00:01:12Z",
-    :report-format 4,
+    :report-format 5,
     :start-time "2014-12-24T00:01:11Z",
     :end-time "2014-12-24T00:01:11Z",
     :transaction-uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05",

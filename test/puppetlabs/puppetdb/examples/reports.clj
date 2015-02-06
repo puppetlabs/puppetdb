@@ -4,7 +4,7 @@
   {:basic
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
-    :report-format          3
+    :report-format          4
     :transaction-uuid       "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-01T12:00:00-03:00"
@@ -67,7 +67,7 @@
    :basic2
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
-    :report-format          3
+    :report-format          4
     :transaction-uuid       "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :configuration-version  "bja3985a23"
     :start-time             "2013-08-28T19:00:00-03:00"
@@ -127,7 +127,7 @@
    :basic3
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
-    :report-format          3
+    :report-format          4
     :transaction-uuid       "e1e561ba-212f-11e3-9d58-60a44c233a9d"
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-03T12:00:00-03:00"
@@ -187,7 +187,7 @@
    :basic4
    {:certname               "foo.local"
     :puppet-version         "3.0.1"
-    :report-format          3
+    :report-format          4
     :transaction-uuid       "e1e561ba-212f-11e3-9d58-60a44c233a9d"
     :configuration-version  "a81jasj123"
     :start-time             "2011-01-03T12:00:00-03:00"
