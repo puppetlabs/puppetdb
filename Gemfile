@@ -43,9 +43,10 @@ end
 
 group :acceptance do
   #gem 'beaker', '~> 2.2'
-  # TODO: unpin when released
-  gem 'beaker', :git => 'git://github.com/kbarber/beaker.git',
-    :branch => 'pdb-1034-ezbake-pr-testing'
+  # TODO: unpin when released:
+  #   https://github.com/puppetlabs/beaker/commit/34e5a2305b4beb0caf3bb58b6f308b59da160693
+  gem 'beaker', :git => 'git://github.com/puppetlabs/beaker.git',
+    :branch => '34e5a2305b4beb0caf3bb58b6f308b59da160693'
   # This forces google-api-client to not download retirable 2.0.0 which lacks
   # ruby 1.9.x support.
   gem 'retriable', '~> 1.4'
