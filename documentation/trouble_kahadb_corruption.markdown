@@ -36,7 +36,7 @@ During corruption, the simplest way to recover is to simply move the KahaDB dire
 
 In most cases this is enough, however this means that any data that was not processed may be lost. This is usually only transient queue data however, and is not the persisted data that is stored in your PostgreSQL or HSQLDB database, so in most cases it is not a major concern. For most cases re-running puppet on your nodes will resubmit these lost commands for processing.
 
-If this is going to be too destructive, then there is a few things you can do. But first of all, backup your KahaDB directory before doing anything so you can revert it after each attempt at the techniques listed below:
+If this is going to be too destructive, there are a few things you can do. Before doing anything, backup your KahaDB directory so you can revert it after attempting the actions below:
 
 * You can try clearing your `db.data` file and recreating it. The `db.data` file represents your index, and clearing it may force it to be recreated from the logs.
 * You can try clearing your `db-*.log` files. These files contain the journal and while KahaDB is usually good at finding pin-point corruption and ignoring these today (in fact much better since PuppetDB 1.1.0) there are still edge cases.  Clearing them may let you skip over these bad blocks. It might be that only 1 of these files are corrupted, and the remainder are good so you could attempt clearing one at a time (newest first) to find the culprit.
