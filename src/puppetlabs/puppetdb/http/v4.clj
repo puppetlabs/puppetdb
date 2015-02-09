@@ -14,6 +14,7 @@
             [puppetlabs.puppetdb.http.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.http.resources :as resources]
             [puppetlabs.puppetdb.http.nodes :as nodes]
+            [puppetlabs.puppetdb.http.cruft :as cruft]
             [puppetlabs.puppetdb.http.environments :as envs]
             [net.cgrand.moustache :as moustache]))
 
@@ -21,6 +22,9 @@
 
 (def v4-app
   (moustache/app
+   ["pe" "state_overview" &]
+   {:any cruft/cruft-app}
+
    ["commands" &]
    {:any (cmd/command-app version)}
 
