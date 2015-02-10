@@ -41,10 +41,10 @@
                          "facts_timestamp" :timestamp
                          "report_timestamp" :timestamp
                          "catalog_timestamp" :timestamp}
-               :queryable-fields ["certname" "deactivated" "facts-environment"
-                                  "report-environment" "catalog-environment"
-                                  "facts-timestamp" "report-timestamp"
-                                  "catalog-timestamp"]
+               :queryable-fields ["certname" "deactivated" "facts_environment"
+                                  "report_environment" "catalog_environment"
+                                  "facts_timestamp" "report_timestamp"
+                                  "catalog_timestamp"]
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
@@ -192,10 +192,10 @@
                          "message" :string
                          "transaction_uuid" :string
                          "status" :string}
-               :queryable-fields ["certname" "environment" "puppet-version"
-                                  "report-format" "configuration-version"
-                                  "start-time" "end-time" "transaction-uuid"
-                                  "status" "hash" "receive-time"]
+               :queryable-fields ["certname" "environment" "puppet_version"
+                                  "report_format" "configuration_version"
+                                  "start_time" "end_time" "transaction_uuid"
+                                  "status" "hash" "receive_time"]
                :alias "reports"
                :subquery? false
                :entity :reports
@@ -251,8 +251,8 @@
                          "target_title" :string
                          "relationship" :string}
 
-               :queryable-fields ["version" "environment" "transaction-uuid"
-                                  "producer-timestamp" "hash" "name"]
+               :queryable-fields ["version" "environment" "transaction_uuid"
+                                  "producer_timestamp" "hash" "name"]
                :alias "catalogs"
                :subquery? false
                :source-table "catalogs"
@@ -356,10 +356,10 @@
                          "containment_path" :array
                          "containing_class" :string
                          "environment" :string}
-               :queryable-fields ["message" "old-value" "report-receive-time" "run-end-time" "containment-path"
-                                  "certname" "run-start-time" "timestamp" "configuration-version" "new-value"
-                                  "resource-title" "status" "property" "resource-type" "line" "environment"
-                                  "containing-class" "file" "report" "latest-report?"]
+               :queryable-fields ["message" "old_value" "report_receive_time" "run_end_time" "containment_path"
+                                  "certname" "run_start_time" "timestamp" "configuration_version" "new_value"
+                                  "resource_title" "status" "property" "resource_type" "line" "environment"
+                                  "containing_class" "file" "report" "latest_report?"]
                :alias "events"
                :subquery? false
                :supports-extract? true
@@ -423,7 +423,7 @@
                          "type" :string}
                :alias "factsets"
                :queryable-fields ["certname" "environment" "timestamp"
-                                  "producer-timestamp" "hash"]
+                                  "producer_timestamp" "hash"]
                :entity :factsets
                :source-table "factsets"
                :subquery? false
@@ -574,10 +574,10 @@
 (def user-query->logical-obj
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
   appropriate plan node"
-  {"select-nodes" (assoc nodes-query :subquery? true)
-   "select-resources" (assoc resources-query :subquery? true)
-   "select-params" (assoc resource-params-query :subquery? true)
-   "select-facts" (assoc facts-query :subquery? true)
+  {"select_nodes" (assoc nodes-query :subquery? true)
+   "select_resources" (assoc resources-query :subquery? true)
+   "select_params" (assoc resource-params-query :subquery? true)
+   "select_facts" (assoc facts-query :subquery? true)
    "select-latest-report" (assoc latest-report-query :subquery? true)
    "select-fact-contents" (assoc fact-contents-query :subquery? true)})
 
@@ -600,13 +600,13 @@
             [["=" ["node" "active"] value]]
             ["in" "certname"
              ["extract" "certname"
-              ["select-nodes"
+              ["select_nodes"
                ["null?" "deactivated" value]]]]
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
              ["extract" "res_param_resource"
-              ["select-params"
+              ["select_params"
                ["and"
                 [op "res_param_name" param-name]
                 [op "res_param_value" (db-serialize param-value)]]]]]
@@ -615,7 +615,7 @@
                                                                                 (instance? Boolean %)))]]
             ["in" "certname"
              ["extract" "certname"
-              ["select-facts"
+              ["select_facts"
                ["and"
                 ["=" "name" fact-name]
                 [op "value" fact-value]]]]]
@@ -625,7 +625,7 @@
               (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
               ["in" "certname"
                ["extract" "certname"
-                ["select-facts"
+                ["select_facts"
                  ["and"
                   ["=" "name" fact-name]
                   ["or"
@@ -998,14 +998,14 @@
 (defn augment-paging-options
   "Specially augmented paging options to include handling the cases where name
   and certname may be part of the ordering."
-  [{:keys [order-by] :as paging-options} entity]
-  (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
+  [{:keys [order_by] :as paging-options} entity]
+  (if (or (not (contains? #{:factsets} entity)) (nil? order_by))
     paging-options
     (let [[to-dissoc to-append] (case entity
                                   :factsets  [nil
                                               [[:certname :ascending]]])
-          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
-      (assoc paging-options :order-by (concat to-prepend to-append)))))
+          to-prepend (filter #(not (= to-dissoc (first %))) order_by)]
+      (assoc paging-options :order_by (concat to-prepend to-append)))))
 
 (defn basic-project
   "Returns a function will remove non-projected columns if projections is specified."

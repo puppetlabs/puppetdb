@@ -19,27 +19,27 @@
         (let [validation-fn (fn [[sql & params]]
                               (is (= orig-sql sql)))]
           (with-redefs [jdbc/query-to-vec validation-fn]
-            (testing "should not modify SQL if no order-by is provided"
+            (testing "should not modify SQL if no order_by is provided"
               (execute-query orig-sql {}))
-            (testing "should not modify SQL if order-by list is empty"
-              (execute-query orig-sql {:order-by []})))))
+            (testing "should not modify SQL if order_by list is empty"
+              (execute-query orig-sql {:order_by []})))))
       (testing "should return results in the correct order"
         (is (= (sort (keys antonym-data))
                (map #(get % :key)
                     (execute-query orig-sql
-                                   {:order-by [[:key :ascending]]})))))
+                                   {:order_by [[:key :ascending]]})))))
       (testing "should return results in correct order when :descending is specified"
         (is (= (reverse (sort (keys antonym-data)))
                (map #(get % :key)
                     (execute-query orig-sql
-                                   {:order-by [[:key :descending]]}))))))
-    (testing "should support multiple order-by fields"
+                                   {:order_by [[:key :descending]]}))))))
+    (testing "should support multiple order_by fields"
       (is (= [{:key "blandness" :value "zest"}
               {:key "lethargy"  :value "zest"}
               {:key "abundant"  :value "scarce"}]
              (take 3
                    (execute-query "SELECT key, value from test"
-                                  {:order-by [[:value :descending]
+                                  {:order_by [[:value :descending]
                                               [:key :ascending]]}))))))
   (testing "limit / offset"
     (let [orig-sql "SELECT key FROM test"]
@@ -50,11 +50,11 @@
             (execute-query orig-sql {}))))
       (testing "Results are limited if limit is provided"
         (let [results (execute-query orig-sql
-                                     {:limit 5 :order-by [[:key :ascending]]})]
+                                     {:limit 5 :order_by [[:key :ascending]]})]
           (is (= 5 (count results)))))
       (testing "Results begin at offset if offset is provided"
         (let [results     (execute-query orig-sql
-                                         {:offset 2 :order-by [[:key :ascending]]})]
+                                         {:offset 2 :order_by [[:key :ascending]]})]
           (is (= "accept" (-> results first :key)))))
       (testing "Combination of limit and offset allows paging through entire result set"
         (let [orig-results        (set (jdbc/query-to-vec orig-sql))
@@ -66,7 +66,7 @@
                                      orig-sql
                                      {:limit     limit
                                       :offset    (* n limit)
-                                      :order-by  [[:key :ascending]]}))
+                                      :order_by  [[:key :ascending]]}))
               paged-result        (->> (range num-paged-queries)
                                        (map paged-query-fn)
                                        (apply concat))]

@@ -34,16 +34,16 @@ test_name "basic validation of puppet report submission" do
     # typical puppet run there are a bunch of "Schedule" resources that will
     # always show up as skipped.  Here we filter them out because they're
     # not really interesting for this test.
-    events = events.reject {|x| x["resource-type"] == "Schedule" }
+    events = events.reject {|x| x["resource_type"] == "Schedule" }
 
     assert_equal(1, events.length)
 
     event = events[0]
 
-    assert_equal("Notify", event["resource-type"], "resource-type doesn't match!")
-    assert_equal("hi", event["resource-title"], "resource-title doesn't match!")
+    assert_equal("Notify", event["resource_type"], "resource_type doesn't match!")
+    assert_equal("hi", event["resource_title"], "resource_title doesn't match!")
     assert_equal("message", event["property"], "property doesn't match!")
-    assert_equal("Hi #{agent.node_name}", event["new-value"], "new-value doesn't match!")
+    assert_equal("Hi #{agent.node_name}", event["new_value"], "new_value doesn't match!")
   end
 
 end

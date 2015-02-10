@@ -16,7 +16,7 @@
   ;; Because we want to compare 'certname' in the output of event queries, the
   ;; example data includes it... but it is not a legal key for an event during
   ;; report submission.
-  (dissoc example-event :certname :test-id :containing-class :environment))
+  (dissoc example-event :certname :test_id :containing_class :environment))
 
 (defn environment [resource-event report version]
   (if (= :v4 version)
@@ -31,15 +31,15 @@
       ;; the examples don't have the report-id or configuration-version,
       ;; but the results from the database do... so we need to munge those in.
       (assoc-in [:report] (:hash report))
-      (assoc-in [:configuration-version] (:configuration-version report))
-      (assoc-in [:run-start-time] (to-timestamp (:start-time report)))
-      (assoc-in [:run-end-time] (to-timestamp (:end-time report)))
-      (assoc-in [:report-receive-time] (to-timestamp (:receive-time report)))
+      (assoc-in [:configuration_version] (:configuration_version report))
+      (assoc-in [:run_start_time] (to-timestamp (:start_time report)))
+      (assoc-in [:run_end_time] (to-timestamp (:end_time report)))
+      (assoc-in [:report_receive_time] (to-timestamp (:receive_time report)))
       ;; we need to convert the datetime fields from the examples to timestamp objects
       ;; in order to compare them.
       (update-in [:timestamp] to-timestamp)
       (environment report version)
-      (dissoc :test-id)))
+      (dissoc :test_id)))
 
 (defn raw-expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,

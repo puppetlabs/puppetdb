@@ -86,13 +86,13 @@
                "40f42c42bcd81ae28ab306ab64498f0bd6674ce6")))))
 
   (testing "resource-event-identity-string"
-    (let [sample {:resource-type  "Type"
-                  :resource-title "foo"
+    (let [sample {:resource_type  "Type"
+                  :resource_title "foo"
                   :property       "name"
                   :timestamp      "foo"
                   :status         "skipped"
-                  :old-value      "baz"
-                  :new-value      "foo"
+                  :old_value      "baz"
+                  :new_value      "foo"
                   :message        "Name changed from baz to foo"}]
 
       (testing "shouldn't change for identical input"
@@ -101,7 +101,7 @@
 
       (testing "should return the same predictable string"
         (is (= (resource-event-identity-string sample)
-               "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new-value\":\"foo\",\"old-value\":\"baz\",\"property\":\"name\",\"resource-title\":\"foo\",\"resource-type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
+               "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new_value\":\"foo\",\"old_value\":\"baz\",\"property\":\"name\",\"resource_title\":\"foo\",\"resource_type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
 
   (testing "catalog-resource-identity-format"
     (let [sample {:type "Type"
@@ -131,12 +131,12 @@
 
   (testing "report-identity-hash"
     (let [sample {:certname "foobar.baz"
-                  :puppet-version "3.2.1"
-                  :report-format 1
-                  :configuration-version "asdffdsa"
-                  :start-time "2012-03-01-12:31:11.123"
-                  :end-time   "2012-03-01-12:31:31.123"
-                  :resource-events [
+                  :puppet_version "3.2.1"
+                  :report_format 1
+                  :configuration_version "asdffdsa"
+                  :start_time "2012-03-01-12:31:11.123"
+                  :end_time   "2012-03-01-12:31:31.123"
+                  :resource_events [
                                     {:type "Type"
                                      :title "title"
                                      :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
@@ -145,7 +145,7 @@
 
       (testing "should return sorted predictable string output"
         (is (= (report-identity-hash sample)
-               "3504b79ff27eb17f4b83bf597d3944bb91cbb1ab")))
+               "7fddeb9eb1f4469acb9ea6c5d1bea15f8654326b")))
 
       (testing "should return the same value twice"
         (is (= (report-identity-hash sample)
@@ -214,11 +214,11 @@
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
-                            #(assoc % :puppet-version (str (:puppet-version %) "foo"))
-                            #(assoc % :report-format (inc (:report-format %)))
-                            #(assoc % :configuration-version (str (:configuration-version %) "foo"))
-                            #(assoc % :start-time (str (:start-time %) "foo"))
-                            #(assoc % :end-time (str (:start-time %) "foo"))]]
+                            #(assoc % :puppet_version (str (:puppet_version %) "foo"))
+                            #(assoc % :report_format (inc (:report_format %)))
+                            #(assoc % :configuration_version (str (:configuration_version %) "foo"))
+                            #(assoc % :start_time (str (:start_time %) "foo"))
+                            #(assoc % :end_time (str (:start_time %) "foo"))]]
         (doseq [mod-report-fn mod-report-fns]
           (is (not= report-hash (report-identity-hash (mod-report-fn report)))))))))
 

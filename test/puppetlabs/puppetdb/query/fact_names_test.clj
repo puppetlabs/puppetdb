@@ -23,7 +23,7 @@
                            :values (into {} (map (fn [x] [x "unused"]) [f2 f4 f1 f3]))
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (facts/fact-names {:count? true}))]
@@ -35,18 +35,18 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order-by"
+    (testing "order_by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-             (query-fact-names {:order-by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+             (query-fact-names {:order_by [[:invalid-field :ascending]]}))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [[:ascending  [f1 f2 f3 f4]]
                                   [:descending [f4 f3 f2 f1]]]]
           (testing order
             (let [actual (query-fact-names
-                          {:order-by [[:name order]]})]
+                          {:order_by [[:name order]]})]
               (is (= actual expected)))))))
 
     (testing "offset"
@@ -63,5 +63,5 @@
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-fact-names
-                          {:order-by [[:name order]] :offset offset})]
+                          {:order_by [[:name order]] :offset offset})]
               (is (= actual expected)))))))))

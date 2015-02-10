@@ -17,16 +17,16 @@ test_name "validate matching transaction UUIDs in agent report and catalog" do
 
   agents.each do |agent|
     # Query for all of the reports for this node, but we only care about the most recent one
-    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order-by=[{"field":"receive-time","order":"desc"}]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
     report = JSON.parse(result.stdout)[0]
 
     # Query for the most recent catalog for this node
     result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{agent.node_name}|
     catalog = JSON.parse(result.stdout)
 
-    report_uuid = report['transaction-uuid']
-    catalog_uuid = catalog['transaction-uuid']
-    report_format = report['report-format']
+    report_uuid = report['transaction_uuid']
+    catalog_uuid = catalog['transaction_uuid']
+    report_format = report['report_format']
 
     if report_format < 4
       assert_equal(nil, report_uuid, 'Transaction UUID should be nil in reports before format 4')

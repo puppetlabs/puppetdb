@@ -74,13 +74,13 @@
   "Helper function to executed paged queries.  Builds up the paged sql string,
   executes the query, and returns map containing the `:result` key and an
   optional `:count` key."
-  [fail-limit query {:keys [limit offset order-by count?] :as paging-options}]
+  [fail-limit query {:keys [limit offset order_by count?] :as paging-options}]
   {:pre [(and (integer? fail-limit) (>= fail-limit 0))
          (valid-jdbc-query? query)
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
-         ((some-fn nil? sequential?) order-by)
-         (every? order-by-expr? order-by)]
+         ((some-fn nil? sequential?) order_by)
+         (every? order-by-expr? order_by)]
    :post [(map? %)
           (vector? (:result %))
           ((some-fn nil? integer?) (:count %))]}
@@ -119,7 +119,7 @@
   count' should be returned, then the map will also include a key `:count`,
   whose value is an integer indicating the total number of results available."
   ([query paging-options] (execute-query 0 query paging-options))
-  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
+  ([fail-limit query {:keys [limit offset order_by] :as paging-options}]
      {:pre [((some-fn string? sequential?) query)]
       :post [(map? %)
              (vector? (:result %))
@@ -202,7 +202,7 @@
 (def factset-columns {"certname" "factsets"
                       "environment" "factsets"
                       "timestamp" "factsets"
-                      "producer-timestamp" "factsets"
+                      "producer_timestamp" "factsets"
                       "hash" "factsets"})
 
 ;; This map's keys are the queryable fields for resources, and the values are the
@@ -314,8 +314,8 @@
   (keyset report-columns))
 
 (def subquery->type
-  {"select-resources" :resource
-   "select-facts"     :fact})
+  {"select_resources" :resource
+   "select_facts"     :fact})
 
 (defn compile-extract
   "Compile an `extract` operator, selecting the given `field` from the compiled
@@ -870,8 +870,8 @@
       "not" (partial compile-not version (resource-operators version))
       "extract" (partial compile-extract version (resource-operators version))
       "in" (partial compile-in :resource version (resource-operators version))
-      "select-resources" (partial resource-query->sql (resource-operators version))
-      "select-facts" (partial fact-query->sql (fact-operators version))
+      "select_resources" (partial resource-query->sql (resource-operators version))
+      "select_facts" (partial fact-query->sql (fact-operators version))
       nil)))
 
 (defn fact-operators
@@ -893,8 +893,8 @@
         (= op "not") (partial compile-not version (fact-operators version))
         (= op "extract") (partial compile-extract version (fact-operators version))
         (= op "in") (partial compile-in :fact version (fact-operators version))
-        (= op "select-resources") (partial resource-query->sql (resource-operators version))
-        (= op "select-facts") (partial fact-query->sql (fact-operators version))))))
+        (= op "select_resources") (partial resource-query->sql (resource-operators version))
+        (= op "select_facts") (partial fact-query->sql (fact-operators version))))))
 
 (defn resource-event-ops
   "Maps resource event query operators to the functions implementing them. Returns nil
@@ -911,8 +911,8 @@
         (= op "~") (compile-resource-event-regexp version)
         (= op "extract") (partial compile-extract version (resource-event-ops version))
         (= op "in") (partial compile-in :event version (resource-event-ops version))
-        (= op "select-resources") (partial resource-query->sql (resource-operators version))
-        (= op "select-facts") (partial fact-query->sql (fact-operators version))))))
+        (= op "select_resources") (partial resource-query->sql (resource-operators version))
+        (= op "select_facts") (partial fact-query->sql (fact-operators version))))))
 
 (defn event-count-ops
   "Maps resource event count operators to the functions implementing them.

@@ -97,7 +97,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  5)
+  6)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
@@ -113,8 +113,8 @@
   {:name s/Str
    :version s/Str
    :environment (s/maybe s/Str)
-   :transaction-uuid (s/maybe s/Str)
-   :producer-timestamp (s/maybe pls/Timestamp)
+   :transaction_uuid (s/maybe s/Str)
+   :producer_timestamp (s/maybe pls/Timestamp)
 
    ;; This is a crutch. We use sets for easier searching and avoid
    ;; reliance on ordering. We should pick one of the below (probably
@@ -136,8 +136,8 @@
   [version]
   (case version
     :all full-catalog
-    :v5 (dissoc full-catalog :api_version)
-    (catalog-wireformat :v5)))
+    :v6 (dissoc full-catalog :api_version)
+    (catalog-wireformat :v6)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -147,9 +147,9 @@
    keys for it to be the full version"
   [catalog]
   (utils/assoc-when catalog
-                    :transaction-uuid nil
+                    :transaction_uuid nil
                     :environment nil
-                    :producer-timestamp nil
+                    :producer_timestamp nil
                     :api_version 1))
 
 (pls/defn-validated canonical-catalog
@@ -328,7 +328,7 @@
    :post  [(map? %)]}
   (parse-catalog (json/parse-string catalog true) version))
 
-(defmethod parse-catalog 5
+(defmethod parse-catalog 6
   [catalog version]
   {:pre [(map? catalog)
          (number? version)]

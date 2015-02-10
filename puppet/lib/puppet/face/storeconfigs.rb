@@ -59,8 +59,8 @@ if Puppet::Util::Puppetdb.puppet3compat?
           File.open(File.join(workdir, 'export-metadata.json'), 'w') do |file|
             metadata = {
               'timestamp' => timestamp,
-              'command-versions' => {
-                'replace-catalog' => 5,
+              'command_versions' => {
+                'replace_catalog' => 6,
               }
             }
 

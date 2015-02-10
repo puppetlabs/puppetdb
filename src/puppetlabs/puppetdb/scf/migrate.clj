@@ -727,7 +727,7 @@
              :values facts
              :timestamp timestamp
              :environment environment
-             :producer-timestamp nil}
+             :producer_timestamp nil}
             include-hash?))))))
 
 (defn structured-facts []

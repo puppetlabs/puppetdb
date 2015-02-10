@@ -87,12 +87,12 @@
   "Generate a random resource event."
   []
   {
-   "resource-type"      (random-string)
-   "resource-title"     (random-string)
+   "resource_type"      (random-string)
+   "resource_title"     (random-string)
    "property"           (random-string)
    "timestamp"          (random-string)
    "status"             (random-string)
-   "old-value"          (random-string)
-   "new-value"          (random-string)
+   "old_value"          (random-string)
+   "new_value"          (random-string)
    "message"            (random-string)
    })

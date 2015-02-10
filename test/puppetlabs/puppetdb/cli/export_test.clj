@@ -20,8 +20,8 @@
 
         (let [exported-catalog (c/status :v4 "myhost.localdomain")]
 
-          (is (= (testcat/munge-catalog-for-comparison :v5 original-catalog)
-                 (testcat/munge-catalog-for-comparison :v5 exported-catalog)))))))
+          (is (= (testcat/munge-catalog-for-comparison :v6 original-catalog)
+                 (testcat/munge-catalog-for-comparison :v6 exported-catalog)))))))
 
   (testing "Exporting a JSON report"
     (testing "the exported JSON should match the original import JSON"
@@ -36,9 +36,9 @@
   (testing "Export metadata"
     (let [{:keys [msg file-suffix contents]} (export/export-metadata)
           metadata (json/parse-string contents true)]
-      (is (= {:replace-catalog 5
-              :store-report 3
-              :replace-facts 3}
-             (:command-versions metadata)))
+      (is (= {:replace_catalog 6
+              :store_report 5
+              :replace_facts 4}
+             (:command_versions metadata)))
       (is (= ["export-metadata.json"] file-suffix))
       (is (= "Exporting PuppetDB metadata" msg)))))

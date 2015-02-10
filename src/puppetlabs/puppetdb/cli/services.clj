@@ -327,7 +327,7 @@
   (shared-globals [this])
   (query [this query-obj version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order-by, :offset, and/or :limit.")
+    be a map containing :order_by, :offset, and/or :limit.")
   (submit-command [this command version payload]))
 
 (defservice puppetdb-service

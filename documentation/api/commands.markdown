@@ -4,10 +4,9 @@ layout: default
 canonical: "/puppetdb/latest/api/commands.html"
 ---
 
-[factsv3]: ./wire_format/facts_format_v3.html
-[catalogv5]: ./wire_format/catalog_format_v5.html
-[reportv3]: ./wire_format/report_format_v3.html
-[reportv4]: ./wire_format/report_format_v4.html
+[factsv4]: ./wire_format/facts_format_v4.html
+[catalogv6]: ./wire_format/catalog_format_v6.html
+[reportv5]: ./wire_format/report_format_v5.html
 
 Commands are used to change PuppetDB's
 model of a population. Commands are represented by `command objects`,
@@ -68,23 +67,22 @@ processed.
 
 ## List of Commands
 
-### "replace catalog", version 5
+### "replace catalog", version 6
 
-Version 5 differs from version 4 by added support of a producer-timestamp
-field. This field is currently populated by the master, but will eventually
-be populated by agents to help ensure a consistent order of events in a
-multiple-master setup. Previous versions of the command will store a `null`
-value for this field.
+Version 6 differs from version 5 only in that all field names that were
+previously separated by dashes are separated by underscores.
 
 The payload is expected to be a Puppet catalog, as a JSON object, conforming
-exactly to the [catalog wire format v5][catalogv5]. Extra or missing fields
+exactly to the [catalog wire format v6][catalogv6]. Extra or missing fields
 are an error.
 
-### "replace facts", version 3
+### "replace facts", version 4
 
-Similar to version 5 of replace catalog, this version of replace facts adds support
-for the producer-timestamp field that will eventually be used for agent
-timekeeping.  See [fact wire format v3][factsv3] for more information on the
+Similar to version 6 of replace catalog, this version of replace facts differs
+from version 3 only in that the previously dashed fields are now
+underscore-separated.
+
+See [fact wire format v3][factsv3] for more information on the
 payload of this command.
 
 ### "deactivate node", version 2
@@ -93,26 +91,15 @@ The payload is expected to be the name of a node, as a raw JSON string, which wi
 effective as of the time the command is *processed*. Serialization of the payload is no
 longer required.
 
-### "store report", version 3
+### "store report", version 5
 
-> **Note:** This version is deprecated, use the latest version instead.
-
-Similar to replace catalog version 4, this version of store report adds support
-for environments and creates an explicit link between command version and wire
-format version. This is a backward compatible change with version 2.
+As with version 4 or replace facts and version 6 of replace catalog, the
+version 5 store report command differs from version 4 only in that previously
+dash-separated fields are underscore-separated.
 
 The payload is expected to be a report, containing events that occurred on Puppet
 resources.  It is structured as a JSON object, conforming to the
-[report wire format v3][reportv3].
-
-### "store report", version 4
-
-This version of store reports, includes a new top level `status` field to store the overall status
-of a puppet run.
-
-The payload is expected to be a report, containing events that occurred on Puppet
-resources.  It is structured as a JSON object, conforming to the
-[report wire format v4][reportv4].
+[report wire format v5][reportv5].
 
 ## Examples using curl
 

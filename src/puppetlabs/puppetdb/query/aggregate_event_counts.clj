@@ -16,16 +16,16 @@
            FROM (%s) event_counts" event-count-sql))
 
 (defn query->sql
-  "Convert an aggregate-event-counts `query` and a value to `summarize-by` into a SQL string.
+  "Convert an aggregate-event-counts `query` and a value to `summarize_by` into a SQL string.
   Since all inputs are forwarded to `event-counts/query->sql`, look there for proper documentation."
-  [version query [summarize-by query-options]]
+  [version query [summarize_by query-options]]
   {:pre  [(sequential? query)
-          (string? summarize-by)
+          (string? summarize_by)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
   (let [query-options (if (nil? query-options) {} query-options)
         [count-sql & params] (:results-query
-                              (event-counts/query->sql version query [summarize-by query-options {}]))
+                              (event-counts/query->sql version query [summarize_by query-options {}]))
         aggregate-sql        (get-aggregate-sql count-sql)]
     {:results-query (apply vector aggregate-sql params)}))
 

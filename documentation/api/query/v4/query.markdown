@@ -97,7 +97,7 @@ Different operators may take different numbers (and types) of arguments. Each en
 >     value:          string
 >     bool:           "or" | "and"
 >     binary_op:      "=" | "~" | ">" | ">=" | "<" | "<=" | "null?"
->     subquery_name:  "select-resources" | "select-facts" | "select-nodes"
+>     subquery_name:  "select_resources" | "select_facts" | "select_nodes"
 
 > ### Note on JSON Formatting
 >

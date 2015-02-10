@@ -129,16 +129,16 @@
   whether or not two resource events are identical (resource type, resource title,
   property, values, status, timestamp, etc.)
   "
-  [{:keys [resource-type resource-title property timestamp status old-value
-           new-value message file line] :as resource-event}]
+  [{:keys [resource_type resource_title property timestamp status old_value
+           new_value message file line] :as resource_event}]
   (generic-identity-string
-   {:resource-type resource-type
-    :resource-title resource-title
+   {:resource_type resource_type
+    :resource_title resource_title
     :property property
     :timestamp timestamp
     :status status
-    :old-value old-value
-    :new-value new-value
+    :old_value old_value
+    :new_value new_value
     :message message
     :file file
     :line line}))
@@ -150,14 +150,14 @@
   whether or not two reports contain the same things (certname,
   configuration version, timestamps, events).
   "
-  [{:keys [certname puppet-version report-format configuration-version
-           start-time end-time resource-events transaction-uuid] :as report}]
+  [{:keys [certname puppet_version report_format configuration_version
+           start_time end_time resource_events transaction_uuid] :as report}]
   (generic-identity-hash
    {:certname certname
-    :puppet-version puppet-version
-    :report-format report-format
-    :configuration-version configuration-version
-    :start-time start-time
-    :end-time end-time
-    :resource-events (sort (map resource-event-identity-string resource-events))
-    :transaction-uuid transaction-uuid}))
+    :puppet_version puppet_version
+    :report_format report_format
+    :configuration_version configuration_version
+    :start_time start_time
+    :end_time end_time
+    :resource_events (sort (map resource-event-identity-string resource_events))
+    :transaction_uuid transaction_uuid}))

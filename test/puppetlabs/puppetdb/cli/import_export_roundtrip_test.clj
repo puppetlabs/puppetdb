@@ -88,9 +88,9 @@
                         :bar "the bar"
                         :baz "the baz"
                         :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-               :producer-timestamp (to-string (now))}
+               :producer_timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
-        catalog (-> (get-in wire-catalogs [5 :empty])
+        catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :name "foo.local"))
         report (:basic reports)
         with-server #(jutils/puppetdb-instance
@@ -101,18 +101,18 @@
     (with-server
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
-        (submit-command *base-url* :replace-catalog 5 catalog)
-        (submit-command *base-url* :store-report 3
+        (submit-command *base-url* :replace-catalog 6 catalog)
+        (submit-command *base-url* :store-report 5
                         (tur/munge-example-report-for-storage report))
-        (submit-command *base-url* :replace-facts 3 facts)
+        (submit-command *base-url* :replace-facts 4 facts)
 
         (block-on-node *base-url* (:name facts))
 
-        (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+        (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> catalog
                         (dissoc :hash)
                         utils/vector-maybe))
-               (map (partial tuc/munge-catalog-for-comparison :v5)
+               (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> (export/catalog-for-node *base-url* (:name catalog))
                         (json/parse-string true)
                         (dissoc :hash)
@@ -141,11 +141,11 @@
 
         (block-on-node *base-url* (:name facts))
 
-        (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+        (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> catalog
                         (dissoc :hash)
                         utils/vector-maybe))
-               (map (partial tuc/munge-catalog-for-comparison :v5)
+               (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> (export/catalog-for-node *base-url* (:name catalog))
                         (json/parse-string true)
                         (dissoc :hash)
@@ -165,13 +165,13 @@
   (test-basic-roundtrip "/foo"))
 
 (deftest test-max-frame-size
-  (let [catalog (-> (get-in wire-catalogs [5 :empty])
+  (let [catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :name "foo.local"))]
     (jutils/puppetdb-instance
      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (is (empty? (export/get-nodes *base-url*)))
-       (submit-command *base-url* :replace-catalog 5 catalog)
+       (submit-command *base-url* :replace-catalog 6 catalog)
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
             @(block-until-results 5
@@ -196,12 +196,12 @@
    #"^Invalid destination .*"))
 
 (deftest changing-queue-destination-name
-  (let [catalog (get-in wire-catalogs [5 :empty])]
+  (let [catalog (get-in wire-catalogs [6 :empty])]
     (jutils/with-command-endpoint "foo"
       (jutils/with-puppetdb-instance
         (is (thrown-with-msg? clojure.lang.ExceptionInfo
                               #"status 404"
                               (jutils/dispatch-count "puppetlabs.puppetdb.commands")))
-        (submit-command *base-url* :replace-catalog 5 catalog)
+        (submit-command *base-url* :replace-catalog 6 catalog)
         @(block-until-results 100 (export/catalog-for-node *base-url* (:name catalog)))
         (is (= 1 (jutils/dispatch-count "foo")))))))

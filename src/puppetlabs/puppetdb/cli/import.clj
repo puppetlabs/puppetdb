@@ -36,7 +36,7 @@
   commands should be used during import."
   [tarball]
   {:post [(map? %)
-          (contains? % :command-versions)]}
+          (contains? % :command_versions)]}
   (check-import tarball #(System/exit 0))
   (let [metadata-path (.getPath (io/file export-root-dir export-metadata-file-name))]
     (with-open [tar-reader (archive/tarball-reader tarball)]
@@ -67,17 +67,17 @@
       ;;   query to the /nodes endpoint and shows the set difference between
       ;;   the list of nodes that we submitted and the output of that query
       (client/submit-catalog dest
-                             (get-in metadata [:command-versions :replace-catalog])
+                             (get-in metadata [:command_versions :replace_catalog])
                              (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern report-pattern) path)
       (println (format "Importing report from archive entry '%s'" path))
       (client/submit-report dest
-                            (get-in metadata [:command-versions :store-report])
+                            (get-in metadata [:command_versions :store_report])
                             (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern facts-pattern) path)
       (println (format "Importing facts from archive entry '%s'" path))
       (client/submit-facts dest
-                           (get-in metadata [:command-versions :replace-facts])
+                           (get-in metadata [:command_versions :replace_facts])
                            (archive/read-entry-content tar-reader)))))
 
 (defn- validate-cli!

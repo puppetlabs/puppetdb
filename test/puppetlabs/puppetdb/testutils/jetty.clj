@@ -112,12 +112,7 @@
 (defn current-queue-depth
   "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
   []
-  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)
-        _ (println (str (utils/base-url->str base-metrics-url)
-                        "/mbeans/org.apache.activemq:BrokerName="
-                        (url-encode (:host base-metrics-url))
-                        ",Type=Queue,Destination=puppetlabs.puppetdb.commands"))
-        ]
+  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
     (-> (str (utils/base-url->str base-metrics-url)
              "/mbeans/org.apache.activemq:BrokerName="
              (url-encode (:host base-metrics-url))

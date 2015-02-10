@@ -37,7 +37,7 @@
   {:certname String
    :environment (s/maybe s/Str)
    :timestamp pls/Timestamp
-   :producer-timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp (s/maybe pls/Timestamp)
    :hash (s/maybe s/Str)
    :facts {s/Str s/Any}})
 
@@ -88,9 +88,9 @@
   "Aggregate all facts for a certname into a single structure."
   [version :- s/Keyword
    certname-rows :- [converted-row-schema]]
-  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first certname-rows))
+  (let [first-row (first certname-rows)
         facts (reduce recreate-fact-path {} certname-rows)]
-    (assoc (select-keys first-row [:hash :certname :environment :timestamp :producer-timestamp])
+    (assoc (select-keys first-row [:hash :certname :environment :timestamp :producer_timestamp])
       :facts (int-maps->vectors facts))))
 
 (pls/defn-validated structured-data-seq

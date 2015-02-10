@@ -87,9 +87,9 @@
     (testing "key validation"
       (let [catalog (:basic catalogs)
             v5-catalog (dissoc catalog :api_version)
-            v4-catalog (dissoc catalog :api_version :producer-timestamp)
-            v3-catalog (dissoc catalog :environment :producer-timestamp)
-            v2-catalog (dissoc catalog :transaction-uuid :environment :producer-timestamp)
+            v4-catalog (dissoc catalog :api_version :producer_timestamp)
+            v3-catalog (dissoc catalog :environment :producer_timestamp)
+            v2-catalog (dissoc catalog :transaction_uuid :environment :producer_timestamp)
             v1-catalog (assoc catalog :something "random")]
         (testing "should accept catalogs with the correct set of keys"
           (are [version catalog] (= catalog (s/validate (catalog-wireformat version) catalog))
@@ -160,12 +160,12 @@
                (canonical-catalog version (canonical-catalog :all catalog))))))
     (testing "version 5"
       (let [v5-catalog (canonical-catalog :v5 catalog)]
-        (is (= (:transaction-uuid catalog)
-               (:transaction-uuid v5-catalog)))
+        (is (= (:transaction_uuid catalog)
+               (:transaction_uuid v5-catalog)))
         (is (= (:environment catalog)
                (:environment v5-catalog)))
-        (is (= (:producer-timestamp catalog)
-               (:producer-timestamp v5-catalog)))
+        (is (= (:producer_timestamp catalog)
+               (:producer_timestamp v5-catalog)))
         (is (not (contains? v5-catalog :api_version)))))))
 
 (deftest test-canonical->wire-format

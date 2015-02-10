@@ -13,30 +13,30 @@
 
 (defn order-events
   [report]
-  (sort-by :hash (map #(update-in % [:resource-events] munge-resource-events) report)))
+  (sort-by :hash (map #(update-in % [:resource_events] munge-resource-events) report)))
 
 (def my-reports
   (-> reports
-      (assoc-in [:basic  :report-format] 3)
-      (assoc-in [:basic2 :report-format] 4)
-      (assoc-in [:basic3 :report-format] 6)
-      (assoc-in [:basic4 :report-format] 5)
-      (assoc-in [:basic  :transaction-uuid] "aaa-111")
-      (assoc-in [:basic2 :transaction-uuid] "bbb-222")
-      (assoc-in [:basic3 :transaction-uuid] "ccc-444")
-      (assoc-in [:basic4 :transaction-uuid] "ccc-333")
-      (assoc-in [:basic  :start-time] (-> 1 days ago))
-      (assoc-in [:basic2 :start-time] (-> 4 days ago))
-      (assoc-in [:basic3 :start-time] (-> 3 days ago))
-      (assoc-in [:basic4 :start-time] (-> 2 days ago))
-      (assoc-in [:basic  :puppet-version] "3.0.1")
-      (assoc-in [:basic2 :puppet-version] "3.0.1")
-      (assoc-in [:basic3 :puppet-version] "4.1.0")
-      (assoc-in [:basic4 :puppet-version] "4.1.0")
-      (assoc-in [:basic  :configuration-version] "bbb")
-      (assoc-in [:basic2 :configuration-version] "aaa")
-      (assoc-in [:basic3 :configuration-version] "xxx")
-      (assoc-in [:basic4 :configuration-version] "yyy")))
+      (assoc-in [:basic  :report_format] 3)
+      (assoc-in [:basic2 :report_format] 4)
+      (assoc-in [:basic3 :report_format] 6)
+      (assoc-in [:basic4 :report_format] 5)
+      (assoc-in [:basic  :transaction_uuid] "aaa-111")
+      (assoc-in [:basic2 :transaction_uuid] "bbb-222")
+      (assoc-in [:basic3 :transaction_uuid] "ccc-444")
+      (assoc-in [:basic4 :transaction_uuid] "ccc-333")
+      (assoc-in [:basic  :start_time] (-> 1 days ago))
+      (assoc-in [:basic2 :start_time] (-> 4 days ago))
+      (assoc-in [:basic3 :start_time] (-> 3 days ago))
+      (assoc-in [:basic4 :start_time] (-> 2 days ago))
+      (assoc-in [:basic  :puppet_version] "3.0.1")
+      (assoc-in [:basic2 :puppet_version] "3.0.1")
+      (assoc-in [:basic3 :puppet_version] "4.1.0")
+      (assoc-in [:basic4 :puppet_version] "4.1.0")
+      (assoc-in [:basic  :configuration_version] "bbb")
+      (assoc-in [:basic2 :configuration_version] "aaa")
+      (assoc-in [:basic3 :configuration_version] "xxx")
+      (assoc-in [:basic4 :configuration_version] "yyy")))
 
 ;; Begin tests
 
@@ -84,11 +84,11 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order-by"
+    (testing "order_by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order_by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
@@ -97,7 +97,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]]})]
+                                                 {:order_by [[:report_format order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "alphabetical fields"
@@ -107,7 +107,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:transaction-uuid order]]})]
+                                                 {:order_by [[:transaction_uuid order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "timestamp fields"
@@ -117,7 +117,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:start-time order]]})]
+                                                 {:order_by [[:start_time order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "multiple fields"
@@ -127,8 +127,8 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:puppet-version puppet-version-order]
-                                                             [:configuration-version conf-version-order]]})]
+                                                 {:order_by [[:puppet_version puppet-version-order]
+                                                             [:configuration_version conf-version-order]]})]
               (is (= (order-events actual) (order-events expected))))))))
 
     (testing "offset"
@@ -147,7 +147,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]] :offset offset})]
+                                                 {:order_by [[:report_format order]] :offset offset})]
               (is (= (order-events actual) (order-events expected))))))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
@@ -156,61 +156,61 @@
 
 (def expected-result
   [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe",
-    :puppet-version "3.7.3",
-    :receive-time "2014-12-24T00:00:50Z",
-    :report-format 4,
-    :start-time "2014-12-24T00:00:49Z",
-    :end-time "2014-12-24T00:00:49Z",
-    :transaction-uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
+    :puppet_version "3.7.3",
+    :receive_time "2014-12-24T00:00:50Z",
+    :report_format 4,
+    :start_time "2014-12-24T00:00:49Z",
+    :end_time "2014-12-24T00:00:49Z",
+    :transaction_uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
     :status "changed",
     :environment "production",
-    :configuration-version "1419379250",
+    :configuration_version "1419379250",
     :certname "foo.com",
-    :resource-events [{:new-value "Hi world",
+    :resource_events [{:new_value "Hi world",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old-value "absent",
+                       :old_value "absent",
                        :line 3,
-                       :resource-type "Notify",
+                       :resource_type "Notify",
                        :status "success",
-                       :resource-title "hi",
+                       :resource_title "hi",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}
-                      {:new-value "file",
+                      {:new_value "file",
                        :property "ensure",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old-value "absent",
+                       :old_value "absent",
                        :line 7,
-                       :resource-type "File",
+                       :resource_type "File",
                        :status "success",
-                       :resource-title "/home/wyatt/Desktop/foo",
+                       :resource_title "/home/wyatt/Desktop/foo",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment-path
+                       :containment_path
                        ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"],
                        :message
                        "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"}]}
    {:hash "afe03ad7377e3c44d0f1f2abcf0834778759afff",
-    :puppet-version "3.7.3",
-    :receive-time "2014-12-24T00:01:12Z",
-    :report-format 4,
-    :start-time "2014-12-24T00:01:11Z",
-    :end-time "2014-12-24T00:01:11Z",
-    :transaction-uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05",
+    :puppet_version "3.7.3",
+    :receive_time "2014-12-24T00:01:12Z",
+    :report_format 4,
+    :start_time "2014-12-24T00:01:11Z",
+    :end_time "2014-12-24T00:01:11Z",
+    :transaction_uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05",
     :status "changed",
     :environment "production",
-    :configuration-version "1419379250",
+    :configuration_version "1419379250",
     :certname "bar.com",
-    :resource-events [{:new-value "Hi world",
+    :resource_events [{:new_value "Hi world",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old-value "absent",
+                       :old_value "absent",
                        :line 3,
-                       :resource-type "Notify",
+                       :resource_type "Notify",
                        :status "success",
-                       :resource-title "hi",
+                       :resource_title "hi",
                        :timestamp "2014-12-24T00:01:12Z",
-                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}]}])
 
 (deftest structured-data-seq

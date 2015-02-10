@@ -37,7 +37,7 @@
                              "uptime_seconds" 50000}
                     :timestamp (now)
                     :environment "DEV"
-                    :producer-timestamp nil})
+                    :producer_timestamp nil})
        (add-facts! {:name "two.local"
                     :values {"operatingsystem" "Ubuntu"
                              "kernel" "Linux"
@@ -45,7 +45,7 @@
                              "message" "hello"}
                     :timestamp (now)
                     :environment "DEV"
-                    :producer-timestamp nil})
+                    :producer_timestamp nil})
        (sql/insert-records :catalog_resources
                            {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
                            {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}

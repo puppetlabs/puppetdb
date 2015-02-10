@@ -54,15 +54,15 @@
                           (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
 
 (deftest order-by->sql
-  (testing "should return an empty string if no order-by is provided"
+  (testing "should return an empty string if no order_by is provided"
     (is (= "" (subject/order-by->sql nil))))
-  (testing "should return an empty string if order-by list is empty"
+  (testing "should return an empty string if order_by list is empty"
     (is (= "" (subject/order-by->sql []))))
   (testing "should generate a valid SQL 'ORDER BY' clause"
     (is (= " ORDER BY foo" (subject/order-by->sql [[:foo :ascending]]))))
   (testing "should support ordering in descending order"
     (is (= " ORDER BY foo DESC" (subject/order-by->sql [[:foo :descending]]))))
-  (testing "should support multiple order-by fields"
+  (testing "should support multiple order_by fields"
     (is (= " ORDER BY foo DESC, bar"
            (subject/order-by->sql
             [[:foo :descending]

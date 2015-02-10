@@ -8,13 +8,13 @@
 
 (defmodel Report
   {:certname                 :string
-   :puppet-version           :string
-   :report-format            :integer
-   :configuration-version    :string
-   :start-time               :datetime
-   :end-time                 :datetime
-   :resource-events          :coll
-   :transaction-uuid         {:optional? true
+   :puppet_version           :string
+   :report_format            :integer
+   :configuration_version    :string
+   :start_time               :datetime
+   :end_time                 :datetime
+   :resource_events          :coll
+   :transaction_uuid         {:optional? true
                               :type      :string}
    :environment              {:optional? true
                               :type :string}
@@ -29,13 +29,13 @@
 (defmodel ResourceEvent
   {:status             :string
    :timestamp          :datetime
-   :resource-type      :string
-   :resource-title     :string
+   :resource_type      :string
+   :resource_title     :string
    :property           {:optional? true
                         :type      :string}
-   :new-value          {:optional? true
+   :new_value          {:optional? true
                         :type      :jsonable}
-   :old-value          {:optional? true
+   :old_value          {:optional? true
                         :type      :jsonable}
    :message            {:optional? true
                         :type      :string}
@@ -43,7 +43,7 @@
                         :type      :string}
    :line               {:optional? true
                         :type      :integer}
-   :containment-path   {:optional? true
+   :containment_path   {:optional? true
                         :type      :coll}
    })
 
@@ -57,32 +57,19 @@
   (fn [command-version _]
     command-version))
 
-(defmethod validate! 3
+(defmethod validate! 5
   [_ report]
   (validate-against-model! Report report)
-  (doseq [resource-event (:resource-events report)]
+  (doseq [resource-event (:resource_events report)]
     (validate-against-model! ResourceEvent resource-event)
-    (if (not-every? string? (resource-event :containment-path))
+    (if (not-every? string? (resource-event :containment_path))
       (throw (IllegalArgumentException.
               (format "Containment path should only contain strings: '%s'"
-                      (resource-event :containment-path))))))
+                      (resource-event :containment_path))))))
   (when (nil? (:environment report))
-    (throw (IllegalArgumentException. "Version 3 of reports must contain an environment")))
-  report)
-
-(defmethod validate! 4
-  [_ report]
-  (validate-against-model! Report report)
-  (doseq [resource-event (:resource-events report)]
-    (validate-against-model! ResourceEvent resource-event)
-    (if (not-every? string? (resource-event :containment-path))
-      (throw (IllegalArgumentException.
-              (format "Containment path should only contain strings: '%s'"
-                      (resource-event :containment-path))))))
-  (when (nil? (:environment report))
-    (throw (IllegalArgumentException. "Version 4 of reports must contain an environment")))
+    (throw (IllegalArgumentException. "Version 5 of reports must contain an environment")))
   (when (nil? (:status report))
-    (throw (IllegalArgumentException. "Version 4 of reports must contain a status")))
+    (throw (IllegalArgumentException. "Version 5 of reports must contain a status")))
   report)
 
 (defn sanitize-events
@@ -104,4 +91,4 @@
   (let [valid-keys (map name report-fields)]
     (-> payload
         (select-keys valid-keys)
-        (update-in ["resource-events"] sanitize-events))))
+        (update-in ["resource_events"] sanitize-events))))

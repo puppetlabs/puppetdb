@@ -69,14 +69,14 @@
   (is (= [["=" "prop" "foo"]
           ["in" "certname"
            ["extract" "certname"
-            ["select-nodes"
+            ["select_nodes"
              ["null?" "deactivated" true]]]]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]
           ["in" "resource"
            ["extract" "res_param_resource"
-            ["select-params"
+            ["select_params"
              ["and"
               ["=" "res_param_name" "bar"]
               ["=" "res_param_value" "\"baz\""]]]]]]

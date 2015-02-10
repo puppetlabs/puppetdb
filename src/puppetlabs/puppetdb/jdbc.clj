@@ -108,7 +108,7 @@
      (limited-query-to-vec 0 sql-query-and-params)))
 
 (defn order-by-term->sql
-  "Given a list of legal result columns and a map containing a single order-by term,
+  "Given a list of legal result columns and a map containing a single order_by term,
   return the SQL string representing this term for use in an ORDER BY clause."
   [[field order]]
   {:pre [(keyword? field)
@@ -122,7 +122,7 @@
 
 (defn order-by->sql
   "Given a list of legal result columns an array of maps (where each map is
-  an order-by term), return the SQL string representing the ORDER BY clause
+  an order_by term), return the SQL string representing the ORDER BY clause
   for the specified terms"
   [order-by]
   {:pre [((some-fn nil? sequential?) order-by)
@@ -154,24 +154,24 @@
 
   * :limit  (int)
   * :offset (int)
-  * :order-by (array of maps; each map is an order-by term, consisting of
+  * :order_by (array of maps; each map is an order_by term, consisting of
       required key :field and optional key :order.  Legal values for :order
       include 'asc' or 'desc'.)
 
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
-  ([sql {:keys [limit offset order-by]}]
-     (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
-  ([sql {:keys [limit offset order-by]} entity]
+  ([sql {:keys [limit offset order_by]}]
+     (paged-sql sql {:limit limit :offset offset :order_by order_by} nil))
+  ([sql {:keys [limit offset order_by]} entity]
      {:pre [(string? sql)
             ((some-fn nil? integer?) limit)
             ((some-fn nil? integer?) offset)
-            ((some-fn nil? sequential?) order-by)
-            (every? kitchensink/order-by-expr? order-by)]
+            ((some-fn nil? sequential?) order_by)
+            (every? kitchensink/order-by-expr? order_by)]
       :post [(string? %)]}
      (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
            offset-clause    (if offset (format " OFFSET %s" offset) "")
-           order-by-clause  (order-by->sql order-by)
+           order-by-clause  (order-by->sql order_by)
            inner-order-by   (construct-inner-ordering entity order-by-clause)]
        (case entity
          :factsets

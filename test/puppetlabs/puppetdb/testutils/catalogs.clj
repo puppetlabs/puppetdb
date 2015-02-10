@@ -62,9 +62,9 @@
           (string? (get-in % ["version"]))]}
   (munge-catalog-for-comparison* nil catalog))
 
-(defn munge-v5-catalog
+(defn munge-v6-catalog
   "Uses a 'nil' prefix path for getting to resources/edges etc needed for munging
-   a v5 catalog. Eventually this should be moved to support our canonical format, then
+   a v6 catalog. Eventually this should be moved to support our canonical format, then
    we could just convert to 'all' for example, munge and compare the superset, and it
    would work for all versions."
   [catalog]
@@ -74,7 +74,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
-  (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)))
+  (munge-catalog-for-comparison* nil (update-in catalog [:producer_timestamp] to-string)))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a
@@ -85,7 +85,8 @@
   JSON doesn't have a data type for)."
   [version catalog]
   {:pre  [(map? catalog)]}
-  (munge-v5-catalog catalog))
+  (case version
+    (munge-v6-catalog catalog)))
 
 (defn munged-canonical->wire-format
   "Converts the given canonical catalog to wire-format `version` then

@@ -19,9 +19,9 @@
   (assoc tar-map
     (path "puppetdb-bak" "export-metadata.json")
     {"timestamp" (time/now)
-     "command-versions" {"replace-facts" 1
-                         "replace-catalog" 3
-                         "store-report" 2}}))
+     "command_versions" {"replace_facts" 4
+                         "replace_catalog" 6
+                         "store_report" 5}}))
 
 (defn collapse-tar-map
   "Collapses the nested map structured created by mapify into

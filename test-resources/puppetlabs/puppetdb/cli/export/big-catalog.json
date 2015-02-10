@@ -1,7 +1,7 @@
 {
     "name" : "myhost.localdomain",
     "environment" : "DEV",
-    "producer-timestamp": "2014-07-10T22:33:54.781Z",
+    "producer_timestamp": "2014-07-10T22:33:54.781Z",
     "edges" : [ {
         "relationship" : "contains",
         "target" : {
@@ -10147,6 +10147,6 @@
         "file" : "/Users/nicklewis/projects/puppetlabs-modules/dist/account/manifests/user.pp"
     } ],
     "version" : "1330463446",
-    "transaction-uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294b",
+    "transaction_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294b",
     "hash": "591ba1fc87ef592bde41a7d827e95cbd802e8cc8"
 }

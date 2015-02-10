@@ -30,7 +30,7 @@ describe processor do
 
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
-        :version => 4,
+        :version => 5,
         :payload => subject.send(:report_to_hash),
       }.to_json
 
@@ -67,7 +67,7 @@ describe processor do
     it "should include the transaction uuid or nil" do
       subject.transaction_uuid = 'abc123'
       result = subject.send(:report_to_hash)
-      result["transaction-uuid"].should == 'abc123'
+      result["transaction_uuid"].should == 'abc123'
     end
 
     context "start/end time" do
@@ -79,9 +79,9 @@ describe processor do
         subject.send(:run_duration).should == 10
       end
 
-      it "should use run_duration to calculate the end-time" do
+      it "should use run_duration to calculate the end_time" do
         result = subject.send(:report_to_hash)
-        duration = Time.parse(result["end-time"]) - Time.parse(result["start-time"])
+        duration = Time.parse(result["end_time"]) - Time.parse(result["start_time"])
         duration.should == subject.send(:run_duration)
       end
     end
@@ -98,10 +98,10 @@ describe processor do
           # client doesn't include one
           result.has_key?("report").should be_false
           result["certname"].should == subject.host
-          result["puppet-version"].should == subject.puppet_version
-          result["report-format"].should == subject.report_format
-          result["configuration-version"].should == subject.configuration_version.to_s
-          result["resource-events"].should == []
+          result["puppet_version"].should == subject.puppet_version
+          result["report_format"].should == subject.report_format
+          result["configuration_version"].should == subject.configuration_version.to_s
+          result["resource_events"].should == []
         end
       end
 
@@ -114,17 +114,17 @@ describe processor do
           event.message = "foomessage"
           status.add_event(event)
           result = subject.send(:report_to_hash)
-          result["resource-events"].length.should == 1
-          res_event = result["resource-events"][0]
-          res_event["resource-type"].should == "Foo"
-          res_event["resource-title"].should == "foo"
+          result["resource_events"].length.should == 1
+          res_event = result["resource_events"][0]
+          res_event["resource_type"].should == "Foo"
+          res_event["resource_title"].should == "foo"
           res_event["property"].should == "fooprop"
-          res_event["new-value"].should == "fooval"
-          res_event["old-value"].should == "oldfooval"
+          res_event["new_value"].should == "fooval"
+          res_event["old_value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
           res_event["file"].should == "foo"
           res_event["line"].should == 1
-          res_event["containment-path"].should == ["foo", "bar", "baz"]
+          res_event["containment_path"].should == ["foo", "bar", "baz"]
         end
       end
 
@@ -132,16 +132,16 @@ describe processor do
         it "should include the resource" do
           status.skipped = true
           result = subject.send(:report_to_hash)
-          result["resource-events"].length.should == 1
-          event = result["resource-events"][0]
-          event["resource-type"].should == "Foo"
-          event["resource-title"].should == "foo"
+          result["resource_events"].length.should == 1
+          event = result["resource_events"][0]
+          event["resource_type"].should == "Foo"
+          event["resource_title"].should == "foo"
           event["status"].should == "skipped"
           event["property"].should be_nil
-          event["new-val"].should be_nil
-          event["old-val"].should be_nil
+          event["new_val"].should be_nil
+          event["old_val"].should be_nil
           event["message"].should be_nil
-          event["containment-path"].should == ["foo", "bar", "baz"]
+          event["containment_path"].should == ["foo", "bar", "baz"]
         end
       end
 
@@ -153,7 +153,7 @@ describe processor do
         context "with no events" do
           it "should have no events" do
             result = subject.send(:report_to_hash)
-            result["resource-events"].length.should == 0
+            result["resource_events"].length.should == 0
           end
         end
 
@@ -167,17 +167,17 @@ describe processor do
             status.add_event(event)
 
             result = subject.send(:report_to_hash)
-            result["resource-events"].length.should == 1
-            res_event = result["resource-events"][0]
-            res_event["resource-type"].should == "Foo"
-            res_event["resource-title"].should == "foo"
+            result["resource_events"].length.should == 1
+            res_event = result["resource_events"][0]
+            res_event["resource_type"].should == "Foo"
+            res_event["resource_title"].should == "foo"
             res_event["property"].should == "barprop"
-            res_event["new-value"].should == "barval"
-            res_event["old-value"].should == "oldbarval"
+            res_event["new_value"].should == "barval"
+            res_event["old_value"].should == "oldbarval"
             res_event["message"].should == "barmessage"
             res_event["file"].should == "foo"
             res_event["line"].should == 1
-            res_event["containment-path"].should == ["foo", "bar", "baz"]
+            res_event["containment_path"].should == ["foo", "bar", "baz"]
           end
         end
       end
@@ -240,15 +240,15 @@ describe processor do
         context "when blacklisted events are configured to be filtered" do
           it "should filter blacklisted events, but not other events" do
             result = subject.send(:report_to_hash)
-            result["resource-events"].length.should == 1
-            res_event = result["resource-events"][0]
-            res_event["resource-type"].should == "Foo"
-            res_event["resource-title"].should == "foo"
+            result["resource_events"].length.should == 1
+            res_event = result["resource_events"][0]
+            res_event["resource_type"].should == "Foo"
+            res_event["resource_title"].should == "foo"
             res_event["property"].should == "fooprop"
-            res_event["new-value"].should == "fooval"
-            res_event["old-value"].should == "oldfooval"
+            res_event["new_value"].should == "fooval"
+            res_event["old_value"].should == "oldfooval"
             res_event["message"].should == "foomessage"
-            res_event["containment-path"].should == ["foo", "bar", "baz"]
+            res_event["containment_path"].should == ["foo", "bar", "baz"]
           end
         end
 
@@ -256,12 +256,12 @@ describe processor do
           it "should not filter anything" do
             config.stubs(:ignore_blacklisted_events?).returns(false)
             result = subject.send(:report_to_hash)
-            result["resource-events"].length.should == 3
+            result["resource_events"].length.should == 3
             [["Foo", "foo"],
              ["Schedule", "weekly"],
              ["Notify", "Hello there"]].each do |type, title|
-              matches = result["resource-events"].select do |e|
-                  e["resource-type"] == type and e["resource-title"] == title
+              matches = result["resource_events"].select do |e|
+                  e["resource_type"] == type and e["resource_title"] == title
               end
               matches.length.should be(1), "Expected to find an event with type '#{type}' and title '#{title}'"
             end
@@ -302,10 +302,10 @@ describe processor do
           add_skipped_schedule_event("monthly")
 
           result = subject.send(:report_to_hash)
-          result["resource-events"].length.should == 1
-          res_event = result["resource-events"][0]
-          res_event["resource-type"].should == "Foo"
-          res_event["resource-title"].should == "foo"
+          result["resource_events"].length.should == 1
+          res_event = result["resource_events"][0]
+          res_event["resource_type"].should == "Foo"
+          res_event["resource_title"].should == "foo"
         end
       end
     end

@@ -306,16 +306,16 @@
                   actual  (count results)]
               (is (= actual expected)))))
 
-        (testing "order-by"
+        (testing "order_by"
           (testing "rejects invalid fields"
             (is (thrown-with-msg?
-                 IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-                 (:result (raw-query-resources version [] {:order-by [[:invalid-field :ascending]]})))))
+                 IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+                 (:result (raw-query-resources version [] {:order_by [[:invalid-field :ascending]]})))))
 
           (testing "defaults to ascending"
             (let [expected [r1 r3 r4 r2]
                   actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                         {:order-by [[:line :ascending]]}))]
+                                                         {:order_by [[:line :ascending]]}))]
               (is (= actual expected))))
 
           (testing "alphabetical fields"
@@ -323,7 +323,7 @@
                                       [:descending [r4 r3 r2 r1]]]]
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:title order]]}))]
+                                                           {:order_by [[:title order]]}))]
                   (is (= actual expected))))))
 
           (testing "numerical fields"
@@ -331,7 +331,7 @@
                                       [:descending [r2 r4 r3 r1]]]]
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:line order]]}))]
+                                                           {:order_by [[:line order]]}))]
                   (is (= actual expected))))))
 
           (testing "multiple fields"
@@ -341,7 +341,7 @@
                                                         [[:descending :descending] [r4 r3 r2 r1]]]]
               (testing (format "file %s line %s" file-order line-order)
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:file file-order]
+                                                           {:order_by [[:file file-order]
                                                                        [:line line-order]]}))]
                   (is (= actual expected)))))))
 
@@ -359,5 +359,5 @@
             (testing order
               (doseq [[offset expected] expected-sequences]
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:title order]] :offset offset}))]
+                                                           {:order_by [[:title order]] :offset offset}))]
                   (is (= actual expected)))))))))))

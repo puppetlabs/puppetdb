@@ -14,7 +14,7 @@
 
 (defn munge-example-report-for-storage
   [example-report]
-  (update-in example-report [:resource-events]
+  (update-in example-report [:resource_events]
              #(mapv munge-example-event-for-storage %)))
 
 (defn munge-events-for-comparison
@@ -27,7 +27,7 @@
              (update-in ["timestamp"] time-coerce/to-string)
              (dissoc "report")
              (dissoc "certname")
-             (dissoc "configuration-version"))
+             (dissoc "configuration_version"))
         events)))
 
 (defn munge-report-for-comparison
@@ -40,14 +40,14 @@
   [report]
   {:pre  [(map? report)]
    :post [(map? %)
-          (set? (% "resource-events"))]}
+          (set? (% "resource_events"))]}
   (-> report
       (clojure.walk/stringify-keys)
-      (update-in ["start-time"] time-coerce/to-string)
-      (update-in ["end-time"] time-coerce/to-string)
-      (update-in ["resource-events"] munge-events-for-comparison)
+      (update-in ["start_time"] time-coerce/to-string)
+      (update-in ["end_time"] time-coerce/to-string)
+      (update-in ["resource_events"] munge-events-for-comparison)
       (dissoc "hash")
-      (dissoc "receive-time")))
+      (dissoc "receive_time")))
 
 (defn store-example-report*!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
@@ -72,14 +72,14 @@
   ([example-report timestamp]
      (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-     (store-example-report*! #(report/validate! 4 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
+     (store-example-report*! #(report/validate! 5 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
 
 (defn expected-report
   [example-report]
   (kitchensink/mapvals
    ;; we need to map the datetime fields to timestamp objects for comparison
    time-coerce/to-timestamp
-   [:start-time :end-time]
+   [:start_time :end_time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
    example-report))
@@ -88,7 +88,7 @@
   [xs]
   (set (map (fn [x] (-> x
                         (update-in [:timestamp] time-coerce/to-string)
-                        (dissoc :environment :test-id :containing-class :certname))) xs)))
+                        (dissoc :environment :test_id :containing_class :certname))) xs)))
 
 (defn expected-reports
   [example-reports]
@@ -98,7 +98,7 @@
   [version query paging-options]
   (letfn [(munge-fn
             [reports]
-            (map #(dissoc % :receive-time) reports))]
+            (map #(dissoc % :receive_time) reports))]
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
@@ -115,5 +115,5 @@
 (defn get-events-map
   [example-report]
   (into {}
-        (for [ev (:resource-events example-report)]
-          [(:test-id ev) ev])))
+        (for [ev (:resource_events example-report)]
+          [(:test_id ev) ev])))

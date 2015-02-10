@@ -11,7 +11,7 @@
 
 (deftest catalog-query
   (let [catalog-str (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
-        {:strs [name version transaction-uuid environment] :as catalog} (json/parse-string
+        {:strs [name version transaction_uuid environment] :as catalog} (json/parse-string
                                                                           catalog-str)]
     (testcat/replace-catalog catalog-str)
     (testing "status"
@@ -56,8 +56,8 @@
      {:source  {:type "Stage", :title "main"},
       :target  {:type "Class", :title "main"},
       :relationship "contains"}],
-    :producer-timestamp "2014-11-20T03:37:35Z",
-    :transaction-uuid "99823770-9802-4718-a9e7-5aa615db2398",
+    :producer_timestamp "2014-11-20T03:37:35Z",
+    :transaction_uuid "99823770-9802-4718-a9e7-5aa615db2398",
     :hash "41099460fa54b5d4853ea6f2624870dbd860f649",
     :environment "production",
     :version "1416454655",
@@ -95,8 +95,8 @@
      {:source  {:type "Stage", :title "main"},
       :target  {:type "Class", :title "main"},
       :relationship "contains"}],
-    :producer-timestamp "2014-11-20T02:15:20Z",
-    :transaction-uuid "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
+    :producer_timestamp "2014-11-20T02:15:20Z",
+    :transaction_uuid "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
     :hash "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
     :environment "production",
     :version "1416449720",
