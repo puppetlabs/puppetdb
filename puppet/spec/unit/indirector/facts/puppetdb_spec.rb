@@ -51,7 +51,7 @@ describe Puppet::Node::Facts::Puppetdb do
         :command => CommandReplaceFacts,
         :version => 3,
         :payload => f,
-      }.to_pson
+      }.to_json
 
       http.expects(:post).with do |uri, body, headers|
         expect(body).to eq(payload)

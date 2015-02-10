@@ -43,7 +43,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
         :version => 5,
         :payload => command_payload,
-      }.to_pson
+      }.to_json
 
       http.expects(:post).with do |uri, body, headers|
         expect(body).to eq(payload)
