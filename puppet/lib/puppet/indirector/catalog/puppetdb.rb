@@ -22,9 +22,14 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def extract_extra_request_data(request)
     {
       :transaction_uuid => request.options[:transaction_uuid],
-      :environment => request.environment,
+      :environment => request.environment.to_s,
       :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601(5),
     }
+  end
+
+  def hashify_tags(hash)
+    hash["resources"] = hash["resources"].map { |resource| resource["tags"] = resource["tags"].to_data_hash; resource }
+    hash
   end
 
   def munge_catalog(catalog, extra_request_data = {})
@@ -37,6 +42,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_namevar_aliases(data, catalog)
       stringify_titles(data)
       stringify_version(data)
+      hashify_tags(data)
       sort_unordered_metaparams(data)
       munge_edges(data)
       synthesize_edges(data, catalog)

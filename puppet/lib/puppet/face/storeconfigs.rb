@@ -48,7 +48,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
             filename = File.join(catalog_dir, "#{catalog[:name]}.json")
 
             File.open(filename, 'w') do |file|
-              file.puts catalog.to_pson
+              file.puts catalog.to_json
             end
           end
 
@@ -64,7 +64,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
               }
             }
 
-            file.puts metadata.to_pson
+            file.puts metadata.to_json
           end
 
           tarfile = destination_file(timestamp)

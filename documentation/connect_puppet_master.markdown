@@ -43,7 +43,7 @@ Currently, puppet masters need additional Ruby plugins in order to use PuppetDB.
 If your puppet master isn't running Puppet from a supported package, you will need to install the plugins manually:
 
 * [Download the PuppetDB source code][puppetdb_download], unzip it and navigate into the resulting directory in your terminal.
-* Run `sudo cp -R ext/master/lib/puppet /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`.
+* Run `sudo cp -R puppet/lib/puppet/* /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`.
 
 ## Step 2: Edit Config Files
 
