@@ -50,10 +50,13 @@
     ;; Setup an app that only lets through odd numbers
     (let [handler     (fn [req] (-> (rr/response nil)
                                     (rr/status http/status-ok)))
-          authorized? odd?
-          app         (wrap-with-authorization handler authorized?)]
+          message     "Only odd numbers are allowed!"
+          authorizer  #(if (odd? %) :authorized message)
+          app         (wrap-with-authorization handler authorizer)]
       ;; Even numbers should trigger an unauthorized response
       (is (= http/status-forbidden (:status (app 0))))
+      ;; The failure reason should be shown to the user
+      (is (.contains (:body (app 0)) message))
       ;; Odd numbers should get through fine
       (is (= http/status-ok (:status (app 1)))))))
 

@@ -33,9 +33,9 @@
       (.deleteOnExit wl)
       (spit wl "foobar")
       (let [f (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (true? (f {:ssl-client-cn "foobar"})))
+        (is (= :authorized (f {:ssl-client-cn "foobar"})))
         (with-log-output logz
-          (is (false? (f {:ssl-client-cn "badguy"})))
+          (is (string? (f {:ssl-client-cn "badguy"})))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (deftest url-prefix-test

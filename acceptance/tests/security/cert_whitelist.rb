@@ -38,6 +38,19 @@ test_name "certificate whitelisting" do
     curl_against_whitelist.call "", 403
   end
 
+  step "forbidden requests should return a relevant error message in the body" do
+    create_remote_file database, "#{confd}/whitelist", ""
+    on database, "chmod 644 #{confd}/whitelist"
+    restart_puppetdb database
+    on database, "curl --tlsv1 -sL " +
+                 "--cacert #{ssldir}/certs/ca.pem " +
+                 "--cert #{ssldir}/certs/#{dbname}.pem " +
+                 "--key #{ssldir}/private_keys/#{dbname}.pem "+
+                 "https://#{dbname}:8081/metrics/v1/mbeans"
+    actual_body = stdout.chomp
+    assert_match "whitelist", actual_body, "The response body should contain a message about the whitelist; actual is: #{actual_body}"
+  end
+
   step "restore original config.ini" do
     on database, "mv #{confd}/config.ini.bak #{confd}/config.ini"
     on database, "chmod 644 #{confd}/config.ini"

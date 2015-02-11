@@ -10,11 +10,11 @@
    [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (let [authorized? (if-let [wl (-> (get-config)
-                                           (get-in [:puppetdb :certificate-whitelist]))]
-                             (build-whitelist-authorizer wl)
-                             (constantly true))
-               app (server/build-app :authorized? authorized?)]
+         (let [authorizer (if-let [wl (-> (get-config)
+                                          (get-in [:puppetdb :certificate-whitelist]))]
+                            (build-whitelist-authorizer wl)
+                            (constantly :authorized))
+               app (server/build-app :authorizer authorizer)]
            (log/info "Starting metrics server")
            (add-ring-handler this (compojure/context (get-route this) [] app))
            context)))

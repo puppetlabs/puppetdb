@@ -52,15 +52,15 @@
 
   * `globals` - a map containing global state useful to request handlers.
 
-  * `authorized?` - a function that takes a request and returns a
-    truthy value if the request is authorized. If not supplied, we default
-    to authorizing all requests."
+  * `authorizer` - a function that takes a request and returns a
+    :authorized if the request is authorized, or a user-visible reason if not.
+    If not supplied, we default to authorizing all requests."
   [& options]
   (let [opts (apply hash-map options)]
     (-> (routes (get-in opts [:globals :url-prefix]))
         (wrap-resource "public")
         (wrap-params)
-        (wrap-with-authorization (opts :authorized? (constantly true)))
+        (wrap-with-authorization (opts :authorizer (constantly :authorized)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
         (wrap-with-metrics (atom {}) http/leading-uris)
