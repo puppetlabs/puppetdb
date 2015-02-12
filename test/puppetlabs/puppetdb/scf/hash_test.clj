@@ -83,7 +83,11 @@
 
       (testing "should return the same predictable string"
         (is (= (catalog-similarity-hash sample)
-               "40f42c42bcd81ae28ab306ab64498f0bd6674ce6")))))
+               "1be8cab0657f2d9d703fb48529d008cbe6955803")))
+
+      (testing "should change when tags change"
+        (is (not= (catalog-similarity-hash sample)
+                  (catalog-similarity-hash (update-in sample [:resources :foo :tags] conj "baz")))))))
 
   (testing "resource-event-identity-string"
     (let [sample {:resource_type  "Type"

@@ -68,7 +68,7 @@
   [resource]
   {:pre  [(map? resource)]
    :post [(map? %)]}
-  (select-keys resource [:type :title :parameters :exported :file :line]))
+  (select-keys resource [:type :title :parameters :exported :file :line :tags]))
 
 (defn resource-comparator
   "Compares two resources by the title and type.  Useful in calls to sort to

@@ -1,8 +1,30 @@
 ---
-title: "PuppetDB 2.2 » Release Notes"
+title: "PuppetDB 3.0 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
+
+3.0.0
+-----
+
+### Upgrading
+
+* You may notice some additional system load for the first 30 to 60
+  minutes after upgrading. This is expected, and is due to a change in
+  the way we check if a catalog is up-to-date.
+
+### Contributors
+
+Andrew Roetker, Erik Dalén, Ken Barber, Preben Ingvaldsen, Rob Braden,
+Rob Nelson, Roger Ignazio, Ryan Senior, Wyatt Alt, Jean Bond, and
+Russell Mull.
+
+### Changes
+
+#### Bug Fixes and Maintenance
+
+* If a new catalog is submitted whose only difference from the
+  previous catalog are tags, the change is now respected.
 
 2.2.2
 -----
