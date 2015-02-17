@@ -963,20 +963,20 @@
   "Given a certname and a map of fact names to values, store records for those
    facts associated with the certname."
   ([fact-data]
-     (add-facts! fact-data true))
+   (add-facts! fact-data true))
   ([{:keys [name values environment timestamp producer_timestamp] :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-     (let [factset {:certname name
-                    :timestamp (to-timestamp timestamp)
-                    :environment_id (ensure-environment environment)
-                    :producer_timestamp (to-timestamp producer_timestamp)}
-           fact-data-hash (shash/generic-identity-hash (dissoc fact-data :timestamp :producer_timestamp))]
-       (sql/insert-record :factsets
-                          (if include-hash?
-                            (assoc factset :hash fact-data-hash) factset))
-       (insert-facts!
-        (certname-to-factset-id name)
-        (set (new-fact-value-ids values))))))
+   (let [factset {:certname name
+                  :timestamp (to-timestamp timestamp)
+                  :environment_id (ensure-environment environment)
+                  :producer_timestamp (to-timestamp producer_timestamp)}
+         fact-data-hash (shash/generic-identity-hash (dissoc fact-data :timestamp :producer_timestamp))]
+     (sql/insert-record :factsets
+                        (if include-hash?
+                          (assoc factset :hash fact-data-hash) factset))
+     (insert-facts!
+      (certname-to-factset-id name)
+      (set (new-fact-value-ids values))))))
 
 (pls/defn-validated delete-facts!
   "Delete all the facts (1 arg) or just the fact-ids (2 args) for the given certname."
@@ -1103,31 +1103,48 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn normalize-resource-event
+  "Prep `event` for comparison/computation of a hash"
+  [event]
+  (-> event
+      (utils/update-when [:timestamp] to-timestamp)
+      (utils/update-when [:old_value] sutils/db-serialize)
+      (utils/update-when [:new_value] sutils/db-serialize)
+      (assoc :containing_class (find-containing-class (:containment_path event)))))
+
+(defn normalize-report
+  "Prep the report for comparison/computation of a hash"
+  [report]
+  (-> report
+      (update-in [:start_time] to-timestamp)
+      (update-in [:end_time] to-timestamp)
+      (update-in [:resource_events] #(map normalize-resource-event %))))
+
+
+(defn convert-containment-path
+  "Convert the contain path from a collection to the jdbc array type"
+  [event]
+  (utils/update-when event
+                     [:containment_path]
+                     (fn [cp]
+                       (when cp
+                         (sutils/to-jdbc-varchar-array cp)))))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
-  [{:keys [puppet_version certname report_format configuration_version
-           start_time end_time resource_events transaction_uuid environment
-           status noop]
-    :as report}
-   timestamp
-   update-latest-report?]
-  {:pre [(map? report)
+  [orig-report timestamp update-latest-report?]
+  {:pre [(map? orig-report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
-  (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
-        resource-event-rows (map #(-> %
-                                      (utils/update-when [:timestamp] to-timestamp)
-                                      (utils/update-when [:old_value] sutils/db-serialize)
-                                      (utils/update-when [:new_value] sutils/db-serialize)
-                                      (utils/update-when [:containment_path] containment-path-fn)
-                                      (assoc :containing_class (find-containing-class (% :containment_path)))
-                                      (assoc :report report-hash))
-                                 resource_events)]
-    (time! (:store-report metrics)
+  (time! (:store-report metrics)
+         (let [{:keys [puppet_version certname report_format configuration_version
+                       start_time end_time resource_events transaction_uuid environment
+                       status noop]
+                :as report}         (normalize-report orig-report)
+                report-hash         (shash/report-identity-hash report)]
            (sql/transaction
             (sql/insert-record :reports
                                (maybe-environment
@@ -1137,15 +1154,17 @@
                                  :certname               certname
                                  :report_format          report_format
                                  :configuration_version  configuration_version
-                                 :start_time             (to-timestamp start_time)
-                                 :end_time               (to-timestamp end_time)
+                                 :start_time             start_time
+                                 :end_time               end_time
                                  :receive_time           (to-timestamp timestamp)
                                  :transaction_uuid       transaction_uuid
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
 
-            (apply sql/insert-records :resource_events resource-event-rows)
-            (if update-latest-report?
+            (->> resource_events
+                 (map (comp convert-containment-path #(assoc % :report report-hash)))
+                 (apply sql/insert-records :resource_events))
+            (when update-latest-report?
               (update-latest-report! certname))))))
 
 (defn delete-reports-older-than!

@@ -29,12 +29,15 @@
 
 (defn get-response
   ([endpoint query]
-     (get-response endpoint query {}))
+   (get-response endpoint query {}))
   ([endpoint query extra-query-params]
-     (let [resp (*app* (get-request endpoint query extra-query-params))]
-       (if (string? (:body resp))
-         resp
-         (update-in resp [:body] slurp)))))
+   (let [resp (*app* (get-request endpoint query extra-query-params))]
+     (update-in resp
+                [:body]
+                (fn [body]
+                  (if (string? body)
+                    body
+                    (slurp body)))))))
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -153,8 +156,8 @@
                 [:status :line]]]]
         (let [response (get-response endpoint query)
               expected (->> (kitchensink/select-values basic-events-map matches)
-                         (map #(select-keys % ks))
-                         set)]
+                            (map #(select-keys % ks))
+                            set)]
           (response-equal? response expected))))
 
 
@@ -225,8 +228,8 @@
     (testing "should return only one event for a given resource"
       (let [expected  (http-expected-resource-events version basic3-events basic3)
             response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true
-                                                                             :distinct_start_time 0
-                                                                             :distinct_end_time (now)})]
+                                                                           :distinct_start_time 0
+                                                                           :distinct_end_time (now)})]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
@@ -316,7 +319,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -341,7 +344,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -368,7 +371,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -437,13 +440,13 @@
 
 (def versioned-invalid-projections
   (omap/ordered-map
-    "/v4/events" (omap/ordered-map
-                   ;; Top level extract using invalid fields should throw an error
-                   ["extract" "nothing" ["~" "certname" ".*"]]
-                   #"Can't extract unknown 'events' field 'nothing'.*Acceptable fields are.*"
+   "/v4/events" (omap/ordered-map
+                 ;; Top level extract using invalid fields should throw an error
+                 ["extract" "nothing" ["~" "certname" ".*"]]
+                 #"Can't extract unknown 'events' field 'nothing'.*Acceptable fields are.*"
 
-                   ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                   #"Can't extract unknown 'events' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+                 ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
+                 #"Can't extract unknown 'events' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
 (deftestseq invalid-projections
   [[version endpoint] endpoints]
@@ -456,12 +459,12 @@
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
-    "/v4/events" (omap/ordered-map
-                  ["~" "certname" "*abc"]
-                  #".*invalid regular expression: quantifier operand invalid"
+   "/v4/events" (omap/ordered-map
+                 ["~" "certname" "*abc"]
+                 #".*invalid regular expression: quantifier operand invalid"
 
-                  ["~" "certname" "[]"]
-                  #".*invalid regular expression: brackets.*not balanced")))
+                 ["~" "certname" "[]"]
+                 #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
   [[version endpoint] endpoints]
