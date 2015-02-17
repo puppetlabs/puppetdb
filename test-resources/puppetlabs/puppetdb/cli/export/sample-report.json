@@ -37,5 +37,6 @@
   "report_format": 4,
   "transaction_uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b",
   "environment": "DEV",
-  "status" : "unchanged"
+  "status" : "unchanged",
+  "noop" : false
 }

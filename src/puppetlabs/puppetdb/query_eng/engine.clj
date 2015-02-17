@@ -181,6 +181,7 @@
                          "containment_path" :string
                          "event_status" :string
                          "file" :string
+                         "noop" :boolean
                          "resource_type" :string
                          "resource_title" :string
                          "start_time" :timestamp
@@ -195,7 +196,7 @@
                :queryable-fields ["certname" "environment" "puppet_version"
                                   "report_format" "configuration_version"
                                   "start_time" "end_time" "transaction_uuid"
-                                  "status" "hash" "receive_time"]
+                                  "status" "hash" "receive_time" "noop"]
                :alias "reports"
                :subquery? false
                :entity :reports
@@ -209,6 +210,7 @@
                        reports.end_time,
                        reports.receive_time,
                        reports.transaction_uuid,
+                       reports.noop,
                        environments.name as environment,
                        report_statuses.status as status,
                        re.report,

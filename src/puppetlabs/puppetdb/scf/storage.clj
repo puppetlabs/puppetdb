@@ -1110,7 +1110,7 @@
   scenarios."
   [{:keys [puppet_version certname report_format configuration_version
            start_time end_time resource_events transaction_uuid environment
-           status]
+           status noop]
     :as report}
    timestamp
    update-latest-report?]
@@ -1132,6 +1132,7 @@
             (sql/insert-record :reports
                                (maybe-environment
                                 {:hash                   report-hash
+                                 :noop                   noop
                                  :puppet_version         puppet_version
                                  :certname               certname
                                  :report_format          report_format
