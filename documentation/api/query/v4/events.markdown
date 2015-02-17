@@ -31,7 +31,7 @@ are generated from Puppet reports.)
 
 ### URL Parameters
 
-* `query`: Required. A JSON array of query predicates, in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: Optional. A JSON array of query predicates, in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query] If `query` is omitted all events are returned.
 
 * `distinct_resources`: Optional. Boolean. (I.e. `distinct_resources=true`.) (EXPERIMENTAL: it is possible that the behavior
 of this parameter may change in future releases.) If specified, the result set will only return the most recent event for a given resource on a given node.

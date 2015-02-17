@@ -7,6 +7,7 @@
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [clj-time.core :refer [ago now secs]]
+            [clojure.set :as clj-set]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
                                                    assert-success!
@@ -267,6 +268,13 @@
     (testing "query by report end time"
       (let [expected  (http-expected-resource-events version basic3-events basic3)
             response  (get-response endpoint [">" "run_end_time" "2011-01-02T00:00:00-03:00"])]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
+    (testing "query without a query parameter"
+      (let [expected  (clj-set/union (http-expected-resource-events version basic3-events basic3)
+                                     (http-expected-resource-events version basic-events basic))
+            response  (get-response endpoint nil)]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
