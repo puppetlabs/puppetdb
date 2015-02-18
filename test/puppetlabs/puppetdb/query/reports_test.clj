@@ -2,8 +2,10 @@
   (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clojure.test :refer :all]
+            [clojure.walk :as walk]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.query.reports :as r]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
@@ -11,9 +13,11 @@
 
 (use-fixtures :each with-test-db)
 
-(defn order-events
+(defn munge-report
   [report]
-  (sort-by :hash (map #(update-in % [:resource_events] munge-resource-events) report)))
+  (sort-by :hash (->> report
+                      (map #(update-in % [:resource_events] munge-resource-events))
+                      (map #(update-in % [:metrics] walk/keywordize-keys)))))
 
 (def my-reports
   (-> reports
@@ -46,12 +50,12 @@
     (testing "should return reports based on certname"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result :v4 ["=" "certname" (:certname basic)])]
-        (is (= (order-events expected) (order-events actual)))))
+        (is (= (munge-report expected) (munge-report actual)))))
 
     (testing "should return reports based on hash"
       (let [expected  (expected-reports [(assoc basic :hash report-hash)])
             actual    (reports-query-result :v4 ["=" "hash" report-hash])]
-        (is (= (order-events expected) (order-events actual)))))))
+        (is (= (munge-report expected) (munge-report actual)))))))
 
 (deftest paging-results
   (let [hash1        (:hash (store-example-report! (:basic  my-reports) (now)))
@@ -88,7 +92,7 @@
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
                                                  {:order_by [[:report_format order]]})]
-              (is (= (order-events actual) (order-events expected)))))))
+              (is (= (munge-report actual) (munge-report expected)))))))
 
       (testing "alphabetical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
@@ -98,7 +102,7 @@
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
                                                  {:order_by [[:transaction_uuid order]]})]
-              (is (= (order-events actual) (order-events expected)))))))
+              (is (= (munge-report actual) (munge-report expected)))))))
 
       (testing "timestamp fields"
         (doseq [[order expecteds] [[:ascending  [report2 report3 report4 report1]]
@@ -108,7 +112,7 @@
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
                                                  {:order_by [[:start_time order]]})]
-              (is (= (order-events actual) (order-events expected)))))))
+              (is (= (munge-report actual) (munge-report expected)))))))
 
       (testing "multiple fields"
         (doseq [[[puppet-version-order conf-version-order] expecteds] [[[:ascending :descending] [report1 report2 report4 report3]]
@@ -119,7 +123,7 @@
                                                  ["=" "certname" "foo.local"]
                                                  {:order_by [[:puppet_version puppet-version-order]
                                                              [:configuration_version conf-version-order]]})]
-              (is (= (order-events actual) (order-events expected))))))))
+              (is (= (munge-report actual) (munge-report expected))))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [[:ascending  [[0 [report1 report2 report4 report3]]
@@ -138,11 +142,13 @@
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
                                                  {:order_by [[:report_format order]] :offset offset})]
-              (is (= (order-events actual) (order-events expected))))))))))
+              (is (= (munge-report actual) (munge-report expected))))))))))
 
-(def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
-                  json/parse-string
-                  keywordize-keys))
+
+(def data-seq
+  (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
+      json/parse-string
+      keywordize-keys))
 
 (def expected-result
   [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe"
@@ -157,6 +163,7 @@
     :environment "production"
     :configuration_version "1419379250"
     :certname "foo.com"
+    :metrics nil
     :resource_events [{:new_value "Hi world"
                        :property "message"
                        :file "/home/wyatt/.puppet/manifests/site.pp"
@@ -193,6 +200,7 @@
     :environment "production"
     :configuration_version "1419379250"
     :certname "bar.com"
+    :metrics nil
     :resource_events [{:new_value "Hi world"
                        :property "message"
                        :file "/home/wyatt/.puppet/manifests/site.pp"

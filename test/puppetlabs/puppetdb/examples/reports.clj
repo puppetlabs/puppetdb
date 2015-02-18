@@ -12,6 +12,15 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  3.14}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  2.71}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -76,6 +85,15 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   true
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  -1}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  -3.14}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname on input, but they will have one on output.  To make it
@@ -137,6 +155,15 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  1}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  0}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -198,6 +225,15 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  1}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  3e7}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value 0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output

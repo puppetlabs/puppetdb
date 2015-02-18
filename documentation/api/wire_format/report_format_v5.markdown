@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/wire_format/report_format_v5.html"
 ---
 
 [puppetreportformat]: http://docs.puppetlabs.com/puppet/latest/reference/format_report.html
+[reportsv4]: ../query/v4/reports.markdown
 
 ## Report interchange format
 
@@ -20,10 +21,13 @@ otherwise noted, `null` is not allowed anywhere in the report.
         "start_time": <datetime>,
         "end_time": <datetime>,
         "resource_events": [<resource_event>, <resource_event>, ...],
+        "metrics": [<metric>, <metric>, ...],
         "transaction_uuid": <string>,
         "status": <string>,
         "noop": <boolean>
     }
+
+**NOTE** `metrics` may also take the value null.
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
 
@@ -52,6 +56,34 @@ match a report with the catalog that was used for the run.  This field may be `n
 `"status"` is a string used to identify the status of the puppet run.
 
 `"noop"` is a flag that indicates whether the report was produced with a --noop run.
+
+`"resource_events"` is an array of objects of the following form:
+
+    {
+      "status": <status of event (`success`, `failure`, `noop`, or `skipped`)>,
+      "timestamp": <timestamp (from agent) at which event occurred>,
+      "resource_type": <type of resource event occurred on>,
+      "resource_title": <title of resource event occurred on>,
+      "property": <property/parameter of resource on which event occurred>,
+      "new_value": <new value for resource property>,
+      "old_value": <old value of resource property>,
+      "message": <description of what happened during event>,
+      "file": <manifest file containing resource definition>,
+      "line": <line in manifest file on which resource is defined>
+      "containment_path": <containment heirarchy of resource within catalog>
+    }
+
+`"metrics"` is either null or an array of metric objects like so:
+
+    {
+      "category" : <category of metric ("resources", "time", "changes", or "events")>,
+      "name" : <name of the metric>,
+      "value" : <value of the metric (double precision)>
+    }
+
+**Note on fields that allow `NULL` values**
+
+In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 ### Encoding
 

@@ -4,7 +4,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import (org.postgresql.util PGobject)))
 
 ;; SCHEMA
 
@@ -252,3 +253,27 @@ must be supplied as the value to be matched."
        (sql/do-commands
         (str "ALTER TABLE " table " ALTER COLUMN " column
              " RESTART WITH " restartid))))))
+
+(defn clj->pgobject
+  [value]
+  (let [value' (if (nil? value) "null" value)]
+    (doto (PGobject.)
+      (.setType "json")
+      (.setValue (json/generate-string value')))))
+
+(defn pgobject->clj
+  [value]
+  (let [parsed-val (json/parse-string (.getValue value))]
+    (if (= parsed-val "null") nil parsed-val)))
+
+(defn munge-metrics-for-storage
+  [value]
+  (if (postgres?)
+    (clj->pgobject value)
+    (json/generate-string value)))
+
+(defn metrics-parse-fn
+  []
+  (if (postgres?)
+    pgobject->clj
+    json/parse-string))

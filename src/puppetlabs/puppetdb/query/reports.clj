@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -9,7 +10,8 @@
             [clojure.set :refer [rename-keys]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils])
+  (:import  (org.postgresql.util PGobject)))
 
 (def row-schema
   {:hash String
@@ -17,6 +19,7 @@
    :puppet_version String
    :report_format s/Int
    :configuration_version String
+   :metrics (s/maybe (s/either String org.postgresql.util.PGobject))
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
@@ -49,6 +52,11 @@
    :status (s/maybe String)
    :message (s/maybe String)})
 
+(def json-metric-schema
+  {(s/required-key "category") String
+   (s/required-key "name") String
+   (s/required-key "value") s/Num})
+
 (def report-schema
   {:hash String
    (s/optional-key :environment) (s/maybe String)
@@ -61,6 +69,7 @@
    :report_format s/Int
    :configuration_version String
    :resource_events [resource-event-schema]
+   :metrics (s/maybe [json-metric-schema])
    :transaction_uuid String
    :status (s/maybe String)})
 
@@ -76,6 +85,7 @@
    :status
    :environment
    :configuration_version
+   :metrics
    :certname])
 
 (defn create-report-pred
@@ -102,9 +112,9 @@
   (let [first-row (first report-rows)
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
-      :resource_events resource-events)))
-
+    (-> (select-keys first-row report-columns)
+        (update-in [:metrics] (scf-utils/metrics-parse-fn))
+        (assoc :resource_events resource-events))))
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
   [version :- s/Keyword

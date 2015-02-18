@@ -175,6 +175,7 @@
                          "puppet_version" :string
                          "report_format" :number
                          "configuration_version" :string
+                         "metrics" :string
                          "old_value" :string
                          "new_value" :string
                          "timestamp" :timestamp
@@ -212,6 +213,7 @@
                        reports.receive_time,
                        reports.transaction_uuid,
                        reports.noop,
+                       reports.metrics,
                        environments.name as environment,
                        report_statuses.status as status,
                        re.report_id,

@@ -52,6 +52,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
         "noop"                    => is_noop,
+        "metrics"                 => build_metrics_list,
       }
     end
   end
@@ -72,6 +73,20 @@ Puppet::Reports.register_report(:puppetdb) do
       end)
     end
   end
+
+  def build_metrics_list
+    profile("Build metrics list (count: #{metrics.count})",
+            [:puppetdb, :metrics_list, :build]) do
+      metrics_list = []
+      metrics.each do |metric_kv|
+        metric = metric_kv[1]
+        metric_hashes = metric.values.map {|x| {"category" => metric.name, "name" => x.first, "value" => x.last}}
+        metrics_list.concat(metric_hashes)
+      end
+      metrics_list
+    end
+  end
+
 
   # @return Number
   # @api private

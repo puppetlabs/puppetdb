@@ -41,7 +41,9 @@
    [:start_time :end_time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
-   (update-in report [:resource_events] (comp keywordize-keys munge-resource-events))))
+   (-> report
+       (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+       (update-in [:metrics] keywordize-keys))))
 
 (defn reports-response
   [version reports]
