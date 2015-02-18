@@ -26,18 +26,8 @@
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
    :transaction_uuid String
-   :event_status String
-   :timestamp pls/Timestamp
-   :resource_type String
-   :resource_title String
-   :new_value String
-   :old_value String
+   :resource_events (s/maybe org.postgresql.util.PGobject)
    :status (s/maybe String)
-   :property (s/maybe String)
-   :message (s/maybe String)
-   :file (s/maybe String)
-   :line (s/maybe s/Int)
-   :containment_path (s/maybe [String])
    :noop (s/maybe s/Bool)
    (s/optional-key :environment) (s/maybe String)})
 
@@ -47,6 +37,7 @@
    :resource_title String
    :resource_type String
    :timestamp pls/Timestamp
+   :containing_class (s/maybe String)
    :containment_path (s/maybe [String])
    :property (s/maybe String)
    :file (s/maybe String)
@@ -71,9 +62,12 @@
    :noop (s/maybe s/Bool)
    :report_format s/Int
    :configuration_version String
-   :resource_events [resource-event-schema]
-   :metrics (s/maybe [json-metric-schema])
-   :logs (s/maybe [json-log-schema])
+   :metrics (s/maybe (s/either [json-metric-schema]
+                               {:href String}))
+   :logs (s/maybe (s/either [json-log-schema]
+                            {:href String}))
+   :resource_events (s/either [resource-event-schema]
+                              {:href String})
    :transaction_uuid String
    :status (s/maybe String)})
 
@@ -117,7 +111,8 @@
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
     (-> (select-keys first-row report-columns)
-        ((partial kitchensink/maptrans {[:metrics :logs] (scf-utils/parse-db-json-fn)}))
+        ((partial kitchensink/maptrans {[:metrics :logs]
+                                        (scf-utils/parse-db-json-fn)}))
         (assoc :resource_events resource-events))))
 
 (pls/defn-validated structured-data-seq
@@ -143,15 +138,56 @@
    (qe/compile-user-query->sql
     qe/reports-query query paging-options)))
 
+(pls/defn-validated munge-event :- resource-event-schema
+  [event]
+  (-> event
+      (rename-keys {"f1" :status
+                    "f2" :timestamp
+                    "f3" :resource_type
+                    "f4" :resource_title
+                    "f5" :property
+                    "f6" :new_value
+                    "f7" :old_value
+                    "f8" :message
+                    "f9" :file
+                    "f10" :line
+                    "f11" :containment_path
+                    "f12" :containing_class})
+      (update-in [:old_value] #(json/parse-string %))
+      (update-in [:new_value] #(json/parse-string %))))
+
+(pls/defn-validated events-to-json-final
+  [obj :- (s/maybe org.postgresql.util.PGobject)]
+  (when obj
+    (map munge-event
+         (json/parse-string (.getValue obj)))))
+
+(pls/defn-validated convert-report :- report-schema
+  [row :- row-schema
+   {:keys [expand?]}]
+  (if expand?
+    (kitchensink/maptrans {[:resource_events] events-to-json-final
+                           [:metrics :logs] (scf-utils/parse-db-json-fn)} row)
+    (assoc row :resource_events {:href (str "/v4/reports/" (:hash row) "/events")}
+      :metrics {:href (str "/v4/reports/" (:hash row) "/metrics")}
+      :logs {:href (str "/v4/reports/" (:hash row) "/logs")})))
+
+(pls/defn-validated convert-reports
+  "Convert resource events"
+  [rows paging-options]
+  (map #(convert-report % paging-options)
+       rows))
+
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
+  [_
+   projected-fields :- [s/Keyword]
+   paging-options]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project projections)
-           (structured-data-seq version rows)))))
+      (map (qe/basic-project projected-fields)
+           (convert-reports rows paging-options)))))
 
 (defn query-reports
   "Queries reports and unstreams, used mainly for testing.
@@ -171,7 +207,6 @@
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query :reports))
       result)))
-
 
 (defn reports-for-node
   "Return reports for a particular node."

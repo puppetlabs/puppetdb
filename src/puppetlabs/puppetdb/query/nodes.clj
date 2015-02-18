@@ -7,7 +7,9 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (defn node-columns
   "Return node columns based on version"
@@ -30,12 +32,14 @@
      (paging/validate-order-by! (node-columns version) paging-options)
      (qe/compile-user-query->sql qe/nodes-query query paging-options)))
 
-(defn munge-result-rows
-  [version projections]
+(pls/defn-validated munge-result-rows
+  [_
+   projected-fields :- [s/Keyword]
+   _]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project projections) rows))))
+      (map (qe/basic-project projected-fields) rows))))
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."

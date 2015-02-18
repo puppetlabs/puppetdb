@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]))
 
-(def query-params ["limit" "offset" "order_by" "include_total"])
+(def query-params ["limit" "offset" "order_by" "include_total" "expand"])
 (def count-header "X-Records")
 
 (defn valid-order-str?
@@ -169,6 +169,13 @@
   Throws an exception if the provided limit is not a positive non-zero integer."
   [paging-options]
   (update-in paging-options [:limit] #(when-not (nil? %) (validate-limit %))))
+
+(defn parse-expand
+  [paging-options]
+  (let [expand? (http/parse-boolean-query-param paging-options :expand)]
+    (-> paging-options
+        (dissoc :expand)
+        (assoc :expand? expand?))))
 
 (defn validate-offset
   "Validates that the offset string is a non-negative integer. Returns the integer

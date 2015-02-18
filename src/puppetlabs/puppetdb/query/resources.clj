@@ -45,7 +45,7 @@
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the version
   specified API specification"
-  [version _]
+  [_ _ _]
   deserialize-params)
 
 (defn query-resources

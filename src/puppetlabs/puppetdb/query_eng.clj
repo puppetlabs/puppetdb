@@ -24,7 +24,7 @@
    currently adhere to that contract, so this function will wrap the
    given function `f` and ignore those arguments"
   [f]
-  (fn [_ _]
+  (fn [_ _ _]
     f))
 
 (defn stream-query-result
@@ -35,13 +35,13 @@
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql facts/munge-result-rows]
-          :event-counts [event-counts/query->sql (ignore-engine-params (event-counts/munge-result-rows (first paging-options)))]
+          :event-counts [event-counts/query->sql event-counts/munge-result-rows]
           :aggregate-event-counts [aggregate-event-counts/query->sql (ignore-engine-params (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))]
           :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
-          :fact-paths [facts/fact-paths-query->sql (ignore-engine-params facts/munge-path-result-rows)]
+          :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]
           :events [events/query->sql events/munge-result-rows]
           :nodes [nodes/query->sql nodes/munge-result-rows]
-          :environments [environments/query->sql (fn [_ _] identity)]
+          :environments [environments/query->sql (fn [_ _ _] identity)]
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
           :resources [resources/query->sql resources/munge-result-rows]
@@ -49,8 +49,8 @@
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query
-             projections :projections} (query->sql version query
-                                                   paging-options)
+             projected-fields :projected-fields} (query->sql version query
+                                                             paging-options)
              query-error (promise)
              resp (output-fn
                    (fn [f]
@@ -63,14 +63,14 @@
                                 (first %)
                                 (deliver query-error nil)
                                 %)
-                             (munge-fn version projections))))
+                             (munge-fn version projected-fields paging-options))))
                        (catch java.sql.SQLException e
                          (deliver query-error e)
                          nil))))]
         (when @query-error
           (throw @query-error))
         (if count-query
-          (http/add-headers resp {:count (jdbc/get-result-count count-query entity)})
+          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
           resp)))))
 
 (defn produce-streaming-body

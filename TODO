@@ -1,0 +1,41 @@
+PDB-1228
+
+Saturday:
+
+* (WONTFIX) honeysql/scast: find out if there is a better way than raw sql. (there possibly isn't, and its done like this in honeysql core in various places already)
+* (DONE) Is col & Column still needed for honeysql.clj?
+* (DONE) Find out how to specify a left outer join in honeysql
+* (DONE) honeysql schema support
+* (DONE) latest_report? for reports and events is a query-rewrite so we shouldn't project this at all, add support for just ignoring that, but also test if it 'just works' without having a projection defined.
+* (DONE) Test out projection, I think I broke /nodes by not adapting that to the new :projections thingy
+
+Sunday:
+
+* (DONE) Factsets is broken again, for some reason the deactivated field isn't being floated
+* (WONTFIX) I've just added the expand param to paging-options for ease of threading, should we change this? Actually, this seems fine to me for now.
+* (WONTFIX) query.catalogs/catalog-columns: seems like a redundant bit of information, we should get this from the query-rec
+* (DONE) Normalize all this horrible munging! For catalogs/reports/factsets. At least document what I've got
+* (DONE) schema for query/reports.clj
+* (DONE) schema for query/catalogs.clj
+* (DONE) schema for query/factsets.clj
+* (WONTFIX) engine/compile_user_query: should we just be returning the full plan here? that contains paging-options, project-fields and all the other bits that munge might need
+* (WONTFIX) Better name for honeysql/scast
+* (DONE) Consider moving the plan -> honeysql translation to the query_eng namespace
+
+* HSQLDB error handling if expand=true
+
+* schema response for query.catalogs/convert-catalog needs to be set but at the moment the old schema needs to be fixed somehow to support our changes
+* engine/queryable-fields & engine/projectable-fields are both very similar, we should consider generalizing
+
+* Endpoint: /v4/reports/<hash>/events
+* Endpoint: /v4/edges
+* Should we be using /v4/catalogs/<hash> or /v4/catalogs/<node>? It would assist with historical if it was a hash. /v4/factsets falls into the same boat, but we lack a hash for factsets.
+* Endpoint: /v4/catalogs/<node|hash>/edges
+* Endpoint: /v4/catalogs/<node|hash>/resources
+* Endpoint: /v4/factsets/<node>/facts
+
+* Import/export without expansion
+* Factsets use to return a hash, now it returns a list. Is this a good idea? its more consistent this way ...
+
+* Tests
+* Documentation updates

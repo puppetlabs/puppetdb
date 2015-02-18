@@ -6,6 +6,8 @@
   (:require [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.catalogs :as cats]
             [schema.core :as s]
+            [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -33,74 +35,16 @@
    :environment (s/maybe String)
    :certname String
    :producer_timestamp pls/Timestamp
-   :resource (s/maybe String)
-   :type (s/maybe String)
-   :title (s/maybe String)
-   :tags (s/maybe [String])
-   :exported (s/maybe s/Bool)
-   :file (s/maybe String)
-   :line (s/maybe s/Int)
-   :parameters (s/maybe String)
-   :source_type (s/maybe String)
-   :source_title (s/maybe String)
-   :target_type (s/maybe String)
-   :target_title (s/maybe String)
-   :relationship (s/maybe String)})
+   :resources (s/maybe org.postgresql.util.PGobject)
+   :edges (s/maybe org.postgresql.util.PGobject)})
 
 (defn catalog-response-schema
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [api-version]
   (case api-version
-    :v4 (assoc (cats/catalog-wireformat :v5) :hash String)
+    :v4 (assoc (cats/catalog-wireformat :v6)
+          :hash String)
     (cats/catalog-wireformat api-version)))
-
-(defn create-catalog-pred
-  [rows]
-  (let [catalog-hash (:hash (first rows))]
-    (fn [row]
-      (= catalog-hash (:hash row)))))
-
-(defn collapse-resources
-  [acc row]
-  (let [{:keys [tags type title line parameters exported file]} row
-        resource {:tags tags :type type :title title :line line
-                  :parameters (json/parse-strict-string parameters true)
-                  :exported exported :file file}]
-    (into acc
-          (-> resource
-              (kitchensink/dissoc-if-nil :line :file)
-              vector))))
-
-(defn collapse-edges
-  [acc row]
-  (let [{:keys [source_type target_type source_title target_title relationship]} row
-        edge {:source {:type source_type :title source_title}
-              :target {:type target_type :title target_title}
-              :relationship relationship}]
-    (into acc [edge])))
-
-(pls/defn-validated collapse-catalog :- (catalog-response-schema :v4)
-  [version :- s/Keyword
-   catalog-rows :- [row-schema]]
-  (let [first-row (first catalog-rows)
-        resources (->> catalog-rows
-                       (filter #(not (nil? (:resource %))))
-                       (reduce collapse-resources #{})
-                       (into []))
-        edges (->> catalog-rows
-                   (filter #(not (nil? (:source_type %))))
-                   (reduce collapse-edges #{})
-                   (into []))]
-    (assoc (select-keys first-row [:version :environment :hash :certname
-                                   :transaction_uuid :producer_timestamp])
-           :edges edges
-           :resources resources)))
-
-(pls/defn-validated structured-data-seq
-  "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
-  [version :- s/Keyword
-   rows]
-  (utils/collapse-seq create-catalog-pred #(collapse-catalog version %) rows))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -117,14 +61,68 @@
    (qe/compile-user-query->sql
     qe/catalog-query query paging-options)))
 
+(pls/defn-validated munge-resource
+  [resource]
+  (-> resource
+      (rename-keys {"f1" :resource
+                    "f2" :type
+                    "f3" :title
+                    "f4" :tags
+                    "f5" :exported
+                    "f6" :file
+                    "f7" :line
+                    "f8" :parameters})
+      (update-in [:parameters] #(json/parse-strict-string % true))))
+
+(pls/defn-validated resources-json-final
+  [obj :- (s/maybe org.postgresql.util.PGobject)]
+  (when obj
+    (map munge-resource
+         (json/parse-string (.getValue obj)))))
+
+(pls/defn-validated munge-edge
+  [edge]
+  (-> edge
+      (rename-keys {"f1" :source_type
+                    "f2" :source_title
+                    "f3" :target_type
+                    "f4" :target_title
+                    "f5" :relationship})))
+
+(pls/defn-validated edges-json-final
+  [obj :- (s/maybe org.postgresql.util.PGobject)]
+  (when obj
+    (map munge-edge
+         (json/parse-string (.getValue obj)))))
+
+;; TODO: need to use (catalog-response-schema :v4) as a response schema
+(pls/defn-validated convert-catalog
+  [row :- row-schema
+   {:keys [expand?]}]
+  (if expand?
+    (-> row
+        (update-in [:edges] edges-json-final)
+        (update-in [:resources] resources-json-final))
+    (-> row
+        (assoc :edges {:href (str "/v4/catalogs/" (:certname row) "/edges")})
+        (assoc :resources {:href (str "/v4/catalogs/" (:certname row) "/resources")}))))
+
+(pls/defn-validated convert-catalogs
+  "Convert catalogs"
+  [rows paging-options]
+  (map #(convert-catalog % paging-options)
+       rows))
+
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
+  [_
+   projected-fields :- [s/Keyword]
+   paging-options]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project projections) (structured-data-seq version rows)))))
+      (map (qe/basic-project projected-fields)
+           (convert-catalogs rows paging-options)))))
 
 (defn query-catalogs
   "Search for catalogs satisfying the given SQL filter."

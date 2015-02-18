@@ -96,12 +96,13 @@
     (try
       (app (assoc req :paging-options
                   (-> params
-                      (select-keys ["limit" "offset" "order_by" "include_total"])
+                      (select-keys ["limit" "offset" "order_by" "include_total" "expand"])
                       (keywordize-keys)
                       (paging/parse-limit)
                       (paging/parse-offset)
                       (paging/parse-count)
-                      (paging/parse-order-by))))
+                      (paging/parse-order-by)
+                      (paging/parse-expand))))
       (catch IllegalArgumentException e
         (http/error-response e)))))
 

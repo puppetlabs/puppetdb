@@ -72,7 +72,8 @@
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
-                 [robert/hooke "1.3.0"]]
+                 [robert/hooke "1.3.0"]
+                 [honeysql "0.4.3"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 

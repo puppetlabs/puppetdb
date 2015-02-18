@@ -1,9 +1,12 @@
 (ns puppetlabs.puppetdb.query.factsets
-  (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
+  (:require [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.cheshire :as json]
             [schema.core :as s]
+            [clojure.set :refer [rename-keys]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.facts :as facts]
@@ -15,23 +18,14 @@
 (def row-schema
   {:certname String
    :environment (s/maybe s/Str)
-   :path String
-   :value s/Any
    :hash (s/maybe s/Str)
-   :value_float (s/maybe s/Num)
-   :value_integer (s/maybe s/Int)
    :producer_timestamp pls/Timestamp
-   :type (s/maybe String)
-   :timestamp pls/Timestamp})
+   :timestamp pls/Timestamp
+   :facts (s/maybe org.postgresql.util.PGobject)})
 
-(def converted-row-schema
-  {:certname String
-   :environment (s/maybe s/Str)
-   :path String
-   :hash (s/maybe s/Str)
-   :value s/Any
-   :producer_timestamp pls/Timestamp
-   :timestamp pls/Timestamp})
+(def facts-schema
+  {:name s/Str
+   :value s/Any})
 
 (def factset-schema
   {:certname String
@@ -39,68 +33,50 @@
    :timestamp pls/Timestamp
    :producer_timestamp pls/Timestamp
    :hash (s/maybe s/Str)
-   :facts {s/Str s/Any}})
+   :facts (s/either [facts-schema]
+                    {:href String})})
 
 ;; FUNCS
 
-(pls/defn-validated convert-types :- [converted-row-schema]
-  [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :value_integer :value_float]) rows))
-
-(defn int-map->vector
-  "Convert a map of form {1 'a' 0 'b' ...} to vector ['b' 'a' ...]"
-  [node]
-  (when (and
-         (map? node)
-         (not (empty? node)))
-    (let [int-keys (keys node)]
-      (when (every? integer? int-keys)
-        (mapv node (sort int-keys))))))
-
-(defn int-maps->vectors
-  "Walk a structured fact set, transforming all int maps."
+(pls/defn-validated munge-facts :- facts-schema
   [facts]
-  (:node (zip/post-order-transform (zip/tree-zipper facts)
-                                   [int-map->vector])))
+  (facts/convert-row-type
+   [:type :depth :value_integer :value_float]
+   (-> facts
+       (rename-keys {"f1" :name
+                     "f2" :value
+                     "f3" :value_integer
+                     "f4" :value_float
+                     "f5" :type}))))
 
-(defn recreate-fact-path
-  "Produce the nested map corresponding to a path/value pair.
+(pls/defn-validated facts-to-json-final :- [facts-schema]
+  [obj :- (s/maybe org.postgresql.util.PGobject)]
+  (when obj
+    (map munge-facts
+         (json/parse-string (.getValue obj)))))
 
-  Operates by accepting an existing map `acc` and a map containing keys `path`
-  and `value`, it splits the path into its components and populates the data
-  structure with the `value` in the correct path.
+(pls/defn-validated convert-factset :- factset-schema
+  [row :- row-schema
+   {:keys [expand?]}]
+  (if expand?
+    (update-in row [:facts] facts-to-json-final)
+    (assoc row :facts {:href (str "/v4/factsets/" (:certname row) "/facts")})))
 
-  Returns the complete map structure after this operation is applied to
-  `acc`."
-  [acc {:keys [path value]}]
-  (let [split-path (facts/string-to-factpath path)]
-    (assoc-in acc split-path value)))
-
-(pls/defn-validated collapse-factset :- factset-schema
-  "Aggregate all facts for a certname into a single structure."
-  [version :- s/Keyword
-   certname-rows :- [converted-row-schema]]
-  (let [first-row (first certname-rows)
-        facts (reduce recreate-fact-path {} certname-rows)]
-    (assoc (select-keys first-row [:hash :certname :environment :timestamp :producer_timestamp])
-      :facts (int-maps->vectors facts))))
-
-(pls/defn-validated structured-data-seq
-  "Produce a lazy sequence of facts from a list of rows ordered by fact name"
-  [version :- s/Keyword
-   rows]
-  (utils/collapse-seq utils/create-certname-pred
-                      (comp #(collapse-factset version %) convert-types)
-                      rows))
+(pls/defn-validated convert-factsets
+  [rows paging-options]
+  (map #(convert-factset % paging-options)
+       rows))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
+  [_
+   projected-fields :- [s/Keyword]
+   paging-options]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project projections) (structured-data-seq version rows)))))
+      (map (qe/basic-project projected-fields)
+           (convert-factsets rows paging-options)))))
 
 (pls/defn-validated query->sql
   "Compile a query into an SQL expression."

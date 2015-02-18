@@ -125,15 +125,10 @@
 
 (defn munge-result-rows
   "Returns a function that munges the resulting rows ready for final
-  presentation.
-
-  Version is provided to alter the munge function depending on the API query."
-  [version _]
+  presentation."
+  [_ _ _]
   (fn [rows]
     (map
-     ;; TODO: conversion to underscore should be standard anyway
-     ;; at least for V4. Consider moving this operation to
-     ;; query/streamed-query-result in the future.
      #(-> %
           (utils/update-when [:old_value] json/parse-string)
           (utils/update-when [:new_value] json/parse-string))

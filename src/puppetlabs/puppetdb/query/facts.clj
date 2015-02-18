@@ -45,14 +45,16 @@
   [rows :- [row-schema]]
   (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
 
-(defn munge-result-rows
-  [version projections]
+(pls/defn-validated munge-result-rows
+  [_
+   projected-fields :- [s/Keyword]
+   _]
   (fn [rows]
     (if (empty? rows)
       []
       (->> rows
         convert-types
-        (map #(select-keys % (or (seq projections)
+        (map #(select-keys % (or (seq projected-fields)
                                  [:certname :environment :timestamp :name :value])))))))
 
 (defn fact-paths-query->sql
@@ -60,8 +62,9 @@
   (qe/compile-user-query->sql qe/fact-paths-query query paging-options))
 
 (defn munge-path-result-rows
-  [rows]
-  (map #(update-in % [:path] facts/string-to-factpath) rows))
+  [_ _ _]
+  (fn [rows]
+     (map #(update-in % [:path] facts/string-to-factpath) rows)))
 
 (defn query->sql
   "Compile a query into an SQL expression."

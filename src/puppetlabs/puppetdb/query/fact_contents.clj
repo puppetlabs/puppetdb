@@ -31,11 +31,13 @@
       (update-in [:path] f/string-to-factpath)
       (dissoc :type :value_integer :value_float)))
 
-(defn munge-result-rows
+(pls/defn-validated munge-result-rows
   "Munge resulting rows for fact-contents endpoint."
-  [version projections]
+  [_
+   projected-fields :- [s/Keyword]
+   _]
   (fn [rows]
-    (map (comp (qe/basic-project projections) munge-result-row) rows)))
+    (map (comp (qe/basic-project projected-fields) munge-result-row) rows)))
 
 (defn query->sql
   "Compile a query into an SQL expression."
