@@ -391,7 +391,7 @@
   [[version endpoint] endpoints]
 
   (let [catalog (:basic catalogs)
-        certname (str (:name catalog))
+        certname (str (:certname catalog))
         report (assoc (:basic reports) :certname certname)
         timestamp "2014-04-16T12:44:40.978Z"]
     (scf-store/add-certname! certname)

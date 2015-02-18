@@ -353,3 +353,10 @@
                       "old_value"      "absent"
                       "resource_type"  "Package"}]
       (is (coll? (anonymize-resource-events [test-event] {} {}))))))
+
+(deftest test-anonymize-catalog
+  (testing "should accept basic valid data"
+    (anonymize-catalog {} {"certname"  "my.node"
+                           "version"   "some version"
+                           "resources" []
+                           "edges"     []})))

@@ -17,7 +17,7 @@
 ;; v4+ functions
 
 (def catalog-columns
-  [:name
+  [:certname
    :version
    :transaction_uuid
    :producer_timestamp
@@ -31,7 +31,7 @@
    :hash (s/maybe String)
    :transaction_uuid (s/maybe String)
    :environment (s/maybe String)
-   :name String
+   :certname String
    :producer_timestamp (s/maybe pls/Timestamp)
    :resource (s/maybe String)
    :type (s/maybe String)
@@ -91,9 +91,10 @@
                    (filter #(not (nil? (:source_type %))))
                    (reduce collapse-edges #{})
                    (into []))]
-    (assoc (select-keys first-row [:name :version :environment :hash
+    (assoc (select-keys first-row [:version :environment :hash :certname
                                    :transaction_uuid :producer_timestamp])
-      :edges edges :resources resources)))
+           :edges edges
+           :resources resources)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
@@ -146,6 +147,6 @@
 (defn status
   [version node]
   {:pre [string? node]}
-  (let [sql (query->sql version ["=" "name" node])
+  (let [sql (query->sql version ["=" "certname" node])
         results (:result (query-catalogs version sql))]
     (first results)))

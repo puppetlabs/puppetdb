@@ -59,9 +59,9 @@
                            :timestamp (plus (now) (secs 3))
                            :environment "DEV"
                            :producer_timestamp nil})
-    (scf-store/replace-catalog! (assoc web1-catalog :name web1) (now))
-    (scf-store/replace-catalog! (assoc puppet-catalog :name puppet) (plus (now) (secs 1)))
-    (scf-store/replace-catalog! (assoc db-catalog :name db) (plus (now) (secs 2)))
+    (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
+    (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (plus (now) (secs 1)))
+    (scf-store/replace-catalog! (assoc db-catalog :certname db) (plus (now) (secs 2)))
     (scf-store/add-report! (basic-report-for-node web1) (now))
     (scf-store/add-report! (basic-report-for-node puppet) (plus (now) (secs 2)))
     (scf-store/add-report! (basic-report-for-node db) (plus (now) (secs 3)))

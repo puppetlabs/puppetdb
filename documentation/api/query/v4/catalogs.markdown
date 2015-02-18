@@ -27,7 +27,7 @@ See [the Operators page.](./operators.html)
 
 ### Query Fields
 
-* `name` (string): the certname associated with the catalog
+* `certname` (string): the certname associated with the catalog
 * `version` (string): an arbitrary string that uniquely identifies each catalog for a node
 * `environment` (string): the environment associated with the catalog's certname
 * `transaction_uuid` (string): a string used to tie a catalog to a report from the same puppet run
@@ -46,7 +46,7 @@ The result will be a JSON array with one entry per certname. Each entry is of
 the form:
 
     {
-      "name" : <node name>,
+      "certname" : <node certname>,
       "version" : <catalog version>,
       "environment" : <catalog environment>,
       "hash" : <sha1 sum of catalog resources>,
@@ -65,7 +65,7 @@ This query will return the complete list of catalogs:
     curl -X GET http://puppetdb:8080/v4/catalogs
 
     [ {
-      "name" : "yo.delivery.puppetlabs.net",
+      "certname" : "yo.delivery.puppetlabs.net",
       "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
       "version" : "e4c339f",
       "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
@@ -75,7 +75,7 @@ This query will return the complete list of catalogs:
       "resources" : [...]
     },
     {
-      "name" : "foo.delivery.puppetlabs.net",
+      "certname" : "foo.delivery.puppetlabs.net",
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
@@ -90,7 +90,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
     curl -X GET http://puppetdb:8080/v4/catalogs --data-urlencode 'query=[">","producer_timestamp","2014-11-19"]'
 
     [ {
-      "name" : "foo.delivery.puppetlabs.net",
+      "certname" : "foo.delivery.puppetlabs.net",
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
@@ -116,7 +116,7 @@ a JSON error message if the catalog is not found:
     curl -X GET http://puppetdb:8080/v4/catalogs/foo.localdomain
 
     {
-     "name" : "yo.delivery.puppetlabs.net",
+     "certname" : "yo.delivery.puppetlabs.net",
      "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
      "version" : "e4c339f",
      "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",

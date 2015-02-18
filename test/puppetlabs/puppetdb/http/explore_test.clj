@@ -44,9 +44,9 @@
         facts1  (assoc facts "fqdn" "host1")
         facts2  (assoc facts "fqdn" "host2")
         facts3  (assoc facts "fqdn" "host3")
-        cat1    (assoc catalog :name "host1")
-        cat2    (assoc catalog :name "host2")
-        cat3    (assoc catalog :name "host3")]
+        cat1    (assoc catalog :certname "host1")
+        cat2    (assoc catalog :certname "host2")
+        cat3    (assoc catalog :certname "host3")]
     (scf-store/add-certname! "host1")
     (scf-store/add-certname! "host2")
     (scf-store/add-certname! "host3")

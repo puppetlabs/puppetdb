@@ -73,7 +73,7 @@
              "b4199f8703c5dc208054a62203db132c3d12581c"))))
 
   (testing "catalog-similarity-hash"
-    (let [sample {:name  "foobar.baz"
+    (let [sample {:certname  "foobar.baz"
                   :resources {:foo {:type "Type" :title "foo" :parameters {:a 1 :c 3 :b {:z 26 :c 3}} :file "/tmp" :line 3 :tags ["foo" "bar"]}}
                   :edges     [{:source {:type "Type" :title "foo"} :target {:type "File" :title "/tmp"}}]}]
 

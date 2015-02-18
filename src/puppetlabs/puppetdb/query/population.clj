@@ -24,7 +24,7 @@
   {:post [(number? %)]}
   (-> (str "SELECT COUNT(*) AS c "
            "FROM catalogs clogs, catalog_resources cr, certnames c "
-           "WHERE clogs.id=cr.catalog_id AND c.name=clogs.certname AND c.deactivated IS NULL")
+           "WHERE clogs.id=cr.catalog_id AND c.certname=clogs.certname AND c.deactivated IS NULL")
       (query-to-vec)
       (first)
       :c))
@@ -50,7 +50,7 @@
   {:post [(number? %)]}
   (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
                                           "(SELECT DISTINCT resource FROM catalog_resources cr, catalogs clogs, certnames c "
-                                          " WHERE cr.catalog_id=clogs.id AND clogs.certname=c.name AND c.deactivated IS NULL) r"))
+                                          " WHERE cr.catalog_id=clogs.id AND clogs.certname=c.certname AND c.deactivated IS NULL) r"))
                        (first)
                        (:c))
         num-total  (num-resources)]

@@ -109,7 +109,7 @@
                                              [3 "node_c" 3 1]
                                              [4 "node_d" 2 3]
                                              [5 "node_e" 5 2]]]
-      (sql/insert-record :certnames {:name node})
+      (sql/insert-record :certnames {:certname node})
       (sql/insert-record :factsets {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
       (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 

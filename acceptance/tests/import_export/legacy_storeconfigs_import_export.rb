@@ -66,7 +66,7 @@ test_name "storeconfigs export and import" do
     hosts.each do |host|
       result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{host.node_name}|
       result_catalog = JSON.parse(result.stdout)
-      assert_equal(host.node_name, result_catalog['name'], "Catalog for node #{host.node_name} not found")
+      assert_equal(host.node_name, result_catalog['certname'], "Catalog for node #{host.node_name} not found")
     end
   end
 end

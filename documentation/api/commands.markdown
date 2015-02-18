@@ -69,12 +69,14 @@ processed.
 
 ### "replace catalog", version 6
 
-Version 6 differs from version 5 only in that all field names that were
-previously separated by dashes are separated by underscores.
+* All field names that were previously separated by dashes are
+  separated by underscores.
 
-The payload is expected to be a Puppet catalog, as a JSON object, conforming
-exactly to the [catalog wire format v6][catalogv6]. Extra or missing fields
-are an error.
+* The catalog 'name' field has been renamed to 'certname'.
+
+The payload is expected to be a Puppet catalog, as a JSON object,
+conforming exactly to the [catalog wire format v6][catalogv6]. Extra
+or missing fields are an error.
 
 ### "replace facts", version 4
 
@@ -87,9 +89,9 @@ payload of this command.
 
 ### "deactivate node", version 2
 
-The payload is expected to be the name of a node, as a raw JSON string, which will be deactivated
-effective as of the time the command is *processed*. Serialization of the payload is no
-longer required.
+The payload is expected to be the certname of a node, as a raw JSON
+string, which will be deactivated effective as of the time the command
+is *processed*.
 
 ### "store report", version 5
 
@@ -109,7 +111,7 @@ To post a `replace facts` command you can use the following curl command:
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":3,"payload":{"name":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
+      -d '{"command":"replace facts","version":4,"payload":{"name":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
       http://localhost:8080/v4/commands
 
 An example of `deactivate node`:

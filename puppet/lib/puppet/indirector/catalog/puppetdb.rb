@@ -50,6 +50,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
       add_environment(data, extra_request_data[:environment])
       add_producer_timestamp(data, extra_request_data[:producer_timestamp])
+      change_name_to_certname(data)
 
       data
     end
@@ -65,6 +66,17 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # Metaparams that may contain arrays, but whose semantics are
   # fundamentally unordered
   UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
+
+  # Change the name field to certname
+  #
+  # @param hash [Hash] original data hash
+  # @return [Hash] returns original hash with 'name' changed to 'certname'
+  # @api private
+  def change_name_to_certname(hash)
+    hash['certname'] = hash.delete('name')
+
+    hash
+  end
 
   # Include environment in hash, returning the complete hash.
   #

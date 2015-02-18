@@ -75,8 +75,8 @@
         (is (= facts (factset-map "some_certname"))))
 
       (testing "should add the certname if necessary"
-        (is (= (query-to-vec "SELECT name FROM certnames")
-               [{:name certname}])))
+        (is (= (query-to-vec "SELECT certname FROM certnames")
+               [{:certname certname}])))
       (testing "producer_timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                [{:producer_timestamp nil}])))
@@ -274,7 +274,7 @@
                (query-to-vec "SELECT certname, environment_id FROM factsets")))))))
 
 (def catalog (:basic catalogs))
-(def certname (:name catalog))
+(def certname (:certname catalog))
 (def current-time (str (now)))
 
 (deftest catalog-persistence
@@ -344,7 +344,7 @@
                  (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs"])))
 
           (testing "Adding another catalog with the same environment should just use the existing environment"
-            (add-catalog! (assoc catalog :environment "PROD" :name other-certname))
+            (add-catalog! (assoc catalog :environment "PROD" :certname other-certname))
 
             (is (= [{:certname other-certname :api_version 1 :catalog_version "123456789" :environment_id id}]
                    (query-to-vec ["SELECT certname, api_version, catalog_version, environment_id FROM catalogs where certname=?" other-certname])))))))))
@@ -369,8 +369,8 @@
     (let [hash (add-catalog! catalog)]
       (replace-catalog! catalog (now))
 
-      (is (= (query-to-vec ["SELECT name FROM certnames"])
-             [{:name certname}]))
+      (is (= (query-to-vec ["SELECT certname FROM certnames"])
+             [{:certname certname}]))
 
       (is (= (query-to-vec ["SELECT hash FROM catalogs"])
              [{:hash hash}])))))
@@ -463,8 +463,8 @@
       (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
       (is (= 0 (- (.count (:updated-catalog metrics)) prev-new-num)))
 
-      (is (= (query-to-vec ["SELECT name FROM certnames"])
-             [{:name certname}]))
+      (is (= (query-to-vec ["SELECT certname FROM certnames"])
+             [{:certname certname}]))
 
       (is (= (query-to-vec ["SELECT certname, hash FROM catalogs"])
              [{:hash hash
@@ -481,8 +481,8 @@
     (delete-catalog! certname)
     (add-catalog! catalog)
 
-    (is (= (query-to-vec ["SELECT name FROM certnames"])
-           [{:name certname}]))))
+    (is (= (query-to-vec ["SELECT certname FROM certnames"])
+           [{:certname certname}]))))
 
 (deftest catalog-deletion-verify
   (testing "should be removed when deleted"
@@ -499,8 +499,8 @@
     (add-catalog! catalog)
     (delete-catalog! certname)
 
-    (is (= (query-to-vec ["SELECT name FROM certnames"])
-           [{:name certname}]))))
+    (is (= (query-to-vec ["SELECT certname FROM certnames"])
+           [{:certname certname}]))))
 
 (deftest catalog-deletion-otherhosts
   (testing "when deleted, should leave other hosts' resources alone"
@@ -508,12 +508,12 @@
     (add-certname! "myhost2.mydomain.com")
     (let [hash1 (add-catalog! catalog)
           ;; Store the same catalog for a different host
-          hash2 (add-catalog! (assoc catalog :name "myhost2.mydomain.com"))]
+          hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
       (delete-catalog! hash1))
 
     ;; myhost should still be present in the database
-    (is (= (query-to-vec ["SELECT name FROM certnames ORDER BY name"])
-           [{:name certname} {:name "myhost2.mydomain.com"}]))
+    (is (= (query-to-vec ["SELECT certname FROM certnames ORDER BY certname"])
+           [{:certname certname} {:certname "myhost2.mydomain.com"}]))
 
     ;; myhost1 should not have any catalogs associated with it
     ;; anymore
@@ -655,7 +655,7 @@
   (apply = (map sort args)))
 
 (deftest existing-catalog-update
-  (let [{certname :name :as catalog} (:basic catalogs)
+  (let [{certname :certname :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
 
@@ -728,7 +728,7 @@
           (is (not= orig-timestamp new-timestamp)))))))
 
 (deftest add-resource-to-existing-catalog
-  (let [{certname :name :as catalog} (:basic catalogs)
+  (let [{certname :certname :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
     (add-certname! certname)
@@ -875,7 +875,7 @@
              set))))
 
 (deftest removing-resources
-  (let [{certname :name :as catalog} (:basic catalogs)
+  (let [{certname :certname :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))
         catalog-with-extra-resource (assoc-in catalog
@@ -921,7 +921,7 @@
     ["SELECT p.name AS k, p.value AS v
       FROM catalog_resources cr, catalogs c, resource_params p
       WHERE cr.catalog_id = c.id AND cr.resource = p.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
     (reduce (fn [acc row]
               (assoc acc (keyword (:k row))
                      (json/parse-string (:v row))))
@@ -932,7 +932,7 @@
     ["SELECT rpc.parameters as params
       FROM catalog_resources cr, catalogs c, resource_params_cache rpc
       WHERE cr.catalog_id = c.id AND cr.resource = rpc.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
     (-> result-set
         first
         :params
@@ -943,13 +943,13 @@
     ["SELECT cr.resource hash
       FROM catalog_resources cr, catalogs c
       WHERE cr.catalog_id = c.id AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :name]) "File" "/etc/foobar"]
+     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
     (-> result-set
         first
         :hash)))
 
 (deftest catalog-resource-parameter-changes
-  (let [{certname :name :as catalog} (:basic catalogs)
+  (let [{certname :certname :as catalog} (:basic catalogs)
         old-date (ago (days 2))
         yesterday (ago (days 1))]
     (add-certname! certname)
@@ -1013,7 +1013,7 @@
 
 (deftest node-deactivation
   (let [certname        "foo.example.com"
-        query-certnames #(query-to-vec ["select name, deactivated from certnames"])
+        query-certnames #(query-to-vec ["select certname, deactivated from certnames"])
         deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
     (add-certname! certname)
 
@@ -1021,7 +1021,7 @@
       (testing "should mark the node as deactivated"
         (deactivate-node! certname)
         (let [result (first (query-certnames))]
-          (is (= certname (:name result)))
+          (is (= certname (:certname result)))
           (is (deactivated? result))))
 
       (testing "should not change the node if it's already inactive"
@@ -1032,7 +1032,7 @@
     (testing "activating a node"
       (testing "should activate the node if it was inactive"
         (activate-node! certname)
-        (is (= (query-certnames) [{:name certname :deactivated nil}])))
+        (is (= (query-certnames) [{:certname certname :deactivated nil}])))
 
       (testing "should do nothing if the node is already active"
         (let [original (query-certnames)]
@@ -1045,19 +1045,19 @@
         (testing "should activate the node if the command happened after it was deactivated"
           (deactivate-node! certname)
           (is (= true (maybe-activate-node! certname after-deactivating)))
-          (is (= (query-certnames) [{:name certname :deactivated nil}])))
+          (is (= (query-certnames) [{:certname certname :deactivated nil}])))
 
         (testing "should not activate the node if the command happened before it was deactivated"
           (deactivate-node! certname)
           (is (= false (maybe-activate-node! certname before-deactivating)))
           (let [result (first (query-certnames))]
-            (is (= certname (:name result)))
+            (is (= certname (:certname result)))
             (is (deactivated? result))))
 
         (testing "should do nothing if the node is already active"
           (activate-node! certname)
           (is (= true (maybe-activate-node! certname (now))))
-          (is (= (query-certnames) [{:name certname :deactivated nil}])))))))
+          (is (= (query-certnames) [{:certname certname :deactivated nil}])))))))
 
 (deftest node-staleness-age
   (testing "retrieving stale nodes based on age"
@@ -1066,14 +1066,14 @@
 
       (testing "should return nothing if all nodes are more recent than max age"
         (let [catalog (:empty catalogs)
-              certname (:name catalog)]
+              certname (:certname catalog)]
           (add-certname! certname)
           (replace-catalog! catalog (now))
           (is (= (stale-nodes (ago (days 1))) [])))))))
 
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
-    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :name "node1") (ago (days 2)))
+    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
                     #(replace-facts! {:name "node1"
                                       :values {"foo" "bar"}
                                       :environment "DEV"
@@ -1089,8 +1089,8 @@
     (let [catalog (:empty catalogs)]
       (add-certname! "node1")
       (add-certname! "node2")
-      (replace-catalog! (assoc catalog :name "node1") (ago (days 2)))
-      (replace-catalog! (assoc catalog :name "node2") (now))
+      (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
+      (replace-catalog! (assoc catalog :certname "node2") (now))
 
       (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
 
@@ -1105,7 +1105,7 @@
 
     (purge-deactivated-nodes! (ago (days 5)))
 
-    (is (= (map :name (query-to-vec "SELECT name FROM certnames ORDER BY name ASC"))
+    (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
            ["node1" "node3"]))))
 
 ;; Report tests

@@ -110,7 +110,7 @@
   "This flattened catalog schema is for the superset of catalog information.
    Use this when in the general case as it can be converted to any of the other
    (v5-) schemas"
-  {:name s/Str
+  {:certname s/Str
    :version s/Str
    :environment (s/maybe s/Str)
    :transaction_uuid (s/maybe s/Str)

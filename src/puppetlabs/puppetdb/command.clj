@@ -184,7 +184,7 @@
 (defn replace-catalog*
   [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
   (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
-        certname (:name catalog)
+        certname (:certname catalog)
         id (:id annotations)
         timestamp (:received annotations)]
     (jdbc/with-transacted-connection' db :repeatable-read

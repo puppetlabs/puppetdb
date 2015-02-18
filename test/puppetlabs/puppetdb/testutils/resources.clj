@@ -25,8 +25,8 @@
         {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
        (sql/insert-records
         :certnames
-        {:name "one.local"}
-        {:name "two.local"})
+        {:certname "one.local"}
+        {:certname "two.local"})
        (sql/insert-records
         :catalogs
         {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "one.local" :environment_id (when environment? (ensure-environment "DEV"))}
