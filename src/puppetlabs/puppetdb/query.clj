@@ -218,27 +218,6 @@
                        "file"       "catalog_resources"
                        "line"       "catalog_resources"})
 
-;; This map's keys are the queryable fields for nodes, and the values are the
-;;  corresponding table names where the fields reside
-(defn node-columns
-  "Return the queryable set of fields and corresponding table names where they reside"
-  [version]
-  {"name"                     "certnames"
-   "deactivated"              "certnames"
-   "facts_environment"   "certnames"
-   "report_environment"  "certnames"
-   "catalog_environment" "certnames"
-   "facts_timestamp"          "certnames"
-   "report_timestamp"         "certnames"
-   "catalog_timestamp"        "certnames"})
-
-(defn node-std-fields
-  "Return the set of standard parameters (these support all operators) for nodes"
-  [version]
-  #{"name" "facts-environment" "catalog-environment" "report-environment"})
-
-(def environments-columns {"name" "environments"})
-
 (def event-columns
   {"certname"               ["reports"]
    "configuration_version"  ["reports"]
@@ -296,14 +275,6 @@
 (defmethod queryable-fields :fact
   [_ _]
   (keyset fact-columns))
-
-(defmethod queryable-fields :node
-  [_ version]
-  (keyset (node-columns version)))
-
-(defmethod queryable-fields :environments
-  [_ _]
-  (keyset environments-columns))
 
 (defmethod queryable-fields :event
   [_ _]
@@ -555,137 +526,6 @@
     (throw (IllegalArgumentException.
             (format "Value %s must be a number for %s comparison." value op)))))
 
-(defn compile-node-equality
-  "Compile an equality operator for nodes. This can either be for the value of
-  a specific fact, or based on node activeness."
-  [version path value]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (match [path]
-         [(field :guard (node-std-fields version))]
-         {:where (format "%s = ?" (jdbc/dashes->underscores field))
-          :params [value] }
-
-         [["fact" (name :guard string?)]]
-         {:where
-          "certnames.name IN
-          (SELECT fs.certname
-           FROM factsets fs
-             INNER JOIN facts as f on fs.id = f.factset_id
-             INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-             INNER JOIN fact_paths as fp on fv.path_id = fp.id
-           WHERE fp.depth = 0 AND
-                 fp.path = ? AND
-                 COALESCE(fv.value_string,
-                          cast(fv.value_integer as text),
-                          cast(fv.value_boolean as text),
-                          cast(fv.value_float as text),
-                          '') = ?)"
-          :params [name (str value)]}
-
-         [["node" "active"]]
-         {:where (format "certnames.deactivated IS %s" (if value "NULL" "NOT NULL"))}
-
-         :else (throw (IllegalArgumentException.
-                       (str path " is not a queryable object for nodes")))))
-
-(defn compile-node-regexp
-  "Compile an '~' predicate for a fact query, which does regexp matching.  This
-  is done by leveraging the correct database-specific regexp syntax to return
-  only rows where the supplied `path` match the given `pattern`."
-  [version path pattern]
-  {:pre [(string? pattern)]
-   :post [(map? %)
-          (string? (:where %))]}
-  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
-    (match [path]
-           [(field :guard (node-std-fields version))]
-           {:where (sql-regexp-match (jdbc/dashes->underscores field))
-            :params [pattern]}
-
-           [["fact" (name :guard string?)]]
-           {:where
-            (format
-             "certnames.name IN
-             (SELECT fs.certname
-              FROM factsets fs
-                INNER JOIN facts as f on fs.id = f.factset_id
-                INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                INNER JOIN fact_paths as fp on fv.path_id = fp.id
-              WHERE fp.depth = 0 AND
-                    fp.path = ? AND
-                    %s)"
-             (sql-regexp-match "COALESCE(fv.value_string,
-                                         cast(fv.value_integer as text),
-                                         cast(fv.value_boolean as text),
-                                         cast(fv.value_float as text),
-                                         '')"))
-            :params [name pattern]}
-
-           :else (throw (IllegalArgumentException.
-                         (str path " is not a valid operand for regexp comparison"))))))
-
-(defn compile-node-inequality
-  [op path value]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (if-let [number (parse-number (str value))]
-    (match [path]
-           [["fact" (name :guard string?)]]
-           {:where
-            (format
-             "certnames.name IN
-             (SELECT fs.certname
-              FROM factsets fs
-                INNER JOIN facts as f on fs.id = f.factset_id
-                INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                INNER JOIN fact_paths as fp on fv.path_id = fp.id
-              WHERE fp.depth = 0 AND
-                    fp.path = ? AND
-                    %s %s ?)"
-             (sql-as-numeric "COALESCE(fv.value_string,
-                                       cast(fv.value_integer as text),
-                                       cast(fv.value_boolean as text),
-                                       cast(fv.value_float as text),
-                                       '')") op)
-            :params [name number]}
-
-           :else (throw (IllegalArgumentException.
-                         (str path " is not a queryable object for nodes"))))
-    (throw (IllegalArgumentException.
-            (format "Value %s must be a number for %s comparison." value op)))))
-
-(defn compile-environments-equality
-  "Compile an equality operator for environments. This can either be for the value of
-  a specific fact, or based on node activeness."
-  [version path value]
-  {:post [(map? %)
-          (string? (:where %))]}
-  (match [path]
-         ["name"]
-         {:where "environments.name = ?"
-          :params [value]}
-
-         :else (throw (IllegalArgumentException.
-                       (str path " is not a queryable object for environments")))))
-
-(defn compile-environments-regexp
-  "Compile an '~' predicate for an environments query, which does regexp matching.  This
-  is done by leveraging the correct database-specific regexp syntax to return
-  only rows where the supplied `path` match the given `pattern`."
-  [path pattern]
-  {:pre [(string? pattern)]
-   :post [(map? %)
-          (string? (:where %))]}
-  (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
-    (match [path]
-           ["name"]
-           {:where (sql-regexp-match "environments.name")
-            :params [pattern]}
-
-           :else (throw (IllegalArgumentException.
-                         (str path " is not a valid operand for regexp comparison"))))))
-
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
   The `value` for comparison must be coercible to a timestamp via
@@ -791,38 +631,6 @@
 
              :else (throw (IllegalArgumentException.
                            (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
-
-(defn compile-reports-equality
-  "Compile a report query into a structured map reflecting the terms
-   of the query. Currently only the `=` operator is supported"
-  [version]
-  (fn [& [path value :as term]]
-    {:post [(map? %)
-            (string? (:where %))]}
-    (let [num-args (count term)]
-      (when-not (= 2 num-args)
-        (throw (IllegalArgumentException.
-                (format "= requires exactly two arguments, but we found %d" num-args)))))
-    (match [path]
-           ["certname"]
-           {:where "reports.certname = ?"
-            :params [value] }
-
-           ["hash"]
-           {:where "reports.hash = ?"
-            :params [value]}
-
-           ["environment"]
-           {:where "environments.name = ?"
-            :params [value]}
-
-           ["status"]
-           {:where "report_statuses.status = ?"
-            :params [value]}
-
-           :else
-           (throw (IllegalArgumentException.
-                   (format "'%s' is not a valid query term for version %s of the reports API" path (last (name version))))))))
 
 (defn compile-event-count-equality
   "Compile an = predicate for event-count query.  The `path` represents
