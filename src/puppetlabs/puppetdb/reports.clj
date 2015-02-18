@@ -19,6 +19,20 @@
    :line               (s/maybe s/Int)
    :containment_path   [s/Str]})
 
+(def metric-schema
+  {:category s/Str
+   :name s/Str
+   :value s/Num})
+
+(def log-schema
+  {:file (s/maybe s/Str)
+   :line (s/maybe s/Int)
+   :level s/Str
+   :message s/Str
+   :source s/Str
+   :tags [s/Str]
+   :time pls/Timestamp})
+
 (def report-schema
   {:certname                 s/Str
    :puppet_version           s/Str
@@ -29,6 +43,8 @@
    :resource_events          [resource-event-schema]
    :noop                     (s/maybe s/Bool)
    :transaction_uuid         (s/maybe s/Str)
+   :metrics                  (s/maybe [metric-schema])
+   :logs                     (s/maybe [log-schema])
    :environment              s/Str
    :status                   s/Str})
 

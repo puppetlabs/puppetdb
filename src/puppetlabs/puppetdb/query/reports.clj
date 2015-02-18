@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -9,7 +11,8 @@
             [clojure.set :refer [rename-keys]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils])
+  (:import  [org.postgresql.util PGobject]))
 
 (def row-schema
   {:hash String
@@ -17,6 +20,8 @@
    :puppet_version String
    :report_format s/Int
    :configuration_version String
+   :metrics (s/maybe (s/either String PGobject))
+   :logs (s/maybe (s/either String PGobject))
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
@@ -49,6 +54,12 @@
    :status (s/maybe String)
    :message (s/maybe String)})
 
+(def json-metric-schema
+  (utils/str-schema reports/metric-schema))
+
+(def json-log-schema
+  (utils/str-schema reports/log-schema))
+
 (def report-schema
   {:hash String
    (s/optional-key :environment) (s/maybe String)
@@ -61,6 +72,8 @@
    :report_format s/Int
    :configuration_version String
    :resource_events [resource-event-schema]
+   :metrics (s/maybe [json-metric-schema])
+   :logs (s/maybe [json-log-schema])
    :transaction_uuid String
    :status (s/maybe String)})
 
@@ -76,6 +89,8 @@
    :status
    :environment
    :configuration_version
+   :metrics
+   :logs
    :certname])
 
 (defn create-report-pred
@@ -92,8 +107,7 @@
                                          :message])]
     (into acc
           [(-> resource-event
-               (update-in [:new_value] json/parse-string)
-               (update-in [:old_value] json/parse-string)
+               ((partial kitchensink/maptrans {[:new_value :old_value] json/parse-string}))
                (rename-keys {:event_status :status}))])))
 
 (pls/defn-validated collapse-report :- report-schema
@@ -102,8 +116,9 @@
   (let [first-row (first report-rows)
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
-      :resource_events resource-events)))
+    (-> (select-keys first-row report-columns)
+        ((partial kitchensink/maptrans {[:metrics :logs] (scf-utils/parse-db-json-fn)}))
+        (assoc :resource_events resource-events))))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"

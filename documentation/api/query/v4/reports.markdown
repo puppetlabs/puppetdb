@@ -86,7 +86,9 @@ is of the form:
       "environment": <report environment>,
       "configuration_version": <catalog identifier>,
       "certname": <node name>,
-      "resource_events": [<resource event>]
+      "resource_events": [<resource event>],
+      "metrics" : [<metric>],
+      "logs" : [<log>]
     }
 
 Resource event objects are of the following form:
@@ -101,16 +103,46 @@ Resource event objects are of the following form:
       "old_value": <old value of resource property>,
       "message": <description of what happened during event>,
       "file": <manifest file containing resource definition>,
-      "line": <line in manifest file on which resource is defined>
+      "line": <line in manifest file on which resource is defined>,
       "containment_path": <containment heirarchy of resource within catalog>
     }
+
+The metrics field may be either null, in the case of reports submitted without metrics,
+or a JSON array of objects like so:
+
+
+    {
+      "category" : <category of metric ("resources", "time", "changes", or "events")>,
+      "name" : <name of the metric>,
+      "value" : <value of the metric (double precision)>
+    }
+
+The logs field may be either null, in the case of reports submitted without
+logs, or a JSON array of objects like so, each corresponding to a log line in a
+Puppet run:
+
+    {
+      "file" : <file of resource declaration>,
+      "line" : <line of resource declaration>,
+      "level" : <log level>,
+      "message" : <log message>,
+      "source" : <log source>,
+      "tags" : [<resource tag>],
+      "time" : <log line timestamp>
+     }
+
+File and line may each be null if the log does not concern a resource.
 
 **Note on fields that allow `NULL` values**
 
 In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
-**Note on querying resource events**
-The `reports` endpoint does not support querying on the value of `resource_events`, but the same information can be be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
+**Note on querying resource events, metrics, and logs**
+
+The `reports` endpoint does not support querying on the value of `resource_events`, `logs`,
+or `metrics`. In the case of `resource_events` the same information can be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
+Making metrics and logs queryable may be the target of future work.
+
 
 
 ### Examples
@@ -122,42 +154,152 @@ Query for all reports:
     curl -G 'http://localhost:8080/v4/reports'
 
     [ {
-      "hash" : "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe",
-      "puppet_version" : "3.7.3",
-      "receive_time" : "2014-12-24T00:00:50.716Z",
-      "report_format" : 4,
-      "start_time" : "2014-12-24T00:00:49.211Z",
-      "end_time" : "2014-12-24T00:00:49.705Z",
-      "transaction_uuid" : "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
-      "status" : "changed",
+      "receive_time" : "2015-02-19T16:23:11.034Z",
+      "hash" : "32c821673e647b0650717db467abc51d9949fd9a",
+      "transaction_uuid" : "9a7070e9-840f-446d-b756-6f19bf2e2efc",
+      "puppet_version" : "3.7.4",
       "noop" : false,
-      "environment" : "production",
-      "configuration_version" : "1419379250",
-      "certname" : "foo.com",
+      "report_format" : 4,
+      "start_time" : "2015-02-19T16:23:09.810Z",
+      "end_time" : "2015-02-19T16:23:10.287Z",
       "resource_events" : [ {
-        "containment_path" : [ "Stage[main]", "Main", "Notify[hi]" ],
-        "new_value" : "\"Hi world\"",
-        "resource_title" : "hi",
+        "new_value" : "hi world",
         "property" : "message",
         "file" : "/home/wyatt/.puppet/manifests/site.pp",
-        "old_value" : "\"absent\"",
-        "line" : 3,
-        "status" : "changed",
-        "resource_type" : "Notify",
-        "timestamp" : "2014-12-24T00:00:50.522Z",
-        "message" : "defined 'message' as 'Hi world'"
-      }, {
-        "containment_path" : [ "Stage[main]", "Main", "File[/home/wyatt/Desktop/foo]" ],
-        "new_value" : "\"file\"",
-        "resource_title" : "/home/wyatt/Desktop/foo",
-        "property" : "ensure",
-        "file" : "/home/wyatt/.puppet/manifests/site.pp",
-        "old_value" : "\"absent\"",
+        "old_value" : "absent",
         "line" : 7,
-        "status" : "changed",
-        "resource_type" : "File",
-        "timestamp" : "2014-12-24T00:00:50.514Z",
-        "message" : "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"
+        "resource_type" : "Notify",
+        "status" : "success",
+        "resource_title" : "hiloo",
+        "timestamp" : "2015-02-19T16:23:10.768Z",
+        "containment_path" : [ "Stage[main]", "Main", "Notify[hiloo]" ],
+        "message" : "defined 'message' as 'hi world'"
+      }, {
+        "new_value" : "hi world",
+        "property" : "message",
+        "file" : "/home/wyatt/.puppet/manifests/site.pp",
+        "old_value" : "absent",
+        "line" : 3,
+        "resource_type" : "Notify",
+        "status" : "success",
+        "resource_title" : "hi",
+        "timestamp" : "2015-02-19T16:23:10.767Z",
+        "containment_path" : [ "Stage[main]", "Main", "Notify[hi]" ],
+        "message" : "defined 'message' as 'hi world'"
+      } ],
+      "status" : "changed",
+      "configuration_version" : "1424362990",
+      "environment" : "production",
+      "certname" : "desktop.localdomain",
+      "metrics" : [ {
+        "category" : "resources",
+        "name" : "changed",
+        "value" : 2
+      }, {
+        "category" : "resources",
+        "name" : "failed",
+        "value" : 0
+      }, {
+        "category" : "resources",
+        "name" : "failed_to_restart",
+        "value" : 0
+      }, {
+        "category" : "resources",
+        "name" : "out_of_sync",
+        "value" : 2
+      }, {
+        "category" : "resources",
+        "name" : "restarted",
+        "value" : 0
+      }, {
+        "category" : "resources",
+        "name" : "scheduled",
+        "value" : 0
+      }, {
+        "category" : "resources",
+        "name" : "skipped",
+        "value" : 0
+      }, {
+        "category" : "resources",
+        "name" : "total",
+        "value" : 9
+      }, {
+        "category" : "time",
+        "name" : "config_retrieval",
+        "value" : 0.476064209
+      }, {
+        "category" : "time",
+        "name" : "filebucket",
+        "value" : 3.8841E-5
+      }, {
+        "category" : "time",
+        "name" : "notify",
+        "value" : 7.54224E-4
+      }, {
+        "category" : "time",
+        "name" : "schedule",
+        "value" : 2.0780000000000004E-4
+      }, {
+        "category" : "time",
+        "name" : "total",
+        "value" : 0.47706507400000003
+      }, {
+        "category" : "changes",
+        "name" : "total",
+        "value" : 2
+      }, {
+        "category" : "events",
+        "name" : "failure",
+        "value" : 0
+      }, {
+        "category" : "events",
+        "name" : "success",
+        "value" : 2
+      }, {
+        "category" : "events",
+        "name" : "total",
+        "value" : 2
+      } ],
+      "logs" : [ {
+        "file" : null,
+        "line" : null,
+        "level" : "info",
+        "message" : "Caching catalog for mbp.local",
+        "source" : "//mbp.local/Puppet",
+        "tags" : [ "info" ],
+        "time" : "2015-02-26T16:27:48.416642000-08:00"
+      }, {
+        "file" : null,
+        "line" : null,
+        "level" : "info",
+        "message" : "Applying configuration version '1424996868'",
+        "source" : "//mbp.local/Puppet",
+        "tags" : [ "info" ],
+        "time" : "2015-02-26T16:27:48.474162000-08:00"
+      }, {
+        "file" : null,
+        "line" : null,
+        "level" : "notice",
+        "message" : "Hi mbp.local",
+        "source" : "//mbp.local/Puppet",
+        "tags" : [ "notice" ],
+        "time" : "2015-02-26T16:27:48.475656000-08:00"
+      }, {
+        "file" : "/Users/wyatt/.puppet/manifests/site.pp",
+        "line" : 3,
+        "level" : "notice",
+        "message" : "defined 'message' as 'Hi mbp.local'",
+        "source" : "//mbp.local//Stage[main]/Main/Notify[hi]/message",
+        "tags" : [ "notice", "notify", "hi", "class" ],
+        "time" : "2015-02-26T16:27:48.475825000-08:00"
+      }, {
+        "file" : null,
+        "line" : null,
+        "level" : "notice",
+        "message" : "Finished catalog run in 0.01 seconds",
+        "source" : "//mbp.local/Puppet",
+        "tags" : [ "notice" ],
+        "time" : "2015-02-26T16:27:48.483317000-08:00"
       } ]
     } ]
 
