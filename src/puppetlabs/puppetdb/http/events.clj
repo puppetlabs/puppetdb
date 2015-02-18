@@ -64,9 +64,9 @@
   [version]
   (-> (routes version)
       middleware/verify-accepts-json
-      (middleware/validate-query-params {:required ["query"]
-                                         :optional (concat
-                                                    ["distinct_resources"
+      (middleware/validate-query-params {:optional (concat
+                                                    ["query"
+                                                     "distinct_resources"
                                                      "distinct_start_time"
                                                      "distinct_end_time"]
                                                     paging/query-params)})
