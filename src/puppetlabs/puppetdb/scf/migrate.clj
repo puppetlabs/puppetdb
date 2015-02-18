@@ -890,11 +890,116 @@
     "ALTER TABLE factsets ADD hash VARCHAR(40)"
     "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
 
-(defn insert-noop-column
-  "Insert a column in reports to be populated by boolean noop flag"
+(defn migrate-to-report-id-and-noop-column
+  "Migrate to report id and
+   insert a column in reports to be populated by boolean noop flag"
   []
-  (sql/do-commands
-    "ALTER TABLE reports ADD noop boolean"))
+    (sql/do-commands
+     "CREATE SEQUENCE reports_id_seq CYCLE")
+
+    (sql/create-table :reports_transform
+                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
+                      ["hash"                  "varchar(40) NOT NULL"]
+                      ["certname"              "text NOT NULL"]
+                      ["puppet_version"        "varchar(255) NOT NULL"]
+                      ["report_format"         "smallint NOT NULL"]
+                      ["configuration_version" "varchar(255) NOT NULL"]
+                      ["start_time"            "timestamp with time zone NOT NULL"]
+                      ["end_time"              "timestamp with time zone NOT NULL"]
+                      ["receive_time"          "timestamp with time zone NOT NULL"]
+                      ["transaction_uuid"      "varchar(255) DEFAULT NULL"]
+                      ["noop"                  "boolean"]
+                      ["environment_id"        "bigint"]
+                      ["status_id"             "bigint"])
+
+    (sql/create-table :resource_events_transform
+                      ["report_id"        "bigint NOT NULL"]
+                      ["status"           "varchar(40) NOT NULL"]
+                      ["timestamp"        "timestamp with time zone NOT NULL"]
+                      ["resource_type"    "text NOT NULL"]
+                      ["resource_title"   "text NOT NULL"]
+                      ["property"         "varchar (40)"]
+                      ["new_value"        "text"]
+                      ["old_value"        "text"]
+                      ["message"          "text"]
+                      ["file"             "varchar(1024) DEFAULT NULL"]
+                      ["line"             "integer"]
+                      ["containment_path" (scf-utils/sql-array-type-string "TEXT")]
+                      ["containing_class" "varchar(255)"])
+
+    (sql/create-table :latest_reports_transform
+                      ["certname"  "text NOT NULL"]
+                      ["report_id" "bigint NOT NULL"])
+
+
+    (sql/do-commands
+     "INSERT INTO reports_transform (
+       hash, certname, puppet_version, report_format, configuration_version,
+       start_time, end_time, receive_time, transaction_uuid, environment_id,
+       status_id)
+       SELECT hash, certname, puppet_version, report_format,
+         configuration_version, start_time, end_time, receive_time,
+         transaction_uuid, environment_id, status_id
+         FROM reports")
+
+    (sql/do-commands
+     "ALTER TABLE reports_transform
+       ADD CONSTRAINT reports_hash_key UNIQUE (hash)")
+
+    (sql/do-commands
+     "INSERT INTO resource_events_transform (
+        report_id, status, timestamp, resource_type, resource_title, property,
+        new_value, old_value, message, file, line, containment_path,
+        containing_class)
+        SELECT rt.id, status, timestamp, resource_type, resource_title,
+          property, new_value, old_value, message, file, line, containment_path,
+          containing_class
+          FROM resource_events AS re
+          INNER JOIN reports_transform rt on re.report = rt.hash")
+
+    (sql/do-commands
+     "INSERT INTO latest_reports_transform(certname, report_id)
+        SELECT lr.certname, rt.id
+          FROM latest_reports AS lr
+          INNER JOIN reports_transform rt on lr.report = rt.hash")
+
+    (sql/do-commands
+     "DROP TABLE resource_events"
+     "DROP TABLE latest_reports"
+     "DROP TABLE reports")
+
+    (sql/do-commands
+     "ALTER TABLE resource_events_transform RENAME to resource_events"
+     "ALTER TABLE latest_reports_transform RENAME to latest_reports"
+     "ALTER TABLE reports_transform RENAME to reports")
+
+    (sql/do-commands
+     "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+     "CREATE INDEX idx_reports_certname ON reports(certname)"
+     "CREATE INDEX idx_reports_end_time ON reports(end_time)"
+     "CREATE INDEX idx_reports_environment_id ON reports(environment_id)"
+     "CREATE INDEX idx_reports_status_id ON reports(status_id)"
+     "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
+     "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
+
+    (sql/do-commands
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_pkey PRIMARY KEY (certname)"
+     "CREATE INDEX idx_latest_reports_report_id ON latest_reports(report_id)"
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
+
+    (sql/do-commands
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+     "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
+     "CREATE INDEX idx_resource_events_property ON resource_events(property)"
+     "CREATE INDEX idx_resource_events_reports_id ON resource_events(report_id)"
+     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)"
+     "CREATE INDEX idx_resource_events_resource_title ON resource_events(resource_title)"
+     "CREATE INDEX idx_resource_events_status ON resource_events(status)"
+     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -926,7 +1031,7 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 insert-noop-column})
+   29 migrate-to-report-id-and-noop-column})
 
 (def desired-schema-version (apply max (keys migrations)))
 

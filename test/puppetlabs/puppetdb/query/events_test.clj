@@ -21,7 +21,7 @@
     (let [ops (query/resource-event-ops version)]
       (testing "should succesfully compile a valid equality query"
         (is (= (query/compile-term ops ["=" "report" "blah"])
-               {:where   "resource_events.report = ?"
+               {:where   "reports.hash = ?"
                 :params  ["blah"]})))
       (testing "should fail with an invalid equality query"
         (is (thrown-with-msg?

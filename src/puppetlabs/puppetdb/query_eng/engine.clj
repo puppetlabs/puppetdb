@@ -61,8 +61,8 @@
                             LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
                             LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
                             LEFT OUTER JOIN reports ON certnames.name = reports.certname
-                             AND reports.hash
-                               IN (SELECT report FROM latest_reports)
+                             AND reports.id
+                               IN (SELECT report_id FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
                             LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))
@@ -202,6 +202,7 @@
                :entity :reports
                :source-table "reports"
                :source "select reports.hash,
+                       reports.hash as report,
                        reports.certname,
                        reports.puppet_version,
                        reports.report_format,
@@ -213,7 +214,7 @@
                        reports.noop,
                        environments.name as environment,
                        report_statuses.status as status,
-                       re.report,
+                       re.report_id,
                        re.status as event_status,
                        re.timestamp,
                        re.resource_type,
@@ -227,7 +228,7 @@
                        re.containment_path,
                        re.containing_class
                        FROM reports
-                       INNER JOIN resource_events re on reports.hash=re.report
+                       INNER JOIN resource_events re on reports.id=re.report_id
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id
                        LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
 
@@ -371,7 +372,7 @@
                        reports.start_time as run_start_time,
                        reports.end_time as run_end_time,
                        reports.receive_time as report_receive_time,
-                       report,
+                       reports.hash as report,
                        status,
                        timestamp,
                        resource_type,
@@ -386,7 +387,7 @@
                        containing_class,
                        environments.name as environment
                        FROM resource_events
-                       JOIN reports ON resource_events.report = reports.hash
+                       JOIN reports ON resource_events.report_id = reports.id
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id"}))
 
 (def latest-report-query
@@ -397,8 +398,9 @@
                :subquery? false
                :source-table "latest_report"
                :supports-extract? true
-               :source "SELECT latest_reports.report as latest_report_hash
-                        FROM latest_reports"}))
+               :source "SELECT reports.hash as latest_report_hash
+                        FROM latest_reports
+                        INNER JOIN reports ON reports.id = latest_reports.report_id"}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
