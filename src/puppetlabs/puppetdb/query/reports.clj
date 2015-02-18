@@ -33,6 +33,7 @@
    :file (s/maybe String)
    :line (s/maybe s/Int)
    :containment_path (s/maybe [String])
+   :noop (s/maybe s/Bool)
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
@@ -56,6 +57,7 @@
    :receive_time pls/Timestamp
    :start_time pls/Timestamp
    :end_time pls/Timestamp
+   :noop (s/maybe s/Bool)
    :report_format s/Int
    :configuration_version String
    :resource_events [resource-event-schema]
@@ -69,6 +71,7 @@
    :report_format
    :start_time
    :end_time
+   :noop
    :transaction_uuid
    :status
    :environment

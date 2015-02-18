@@ -11,6 +11,7 @@
     :end_time               "2011-01-01T12:10:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
+    :noop                   false
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -74,6 +75,7 @@
     :end_time               "2013-08-28T19:10:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
+    :noop                   true
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname on input, but they will have one on output.  To make it
@@ -134,6 +136,7 @@
     :end_time               "2011-01-03T12:10:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
+    :noop                   false
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -194,6 +197,7 @@
     :end_time               "2011-01-03T12:10:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
+    :noop                   false
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output

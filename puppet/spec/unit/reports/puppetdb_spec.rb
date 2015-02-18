@@ -102,6 +102,7 @@ describe processor do
           result["report_format"].should == subject.report_format
           result["configuration_version"].should == subject.configuration_version.to_s
           result["resource_events"].should == []
+          result["noop"].should == false
         end
       end
 

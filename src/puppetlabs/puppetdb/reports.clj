@@ -14,6 +14,7 @@
    :start_time               :datetime
    :end_time                 :datetime
    :resource_events          :coll
+   :noop                     :boolean
    :transaction_uuid         {:optional? true
                               :type      :string}
    :environment              {:optional? true

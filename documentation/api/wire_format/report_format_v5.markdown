@@ -21,7 +21,8 @@ otherwise noted, `null` is not allowed anywhere in the report.
         "end_time": <datetime>,
         "resource_events": [<resource_event>, <resource_event>, ...],
         "transaction_uuid": <string>,
-        "status": <string>
+        "status": <string>,
+        "noop": <boolean>
     }
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
@@ -49,6 +50,8 @@ the `datetime` format below.
 match a report with the catalog that was used for the run.  This field may be `null`.
 
 `"status"` is a string used to identify the status of the puppet run.
+
+`"noop"` is a flag that indicates whether the report was produced with a --noop run.
 
 ### Encoding
 

@@ -48,6 +48,8 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `status` (string): the status associated to report's node. Possible values for this field come from Puppet's report status, which can be found [here][statuses].
 
+* `noop` (boolean): a flag indicating whether the report was produced by a noop run.
+
 * `puppet_version` (string): the version of Puppet that generated the report.
 
 * `report_format` (number): the version number of the report format that Puppet used to generate the original report data.
@@ -77,6 +79,7 @@ is of the form:
       "end_time": <end of run timestamp>,
       "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
+      "noop": <boolean flag indicating noop run>,
       "environment": <report environment>,
       "configuration_version": <catalog identifier>,
       "certname": <node name>,
@@ -124,6 +127,7 @@ Query for all reports:
       "end_time" : "2014-12-24T00:00:49.705Z",
       "transaction_uuid" : "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
       "status" : "changed",
+      "noop" : false,
       "environment" : "production",
       "configuration_version" : "1419379250",
       "certname" : "foo.com",

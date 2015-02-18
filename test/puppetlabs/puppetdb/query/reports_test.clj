@@ -155,62 +155,64 @@
                   keywordize-keys))
 
 (def expected-result
-  [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe",
-    :puppet_version "3.7.3",
-    :receive_time "2014-12-24T00:00:50Z",
-    :report_format 4,
-    :start_time "2014-12-24T00:00:49Z",
-    :end_time "2014-12-24T00:00:49Z",
-    :transaction_uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7",
-    :status "changed",
-    :environment "production",
-    :configuration_version "1419379250",
-    :certname "foo.com",
-    :resource_events [{:new_value "Hi world",
-                       :property "message",
-                       :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "absent",
-                       :line 3,
-                       :resource_type "Notify",
-                       :status "success",
-                       :resource_title "hi",
-                       :timestamp "2014-12-24T00:00:50Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+  [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe"
+    :puppet_version "3.7.3"
+    :receive_time "2014-12-24T00:00:50Z"
+    :report_format 4
+    :start_time "2014-12-24T00:00:49Z"
+    :end_time "2014-12-24T00:00:49Z"
+    :transaction_uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7"
+    :status "changed"
+    :noop false
+    :environment "production"
+    :configuration_version "1419379250"
+    :certname "foo.com"
+    :resource_events [{:new_value "Hi world"
+                       :property "message"
+                       :file "/home/wyatt/.puppet/manifests/site.pp"
+                       :old_value "absent"
+                       :line 3
+                       :resource_type "Notify"
+                       :status "success"
+                       :resource_title "hi"
+                       :timestamp "2014-12-24T00:00:50Z"
+                       :containment_path ["Stage[main]" "Main" "Notify[hi]"]
                        :message "defined 'message' as 'Hi world'"}
-                      {:new_value "file",
-                       :property "ensure",
-                       :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "absent",
-                       :line 7,
-                       :resource_type "File",
-                       :status "success",
-                       :resource_title "/home/wyatt/Desktop/foo",
-                       :timestamp "2014-12-24T00:00:50Z",
+                      {:new_value "file"
+                       :property "ensure"
+                       :file "/home/wyatt/.puppet/manifests/site.pp"
+                       :old_value "absent"
+                       :line 7
+                       :resource_type "File"
+                       :status "success"
+                       :resource_title "/home/wyatt/Desktop/foo"
+                       :timestamp "2014-12-24T00:00:50Z"
                        :containment_path
-                       ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"],
+                       ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"]
                        :message
                        "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"}]}
-   {:hash "afe03ad7377e3c44d0f1f2abcf0834778759afff",
-    :puppet_version "3.7.3",
-    :receive_time "2014-12-24T00:01:12Z",
-    :report_format 4,
-    :start_time "2014-12-24T00:01:11Z",
-    :end_time "2014-12-24T00:01:11Z",
-    :transaction_uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05",
-    :status "changed",
-    :environment "production",
-    :configuration_version "1419379250",
-    :certname "bar.com",
-    :resource_events [{:new_value "Hi world",
-                       :property "message",
-                       :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "absent",
-                       :line 3,
-                       :resource_type "Notify",
-                       :status "success",
-                       :resource_title "hi",
-                       :timestamp "2014-12-24T00:01:12Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+   {:hash "afe03ad7377e3c44d0f1f2abcf0834778759afff"
+    :puppet_version "3.7.3"
+    :receive_time "2014-12-24T00:01:12Z"
+    :report_format 4
+    :start_time "2014-12-24T00:01:11Z"
+    :end_time "2014-12-24T00:01:11Z"
+    :transaction_uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05"
+    :status "changed"
+    :noop false
+    :environment "production"
+    :configuration_version "1419379250"
+    :certname "bar.com"
+    :resource_events [{:new_value "Hi world"
+                       :property "message"
+                       :file "/home/wyatt/.puppet/manifests/site.pp"
+                       :old_value "absent"
+                       :line 3
+                       :resource_type "Notify"
+                       :status "success"
+                       :resource_title "hi"
+                       :timestamp "2014-12-24T00:01:12Z"
+                       :containment_path ["Stage[main]" "Main" "Notify[hi]"]
                        :message "defined 'message' as 'Hi world'"}]}])
 
 (deftest structured-data-seq

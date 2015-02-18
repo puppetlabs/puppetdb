@@ -24,6 +24,7 @@
         "resource_type": "Notify",
         "start_time": "2014-12-24T00:00:49Z",
         "status": "changed",
+        "noop": false,
         "timestamp": "2014-12-24T00:00:50Z",
         "transaction_uuid": "af4fb9ad-b267-4e0b-a295-53eba6b139b7"
     },
@@ -52,6 +53,7 @@
         "resource_type": "File",
         "start_time": "2014-12-24T00:00:49Z",
         "status": "changed",
+        "noop": false,
         "timestamp": "2014-12-24T00:00:50Z",
         "transaction_uuid": "af4fb9ad-b267-4e0b-a295-53eba6b139b7"
     },
@@ -80,6 +82,7 @@
         "resource_type": "Notify",
         "start_time": "2014-12-24T00:01:11Z",
         "status": "changed",
+        "noop": false,
         "timestamp": "2014-12-24T00:01:12Z",
         "transaction_uuid": "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05"
     }

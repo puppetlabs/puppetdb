@@ -93,9 +93,10 @@ longer required.
 
 ### "store report", version 5
 
-As with version 4 or replace facts and version 6 of replace catalog, the
-version 5 store report command differs from version 4 only in that previously
-dash-separated fields are underscore-separated.
+The version 5 store report command differs from version four in the addition of
+a "noop" flag, which is a boolean indicating whether the report was produced by
+a puppet run with --noop, as well as in the conversion of dash-separated fields to
+underscored.
 
 The payload is expected to be a report, containing events that occurred on Puppet
 resources.  It is structured as a JSON object, conforming to the

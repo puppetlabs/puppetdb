@@ -890,6 +890,12 @@
     "ALTER TABLE factsets ADD hash VARCHAR(40)"
     "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
 
+(defn insert-noop-column
+  "Insert a column in reports to be populated by boolean noop flag"
+  []
+  (sql/do-commands
+    "ALTER TABLE reports ADD noop boolean"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -919,7 +925,8 @@
    25 structured-facts
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
-   28 insert-factset-hash-column})
+   28 insert-factset-hash-column
+   29 insert-noop-column})
 
 (def desired-schema-version (apply max (keys migrations)))
 

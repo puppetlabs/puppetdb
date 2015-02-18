@@ -37,6 +37,9 @@ Puppet::Reports.register_report(:puppetdb) do
         raise Puppet::Error, "Environment is nil, unable to submit report. This may be due a bug with Puppet. Ensure you are running the latest revision, see PUP-2508 for more details."
       end
 
+      resource_events = build_events_list
+      is_noop = resource_events.any? {|rs| rs["status"] == 'noop'} && resource_events.none? {|rs| rs["status"] == 'failed'}
+
       {
         "certname"                => host,
         "puppet_version"          => puppet_version,
@@ -44,10 +47,11 @@ Puppet::Reports.register_report(:puppetdb) do
         "configuration_version"   => configuration_version.to_s,
         "start_time"              => Puppet::Util::Puppetdb.to_wire_time(time),
         "end_time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-        "resource_events"         => build_events_list,
+        "resource_events"         => resource_events,
         "environment"             => environment,
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
+        "noop"                    => is_noop,
       }
     end
   end

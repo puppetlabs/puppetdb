@@ -2,14 +2,14 @@ require 'json'
 
 test_name "basic validation of puppet report submission" do
 
-  step "setup a test manifest for the master and perform agent runs" do
-    manifest = <<-MANIFEST
+  manifest = <<-MANIFEST
       notify { "hi":
         message => "Hi ${::clientcert}"
       }
-    MANIFEST
+  MANIFEST
 
-    run_agents_with_new_site_pp(master, manifest)
+  step "setup a test manifest for the master and perform agent runs" do
+    run_agents_with_new_site_pp(master, manifest, {}, "--noop")
   end
 
   # Wait until all the commands have been processed
@@ -17,12 +17,10 @@ test_name "basic validation of puppet report submission" do
 
   agents.each do |agent|
     # Query for all of the reports for this node:
-    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
 
     reports = JSON.parse(result.stdout)
 
-    # We are assuming we only care about the most recent report, and they should
-    # be sorted by descending timestamps
     report = reports[0]
 
     # Now query for all of the events in this report
@@ -40,10 +38,22 @@ test_name "basic validation of puppet report submission" do
 
     event = events[0]
 
+    assert_equal(true, report["noop"], "noop does not match!")
     assert_equal("Notify", event["resource_type"], "resource_type doesn't match!")
     assert_equal("hi", event["resource_title"], "resource_title doesn't match!")
     assert_equal("message", event["property"], "property doesn't match!")
     assert_equal("Hi #{agent.node_name}", event["new_value"], "new_value doesn't match!")
   end
 
+  step "ensure that noop is false when run without --noop" do
+    run_agents_with_new_site_pp(master, manifest)
+    sleep_until_queue_empty database
+  end
+
+  agents.each do |agent|
+    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
+    reports = JSON.parse(result.stdout)
+    report = reports[0]
+    assert_equal(false, report["noop"], "noop does not match!")
+  end
 end

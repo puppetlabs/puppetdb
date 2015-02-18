@@ -60,6 +60,7 @@
                   :number   number?
                   :datetime kitchensink/datetime?
                   :coll     coll?
+                  :boolean   #(= (type %) java.lang.Boolean)
                   :jsonable #(satisfies? JSONable %)}
         type-errors (for [[field {:keys [optional? type]}] fields
                           :let [value (field obj)
