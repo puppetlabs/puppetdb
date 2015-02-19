@@ -105,7 +105,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
 
 This will return the most recent catalog for the given node. Supplying a node
 this way will restrict any given query to only apply to that node, but in
-practive this endpoint is typically used without a query string or URL
+practice this endpoint is typically used without a query string or URL
 parameters.
 
 The result will be a single map of the catalog structure described above, or
