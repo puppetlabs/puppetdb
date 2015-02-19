@@ -82,7 +82,7 @@ Similar to version 6 of replace catalog, this version of replace facts differs
 from version 3 only in that the previously dashed fields are now
 underscore-separated.
 
-See [fact wire format v3][factsv3] for more information on the
+See [fact wire format v4][factsv4] for more information on the
 payload of this command.
 
 ### "deactivate node", version 2
