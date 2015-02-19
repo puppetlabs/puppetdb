@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v5.html"
 [type]: /puppet/latest/reference/lang_resources.html#type
 [attributes]: /puppet/latest/reference/lang_resources.html#attributes
 
-PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are sent. [See below][below] for the justification for this separate format.
+PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are sent.
 
 Catalog Interchange Format
 -----
@@ -74,9 +74,7 @@ List of [`<resource>` objects](#data-type-resource). Contains **every** resource
 #### `transaction_uuid`
 
 String. A string used to match the catalog with the corresponding report that was issued during the same puppet run.
-This field may be `null`.  (Note: support for this field was introduced in
-[Version 3 of the "replace catalog" command][replace3].  Versions prior to version 3 will populate this field with
-a `null` value.
+This field may be `null`.
 
 #### `producer_timestamp`
 
