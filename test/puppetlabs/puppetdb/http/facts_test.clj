@@ -459,22 +459,22 @@
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
       (scf-store/add-certname! "foo4")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name  "foo2"
+      (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo3"
+      (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo4"
+      (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
@@ -515,17 +515,17 @@
   (scf-store/add-certname! "foo")
   (scf-store/add-certname! "bar")
   (scf-store/add-certname! "baz")
-  (scf-store/add-facts! {:name "foo"
+  (scf-store/add-facts! {:certname "foo"
                          :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
                          :timestamp (now)
                          :environment "DEV"
                          :producer_timestamp nil})
-  (scf-store/add-facts! {:name "bar"
+  (scf-store/add-facts! {:certname "bar"
                          :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
                          :timestamp (now)
                          :environment "DEV"
                          :producer_timestamp nil})
-  (scf-store/add-facts! {:name "baz"
+  (scf-store/add-facts! {:certname "baz"
                          :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
                          :timestamp (now)
                          :environment "DEV"
@@ -572,7 +572,7 @@
 
           (with-transacted-connection write-db
             (scf-store/add-certname! "foo1")
-            (scf-store/add-facts! {:name "foo1"
+            (scf-store/add-facts! {:certname "foo1"
                                    :values facts1
                                    :timestamp (now)
                                    :environment "DEV"
@@ -625,12 +625,12 @@
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo2"
+      (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
@@ -698,31 +698,31 @@
         fact-count 5]
 
     (scf-store/add-certname! "c.local")
-    (scf-store/add-facts! {:name "c.local"
+    (scf-store/add-facts! {:certname "c.local"
                            :values {"hostname" "c-host"}
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
     (scf-store/add-certname! "a.local")
-    (scf-store/add-facts! {:name "a.local"
+    (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
     (scf-store/add-certname! "d.local")
-    (scf-store/add-facts! {:name "d.local"
+    (scf-store/add-facts! {:certname "d.local"
                            :values {"uptime_days" "2"}
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
     (scf-store/add-certname! "b.local")
-    (scf-store/add-facts! {:name "b.local"
+    (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
     (scf-store/add-certname! "e.local")
-    (scf-store/add-facts! {:name "e.local"
+    (scf-store/add-facts! {:certname "e.local"
                            :values {"my_structured_fact" (:value f5)}
                            :timestamp (now)
                            :environment "DEV"
@@ -806,31 +806,31 @@
         f5         {:certname "d.local" :name "min" :value "-4" :environment "D"}]
 
     (scf-store/add-certname! "c.local")
-    (scf-store/add-facts! {:name "c.local"
+    (scf-store/add-facts! {:certname "c.local"
                            :values {"my_structured_fact" (:value f3)}
                            :timestamp (now)
                            :environment "C"
                            :producer_timestamp nil})
     (scf-store/add-certname! "a.local")
-    (scf-store/add-facts! {:name "a.local"
+    (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "A"
                            :producer_timestamp nil})
     (scf-store/add-certname! "b.local")
-    (scf-store/add-facts! {:name "b.local"
+    (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "B"
                            :producer_timestamp nil})
     (scf-store/add-certname! "b2.local")
-    (scf-store/add-facts! {:name "b2.local"
+    (scf-store/add-facts! {:certname "b2.local"
                            :values {"max" "4"}
                            :timestamp (now)
                            :environment "B"
                            :producer_timestamp nil})
     (scf-store/add-certname! "d.local")
-    (scf-store/add-facts! {:name "d.local"
+    (scf-store/add-facts! {:certname "d.local"
                            :values {"min" "-4"}
                            :timestamp (now)
                            :environment "D"
@@ -882,22 +882,22 @@
         (scf-store/add-certname! "foo2")
         (scf-store/add-certname! "foo3")
         (scf-store/add-certname! "foo4")
-        (scf-store/add-facts! {:name "foo1"
+        (scf-store/add-facts! {:certname "foo1"
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
                                :producer_timestamp nil})
-        (scf-store/add-facts! {:name "foo2"
+        (scf-store/add-facts! {:certname "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
                                :producer_timestamp nil})
-        (scf-store/add-facts! {:name "foo3"
+        (scf-store/add-facts! {:certname "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
                                :producer_timestamp nil})
-        (scf-store/add-facts! {:name "foo4"
+        (scf-store/add-facts! {:certname "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
@@ -956,22 +956,22 @@
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
       (scf-store/add-certname! "foo4")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values facts1
                              :timestamp test-time
                              :environment "DEV"
                              :producer_timestamp test-time})
-      (scf-store/add-facts! {:name  "foo2"
+      (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
                              :producer_timestamp (to-timestamp "2013-01-01")})
-      (scf-store/add-facts! {:name "foo3"
+      (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp test-time
                              :environment "PROD"
                              :producer_timestamp test-time})
-      (scf-store/add-facts! {:name "foo4"
+      (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp test-time
                              :environment "PROD"
@@ -987,7 +987,7 @@
                                         "f" nil, "b" 3.14, "a" 1}},
          "environment" "DEV"
          "certname" "foo1"
-         "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
+         "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
         {"facts" {"uptime_seconds" "6000"
                   "domain" "testing.com"
@@ -997,7 +997,7 @@
          "environment" "DEV"
          "certname" "foo2"
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
-         "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}
+         "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}
 
         {"facts" {"domain" "testing.com"
                   "operatingsystem" "Darwin"
@@ -1005,7 +1005,7 @@
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
          "environment" "PROD"
          "certname" "foo3"
-         "hash" "34a0dfb96739364467cab639a74802d6cf39a872"}]))
+         "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
 
 (deftestseq factset-paging-results
   [[version endpoint] factsets-endpoints]
@@ -1121,7 +1121,7 @@
               "producer_timestamp" reference-time
               "environment" "DEV"
               "certname" "foo1"
-              "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}))
+              "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}))
       (is (= (into [] (nth responses 1))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1137,7 +1137,7 @@
                "producer_timestamp" reference-time
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
+               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
               {"facts" {"my_structured_fact"
                         {"a" 1
@@ -1151,7 +1151,7 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
 
       (is (= (into [] (nth responses 2))
              [{"facts" {"my_structured_fact"
@@ -1166,7 +1166,7 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
       (is (= (into [] (nth responses 3))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1180,10 +1180,10 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}])))))
+               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
 
 (defn structured-fact-results
   [version endpoint]
@@ -1289,22 +1289,22 @@
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
       (scf-store/add-certname! "foo4")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values facts1
                              :timestamp reference-time
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name  "foo2"
+      (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo3"
+      (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp reference-time
                              :environment "PROD"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo4"
+      (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp reference-time
                              :environment "PROD"

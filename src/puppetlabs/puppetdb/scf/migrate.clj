@@ -723,7 +723,7 @@
             include-hash? false]
         (when-not (empty? facts)
           (scf-store/add-facts!
-            {:name (str certname)
+            {:certname (str certname)
              :values facts
              :timestamp timestamp
              :environment environment

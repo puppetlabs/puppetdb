@@ -458,7 +458,7 @@
   [:v4])
 
 (let [certname  "foo.example.com"
-      facts     {:name certname
+      facts     {:certname certname
                  :environment "DEV"
                  :values {"a" "1"
                           "b" "2"
@@ -505,7 +505,7 @@
       (sql/transaction
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
-       (scf-store/replace-facts! {:name certname
+       (scf-store/replace-facts! {:certname certname
                                   :values {"x" "24" "y" "25" "z" "26"}
                                   :timestamp yesterday
                                   :producer_timestamp yesterday
@@ -547,7 +547,7 @@
       (sql/transaction
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:name certname
+       (scf-store/add-facts! {:certname certname
                               :values {"x" "24" "y" "25" "z" "26"}
                               :timestamp tomorrow
                               :producer_timestamp nil
@@ -660,7 +660,7 @@
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
     (let [certname "some_certname"
-          facts {:name certname
+          facts {:certname certname
                  :environment "DEV"
                  :values {"domain" "mydomain.com"
                           "fqdn" "myhost.mydomain.com"
@@ -676,7 +676,7 @@
 
       (sql/transaction
        (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:name certname
+       (scf-store/add-facts! {:certname certname
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil

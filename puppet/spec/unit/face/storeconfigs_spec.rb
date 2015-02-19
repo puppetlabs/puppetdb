@@ -107,11 +107,11 @@ if Puppet::Util::Puppetdb.puppet3compat?
 
           catalog = JSON.load(results['catalogs/foo.json'])
 
-          catalog.keys.should =~ ['metadata', 'environment', 'name', 'version', 'edges', 'resources']
+          catalog.keys.should =~ ['metadata', 'environment', 'certname', 'version', 'edges', 'resources']
 
           catalog['metadata'].should == {'api_version' => 1}
 
-          catalog['name'].should == 'foo'
+          catalog['certname'].should == 'foo'
           catalog['edges'].to_set.should == [{
                                             'source' => {'type' => 'Stage', 'title' => 'main'},
                                             'target' => {'type' => 'Notify', 'title' => 'exported'},
@@ -159,7 +159,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
 
           catalog = JSON.load(results['catalogs/foo.json'])
 
-          catalog['name'].should == 'foo'
+          catalog['certname'].should == 'foo'
 
           catalog['edges'].map do |edge|
             [edge['source']['type'], edge['source']['title'], edge['relationship'], edge['target']['type'], edge['target']['title']]

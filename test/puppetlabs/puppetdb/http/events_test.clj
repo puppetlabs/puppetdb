@@ -397,7 +397,7 @@
     (scf-store/add-certname! certname)
     (store-example-report! report timestamp)
     (scf-store/replace-catalog! catalog (now))
-    (scf-store/add-facts! {:name certname
+    (scf-store/add-facts! {:certname certname
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil

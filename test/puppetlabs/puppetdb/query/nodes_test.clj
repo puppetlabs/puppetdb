@@ -58,27 +58,27 @@
     (doseq [name names]
       (scf-store/add-certname! name))
 
-    (scf-store/add-facts! {:name "node_a"
+    (scf-store/add-facts! {:certname "node_a"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_b"
+    (scf-store/add-facts! {:certname "node_b"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_c"
+    (scf-store/add-facts! {:certname "node_c"
                            :values {"kernel" "Darwin"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_d"
+    (scf-store/add-facts! {:certname "node_d"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_e"
+    (scf-store/add-facts! {:certname "node_e"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"

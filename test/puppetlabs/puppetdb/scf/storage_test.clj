@@ -44,7 +44,7 @@
             (factset-timestamp "some_certname"))))
       (is (empty? (factset-map "some_certname")))
 
-      (add-facts! {:name certname
+      (add-facts! {:certname certname
                    :values facts
                    :timestamp previous-time
                    :environment nil
@@ -92,7 +92,7 @@
                            "hostname" "myhost"
                            "kernel" "Linux"
                            "uptime_seconds" "3600"}]
-            (replace-facts! {:name certname
+            (replace-facts! {:certname certname
                              :values new-facts
                              :environment "DEV"
                              :producer_timestamp reference-time
@@ -127,7 +127,7 @@
             (testing "should update existing keys"
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :hash "8f86953a82ce346712be249e851499721daf3c63"
+                           :hash "cf56e1d01b3517d26f875855da4459ce19f8cd18"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm] (last itm)) @updates)))
@@ -142,7 +142,7 @@
 
       (testing "replacing all new facts"
         (delete-facts! certname)
-        (replace-facts! {:name certname
+        (replace-facts! {:certname certname
                          :values facts
                          :environment "DEV"
                          :producer_timestamp nil
@@ -151,12 +151,12 @@
 
       (testing "replacing all facts with new ones"
         (delete-facts! certname)
-        (add-facts! {:name certname
+        (add-facts! {:certname certname
                      :values facts
                      :timestamp previous-time
                      :environment nil
                      :producer_timestamp nil})
-        (replace-facts! {:name certname
+        (replace-facts! {:certname certname
                          :values {"foo" "bar"}
                          :environment "DEV"
                          :producer_timestamp nil
@@ -165,7 +165,7 @@
 
       (testing "replace-facts with only additions"
         (let [fact-map (factset-map "some_certname")]
-          (replace-facts! {:name certname
+          (replace-facts! {:certname certname
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
                            :producer_timestamp nil
@@ -175,7 +175,7 @@
 
       (testing "replace-facts with no change"
         (let [fact-map (factset-map "some_certname")]
-          (replace-facts! {:name certname
+          (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp nil
@@ -185,14 +185,14 @@
       (testing "stable hash when no facts change"
         (let [fact-map (factset-map "some_certname")
               {old-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
-          (replace-facts! {:name certname
+          (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
                            :timestamp (now)})
           (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
             (is (= old-hash new-hash)))
-          (replace-facts! {:name certname
+          (replace-facts! {:certname certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
                            :producer_timestamp (now)
@@ -216,7 +216,7 @@
       (is (empty? (factset-map "some_certname")))
       (is (nil? (environment-id "PROD")))
 
-      (add-facts! {:name certname
+      (add-facts! {:certname certname
                    :values facts
                    :timestamp previous-time
                    :environment "PROD"
@@ -246,7 +246,7 @@
       (is (nil? (environment-id "DEV")))
 
       (update-facts!
-       {:name certname
+       {:certname certname
         :values facts
         :timestamp (-> 1 days ago)
         :environment "DEV"
@@ -534,7 +534,7 @@
                "kernel" "Linux"
                "operatingsystem" "Debian"
                "networking" {"eth0" {"ipaddresses" ["192.168.0.11"]}}}]
-    (add-facts! {:name certname
+    (add-facts! {:certname certname
                  :values facts
                  :timestamp (-> 2 days ago)
                  :environment "ENV3"
@@ -594,7 +594,7 @@
                  "hostname" "myhost"
                  "kernel" "Linux"
                  "operatingsystem" "Debian"}]
-      (add-facts! {:name certname
+      (add-facts! {:certname certname
                    :values facts
                    :timestamp (-> 2 days ago)
                    :environment "ENV3"
@@ -1074,7 +1074,7 @@
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
     (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
-                    #(replace-facts! {:name "node1"
+                    #(replace-facts! {:certname "node1"
                                       :values {"foo" "bar"}
                                       :environment "DEV"
                                       :producer_timestamp "2014-07-10T22:33:54.781Z"

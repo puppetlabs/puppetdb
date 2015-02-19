@@ -17,7 +17,7 @@
   [node additional-facts]
   {"facts"
    {node
-    {"name" node
+    {"certname" node
      "environment" "DEV"
      "values" (merge base-facts additional-facts)}}})
 

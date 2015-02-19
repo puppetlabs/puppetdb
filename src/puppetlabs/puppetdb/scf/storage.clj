@@ -79,7 +79,7 @@
     :edges #{edge-schema}))
 
 (def facts-schema
-  {:name String
+  {:certname String
    :values facts/fact-set
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
@@ -964,9 +964,9 @@
    facts associated with the certname."
   ([fact-data]
    (add-facts! fact-data true))
-  ([{:keys [name values environment timestamp producer_timestamp] :as fact-data} :- facts-schema
+  ([{:keys [certname values environment timestamp producer_timestamp] :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-   (let [factset {:certname name
+   (let [factset {:certname certname
                   :timestamp (to-timestamp timestamp)
                   :environment_id (ensure-environment environment)
                   :producer_timestamp (to-timestamp producer_timestamp)}
@@ -975,7 +975,7 @@
                         (if include-hash?
                           (assoc factset :hash fact-data-hash) factset))
      (insert-facts!
-      (certname-to-factset-id name)
+      (certname-to-factset-id certname)
       (set (new-fact-value-ids values))))))
 
 (pls/defn-validated delete-facts!
@@ -1036,8 +1036,8 @@
   "Given a certname, querys the DB for existing facts for that
   certname and will update, delete or insert the facts as necessary
   to match the facts argument."
-  [{:keys [name values environment timestamp producer_timestamp] :as fact-data} :- facts-schema]
-  (let [factset-id (certname-to-factset-id name)
+  [{:keys [certname values environment timestamp producer_timestamp] :as fact-data} :- facts-schema]
+  (let [factset-id (certname-to-factset-id certname)
         old-facts (current-fact-value-ids factset-id)
         new-facts (new-fact-value-ids values)
         factset {:timestamp (to-timestamp timestamp)
@@ -1249,9 +1249,9 @@
    a repeatable read or serializable transaction enforces only one update to the facts of a certname
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the factsets will have changed while the transaction was in-flight."
-  [{:keys [name timestamp] :as fact-data} :- facts-schema]
+  [{:keys [certname timestamp] :as fact-data} :- facts-schema]
   (time! (:replace-facts metrics)
-         (if-let [factset-ts (factset-timestamp name)]
+         (if-let [factset-ts (factset-timestamp certname)]
            (when (.before factset-ts (to-timestamp timestamp))
              (update-facts! fact-data))
            (add-facts! fact-data))))

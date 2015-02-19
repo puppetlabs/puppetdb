@@ -19,7 +19,7 @@
         f4         "fqdn"
         fact-count 4]
     (scf-store/add-certname! "foo.local")
-    (scf-store/add-facts! {:name "foo.local"
+    (scf-store/add-facts! {:certname "foo.local"
                            :values (into {} (map (fn [x] [x "unused"]) [f2 f4 f1 f3]))
                            :timestamp (now)
                            :environment "DEV"

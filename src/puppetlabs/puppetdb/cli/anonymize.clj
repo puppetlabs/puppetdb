@@ -1,6 +1,4 @@
 (ns puppetlabs.puppetdb.cli.anonymize
-  (:import [puppetlabs.puppetdb.archive TarGzReader TarGzWriter]
-           [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
@@ -15,7 +13,9 @@
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
             [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
-            [puppetlabs.puppetdb.cli.import :refer [parse-metadata]]))
+            [puppetlabs.puppetdb.cli.import :refer [parse-metadata]])
+  (:import [puppetlabs.puppetdb.archive TarGzReader TarGzWriter]
+           [org.apache.commons.compress.archivers.tar TarArchiveEntry]))
 
 (def cli-description "Anonymize puppetdb dump files")
 
@@ -208,7 +208,7 @@
     (when (re-find (re-pattern catalog-pattern) path)
       (let [new-catalog  (->> (next-json-tar-entry tar-reader)
                               (anon/anonymize-catalog config))
-            new-hostname (get new-catalog "name")
+            new-hostname (get new-catalog "certname")
             new-hash (shash/catalog-similarity-hash (catalogs/transform (keywordize-keys new-catalog)))
             new-catalog (assoc new-catalog "hash" new-hash)
             file-suffix  ["catalogs" (format "%s.json" new-hostname)]
@@ -235,7 +235,7 @@
     (when (re-find (re-pattern facts-pattern) path)
       (let [new-facts    (->> (next-json-tar-entry tar-reader)
                               (anon/anonymize-facts config))
-            new-hostname (get new-facts "name")
+            new-hostname (get new-facts "certname")
             file-suffix  ["facts" (format "%s.json" new-hostname)]
             new-path     (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing facts from archive entry '%s' to '%s'" path new-path))

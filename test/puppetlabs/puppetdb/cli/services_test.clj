@@ -81,7 +81,7 @@
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
     (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:name "foo.local"
+      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
                                                              :bar "the bar"
@@ -110,7 +110,7 @@
 (deftest pagination-via-puppdbserver-service
   (jutils/with-puppetdb-instance
     (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:name "foo.local"
+      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:a "a" :b "b" :c "c"}
                                                     :producer_timestamp (to-string (now))})
@@ -154,7 +154,7 @@
 (deftest in-process-command-submission
   (jutils/with-puppetdb-instance
     (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:name "foo.local"
+      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
                                                              :bar "the bar"

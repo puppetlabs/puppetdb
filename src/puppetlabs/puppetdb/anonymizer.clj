@@ -412,8 +412,8 @@
 (defn anonymize-facts
   "Anonymize a fact set"
   [config wire-facts]
-  (let [context {"node" (get wire-facts "name")}]
+  (let [context {"node" (get wire-facts "certname")}]
     (-> wire-facts
-        (update-in ["name"] anonymize-leaf :node context config)
+        (update-in ["certname"] anonymize-leaf :node context config)
         (update-in ["values"] anonymize-fact-values context config)
         (update-in ["environment"] anonymize-leaf :environment context config))))

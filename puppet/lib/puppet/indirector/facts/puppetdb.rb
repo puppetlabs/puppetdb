@@ -35,7 +35,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           facts.values[:trusted] = get_trusted_info(request.node)
         end
         {
-          "name" => facts.name,
+          "certname" => facts.name,
           "values" => facts.values,
           # PDB-453: we call to_s to avoid a 'stack level too deep' error
           # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with

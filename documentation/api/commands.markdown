@@ -80,9 +80,10 @@ or missing fields are an error.
 
 ### "replace facts", version 4
 
-Similar to version 6 of replace catalog, this version of replace facts differs
-from version 3 only in that the previously dashed fields are now
-underscore-separated.
+* Similar to version 6 of replace catalog, previously dashed fields are now
+  underscore-separated.
+
+* The 'name' field has been renamed to 'certname', for consistency. 
 
 See [fact wire format v4][factsv4] for more information on the
 payload of this command.
@@ -111,7 +112,7 @@ To post a `replace facts` command you can use the following curl command:
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":4,"payload":{"name":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
+      -d '{"command":"replace facts","version":4,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
       http://localhost:8080/v4/commands
 
 An example of `deactivate node`:
