@@ -25,14 +25,14 @@
 
   `options` is a list of keys and values where keys can be the following:
 
-  * `authorized?` - a function that takes a request and returns a
-    truthy value if the request is authorized. If not supplied, we default
-    to authorizing all requests."
+  * `authorizer` - a function that takes a request and returns a
+    :authorized if the request is authorized, or a user-visible reason if not.
+    If not supplied, we default to authorizing all requests."
   [& options]
   (let [opts (apply hash-map options)]
     (-> (routes)
         (wrap-params)
-        (wrap-with-authorization (opts :authorized? (constantly true)))
+        (wrap-with-authorization (opts :authorizer (constantly :authorized)))
         (wrap-with-certificate-cn)
         (wrap-with-default-body)
         (wrap-with-debug-logging))))

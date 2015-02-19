@@ -184,17 +184,22 @@
 (defn build-whitelist-authorizer
   "Build a function that will authorize requests based on the supplied
   certificate whitelist (see `cn-whitelist->authorizer` for more
-  details). Rejected requests are logged."
+  details). Returns :authorized if the request is allowed, otherwise a
+  string describing the reason not."
   [whitelist]
   {:pre  [(string? whitelist)]
    :post [(fn? %)]}
   (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
     (fn [{:keys [ssl-client-cn] :as req}]
       (if (allowed? req)
-        true
+        :authorized
         (do
           (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
-          false)))))
+          (format (str "The client certificate name (%s) doesn't "
+                       "appear in the certificate whitelist. Is your "
+                       "master's (or other PuppetDB client's) certname "
+                       "listed in PuppetDB's certificate-whitelist file?")
+                  ssl-client-cn))))))
 
 (defn shutdown-mq-broker
   "Explicitly shut down the queue `broker`"
@@ -296,10 +301,10 @@
           context (if updater
                     (assoc context :updater updater)
                     context)
-          _       (let [authorized? (if-let [wl (:certificate-whitelist puppetdb)]
-                                      (build-whitelist-authorizer wl)
-                                      (constantly true))
-                        app (server/build-app :globals globals :authorized? authorized?)]
+          _       (let [authorizer (if-let [wl (:certificate-whitelist puppetdb)]
+                                          (build-whitelist-authorizer wl)
+                                          (constantly :authorized))
+                        app (server/build-app :globals globals :authorizer authorizer)]
                     (log/info "Starting query server")
                     (add-ring-handler service (compojure/context url-prefix [] app)))
           job-pool (mk-pool)]

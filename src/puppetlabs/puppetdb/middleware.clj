@@ -30,16 +30,18 @@
   supplied authorization function allows it. Otherwise an HTTP 403 is
   returned to the client.
 
-  `authorized?` is expected to take a single argument, the current
+  `authorizer` is expected to take a single argument, the current
   request. The request is allowed only if the return value of
-  `authorized?` is truthy."
-  [app authorized?]
+  `authorizor` is :authorized; otherwise, its value is taken to be a
+  message describing the reason that access is not allowed."
+  [app authorizer]
   (fn [req]
-    (if (authorized? req)
-      (app req)
-      (-> "You shall not pass!"
-          (rr/response)
-          (rr/status http/status-forbidden)))))
+    (let [auth-result (authorizer req)]
+     (if (= :authorized auth-result)
+       (app req)
+       (-> (str "Permission denied: " auth-result)
+           (rr/response)
+           (rr/status http/status-forbidden))))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
