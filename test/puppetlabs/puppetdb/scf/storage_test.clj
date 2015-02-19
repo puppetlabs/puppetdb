@@ -1110,9 +1110,16 @@
 
 ;; Report tests
 
+(defn update-event-timestamps
+  "Changes each timestamp in the `report`'s resource_events to `new-timestamp`"
+  [report new-timestamp]
+  (update-in report [:resource_events]
+             (fn [events]
+               (map #(assoc % :timestamp new-timestamp) events))))
+
 (let [timestamp     (now)
       report        (:basic reports)
-      report-hash   (shash/report-identity-hash report)
+      report-hash   (shash/report-identity-hash (normalize-report report))
       certname      (:certname report)]
 
   (deftest report-storage
@@ -1129,6 +1136,12 @@
       (store-example-report!
        (assoc report
          :puppet_version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+
+  (deftest report-with-event-timestamp
+    (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
+          offset-report (update-event-timestamps report "2011-01-01T12:00:01-0000")]
+      (is (= (shash/report-identity-hash (normalize-report z-report))
+             (shash/report-identity-hash (normalize-report offset-report))))))
 
   (deftest report-storage-with-environment
     (is (nil? (environment-id "DEV")))
