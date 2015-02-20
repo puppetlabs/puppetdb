@@ -2,7 +2,7 @@
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.cheshire :as json]
             [schema.core :as s]
-            [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [clojure.string :as str]
             [com.puppetlabs.puppetdb.scf.hash :as hash]
             [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -17,20 +17,29 @@
 (def fact-path
   [fact-path-element])
 
-(def fact-path-map
+(def pathmap-schema
   {:path s/Str
-   :depth s/Int
    :name s/Str
-   :value_hash s/Str
+   :depth s/Int})
+
+(def fact-set
+  {s/Str s/Any})
+
+(def facts-schema
+  {:name String
+   :values fact-set
+   :timestamp pls/Timestamp
+   :environment (s/maybe s/Str)
+   :producer-timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
+
+(def valuemap-schema
+  {:value_hash s/Str
    :value_float (s/maybe Double)
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
    :value_json (s/maybe s/Str)
    :value_type_id s/Int})
-
-(def fact-set
-  {s/Str s/Any})
 
 ;; GLOBALS
 
@@ -123,21 +132,17 @@
    (nil? data) 4
    (coll? data) 5))
 
-(defn factmap-express-node
-  "Convert data and path into a node definition ready for storage."
-  [data path]
-  (let [type-id (value-type-id data)
-        initial-map {:path (factpath-to-string path)
-                     :name (first path)
-                     :depth (dec (count path))
-                     :value_type_id type-id
-                     :value_hash (hash/generic-identity-hash data)
+(defn value->valuemap
+  [value]
+  (let [type-id (value-type-id value)
+        initial-map {:value_type_id type-id
+                     :value_hash (hash/generic-identity-hash value)
                      :value_string nil
                      :value_integer nil
                      :value_float nil
                      :value_boolean nil
                      :value_json nil}]
-    (if (nil? data)
+    (if (nil? value)
       initial-map
       (let [value-keyword (case type-id
                             0 :value_string
@@ -145,18 +150,17 @@
                             2 :value_float
                             3 :value_boolean
                             5 :value_json)
-            data (if (coll? data)
-                   (sutils/db-serialize data)
-                   data)]
-        (assoc initial-map value-keyword data)))))
+            value (if (coll? value)
+                    (sutils/db-serialize value)
+                    value)]
+        (assoc initial-map value-keyword value)))))
 
-(defn factmap-to-paths*
-  "Recursive function, when given some structured data it will descend into
-   children building up the path until an outer leaf is reached, returning the
-   final built up list of paths as a result."
-  ([data] (factmap-to-paths* data [] []))
-  ;; We specifically do not validate with schema here, for performance.
-  ([data mem path]
+(defn flatten-facts-with
+  "Returns a collection of (leaf-fn path leaf) for all of the paths
+  represented by facts."
+  ([leaf-fn facts] (flatten-facts-with leaf-fn facts [] []))
+  ;; We intentionally do not validate with schema here, for performance.
+  ([leaf-fn data mem path]
      (let [depth (dec (count path))]
        (if (coll? data)
          ;; Branch
@@ -171,21 +175,29 @@
                     ;; thus allowing us to store the top level for each
                     ;; fact.
                     fp (if (= depth 0)
-                         (conj mem (factmap-express-node data path))
+                         (conj mem (leaf-fn path data))
                          mem)]
-               (let [new-fp (factmap-to-paths* v fp (conj path k))]
+               (let [new-fp (flatten-facts-with leaf-fn v fp (conj path k))]
                  (if (empty? remaining)
                    new-fp
                    (recur (first remaining)
                           (next remaining)
                           new-fp))))))
          ;; Leaf
-         (conj mem (factmap-express-node data path))))))
+         (conj mem (leaf-fn path data))))))
 
-(pls/defn-validated factmap-to-paths :- [fact-path-map]
-  "Converts a map of facts to a list of `fact-path-map`s."
-  [hash :- fact-set]
-  (factmap-to-paths* hash))
+(defn-validated path->pathmap :- pathmap-schema
+  [path :- fact-path]
+  {:path (factpath-to-string path)
+   :name (first path)
+   :depth (dec (count path))})
+
+(defn-validated facts->paths-and-valuemaps
+  :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
+  "Returns [path valuemap] pairs for all
+  facts. i.e. ([\"foo#~bar\" vm] ...)"
+  [facts :- fact-set]
+  (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.
