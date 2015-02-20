@@ -344,12 +344,15 @@
 
 (deftest test-anonymize-resource-events
   (testing "should handle a resource event"
-    (let [test-event {"status"         "noop"
-                      "timestamp"      "2013-03-04T19:56:34.000Z"
-                      "resource_title" "foo"
-                      "property"       "ensure"
-                      "message"        "Ensure was absent now present"
-                      "new_value"      "present"
-                      "old_value"      "absent"
-                      "resource_type"  "Package"}]
+    (let [test-event {"status"           "noop"
+                      "timestamp"        "2013-03-04T19:56:34.000Z"
+                      "resource_title"   "foo"
+                      "property"         "ensure"
+                      "message"          "Ensure was absent now present"
+                      "new_value"        "present"
+                      "old_value"        "absent"
+                      "resource_type"    "Package"
+                      "file"             nil
+                      "line"             nil
+                      "containment_path" nil}]
       (is (coll? (anonymize-resource-events [test-event] {} {}))))))

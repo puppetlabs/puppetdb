@@ -235,16 +235,17 @@
 (defn store-report*
   [version db {:keys [payload annotations]}]
   (let [id          (:id annotations)
-        report      (upon-error-throw-fatality
-                     (report/validate! version payload))
-        certname    (:certname report)
+
+        {:keys [certname puppet_version] :as report} (->> payload
+                                                          (s/validate report/report-schema)
+                                                          upon-error-throw-fatality)
         timestamp   (:received annotations)]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [%s] puppet v%s - %s"
                       id (command-names :store-report)
-                      (:puppet_version report) (:certname report)))))
+                      puppet_version certname))))
 
 (defmethod process-command! [(command-names :store-report) 5]
   [{:keys [version] :as command} {:keys [db]}]

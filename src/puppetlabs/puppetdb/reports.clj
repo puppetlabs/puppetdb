@@ -3,93 +3,45 @@
 
    Functions that handle conversion of reports from wire format to
    internal PuppetDB format, including validation."
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.validation :refer [defmodel validate-against-model!]]))
+  (:require [schema.core :as s]
+            [puppetlabs.puppetdb.schema :as pls]))
 
-(defmodel Report
-  {:certname                 :string
-   :puppet_version           :string
-   :report_format            :integer
-   :configuration_version    :string
-   :start_time               :datetime
-   :end_time                 :datetime
-   :resource_events          :coll
-   :noop                     :boolean
-   :transaction_uuid         {:optional? true
-                              :type      :string}
-   :environment              {:optional? true
-                              :type :string}
-   :status                   {:optional? true
-                              :type :string}
-   })
+(def resource-event-schema
+  {:status             s/Str
+   :timestamp          pls/Timestamp
+   :resource_type      s/Str
+   :resource_title     s/Str
+   :property           (s/maybe s/Str)
+   :new_value          (s/maybe pls/JSONable)
+   :old_value          (s/maybe pls/JSONable)
+   :message            (s/maybe s/Str)
+   :file               (s/maybe s/Str)
+   :line               (s/maybe s/Int)
+   :containment_path   [s/Str]})
 
-(def report-fields
-  "Report fields"
-  (keys (:fields Report)))
+(def report-schema
+  {:certname                 s/Str
+   :puppet_version           s/Str
+   :report_format            s/Int
+   :configuration_version    s/Str
+   :start_time               pls/Timestamp
+   :end_time                 pls/Timestamp
+   :resource_events          [resource-event-schema]
+   :noop                     (s/maybe s/Bool)
+   :transaction_uuid         (s/maybe s/Str)
+   :environment              s/Str
+   :status                   s/Str})
 
-(defmodel ResourceEvent
-  {:status             :string
-   :timestamp          :datetime
-   :resource_type      :string
-   :resource_title     :string
-   :property           {:optional? true
-                        :type      :string}
-   :new_value          {:optional? true
-                        :type      :jsonable}
-   :old_value          {:optional? true
-                        :type      :jsonable}
-   :message            {:optional? true
-                        :type      :string}
-   :file               {:optional? true
-                        :type      :string}
-   :line               {:optional? true
-                        :type      :integer}
-   :containment_path   {:optional? true
-                        :type      :coll}
-   })
-
-(def resource-event-fields
-  "Resource event fields"
-  (keys (:fields ResourceEvent)))
-
-(defmulti validate!
-  "Validate a report data structure.  Throws IllegalArgumentException if
-  the report is invalid."
-  (fn [command-version _]
-    command-version))
-
-(defmethod validate! 5
-  [_ report]
-  (validate-against-model! Report report)
-  (doseq [resource-event (:resource_events report)]
-    (validate-against-model! ResourceEvent resource-event)
-    (if (not-every? string? (resource-event :containment_path))
-      (throw (IllegalArgumentException.
-              (format "Containment path should only contain strings: '%s'"
-                      (resource-event :containment_path))))))
-  (when (nil? (:environment report))
-    (throw (IllegalArgumentException. "Version 5 of reports must contain an environment")))
-  (when (nil? (:status report))
-    (throw (IllegalArgumentException. "Version 5 of reports must contain a status")))
-  report)
-
-(defn sanitize-events
+(pls/defn-validated sanitize-events :- [resource-event-schema]
   "This function takes an array of events and santizes them, ensuring only
    valid keys are returned."
-  [events]
-  {:pre [(coll? events)]
-   :post [(coll? %)]}
-  (let [valid-keys (map name resource-event-fields)]
-    (for [event events]
-      (select-keys event valid-keys))))
+  [events :- (s/pred coll? 'coll?)]
+  (for [event events]
+    (pls/strip-unknown-keys resource-event-schema event)))
 
-(defn sanitize-report
+(pls/defn-validated sanitize-report :- report-schema
   "This function takes a report and sanitizes it, ensuring only valid data
    is left over."
-  [payload]
-  {:pre [(map? payload)]
-   :post [(map? %)]}
-  (let [valid-keys (map name report-fields)]
-    (-> payload
-        (select-keys valid-keys)
-        (update-in ["resource_events"] sanitize-events))))
+  [payload :- (s/pred map? 'map?)]
+  (-> (pls/strip-unknown-keys report-schema payload)
+      (update-in [:resource_events] sanitize-events)))
