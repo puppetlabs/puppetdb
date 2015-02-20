@@ -883,6 +883,105 @@
     (sql/do-commands
      "DROP INDEX fact_values_string_trgm")))
 
+(defn- lift-fact-paths-into-facts
+  "Pairs paths and values directly in facts, i.e. change facts from (id
+  value) to (id path value)."
+  []
+  (sql/do-commands
+   (if (scf-utils/postgres?)
+     "SET CONSTRAINTS ALL DEFERRED" ;; In case it allows additional optimization?
+     "SELECT 1")
+
+   ;; Build complete facts table as of migration 28.
+   "CREATE TABLE facts_transform
+        (factset_id bigint NOT NULL,
+         fact_path_id bigint NOT NULL,
+         fact_value_id bigint NOT NULL)"
+
+   ;; Needed for the insert if nothing else.
+   "CREATE INDEX fact_paths_path_idx on fact_paths(path)"
+   "CREATE INDEX fact_values_value_hash_idx on fact_values(value_hash)"
+
+   ;; Patch up facts refrences to refer to the min id path/value
+   ;; wherever there's more than one option.
+   "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
+        SELECT f.factset_id,
+               (SELECT MIN(id) FROM fact_paths fp2 WHERE fp2.path = fp.path),
+               (SELECT MIN(id) FROM fact_values fv2
+                  WHERE fv2.value_hash = fv.value_hash)
+          FROM facts f
+            INNER JOIN fact_values fv on f.fact_value_id = fv.id
+            INNER JOIN fact_paths fp on fv.path_id = fp.id"
+   "DROP TABLE facts"
+
+   "ALTER TABLE facts_transform
+        ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key
+          UNIQUE (factset_id, fact_path_id)"
+   "ALTER TABLE facts_transform
+        ADD CONSTRAINT factset_id_fk
+          FOREIGN KEY (factset_id) REFERENCES factsets(id)
+          ON UPDATE CASCADE
+          ON DELETE CASCADE"
+   ;; CHECK: Do we still want/need these to be deferrable, after the GC changes?
+   (let [opt-deferrable (if (scf-utils/postgres?) "DEFERRABLE" "")]
+     (format
+      "ALTER TABLE facts_transform
+         ADD CONSTRAINT fact_path_id_fk
+           FOREIGN KEY (fact_path_id) REFERENCES fact_paths(id)
+             %s" opt-deferrable)
+     (format
+      "ALTER TABLE facts_transform
+         ADD CONSTRAINT fact_value_id_fk
+           FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+             %s" opt-deferrable))
+
+   "ALTER TABLE facts_transform RENAME TO facts"
+   ;; FIXME: do we want any alternate/additional indexes?
+   "CREATE INDEX fact_value_id_idx ON facts(fact_value_id)"
+
+   ;; These are for the more pedantic HSQLDB.
+   "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_path_type_id_key"
+   "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_value_type_id"
+   "DROP INDEX fact_paths_value_type_id"
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_value_key"
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
+
+   "ALTER TABLE fact_paths DROP COLUMN value_type_id"
+   "ALTER TABLE fact_values DROP COLUMN path_id"
+
+   ;; Remove all the orphaned duplicates (all but the row in each set
+   ;; with min-id).
+   (if (scf-utils/postgres?)
+     "DELETE FROM fact_paths t1 USING fact_paths t2
+          WHERE t1.path = t2.path AND t1.id > t2.id"
+     "DELETE FROM fact_paths t1
+          WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_paths t2
+                            WHERE t1.path = t2.path)")
+   (if (scf-utils/postgres?)
+     "DELETE FROM fact_values t1 USING fact_values t2
+          WHERE t1.value_hash = t2.value_hash AND t1.id > t2.id"
+     "DELETE FROM fact_values t1
+          WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_values t2
+                            WHERE t1.value_hash = t2.value_hash)")
+
+   (if (scf-utils/postgres?)
+     "SET CONSTRAINTS ALL IMMEDIATE"
+     "SELECT 1")
+   ;; FIXME: should these be deferrable -- perf only, if that, since
+   ;; some versions don't support it?  Can deferrable actual help perf?
+   ;; And [9 0] may be too aggressive, but at least 8.4 didn't appear
+   ;; to support this.  Have not determined exactly when support was
+   ;; introduced yet.
+   (let [opt-deferrable (if (and (scf-utils/postgres?)
+                                 (scf-utils/db-version-newer-than? [9 0]))
+                          "DEFERRABLE" "")]
+     (format "ALTER TABLE fact_paths
+                  ADD CONSTRAINT fact_paths_path_key UNIQUE (path)
+                    %s" opt-deferrable)
+     (format "ALTER TABLE fact_values
+                  ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)
+                    %s" opt-deferrable))))
+
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
   {1 initialize-store
@@ -911,7 +1010,11 @@
    24 add-producer-timestamps
    25 structured-facts
    26 structured-facts-deferrable-constraints
-   27 switch-value-string-index-to-gin})
+   27 switch-value-string-index-to-gin
+   28 #(let [time-msg (with-out-str
+                        (time (apply lift-fact-paths-into-facts %&)))]
+         (log/info (str "lift: " time-msg)))
+   })
 
 (def desired-schema-version (apply max (keys migrations)))
 
