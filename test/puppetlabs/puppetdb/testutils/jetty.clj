@@ -112,13 +112,22 @@
 
 (def max-attempts 50)
 
+(defn command-mbean-name
+  "The full mbean name of the MQ destination used for commands"
+  [base-url]
+  (str "org.apache.activemq:BrokerName="
+       (url-encode (:host base-url))
+       ",Type=Queue,Destination="
+       mq-endpoint))
+
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
   mbeans are found in `mbean-map`"
   [mbean-map]
   (let [mbean-names (map utils/kwd->str (keys mbean-map))]
     (and (some #(.startsWith % "org.apache.activemq") mbean-names)
-         (some #(.startsWith % "puppetlabs.puppetdb.command") mbean-names))))
+         (some #(.startsWith % "puppetlabs.puppetdb.command") mbean-names)
+         (some #(.startsWith % (command-mbean-name *base-url*)) mbean-names))))
 
 (defn metrics-up?
   "Returns true if the metrics endpoint (and associated jmx beans) are
@@ -161,10 +170,8 @@
   ;; for queue metrics fails, this check ensures it's started
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
     (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/org.apache.activemq:BrokerName="
-             (url-encode (:host base-metrics-url))
-             ",Type=Queue,Destination="
-             mq-endpoint)
+             "/mbeans/"
+             (command-mbean-name base-metrics-url))
         (client/get {:as :json})
         :body)))
 
