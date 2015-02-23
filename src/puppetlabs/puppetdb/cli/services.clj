@@ -76,8 +76,12 @@
 ;; PuppetDB components.
 
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
-(def ^:dynamic mq-endpoint "puppetlabs.puppetdb.commands")
-(def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
+(def mq-endpoint "puppetlabs.puppetdb.commands")
+
+(defn send-command!
+  "Send the command using the default MQ address and endpoint"
+  [command version payload]
+  (command/enqueue-command! mq-addr mq-endpoint command version payload))
 
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
@@ -302,8 +306,8 @@
                     (assoc context :updater updater)
                     context)
           _       (let [authorizer (if-let [wl (:certificate-whitelist puppetdb)]
-                                          (build-whitelist-authorizer wl)
-                                          (constantly :authorized))
+                                     (build-whitelist-authorizer wl)
+                                     (constantly :authorized))
                         app (server/build-app :globals globals :authorizer authorizer)]
                     (log/info "Starting query server")
                     (add-ring-handler service (compojure/context url-prefix [] app)))

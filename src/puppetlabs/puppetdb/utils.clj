@@ -192,3 +192,11 @@
       (binding [*out* *err*] (flush))
       (flush)
       (System/exit status))))
+
+(defn create-certname-pred
+  "Create a function to compare the certnames in a list of
+  rows with that of the first row."
+  [rows]
+  (let [certname (:certname (first rows))]
+    (fn [row]
+      (= certname (:certname row)))))
