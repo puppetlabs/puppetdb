@@ -85,13 +85,23 @@
       (apply assoc m (apply concat missing-map-entries))
       m)))
 
+(pls/defn-validated kwd->str
+  "Convert a keyword to a string. This is different from `name` in
+  that it will preserve the entire keyword, i.e. :foo/bar ->
+  \"foo/bar\", where name would be just \"bar\""
+  [kwd :- s/Keyword]
+  (-> kwd
+      str
+      (subs 1)))
+
 (defn stringify-keys
   "Recursively transforms all map keys from keywords to strings. This improves
   on clojure.walk/stringify-keys by supporting the conversion of hyphenated
   keywords to strings instead of trying to resolve them in a namespace first."
   [m]
   (let [f (fn [[k v]] (if (keyword? k)
-                        [(subs (str k) 1) v] [k v]))]
+                        [(kwd->str k) v]
+                        [k v]))]
     ;; only apply to maps
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
 
@@ -148,7 +158,7 @@
   [{:keys [protocol host port prefix version] :as base-url} :- base-url-schema]
   (-> (URL. protocol host port
             (str prefix "/" (name (or version :v4))))
-    .toURI .toASCIIString))
+      .toURI .toASCIIString))
 
 (defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string

@@ -68,17 +68,10 @@
             ;; Ignore
             ))))))
 
-(defn block-on-node
-  "Waits for the queue to be empty, then blocks until the catalog, facts and reports are all
-  found for `node-name`. Ensures that the commands have been stored before proceeding in a test."
-  [base-url node-name]
-  (block-until-queue-empty)
-  (let [catalog-fut (block-until-results 100 (export/catalog-for-node base-url node-name))
-        report-fut (block-until-results 100 (export/reports-for-node base-url node-name))
-        facts-fut (block-until-results 100 (export/facts-for-node base-url node-name))]
-    @catalog-fut
-    @report-fut
-    @facts-fut))
+(defn sync-command-post [base-url cmd-kwd version payload]
+  (jutils/until-consumed
+   (fn []
+     (submit-command base-url cmd-kwd version payload))))
 
 (defn- test-basic-roundtrip
   [url-prefix]
@@ -101,12 +94,10 @@
     (with-server
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
-        (submit-command *base-url* :replace-catalog 6 catalog)
-        (submit-command *base-url* :store-report 5
-                        (tur/munge-example-report-for-storage report))
-        (submit-command *base-url* :replace-facts 4 facts)
 
-        (block-on-node *base-url* (:name facts))
+        (sync-command-post *base-url* :replace-catalog 6 catalog)
+        (sync-command-post *base-url* :store-report 5 (tur/munge-example-report-for-storage report))
+        (sync-command-post *base-url* :replace-facts 4 facts)
 
         (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> catalog
@@ -134,12 +125,14 @@
     (with-server
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
-        (apply #'import/main
-               "--infile" export-out-file
-               "--host" (:host *base-url*) "--port" (:port *base-url*)
-               (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))
 
-        (block-on-node *base-url* (:name facts))
+        (jutils/until-consumed
+         3
+         (fn []
+           (apply #'import/main
+                  "--infile" export-out-file
+                  "--host" (:host *base-url*) "--port" (:port *base-url*)
+                  (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))))
 
         (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
                     (-> catalog
@@ -150,13 +143,22 @@
                         (json/parse-string true)
                         (dissoc :hash)
                         utils/vector-maybe))))
+
+        (is (= facts (export/facts-for-node *base-url* "foo.local")))
+
+        ;; For some reason, although the report's message has been
+        ;; consumed and committed, it's not immediately available for
+        ;; querying. Maybe this is a race condition in HSQL? This line
+        ;; ensures that the data is there and ready to be queried
+        ;; before checking the assertion
+        @(block-until-results 100 (export/reports-for-node *base-url* (:certname report)))
+
         (is (= (tur/munge-report-for-comparison
                 (tur/munge-example-report-for-storage report))
                (tur/munge-report-for-comparison
                 (-> (export/reports-for-node *base-url* (:certname report))
                     first
-                    tur/munge-example-report-for-storage))))
-        (is (= facts (export/facts-for-node *base-url* "foo.local")))))))
+                    tur/munge-example-report-for-storage))))))))
 
 (deftest basic-roundtrip
   (test-basic-roundtrip nil))
@@ -199,9 +201,9 @@
   (let [catalog (get-in wire-catalogs [6 :empty])]
     (jutils/with-command-endpoint "foo"
       (jutils/with-puppetdb-instance
+        (jutils/metrics-up?)
         (is (thrown-with-msg? clojure.lang.ExceptionInfo
                               #"status 404"
                               (jutils/dispatch-count "puppetlabs.puppetdb.commands")))
-        (submit-command *base-url* :replace-catalog 6 catalog)
-        @(block-until-results 100 (export/catalog-for-node *base-url* (:name catalog)))
+        (sync-command-post *base-url* :replace-catalog 6 catalog)
         (is (= 1 (jutils/dispatch-count "foo")))))))
