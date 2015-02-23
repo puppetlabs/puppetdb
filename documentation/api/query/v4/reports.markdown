@@ -64,6 +64,9 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `transaction_uuid` (string): string used to identify a Puppet run.
 
+* `latest_report?` (boolean): return only reports associated with the most recent puppet run for each node.
+  NOTE: this field does not appear in the response.
+
 ### Response format
 
 The response is a JSON array of report summaries for all event reports

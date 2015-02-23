@@ -388,6 +388,46 @@
                                 (assoc basic2 :hash hash2)])
      munge-reports-for-comparison)))
 
+(deftestseq latest-report-queries
+  [[version endpoint] endpoints]
+  (let [basic (:basic reports)
+        hash1 (:hash (store-example-report! basic (now)))
+        basic2 (:basic2 reports)
+        hash2 (:hash (store-example-report! basic2 (now)))
+        latest (get-response endpoint ["=" "latest_report?" true])
+        latest-body (json/parse-strict-string (:body latest) true)
+        latest2 (get-response endpoint ["and" ["=" "latest_report?" true] ["=" "noop" false]])
+        latest2-body (json/parse-strict-string (:body latest2) true)
+        latest3 (get-response endpoint ["and" ["=" "latest_report?" true] ["=" "noop" true]])
+        latest3-body (json/parse-strict-string (:body latest3) true) ]
+    (is (= 1 (count latest-body)))
+    (response-equal?
+     latest
+     (reports-response version [(assoc basic2 :hash hash2)])
+     munge-reports-for-comparison)
+
+    (is (= 0 (count latest2-body)))
+    (response-equal?
+     latest2
+     (reports-response version [])
+     munge-reports-for-comparison)
+
+    (is (= 1 (count latest3-body)))
+    (response-equal?
+     latest3
+     (reports-response version [(assoc basic2 :hash hash2)])
+     munge-reports-for-comparison)
+
+    (let [basic4 (assoc (:basic4 reports) :certname "bar.local")
+          hash4 (:hash (store-example-report! basic4 (now)))
+          latest4 (get-response endpoint ["=" "latest_report?" true])
+          latest4-body (json/parse-strict-string (:body latest4) true)]
+      (is (= 2 (count latest4-body)))
+      (response-equal?
+        latest4
+        (reports-response version [(assoc basic2 :hash hash2) (assoc basic4 :hash hash4)])
+        munge-reports-for-comparison))))
+
 (deftestseq query-by-hash
   [[version endpoint] endpoints]
 

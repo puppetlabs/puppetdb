@@ -196,7 +196,7 @@
                :queryable-fields ["certname" "environment" "puppet_version"
                                   "report_format" "configuration_version"
                                   "start_time" "end_time" "transaction_uuid"
-                                  "status" "hash" "receive_time" "noop"]
+                                  "status" "hash" "receive_time" "noop" "latest_report?"]
                :alias "reports"
                :subquery? false
                :entity :reports
