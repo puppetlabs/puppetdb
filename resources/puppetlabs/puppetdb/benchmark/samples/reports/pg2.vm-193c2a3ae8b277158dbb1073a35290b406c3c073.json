@@ -1,0 +1,1007 @@
+{
+  "transaction_uuid" : "1fb6bf81-0b2a-488c-b1d7-610a81b06b27",
+  "puppet_version" : "3.7.1",
+  "noop" : true,
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 2.08 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:29:33.78+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 8 events",
+    "source" : "Stage[main]",
+    "tags" : [ "main", "completed_stage", "notice" ],
+    "time" : "2015-02-13T13:29:33.748+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 8 events",
+    "source" : "Class[Loadtest]",
+    "tags" : [ "completed_class", "loadtest", "notice" ],
+    "time" : "2015-02-13T13:29:33.746+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "err",
+    "message" : "Provider git is not functional on this host",
+    "source" : "/Stage[main]/Loadtest/Vcsrepo[/srv/puppetdb]",
+    "tags" : [ "class", "pg2.vm", "loadtest", "err", "vcsrepo", "node" ],
+    "time" : "2015-02-13T13:29:33.746+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 11
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 2 events",
+    "source" : "Class[Snmp::Client]",
+    "tags" : [ "completed_class", "snmp", "snmp::client", "client", "notice" ],
+    "time" : "2015-02-13T13:29:33.745+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp::Client/File[snmp.conf]/ensure",
+    "tags" : [ "class", "snmp", "pg2.vm", "snmp.conf", "loadtest", "file", "node", "snmp::client", "client", "notice" ],
+    "time" : "2015-02-13T13:29:33.744+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "line" : 85
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 3 events",
+    "source" : "Class[Python::Install]",
+    "tags" : [ "completed_class", "python::install", "install", "python", "notice" ],
+    "time" : "2015-02-13T13:29:33.741+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Python::Install/Package[python-virtualenv]/ensure",
+    "tags" : [ "class", "python::install", "pg2.vm", "python-virtualenv", "install", "python", "loadtest", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:33.738+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 59
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Python::Install/Package[python-devel]/ensure",
+    "tags" : [ "python-devel", "class", "python::install", "pg2.vm", "install", "python", "loadtest", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:33.688+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 61
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Python::Install/Package[python-pip]/ensure",
+    "tags" : [ "class", "python-pip", "python::install", "pg2.vm", "install", "python", "loadtest", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:33.66+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 60
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Class[Git]",
+    "tags" : [ "completed_class", "git", "notice" ],
+    "time" : "2015-02-13T13:29:33.409+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Git/Package[git]/ensure",
+    "tags" : [ "class", "pg2.vm", "loadtest", "git", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:33.407+00:00",
+    "file" : "/etc/puppet/modules/git/manifests/init.pp",
+    "line" : 12
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 8 events",
+    "source" : "Class[Snmp]",
+    "tags" : [ "completed_class", "snmp", "notice" ],
+    "time" : "2015-02-13T13:29:33.224+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Unscheduling refresh on Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/Service[snmpd]",
+    "tags" : [ "snmpd", "class", "info", "snmp", "pg2.vm", "loadtest", "service", "node" ],
+    "time" : "2015-02-13T13:29:33.222+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 517
+  }, {
+    "level" : "notice",
+    "message" : "current_value stopped, should be running (noop)",
+    "source" : "/Stage[main]/Snmp/Service[snmpd]/ensure",
+    "tags" : [ "snmpd", "class", "snmp", "pg2.vm", "loadtest", "service", "node", "notice" ],
+    "time" : "2015-02-13T13:29:33.221+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 517
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.conf]",
+    "tags" : [ "class", "info", "snmp", "pg2.vm", "loadtest", "snmpd.conf", "file", "node" ],
+    "time" : "2015-02-13T13:29:33.124+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 429
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp/File[snmpd.conf]/ensure",
+    "tags" : [ "class", "snmp", "pg2.vm", "loadtest", "snmpd.conf", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:33.123+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 429
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Concat::Fragment[tmpfile]",
+    "tags" : [ "completed_concat::fragment", "fragment", "completed_concat", "tmpfile", "notice" ],
+    "time" : "2015-02-13T13:29:33.121+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 6 events",
+    "source" : "Concat[/tmp/file]",
+    "tags" : [ "completed_concat", "notice" ],
+    "time" : "2015-02-13T13:29:33.119+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "err",
+    "message" : "Could not evaluate: Could not retrieve information from environment production source(s) file:/var/lib/puppet/concat/_tmp_file/fragments.concat.out",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/tmp/file]",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "err", "file", "node" ],
+    "time" : "2015-02-13T13:29:33.117+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 169
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 4 events",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "node", "exec", "notice" ],
+    "time" : "2015-02-13T13:29:33.114+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "notice",
+    "message" : "current_value notrun, should be 0 (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/returns",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "node", "exec", "notice" ],
+    "time" : "2015-02-13T13:29:33.113+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]",
+    "tags" : [ "concat::fragment", "class", "concat", "info", "pg2.vm", "fragment", "loadtest", "tmpfile", "file", "node" ],
+    "time" : "2015-02-13T13:29:33.046+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be file (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]/ensure",
+    "tags" : [ "concat::fragment", "class", "concat", "pg2.vm", "fragment", "loadtest", "tmpfile", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:33.045+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Concat::Fragment[tmpfile2]",
+    "tags" : [ "completed_concat::fragment", "tmpfile2", "fragment", "completed_concat", "notice" ],
+    "time" : "2015-02-13T13:29:33.042+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]",
+    "tags" : [ "concat::fragment", "class", "concat", "info", "pg2.vm", "tmpfile2", "fragment", "loadtest", "file", "node" ],
+    "time" : "2015-02-13T13:29:32.973+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be file (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]/ensure",
+    "tags" : [ "concat::fragment", "class", "concat", "pg2.vm", "tmpfile2", "fragment", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.973+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments]",
+    "tags" : [ "concat", "class", "info", "pg2.vm", "loadtest", "file", "node" ],
+    "time" : "2015-02-13T13:29:32.972+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 149
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be directory (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments]/ensure",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.971+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 149
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 2 events",
+    "source" : "/Stage[main]/Snmp/Service[snmptrapd]",
+    "tags" : [ "class", "snmp", "pg2.vm", "snmptrapd", "loadtest", "service", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.967+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 476
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments.concat.out]/ensure",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.716+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 164
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments.concat]/ensure",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.715+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 159
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file]",
+    "tags" : [ "concat", "class", "info", "pg2.vm", "loadtest", "file", "node" ],
+    "time" : "2015-02-13T13:29:32.714+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 144
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be directory (noop)",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file]/ensure",
+    "tags" : [ "concat", "class", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.714+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 144
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[snmptrapd]",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.conf]",
+    "tags" : [ "snmptrapd.conf", "class", "info", "snmp", "pg2.vm", "loadtest", "file", "node" ],
+    "time" : "2015-02-13T13:29:32.712+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 453
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.conf]/ensure",
+    "tags" : [ "snmptrapd.conf", "class", "snmp", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.711+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 453
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Loadtest/Gnupg_key[hkp_server_20BC0A86]/ensure",
+    "tags" : [ "gnupg_key", "class", "pg2.vm", "loadtest", "hkp_server_20bc0a86", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.444+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 69
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Class[Ntp::Service]",
+    "tags" : [ "completed_class", "ntp", "service", "ntp::service", "notice" ],
+    "time" : "2015-02-13T13:29:32.418+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Unscheduling refresh on Service[ntp]",
+    "source" : "/Stage[main]/Ntp::Service/Service[ntp]",
+    "tags" : [ "ntp", "class", "info", "pg2.vm", "loadtest", "service", "node", "ntp::service" ],
+    "time" : "2015-02-13T13:29:32.416+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/service.pp",
+    "line" : 9
+  }, {
+    "level" : "notice",
+    "message" : "current_value stopped, should be running (noop)",
+    "source" : "/Stage[main]/Ntp::Service/Service[ntp]/ensure",
+    "tags" : [ "ntp", "class", "pg2.vm", "loadtest", "service", "node", "ntp::service", "notice" ],
+    "time" : "2015-02-13T13:29:32.416+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/service.pp",
+    "line" : 9
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be directory (noop)",
+    "source" : "/Stage[main]/Snmp/File[var-net-snmp]/ensure",
+    "tags" : [ "class", "var-net-snmp", "snmp", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.336+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 410
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Loadtest/Ini_setting[sample setting]/ensure",
+    "tags" : [ "class", "ini_setting", "pg2.vm", "loadtest", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.334+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 45
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[ntp]",
+    "source" : "Class[Ntp::Service]",
+    "tags" : [ "ntp", "info", "admissible_class", "service", "ntp::service" ],
+    "time" : "2015-02-13T13:29:32.333+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Class[Ntp::Service]",
+    "tags" : [ "ntp", "admissible_class", "service", "ntp::service", "notice" ],
+    "time" : "2015-02-13T13:29:32.333+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Class[Ntp::Service]",
+    "source" : "Class[Ntp::Config]",
+    "tags" : [ "completed_class", "ntp", "info", "ntp::config", "config" ],
+    "time" : "2015-02-13T13:29:32.332+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Class[Ntp::Config]",
+    "tags" : [ "completed_class", "ntp", "ntp::config", "config", "notice" ],
+    "time" : "2015-02-13T13:29:32.331+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "current_value {md5}7fda24f62b1c7ae951db0f746dc6e0cc, should be {md5}eb918d28434c9fefcc05875c29c3ba1a (noop)",
+    "source" : "/Stage[main]/Ntp::Config/File[/etc/ntp.conf]/content",
+    "tags" : [ "class", "ntp", "pg2.vm", "ntp::config", "loadtest", "file", "node", "config", "notice" ],
+    "time" : "2015-02-13T13:29:32.328+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/config.pp",
+    "line" : 14
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /etc/ntp.conf\t2013-07-15 10:18:47.000000000 +0100\n+++ /tmp/puppet-file20150213-62287-xahzaj-0\t2015-02-13 13:29:32.296877887 +0000\n@@ -1,53 +1,19 @@\n-# For more information about this file, see the man pages\n-# ntp.conf(5), ntp_acc(5), ntp_auth(5), ntp_clock(5), ntp_misc(5), ntp_mon(5).\n+# ntp.conf: Managed by puppet.\n+#\n+# Keep ntpd from panicking in the event of a large clock skew\n+# when a VM guest is suspended and resumed.\n+tinker panic 0\n \n-driftfile /var/lib/ntp/drift\n \n # Permit time synchronization with our time source, but do not\n # permit the source to query or modify the service on this system.\n-restrict default kod nomodify notrap nopeer noquery\n-restrict -6 default kod nomodify notrap nopeer noquery\n+restrict 127.0.0.1\n+\n \n-# Permit all access over the loopback interface.  This could\n-# be tightened as well, but to do so would effect some of\n-# the administrative functions.\n-restrict 127.0.0.1 \n-restrict -6 ::1\n-\n-# Hosts on local network are less restricted.\n-#restrict 192.168.1.0 mask 255.255.255.0 nomodify notrap\n-\n-# Use public servers from the pool.ntp.org project.\n-# Please consider joining the pool (http://www.pool.ntp.org/join.html).\n-server 0.centos.pool.ntp.org iburst\n-server 1.centos.pool.ntp.org iburst\n-server 2.centos.pool.ntp.org iburst\n-server 3.centos.pool.ntp.org iburst\n-\n-#broadcast 192.168.1.255 autokey\t# broadcast server\n-#broadcastclient\t\t\t# broadcast client\n-#broadcast 224.0.1.1 autokey\t\t# multicast server\n-#multicastclient 224.0.1.1\t\t# multicast client\n-#manycastserver 239.255.254.254\t\t# manycast server\n-#manycastclient 239.255.254.254 autokey # manycast client\n-\n-# Enable public key cryptography.\n-#crypto\n-\n-includefile /etc/ntp/crypto/pw\n-\n-# Key file containing the keys and key identifiers used when operating\n-# with symmetric key cryptography. \n-keys /etc/ntp/keys\n-\n-# Specify the key identifiers which are trusted.\n-#trustedkey 4 8 42\n+server ntp.pool.org\n \n-# Specify the key identifier to use with the ntpdc utility.\n-#requestkey 8\n \n-# Specify the key identifier to use with the ntpq utility.\n-#controlkey 8\n+# Driftfile.\n+driftfile /var/lib/ntp/drift\n+\n \n-# Enable writing of statistics records.\n-#statistics clockstats cryptostats loopstats peerstats\n",
+    "source" : "/Stage[main]/Ntp::Config/File[/etc/ntp.conf]/content",
+    "tags" : [ "class", "ntp", "pg2.vm", "ntp::config", "loadtest", "file", "node", "config", "content", "notice" ],
+    "time" : "2015-02-13T13:29:32.324+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/config.pp",
+    "line" : 14
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.sysconfig]",
+    "tags" : [ "snmpd.sysconfig", "class", "info", "snmp", "pg2.vm", "loadtest", "file", "node" ],
+    "time" : "2015-02-13T13:29:32.293+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 441
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp/File[snmpd.sysconfig]/ensure",
+    "tags" : [ "snmpd.sysconfig", "class", "snmp", "pg2.vm", "loadtest", "file", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.292+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 441
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[snmptrapd]",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.sysconfig]",
+    "tags" : [ "class", "info", "snmp", "pg2.vm", "loadtest", "file", "node", "snmptrapd.sysconfig" ],
+    "time" : "2015-02-13T13:29:32.285+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 465
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.sysconfig]/ensure",
+    "tags" : [ "class", "snmp", "pg2.vm", "loadtest", "file", "node", "snmptrapd.sysconfig", "notice" ],
+    "time" : "2015-02-13T13:29:32.285+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 465
+  }, {
+    "level" : "info",
+    "message" : "Unscheduling refresh on Service[cron]",
+    "source" : "/Stage[main]/Loadtest/Service[cron]",
+    "tags" : [ "class", "info", "pg2.vm", "loadtest", "service", "cron", "node" ],
+    "time" : "2015-02-13T13:29:32.281+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 4
+  }, {
+    "level" : "notice",
+    "message" : "current_value stopped, should be running (noop)",
+    "source" : "/Stage[main]/Loadtest/Service[cron]/ensure",
+    "tags" : [ "class", "pg2.vm", "loadtest", "service", "cron", "node", "notice" ],
+    "time" : "2015-02-13T13:29:32.28+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 4
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be foo (noop)",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "class", "pg2.vm", "loadtest", "foo", "node", "notify", "notice" ],
+    "time" : "2015-02-13T13:29:32.178+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp/Package[snmpd]/ensure",
+    "tags" : [ "snmpd", "class", "snmp", "pg2.vm", "loadtest", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:32.176+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 405
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be latest (noop)",
+    "source" : "/Stage[main]/Loadtest/Package[etckeeper]/ensure",
+    "tags" : [ "etckeeper", "class", "pg2.vm", "loadtest", "node", "package", "notice" ],
+    "time" : "2015-02-13T13:29:32.134+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 41
+  }, {
+    "level" : "notice",
+    "message" : "current_value absent, should be present (noop)",
+    "source" : "/Stage[main]/Snmp::Client/Package[snmp-client]/ensure",
+    "tags" : [ "snmp-client", "class", "snmp", "pg2.vm", "loadtest", "node", "snmp::client", "package", "client", "notice" ],
+    "time" : "2015-02-13T13:29:32.09+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "line" : 76
+  }, {
+    "level" : "notice",
+    "message" : "Would have triggered 'refresh' from 1 events",
+    "source" : "Class[Motd]",
+    "tags" : [ "completed_class", "motd", "notice" ],
+    "time" : "2015-02-13T13:29:31.93+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "current_value {md5}d41d8cd98f00b204e9800998ecf8427e, should be {md5}a3f731187a6aaaa23d4a7b244f223f33 (noop)",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "class", "pg2.vm", "loadtest", "file", "motd", "node", "notice" ],
+    "time" : "2015-02-13T13:29:31.924+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /etc/motd\t2010-01-12 13:28:22.000000000 +0000\n+++ /tmp/puppet-file20150213-62287-jf1btv-0\t2015-02-13 13:29:31.882877889 +0000\n@@ -0,0 +1 @@\n+Welcome to my test host!\n\\ No newline at end of file\n",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "class", "pg2.vm", "loadtest", "file", "motd", "node", "content", "notice" ],
+    "time" : "2015-02-13T13:29:31.923+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423834124'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:31.774+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "warning",
+    "message" : "The package type's allow_virtual parameter will be changing its default value from false to true in a future release. If you do not want to allow virtual packages, please explicitly set allow_virtual to false.\n   (at /usr/lib/ruby/site_ruby/1.8/puppet/type/package.rb:430:in `default')",
+    "source" : "Puppet",
+    "tags" : [ "warning" ],
+    "time" : "2015-02-13T13:29:31.381+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for pg2.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:31.286+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:29.241+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:26.991+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:26.912+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:29:26.846Z",
+  "end_time" : "2015-02-13T13:29:29.626Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}a3f731187a6aaaa23d4a7b244f223f33",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}d41d8cd98f00b204e9800998ecf8427e",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:29:31.924Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "current_value {md5}d41d8cd98f00b204e9800998ecf8427e, should be {md5}a3f731187a6aaaa23d4a7b244f223f33 (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "old_value" : "absent",
+    "line" : 76,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "snmp-client",
+    "timestamp" : "2015-02-13T13:29:32.090Z",
+    "containment_path" : [ "Stage[main]", "Snmp::Client", "Package[snmp-client]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "latest",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 41,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "etckeeper",
+    "timestamp" : "2015-02-13T13:29:32.134Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Package[etckeeper]" ],
+    "message" : "current_value absent, should be latest (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 405,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "snmpd",
+    "timestamp" : "2015-02-13T13:29:32.175Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "Package[snmpd]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "noop",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:29:32.178Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "current_value absent, should be foo (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "stopped",
+    "line" : 4,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "cron",
+    "timestamp" : "2015-02-13T13:29:32.280Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Service[cron]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 465,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmptrapd.sysconfig",
+    "timestamp" : "2015-02-13T13:29:32.284Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmptrapd.sysconfig]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 441,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmpd.sysconfig",
+    "timestamp" : "2015-02-13T13:29:32.292Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmpd.sysconfig]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "{md5}eb918d28434c9fefcc05875c29c3ba1a",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/ntp/manifests/config.pp",
+    "old_value" : "{md5}7fda24f62b1c7ae951db0f746dc6e0cc",
+    "line" : 14,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/ntp.conf",
+    "timestamp" : "2015-02-13T13:29:32.328Z",
+    "containment_path" : [ "Stage[main]", "Ntp::Config", "File[/etc/ntp.conf]" ],
+    "message" : "current_value {md5}7fda24f62b1c7ae951db0f746dc6e0cc, should be {md5}eb918d28434c9fefcc05875c29c3ba1a (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 45,
+    "resource_type" : "Ini_setting",
+    "status" : "noop",
+    "resource_title" : "sample setting",
+    "timestamp" : "2015-02-13T13:29:32.334Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Ini_setting[sample setting]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 410,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "var-net-snmp",
+    "timestamp" : "2015-02-13T13:29:32.336Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[var-net-snmp]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/ntp/manifests/service.pp",
+    "old_value" : "stopped",
+    "line" : 9,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "ntp",
+    "timestamp" : "2015-02-13T13:29:32.416Z",
+    "containment_path" : [ "Stage[main]", "Ntp::Service", "Service[ntp]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 69,
+    "resource_type" : "Gnupg_key",
+    "status" : "noop",
+    "resource_title" : "hkp_server_20BC0A86",
+    "timestamp" : "2015-02-13T13:29:32.444Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Gnupg_key[hkp_server_20BC0A86]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 453,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmptrapd.conf",
+    "timestamp" : "2015-02-13T13:29:32.711Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmptrapd.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 144,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file",
+    "timestamp" : "2015-02-13T13:29:32.713Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 159,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments.concat",
+    "timestamp" : "2015-02-13T13:29:32.715Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments.concat]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 164,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments.concat.out",
+    "timestamp" : "2015-02-13T13:29:32.716Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments.concat.out]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 149,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments",
+    "timestamp" : "2015-02-13T13:29:32.971Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+    "timestamp" : "2015-02-13T13:29:32.973Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile2]", "File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]" ],
+    "message" : "current_value absent, should be file (noop)"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+    "timestamp" : "2015-02-13T13:29:33.045Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile]", "File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]" ],
+    "message" : "current_value absent, should be file (noop)"
+  }, {
+    "new_value" : [ "0" ],
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "notrun",
+    "line" : 187,
+    "resource_type" : "Exec",
+    "status" : "noop",
+    "resource_title" : "concat_/tmp/file",
+    "timestamp" : "2015-02-13T13:29:33.112Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "Exec[concat_/tmp/file]" ],
+    "message" : "current_value notrun, should be 0 (noop)"
+  }, {
+    "new_value" : null,
+    "property" : null,
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : null,
+    "line" : 169,
+    "resource_type" : "File",
+    "status" : "failure",
+    "resource_title" : "/tmp/file",
+    "timestamp" : "2015-02-13T13:29:33.118Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/tmp/file]" ],
+    "message" : "Could not retrieve information from environment production source(s) file:/var/lib/puppet/concat/_tmp_file/fragments.concat.out"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 429,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmpd.conf",
+    "timestamp" : "2015-02-13T13:29:33.123Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmpd.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "stopped",
+    "line" : 517,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "snmpd",
+    "timestamp" : "2015-02-13T13:29:33.221Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "Service[snmpd]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/git/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 12,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "git",
+    "timestamp" : "2015-02-13T13:29:33.407Z",
+    "containment_path" : [ "Stage[main]", "Git", "Package[git]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 60,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-pip",
+    "timestamp" : "2015-02-13T13:29:33.660Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-pip]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 61,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-devel",
+    "timestamp" : "2015-02-13T13:29:33.687Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-devel]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 59,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-virtualenv",
+    "timestamp" : "2015-02-13T13:29:33.738Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-virtualenv]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "old_value" : "absent",
+    "line" : 85,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmp.conf",
+    "timestamp" : "2015-02-13T13:29:33.744Z",
+    "containment_path" : [ "Stage[main]", "Snmp::Client", "File[snmp.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  } ],
+  "status" : "failed",
+  "configuration_version" : "1423834124",
+  "environment" : "production",
+  "certname" : "pg2.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 0.001046,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.049918,
+    "name" : "augeas"
+  }, {
+    "category" : "time",
+    "value" : 1.2285521030426,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.454854,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.232939,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.35E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.024507,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 6.65E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 8.4E-4,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.25077,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 6.28E-4,
+    "name" : "postgresql_conf"
+  }, {
+    "category" : "time",
+    "value" : 0.002515,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.532835,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 2.7802041030426,
+    "name" : "total"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 29,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 88,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 28,
+    "name" : "noop"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 29,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 0,
+    "name" : "total"
+  } ]
+}

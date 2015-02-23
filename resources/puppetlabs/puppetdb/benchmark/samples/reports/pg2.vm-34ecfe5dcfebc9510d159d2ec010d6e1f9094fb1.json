@@ -1,0 +1,399 @@
+{
+  "transaction_uuid" : "9df4e7ce-5646-4178-8ff8-db6add84e9fc",
+  "puppet_version" : "3.7.1",
+  "noop" : true,
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 4.55 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:27:01.557+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::end]",
+    "tags" : [ "node", "notice", "postgresql::server::service::end", "postgresql", "postgresql::server", "anchor", "postgresql::server::service", "server", "pg2.vm", "end", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.513+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "line" : 41
+  }, {
+    "level" : "notice",
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Postgresql::Validate_db_connection[validate_service_is_running]/Exec[validate postgres connection for /postgres]",
+    "tags" : [ "node", "notice", "validate_service_is_running", "postgresql", "postgresql::server", "postgresql::server::service", "server", "validate_db_connection", "pg2.vm", "exec", "class", "postgresql::validate_db_connection", "service" ],
+    "time" : "2015-02-13T13:27:01.509+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/validate_db_connection.pp",
+    "line" : 51
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[validate postgres connection for /postgres]",
+    "source" : "Postgresql::Validate_db_connection[validate_service_is_running]",
+    "tags" : [ "admissible_postgresql", "validate_service_is_running", "validate_db_connection", "admissible_postgresql::validate_db_connection", "info" ],
+    "time" : "2015-02-13T13:27:01.378+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Unscheduling refresh on Service[postgresqld]",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]",
+    "tags" : [ "node", "postgresqld", "postgresql", "postgresql::server", "postgresql::server::service", "server", "pg2.vm", "info", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.376+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "line" : 14
+  }, {
+    "level" : "notice",
+    "message" : "ensure changed 'stopped' to 'running'",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]/ensure",
+    "tags" : [ "node", "notice", "postgresqld", "postgresql", "postgresql::server", "postgresql::server::service", "server", "pg2.vm", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.375+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "line" : 14
+  }, {
+    "level" : "notice",
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::begin]",
+    "tags" : [ "node", "notice", "begin", "postgresql::server::service::begin", "postgresql", "postgresql::server", "anchor", "postgresql::server::service", "server", "pg2.vm", "class", "service" ],
+    "time" : "2015-02-13T13:26:59.222+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "line" : 12
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Anchor[postgresql::server::service::begin]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.221+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Anchor[postgresql::server::service::end]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Postgresql::Validate_db_connection[validate_service_is_running]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Service[postgresqld]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Main/Node[pg2.vm]/Notify[foo]/message",
+    "tags" : [ "node", "notice", "foo", "pg2.vm", "class", "notify" ],
+    "time" : "2015-02-13T13:26:58.976+00:00",
+    "file" : "/etc/puppet/manifests/site.pp",
+    "line" : 6
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:26:58.976+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Class[Postgresql::Server::Service]",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]",
+    "tags" : [ "node", "postgresql::server::config", "postgresql::server::config_entry", "postgresql_conf", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "info", "class" ],
+    "time" : "2015-02-13T13:26:58.824+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "line" : 105
+  }, {
+    "level" : "info",
+    "message" : "Computing checksum on file /var/lib/pgsql/data/postgresql.conf",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:58.815+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]/ensure",
+    "tags" : [ "node", "notice", "postgresql::server::config", "postgresql::server::config_entry", "postgresql_conf", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.814+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "line" : 105
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Class[Postgresql::Server::Service]",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]",
+    "tags" : [ "node", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "augeas", "server", "pg2.vm", "config_entry", "config", "info", "class" ],
+    "time" : "2015-02-13T13:26:58.806+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "line" : 90
+  }, {
+    "level" : "notice",
+    "message" : "executed successfully",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]/returns",
+    "tags" : [ "node", "notice", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "augeas", "server", "pg2.vm", "config_entry", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.805+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "line" : 90
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /etc/sysconfig/pgsql/postgresql\t2014-09-18 15:48:23.129826040 +0100\n+++ /etc/sysconfig/pgsql/postgresql.augnew\t2015-02-13 13:26:58.619877991 +0000\n@@ -1,2 +1,3 @@\n \n PGPORT=5432\n+PGDATA=/var/lib/pgsql/data\n",
+    "source" : "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql](provider=augeas)",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:26:58.78+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/Stage[main]/Postgresql::Server::Config/File[/etc/sysconfig/pgsql/postgresql-8.4]/ensure",
+    "tags" : [ "node", "notice", "postgresql::server::config", "file", "postgresql::server", "postgresql", "server", "pg2.vm", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.583+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config.pp",
+    "line" : 120
+  }, {
+    "level" : "notice",
+    "message" : "executed successfully",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Exec[postgresql_data_directory]/returns",
+    "tags" : [ "node", "notice", "postgresql_data_directory", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "exec", "class" ],
+    "time" : "2015-02-13T13:26:58.57+00:00",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "line" : 83
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833741'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:57.059+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "warning",
+    "message" : "The package type's allow_virtual parameter will be changing its default value from false to true in a future release. If you do not want to allow virtual packages, please explicitly set allow_virtual to false.\n   (at /usr/lib/ruby/site_ruby/1.8/puppet/type/package.rb:430:in `default')",
+    "source" : "Puppet",
+    "tags" : [ "warning" ],
+    "time" : "2015-02-13T13:26:56.789+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for pg2.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:56.714+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:54.936+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:52.669+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:52.621+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:26:52.564Z",
+  "end_time" : "2015-02-13T13:26:57.691Z",
+  "resource_events" : [ {
+    "new_value" : [ "0" ],
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "notrun",
+    "line" : 83,
+    "resource_type" : "Exec",
+    "status" : "success",
+    "resource_title" : "postgresql_data_directory",
+    "timestamp" : "2015-02-13T13:26:57.409Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Exec[postgresql_data_directory]" ],
+    "message" : "executed successfully"
+  }, {
+    "new_value" : "link",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config.pp",
+    "old_value" : "absent",
+    "line" : 120,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/etc/sysconfig/pgsql/postgresql-8.4",
+    "timestamp" : "2015-02-13T13:26:58.573Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "File[/etc/sysconfig/pgsql/postgresql-8.4]" ],
+    "message" : "created"
+  }, {
+    "new_value" : 0,
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "need_to_run",
+    "line" : 90,
+    "resource_type" : "Augeas",
+    "status" : "success",
+    "resource_title" : "override PGDATA in /etc/sysconfig/pgsql/postgresql",
+    "timestamp" : "2015-02-13T13:26:58.781Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]" ],
+    "message" : "executed successfully"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "absent",
+    "line" : 105,
+    "resource_type" : "Postgresql_conf",
+    "status" : "success",
+    "resource_title" : "data_directory",
+    "timestamp" : "2015-02-13T13:26:58.814Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Postgresql_conf[data_directory]" ],
+    "message" : "created"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/manifests/site.pp",
+    "old_value" : "absent",
+    "line" : 6,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:26:58.975Z",
+    "containment_path" : [ "Stage[main]", "Main", "Node[pg2.vm]", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "old_value" : "stopped",
+    "line" : 14,
+    "resource_type" : "Service",
+    "status" : "success",
+    "resource_title" : "postgresqld",
+    "timestamp" : "2015-02-13T13:26:59.281Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Service", "Service[postgresqld]" ],
+    "message" : "ensure changed 'stopped' to 'running'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833741",
+  "environment" : "production",
+  "certname" : "pg2.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.67E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.250754,
+    "name" : "augeas"
+  }, {
+    "category" : "time",
+    "value" : 0.956570863723755,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 1.549255,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.202946,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.01E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.00144,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.001022,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 0.01103,
+    "name" : "postgresql_conf"
+  }, {
+    "category" : "time",
+    "value" : 9.22E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 2.152731,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 5.12733886372376,
+    "name" : "total"
+  }, {
+    "category" : "resources",
+    "value" : 6,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 6,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 3,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 50,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 6,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 6,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 6,
+    "name" : "total"
+  } ]
+}

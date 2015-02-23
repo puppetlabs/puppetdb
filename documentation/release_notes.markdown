@@ -145,6 +145,9 @@ stable release of PuppetDB, which included an experimental v4 API.
   the latest report of each certname in the certnames table.
   ([PDB-1254](https://tickets.puppetlabs.com/browse/PDB-1254))
 
+* The load testing tool can now optionally use a default set of testing data or
+derive data from a PuppetDB export tarball.
+
 #### API changes
 
 * The query parameter for `/v4/events` is now optional ([PDB-1132](https://tickets.puppetlabs.com/browse/PDB-1132))
@@ -297,6 +300,7 @@ stable release of PuppetDB, which included an experimental v4 API.
 
 TODO
 
+#### Bug Fixes and Maintenance
 
 2.2.2
 -----
