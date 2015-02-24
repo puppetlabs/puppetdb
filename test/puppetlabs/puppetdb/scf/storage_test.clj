@@ -1108,6 +1108,19 @@
     (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
            ["node1" "node3"]))))
 
+(deftest report-sweep-nullifies-latest-report
+  (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
+    (let [report1 (assoc (:basic reports) :end_time (ago (days 12)))
+          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now))]
+      (add-certname! "foo.local")
+      (add-certname! "bar.local")
+      (store-example-report! report1 (ago (days 12)))
+      (store-example-report! report2 (now))
+      (let [ids (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))
+            _ (delete-reports-older-than! (ago (days 11)))
+            ids2 (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))]
+        (is (= ids2 [(first ids) nil]))))))
+
 ;; Report tests
 
 (defn update-event-timestamps

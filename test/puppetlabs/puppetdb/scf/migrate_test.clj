@@ -190,7 +190,8 @@
           {:id 1 :name "testing1"})
         (sql/insert-records
           :certnames
-          {:name "testing1" :deactivated nil})
+          {:name "testing1" :deactivated nil}
+          {:name "testing2" :deactivated nil})
 
         (sql/insert-records
           :reports
@@ -203,12 +204,24 @@
            :end_time               current-time
            :receive_time           current-time
            :environment_id         1
-           :status_id              1})
+           :status_id              1}
+          {:hash "blahblah"
+           :configuration_version "blahblahblah"
+           :certname "testing2"
+           :puppet_version "911"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :environment_id 1
+           :status_id 1})
 
         (sql/insert-records
           :latest_reports
           {:report                 "thisisacoolhash"
-           :certname               "testing1"})
+           :certname               "testing1"}
+          {:report                 "blahblah"
+           :certname               "testing2"})
 
         (apply-migration-for-testing! 29)
 
@@ -216,10 +229,18 @@
               (query-to-vec
                 "SELECT r.hash, r.certname, e.name AS environment, rs.status
                  FROM
-                 latest_reports lr INNER JOIN reports r on lr.report_id=r.id AND lr.certname=r.certname
+                 certnames c INNER JOIN reports r on c.latest_report_id=r.id AND c.name=r.certname
                  INNER JOIN environments e on r.environment_id=e.id
-                 INNER JOIN report_statuses rs on r.status_id=rs.id")]
+                 INNER JOIN report_statuses rs on r.status_id=rs.id
+                 order by c.name")]
           ;; every node should with facts should be represented
           (is (= response
-                 [{:hash "thisisacoolhash" :environment "testing1"
-                   :certname "testing1" :status "testing1"}])))))))
+                 [{:hash "thisisacoolhash" :environment "testing1" :certname "testing1" :status "testing1"}
+                  {:hash "blahblah" :environment "testing1" :certname "testing2" :status "testing1"}])))
+
+        (let [[id1 id2] (map :id
+                              (query-to-vec "SELECT id from reports order by certname"))]
+
+          (let [latest-ids (map :latest_report_id
+                                (query-to-vec "select latest_report_id from certnames order by name"))]
+            (is (= [id1 id2] latest-ids))))))))

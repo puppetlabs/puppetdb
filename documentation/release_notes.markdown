@@ -28,8 +28,11 @@ TODO
 
 * The reports endpoint now implements the latest_report? query, which filters the
 response to only include reports that are from the latest puppet run for each
-node.
-([PDB-1244](https://tickets.puppetlabs.com/browse/PDB-1244))
+node.  ([PDB-1244](https://tickets.puppetlabs.com/browse/PDB-1244))
+
+* We have dropped the latest_reports table in favor of storing a reference to
+  the latest report of each certname in the certnames table.
+  ([PDB-1254](https://tickets.puppetlabs.com/browse/PDB-1254))
 
 #### Bug Fixes and Maintenance
 

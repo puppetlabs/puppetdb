@@ -198,7 +198,7 @@
    :post [(kitchensink/boolean? %)]}
   (= 1 (count (jdbc/query-to-vec
                ["SELECT reports.hash as latest_report_hash
-                 FROM latest_reports
-                 INNER JOIN reports ON reports.id = latest_reports.report_id
-                 WHERE latest_reports.certname = ? AND reports.hash = ?"
+                 FROM certnames
+                 INNER JOIN reports ON reports.id = certnames.latest_report_id
+                 WHERE certnames.certname = ? AND reports.hash = ?"
                 node report-hash]))))
