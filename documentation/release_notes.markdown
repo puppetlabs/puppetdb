@@ -9,22 +9,26 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 ### Upgrading
 
+* There are some migrations provided in this release, that may mean you have to wait while these run before
+  upgrading. In particular:
+** The report columns is now getting a new bigint Primary Key
 * You may notice some additional system load for the first 30 to 60
-  minutes after upgrading. This is expected, and is due to a change in
+  minutes once the application has started after upgrading. This is expected, and is due to a change in
   the way we check if a catalog is up-to-date.
 
 ### Contributors
 
-Andrew Roetker, Erik Dalén, Ken Barber, Preben Ingvaldsen, Rob Braden,
-Rob Nelson, Roger Ignazio, Ryan Senior, Wyatt Alt, Jean Bond, and
-Russell Mull.
+TODO
 
 ### Changes
 
+#### New Features & Improvements
+
+* The `reports` database table was using the hash string as its primary key, we know have switched to using a smaller bigint primary key for that table, which should result in faster joins in most cases, and hopefully smaller foreign key indexes sizes for tables relating to `reports`. ([PDB-1218](https://tickets.puppetlabs.com/browse/PDB-1218))
+
 #### Bug Fixes and Maintenance
 
-* If a new catalog is submitted whose only difference from the
-  previous catalog are tags, the change is now respected.
+* If a new catalog is submitted whose only difference from the previous catalog are tags, the change is now respected. ([PDB-332](https://tickets.puppetlabs.com/browse/PDB-332))
 
 2.2.2
 -----
