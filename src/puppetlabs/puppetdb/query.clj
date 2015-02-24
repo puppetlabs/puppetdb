@@ -224,7 +224,7 @@
    "start_time"             ["reports" "run_start_time"]
    "end_time"               ["reports" "run_end_time"]
    "receive_time"           ["reports" "report_receive_time"]
-   "report"                 ["resource_events"]
+   "hash"                   ["reports" "report"]
    "status"                 ["resource_events"]
    "timestamp"              ["resource_events"]
    "resource_type"          ["resource_events"]
@@ -563,11 +563,15 @@
     (let [path (jdbc/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where (format "reports.certname = ?")
+             {:where "reports.certname = ?"
+              :params [value]}
+
+             ["report"]
+             {:where "reports.hash = ?"
               :params [value]}
 
              ["latest_report?"]
-             {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+             {:where (format "resource_events.report_id %s (SELECT latest_reports.report_id FROM latest_reports)"
                              (if value "IN" "NOT IN"))}
 
              ["environment"]
@@ -743,5 +747,5 @@
    If all you want is an unstreamed Seq, pass the function `doall` as `f` to
    convert the LazySeq to a Seq by full traversing it. This is useful for tests,
    that cannot analyze results easily in a streamed way."
-  ([version sql params f]
-   (jdbc/with-query-results-cursor sql params rs (f rs))))
+  [version sql params f]
+  (jdbc/with-query-results-cursor sql params rs (f rs)))

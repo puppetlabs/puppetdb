@@ -24,7 +24,7 @@
   [(format
     "SELECT %s
          FROM resource_events
-         JOIN reports ON resource_events.report = reports.hash
+         JOIN reports ON resource_events.report_id = reports.id
          LEFT OUTER JOIN environments on reports.environment_id = environments.id
          WHERE %s"
     select-fields
@@ -47,7 +47,7 @@
   [(format
     "SELECT %s
          FROM resource_events
-         JOIN reports ON resource_events.report = reports.hash
+         JOIN reports ON resource_events.report_id = reports.id
          LEFT OUTER JOIN environments ON reports.environment_id = environments.id
          JOIN (SELECT reports.certname,
                       resource_events.resource_type,
@@ -55,7 +55,7 @@
                       resource_events.property,
                       MAX(resource_events.timestamp) AS timestamp
                   FROM resource_events
-                  JOIN reports ON resource_events.report = reports.hash
+                  JOIN reports ON resource_events.report_id = reports.id
                   WHERE resource_events.timestamp >= ?
                      AND resource_events.timestamp <= ?
                   GROUP BY certname, resource_type, resource_title, property) latest_events

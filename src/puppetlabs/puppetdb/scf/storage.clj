@@ -1066,8 +1066,8 @@
   most recent report for the node."
   [node]
   {:pre [(string? node)]}
-  (let [latest-report (:hash (first (query-to-vec
-                                     ["SELECT hash FROM reports
+  (let [latest-report (:id (first (query-to-vec
+                                     ["SELECT id FROM reports
                                             WHERE certname = ?
                                             ORDER BY end_time DESC
                                             LIMIT 1" node])))]
@@ -1075,7 +1075,7 @@
      :latest_reports
      ["certname = ?" node]
      {:certname      node
-      :report        latest-report})))
+      :report_id     latest-report})))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -1146,26 +1146,26 @@
                 :as report}         (normalize-report orig-report)
                 report-hash         (shash/report-identity-hash report)]
            (sql/transaction
-            (sql/insert-record :reports
-                               (maybe-environment
-                                {:hash                   report-hash
-                                 :noop                   noop
-                                 :puppet_version         puppet_version
-                                 :certname               certname
-                                 :report_format          report_format
-                                 :configuration_version  configuration_version
-                                 :start_time             start_time
-                                 :end_time               end_time
-                                 :receive_time           (to-timestamp timestamp)
-                                 :transaction_uuid       transaction_uuid
-                                 :environment_id         (ensure-environment environment)
-                                 :status_id              (ensure-status status)}))
+             (let [{:keys [id]} (sql/insert-record :reports
+                                 (maybe-environment
+                                   {:hash                   report-hash
+                                    :noop                   noop
+                                    :puppet_version         puppet_version
+                                    :certname               certname
+                                    :report_format          report_format
+                                    :configuration_version  configuration_version
+                                    :start_time             start_time
+                                    :end_time               end_time
+                                    :receive_time           (to-timestamp timestamp)
+                                    :transaction_uuid       transaction_uuid
+                                    :environment_id         (ensure-environment environment)
+                                    :status_id              (ensure-status status)}))]
+               (->> resource_events
+                    (map (comp convert-containment-path #(assoc % :report_id id)))
+                    (apply sql/insert-records :resource_events))
+               (when update-latest-report?
+                 (update-latest-report! certname)))))))
 
-            (->> resource_events
-                 (map (comp convert-containment-path #(assoc % :report report-hash)))
-                 (apply sql/insert-records :resource_events))
-            (when update-latest-report?
-              (update-latest-report! certname))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
