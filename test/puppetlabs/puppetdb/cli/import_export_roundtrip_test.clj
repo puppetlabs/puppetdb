@@ -144,15 +144,15 @@
                         (dissoc :hash)
                         utils/vector-maybe))))
 
-        (is (= facts (export/facts-for-node *base-url* "foo.local")))
-
-        ;; For some reason, although the report's message has been
-        ;; consumed and committed, it's not immediately available for
-        ;; querying. Maybe this is a race condition in HSQL? This line
-        ;; ensures that the data is there and ready to be queried
-        ;; before checking the assertion
+        ;; For some reason, although the fact's/report's message has
+        ;; been consumed and committed, it's not immediately available
+        ;; for querying. Maybe this is a race condition in our tests?
+        ;; The next two lines ensure that the message is not only
+        ;; consumed but present in the DB before proceeding
+        @(block-until-results 100 (export/facts-for-node *base-url* (:certname report)))
         @(block-until-results 100 (export/reports-for-node *base-url* (:certname report)))
 
+        (is (= facts (export/facts-for-node *base-url* "foo.local")))
         (is (= (tur/munge-report-for-comparison
                 (tur/munge-example-report-for-storage report))
                (tur/munge-report-for-comparison
