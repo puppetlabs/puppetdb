@@ -1063,20 +1063,19 @@
 ;;; Reports
 
 (defn update-latest-report!
-  "Given a node name, updates the `latest_reports` table to ensure that it indicates the
-  most recent report for the node."
+  "Given a node name, updates the `certnames` table to ensure that it indicates the
+   most recent report for the node."
   [node]
   {:pre [(string? node)]}
   (let [latest-report (:id (first (query-to-vec
-                                     ["SELECT id FROM reports
-                                            WHERE certname = ?
-                                            ORDER BY end_time DESC
-                                            LIMIT 1" node])))]
-    (sql/update-or-insert-values
-     :latest_reports
-     ["certname = ?" node]
-     {:certname      node
-      :report_id     latest-report})))
+                                    ["SELECT id FROM reports
+                                      WHERE certname = ?
+                                      ORDER BY end_time DESC
+                                      LIMIT 1" node])))]
+    (sql/update-values
+      :certnames
+      ["certname = ?" node]
+      {:latest_report_id latest-report})))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -1169,9 +1168,13 @@
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
-  the specified date/time."
+   the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
+  (when (not (sutils/postgres?))
+    (sql/update-values :certnames ["latest_report_id in (select id from reports where end_time < ?)"
+                                   (to-timestamp time)]
+                       {:latest_report_id nil}))
   (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

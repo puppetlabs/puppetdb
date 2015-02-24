@@ -62,7 +62,7 @@
                             LEFT OUTER JOIN factsets as fs ON certnames.certname = fs.certname
                             LEFT OUTER JOIN reports ON certnames.certname = reports.certname
                              AND reports.id
-                               IN (SELECT report_id FROM latest_reports)
+                               IN (SELECT latest_report_id FROM certnames)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
                             LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))
@@ -394,11 +394,11 @@
                :queryable-fields ["latest_report_hash"]
                :alias "latest_report"
                :subquery? false
-               :source-table "latest_report"
+               :source-table "certnames"
                :supports-extract? true
                :source "SELECT reports.hash as latest_report_hash
-                        FROM latest_reports
-                        INNER JOIN reports ON reports.id = latest_reports.report_id"}))
+                        FROM certnames
+                        INNER JOIN reports ON reports.id = certnames.latest_report_id"}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
