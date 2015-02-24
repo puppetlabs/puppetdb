@@ -187,6 +187,12 @@
        (is (= expected actual)
            (str response)))))
 
+(defmacro =-after?
+  "Checks equality of `args` after
+   the `func` has been applied to them"
+  [func & args]
+  `(= ~@(map #(list func %) args)))
+
 (defn assert-success!
   "Given a Ring response, verify that the status
   code is 200 OK.  If not, print the body and fail."
