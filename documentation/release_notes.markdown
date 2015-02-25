@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 * There are some migrations provided in this release, that may mean you have to wait while these run before
   upgrading. In particular:
-** The report columns is now getting a new bigint Primary Key
+    * The report table is now getting a new bigint Primary Key to speed up joins with other related tables
 * You may notice some additional system load for the first 30 to 60
   minutes once the application has started after upgrading. This is expected, and is due to a change in
   the way we check if a catalog is up-to-date.
