@@ -147,7 +147,7 @@ in that version of Ruby in particular. See
 
 Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Alt.
 
-#### Database and Performance
+### Database and Performance
 
 * [PDB-900](https://tickets.puppetlabs.com/browse/PDB-900) Make performance improvements to fact values GC process
 

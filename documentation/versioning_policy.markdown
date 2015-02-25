@@ -45,6 +45,7 @@ There are 4 states a versioned API can be in:
 Things that we can add to the existing ‘stable’ or ‘current’ API that are largely deemed as backwards compatible as long as the consumer is less strict about new unexpected parameters.
 
 For example:
+
 * Adding new optional parameter to an existing query end-point response
 * New end-point
 * New query operator
