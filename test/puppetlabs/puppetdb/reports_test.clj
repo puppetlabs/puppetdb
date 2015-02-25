@@ -5,12 +5,16 @@
             [puppetlabs.puppetdb.testutils.reports
              :refer [munge-example-report-for-storage]]))
 
-(let [report (munge-example-report-for-storage (:basic reports))]
+(let [report (munge-example-report-for-storage (:basic reports))
+      report-missing-noop (dissoc report :noop)]
 
   (deftest test-validate!
 
-    (testing "should accept a valid v2 report"
+    (testing "should accept a valid v5 report"
       (is (= report (validate! 5 report))))
+
+    (testing "should accept a v5 report which has a missing noop field"
+      (is (= report-missing-noop (validate! 5 report-missing-noop))))
 
     (testing "should fail when a report is missing a key"
       (is (thrown-with-msg?
