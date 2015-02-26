@@ -49,7 +49,7 @@
       (dissoc "hash")
       (dissoc "receive_time")))
 
-(defn store-example-report*!
+(defn store-example-report!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
 
   - `validate-fn`: no-arg function called to validate the catalog
@@ -59,20 +59,14 @@
   will not be updated to reflect the new report.  Defaults to `true`.  This only
   exists to allow testing of the schema migration code; you should almost never pass
   a value for this."
-  [validate-fn example-report timestamp update-latest-report?]
-  (let [example-report  (munge-example-report-for-storage example-report)
-        report-hash     (shash/report-identity-hash (scf-store/normalize-report example-report))]
-    (validate-fn)
-    (scf-store/maybe-activate-node! (:certname example-report) timestamp)
-    (scf-store/add-report!* example-report timestamp update-latest-report?)
-    (query/report-for-hash :v4 report-hash)))
-
-(defn store-example-report!
-  "See store-example-reports*! calls that, passing in a version 3 validation function"
   ([example-report timestamp]
    (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-   (store-example-report*! #(report/validate! 5 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
+   (let [example-report  (munge-example-report-for-storage example-report)
+         report-hash     (shash/report-identity-hash (scf-store/normalize-report example-report))]
+     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
+     (scf-store/add-report!* example-report timestamp update-latest-report?)
+     (query/report-for-hash :v4 report-hash))))
 
 (defn expected-report
   [example-report]

@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.anonymizer
   (:require [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.schema :as pls]
             [clojure.string :as str]
             [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]
-            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.random :refer :all]))
 
 ;; Validation functions, for use within pre/post conditions
@@ -17,25 +17,19 @@
    (contains? edge "target")
    (contains? edge "relationship")))
 
-(defn resource-event?
-  "Returns true if it looks like a resource event"
-  [event]
-  (and
-   (map? event)
-   (contains? event "status")
-   (contains? event "timestamp")
-   (contains? event "resource_title")
-   (contains? event "property")
-   (contains? event "message")
-   (contains? event "new_value")
-   (contains? event "old_value")
-   (contains? event "resource_type")))
+(defn str-schema
+  "Function for converting a schema with keyword keys to
+   to one with string keys. Doens't walk the map so nested
+   schema won't work."
+  [kwd-schema]
+  (reduce-kv (fn [acc k v]
+               (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
+             {} kwd-schema))
 
-(defn report?
-  "Returns true if it looks like a report"
-  [report version]
-  ;; Utilise our existing report validation
-  (report/validate! version (keywordize-keys report)))
+(def resource-event-schema-str (str-schema report/resource-event-schema))
+(def report-schema-str (-> report/report-schema
+                           (assoc :resource_events [resource-event-schema-str])
+                           str-schema))
 
 (defn resource?
   "Returns true if it looks like a resource"
@@ -334,11 +328,10 @@
    :post [(coll? %)]}
   (map #(anonymize-resource % context config) resources))
 
-(defn anonymize-resource-event
+(pls/defn-validated anonymize-resource-event :- resource-event-schema-str
   "Anonymize a resource event from a report"
-  [event context config]
-  {:pre  [(resource-event? event)]
-   :post [(resource-event? %)]}
+  [event :- resource-event-schema-str
+   context config]
   (let [newcontext {"node"          (get context "node")
                     "title"         (get event "resource_title")
                     "message"       (get event "message")
@@ -386,11 +379,10 @@
         (update-in ["transaction_uuid"] anonymize-leaf :transaction_uuid context config)
         (update-in ["environment"] anonymize-leaf :environment context config))))
 
-(defn anonymize-report
+(pls/defn-validated anonymize-report :- report-schema-str
   "Anonymize a report"
-  [config version report]
-  {:pre  [(report? report version)]
-   :post [(report? % version)]}
+  [config version
+   report :- report-schema-str]
   (let [context {"node" (get report "certname")}]
     (-> report
         (update-in ["certname"]         anonymize-leaf :node context config)

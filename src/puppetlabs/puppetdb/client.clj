@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [clojure.walk :refer  [keywordize-keys]]
             [schema.core :as s]))
 
 (defn-validated submit-command-via-http!
@@ -57,6 +58,7 @@
    report-payload :- s/Str]
   (let [payload (-> report-payload
                     json/parse-string
+                    keywordize-keys
                     reports/sanitize-report)
         result  (submit-command-via-http!
                  base-url

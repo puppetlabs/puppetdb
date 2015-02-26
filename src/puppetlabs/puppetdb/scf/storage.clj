@@ -20,6 +20,7 @@
   up, it's important to run `garbage-collect!`."
   (:require [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.facts :as facts]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -1130,15 +1131,14 @@
                        (when cp
                          (sutils/to-jdbc-varchar-array cp)))))
 
-(defn add-report!*
+(pls/defn-validated add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
-  [orig-report timestamp update-latest-report?]
-  {:pre [(map? orig-report)
-         (kitchensink/datetime? timestamp)
-         (kitchensink/boolean? update-latest-report?)]}
+  [orig-report :- reports/report-schema
+   timestamp :- pls/Timestamp
+   update-latest-report? :- s/Bool]
   (time! (:store-report metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
                        start_time end_time resource_events transaction_uuid environment
@@ -1258,7 +1258,7 @@
 
 (pls/defn-validated add-report!
   "Add a report and all of the associated events to the database."
-  [report
+  [report :- reports/report-schema
    timestamp :- pls/Timestamp]
   (add-report!* report timestamp true))
 

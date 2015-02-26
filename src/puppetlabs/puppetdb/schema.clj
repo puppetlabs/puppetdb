@@ -6,6 +6,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
             [schema.utils :as su]
+            [cheshire.custom :as json]
             [slingshot.slingshot :refer [throw+]]))
 
 (defrecord DefaultedMaybe [schema default]
@@ -55,7 +56,12 @@
   (s/pred kitchensink/datetime? 'datetime?))
 
 (def Function
+  "Schema type for fn objects"
   (s/pred fn? 'fn?))
+
+(def JSONable
+  "Schema type for JSONable objects"
+  (s/protocol json/JSONable))
 
 (defn boolean?
   "Predicate for finding true and false values, not
