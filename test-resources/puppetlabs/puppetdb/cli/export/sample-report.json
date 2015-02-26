@@ -1,42 +1,82 @@
 {
-  "resource_events": [
-    {
-      "old_value": "dreadly",
-      "resource_type": "melanospermous",
-      "timestamp": "2012-10-09T22:15:17.005Z",
-      "property": "auxotonic",
-      "message": "infundibulate acmite uranium disciplinarianism",
-      "resource_title": "undoubting",
-      "new_value": "ultraloyal",
-      "status": "success",
-      "file": "/Users/foo/bar.pp",
-      "line": 11,
-      "containment_path": null,
-      "containing_class": null
-    },
-    {
-      "old_value": "vacantly",
-      "resource_type": "photolithography",
-      "timestamp": "2012-10-09T22:15:17.000Z",
-      "property": "lipuria",
-      "message": "horizontalize noncoincident levity lucifugous nationalism undergirdle khutuktu somatosplanchnic",
-      "resource_title": "vitiator",
-      "new_value": "forecastlehead",
-      "status": "success",
-      "file": null,
-      "line": null,
-      "containment_path": ["Foo", "", "Bar[Baz]"],
-      "containing_class": "Foo"
-    }
-  ],
-  "configuration_version": "02ae0b7",
-  "start_time": "2012-01-10T05:14:02.000Z",
-  "end_time": "2012-01-10T05:15:01.098Z",
-  "certname": "myhost.localdomain",
-  "puppet_version": "3.0.0",
-  "report_format": 4,
-  "transaction_uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b",
-  "environment": "DEV",
-  "status" : "unchanged",
-  "noop" : false
+    "certname": "myhost.localdomain",
+    "configuration_version": "02ae0b7",
+    "end_time": "2012-01-10T05:15:01.098Z",
+    "environment": "DEV",
+    "metrics": [
+        {
+            "category": "resources",
+            "name": "changed",
+            "value": 1.1
+        },
+        {
+            "category": "resources",
+            "name": "failed",
+            "value": 3.14
+        },
+        {
+            "category": "resources",
+            "name": "failed_to_restart",
+            "value": -70000000.0
+        }
+    ],
+    "logs" : [
+        {
+            "file" : null,
+            "line" : null,
+            "level" : "info",
+            "message" : "Caching catalog for mbp.local",
+            "source" : "//mbp.local/Puppet",
+            "tags" : [ "info" ],
+            "time" : "2015-02-26T15:20:17.321565000-08:00"
+        }, {
+            "file" : null,
+            "line" : null,
+            "level" : "info",
+            "message" : "Applying configuration version '1424992544'",
+            "source" : "//mbp.local/Puppet",
+            "tags" : [ "info" ],
+            "time" : "2015-02-26T15:20:17.388965000-08:00"
+        }
+    ],
+    "noop": false,
+    "puppet_version": "3.0.0",
+    "report_format": 4,
+    "resource_events": [
+        {
+            "containing_class": null,
+            "containment_path": null,
+            "file": "/Users/foo/bar.pp",
+            "line": 11,
+            "message": "infundibulate acmite uranium disciplinarianism",
+            "new_value": "ultraloyal",
+            "old_value": "dreadly",
+            "property": "auxotonic",
+            "resource_title": "undoubting",
+            "resource_type": "melanospermous",
+            "status": "success",
+            "timestamp": "2012-10-09T22:15:17.005Z"
+        },
+        {
+            "containing_class": "Foo",
+            "containment_path": [
+                "Foo",
+                "",
+                "Bar[Baz]"
+            ],
+            "file": null,
+            "line": null,
+            "message": "horizontalize noncoincident levity lucifugous nationalism undergirdle khutuktu somatosplanchnic",
+            "new_value": "forecastlehead",
+            "old_value": "vacantly",
+            "property": "lipuria",
+            "resource_title": "vitiator",
+            "resource_type": "photolithography",
+            "status": "success",
+            "timestamp": "2012-10-09T22:15:17.000Z"
+        }
+    ],
+    "start_time": "2012-01-10T05:14:02.000Z",
+    "status": "unchanged",
+    "transaction_uuid": "68b08e2a-eeb1-4322-b241-bfdf151d294b"
 }

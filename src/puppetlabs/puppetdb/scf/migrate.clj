@@ -1001,6 +1001,18 @@
      "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn insert-report-metrics-and-logs
+  "Insert columns in reports to be populated by metrics and logs.
+  Text for hsql, JSON for postgres."
+  []
+  (if (scf-utils/postgres?)
+    (sql/do-commands
+      "ALTER TABLE reports ADD metrics json"
+      "ALTER TABLE reports ADD logs json")
+    (sql/do-commands
+      "ALTER TABLE reports ADD metrics text"
+      "ALTER TABLE reports ADD logs text")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1031,7 +1043,8 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 migrate-to-report-id-and-noop-column})
+   29 migrate-to-report-id-and-noop-column
+   30 insert-report-metrics-and-logs})
 
 (def desired-schema-version (apply max (keys migrations)))
 

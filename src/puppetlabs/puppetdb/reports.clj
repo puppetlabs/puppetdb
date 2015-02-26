@@ -4,7 +4,8 @@
    Functions that handle conversion of reports from wire format to
    internal PuppetDB format, including validation."
   (:require [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls]))
+            [puppetlabs.puppetdb.schema :as pls])
+  (:import  (org.postgresql.util PGobject)))
 
 (def resource-event-schema
   {:status             s/Str
@@ -19,6 +20,20 @@
    :line               (s/maybe s/Int)
    :containment_path   [s/Str]})
 
+(def metric-schema
+  {:category String
+   :name String
+   :value s/Num})
+
+(def log-schema
+  {:file (s/maybe String)
+   :line (s/maybe s/Int)
+   :level String
+   :message String
+   :source String
+   :tags [String]
+   :time pls/Timestamp})
+
 (def report-schema
   {:certname                 s/Str
    :puppet_version           s/Str
@@ -29,6 +44,8 @@
    :resource_events          [resource-event-schema]
    :noop                     (s/maybe s/Bool)
    :transaction_uuid         (s/maybe s/Str)
+   :metrics                  (s/maybe [metric-schema])
+   :logs                     (s/maybe [log-schema])
    :environment              s/Str
    :status                   s/Str})
 

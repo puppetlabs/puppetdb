@@ -45,15 +45,29 @@ test_name "basic validation of puppet report submission" do
     assert_equal("Hi #{agent.node_name}", event["new_value"], "new_value doesn't match!")
   end
 
-  step "ensure that noop is false when run without --noop" do
+  step "do a run without noop" do
     run_agents_with_new_site_pp(master, manifest)
     sleep_until_queue_empty database
   end
 
   agents.each do |agent|
+
     result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
     reports = JSON.parse(result.stdout)
     report = reports[0]
-    assert_equal(false, report["noop"], "noop does not match!")
+    metrics = report["metrics"]
+
+    step "ensure that noop is false for #{agent}" do
+      assert_equal(false, report["noop"], "noop does not match!")
+    end
+
+    step "ensure that metrics check out for #{agent}" do
+      total_events = metrics.detect {|m| m["name"] == "total" && m["category"] == "events"}
+      total_changes = metrics.detect {|m| m["name"] == "total" && m["category"] == "changes"}
+      resources_changed = metrics.detect {|m| m["name"] == "changed" && m["category"] == "resources"}
+      assert(total_events["value"] == 1, "metrics do not match")
+      assert(total_changes["value"] == 1, "metrics do not match")
+      assert(total_changes["value"] == 1, "metrics do not match")
+    end
   end
 end
