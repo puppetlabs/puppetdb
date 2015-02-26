@@ -20,6 +20,25 @@
             "value": -70000000.0
         }
     ],
+    "logs" : [
+        {
+            "file" : null,
+            "line" : null,
+            "level" : "info",
+            "message" : "Caching catalog for mbp.local",
+            "source" : "//mbp.local/Puppet",
+            "tags" : [ "info" ],
+            "time" : "2015-02-26T15:20:17.321565000-08:00"
+        }, {
+            "file" : null,
+            "line" : null,
+            "level" : "info",
+            "message" : "Applying configuration version '1424992544'",
+            "source" : "//mbp.local/Puppet",
+            "tags" : [ "info" ],
+            "time" : "2015-02-26T15:20:17.388965000-08:00"
+        }
+    ],
     "noop": false,
     "puppet_version": "3.0.0",
     "report_format": 4,

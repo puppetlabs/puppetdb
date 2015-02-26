@@ -1144,7 +1144,7 @@
   (time! (:store-report performance-metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
                        start_time end_time resource_events transaction_uuid environment
-                       status noop metrics] :as report}         (normalize-report orig-report)
+                       status noop metrics logs] :as report} (normalize-report orig-report)
                 report-hash         (shash/report-identity-hash report)
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
            (sql/transaction
@@ -1156,8 +1156,10 @@
                                     :certname               certname
                                     :report_format          report_format
                                     :configuration_version  configuration_version
-                                    :metrics                (scf-utils/munge-metrics-for-storage
+                                    :metrics                (scf-utils/munge-json-for-storage
                                                               metrics)
+                                    :logs                (scf-utils/munge-json-for-storage
+                                                              logs)
                                     :start_time             start_time
                                     :end_time               end_time
                                     :receive_time           (to-timestamp timestamp)

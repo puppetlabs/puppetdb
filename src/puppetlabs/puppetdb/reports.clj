@@ -25,6 +25,15 @@
    :name String
    :value s/Num})
 
+(def log-schema
+  {:file (s/maybe String)
+   :line (s/maybe s/Int)
+   :level String
+   :message String
+   :source String
+   :tags [String]
+   :time pls/Timestamp})
+
 (def report-schema
   {:certname                 s/Str
    :puppet_version           s/Str
@@ -36,6 +45,7 @@
    :noop                     (s/maybe s/Bool)
    :transaction_uuid         (s/maybe s/Str)
    :metrics                  (s/maybe [metric-schema])
+   :logs                     (s/maybe [log-schema])
    :environment              s/Str
    :status                   s/Str})
 

@@ -52,6 +52,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
         "noop"                    => is_noop,
+        "logs"                    => build_logs_list,
         "metrics"                 => build_metrics_list,
       }
     end
@@ -74,6 +75,28 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
+  # @return Array[Hash]
+  # @api private
+  def build_logs_list
+    profile("Build logs list (count: #{logs.count})",
+            [:puppetdb, :logs_list, :build]) do
+      log_list = []
+      logs.each do |log|
+        log_hash = {
+          'file' => log.file,
+          'line' => log.line,
+          'level' => log.level,
+          'message' => log.message,
+          'source' => log.source,
+          'tags' => [*log.tags],
+          'time' => Puppet::Util::Puppetdb.to_wire_time(log.time),
+        }
+        log_list.push(log_hash)
+      end
+
+      log_list
+    end
+  end
   def build_metrics_list
     profile("Build metrics list (count: #{metrics.count})",
             [:puppetdb, :metrics_list, :build]) do

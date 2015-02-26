@@ -17,7 +17,8 @@
   [report]
   (sort-by :hash (->> report
                       (map #(update-in % [:resource_events] munge-resource-events))
-                      (map #(update-in % [:metrics] walk/keywordize-keys)))))
+                      (map #(update-in % [:metrics] walk/keywordize-keys))
+                      (map #(update-in % [:logs] walk/keywordize-keys)))))
 
 (def my-reports
   (-> reports
@@ -164,6 +165,7 @@
     :configuration_version "1419379250"
     :certname "foo.com"
     :metrics nil
+    :logs nil
     :resource_events [{:new_value "Hi world"
                        :property "message"
                        :file "/home/wyatt/.puppet/manifests/site.pp"
@@ -201,6 +203,7 @@
     :configuration_version "1419379250"
     :certname "bar.com"
     :metrics nil
+    :logs nil
     :resource_events [{:new_value "Hi world"
                        :property "message"
                        :file "/home/wyatt/.puppet/manifests/site.pp"

@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query.reports
   (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -20,6 +21,7 @@
    :report_format s/Int
    :configuration_version String
    :metrics (s/maybe (s/either String org.postgresql.util.PGobject))
+   :logs (s/maybe (s/either String org.postgresql.util.PGobject))
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
@@ -53,9 +55,10 @@
    :message (s/maybe String)})
 
 (def json-metric-schema
-  {(s/required-key "category") String
-   (s/required-key "name") String
-   (s/required-key "value") s/Num})
+  (utils/str-schema reports/metric-schema))
+
+(def json-log-schema
+  (utils/str-schema reports/log-schema))
 
 (def report-schema
   {:hash String
@@ -70,6 +73,7 @@
    :configuration_version String
    :resource_events [resource-event-schema]
    :metrics (s/maybe [json-metric-schema])
+   :logs (s/maybe [json-log-schema])
    :transaction_uuid String
    :status (s/maybe String)})
 
@@ -86,6 +90,7 @@
    :environment
    :configuration_version
    :metrics
+   :logs
    :certname])
 
 (defn create-report-pred
@@ -113,7 +118,8 @@
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
     (-> (select-keys first-row report-columns)
-        (update-in [:metrics] (scf-utils/metrics-parse-fn))
+        (update-in [:metrics] (scf-utils/parse-pg-json))
+        (update-in [:logs] (scf-utils/parse-pg-json))
         (assoc :resource_events resource-events))))
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"

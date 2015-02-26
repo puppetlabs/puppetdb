@@ -17,19 +17,10 @@
    (contains? edge "target")
    (contains? edge "relationship")))
 
-(defn str-schema
-  "Function for converting a schema with keyword keys to
-   to one with string keys. Doens't walk the map so nested
-   schema won't work."
-  [kwd-schema]
-  (reduce-kv (fn [acc k v]
-               (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
-             {} kwd-schema))
-
-(def resource-event-schema-str (str-schema report/resource-event-schema))
+(def resource-event-schema-str (utils/str-schema report/resource-event-schema))
 (def report-schema-str (-> report/report-schema
                            (assoc :resource_events [resource-event-schema-str])
-                           str-schema))
+                           utils/str-schema))
 
 (defn resource?
   "Returns true if it looks like a resource"

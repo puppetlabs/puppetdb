@@ -266,13 +266,13 @@ must be supplied as the value to be matched."
   (let [parsed-val (json/parse-string (.getValue value))]
     (if (= parsed-val "null") nil parsed-val)))
 
-(defn munge-metrics-for-storage
+(defn munge-json-for-storage
   [value]
   (if (postgres?)
     (clj->pgobject value)
     (json/generate-string value)))
 
-(defn metrics-parse-fn
+(defn parse-pg-json
   []
   (if (postgres?)
     pgobject->clj

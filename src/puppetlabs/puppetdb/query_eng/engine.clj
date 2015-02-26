@@ -176,6 +176,7 @@
                          "report_format" :number
                          "configuration_version" :string
                          "metrics" :string
+                         "logs" :string
                          "old_value" :string
                          "new_value" :string
                          "timestamp" :timestamp
@@ -214,6 +215,7 @@
                        reports.transaction_uuid,
                        reports.noop,
                        reports.metrics,
+                       reports.logs,
                        environments.name as environment,
                        report_statuses.status as status,
                        re.report_id,

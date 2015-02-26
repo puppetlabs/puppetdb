@@ -1201,7 +1201,8 @@
                                (expected-reports [(assoc report2 :hash report2-hash)]))
             actual        (->> (reports-query-result :v4 ["=" "certname" certname])
                                (map #(update-in % [:resource_events] munge-resource-events))
-                               (map #(update-in % [:metrics] walk/keywordize-keys)))]
+                               (map #(update-in % [:metrics] walk/keywordize-keys))
+                               (map #(update-in % [:logs] walk/keywordize-keys)))]
         (is (= expected actual)))))
 
   (deftest resource-events-cleanup
