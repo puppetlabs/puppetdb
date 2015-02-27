@@ -134,7 +134,7 @@ case @osfamily
 end
 
 # The Puppet 4 load path
-@p4libdir = "/opt/puppetlabs/agent/lib/ruby/vendor_ruby"
+@p4libdir = "/opt/puppetlabs/puppet/lib/ruby/vendor_ruby"
 
 @heap_dump_path = "#{@log_dir}/puppetdb-oom.hprof"
 @default_java_args = "-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=#{@heap_dump_path} -Djava.security.egd=file:/dev/urandom"
