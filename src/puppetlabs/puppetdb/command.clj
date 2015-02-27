@@ -61,7 +61,6 @@
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.utils :as utils]
@@ -69,7 +68,8 @@
             [cheshire.custom :refer [JSONable]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services :refer [defservice]]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
 ;; ## Command parsing
 

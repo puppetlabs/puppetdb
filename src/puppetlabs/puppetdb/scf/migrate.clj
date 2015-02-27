@@ -54,7 +54,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [clojure.set :refer :all]
-            [clj-time.coerce :refer [to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :as jdbc]))
 

@@ -4,8 +4,11 @@
    This namespace contains some utility functions for working with objects
    related to time; it is mostly based off of the `Period` class from
    Java's JodaTime library."
-  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter)
-           (org.joda.time Period ReadablePeriod PeriodType)))
+  (:import (org.joda.time.format PeriodFormatterBuilder PeriodFormatter DateTimeFormatter)
+           (org.joda.time Period ReadablePeriod PeriodType DateTime))
+  (:require [clj-time.coerce :as tc]
+            [clj-time.format :as tf]
+            [schema.core :as s]))
 
 ;; Functions for parsing Periods from Strings
 
@@ -201,3 +204,36 @@
 (def to-millis
   "Given an instance of `Period`, return an integer representing the number of milliseconds"
   (partial to-unit #(.getMillis %)))
+
+(def ordered-formatters
+  "Like clj-time.format/formatters but ordered with the more likely
+  successful formats first"
+  (let [likely-formats [:date-time :date :date-time-no-ms :basic-date :basic-date-time]]
+    (map tf/formatters (concat likely-formats
+                               (remove (set likely-formats) (keys tf/formatters))))))
+
+(s/defn ^:always-validate attempt-date-time-parse
+  "Parses `timestamp-str` using `formatter`. Returns nil if an
+  Exception is thrown, otherwise the parsed DateTime object"
+  [formatter :- DateTimeFormatter
+   timestamp-str :- String]
+  (try
+    (tf/parse formatter timestamp-str)
+    (catch IllegalArgumentException _ nil)))
+
+(s/defn ^:always-validate from-string :- (s/maybe DateTime)
+  "Similar to the clj-time.coerce/from-string, but prioritizes the
+  more likely formatters first"
+  [s :- String]
+  (some #(attempt-date-time-parse % s) ordered-formatters))
+
+(s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
+  "Delegates to clj-time.core/to-timestamp, except when `ts` is a
+  String. When a String, this funciton will attempt to convert it
+  using a more likely correct date format first (which is faster than
+  to-timestamp's more naive approach)"
+  [ts]
+  (tc/to-timestamp
+   (if (string? ts)
+     (from-string ts)
+     ts)))

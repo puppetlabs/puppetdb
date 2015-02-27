@@ -10,7 +10,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clj-time.coerce :refer [to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.query.paging :as paging]))
 
