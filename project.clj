@@ -15,9 +15,9 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
-(def tk-version "0.5.1")
-(def tk-jetty9-version "0.7.5")
-(def ks-version "0.7.2")
+(def tk-version "1.1.0")
+(def tk-jetty9-version "1.2.0")
+(def ks-version "1.0.0")
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -63,7 +63,7 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [compojure "1.1.6"]
-                 [clj-http "0.5.3"]
+                 [clj-http "0.9.2"]
                  [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
                  [puppetlabs/kitchensink ~ks-version]
