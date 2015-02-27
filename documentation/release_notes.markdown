@@ -26,6 +26,11 @@ TODO
 
 * The `reports` database table was using the hash string as its primary key, we know have switched to using a smaller bigint primary key for that table, which should result in faster joins in most cases, and hopefully smaller foreign key indexes sizes for tables relating to `reports`. ([PDB-1218](https://tickets.puppetlabs.com/browse/PDB-1218))
 
+* The reports endpoint now implements the latest_report? query, which filters the
+response to only include reports that are from the latest puppet run for each
+node.
+([PDB-1244](https://tickets.puppetlabs.com/browse/PDB-1244))
+
 #### Bug Fixes and Maintenance
 
 * If a new catalog is submitted whose only difference from the previous catalog are tags, the change is now respected. ([PDB-332](https://tickets.puppetlabs.com/browse/PDB-332))
@@ -208,7 +213,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
     I've also cleaned up a couple of other typos and style items, plus
     removed one more case of < v4 report format checking.
 
-* [PDB-904](https://tickets.puppetlabs.com/browse/PDB-904) Switch fact_values.value_string trgm index to be GIN not GIST 
+* [PDB-904](https://tickets.puppetlabs.com/browse/PDB-904) Switch fact_values.value_string trgm index to be GIN not GIST
 
     There were reports of crashing due to a bug in pg_trgm indexing when a
     large fact value was loaded into PuppetDB.
@@ -226,7 +231,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
 
 * [DOCUMENT-18](https://tickets.puppetlabs.com/browse/DOCUMENT-18) Mention DLO cleanup in docs
 
-* [PDB-347](https://tickets.puppetlabs.com/browse/PDB-347) Add docs for new CRL and cert-chain TK features 
+* [PDB-347](https://tickets.puppetlabs.com/browse/PDB-347) Add docs for new CRL and cert-chain TK features
 
 * Updated contributor link to https://cla.puppetlabs.com/
 
