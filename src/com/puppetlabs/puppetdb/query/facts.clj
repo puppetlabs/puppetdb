@@ -88,7 +88,7 @@
         FROM factsets fs
           INNER JOIN facts as f on fs.id = f.factset_id
           INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-          INNER JOIN fact_paths as fp on fv.path_id = fp.id
+          INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
           INNER JOIN value_types as vt on vt.id=fv.value_type_id
           LEFT OUTER JOIN environments as env on fs.environment_id = env.id
         WHERE depth = 0"]))

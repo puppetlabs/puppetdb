@@ -125,7 +125,7 @@
                 FROM factsets fs
                   INNER JOIN facts as f on fs.id = f.factset_id
                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                   INNER JOIN value_types as vt on vt.id=fv.value_type_id
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE depth = 0"}))
@@ -159,7 +159,7 @@
                 FROM factsets fs
                   INNER JOIN facts as f on fs.id = f.factset_id
                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                   INNER JOIN value_types as vt on fp.value_type_id = vt.id
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE fp.value_type_id != 5"}))
@@ -295,7 +295,7 @@
                         FROM factsets
                              INNER JOIN facts on factsets.id = facts.factset_id
                              INNER JOIN fact_values on facts.fact_value_id = fact_values.id
-                             INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
+                             INNER JOIN fact_paths on facts.fact_path_id = fact_paths.id
                              INNER JOIN value_types on fact_paths.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
                         WHERE depth = 0
