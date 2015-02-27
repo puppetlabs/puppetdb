@@ -58,27 +58,27 @@
     (doseq [name names]
       (scf-store/add-certname! name))
 
-    (scf-store/add-facts! {:name "node_a"
+    (scf-store/add-facts! {:certname "node_a"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_b"
+    (scf-store/add-facts! {:certname "node_b"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_c"
+    (scf-store/add-facts! {:certname "node_c"
                            :values {"kernel" "Darwin"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_d"
+    (scf-store/add-facts! {:certname "node_d"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "node_e"
+    (scf-store/add-facts! {:certname "node_e"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
@@ -109,7 +109,7 @@
                                              [3 "node_c" 3 1]
                                              [4 "node_d" 2 3]
                                              [5 "node_e" 5 2]]]
-      (sql/insert-record :certnames {:name node})
+      (sql/insert-record :certnames {:certname node})
       (sql/insert-record :factsets {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
       (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
 

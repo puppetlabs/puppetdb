@@ -43,7 +43,7 @@ test_name "structured and trusted facts should be available through facts termin
       payload = <<-EOM
       -H "Accept: application/json" -H "Content-Type: application/json" \
       -d '{"command":"replace facts","version":4, \
-      "payload":{"environment":"DEV","name":"#{master}", \
+      "payload":{"environment":"DEV","certname":"#{master}", \
       "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' http://localhost:8080/v4/commands
       EOM
       on database, %Q|curl -X POST #{payload}|

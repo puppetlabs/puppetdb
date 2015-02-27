@@ -238,7 +238,7 @@
                             :version 6
                             :payload (get-in wire-catalogs [6 :empty])}]]
     (testing (str (command-names :replace-catalog) " " version)
-      (let [certname (get-in command [:payload :name])
+      (let [certname (get-in command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
                           (catalog/parse-catalog (:payload command) (version-num version)))
             command (stringify-payload command)
@@ -258,7 +258,7 @@
           (with-fixtures
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (sql/insert-record :certnames {:name certname})
+            (sql/insert-record :certnames {:certname certname})
             (sql/insert-records :catalogs
                                 {:hash "some_catalog_hash_existing"
                                  :api_version 1
@@ -273,7 +273,7 @@
 
         (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
           (with-fixtures
-            (sql/insert-record :certnames {:name certname})
+            (sql/insert-record :certnames {:certname certname})
 
             (let [debug-dir (fs/absolute-path (temp-dir))]
 
@@ -300,7 +300,7 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
-            (sql/insert-record :certnames {:name certname})
+            (sql/insert-record :certnames {:certname certname})
             (sql/insert-record :catalogs {:id 1
                                           :hash "some_catalog_hash_newer"
                                           :api_version 1
@@ -317,10 +317,10 @@
 
         (testing "should reactivate the node if it was deactivated before the message"
           (with-fixtures
-            (sql/insert-record :certnames {:name certname :deactivated yesterday})
+            (sql/insert-record :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                     [{:name certname :deactivated nil}]))
+              (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                     [{:certname certname :deactivated nil}]))
               (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
@@ -328,10 +328,10 @@
 
         (testing "should store the catalog if the node was deactivated after the message"
           (scf-store/delete-certname! certname)
-          (sql/insert-record :certnames {:name certname :deactivated tomorrow})
+          (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
           (test-msg-handler command publish discard-dir
-            (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                   [{:name certname :deactivated tomorrow}]))
+            (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                   [{:certname certname :deactivated tomorrow}]))
             (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
                    [{:certname certname :catalog catalog-hash}]))
             (is (= 0 (times-called publish)))
@@ -458,7 +458,7 @@
   [:v4])
 
 (let [certname  "foo.example.com"
-      facts     {:name certname
+      facts     {:certname certname
                  :environment "DEV"
                  :values {"a" "1"
                           "b" "2"
@@ -505,7 +505,7 @@
       (sql/transaction
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
-       (scf-store/replace-facts! {:name certname
+       (scf-store/replace-facts! {:certname certname
                                   :values {"x" "24" "y" "25" "z" "26"}
                                   :timestamp yesterday
                                   :producer_timestamp yesterday
@@ -547,7 +547,7 @@
       (sql/transaction
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:name certname
+       (scf-store/add-facts! {:certname certname
                               :values {"x" "24" "y" "25" "z" "26"}
                               :timestamp tomorrow
                               :producer_timestamp nil
@@ -582,10 +582,10 @@
                :let [command v4-command]]
 
       (testing "should reactivate the node if it was deactivated before the message"
-        (sql/insert-record :certnames {:name certname :deactivated yesterday})
+        (sql/insert-record :certnames {:certname certname :deactivated yesterday})
         (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                 [{:name certname :deactivated nil}]))
+          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                 [{:certname certname :deactivated nil}]))
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
@@ -608,10 +608,10 @@
 
       (testing "should store the facts if the node was deactivated after the message"
         (scf-store/delete-certname! certname)
-        (sql/insert-record :certnames {:name certname :deactivated tomorrow})
+        (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
         (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                 [{:name certname :deactivated tomorrow}]))
+          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                 [{:certname certname :deactivated tomorrow}]))
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
@@ -660,7 +660,7 @@
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
     (let [certname "some_certname"
-          facts {:name certname
+          facts {:certname certname
                  :environment "DEV"
                  :values {"domain" "mydomain.com"
                           "fqdn" "myhost.mydomain.com"
@@ -676,7 +676,7 @@
 
       (sql/transaction
        (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:name certname
+       (scf-store/add-facts! {:certname certname
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil
@@ -713,7 +713,7 @@
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
-          {certname :name :as wire-catalog} (get-in wire-catalogs [6 :empty])
+          {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
           nonwire-catalog (catalog/parse-catalog wire-catalog 6)
           command {:command (command-names :replace-catalog)
                    :version 6
@@ -758,7 +758,7 @@
 (deftest concurrent-catalog-resource-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
-          {certname :name :as wire-catalog} (get-in wire-catalogs [6 :empty])
+          {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
           nonwire-catalog (catalog/parse-catalog wire-catalog 6)
           command {:command (command-names :replace-catalog)
                    :version 6
@@ -812,13 +812,13 @@
                :version 2
                :payload certname}]
   (deftest deactivate-node-node-active
-    (sql/insert-record :certnames {:name certname})
+    (sql/insert-record :certnames {:certname certname})
 
     (testing "should deactivate the node"
       (test-msg-handler command publish discard-dir
-        (let [results (query-to-vec "SELECT name,deactivated FROM certnames")
+        (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
               result  (first results)]
-          (is (= (:name result) certname))
+          (is (= (:certname result) certname))
           (is (instance? java.sql.Timestamp (:deactivated result)))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir)))))))
@@ -826,21 +826,21 @@
   (deftest deactivate-node-node-inactive
     (let [one-day   (* 24 60 60 1000)
           yesterday (to-timestamp (- (System/currentTimeMillis) one-day))]
-      (sql/insert-record :certnames {:name certname :deactivated yesterday})
+      (sql/insert-record :certnames {:certname certname :deactivated yesterday})
 
       (testing "should leave the node alone"
         (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT name,deactivated FROM certnames")
-                 [{:name certname :deactivated yesterday}]))
+          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                 [{:certname certname :deactivated yesterday}]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir)))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
       (test-msg-handler command publish discard-dir
-        (let [results (query-to-vec "SELECT name,deactivated FROM certnames")
+        (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
               result  (first results)]
-          (is (= (:name result) certname ))
+          (is (= (:certname result) certname ))
           (is (instance? java.sql.Timestamp (:deactivated result)))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))

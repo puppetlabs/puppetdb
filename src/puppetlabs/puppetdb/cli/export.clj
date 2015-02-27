@@ -80,7 +80,7 @@
                              (url-encode
                               (format "[\"=\",\"certname\",\"%s\"]" node)))
                         {:accept :json})))]
-      {:name node
+      {:certname node
        :values (:facts facts)
        :environment (:environment facts)
        :producer_timestamp (:producer_timestamp facts)})))

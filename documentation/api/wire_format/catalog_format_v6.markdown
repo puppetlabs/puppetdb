@@ -46,7 +46,7 @@ The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. 
           [<resource>, <resource>, ...]
      }
 
-#### `name`
+#### `certname`
 
 String. The name of the node for which the catalog was compiled.
 

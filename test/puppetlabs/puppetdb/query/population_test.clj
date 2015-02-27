@@ -16,8 +16,8 @@
     (testing "should only count current resources"
       (sql/insert-records
        :certnames
-       {:name "h1"}
-       {:name "h2"})
+       {:certname "h1"}
+       {:certname "h2"})
 
       (deactivate-node! "h2")
 
@@ -55,8 +55,8 @@
     (testing "should only count active nodes"
       (sql/insert-records
        :certnames
-       {:name "h1"}
-       {:name "h2"})
+       {:certname "h1"}
+       {:certname "h2"})
 
       (is (= 2 (pop/num-nodes)))
 
@@ -71,8 +71,8 @@
     (testing "should equal (total-unique) / total"
       (sql/insert-records
        :certnames
-       {:name "h1"}
-       {:name "h2"})
+       {:certname "h1"}
+       {:certname "h2"})
 
       (sql/insert-records
        :catalogs

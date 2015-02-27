@@ -25,20 +25,20 @@
         {:resource "1" :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
        (sql/insert-records
         :certnames
-        {:name "one.local"}
-        {:name "two.local"})
+        {:certname "one.local"}
+        {:certname "two.local"})
        (sql/insert-records
         :catalogs
         {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "one.local" :environment_id (when environment? (ensure-environment "DEV"))}
         {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "two.local" :environment_id (when environment? (ensure-environment "PROD"))})
-       (add-facts! {:name "one.local"
+       (add-facts! {:certname "one.local"
                     :values {"operatingsystem" "Debian"
                              "kernel" "Linux"
                              "uptime_seconds" 50000}
                     :timestamp (now)
                     :environment "DEV"
                     :producer_timestamp nil})
-       (add-facts! {:name "two.local"
+       (add-facts! {:certname "two.local"
                     :values {"operatingsystem" "Ubuntu"
                              "kernel" "Linux"
                              "uptime_seconds" 10000

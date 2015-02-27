@@ -723,7 +723,7 @@
             include-hash? false]
         (when-not (empty? facts)
           (scf-store/add-facts!
-            {:name (str certname)
+            {:certname (str certname)
              :values facts
              :timestamp timestamp
              :environment environment
@@ -1001,6 +1001,14 @@
      "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn change-name-to-certname
+  "Rename the 'name' column of certnames to 'certname'."
+  []
+  (sql/do-commands
+   (if (scf-utils/postgres?)
+     "ALTER TABLE certnames RENAME COLUMN name TO certname"
+     "ALTER TABLE certnames ALTER COLUMN name RENAME TO certname")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1031,7 +1039,8 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 migrate-to-report-id-and-noop-column})
+   29 migrate-to-report-id-and-noop-column
+   30 change-name-to-certname})
 
 (def desired-schema-version (apply max (keys migrations)))
 

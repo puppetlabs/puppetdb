@@ -41,7 +41,7 @@ describe Puppet::Node::Facts::Puppetdb do
     it "should POST the facts as a JSON string" do
       Puppet::Util::Puppetdb.stubs(:puppet3compat?).returns(true)
       f = {
-        "name" => facts.name,
+        "certname" => facts.name,
         "values" => subject.maybe_strip_internal(facts),
         "environment" => "my_environment",
         "producer_timestamp" => "a test",
@@ -70,7 +70,7 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.stubs(:get_trusted_info).returns trusted_data
 
       f = {
-        "name" => facts.name,
+        "certname" => facts.name,
         "values" => subject.maybe_strip_internal(facts).merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
         "producer_timestamp" => "a test",

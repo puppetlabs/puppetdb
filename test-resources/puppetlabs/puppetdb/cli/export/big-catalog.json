@@ -1,5 +1,5 @@
 {
-    "name" : "myhost.localdomain",
+    "certname" : "myhost.localdomain",
     "environment" : "DEV",
     "producer_timestamp": "2014-07-10T22:33:54.781Z",
     "edges" : [ {

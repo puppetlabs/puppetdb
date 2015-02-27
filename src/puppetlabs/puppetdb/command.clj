@@ -184,7 +184,7 @@
 (defn replace-catalog*
   [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
   (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
-        certname (:name catalog)
+        certname (:certname catalog)
         id (:id annotations)
         timestamp (:received annotations)]
     (jdbc/with-transacted-connection' db :repeatable-read
@@ -207,7 +207,7 @@
 
 (defmethod process-command! [(command-names :replace-facts) 4]
   [{:keys [payload annotations]} {:keys [db]}]
-  (let [{:keys [name values] :as fact-data} payload
+  (let [{:keys [certname values] :as fact-data} payload
         id        (:id annotations)
         timestamp (:received annotations)
         fact-data (-> fact-data
@@ -216,9 +216,9 @@
                       (assoc :timestamp timestamp)
                       upon-error-throw-fatality)]
     (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! name timestamp)
+      (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) name))))
+    (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) certname))))
 
 ;; Node deactivation
 

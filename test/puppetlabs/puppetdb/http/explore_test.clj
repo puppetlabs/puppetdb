@@ -44,26 +44,26 @@
         facts1  (assoc facts "fqdn" "host1")
         facts2  (assoc facts "fqdn" "host2")
         facts3  (assoc facts "fqdn" "host3")
-        cat1    (assoc catalog :name "host1")
-        cat2    (assoc catalog :name "host2")
-        cat3    (assoc catalog :name "host3")]
+        cat1    (assoc catalog :certname "host1")
+        cat2    (assoc catalog :certname "host2")
+        cat3    (assoc catalog :certname "host3")]
     (scf-store/add-certname! "host1")
     (scf-store/add-certname! "host2")
     (scf-store/add-certname! "host3")
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
-    (scf-store/add-facts! {:name "host1"
+    (scf-store/add-facts! {:certname "host1"
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "host2"
+    (scf-store/add-facts! {:certname "host2"
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
                            :producer_timestamp nil})
-    (scf-store/add-facts! {:name "host3"
+    (scf-store/add-facts! {:certname "host3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"

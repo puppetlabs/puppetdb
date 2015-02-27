@@ -391,13 +391,13 @@
   [[version endpoint] endpoints]
 
   (let [catalog (:basic catalogs)
-        certname (str (:name catalog))
+        certname (str (:certname catalog))
         report (assoc (:basic reports) :certname certname)
         timestamp "2014-04-16T12:44:40.978Z"]
     (scf-store/add-certname! certname)
     (store-example-report! report timestamp)
     (scf-store/replace-catalog! catalog (now))
-    (scf-store/add-facts! {:name certname
+    (scf-store/add-facts! {:certname certname
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil

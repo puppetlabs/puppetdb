@@ -685,7 +685,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       it "should have the correct set of keys" do
         result = subject.munge_catalog(catalog)
 
-        result.keys.should =~ ['name', 'version', 'edges', 'resources',
+        result.keys.should =~ ['certname', 'version', 'edges', 'resources',
           'transaction_uuid', 'environment', 'producer_timestamp']
       end
     end

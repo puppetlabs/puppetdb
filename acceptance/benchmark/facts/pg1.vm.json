@@ -1,5 +1,5 @@
 {
-  "name" : "pg1.vm",
+  "certname" : "pg1.vm",
   "values" : {
     "mtu_eth0" : "1500",
     "path" : "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

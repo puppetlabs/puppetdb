@@ -45,7 +45,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
           FileUtils.mkdir(catalog_dir)
 
           catalogs.each do |catalog|
-            filename = File.join(catalog_dir, "#{catalog[:name]}.json")
+            filename = File.join(catalog_dir, "#{catalog[:certname]}.json")
 
             File.open(filename, 'w') do |file|
               file.puts catalog.to_json
@@ -125,7 +125,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
         :metadata => {
           :api_version => 1,
         },
-        :name => node.name,
+        :certname => node.name,
         :version => node.last_compile || Time.now,
         :edges => edges,
         :resources => resources + [stage_main_hash],

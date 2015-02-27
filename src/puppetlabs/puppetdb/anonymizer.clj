@@ -50,7 +50,7 @@
   ;; that the master gives us.
   (and
    (map? catalog)
-   (contains? catalog "name")
+   (contains? catalog "certname")
    (contains? catalog "version")))
 
 ;; Rules engine functions
@@ -371,11 +371,11 @@
   [config catalog]
   {:pre  [(catalog? catalog)]
    :post [(catalog? %)]}
-  (let [context {"node" (get catalog ["name"])}]
+  (let [context {"node" (get catalog ["certname"])}]
     (-> catalog
         (update-in ["resources"]        anonymize-resources context config)
         (update-in ["edges"]            anonymize-edges context config)
-        (update-in ["name"]             anonymize-leaf :node context config)
+        (update-in ["certname"]         anonymize-leaf :node context config)
         (update-in ["transaction_uuid"] anonymize-leaf :transaction_uuid context config)
         (update-in ["environment"] anonymize-leaf :environment context config))))
 
@@ -404,8 +404,8 @@
 (defn anonymize-facts
   "Anonymize a fact set"
   [config wire-facts]
-  (let [context {"node" (get wire-facts "name")}]
+  (let [context {"node" (get wire-facts "certname")}]
     (-> wire-facts
-        (update-in ["name"] anonymize-leaf :node context config)
+        (update-in ["certname"] anonymize-leaf :node context config)
         (update-in ["values"] anonymize-fact-values context config)
         (update-in ["environment"] anonymize-leaf :environment context config))))

@@ -2,7 +2,7 @@
 
 (def catalogs
   {:empty
-   {:name             "empty.catalogs.com"
+   {:certname         "empty.catalogs.com"
     :api_version      1
     :version          "1330463884"
     :transaction_uuid nil
@@ -31,7 +31,7 @@
                                                           :type     "Stage"}}}
 
    :basic
-   {:name             "basic.catalogs.com"
+   {:certname         "basic.catalogs.com"
     :api_version      1
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
@@ -68,7 +68,7 @@
                                                                              :require "File[/etc/foobar]"}}}}
 
    :invalid
-   {:name             "invalid.catalogs.com"
+   {:certname         "invalid.catalogs.com"
     :api_version      1
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
@@ -97,7 +97,7 @@
     {:relationship "contains"
      :target       {:title "default" :type "Node"}
      :source       {:title "main" :type "Class"}}]
-   :name        "empty.wire-catalogs.com"
+   :certname        "empty.wire-catalogs.com"
    :resources
    [{:exported   false
      :title      "Settings"
@@ -129,7 +129,7 @@
   {6 {:empty v6-empty-wire-catalog
       :basic
       (-> v6-empty-wire-catalog
-          (assoc :name "basic.wire-catalogs.com")
+          (assoc :certname "basic.wire-catalogs.com")
           (update-in [:resources] conj {:type       "File"
                                         :title      "/etc/foobar"
                                         :exported   false

@@ -47,8 +47,8 @@
 
   (sql/insert-records
    :certnames
-   {:name "example.local"}
-   {:name "subset.local"})
+   {:certname "example.local"}
+   {:certname "subset.local"})
   (sql/insert-records
    :catalogs
    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV")}
@@ -278,7 +278,7 @@
    {:resource "2" :name "enabled" :value (db-serialize "false")})
 
   (sql/insert-records :certnames
-                      {:name "foo.local"})
+                      {:certname "foo.local"})
   (sql/insert-records :catalogs
                       {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
   (sql/insert-records :catalog_resources

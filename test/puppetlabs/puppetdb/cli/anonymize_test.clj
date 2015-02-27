@@ -26,7 +26,7 @@
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "low")
           orig-data (tar/mapify in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
            "password" "foo"
@@ -54,7 +54,7 @@
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "moderate")
           orig-data (tar/mapify in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
            "password" "foo"
@@ -87,7 +87,7 @@
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "full")
           orig-data (tar/mapify in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-facts ["values" k]))
            "password" "foo"

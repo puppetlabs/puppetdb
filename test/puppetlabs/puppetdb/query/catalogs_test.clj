@@ -11,12 +11,12 @@
 
 (deftest catalog-query
   (let [catalog-str (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
-        {:strs [name version transaction_uuid environment] :as catalog} (json/parse-string
+        {:strs [certname version transaction_uuid environment] :as catalog} (json/parse-string
                                                                           catalog-str)]
     (testcat/replace-catalog catalog-str)
     (testing "status"
       (is (= (testcat/munged-canonical->wire-format :v5 (json/parse-string catalog-str true))
-             (testcat/munged-canonical->wire-format :v5 (c/status :v4 name)))))))
+             (testcat/munged-canonical->wire-format :v5 (c/status :v4 certname)))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/catalog-query-rows.json")
                       (json/parse-string)
@@ -61,7 +61,7 @@
     :hash "41099460fa54b5d4853ea6f2624870dbd860f649",
     :environment "production",
     :version "1416454655",
-    :name "myfakehostname"}
+    :certname "myfakehostname"}
    {:resources
     [{:tags  ["stage"],
       :type "Stage",
@@ -100,7 +100,7 @@
     :hash "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
     :environment "production",
     :version "1416449720",
-    :name "desktop.localdomain"}])
+    :certname "desktop.localdomain"}])
 
 (deftest structured-data-seq
   (testing "structured data seq gets correct result"
@@ -115,7 +115,7 @@
                                   (fn [certname]
                                     (take 4
                                           (-> (first data-seq)
-                                              (assoc :name certname :hash certname)
+                                              (assoc :certname certname :hash certname)
                                               (repeat))))
                                   (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
   (testing "collapse resources"

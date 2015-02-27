@@ -1,5 +1,5 @@
 {
-  "name" : "puppetdb1.vm",
+  "certname" : "puppetdb1.vm",
   "values" : {
     "mtu_eth0" : "1500",
     "path" : "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

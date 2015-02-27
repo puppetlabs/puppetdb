@@ -49,7 +49,7 @@
                :alias "nodes"
                :subquery? false
                :supports-extract? true
-               :source "SELECT certnames.name as certname,
+               :source "SELECT certnames.certname as certname,
                                certnames.deactivated,
                                catalogs.timestamp AS catalog_timestamp,
                                fs.timestamp AS facts_timestamp,
@@ -58,9 +58,9 @@
                                facts_environment.name AS facts_environment,
                                reports_environment.name AS report_environment
                        FROM certnames
-                            LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
-                            LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
-                            LEFT OUTER JOIN reports ON certnames.name = reports.certname
+                            LEFT OUTER JOIN catalogs ON certnames.certname = catalogs.certname
+                            LEFT OUTER JOIN factsets as fs ON certnames.certname = fs.certname
+                            LEFT OUTER JOIN reports ON certnames.certname = reports.certname
                              AND reports.id
                                IN (SELECT report_id FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
@@ -238,7 +238,7 @@
                          "environment" :string
                          "transaction_uuid" :string
                          "hash" :string
-                         "name" :string
+                         "certname" :string
                          "producer_timestamp" :timestamp
                          "resource" :string
                          "type" :string
@@ -255,7 +255,7 @@
                          "relationship" :string}
 
                :queryable-fields ["version" "environment" "transaction_uuid"
-                                  "producer_timestamp" "hash" "name"]
+                                  "producer_timestamp" "hash" "certname"]
                :alias "catalogs"
                :subquery? false
                :source-table "catalogs"
@@ -264,7 +264,6 @@
                        c.hash,
                        transaction_uuid,
                        e.name as environment,
-                       c.certname as name,
                        c.producer_timestamp,
                        cr.resource,
                        cr.type,
@@ -291,7 +290,6 @@
                        c.hash,
                        transaction_uuid,
                        e.name as environment,
-                       c.certname as name,
                        c.producer_timestamp,
                        null as resource,
                        null as type,

@@ -44,18 +44,18 @@
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
-      (scf-store/add-facts! {:name "foo2"
+      (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo3"
+      (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
       (scf-store/deactivate-node! "foo1")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
@@ -108,18 +108,18 @@
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
-      (scf-store/add-facts! {:name "foo2"
+      (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
-      (scf-store/add-facts! {:name "foo3"
+      (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
                              :producer_timestamp nil})
       (scf-store/deactivate-node! "foo1")
-      (scf-store/add-facts! {:name "foo1"
+      (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"

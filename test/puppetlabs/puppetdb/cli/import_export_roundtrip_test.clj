@@ -75,7 +75,7 @@
 
 (defn- test-basic-roundtrip
   [url-prefix]
-  (let [facts {:name "foo.local"
+  (let [facts {:certname "foo.local"
                :environment "DEV"
                :values {:foo "the foo"
                         :bar "the bar"
@@ -84,7 +84,7 @@
                :producer_timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [6 :empty])
-                    (assoc :name "foo.local"))
+                    (assoc :certname "foo.local"))
         report (:basic reports)
         with-server #(jutils/puppetdb-instance
                       (assoc-in (jutils/create-config)
@@ -104,7 +104,7 @@
                         (dissoc :hash)
                         utils/vector-maybe))
                (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> (export/catalog-for-node *base-url* (:name catalog))
+                    (-> (export/catalog-for-node *base-url* (:certname catalog))
                         (json/parse-string true)
                         (dissoc :hash)
                         utils/vector-maybe))))
@@ -115,6 +115,7 @@
                 (-> (export/reports-for-node *base-url* (:certname report))
                     first
                     tur/munge-example-report-for-storage))))
+
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
         (apply #'export/main
@@ -139,7 +140,7 @@
                         (dissoc :hash)
                         utils/vector-maybe))
                (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> (export/catalog-for-node *base-url* (:name catalog))
+                    (-> (export/catalog-for-node *base-url* (:certname catalog))
                         (json/parse-string true)
                         (dissoc :hash)
                         utils/vector-maybe))))
@@ -168,7 +169,7 @@
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [6 :empty])
-                    (assoc :name "foo.local"))]
+                    (assoc :certname "foo.local"))]
     (jutils/puppetdb-instance
      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
