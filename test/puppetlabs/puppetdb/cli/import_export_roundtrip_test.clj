@@ -20,6 +20,19 @@
 
 (use-fixtures :each fixt/with-test-logging-silenced)
 
+(defn munge-report
+  [report]
+  (map (comp tur/munge-report-for-comparison tur/munge-example-report-for-storage)
+       (-> report
+           utils/vector-maybe)))
+
+(defn munge-catalog
+  [catalog]
+  (map (partial tuc/munge-catalog-for-comparison :v6)
+       (-> catalog
+           (dissoc :hash)
+           utils/vector-maybe)))
+
 (defn block-until-queue-empty
   "Blocks the current thread until all messages from the queue have been processed."
   []
@@ -99,23 +112,11 @@
         (sync-command-post *base-url* :store-report 5 (tur/munge-example-report-for-storage report))
         (sync-command-post *base-url* :replace-facts 4 facts)
 
-        (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> catalog
-                        (dissoc :hash)
-                        utils/vector-maybe))
-               (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> (export/catalog-for-node *base-url* (:certname catalog))
-                        (json/parse-string true)
-                        (dissoc :hash)
-                        utils/vector-maybe))))
+        (is (testutils/=-after? munge-catalog catalog (-> (export/catalog-for-node *base-url* (:certname catalog))
+                                                          (json/parse-string true))))
 
-        (is (= (tur/munge-report-for-comparison
-                (tur/munge-example-report-for-storage report))
-               (tur/munge-report-for-comparison
-                (-> (export/reports-for-node *base-url* (:certname report))
-                    first
-                    tur/munge-example-report-for-storage))))
-
+        (is (testutils/=-after? munge-report report (-> (export/reports-for-node *base-url* (:certname report))
+                                                        first)))
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
         (apply #'export/main
@@ -135,15 +136,8 @@
                   "--host" (:host *base-url*) "--port" (:port *base-url*)
                   (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))))
 
-        (is (= (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> catalog
-                        (dissoc :hash)
-                        utils/vector-maybe))
-               (map (partial tuc/munge-catalog-for-comparison :v6)
-                    (-> (export/catalog-for-node *base-url* (:certname catalog))
-                        (json/parse-string true)
-                        (dissoc :hash)
-                        utils/vector-maybe))))
+        (is (testutils/=-after? munge-catalog catalog (-> (export/catalog-for-node *base-url* (:certname catalog))
+                                                          (json/parse-string true))))
 
         ;; For some reason, although the fact's/report's message has
         ;; been consumed and committed, it's not immediately available
@@ -154,12 +148,8 @@
         @(block-until-results 100 (export/reports-for-node *base-url* (:certname report)))
 
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
-        (is (= (tur/munge-report-for-comparison
-                (tur/munge-example-report-for-storage report))
-               (tur/munge-report-for-comparison
-                (-> (export/reports-for-node *base-url* (:certname report))
-                    first
-                    tur/munge-example-report-for-storage))))))))
+        (is (testutils/=-after? munge-report report (-> (export/reports-for-node *base-url* (:certname report))
+                                                        first)))))))
 
 (deftest basic-roundtrip
   (test-basic-roundtrip nil))
