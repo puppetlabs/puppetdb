@@ -180,6 +180,19 @@ This optional setting may be used to mount the PuppetDB web application at a URL
 unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
 this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
 
+
+`[puppetdb]` Settings
+-----
+
+The `[puppetdb]` section is used to configure PuppetDB application specific behavior.
+
+### `certificate-whitelist`
+
+Optional. This describes the path to a file that contains a list of certificate names, one per line.  Incoming HTTPS requests will have their certificates validated against this list of names and only those with an _exact_ matching entry will be allowed through. (For a puppet master, this compares against the value of the `certname` setting, rather than the `dns_alt_names` setting.)
+
+If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
+
+
 `[database]` Settings
 -----
 
@@ -529,11 +542,6 @@ This describes the path to a Java keystore file containing the CA certificate(s)
 
 This sets the passphrase to use for unlocking the truststore file.
 
-### `certificate-whitelist`
-
-Optional. This describes the path to a file that contains a list of certificate names, one per line.  Incoming HTTPS requests will have their certificates validated against this list of names and only those with an _exact_ matching entry will be allowed through. (For a puppet master, this compares against the value of the `certname` setting, rather than the `dns_alt_names` setting.)
-
-If not supplied, PuppetDB uses standard HTTPS without any additional authorization. All HTTPS clients must still supply valid, verifiable SSL client certificates.
 
 ### `cipher-suites`
 

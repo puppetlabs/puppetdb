@@ -1,4 +1,4 @@
-test_name "certificate whitelisting" do
+test_name "certificate whitelisting using legacy location in [jetty]" do
 
   confd = "#{puppetdb_confdir(database)}/conf.d"
   dbname = database.node_name
@@ -7,10 +7,10 @@ test_name "certificate whitelisting" do
   ssldir = stdout.chomp
 
   step "reconfigure PuppetDB to use certificate whitelist" do
-    on database, "cp #{confd}/config.ini #{confd}/config.ini.bak"
-    on database, "grep -v ^certificate-whitelist #{confd}/config.ini > #{confd}/config.ini.tmp"
-    on database, "mv -f #{confd}/config.ini.tmp #{confd}/config.ini"
-    modify_config_setting(database, "config.ini", "puppetdb",
+    on database, "cp #{confd}/jetty.ini #{confd}/jetty.ini.bak"
+    on database, "grep -v ^certificate-whitelist #{confd}/jetty.ini > #{confd}/jetty.ini.tmp"
+    on database, "mv -f #{confd}/jetty.ini.tmp #{confd}/jetty.ini"
+    modify_config_setting(database, "jetty.ini", "jetty",
                           "certificate-whitelist", "#{confd}/whitelist")
   end
 
@@ -20,7 +20,7 @@ test_name "certificate whitelisting" do
     create_remote_file database, "#{confd}/whitelist", whitelist
     on database, "chmod 644 #{confd}/whitelist"
     restart_puppetdb database
-    on database, "curl --tlsv1 -sL -w '%{http_code}\\n' " +
+    on database, "curl -sL -w '%{http_code}\\n' " +
                  "--cacert #{ssldir}/certs/ca.pem " +
                  "--cert #{ssldir}/certs/#{dbname}.pem " +
                  "--key #{ssldir}/private_keys/#{dbname}.pem "+
@@ -38,9 +38,9 @@ test_name "certificate whitelisting" do
     curl_against_whitelist.call "", 403
   end
 
-  step "restore original config.ini" do
-    on database, "mv #{confd}/config.ini.bak #{confd}/config.ini"
-    on database, "chmod 644 #{confd}/config.ini"
+  step "restore original jetty.ini" do
+    on database, "mv #{confd}/jetty.ini.bak #{confd}/jetty.ini"
+    on database, "chmod 644 #{confd}/jetty.ini"
     on database, "rm #{confd}/whitelist"
     restart_puppetdb database
   end

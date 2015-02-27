@@ -7,7 +7,6 @@
   (:import [java.security KeyStore]
            [org.joda.time Minutes Days Period])
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.time :as pl-time]
             [clj-time.core :as time]
@@ -115,6 +114,10 @@
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
+(def puppetdb-config-in
+  "Schema for validating the [puppetdb] block"
+  {(s/optional-key :certificate-whitelist) s/Str})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
 
@@ -208,13 +211,20 @@
     (s/validate command-processing-out converted-config)
     (assoc config :command-processing converted-config)))
 
+(defn configure-puppetdb
+  "Validates the [puppetdb] section of the config"
+  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
+  (s/validate puppetdb-config-in puppetdb)
+  (assoc config :puppetdb puppetdb))
+
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
       configure-dbs
-      configure-command-params))
+      configure-command-params
+      configure-puppetdb))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Global Config
@@ -320,25 +330,21 @@
                      (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
-(defn warn-if-sslv3
-  "If the ssl-protocols config is present and contains sslv3, warn the user. Logging
-   at this point may or may not be setup, so warning via *err* and logging is done."
-  [config-data]
-  (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
-    (when (re-matches #"(?i).*sslv3.*" protocol-str)
-      (binding [*out* *err*]
-        (let [warn-str "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list"]
-          (println warn-str)
-          (log/warn warn-str)))))
-  config-data)
+(defn fix-tk-config
+  "Fix configuration before passing it to trapperkeeper.
 
-(defn default-ssl-protocols
-  "Provide a default for ssl-protocols (that does NOT include sslv3). If sslv3
-   is present in the user provided config, warn the user."
+   In particular:
+   * Move certificate-whitelist from [jetty] to [global]"
   [config-data]
-  (if (get-in config-data [:jetty :ssl-protocols])
-    (warn-if-sslv3 config-data)
-    (assoc-in config-data [:jetty :ssl-protocols] "TLSv1, TLSv1.1, TLSv1.2")))
+  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
+    (do
+      ;; Log to stderr, logging is not yet initialized (and may never be).
+      (binding [*out* *err*]
+          (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
+      (-> config-data
+          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
+          (assoc-in [:puppetdb :certificate-whitelist] cw)))
+    config-data))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -349,7 +355,7 @@
    customize it."
   [f args]
   (let [config (f args)]
-    (default-ssl-protocols config)))
+    (fix-tk-config config)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values

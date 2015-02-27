@@ -58,6 +58,7 @@
             [com.puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.trapperkeeper.core :refer [defservice main]]
+            [puppetlabs.trapperkeeper.services :refer [service-id]]
             [compojure.core :as compojure]
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
@@ -257,7 +258,7 @@
          (ifn? shutdown-on-error)]
    :post [(map? %)
           (every? (partial contains? %) [:broker :command-procs :updater])]}
-  (let [{:keys [jetty database read-database global command-processing]
+  (let [{:keys [jetty database read-database global command-processing puppetdb]
          :as config}                            (conf/process-config! config)
         product-name                               (:product-name global)
         update-server                              (:update-server global)
@@ -322,7 +323,7 @@
           context (assoc context :command-procs command-procs)
           updater (future (maybe-check-for-updates product-name update-server read-db))
           context (assoc context :updater updater)
-          _       (let [authorized? (if-let [wl (jetty :certificate-whitelist)]
+          _       (let [authorized? (if-let [wl (puppetdb :certificate-whitelist)]
                                       (build-whitelist-authorizer wl)
                                       (constantly true))
                         app (server/build-app :globals globals :authorized? authorized?)]
@@ -369,6 +370,10 @@
         (stop-puppetdb context)))
 
 (defn -main
+  "Calls the trapperkeeper main argument to initialize tk.
+
+   For configuration customization, we intercept the call to parse-config-data
+   within TK."
   [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
   (apply main args))
