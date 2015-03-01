@@ -6,7 +6,7 @@
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [puppetlabs.puppetdb.cli.services :refer [puppetdb-service mq-endpoint]]
+            [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
@@ -17,7 +17,8 @@
             [clj-http.client :as client]
             [clojure.string :as str]
             [fs.core :as fs]
-            [slingshot.slingshot :refer [throw+]]))
+            [slingshot.slingshot :refer [throw+]]
+            [clojure.tools.logging :as log]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -49,7 +50,7 @@
    :jetty {:port 0}
    :database (fixt/create-db-map)
    :command-processing {}
-   :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service ""
+   :web-router-service {::svcs/puppetdb-service ""
                         :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}})
 
 (defn assoc-logging-config
@@ -61,42 +62,56 @@
     (spit logback-file (log-config log-file "ERROR"))
     [log-file (assoc-in config [:global :logging-config] logback-file)]))
 
-(defn current-port
-  "Given a trapperkeeper server, return the port of the running jetty instance.
-  Note there can be more than one port (i.e. SSL + non-SSL connector). This only
-  returns the first one."
-  [server]
-  (-> @(tka/app-context server)
-      (get-in [:WebserverService :jetty9-servers :default :server])
-      .getConnectors
-      first
-      .getLocalPort))
+(defn open-port-num
+  "Returns a currently open port number"
+  []
+  (with-open [s (java.net.ServerSocket. 0)]
+    (.getLocalPort s)))
+
+(defn assoc-open-port
+  "Updates `config` to include a (currently open) port number"
+  [config]
+  (assoc-in config [:jetty :port] (open-port-num)))
 
 (def ^:dynamic *server*)
 
 (defn puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
-  `services` is a seq of additional services that should be started in addition
-  to the core PuppetDB services. Binds *server* and *base-url* to refer to
-  the instance."
+  `services` is a seq of additional services that should be started in
+  addition to the core PuppetDB services. Binds *server* and
+  *base-url* to refer to the instance. `attempts` indicates how many
+  failed attempts should be made to bind to an HTTP port before giving
+  up, defaults to 10"
   ([f] (puppetdb-instance (create-config) f))
   ([config f] (puppetdb-instance config [] f))
   ([config services f]
-   (let [[log-file config] (-> config conf/adjust-tk-config assoc-logging-config)
+   (puppetdb-instance config services 10 f))
+  ([config services attempts f]
+   (when (zero? attempts)
+     (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
+   (let [[log-file config] (-> config
+                               conf/adjust-tk-config
+                               assoc-open-port
+                               assoc-logging-config)
          prefix (get-in config
                         [:web-router-service
-                         :puppetlabs.puppetdb.cli.services/puppetdb-service])]
+                         ::svcs/puppetdb-service])]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service puppetdb-service message-listener-service command-service webrouting-service metrics-service]
+         (concat [jetty9-service svcs/puppetdb-service message-listener-service command-service webrouting-service metrics-service]
                  services)
          config
          (binding [*server* server
                    *base-url* (merge {:protocol "http"
                                       :host "localhost"
-                                      :port (current-port server)}
+                                      :port (get-in config [:jetty :port])}
                                      (when prefix {:prefix prefix}))]
            (f)))
+       (catch java.net.BindException e
+         (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s"
+                     (get-in config [:jetty :port])
+                     attempts)
+         (puppetdb-instance config services (dec attempts) f))
        (finally
          (let [log-contents (slurp log-file)]
            (when-not (str/blank? log-contents)
@@ -119,7 +134,7 @@
   (str "org.apache.activemq:BrokerName="
        (url-encode (:host base-url))
        ",Type=Queue,Destination="
-       mq-endpoint))
+       svcs/mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
