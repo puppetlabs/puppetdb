@@ -30,11 +30,9 @@
   [restriction {:keys [params] :as req}]
   {:pre  [(coll? restriction)]
    :post [(are-queries-different? req %)]}
-  (let [restricted-query (if-let [query (params "query")]
-                           (if-let [q (json/parse-strict-string query true)]
-                             (add-criteria restriction q)
-                             restriction)
-                           restriction)]
+  (let [restricted-query (let [query (params "query")
+                               q     (when query (json/parse-strict-string query true))]
+                           (add-criteria restriction q))]
     (assoc-in req [:params "query"] (json/generate-string restricted-query))))
 
 (defn restrict-query-to-active-nodes
@@ -54,6 +52,36 @@
   (restrict-query ["and"
                    ["=" "certname" node]
                    ["=" ["node" "active"] true]]
+                  req))
+
+(defn add-extract [projections query]
+  (cm/match [query]
+            [["extract" columns expr :guard nil?]]
+            ["extract" columns projections]
+
+            [["extract" columns expr :guard identity]]
+            ["extract" columns ["extract" projections expr]]
+            :else
+            (if query
+              ["extract" projections query]
+              ["extract" projections])))
+
+(defn project-query
+  [projections {:keys [params] :as req}]
+  {:pre  [(coll? projections)]
+   :post [(are-queries-different? req %)]}
+  (let [restricted-query (let [query (params "query")
+                               q (when query (json/parse-strict-string query true))]
+                            (add-extract projections q))]
+    (assoc-in req [:params "query"] (json/generate-string restricted-query))))
+
+(defn restrict-query-to-report
+  "Restrict the query parameter of the supplied request so that it
+  only returns results for the supplied active node"
+  [hash req]
+  {:pre  [(string? hash)]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "report" hash]
                   req))
 
 (defn restrict-catalog-query-to-node

@@ -15,16 +15,18 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.honeysql :as h]
+            [honeysql.helpers :as hsql]
+            [honeysql.types :as htypes]
             [honeysql.core :as hcore]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity supports-extract?])
+                  subquery? entity late-project?])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
-(defrecord ArrayRegexExpression [table alias column value])
+(defrecord ArrayRegexExpression [table column value])
 (defrecord NullExpression [column null?])
 (defrecord ArrayBinaryExpression [column value])
 (defrecord InExpression [column subquery])
@@ -86,8 +88,7 @@
 
                :source-table "certnames"
                :alias "nodes"
-               :subquery? false
-               :supports-extract? true}))
+               :subquery? false}))
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
@@ -104,8 +105,7 @@
 
                :source-table "resource_params"
                :alias "resource_params"
-               :subquery? false
-               :supports-extract? true}))
+               :subquery? false}))
 
 (def fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
@@ -128,8 +128,7 @@
 
                :source-table "fact_paths"
                :alias "fact_paths"
-               :subquery? false
-               :supports-extract? true}))
+               :subquery? false}))
 
 (def facts-query
   "Query structured facts."
@@ -189,7 +188,7 @@
                :source-table "facts"
                :entity :facts
                :subquery? false
-               :supports-extract? false}))
+               :late-project? true}))
 
 (def fact-contents-query
   "Query for fact nodes"
@@ -244,7 +243,7 @@
                :alias "fact_nodes"
                :source-table "facts"
                :subquery? false
-               :supports-extract? false}))
+               :late-project? true}))
 
 (def reports-query
   "Query for the reports entity"
@@ -415,8 +414,7 @@
                                        [:= :rpc.resource :cr.resource]]}
 
                :alias "resources"
-               :subquery? false
-               :supports-extract? true}))
+               :subquery? false}))
 
 (def report-events-query
   "Query for the top level reports entity"
@@ -489,7 +487,6 @@
                :alias "events"
                :subquery? false
                :entity :events
-               :supports-extract? true
                :source-table "resource_events"}))
 
 (def latest-report-query
@@ -503,8 +500,7 @@
 
                :alias "latest_report"
                :subquery? false
-               :source-table "latest_report"
-               :supports-extract? true}))
+               :source-table "latest_report"}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
@@ -515,7 +511,6 @@
 
                :alias "environments"
                :subquery? false
-               :supports-extract? true
                :source-table "environments"}))
 
 (def factsets-query
@@ -568,8 +563,7 @@
                :alias "factsets"
                :entity :factsets
                :source-table "factsets"
-               :subquery? false
-               :supports-extract? false}))
+               :subquery? false}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -580,11 +574,10 @@
   These are fields with the setting :queryable? set to true."
   [{:keys [projections]}]
   ;; TODO: clean this up later, maybe generalize
-  (reduce-kv (fn [data name {:keys [queryable?]}]
-               (if queryable?
-                 (cons name data)
-                 data))
-             [] projections))
+  (->> projections
+       (remove (comp (complement :queryable?) val))
+       keys
+       (into [])))
 
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
@@ -592,11 +585,10 @@
   Fields marked as :query-only? true are unable to be projected and thus are
   excluded."
   [{:keys [projections]}]
-  (reduce-kv (fn [data name {:keys [query-only?]}]
-               (if query-only?
-                 data
-                 (cons name data)))
-             [] projections))
+  (->> projections
+       (remove (comp :query-only? val))
+       keys
+       (into [])))
 
 (defn extract-fields
   [[name {:keys [query-only? expandable? field]}] expand?]
@@ -605,8 +597,7 @@
 
   Return nil for fields which are query-only? since these can't be projected
   either."
-  (if query-only?
-    nil
+  (when-not query-only?
     (if expand?
       [field name]
       (if expandable?
@@ -637,30 +628,26 @@
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
 
 (defn parenthize
-  "Wrap `s` in parens if `wrap-in-parens?`"
-  [wrap-in-parens? s]
-  (if wrap-in-parens?
-    (str " ( " s " ) ")
-    s))
+  "Wrap `s` in parens"
+  [s]
+  (str " ( " s " ) "))
 
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
-    (let [alias (:alias query)
-          has-where? (boolean (:where query))]
-      (parenthize
-       (:subquery? query)
-       (format "SELECT %s FROM ( %s ) AS %s %s %s"
-               (str/join ", " (map #(format "%s.%s" alias %)
-                                   (sort (:projected-fields query))))
-               (sql-from-query query)
-               (:alias query)
-               (if has-where?
-                 "WHERE"
-                 "")
-               (if has-where?
-                 (-plan->sql (:where query))
-                 "")))))
+    (let [has-where? (boolean (:where query))
+          has-projections? (not (empty? (:projected-fields query)))
+          update-when (fn [m pred ks f]
+                        (if pred
+                          (update-in m ks f)
+                          m))
+          sql (-> query
+                  (update-when has-where? [:selection] #(hsql/merge-where % (htypes/raw (-plan->sql (:where query)))))
+                  (update-when has-projections? [:projections] #(select-keys % (:projected-fields query)))
+                  sql-from-query)]
+      (if (:subquery? query)
+        (parenthize sql)
+        sql)))
 
   InExpression
   (-plan->sql [expr]
@@ -689,7 +676,7 @@
 
   ArrayRegexExpression
   (-plan->sql [expr]
-    (su/sql-regexp-array-match (:table expr) (:alias expr) (:column expr)))
+    (su/sql-regexp-array-match (:table expr) (:column expr)))
 
   NullExpression
   (-plan->sql [expr]
@@ -701,11 +688,11 @@
 
   AndExpression
   (-plan->sql [expr]
-    (parenthize true (str/join " AND " (map -plan->sql (:clauses expr)))))
+    (parenthize (str/join " AND " (map -plan->sql (:clauses expr)))))
 
   OrExpression
   (-plan->sql [expr]
-    (parenthize true (str/join " OR " (map -plan->sql (:clauses expr)))))
+    (parenthize (str/join " OR " (map -plan->sql (:clauses expr)))))
 
   NotExpression
   (-plan->sql [expr]
@@ -825,7 +812,8 @@
                                      ["extract" "latest_report_hash"
                                       ["select-latest-report"]]]
 
-                                    (throw (IllegalArgumentException. (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
+                                    (throw (IllegalArgumentException.
+                                             (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
@@ -929,9 +917,9 @@
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
     (let [qr (assoc query-rec :where (user-node->plan-node query-rec expr))]
-      (if (:supports-extract? query-rec)
-        (assoc qr :projected-fields column-list)
-        (assoc qr :late-projected-fields column-list)))
+      (if (:late-project? query-rec)
+        (assoc qr :late-projected-fields column-list)
+        (assoc qr :projected-fields column-list)))
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)
         :projected-fields column-list
@@ -1005,7 +993,6 @@
               (case col-type
                 :array
                 (map->ArrayRegexExpression {:table (:source-table query-rec)
-                                            :alias (:alias query-rec)
                                             :column column
                                             :value value})
 
@@ -1045,14 +1032,16 @@
   a SQL statement"
   [query-rec paging-options user-query]
   (let [plan-node (user-node->plan-node query-rec user-query)
-        projectable-fields (projectable-fields query-rec)]
+        projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
       (-> plan-node
-          (assoc :projected-fields projectable-fields))
+          (update-in [:projected-fields] #(->> %
+                                               (filter (set projections))
+                                               (into []))))
       (-> query-rec
           (assoc :where plan-node)
           (assoc :paging-options paging-options)
-          (assoc :projected-fields projectable-fields)))))
+          (assoc :projected-fields projections)))))
 
 (declare push-down-context)
 

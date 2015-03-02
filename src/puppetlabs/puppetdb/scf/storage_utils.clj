@@ -157,7 +157,7 @@ must be supplied as the value to be matched."
   "Returns db-specific code for performing a regexp match against the
   contents of an array. If any of the array's items match the supplied
   regexp, then that satisfies the match."
-  (fn [_ _ _] (sql-current-connection-database-name)))
+  (fn [_ _] (sql-current-connection-database-name)))
 
 (defmulti sql-as-numeric
   "Returns appropriate db-specific code for converting the given column to a
@@ -203,11 +203,11 @@ must be supplied as the value to be matched."
   (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
 
 (defmethod sql-regexp-array-match "PostgreSQL"
-  [orig-table query-table column]
+  [orig-table column]
   (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" column))
 
 (defmethod sql-regexp-array-match "HSQL Database Engine"
-  [orig-table query-table column]
+  [orig-table column]
   ;; What evil have I wrought upon the land? Good gravy.
   ;;
   ;; This is entirely due to the fact that HSQLDB doesn't support the
@@ -215,8 +215,8 @@ must be supplied as the value to be matched."
   ;; *has* to come after the parent table in the FROM clause of a
   ;; separate SQL statement.
   (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
-               "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
-          orig-table orig-table column query-table column orig-table column))
+               "WHERE REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
+          orig-table orig-table column))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a

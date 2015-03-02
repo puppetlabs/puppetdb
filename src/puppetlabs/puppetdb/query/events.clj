@@ -126,12 +126,13 @@
 (defn munge-result-rows
   "Returns a function that munges the resulting rows ready for final
   presentation."
-  [_ _ _]
+  [_ projections _]
   (fn [rows]
     (map
      #(-> %
           (utils/update-when [:old_value] json/parse-string)
-          (utils/update-when [:new_value] json/parse-string))
+          (utils/update-when [:new_value] json/parse-string)
+          ((qe/basic-project projections)))
      rows)))
 
 (defn query-resource-events
@@ -148,7 +149,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections nil)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
