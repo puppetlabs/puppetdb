@@ -15,6 +15,7 @@ Specifically there are a few different levels of versioning we have to consider 
 * HTTP API
 * Metrics API
 * Commands & Wire Formats
+* Upgrades
 
 Some general statements about this policy:
 
@@ -88,3 +89,7 @@ Some examples of changes that will require a new command version:
 * Change to serialization for wire formats inside payload.
 
 The [API Commands][commands] documentation contains more concrete information about the existing commands, versions and statuses for this version of PuppetDB.
+
+## Upgrades
+
+PuppetDB supports upgrading from prior releases. Upgrading ensures data and configuration information is preserved across releases. Upgrades are supported from any previous release in the same major version or any release in the prior major version only. As an example, it's safe to upgrade from 2.0.0 to 2.2.2, or from 1.6.0 to 2.2.2. We don't support upgrading from 1.6.0 straight to 3.0.0. Users in this situation will want to first upgrade from 1.6.0 to 2.2.2, then from 2.2.2 to 3.0.0.
