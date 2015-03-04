@@ -34,13 +34,13 @@
             [schema.macros :as sm]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [ago secs now before?]]
             [metrics.counters :refer [counter inc! value]]
             [metrics.gauges :refer [gauge]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec dashes->underscores]]))
+            [puppetlabs.puppetdb.jdbc :refer [query-to-vec dashes->underscores]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1146,25 +1146,25 @@
                 :as report}         (normalize-report orig-report)
                 report-hash         (shash/report-identity-hash report)]
            (sql/transaction
-             (let [{:keys [id]} (sql/insert-record :reports
-                                 (maybe-environment
-                                   {:hash                   report-hash
-                                    :noop                   noop
-                                    :puppet_version         puppet_version
-                                    :certname               certname
-                                    :report_format          report_format
-                                    :configuration_version  configuration_version
-                                    :start_time             start_time
-                                    :end_time               end_time
-                                    :receive_time           (to-timestamp timestamp)
-                                    :transaction_uuid       transaction_uuid
-                                    :environment_id         (ensure-environment environment)
-                                    :status_id              (ensure-status status)}))]
-               (->> resource_events
-                    (map (comp convert-containment-path #(assoc % :report_id id)))
-                    (apply sql/insert-records :resource_events))
-               (when update-latest-report?
-                 (update-latest-report! certname)))))))
+            (let [{:keys [id]} (sql/insert-record :reports
+                                                  (maybe-environment
+                                                   {:hash                   report-hash
+                                                    :noop                   noop
+                                                    :puppet_version         puppet_version
+                                                    :certname               certname
+                                                    :report_format          report_format
+                                                    :configuration_version  configuration_version
+                                                    :start_time             start_time
+                                                    :end_time               end_time
+                                                    :receive_time           (to-timestamp timestamp)
+                                                    :transaction_uuid       transaction_uuid
+                                                    :environment_id         (ensure-environment environment)
+                                                    :status_id              (ensure-status status)}))]
+              (->> resource_events
+                   (map (comp convert-containment-path #(assoc % :report_id id)))
+                   (apply sql/insert-records :resource_events))
+              (when update-latest-report?
+                (update-latest-report! certname)))))))
 
 
 (defn delete-reports-older-than!

@@ -3,10 +3,10 @@
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.middleware :as middleware]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.http :as http]))
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a

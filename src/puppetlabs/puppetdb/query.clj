@@ -63,7 +63,7 @@
   (:require [clojure.string :as str]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [clj-time.coerce :refer [to-timestamp]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
             [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
             [puppetlabs.puppetdb.jdbc :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
@@ -529,7 +529,7 @@
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
   The `value` for comparison must be coercible to a timestamp via
-  `clj-time.coerce/to-timestamp` (e.g., an ISO-8601 compatible date-time string)."
+  `puppetlabs.puppetdb.time/to-timestamp` (e.g., an ISO-8601 compatible date-time string)."
   [& [op path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
@@ -715,16 +715,16 @@
   (fn [op]
     (let [op (str/lower-case op)]
       (cond
-        (= op "=") (compile-resource-event-equality version)
-        (= op "and") (partial compile-and (resource-event-ops version))
-        (= op "or") (partial compile-or (resource-event-ops version))
-        (= op "not") (partial compile-not version (resource-event-ops version))
-        (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
-        (= op "~") (compile-resource-event-regexp version)
-        (= op "extract") (partial compile-extract version (resource-event-ops version))
-        (= op "in") (partial compile-in :event version (resource-event-ops version))
-        (= op "select_resources") (partial resource-query->sql (resource-operators version))
-        (= op "select_facts") (partial fact-query->sql (fact-operators version))))))
+       (= op "=") (compile-resource-event-equality version)
+       (= op "and") (partial compile-and (resource-event-ops version))
+       (= op "or") (partial compile-or (resource-event-ops version))
+       (= op "not") (partial compile-not version (resource-event-ops version))
+       (#{">" "<" ">=" "<="} op) (partial compile-resource-event-inequality op)
+       (= op "~") (compile-resource-event-regexp version)
+       (= op "extract") (partial compile-extract version (resource-event-ops version))
+       (= op "in") (partial compile-in :event version (resource-event-ops version))
+       (= op "select_resources") (partial resource-query->sql (resource-operators version))
+       (= op "select_facts") (partial fact-query->sql (fact-operators version))))))
 
 (defn event-count-ops
   "Maps resource event count operators to the functions implementing them.
