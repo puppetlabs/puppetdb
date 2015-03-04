@@ -43,14 +43,6 @@
 
 ;; FUNCS
 
-(defn create-certname-pred
-  "Create a function to compare the certnames in a list of
-  rows with that of the first row."
-  [rows]
-  (let [certname (:certname (first rows))]
-    (fn [row]
-      (= certname (:certname row)))))
-
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
   (map (partial facts/convert-row-type [:type :value_integer :value_float]) rows))
@@ -97,7 +89,7 @@
   "Produce a lazy sequence of facts from a list of rows ordered by fact name"
   [version :- s/Keyword
    rows]
-  (utils/collapse-seq create-certname-pred
+  (utils/collapse-seq utils/create-certname-pred
                       (comp #(collapse-factset version %) convert-types)
                       rows))
 

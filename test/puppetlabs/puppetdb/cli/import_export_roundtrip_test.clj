@@ -41,12 +41,6 @@
       (Thread/sleep 10)
       (recur (jutils/current-queue-depth)))))
 
-(defn submit-command
-  "Submits a command to the running PuppetDB, launched by `puppetdb-instance`."
-  [base-url cmd-kwd version payload]
-  (pdb-client/submit-command-via-http! base-url
-                                       (command-names cmd-kwd) version payload))
-
 (defn block-until-results-fn
   "Executes `f`, if results are found, return them, otherwise
   wait and try again. Will throw an exception if results aren't found
@@ -81,11 +75,6 @@
             ;; Ignore
             ))))))
 
-(defn sync-command-post [base-url cmd-kwd version payload]
-  (jutils/until-consumed
-   (fn []
-     (submit-command base-url cmd-kwd version payload))))
-
 (defn- test-basic-roundtrip
   [url-prefix]
   (let [facts {:certname "foo.local"
@@ -108,9 +97,9 @@
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
 
-        (sync-command-post *base-url* :replace-catalog 6 catalog)
-        (sync-command-post *base-url* :store-report 5 (tur/munge-example-report-for-storage report))
-        (sync-command-post *base-url* :replace-facts 4 facts)
+        (jutils/sync-command-post *base-url* "replace catalog" 6 catalog)
+        (jutils/sync-command-post *base-url* "store report" 5 (tur/munge-example-report-for-storage report))
+        (jutils/sync-command-post *base-url* "replace facts" 4 facts)
 
         (is (testutils/=-after? munge-catalog catalog (-> (export/catalog-for-node *base-url* (:certname catalog))
                                                           (json/parse-string true))))
@@ -164,7 +153,7 @@
      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (is (empty? (export/get-nodes *base-url*)))
-       (submit-command *base-url* :replace-catalog 6 catalog)
+       (pdb-client/submit-command-via-http! *base-url* "replace catalog" 6 catalog)
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
             @(block-until-results 5
@@ -187,14 +176,3 @@
   (check-invalid-url-handling
    #(#'import/main "--host" "local:host" "--infile" "/dev/null" "--port" 10000)
    #"^Invalid destination .*"))
-
-(deftest changing-queue-destination-name
-  (let [catalog (get-in wire-catalogs [6 :empty])]
-    (jutils/with-command-endpoint "foo"
-      (jutils/with-puppetdb-instance
-        (jutils/metrics-up?)
-        (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                              #"status 404"
-                              (jutils/dispatch-count "puppetlabs.puppetdb.commands")))
-        (sync-command-post *base-url* :replace-catalog 6 catalog)
-        (is (= 1 (jutils/dispatch-count "foo")))))))

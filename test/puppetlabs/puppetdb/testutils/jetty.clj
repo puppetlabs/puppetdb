@@ -5,6 +5,7 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
+            [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service mq-endpoint]]
             [puppetlabs.puppetdb.metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
@@ -263,8 +264,7 @@
                                                      (.setUseJmx broker# false))]
      (do ~@body)))
 
-(defmacro with-command-endpoint
-  "Invoke `body` with a different command endpoint (destination) name"
-  [new-endpoint-name & body]
-  `(binding [puppetlabs.puppetdb.cli.services/mq-endpoint ~new-endpoint-name]
-     (do ~@body)))
+(defn sync-command-post [base-url cmd version payload]
+  (until-consumed
+   (fn []
+     (pdb-client/submit-command-via-http! base-url cmd version payload))))
