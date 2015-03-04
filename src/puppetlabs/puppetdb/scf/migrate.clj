@@ -982,28 +982,28 @@
 
     (sql/do-commands
      "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
-     "CREATE INDEX idx_reports_certname ON reports(certname)"
-     "CREATE INDEX idx_reports_end_time ON reports(end_time)"
-     "CREATE INDEX idx_reports_environment_id ON reports(environment_id)"
-     "CREATE INDEX idx_reports_status_id ON reports(status_id)"
-     "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
+     "CREATE INDEX reports_certname_idx ON reports(certname)"
+     "CREATE INDEX reports_end_time_idx ON reports(end_time)"
+     "CREATE INDEX reports_environment_id_idx ON reports(environment_id)"
+     "CREATE INDEX reports_status_id_idx ON reports(status_id)"
+     "CREATE INDEX reports_transaction_uuid_idx ON reports(transaction_uuid)"
      "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
      "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
 
     (sql/do-commands
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
-     "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
-     "CREATE INDEX idx_resource_events_property ON resource_events(property)"
-     "CREATE INDEX idx_resource_events_reports_id ON resource_events(report_id)"
-     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)"
-     "CREATE INDEX idx_resource_events_resource_title ON resource_events(resource_title)"
-     "CREATE INDEX idx_resource_events_status ON resource_events(status)"
-     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
+     "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
+     "CREATE INDEX resource_events_property_idx ON resource_events(property)"
+     "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
+     "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
+     "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
+     "CREATE INDEX resource_events_status_idx ON resource_events(status)"
+     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
 
     (sql/do-commands
       "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey PRIMARY KEY (name)"
-      "CREATE INDEX idx_certnames_latest_report_id ON certnames(latest_report_id)"
+      "CREATE INDEX certnames_latest_report_id_idx ON certnames(latest_report_id)"
       "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
       "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
       "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE CASCADE ON DELETE CASCADE"
