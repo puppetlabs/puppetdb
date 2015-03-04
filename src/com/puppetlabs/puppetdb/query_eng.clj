@@ -86,10 +86,13 @@
                :source-table "fact_paths"
                :alias "fact_paths"
                :subquery? false
-               :source "SELECT path, type
+               ;; FIXME: is this plausible?
+               :source "SELECT DISTINCT path, type
                         FROM fact_paths fp
-                        INNER JOIN value_types vt ON fp.value_type_id=vt.id
-                        WHERE fp.value_type_id != 5"}))
+                        INNER JOIN facts f ON f.fact_path_id = fp.id
+                        INNER JOIN fact_values fv ON f.fact_value_id = fv.id
+                        INNER JOIN value_types vt ON fv.value_type_id = vt.id
+                        WHERE fv.value_type_id != 5"}))
 
 (def facts-query
   "Query structured facts."
@@ -160,9 +163,9 @@
                   INNER JOIN facts as f on fs.id = f.factset_id
                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                   INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                  INNER JOIN value_types as vt on fp.value_type_id = vt.id
+                  INNER JOIN value_types as vt on fv.value_type_id = vt.id
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-                WHERE fp.value_type_id != 5"}))
+                WHERE fv.value_type_id != 5"}))
 
 (def resources-query
   "Query for the top level resource entity"
@@ -296,7 +299,7 @@
                              INNER JOIN facts on factsets.id = facts.factset_id
                              INNER JOIN fact_values on facts.fact_value_id = fact_values.id
                              INNER JOIN fact_paths on facts.fact_path_id = fact_paths.id
-                             INNER JOIN value_types on fact_paths.value_type_id = value_types.id
+                             INNER JOIN value_types on fact_values.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
                         WHERE depth = 0
                         ORDER BY factsets.certname"}))

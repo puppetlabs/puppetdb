@@ -51,6 +51,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [com.puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -723,7 +724,7 @@
                              first
                              :name)]
         (when-not (empty? facts)
-          (scf-store/add-facts!
+          (legacy/old-add-facts!
             {:name (str certname)
              :values facts
              :timestamp timestamp
