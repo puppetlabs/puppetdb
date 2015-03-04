@@ -890,7 +890,7 @@
     "ALTER TABLE factsets ADD hash VARCHAR(40)"
     "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
 
-(defn migrate-to-report-id-and-noop-column
+(defn migrate-to-report-id-and-noop-column-and-drop-latest-reports
   "Migrate to report id and
    insert a column in reports to be populated by boolean noop flag"
   []
@@ -927,10 +927,10 @@
                       ["containment_path" (scf-utils/sql-array-type-string "TEXT")]
                       ["containing_class" "varchar(255)"])
 
-    (sql/create-table :latest_reports_transform
-                      ["certname"  "text NOT NULL"]
-                      ["report_id" "bigint NOT NULL"])
-
+    (sql/create-table :certnames_transform
+                      ["name"  "text NOT NULL"]
+                      ["latest_report_id" "bigint"]
+                      ["deactivated" "timestamp with time zone"])
 
     (sql/do-commands
      "INSERT INTO reports_transform (
@@ -958,48 +958,60 @@
           INNER JOIN reports_transform rt on re.report = rt.hash")
 
     (sql/do-commands
-     "INSERT INTO latest_reports_transform(certname, report_id)
-        SELECT lr.certname, rt.id
-          FROM latest_reports AS lr
-          INNER JOIN reports_transform rt on lr.report = rt.hash")
+
+      "INSERT INTO certnames_transform(name,latest_report_id,deactivated)
+       SELECT c.name, rt.id as latest_report_id, c.deactivated FROM
+       certnames c left outer join latest_reports lr on c.name=lr.certname
+       inner join reports_transform rt on lr.report=rt.hash"
+
+      "ALTER TABLE edges DROP CONSTRAINT edges_certname_fkey"
+      "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_fkey"
+      "ALTER TABLE factsets DROP CONSTRAINT factsets_certname_fk"
+
+      "DROP TABLE latest_reports"
+      "DROP TABLE certnames CASCADE"
+      "ALTER TABLE certnames_transform RENAME TO certnames")
 
     (sql/do-commands
      "DROP TABLE resource_events"
-     "DROP TABLE latest_reports"
      "DROP TABLE reports")
 
     (sql/do-commands
      "ALTER TABLE resource_events_transform RENAME to resource_events"
-     "ALTER TABLE latest_reports_transform RENAME to latest_reports"
      "ALTER TABLE reports_transform RENAME to reports")
 
     (sql/do-commands
      "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
-     "CREATE INDEX idx_reports_certname ON reports(certname)"
-     "CREATE INDEX idx_reports_end_time ON reports(end_time)"
-     "CREATE INDEX idx_reports_environment_id ON reports(environment_id)"
-     "CREATE INDEX idx_reports_status_id ON reports(status_id)"
-     "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
-     "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+     "CREATE INDEX reports_certname_idx ON reports(certname)"
+     "CREATE INDEX reports_end_time_idx ON reports(end_time)"
+     "CREATE INDEX reports_environment_id_idx ON reports(environment_id)"
+     "CREATE INDEX reports_status_id_idx ON reports(status_id)"
+     "CREATE INDEX reports_transaction_uuid_idx ON reports(transaction_uuid)"
      "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
      "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
 
     (sql/do-commands
-     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_pkey PRIMARY KEY (certname)"
-     "CREATE INDEX idx_latest_reports_report_id ON latest_reports(report_id)"
-     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
-     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+     "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
+     "CREATE INDEX resource_events_property_idx ON resource_events(property)"
+     "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
+     "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
+     "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
+     "CREATE INDEX resource_events_status_idx ON resource_events(status)"
+     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
 
     (sql/do-commands
-     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
-     "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
-     "CREATE INDEX idx_resource_events_property ON resource_events(property)"
-     "CREATE INDEX idx_resource_events_reports_id ON resource_events(report_id)"
-     "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)"
-     "CREATE INDEX idx_resource_events_resource_title ON resource_events(resource_title)"
-     "CREATE INDEX idx_resource_events_status ON resource_events(status)"
-     "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
-     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
+      "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey PRIMARY KEY (name)"
+      "CREATE INDEX certnames_latest_report_id_idx ON certnames(latest_report_id)"
+      "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE CASCADE ON DELETE CASCADE"
+      "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE")
+
+    (when (scf-utils/postgres?)
+      (sql/do-commands
+        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL")))
 
 (defn change-name-to-certname
   "Rename the 'name' column of certnames to 'certname'."
@@ -1039,7 +1051,7 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 migrate-to-report-id-and-noop-column
+   29 migrate-to-report-id-and-noop-column-and-drop-latest-reports
    30 change-name-to-certname})
 
 (def desired-schema-version (apply max (keys migrations)))
