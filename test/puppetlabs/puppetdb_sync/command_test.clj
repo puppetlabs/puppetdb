@@ -160,24 +160,43 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
-(deftest end-to-end-report-replication
-  (jutils/without-jmx
-   (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)
-           port-1 (get-in config-1 [:jetty :port])
-           port-2 (get-in config-2 [:jetty :port])]
-       (with-puppetdb-instance config-1
-         (let [report (tur/munge-example-report-for-storage (:basic reports))]
-           (pdb-client/submit-command-via-http! (assoc jutils/*base-url* :prefix "/pdb") "store report" 5 report)
-           @(rt/block-until-results 100 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))
-           (with-alt-mq "puppetlabs.puppetdb.commands-2"
-             (with-puppetdb-instance config-2
-               (http/post (str (base-url->str (assoc jutils/*base-url* :prefix "/sync" :port port-1 :version :v1))  "/trigger-sync")
-                          {:headers {"content-type" "application/json"}
-                           :body (json/generate-string {:remote_host_path (str (base-url->str (assoc jutils/*base-url* :prefix "/pdb")) "/commands") })
-                           :throw-exceptions false})
+(defn- with-n-pdbs
+  ([n f] (jutils/without-jmx
+          (with-n-pdbs n f [])))
+  ([n f pdb-infos]
+   (if (= n (count pdb-infos))
+     (apply f pdb-infos)
+     (let [config (utils/sync-config)]
+       (with-alt-mq (str "puppetlabs.puppetdb.commands-" (inc (count pdb-infos)))
+         (with-puppetdb-instance config
+           (with-n-pdbs n f
+             (let [port (get-in config [:jetty :port])
+                   base-url (assoc jutils/*base-url* :port port)]
+               (conj pdb-infos {:config config
+                                :port port
+                                :base-url base-url
+                                :service-url (assoc base-url :prefix "/pdb")
+                                :sync-url    (assoc base-url :prefix "/sync" :version :v1)})))))))))
 
-               @(rt/block-until-results 200 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))
-               (is (= (export/reports-for-node (assoc jutils/*base-url* :port port-1 :prefix "/pdb") (:certname report))
-                      (export/reports-for-node (assoc jutils/*base-url* :port port-2 :prefix "/pdb") (:certname report))))))))))))
+(deftest end-to-end-report-replication
+  (with-n-pdbs 2
+    (fn [pdb1 pdb2]
+      (let [report (tur/munge-example-report-for-storage (:basic reports))]
+
+        (with-alt-mq "puppetlabs.puppetdb.commands-1"
+          (pdb-client/submit-command-via-http! (:service-url pdb1) "store report" 5 report)
+          @(rt/block-until-results 100 (export/reports-for-node (:service-url pdb1) (:certname report))))
+
+        (with-alt-mq "puppetlabs.puppetdb.commands-2"
+          ;; pdb1 -> pdb2 "here's my hashes, pull from me what you need"
+          (http/post (str (base-url->str (:sync-url pdb1)) "/trigger-sync")
+                     {:headers {"content-type" "application/json"}
+                      :body (json/generate-string {:remote_host_path (str (base-url->str (:service-url pdb2)) "/commands") })
+                      :throw-entire-message true})
+
+          ;; now pdb2 receives the message, from pdb1, and works on queue #2
+          @(rt/block-until-results 200 (export/reports-for-node (:service-url pdb2) (:certname report)))
+
+          (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
+                 (export/reports-for-node (:service-url pdb2) (:certname report)))))))))
+
