@@ -40,7 +40,7 @@ Step 2, Option A: Install from Source
 Install Leiningen:
 
     $ mkdir ~/bin && cd ~/bin
-    $ curl -L 'https://raw.github.com/technomancy/leiningen/stable/bin/lein' -o lein --tlsv1
+    $ curl -L 'https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein' -o lein --tlsv1
     $ chmod ugo+x lein
     $ ./lein
     # symlink lein to somewhere in your $PATH
