@@ -450,18 +450,18 @@
   (testing "should share structure when duplicate catalogs are detected for the same host"
     (add-certname! certname)
     (let [hash (add-catalog! catalog)
-          prev-dupe-num (.count (:duplicate-catalog metrics))
-          prev-new-num  (.count (:updated-catalog metrics))]
+          prev-dupe-num (.count (:duplicate-catalog performance-metrics))
+          prev-new-num  (.count (:updated-catalog performance-metrics))]
 
       ;; Do an initial replacement with the same catalog
       (replace-catalog! catalog (now))
-      (is (= 1 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
-      (is (= 0 (- (.count (:updated-catalog metrics)) prev-new-num)))
+      (is (= 1 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 0 (- (.count (:updated-catalog performance-metrics)) prev-new-num)))
 
       ;; Store a second catalog, with the same content save the version
       (replace-catalog! (assoc catalog :version "abc123") (now))
-      (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
-      (is (= 0 (- (.count (:updated-catalog metrics)) prev-new-num)))
+      (is (= 2 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 0 (- (.count (:updated-catalog performance-metrics)) prev-new-num)))
 
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
@@ -471,8 +471,8 @@
                :certname certname}]))
 
       (replace-catalog! (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :line] 20) (now))
-      (is (= 2 (- (.count (:duplicate-catalog metrics)) prev-dupe-num)))
-      (is (= 1 (- (.count (:updated-catalog metrics)) prev-new-num))))))
+      (is (= 2 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 1 (- (.count (:updated-catalog performance-metrics)) prev-new-num))))))
 
 (deftest catalog-manual-deletion
   (testing "should noop if replaced by themselves after using manual deletion"
@@ -678,7 +678,7 @@
              orig-timestamp :timestamp} (first (query-to-vec "SELECT id from catalogs where certname=?" certname))
              updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
              new-uuid (kitchensink/uuid)
-             metrics-map metrics]
+             metrics-map performance-metrics]
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar"}
@@ -690,7 +690,7 @@
         (tu/with-wrapped-fn-args [inserts sql/insert-records
                                   deletes sql/delete-rows
                                   updates sql/update-values]
-          (with-redefs [metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
+          (with-redefs [performance-metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
             (add-catalog! (assoc updated-catalog :transaction_uuid new-uuid) nil yesterday)
 
             ;; 2 edge deletes
@@ -699,7 +699,7 @@
             ;; 1 params cache insert
             ;; 1 catalog_resource insert
             ;; 1 catalog_resource delete
-            (is (= 8.0 (apply + (sample (:catalog-volatility metrics))))))
+            (is (= 8.0 (apply + (sample (:catalog-volatility performance-metrics))))))
 
           (is (sort= [:resource_params_cache :resource_params :catalog_resources]
                      (table-args @inserts)))
@@ -1212,8 +1212,9 @@
             _             (delete-reports-older-than! (ago (days 3)))
             expected      (map #(update-in % [:resource_events] munge-resource-events)
                                (expected-reports [(assoc report2 :hash report2-hash)]))
-            actual        (map #(update-in % [:resource_events] munge-resource-events)
-                               (reports-query-result :v4 ["=" "certname" certname]))]
+            actual        (->> (reports-query-result :v4 ["=" "certname" certname])
+                               (map (partial kitchensink/maptrans {[:resource_events] munge-resource-events
+                                                                   [:metrics :logs] walk/keywordize-keys})))]
         (is (= expected actual)))))
 
   (deftest resource-events-cleanup

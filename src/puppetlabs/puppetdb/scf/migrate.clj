@@ -1021,6 +1021,18 @@
      "ALTER TABLE certnames RENAME COLUMN name TO certname"
      "ALTER TABLE certnames ALTER COLUMN name RENAME TO certname")))
 
+(defn insert-report-metrics-and-logs
+  "Insert columns in reports to be populated by metrics and logs.
+  Text for hsql, JSON for postgres."
+  []
+  (if (scf-utils/postgres?)
+    (sql/do-commands
+      "ALTER TABLE reports ADD metrics json"
+      "ALTER TABLE reports ADD logs json")
+    (sql/do-commands
+      "ALTER TABLE reports ADD metrics text"
+      "ALTER TABLE reports ADD logs text")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1052,7 +1064,8 @@
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
    29 migrate-to-report-id-and-noop-column-and-drop-latest-reports
-   30 change-name-to-certname})
+   30 change-name-to-certname
+   31 insert-report-metrics-and-logs})
 
 (def desired-schema-version (apply max (keys migrations)))
 

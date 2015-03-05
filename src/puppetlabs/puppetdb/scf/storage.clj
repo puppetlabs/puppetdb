@@ -15,13 +15,14 @@
 
   * facts are associated with a single certname
 
-  The standard set of operations on information in the database will
-  likely result in dangling resources and catalogs; to clean these
-  up, it's important to run `garbage-collect!`."
+   The standard set of operations on information in the database will
+   likely result in dangling resources and catalogs; to clean these
+   up, it's important to run `garbage-collect!`."
   (:require [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.string :as str]
@@ -178,7 +179,7 @@
 ;; * `:replace-facts`: the time it takes to replace the facts for a
 ;;   host
 ;;
-(def metrics
+(def performance-metrics
   {
    :add-resources      (timer [ns-str "default" "add-resources"])
    :add-edges          (timer [ns-str "default" "add-edges"])
@@ -200,8 +201,8 @@
    :updated-catalog    (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
    :duplicate-pct      (gauge [ns-str "default" "duplicate-pct"]
-                              (let [dupes (value (:duplicate-catalog metrics))
-                                    new   (value (:updated-catalog metrics))]
+                              (let [dupes (value (:duplicate-catalog performance-metrics))
+                                    new   (value (:updated-catalog performance-metrics))]
                                 (float (kitchensink/quotient dupes (+ dupes new)))))
    :catalog-volatility (histogram [ns-str "default" "catalog-volitilty"])
 
@@ -429,7 +430,7 @@
                                     refs-to-resources
                                     refs-to-hashes)]
 
-    (update! (:catalog-volatility metrics) (* 2 (count new-params)))
+    (update! (:catalog-volatility performance-metrics) (* 2 (count new-params)))
 
     (insert-records*
      :resource_params_cache
@@ -462,7 +463,7 @@
   (fn [refs-to-insert]
     {:pre [(every? resource-ref? refs-to-insert)]}
 
-    (update! (:catalog-volatility metrics) (count refs-to-insert))
+    (update! (:catalog-volatility performance-metrics) (count refs-to-insert))
 
     (insert-records*
      :catalog_resources
@@ -485,7 +486,7 @@
   (fn [refs-to-delete]
     {:pre [(every? resource-ref? refs-to-delete)]}
 
-    (update! (:catalog-volatility metrics) (count refs-to-delete))
+    (update! (:catalog-volatility performance-metrics) (count refs-to-delete))
 
     (doseq [{:keys [type title]} refs-to-delete]
       (sql/delete-rows :catalog_resources ["catalog_id = ? and type = ? and title = ?" catalog-id type title]))))
@@ -532,7 +533,7 @@
     (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
           updated-resources (diff-resources-metadata old-resources new-resources-with-hash)]
 
-      (update! (:catalog-volatility metrics) (count updated-resources))
+      (update! (:catalog-volatility performance-metrics) (count updated-resources))
 
       (doseq [[{:keys [type title]} updated-cols] updated-resources]
         (sql/update-values :catalog_resources
@@ -581,7 +582,7 @@
   [certname :- String
    edges :- edge-db-schema]
 
-  (update! (:catalog-volatility metrics) (count edges))
+  (update! (:catalog-volatility performance-metrics) (count edges))
 
   (doseq [[source target type] edges]
     ;; This is relatively inefficient. If we have id's for edges, we could do
@@ -605,7 +606,7 @@
     (let [rows (for [[source target type] edges]
                  [certname source target type])]
 
-      (update! (:catalog-volatility metrics) (count rows))
+      (update! (:catalog-volatility performance-metrics) (count rows))
       (apply sql/insert-rows :edges rows))))
 
 (pls/defn-validated replace-edges!
@@ -635,14 +636,14 @@
                    identity)))
 
 (pls/defn-validated update-catalog-hash-match
-  "When a new incoming catalog has the same hash as an existing catalog, update metrics
+  "When a new incoming catalog has the same hash as an existing catalog, update performance-metrics
    and the transaction id for the new catalog"
   [catalog-id :- Number
    hash :- String
    catalog :- catalog-schema
    timestamp :- pls/Timestamp]
-  (inc! (:duplicate-catalog metrics))
-  (time! (:catalog-hash-match metrics)
+  (inc! (:duplicate-catalog performance-metrics))
+  (time! (:catalog-hash-match performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog timestamp)))
 
 (pls/defn-validated update-catalog-associations!
@@ -650,9 +651,9 @@
   [catalog-id :- Number
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
-  (time! (:add-resources metrics)
+  (time! (:add-resources performance-metrics)
          (add-resources! catalog-id resources refs-to-hashes))
-  (time! (:add-edges metrics)
+  (time! (:add-edges performance-metrics)
          (replace-edges! certname edges refs-to-hashes)))
 
 (pls/defn-validated update-catalog-hash-miss
@@ -665,12 +666,12 @@
    catalog-hash-debug-dir :- (s/maybe s/Str)
    timestamp :- pls/Timestamp]
 
-  (inc! (:updated-catalog metrics))
+  (inc! (:updated-catalog performance-metrics))
 
   (when catalog-hash-debug-dir
     (hashdbg/debug-catalog catalog-hash-debug-dir hash catalog))
 
-  (time! (:catalog-hash-miss metrics)
+  (time! (:catalog-hash-miss performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog timestamp)
          (update-catalog-associations! catalog-id catalog refs-to-hashes)))
 
@@ -680,8 +681,8 @@
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
    timestamp :- pls/Timestamp]
-  (inc! (:updated-catalog metrics))
-  (time! (:add-new-catalog metrics)
+  (inc! (:updated-catalog performance-metrics))
+  (time! (:add-new-catalog performance-metrics)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog timestamp))]
            (update-catalog-associations! catalog-id catalog refs-to-hashes))))
 
@@ -695,11 +696,11 @@
     catalog-hash-debug-dir :- (s/maybe s/Str)
     timestamp :- pls/Timestamp]
 
-   (let [refs-to-hashes (time! (:resource-hashes metrics)
+   (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
                                (reduce-kv (fn [acc k v]
                                             (assoc acc k (shash/resource-identity-hash v)))
                                           {} resources))
-         hash           (time! (:catalog-hash metrics)
+         hash           (time! (:catalog-hash performance-metrics)
                                (shash/catalog-similarity-hash catalog))
          {id :id
           stored-hash :hash} (catalog-metadata certname)]
@@ -734,14 +735,14 @@
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
-  (time! (:gc-params metrics)
+  (time! (:gc-params performance-metrics)
          (sql/delete-rows :resource_params_cache ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params_cache.resource)"])))
 
 
 (defn delete-unassociated-environments!
   "Remove any environments that aren't associated with a catalog, report or factset"
   []
-  (time! (:gc-environments metrics)
+  (time! (:gc-environments performance-metrics)
          (sql/delete-rows :environments
                           ["ID NOT IN
               (SELECT environment_id FROM catalogs WHERE environment_id IS NOT NULL
@@ -753,14 +754,14 @@
 (defn delete-unassociated-statuses!
   "Remove any statuses that aren't associated with a report"
   []
-  (time! (:gc-report-statuses metrics)
+  (time! (:gc-report-statuses performance-metrics)
          (sql/delete-rows :report_statuses
                           ["ID NOT IN (SELECT status_id FROM reports)"])))
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
   []
-  (time! (:gc metrics)
+  (time! (:gc performance-metrics)
          (sql/transaction
           (delete-unassociated-params!))
          (sql/transaction
@@ -1138,33 +1139,34 @@
   [orig-report :- reports/report-schema
    timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
-  (time! (:store-report metrics)
+  (time! (:store-report performance-metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
                        start_time end_time resource_events transaction_uuid environment
-                       status noop]
-                :as report}         (normalize-report orig-report)
+                       status noop metrics logs] :as report} (normalize-report orig-report)
                 report-hash         (shash/report-identity-hash report)]
            (sql/transaction
-            (let [{:keys [id]} (sql/insert-record :reports
-                                                  (maybe-environment
-                                                   {:hash                   report-hash
-                                                    :noop                   noop
-                                                    :puppet_version         puppet_version
-                                                    :certname               certname
-                                                    :report_format          report_format
-                                                    :configuration_version  configuration_version
-                                                    :start_time             start_time
-                                                    :end_time               end_time
-                                                    :receive_time           (to-timestamp timestamp)
-                                                    :transaction_uuid       transaction_uuid
-                                                    :environment_id         (ensure-environment environment)
-                                                    :status_id              (ensure-status status)}))]
-              (->> resource_events
-                   (map (comp convert-containment-path #(assoc % :report_id id)))
-                   (apply sql/insert-records :resource_events))
-              (when update-latest-report?
-                (update-latest-report! certname)))))))
-
+             (let [{:keys [id]} (sql/insert-record :reports
+                                 (maybe-environment
+                                   {:hash                   report-hash
+                                    :noop                   noop
+                                    :puppet_version         puppet_version
+                                    :certname               certname
+                                    :report_format          report_format
+                                    :configuration_version  configuration_version
+                                    :metrics                (scf-utils/munge-json-for-storage
+                                                              metrics)
+                                    :logs                   (scf-utils/munge-json-for-storage logs)
+                                    :start_time             start_time
+                                    :end_time               end_time
+                                    :receive_time           (to-timestamp timestamp)
+                                    :transaction_uuid       transaction_uuid
+                                    :environment_id         (ensure-environment environment)
+                                    :status_id              (ensure-status status)}))]
+               (->> resource_events
+                    (map (comp convert-containment-path #(assoc % :report_id id)))
+                    (apply sql/insert-records :resource_events))
+               (when update-latest-report?
+                 (update-latest-report! certname)))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
@@ -1242,7 +1244,7 @@
   ([{:keys [certname] :as catalog} :- catalog-schema
     timestamp :- pls/Timestamp
     catalog-hash-debug-dir :- (s/maybe s/Str)]
-   (time! (:replace-catalog metrics)
+   (time! (:replace-catalog performance-metrics)
           (sql/transaction
            (add-catalog! catalog catalog-hash-debug-dir timestamp)))))
 
@@ -1253,7 +1255,7 @@
    can happen at a time.  The first to start the transaction wins.  Subsequent transactions will fail
    as the factsets will have changed while the transaction was in-flight."
   [{:keys [certname timestamp] :as fact-data} :- facts-schema]
-  (time! (:replace-facts metrics)
+  (time! (:replace-facts performance-metrics)
          (if-let [factset-ts (factset-timestamp certname)]
            (when (.before factset-ts (to-timestamp timestamp))
              (update-facts! fact-data))

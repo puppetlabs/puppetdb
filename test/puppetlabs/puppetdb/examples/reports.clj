@@ -12,6 +12,29 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :logs                   [{:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Caching catalog for mbp.local",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.321565000-08:00"}
+                             {:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Applying configuration version '1424992544'",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.388965000-08:00"}]
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  3.14}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  2.71}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -76,6 +99,29 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   true
+    :logs                   [{:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Caching catalog for mbp.local",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.321565000-08:00"}
+                             {:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Applying configuration version '1424992544'",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.388965000-08:00"}]
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  3.14}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  2.71}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname on input, but they will have one on output.  To make it
@@ -137,6 +183,29 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :logs                   [{:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Caching catalog for mbp.local",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.321565000-08:00"}
+                             {:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Applying configuration version '1424992544'",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.388965000-08:00"}]
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  3.14}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  2.71}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output
@@ -198,6 +267,29 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :logs                   [{:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Caching catalog for mbp.local",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.321565000-08:00"}
+                             {:file nil,
+                              :line nil,
+                              :level "info",
+                              :message "Applying configuration version '1424992544'",
+                              :source "//mbp.local/Puppet",
+                              :tags [ "info" ],
+                              :time "2015-02-26T15:20:17.388965000-08:00"}]
+    :metrics                [{:category  "resources"
+                              :name  "changed"
+                              :value  3.14}
+                             {:category  "resources"
+                              :name  "failed"
+                              :value  2.71}
+                             {:category  "resources"
+                              :name  "failed_to_restart"
+                              :value  0}]
     :resource_events
     ;; NOTE: this is a bit wonky because resource events should *not* contain
     ;;  a certname or containment-class on input, but they will have one on output

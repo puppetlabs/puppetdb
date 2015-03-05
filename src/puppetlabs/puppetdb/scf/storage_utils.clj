@@ -4,7 +4,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import [org.postgresql.util PGobject]))
 
 ;; SCHEMA
 
@@ -252,3 +253,30 @@ must be supplied as the value to be matched."
        (sql/do-commands
         (str "ALTER TABLE " table " ALTER COLUMN " column
              " RESTART WITH " restartid))))))
+
+(pls/defn-validated clj->pgjson :- PGobject
+  "Convert a clojure object to a json PGobject"
+  [value :- (s/maybe (s/either {s/Any s/Any} [{s/Any s/Any}]))]
+  (doto (PGobject.)
+    (.setType "json")
+    (.setValue (json/generate-string value))))
+
+(pls/defn-validated pgjson->clj
+  "Convert a json PGobject to a clojure object"
+  [value :- (s/maybe PGobject)]
+  (when value
+    (json/parse-string (.getValue value))))
+
+(defn munge-json-for-storage
+  "Prepare a clojure object for storage depending on db type."
+  [value]
+  (if (postgres?)
+    (clj->pgjson value)
+    (json/generate-string value)))
+
+(defn parse-db-json-fn
+  "Produce a function for parsing an object stored as json."
+  []
+  (if (postgres?)
+    pgjson->clj
+    json/parse-string))
