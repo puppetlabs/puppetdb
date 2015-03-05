@@ -5,58 +5,20 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]))
+            [puppetlabs.puppetdb.testutils.jetty :as jutils]
+            [ring.middleware.params :refer [wrap-params]]
+            [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [clj-http.client :as http])
+   (:import [java.net MalformedURLException URISyntaxException URL]) )
 
-(def requests (atom []))
-
-(def request-catcher
-  "Takes any POST and saves the request map in the `requests` atom for
-  verification that the correct call had been made"
-  (context "/request-catcher" []
-           (routes
-            (POST "/v1/consume-request" {:as req}
-                  (swap! requests conj (update-in req [:body] slurp))
-                  {:status 200 :body "Success"}))))
-
-(defn request-catcher-fixture
-  "Resets the `requests` atom used by the request-catcher service,
-  useful as a clojure.test fixture"
-  [f]
-  (reset! requests [])
-  (f))
-
-(defservice request-catcher-service
+(defservice stub-server-service
   [[:ConfigService get-in-config]
    [:WebroutingService add-ring-handler]]
-  (start [this context]
-         (let [port (get-in-config [:webserver :default :port])]
-           (add-ring-handler this request-catcher)
-           context)))
-
-(defprotocol CannedResponse
-  (expect-response [this path response] "Adds `path` with `response` to the canned response map"))
-
-(defn canned-response
-  "Service that matches the incoming route with the canned-responses
-  map returning the value found at that route"
-  [service]
-  (context "/canned-response" []
-           (routes
-            (ANY "*" {:as req}
-                 (let [canned-responses @(::canned-responses (service-context service))]
-                   (get canned-responses (:uri req)))))))
-
-
-(defservice canned-response-service
-  CannedResponse
-  [[:ConfigService get-in-config]
-   [:WebroutingService add-ring-handler]]
-  (start [this context]
-         (let [port (get-in-config [:webserver :default :port])]
-           (add-ring-handler this (canned-response this))
-           (assoc context ::canned-responses (atom {}))))
-  (expect-response [this path response]
-                   (swap! (::canned-responses (service-context this)) assoc path response)))
+  (start [this tk-context]
+         (if-let [handler (get-in-config [:stub-server-service :handler])]
+           (add-ring-handler this (wrap-params (context "/stub" [] handler))))
+         tk-context))
 
 (defmacro with-puppetdb-instance
   "Same as the core puppetdb-instance call but adds in the sync
@@ -64,23 +26,58 @@
   [config & body]
   `(jutils/puppetdb-instance
     ~config
-    [puppetdb-sync-service request-catcher-service canned-response-service]
+    [puppetdb-sync-service stub-server-service]
     (fn [] ~@body)))
 
-(defn open-port-num
-  "Returns a currently open port number"
-  []
-  (let [s (java.net.ServerSocket. 0)
-        local-port (.getLocalPort s)]
-    (.close s)
-    local-port))
-
 (defn sync-config
-  "Returns a default TK config setup for sync testing"
-  []
-  (-> (jutils/create-config)
-      (assoc-in [:jetty :port] (open-port-num))
-      (assoc :web-router-service {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb"
-                                  :puppetlabs.puppetdb-sync.services/puppetdb-sync-service "/sync"
-                                  :puppetlabs.puppetdb-sync.testutils/request-catcher-service "/request-catcher"
-                                  :puppetlabs.puppetdb-sync.testutils/canned-response-service "/canned-response"})))
+  "Returns a default TK config setup for sync testing. PuppetDB is
+  hosted at /pdb, and the sync service at /sync. Takes an optional
+  `stub-handler` parameter, a ring handler that will be hosted under
+  '/stub'."
+  ([] (sync-config nil))
+  ([stub-handler]
+   (-> (jutils/create-config)
+       (assoc :stub-server-service {:handler stub-handler}
+              :web-router-service  {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb"
+                                    :puppetlabs.puppetdb-sync.services/puppetdb-sync-service "/sync"
+                                    :puppetlabs.puppetdb-sync.testutils/stub-server-service "/stub"}))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; URL helper functions for inside a with-puppetdb-instance block
+(defn pdb-url []
+  (assoc jutils/*base-url* :prefix "/pdb" :version :v4))
+
+(defn pdb-url-str []
+  (base-url->str (pdb-url)))
+
+(defn stub-url [prefix version]
+  (jutils/*base-url* :prefix (str "/stub/" prefix) :version version))
+
+(defn stub-url-str [suffix]
+  (let [{:keys [protocol host port] :as base-url} jutils/*base-url*]
+   (-> (URL. protocol host port (str "/stub" suffix))
+       .toURI .toASCIIString)))
+
+(defn sync-url []
+  (assoc jutils/*base-url* :prefix "/sync" :version :v1))
+
+(defn trigger-sync-url-str []
+  (str (base-url->str (sync-url)) "/trigger-sync"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; General utility functions
+(defn index-by [key s]
+  (into {} (for [val s] [(key val) val])))
+
+(defn json-request [body]
+  {:headers {"content-type" "application/json"}
+   :throw-entire-message true
+   :body (json/generate-string body)})
+
+(defn json-response [m]
+  {:status 200
+   :headers {"Content-Type" "application/json"}
+   :body (json/generate-string m)})
+
+(defn get-json [base-url suffix]
+  (-> (http/get (str (base-url->str base-url) suffix)) :body (json/parse-string true)))
