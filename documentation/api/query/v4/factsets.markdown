@@ -74,24 +74,48 @@ Get all factsets with updated after "2014-07-21T16:13:44.334Z":
 
 Get all factsets corresponding to nodes running Darwin:
 
-    curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=["in",
-    "certname", ["extract", "certname", ["select_facts", ["and", ["=", "name",
-    "operatingsystem"], ["=", "value", "Darwin"]]]]]'
+    curl -X GET http://localhost:8080/v4/factsets -d 'query=["in", "certname",
+    ["extract", "certname", ["select_facts", ["and", ["=", "name", "uptime_hours"], [">", "value", 24]]]]]'
 
 which returns
 
     [ {
       "facts" : {
-        "operatingsystem" : "Darwin",
-
-        <additional facts>
-
+        "blockdevice_sde_vendor" : "Generic",
+        "mtu_wlp5s0" : 1500,
+        "processor6" : "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+        "kernel" : "Linux",
+        "physicalprocessorcount" : 1,
+        "interfaces" : "br0,docker0,enp3s0,lo,tap0,wlp5s0",
+        "lsbdistcodename" : "n/a",
+        "rubyversion" : "1.9.3",
+        "blockdevice_sdb_vendor" : "ATA",
+        "trusted" : {
+          "authenticated" : "remote",
+          "certname" : "desktop.localdomain",
+          "extensions" : { }
+        },
+        "swapsize" : "0.00 MB",
+        "system_uptime" : {
+          "days" : 5,
+          "hours" : 120,
+          "seconds" : 433391,
+          "uptime" : "5 days"
+        },
+        "swapfree_mb" : "0.00",
+        "netmask_br0" : "255.255.255.0",
+        "gid" : "wyatt",
+        "processorcount" : 8,
+        "network_docker0" : "172.17.0.0",
+        "mtu_docker0" : 1500,
+        "swapfree" : "0.00 MB",
+        ...
       },
-      "timestamp" : "2014-07-25T16:39:06.265Z",
-      "producer_timestamp" : "2014-07-25T16:39:06.265Z",
+      "producer_timestamp" : "2015-03-06T00:20:14.833Z",
+      "timestamp" : "2015-03-06T00:20:14.918Z",
       "environment" : "production",
       "certname" : "desktop.localdomain",
-      "hash": "b920822bc3872c9e2977cf40f87811393ead71aa"
+      "hash" : "d118d161990f202e911b6fda09f79d24f3a5d4f4"
     } ]
 
 ## Paging
