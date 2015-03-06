@@ -202,10 +202,10 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 
 The available subqueries are:
 
-* `select-resources` (queries the [resources][] endpoint)
-* `select-facts` (queries the [facts][] endpoint)
-* `select-nodes` (queries the [nodes][] endpoint)
-* `select-fact-contents` (queries the [fact-contents][] endpoint)
+* `select_resources` (queries the [resources][] endpoint)
+* `select_facts` (queries the [facts][] endpoint)
+* `select_nodes` (queries the [nodes][] endpoint)
+* `select_fact_contents` (queries the [fact-contents][] endpoint)
 
 ### Subquery Examples
 
@@ -216,7 +216,7 @@ all nodes with `Class[Apache]`:
       ["=", "name", "ipaddress"],
       ["in", "certname",
         ["extract", "certname",
-          ["select-resources",
+          ["select_resources",
             ["and",
               ["=", "type", "Class"],
               ["=", "title", "Apache"]]]]]]
@@ -225,7 +225,7 @@ This query string queries the `/nodes` endpoint for all nodes with `Class[Apache
 
     ["in", "name",
       ["extract", "certname",
-        ["select-resources",
+        ["select_resources",
           ["and",
             ["=", "type", "Class"],
             ["=", "title", "Apache"]]]]]]
@@ -237,26 +237,26 @@ all Debian nodes.
       ["=", "name", "ipaddress"],
       ["in", "certname",
         ["extract", "certname",
-          ["select-facts",
+          ["select_facts",
             ["and",
               ["=", "name", "operatingsystem"],
               ["=", "value", "Debian"]]]]]]
 
 This query string queries the `/facts` endpoint for uptime_hours of all nodes with
-facts-environment `production`:
+facts_environment `production`:
 
     ["and",
       ["=", "name", "uptime_hours"],
       ["in", "certname",
         ["extract", "certname",
-          ["select-nodes",
-            ["=", "facts-environment", "production"]]]]]
+          ["select_nodes",
+            ["=", "facts_environment", "production"]]]]]
 
 To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00`, you could use this query on '/nodes':
 
     ["in", "certname",
       ["extract", "certname",
-        ["select-fact-contents",
+        ["select_fact_contents",
           ["and",
             ["=", "path", [ "networking", "eth0", "macaddresses", 0 ]],
             ["=", "value", "aa:bb:cc:dd:ee:00" ]]]]]
@@ -267,7 +267,7 @@ starting with "up" and value less than 100:
 
     ["in", ["certname", "name"],
       ["extract", ["certname", "name"],
-        ["select-fact-contents",
+        ["select_fact_contents",
           ["and",
             ["~>", "path", ["up.*"]],
             ["<", "value", 100]]]]]
