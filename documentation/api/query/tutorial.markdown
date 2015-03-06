@@ -98,15 +98,15 @@ look something like this:
 Our results are an array of "resources", where each resource is an object with
 a particular set of keys.
 
-parameters: this field is itself an object, containing all the parameters and values of the resource
-line: the line the resource was declared on
-file: the file the resource was specified in
-exported: true if the resource was exported by this node, or false otherwise
-tags: all the tags on the resource
-title: the resource title
-type: the resource type
-resources: this is an internal identifier for the resource used by PuppetDB
-certname: the node that the resource came from
+* `parameters`: this field is itself an object, containing all the parameters and values of the resource
+* `line`: the line the resource was declared on
+* `file`: the file the resource was specified in
+* `exported`: true if the resource was exported by this node, or false otherwise
+* `tags`: all the tags on the resource
+* `title`: the resource title
+* `type`: the resource type
+* `resources`: this is an internal identifier for the resource used by PuppetDB
+* `certname`: the node that the resource came from
 
 There will be an entry in the list for every resource. A resource is specific
 to a single node, so if the resource is on 100 nodes, there will be 100 copies
