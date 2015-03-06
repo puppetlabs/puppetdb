@@ -72,7 +72,7 @@ Get all factsets with updated after "2014-07-21T16:13:44.334Z":
     curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=[">",
     "timestamp", "2014-07-21T16:13:44.334Z"]
 
-Get all factsets corresponding to nodes running Darwin:
+Get all factsets corresponding to nodes with uptime greater than 24 hours:
 
     curl -X GET http://localhost:8080/v4/factsets -d 'query=["in", "certname",
     ["extract", "certname", ["select_facts", ["and", ["=", "name", "uptime_hours"], [">", "value", 24]]]]]'
