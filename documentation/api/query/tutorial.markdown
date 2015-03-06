@@ -297,14 +297,14 @@ certname? It turns out we can, with this fact query:
     ["and",
       ["=", "name", "ipaddress"],
       ["in", "certname",
-        ["extract", "certname", ["select-resources",
+        ["extract", "certname", ["select_resources",
                                   ["and",
                                     ["=", "type", "Class"],
                                     ["=", "title", "Apache"]]]]
 
 This may appear a little daunting, so we'll look at it piecewise.
 
-Let's start with "select-resources". This operator takes one argument, which is
+Let's start with "select_resources". This operator takes one argument, which is
 a resource query, and returns the results of that query, in exactly the form
 you would expect to see them if you did a plain resource query.
 
@@ -320,8 +320,8 @@ still have to use a combination of "or" and "="). At this point, our query
 seems a lot like the one above, except we didn't have to specify exactly which
 certnames to use, and instead we get them in the same query.
 
-Similarly, there is a "select-facts" operator which will perform a fact
-subquery. Either kind of subquery is usable from every kind of query (facts,
-resources, and nodes), subqueries may be nested, and multiple subqueries may be
-used in a single query. Finding use cases for some of those combinations is
-left as an exercise to the reader.
+Similarly, there are "select_facts", "select_nodes", and "select_fact_contents" operators
+which will perform subqueries against the facts, nodes, and fact-contents endpoints.
+Any subquery operator is usable from any queryable endpoint. Subqueries may be nested,
+and multiple subqueries may be used in a single query. Finding use cases for some of those
+combinations is left as an exercise to the reader.
