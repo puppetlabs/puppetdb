@@ -22,20 +22,26 @@ Sunday:
 * (WONTFIX) Better name for honeysql/scast
 * (DONE) Consider moving the plan -> honeysql translation to the query_eng namespace
 
-* HSQLDB error handling if expand=true
+AJ & Wyatt:
 
-* schema response for query.catalogs/convert-catalog needs to be set but at the moment the old schema needs to be fixed somehow to support our changes
-* engine/queryable-fields & engine/projectable-fields are both very similar, we should consider generalizing
+* (DONE) Endpoint: /v4/reports/<hash>/events
+* (DONE) Endpoint: /v4/edges
+* (DONE) Endpoint: /v4/catalogs/<node|hash>/edges
+* (DONE) Endpoint: /v4/catalogs/<node|hash>/resources
+* (DONE) Endpoint: /v4/factsets/<node>/facts
+* (DONE) Get expand always working now, obviously with HSQLDB, the query should have those fields removed etc.
+* (DONE) Fix the extract on catalogs
+* (DONE) Do extract with honeysql, as it simplifies the logic (this is an alternate to fixing extract on catalogs)
 
-* Endpoint: /v4/reports/<hash>/events
-* Endpoint: /v4/edges
+Remaining:
+
+* Move to a standard-munge methodology and remove the special casing in each query/*.clj
 * Should we be using /v4/catalogs/<hash> or /v4/catalogs/<node>? It would assist with historical if it was a hash. /v4/factsets falls into the same boat, but we lack a hash for factsets.
-* Endpoint: /v4/catalogs/<node|hash>/edges
-* Endpoint: /v4/catalogs/<node|hash>/resources
-* Endpoint: /v4/factsets/<node>/facts
-
 * Import/export without expansion
 * Factsets use to return a hash, now it returns a list. Is this a good idea? its more consistent this way ...
+
+* engine/queryable-fields & engine/projectable-fields are both very similar, we should consider generalizing
+* schema response for query.catalogs/convert-catalog needs to be set but at the moment the old schema needs to be fixed somehow to support our changes
 
 * Tests
 * Documentation updates

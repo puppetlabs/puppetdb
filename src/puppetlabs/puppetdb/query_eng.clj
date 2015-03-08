@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng
   (:require [puppetlabs.puppetdb.http :as pl-http]
             [puppetlabs.puppetdb.query.facts :as facts]
+            [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.events :as events]
@@ -12,6 +13,7 @@
             [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -26,6 +28,21 @@
   [f]
   (fn [_ _ _]
     f))
+
+;; TODO this is bad workaround because testing on this branch is currently
+;; broken. It should be fixed before it gets merged.
+;; The issue is that the events endpoint takes both query-options and
+;; paging-options, and we're currently handling that case by passing it along
+;; as a vector. We should instead do something like passing an 'options' map
+;; {:paging-options :query-options}, or possibly just generalize it to options
+;; and combine the maps in the events case.
+
+(defn expand-paging-options
+  [options entity]
+  (let [pg? (scf-utils/postgres?)]
+    (if (= :events entity)
+      (list (first options) (assoc (second options) :expand? pg?))
+      (assoc options :expand? pg?))))
 
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
@@ -45,12 +62,14 @@
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
           :resources [resources/query->sql resources/munge-result-rows]
+          :edges [edges/query->sql edges/munge-result-rows]
           :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
     (jdbc/with-transacted-connection db
-      (let [{[sql & params] :results-query
+      (let [paging-options-with-expand (expand-paging-options paging-options entity)
+            {[sql & params] :results-query
              count-query :count-query
              projected-fields :projected-fields} (query->sql version query
-                                                             paging-options)
+                                                             paging-options-with-expand)
              query-error (promise)
              resp (output-fn
                    (fn [f]
@@ -63,7 +82,7 @@
                                 (first %)
                                 (deliver query-error nil)
                                 %)
-                             (munge-fn version projected-fields paging-options))))
+                             (munge-fn version projected-fields paging-options-with-expand))))
                        (catch java.sql.SQLException e
                          (deliver query-error e)
                          nil))))]

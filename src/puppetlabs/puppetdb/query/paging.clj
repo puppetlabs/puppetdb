@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]))
 
-(def query-params ["limit" "offset" "order_by" "include_total" "expand"])
+(def query-params ["limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
 
 (defn valid-order-str?

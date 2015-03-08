@@ -15,20 +15,20 @@
   (:import  [org.postgresql.util PGobject]))
 
 (def row-schema
-  {:hash String
-   :certname String
-   :puppet_version String
-   :report_format s/Int
-   :configuration_version String
-   :metrics (s/maybe (s/either String PGobject))
-   :logs (s/maybe (s/either String PGobject))
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :receive_time pls/Timestamp
-   :transaction_uuid String
-   :resource_events (s/maybe org.postgresql.util.PGobject)
-   :status (s/maybe String)
-   :noop (s/maybe s/Bool)
+  {(s/optional-key :hash) String
+   (s/optional-key :certname) String
+   (s/optional-key :puppet_version) String
+   (s/optional-key :report_format) s/Int
+   (s/optional-key :configuration_version) String
+   (s/optional-key :metrics) (s/maybe (s/either String PGobject))
+   (s/optional-key :logs) (s/maybe (s/either String PGobject))
+   (s/optional-key :start_time) pls/Timestamp
+   (s/optional-key :end_time) pls/Timestamp
+   (s/optional-key :receive_time) pls/Timestamp
+   (s/optional-key :transaction_uuid) String
+   (s/optional-key :resource_events) (s/maybe org.postgresql.util.PGobject)
+   (s/optional-key :status) (s/maybe String)
+   (s/optional-key :noop) (s/maybe s/Bool)
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
@@ -52,24 +52,24 @@
   (utils/str-schema reports/log-schema))
 
 (def report-schema
-  {:hash String
+  {(s/optional-key :hash) String
    (s/optional-key :environment) (s/maybe String)
-   :certname String
-   :puppet_version String
-   :receive_time pls/Timestamp
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :noop (s/maybe s/Bool)
-   :report_format s/Int
-   :configuration_version String
-   :metrics (s/maybe (s/either [json-metric-schema]
+   (s/optional-key :certname) String
+   (s/optional-key :puppet_version) String
+   (s/optional-key :receive_time) pls/Timestamp
+   (s/optional-key :start_time) pls/Timestamp
+   (s/optional-key :end_time) pls/Timestamp
+   (s/optional-key :noop) (s/maybe s/Bool)
+   (s/optional-key :report_format) s/Int
+   (s/optional-key :configuration_version) String
+   (s/optional-key :metrics) (s/maybe (s/either [json-metric-schema]
                                {:href String}))
-   :logs (s/maybe (s/either [json-log-schema]
+   (s/optional-key :logs) (s/maybe (s/either [json-log-schema]
                             {:href String}))
-   :resource_events (s/either [resource-event-schema]
+   (s/optional-key :resource_events) (s/either [resource-event-schema]
                               {:href String})
-   :transaction_uuid String
-   :status (s/maybe String)})
+   (s/optional-key :transaction_uuid) String
+   (s/optional-key :status) (s/maybe String)})
 
 (def report-columns
   [:hash
@@ -165,10 +165,12 @@
 (pls/defn-validated convert-report :- report-schema
   [row :- row-schema
    {:keys [expand?]}]
+  (println "ROW IS" row)
   (if expand?
     (kitchensink/maptrans {[:resource_events] events-to-json-final
                            [:metrics :logs] (scf-utils/parse-db-json-fn)} row)
-    (assoc row :resource_events {:href (str "/v4/reports/" (:hash row) "/events")}
+    (utils/assoc-if-exists row
+      :resource_events {:href (str "/v4/reports/" (:hash row) "/events")}
       :metrics {:href (str "/v4/reports/" (:hash row) "/metrics")}
       :logs {:href (str "/v4/reports/" (:hash row) "/logs")})))
 
@@ -203,7 +205,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections {})))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query :reports))
       result)))

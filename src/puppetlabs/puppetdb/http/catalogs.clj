@@ -3,6 +3,9 @@
             [puppetlabs.puppetdb.query.catalogs :as c]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.middleware :as middleware]
+            [puppetlabs.puppetdb.http.query :as http-q]
+            [puppetlabs.puppetdb.http.edges :as edges]
+            [puppetlabs.puppetdb.http.resources :as resources]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
@@ -37,7 +40,15 @@
 
     [node]
     (fn [{:keys [globals]}]
-      (catalog-status version node (:scf-read-db globals)))))
+      (catalog-status version node (:scf-read-db globals)))
+
+    ;; TODO message if node does not exist
+
+    [node "edges" &]
+    (comp (edges/edges-app version) (partial http-q/restrict-query-to-node node))
+
+    [node "resources" &]
+    (comp (resources/resources-app version) (partial http-q/restrict-query-to-node node))))
 
 (defn catalog-app
   [version]

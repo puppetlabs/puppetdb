@@ -53,7 +53,7 @@
          projections    :projections} query-sql
          result {:result (query/streamed-query-result
                           version sql params
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections {})))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

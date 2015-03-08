@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.http.fact-names :as fact-names]
             [puppetlabs.puppetdb.http.fact-paths :as fact-paths]
             [puppetlabs.puppetdb.http.facts :as facts]
+            [puppetlabs.puppetdb.http.edges :as edges]
             [puppetlabs.puppetdb.http.factsets :as factsets]
             [puppetlabs.puppetdb.http.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.http.resources :as resources]
@@ -26,6 +27,9 @@
 
    ["facts" &]
    {:any (facts/facts-app version)}
+
+   ["edges" &]
+   {:any (edges/edges-app version)}
 
    ["factsets" &]
    {:any  (factsets/factset-app version)}

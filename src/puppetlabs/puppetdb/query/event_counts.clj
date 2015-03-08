@@ -168,7 +168,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows summarize_by)))}]
+                          (comp doall (munge-result-rows summarize_by {})))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

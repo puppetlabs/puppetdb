@@ -59,7 +59,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections {})))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

@@ -201,6 +201,17 @@
     (fn [row]
       (= certname (:certname row)))))
 
+(defn assoc-if-exists
+  "Assoc only if the key is already present"
+  [m & ks]
+  (let [new-kvs (->> ks
+                     (partition 2)
+                     (filter #(get m (first %)))
+                     flatten)]
+    (if-not (empty? new-kvs)
+      (apply assoc m new-kvs)
+      m)))
+
 (defn str-schema
   "Function for converting a schema with keyword keys to
    to one with string keys. Doens't walk the map so nested

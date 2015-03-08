@@ -371,6 +371,42 @@
                :subquery? false
                :source-table "catalogs"}))
 
+
+;; TODO this is build on an assumption of 1:1 nodes to catalogs. To anticipate
+;; historical storage it may make more sense to key edges on catalog hash than
+;; certname (or maybe include both);
+
+(def edges-query
+  "Query for catalog edges"
+  (map->Query {:projections {"relationship" {:type :string
+                                            :queryable? true
+                                            :field :edges.type}
+                             "source_title" {:type :string
+                                             :queryable? true
+                                             :field :sources.title}
+                             "target_title" {:type :string
+                                             :queryable? true
+                                             :field :targets.title}
+                             "source_type" {:type :string
+                                            :queryable? true
+                                            :field :sources.type}
+                             "certname" {:type :string
+                                         :queryable? true
+                                         :field :edges.certname}
+                             "target_type" {:type :string
+                                            :queryable? true
+                                            :field :targets.type}}
+               :selection {:from [:edges]
+                           :join [[:catalog_resources :sources]
+                                  [:= :edges.source :sources.resource]
+
+                                  [:catalog_resources :targets]
+                                  [:= :edges.target :targets.resource]]}
+
+               :alias "edges"
+               :subquery? true
+               :source-table "edges"}))
+
 (def resources-query
   "Query for the top level resource entity"
   (map->Query {:projections {"certname" {:type  :string
@@ -582,8 +618,8 @@
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
 
-  Fields marked as :query-only? true are unable to be projected and thus are
-  excluded."
+   Fields marked as :query-only? true are unable to be projected and thus are
+   excluded."
   [{:keys [projections]}]
   (->> projections
        (remove (comp :query-only? val))
@@ -1034,10 +1070,7 @@
   (let [plan-node (user-node->plan-node query-rec user-query)
         projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
-      (-> plan-node
-          (update-in [:projected-fields] #(->> %
-                                               (filter (set projections))
-                                               (into []))))
+      plan-node
       (-> query-rec
           (assoc :where plan-node)
           (assoc :paging-options paging-options)
@@ -1118,10 +1151,10 @@
             ; For in-extract operator validation, please see annotate-with-context function
             [["extract" field & _]]
             (let [query-context (:query-context (meta node))
-                  qfields (queryable-fields query-context)
+                  extractable-fields (projectable-fields query-context)
                   column-validation-message (validate-query-operation-fields
                                               field
-                                              qfields
+                                              extractable-fields
                                               (:alias query-context)
                                               "Can't extract" "")]
               (when column-validation-message
