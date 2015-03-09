@@ -38,7 +38,7 @@ Troubleshooting
 The PuppetDB API
 -----
 
-* [Overview](./documentation/api/query/index.markdown)
+* [Overview](./documentation/api/index.markdown)
 * [Curl Tips](./documentation/api/query/curl.markdown)
 * [Commands](./documentation/api/commands.markdown)
 * Querying
