@@ -15,9 +15,9 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
-(def tk-version "0.3.4")
-(def tk-jetty9-version "0.3.3")
-(def ks-version "0.5.3")
+(def tk-version "1.1.0")
+(def tk-jetty9-version "1.2.0")
+(def ks-version "1.0.0")
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -59,17 +59,17 @@
                  [clamq/clamq-activemq "0.4" :exclusions [org.slf4j/slf4j-api]]
                  [org.apache.activemq/activemq-core "5.6.0" :exclusions [org.slf4j/slf4j-api org.fusesource.fuse-extra/fusemq-leveldb]]
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
-                 [org.slf4j/jcl-over-slf4j "1.7.5"]
+                 [org.slf4j/jcl-over-slf4j "1.7.6"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [compojure "1.1.6"]
-                 [clj-http "0.5.3"]
+                 [clj-http "0.9.2"]
                  [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [prismatic/schema "0.2.1"]
+                 [prismatic/schema "0.2.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
