@@ -330,17 +330,15 @@
                      (assoc :url-prefix url-prefix)
                      (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))))
 
-(defn fix-tk-config
-  "Fix configuration before passing it to trapperkeeper.
-
-   In particular:
-   * Move certificate-whitelist from [jetty] to [global]"
+(defn move-cert-whitelist-to-puppetdb-section
+  "Trapperkeeper doesn't support `certificate-whitelist` in
+  the [jetty] section, but we need to do so for backwards
+  compatability. "
   [config-data]
   (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
     (do
       ;; Log to stderr, logging is not yet initialized (and may never be).
-      (binding [*out* *err*]
-          (println "Option `certificate-whitelist` in [jetty] is now deprecated, the option must now be placed in [puppetdb]"))
+      (utils/println-err "Option `certificate-whitelist` in [jetty] is now deprecated. The option must now be placed in [puppetdb].")
       (-> config-data
           (kitchensink/dissoc-in [:jetty :certificate-whitelist])
           (assoc-in [:puppetdb :certificate-whitelist] cw)))
@@ -355,7 +353,7 @@
    customize it."
   [f args]
   (let [config (f args)]
-    (fix-tk-config config)))
+    (move-cert-whitelist-to-puppetdb-section config)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values

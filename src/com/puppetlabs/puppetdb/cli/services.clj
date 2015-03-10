@@ -369,11 +369,6 @@
   (stop [this context]
         (stop-puppetdb context)))
 
-(defn -main
-  "Calls the trapperkeeper main argument to initialize tk.
-
-   For configuration customization, we intercept the call to parse-config-data
-   within TK."
-  [& args]
+(defn -main [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
   (apply main args))
