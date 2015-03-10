@@ -184,7 +184,7 @@ this setting, you must also set the corresponding setting in your Puppet Master'
 `[puppetdb]` Settings
 -----
 
-The `[puppetdb]` section is used to configure PuppetDB application specific behavior.
+The `[puppetdb]` section is used to configure PuppetDB application-specific behavior.
 
 ### `certificate-whitelist`
 
