@@ -138,11 +138,14 @@
        :node (random-node-name)
        :type (random-type-name)
        :title (random-string 15)
+       :name (random-string 10)
        :parameter-name (random-string-alpha 10)
        :parameter-value (anonymize-leaf-value value)
        :message (random-string 50)
+       :log-message (random-string (count value))
        :file (random-pp-path)
        :line (rand-int 300)
+       :value (rand 100)
        :transaction_uuid (uuid)
        :fact-name (random-string 15)
        :fact-value (anonymize-leaf-value value)
@@ -230,7 +233,7 @@
    :post [(string? %)]}
   (str/join "::" (map str/capitalize (str/split type #"::"))))
 
-(defn anonymize-tag
+(defn anonymize-lowercase-type
   "Anonymize a tag"
   [tag context config]
   {:pre  [(string? tag)]
@@ -245,7 +248,7 @@
   [tags context config]
   {:pre  [(coll? tags)]
    :post [(coll? %)]}
-  (map #(anonymize-tag % context config) tags))
+  (map #(anonymize-lowercase-type % context config) tags))
 
 (defn anonymize-edge
   "Anonymize an edge reference from a catalog"
@@ -287,6 +290,19 @@
   {:pre  [(coll? path)]
    :post [(coll? %)]}
   (map #(anonymize-containment-path-element % context config) path))
+
+(defn anonymize-log-source
+  "assumes that capital words are types, bracketed phrases are parameter names,
+   and lower-cased words are titles. The last assumption is not valid but is
+   intentionally conservative so that full anonymization doesn't miss edge cases."
+  [source context config]
+  (let [type-pattern #"[A-Z]\w+"
+        param-name-pattern #"\[.*?\]"
+        title-pattern #"[a-z]\w+"]
+    (-> source
+        (str/replace type-pattern #(anonymize-leaf % :type context config))
+        (str/replace param-name-pattern #(anonymize-leaf % :parameter-name context config))
+        (str/replace title-pattern #(anonymize-leaf % :title context config)))))
 
 (defn update-in-nil
   "Wrapper around update-in that ignores keys with nil"
@@ -350,6 +366,39 @@
         (update-in-nil ["containment_path"]
                        anonymize-containment-path newcontext config))))
 
+(pls/defn-validated anonymize-metric
+  [metric :- metric-schema-str
+   context
+   config]
+  (if (= "time" (get metric "category"))
+    (update-in metric ["name"] #(anonymize-lowercase-type % context config))
+    metric))
+
+(pls/defn-validated anonymize-metrics :- [metric-schema-str]
+  [metrics :- (s/maybe [metric-schema-str])
+   context
+   config]
+  (when metrics
+    (map #(anonymize-metric % context config) metrics)))
+
+(pls/defn-validated anonymize-log :- log-schema-str
+  [log :- log-schema-str
+   context
+   config]
+  (-> log
+      (update-in ["message"] anonymize-leaf :log-message context config)
+      (update-in ["source"] anonymize-log-source context config)
+      (update-in ["tags"] anonymize-tags context config)
+      (update-in ["file"] anonymize-leaf :file context config)
+      (update-in ["line"] anonymize-leaf :line context config)))
+
+(pls/defn-validated anonymize-logs :- (s/maybe [log-schema-str])
+  [logs :- [log-schema-str]
+   context
+   config]
+  (when logs
+    (map #(anonymize-log % context config) logs)))
+
 (defn anonymize-resource-events
   "Anonymize a collection of resource events from a report"
   [events context config]
@@ -382,6 +431,8 @@
     (-> report
         (update-in ["certname"]         anonymize-leaf :node context config)
         (update-in ["resource_events"]  anonymize-resource-events context config)
+        (update-in ["metrics"] anonymize-metrics context config)
+        (update-in ["logs"] anonymize-logs context config)
         (update-in ["transaction_uuid"] anonymize-leaf :transaction_uuid context config)
         (update-in ["environment"] anonymize-leaf :environment context config))))
 

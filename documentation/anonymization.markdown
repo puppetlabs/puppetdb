@@ -45,7 +45,7 @@ At the moment there are some different built-in profiles you can choose from, an
 
 ### Profile: full
 
-The `full` profile will anonymize everything, while keeping the shape of data as previously mentioned. This includes: node names, resource types, resource titles, parameter names, values, any log messages, file names and file lines. The result should be a completely anonymized data set.
+The `full` profile will anonymize everything, while keeping the shape of data as previously mentioned. This includes: node names, resource types, resource titles, parameter names, values, any log messages, file names and file lines. The result should be a completely anonymized data set. Report metrics under the `resources` and `events` categories are left intact, as these can be inferred from the rest of the data, but names of metrics under the `time` category are anonymized as resource types.
 
 This is useful if you really paranoid about what data you expose, but provides the least amount of usefulness for the consumer of such data depending on the activity they are trying to test.
 
@@ -63,6 +63,9 @@ The `moderate` profile attempts to be a bit smarter about what it anonymizes and
 * report log messages: are always anonymized
 * file names: are always anonymized
 * file numbers: are left as they are
+* log messages: are always anonymized
+* metrics: metric names in the `time` category are anonymized as resource
+  types.
 
 ### Profile: low
 
@@ -70,6 +73,7 @@ This profile is aimed at hiding security information specifically, but leaving m
 
 * node name: is always anonymized
 * parameter values: we specifically anonymize any values and messages for any parameter name containing the strings: password, pwd, secret, key, private. Everything else is left alone.
+* log messages: are always anonymized
 
 Verifying your Anonymized Data
 -----
