@@ -1,0 +1,195 @@
+{
+  "transaction_uuid" : "5c4f17ad-d6df-4514-881b-e31ef107076e",
+  "puppet_version" : "3.7.1",
+  "noop" : true,
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 1.17 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:27:18.498+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Main/Node[pg2.vm]/Notify[foo]/message",
+    "tags" : [ "node", "notify", "notice", "class", "foo", "pg2.vm" ],
+    "time" : "2015-02-13T13:27:17.957+00:00",
+    "file" : "/etc/puppet/manifests/site.pp",
+    "line" : 6
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:27:17.956+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833741'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:27:17.38+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "warning",
+    "message" : "The package type's allow_virtual parameter will be changing its default value from false to true in a future release. If you do not want to allow virtual packages, please explicitly set allow_virtual to false.\n   (at /usr/lib/ruby/site_ruby/1.8/puppet/type/package.rb:430:in `default')",
+    "source" : "Puppet",
+    "tags" : [ "warning" ],
+    "time" : "2015-02-13T13:27:17.108+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for pg2.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:27:17.037+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:27:15.24+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:27:13.024+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:27:12.945+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:27:12.891Z",
+  "end_time" : "2015-02-13T13:27:14.717Z",
+  "resource_events" : [ {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/manifests/site.pp",
+    "old_value" : "absent",
+    "line" : 6,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:27:17.956Z",
+    "containment_path" : [ "Stage[main]", "Main", "Node[pg2.vm]", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833741",
+  "environment" : "production",
+  "certname" : "pg2.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 4.62E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.050606,
+    "name" : "augeas"
+  }, {
+    "category" : "time",
+    "value" : 0.944538116455078,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.566681,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.176818,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.0E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 7.68E-4,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 9.95E-4,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 8.86E-4,
+    "name" : "postgresql_conf"
+  }, {
+    "category" : "time",
+    "value" : 7.59E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.08334,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 1.82595311645508,
+    "name" : "total"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 50,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 1,
+    "name" : "total"
+  } ]
+}

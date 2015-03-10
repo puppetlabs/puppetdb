@@ -61,6 +61,9 @@ are below.
 - **`--catalogs / -C`** --- Directory containing catalogs to use for testing (probably from a previous PuppetDB export)
 - **`--reports / -R`** --- Directory containing reports to use for testing (probably from a previous PuppetDB export)
 - **`--facts / -F`** -- Directory containing facts to use for testing (probably from a previous PuppetDB export)
+- **`--archive / -A`** -- Tarball archive obtained via a PuppetDB export. This option is incompatible with the preceding four.
 - **`--runinterval / -i`** --- Integer indicating the amount of time in minutes between puppet runs for each simulated node, 30 or 60 would be a typical value for this
 - **`--numhosts / -n`** --- Number of separate hosts that the tool should simulate
 - **`--rand-perc / -r`** --- What percentage of catalogs submissions should be changed (i.e. simulating normal/typical catalog changes, as in adding a resource, edge or something similar). More changes to catalogs will cause a higher load on PuppetDB, 10 is a pretty typical change percentage.
+
+**NOTE** If --facts, --catalogs, --reports, and --archive are unspecified, the PuppetDB sample data will be used. This data includes catalogs, facts, and reports.

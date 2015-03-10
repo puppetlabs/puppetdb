@@ -42,11 +42,13 @@
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.puppetdb.cheshire :as json]
             [fs.core :as fs]
+            [clojure.java.io :as io]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
+            [puppetlabs.puppetdb.archive :as archive]
             [slingshot.slingshot :refer [try+]]))
 
 (def cli-description "Development-only benchmarking tool")
@@ -60,13 +62,23 @@
     (catch Exception e
       (log/error (format "Error parsing %s; skipping" file)))))
 
+(defn error-if
+  [pred msg x]
+  (if (pred x) (log/error msg) x))
+
 (defn load-sample-data
   "Load all .json files contained in `dir`."
-  [dir]
-  (->> (fs/glob (fs/file dir "*.json"))
-       (map try-load-file)
-       (remove nil?)
-       (vec)))
+  ([dir]
+   (load-sample-data dir false))
+  ([dir from-classpath?]
+   (let [target-files (if from-classpath?
+                        (remove #(.isDirectory %) (file-seq (io/file (io/resource dir))))
+                        (fs/glob (fs/file dir "*.json")))]
+     (->> target-files
+          (map try-load-file)
+          (remove nil?)
+          (vec)
+          (error-if empty? (format "Supplied directory %s contains no usable data!" dir))))))
 
 (def mutate-fns
   "Functions that randomly change a wire-catalog format"
@@ -264,7 +276,7 @@
   `hostname`"
   [hostname catalog]
   (assoc catalog
-    "name" hostname
+    "certname" hostname
     "resources" (map #(update-in % ["tags"] conj hostname) (get catalog "resources"))))
 
 (defn associate-report-with-host
@@ -277,13 +289,14 @@
   "Takes the given `factset` and transforms it to appear related to
    `hostname`"
   [hostname factset]
-  (assoc factset "name" hostname))
+  (assoc factset "certname" hostname))
 
 (def supported-cli-options
   [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
    ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
    ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
+   ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F, -R, or -D"]
    ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"]
    ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation"]
    ["-r" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
@@ -292,36 +305,94 @@
 (def required-cli-options
   [:config])
 
+(defn activate-logging!
+  [options]
+  (-> (:config options)
+      (ks/inis-to-map)
+      (get-in [:global :logging-config])
+      (logutils/configure-logging!)))
+
+(defn validate-options
+  [options action-on-error-fn]
+  (activate-logging! options)
+  (cond
+    (and (contains? options :runinterval)
+         (contains? options :nummsgs))
+    (do
+      (log/error
+        "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+      (action-on-error-fn))
+
+    (and (contains? options :archive)
+         (some #{:reports :catalogs :facts} (keys options)))
+    (do
+      (log/error
+        "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
+      (action-on-error-fn))
+
+    :else options))
+
+(defn default-options
+  [options]
+  (-> options
+      (assoc :facts "puppetlabs/puppetdb/benchmark/samples/facts")
+      (assoc :reports "puppetlabs/puppetdb/benchmark/samples/reports")
+      (assoc :catalogs "puppetlabs/puppetdb/benchmark/samples/catalogs")
+      (assoc :from-cp? true)))
+
 (defn- validate-cli!
   [args]
   (try+
-   (ks/cli! args supported-cli-options required-cli-options)
-   (catch map? m
-     (println (:message m))
-     (case (:type m)
-       :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-       :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
+    (let [options (-> (ks/cli! args supported-cli-options required-cli-options)
+                      first
+                      (validate-options #(System/exit 1)))]
+      (if (empty? (select-keys [:facts :reports :catalogs] options))
+        (default-options options)
+        options))
 
-(defn validate-nummsgs [options action-on-error-fn]
-  (when (and (contains? options :runinterval)
-             (contains? options :nummsgs))
-    (utils/println-err "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
-    (action-on-error-fn)))
+    (catch map? m
+      (println (:message m))
+      (case (:type m)
+        :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+        :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
+
+(defn process-tar-entry
+  [archive-path tar-reader]
+  (let [catalog-pattern (re-pattern "catalogs.*\\.json$")
+        report-pattern (re-pattern "reports.*\\.json$")
+        facts-pattern (re-pattern "facts.*\\.json$")]
+    (fn [acc entry]
+      (let [path (.getName entry)
+            parsed-entry (json/parse-string (archive/read-entry-content tar-reader))]
+        (cond
+          (re-find catalog-pattern path) (update-in acc [:catalogs] conj parsed-entry)
+          (re-find report-pattern path) (update-in acc [:reports] conj parsed-entry)
+          (re-find facts-pattern path) (update-in acc [:facts] conj parsed-entry)
+          :else acc)))))
+
+(defn load-data-from-options
+  [{:keys [catalogs facts reports archive from-cp?]}]
+  (if archive
+    (let [tar-reader (archive/tarball-reader archive)
+          entries (archive/all-entries tar-reader)]
+      (->> (reduce (process-tar-entry archive tar-reader)
+                   {:catalogs [] :reports [] :facts []} entries)
+           (filter (comp not empty? val))
+           (into {})))
+    {:catalogs (when catalogs
+                 (load-sample-data catalogs from-cp?))
+     :facts (when facts
+              (load-sample-data facts from-cp?))
+     :reports (when reports
+                (load-sample-data reports from-cp?))}))
 
 (defn -main
   [& args]
-  (let [[options _]     (validate-cli! args)
+  (let [options         (validate-cli! args)
         config          (-> (:config options)
-                            (ks/inis-to-map)
-                            (get-in [:global :logging-config])
-                            (logutils/configure-logging!))
+                            (ks/inis-to-map))
 
-        _ (validate-nummsgs options #(System/exit 1))
-
-        catalogs        (if (:catalogs options) (load-sample-data (:catalogs options)))
-        reports         (if (:reports options) (load-sample-data (:reports options)))
-        facts           (if (:facts options) (load-sample-data (:facts options)))
-
+        {:keys [catalogs reports facts]} (load-data-from-options options)
         nhosts          (:numhosts options)
         hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
         hostname        (get-in config [:jetty :host] "localhost")

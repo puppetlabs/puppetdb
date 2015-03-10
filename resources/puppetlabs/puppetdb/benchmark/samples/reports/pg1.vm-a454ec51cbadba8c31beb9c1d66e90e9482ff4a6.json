@@ -1,0 +1,191 @@
+{
+  "transaction_uuid" : "8659eaf5-90a6-41d7-8898-6b0aec08d106",
+  "puppet_version" : "3.7.4",
+  "noop" : false,
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.30 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:22:45.298+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "pg1.vm" ],
+    "time" : "2015-02-13T13:22:45.122+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:22:45.121+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833741'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:22:45.06+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for pg1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:22:44.906+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:22:42.642+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:22:42.172+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:22:42.133+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:22:42.019Z",
+  "end_time" : "2015-02-13T13:22:42.965Z",
+  "resource_events" : [ {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:22:45.121Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833741",
+  "environment" : "production",
+  "certname" : "pg1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 6.12874E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.806047949,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.015268704,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.020647922999999995,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 8.8499E-5,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.01052339,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.7523E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.001848423,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.018125949000000002,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 5.236080000000001E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.071202317,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 0.945464791,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 1.99925E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 1,
+    "name" : "total"
+  } ]
+}
