@@ -1,7 +1,3 @@
-(require '[clojure.string :as s])
-(use '[clojure.java.shell :only (sh)]
-     '[clojure.java.io :only (file)])
-
 (def pdb-version "3.0.0-SNAPSHOT")
 
 (defn deploy-info
@@ -110,6 +106,12 @@
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
 
+  ;; By declaring a classifier here and a corresponding profile below we'll get an additional jar
+  ;; during `lein jar` that has all the code in the test/ directory. Downstream projects can then
+  ;; depend on this test jar using a :classifier in their :dependencies to reuse the test utility
+  ;; code that we have.
+  :classifiers  [["test" :testutils]]
+
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
@@ -122,6 +124,7 @@
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "0.2.2"
                                  :exclusions [org.clojure/clojure]]]}
+             :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
   :jar-exclusions [#"leiningen/"]
