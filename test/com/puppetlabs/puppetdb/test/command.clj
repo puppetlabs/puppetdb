@@ -748,7 +748,7 @@
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
@@ -793,7 +793,7 @@
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY fp.path ASC")
                  [{:certname certname :name "a" :value "1"}
@@ -830,7 +830,7 @@
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
                  [{:certname certname :name "x" :value "24"}
@@ -859,7 +859,7 @@
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
@@ -885,7 +885,7 @@
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
                  [{:certname certname :name "a" :value "1"}
