@@ -1,6 +1,7 @@
 (ns com.puppetlabs.puppetdb.test.core
   (:require [com.puppetlabs.puppetdb.core :refer :all]
             [clojure.test :refer :all]
+            [clojure.java.shell :as shell]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.puppetdb.testutils :as tu]
@@ -89,3 +90,15 @@
           (is (= [:fail :success] @exec-path))
           (is (some (valid-unsupported-pred unsupported-regex) @log)))))))
 
+(deftest uberjar-works
+  ;; This may be stretching things a bit far?
+  (let [x (shell/sh "lein" "uberjar")]
+    (when-not (zero? (:exit x))
+      (clojure.pprint/pprint x))
+    (is (zero? (:exit x))))
+  (let [x (shell/sh "java"
+                    "-jar" "target/puppetdb-0.0-dev-build-standalone.jar"
+                    "version")]
+    (when-not (zero? (:exit x))
+      (clojure.pprint/pprint x))
+    (is (zero? (:exit x)))))

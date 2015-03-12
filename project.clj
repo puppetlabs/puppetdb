@@ -94,7 +94,8 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
-                                  [org.clojure/test.check "0.5.8"]]}}
+                                  [org.clojure/test.check "0.5.8"]]}
+             :uberjar {:aot [com.puppetlabs.puppetdb.core]}}
 
   :jar-exclusions [#"leiningen/"]
 
