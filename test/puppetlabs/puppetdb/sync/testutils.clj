@@ -1,7 +1,7 @@
-(ns puppetlabs.puppetdb-sync.testutils
+(ns puppetlabs.puppetdb.sync.testutils
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
-            [puppetlabs.puppetdb-sync.services :refer [puppetdb-sync-service]]
+            [puppetlabs.puppetdb.sync.services :refer [puppetdb-sync-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.client :as pdb-client]
@@ -39,8 +39,8 @@
    (-> (jutils/create-config)
        (assoc :stub-server-service {:handler stub-handler}
               :web-router-service  {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb"
-                                    :puppetlabs.puppetdb-sync.services/puppetdb-sync-service "/sync"
-                                    :puppetlabs.puppetdb-sync.testutils/stub-server-service "/stub"}))))
+                                    :puppetlabs.puppetdb.sync.services/puppetdb-sync-service "/sync"
+                                    :puppetlabs.puppetdb.sync.testutils/stub-server-service "/stub"}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block

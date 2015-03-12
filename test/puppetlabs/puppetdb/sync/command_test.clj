@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb-sync.command-test
+(ns puppetlabs.puppetdb.sync.command-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
@@ -6,9 +6,10 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.jetty :as jutils]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.puppetdb-sync.testutils :as utils :refer [with-puppetdb-instance index-by json-request json-response get-json]]
+            [puppetlabs.puppetdb.sync.testutils :as utils
+             :refer [with-puppetdb-instance index-by json-request json-response get-json]]
             [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb-sync.command :as command]
+            [puppetlabs.puppetdb.sync.command :as command]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.trapperkeeper.app :refer [get-service]]

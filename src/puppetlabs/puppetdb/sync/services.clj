@@ -1,10 +1,9 @@
-(ns puppetlabs.puppetdb-sync.services
+(ns puppetlabs.puppetdb.sync.services
   (:require [compojure.core :as compojure]
-            [puppetlabs.puppetdb-sync.command :as command]
+            [puppetlabs.puppetdb.sync.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [compojure.core :refer [routes POST context]]
-            [puppetlabs.puppetdb-sync.command :as command]
             [puppetlabs.puppetdb.utils :as utils]))
 
 (defn sync-command?
